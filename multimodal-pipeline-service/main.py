@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi.responses import JSONResponse # NEW
 from typing import List, Optional, Dict, Any, Union
 from multimodal_pipeline_service.models import (
     MultimodalInput, DocumentParseResult, AudioParseResult,
@@ -6,7 +7,8 @@ from multimodal_pipeline_service.models import (
 )
 from multimodal_pipeline_service.pipeline import MultimodalPipeline
 from multimodal_pipeline_service.utils.auth import check_permission
-from multimodal_pipeline_service.dependencies import get_jwt_token # NEW
+from multimodal_pipeline_service.dependencies import get_jwt_token
+from multimodal_pipeline_service.exceptions import NotFoundError, ConflictError, ValidationError, UnauthorizedError, ForbiddenError # NEW
 import os
 from dotenv import load_dotenv
 
@@ -29,6 +31,43 @@ async def startup_event():
 async def shutdown_event():
     print("Multimodal Pipeline Service shutting down.")
 
+# --- Global Exception Handlers (NEW) ---
+@app.exception_handler(NotFoundError)
+async def not_found_exception_handler(request, exc: NotFoundError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
+
+@app.exception_handler(ConflictError)
+async def conflict_exception_handler(request, exc: ConflictError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
+
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request, exc: ValidationError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
+
+@app.exception_handler(UnauthorizedError)
+async def unauthorized_exception_handler(request, exc: UnauthorizedError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+@app.exception_handler(ForbiddenError)
+async def forbidden_exception_handler(request, exc: ForbiddenError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
+
 # --- Multimodal Processing Endpoints ---
 
 @app.post("/process-document-ocr", 
@@ -39,7 +78,7 @@ async def process_document_for_ocr(
     source_context: Optional[str] = Form(None)
 ):
     if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Only image files are supported for OCR.")
+        raise ValidationError(detail="Only image files are supported for OCR.", code="UNSUPPORTED_MEDIA_TYPE") # MODIFIED
     
     image_bytes = await file.read()
     return await multimodal_pipeline.process_document_ocr(image_bytes, source_context)
@@ -52,15 +91,15 @@ async def process_audio_for_transcription(
     source_context: Optional[str] = Form(None)
 ):
     if not file.content_type or not file.content_type.startswith("audio/"):
-        raise HTTPException(status_code=400, detail="Only audio files are supported for transcription.")
+        raise ValidationError(detail="Only audio files are supported for transcription.", code="UNSUPPORTED_MEDIA_TYPE") # MODIFIED
     
     audio_bytes = await file.read()
     return await multimodal_pipeline.process_audio_to_text(audio_bytes, source_context)
-
+    
 @app.post("/process-multimodal-input",
               response_model=Union[DocumentParseResult, AudioParseResult, Dict[str, Any]],
               dependencies=[Depends(check_permission("multimodal.process.any"))])
-async def process_general_multimodal_input(multimodal_input: MultimodalInput, jwt_token: str = Depends(get_jwt_token)):
+async def process_general_multimodal_input(multimodal_input: models.MultimodalInput, jwt_token: str = Depends(get_jwt_token)): # MODIFIED: Use models.MultimodalInput
     # Pass jwt_token to pipeline for potential internal service calls later
     return await multimodal_pipeline.process_multimodal_input(multimodal_input, jwt_token)
 
@@ -68,7 +107,7 @@ async def process_general_multimodal_input(multimodal_input: MultimodalInput, jw
               response_model=AutomatedJournalEntryResponse,
               dependencies=[Depends(check_permission("multimodal.create.journal_entry"))])
 async def create_journal_entry_from_multimodal(
-    multimodal_input: MultimodalInput,
+    multimodal_input: models.MultimodalInput, # MODIFIED: Use models.MultimodalInput
     jwt_token: str = Depends(get_jwt_token)
 ):
     # 1. Process the multimodal input to extract data
@@ -80,10 +119,9 @@ async def create_journal_entry_from_multimodal(
     elif isinstance(processed_result, AudioParseResult):
         extracted_data = processed_result.extractedEntities if processed_result.extractedEntities else []
     elif isinstance(processed_result, dict) and processed_result.get("proposed_journal_entry"):
-        # If text input was processed and already proposed a JE
         proposed_je_dict = processed_result["proposed_journal_entry"]
         if proposed_je_dict:
-            proposed_je = JournalEntryCreate(**proposed_je_dict)
+            proposed_je = models.JournalEntryCreate(**proposed_je_dict) # MODIFIED: Use models.JournalEntryCreate
             return await multimodal_pipeline.send_journal_entry_to_accounting_service(jwt_token, proposed_je)
         else:
             return AutomatedJournalEntryResponse(
@@ -96,7 +134,7 @@ async def create_journal_entry_from_multimodal(
         return AutomatedJournalEntryResponse(
             status="failed",
             message="No financial data could be extracted from the multimodal input.",
-            extracted_data=processed_result # Include full processed result for debugging
+            extracted_data=processed_result
         )
 
     # 2. Map extracted data to a JournalEntryCreate model
@@ -108,7 +146,7 @@ async def create_journal_entry_from_multimodal(
         return AutomatedJournalEntryResponse(
             status="failed",
             message="Extracted data could not be mapped to a valid Journal Entry (e.g., missing amount, unbalanced).",
-            extracted_data=processed_result # Include full processed result for debugging
+            extracted_data=processed_result
         )
 
     # 3. Send the proposed Journal Entry to the Accounting Service

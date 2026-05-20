@@ -1,19 +1,16 @@
 import os
-from fastapi import HTTPException, status, Depends
+from fastapi import Depends, status, Request # Removed HTTPException, use custom ones
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
+from multimodal_pipeline_service.exceptions import UnauthorizedError, ForbiddenError # NEW
 
 JWT_SECRET = os.getenv("JWT_SECRET", "your_super_secret_jwt_key")
 ALGORITHM = "HS256"
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8080/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8081/identity/login") # Point to API Gateway
 
 async def get_current_user_claims(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    credentials_exception = UnauthorizedError(detail="Could not validate credentials", code="INVALID_CREDENTIALS") # MODIFIED
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
         user_id: str = payload.get("user_id")
@@ -46,8 +43,5 @@ def check_permission(required_permission: str):
             return
 
         if required_permission not in user_permissions:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Not enough permissions. Requires: {required_permission}",
-            )
+            raise ForbiddenError(detail=f"Not enough permissions. Requires: {required_permission}", code="INSUFFICIENT_PERMISSIONS") # MODIFIED
     return permission_checker
