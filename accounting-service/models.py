@@ -3,7 +3,7 @@ from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal # Use Decimal for financial calculations to avoid floating point issues
 
-# --- Chart of Accounts Models (unchanged) ---
+# --- Chart of Accounts Models ---
 class AccountBase(BaseModel):
     account_number: str = Field(..., example="1010", description="Unique numerical identifier for the account.")
     account_name: str = Field(..., example="Cash (Bank Account)", description="Descriptive name of the account.")
@@ -79,3 +79,30 @@ class JournalEntryInDB(JournalEntryBase):
 
     class Config:
         from_attributes = True
+
+# --- Ledger and Trial Balance Models (NEW) ---
+
+class LedgerAccountBalance(BaseModel):
+    account_number: str = Field(..., description="Account number.")
+    account_name: str = Field(..., description="Account name.")
+    account_type: str = Field(..., description="Type of account.")
+    normal_balance: str = Field(..., description="Normal balance of the account (Debit/Credit).")
+    current_balance: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="The calculated current balance of the account.")
+
+class TrialBalanceEntry(BaseModel):
+    account_number: str = Field(..., description="Account number.")
+    account_name: str = Field(..., description="Account name.")
+    debit_total: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(Decimal('0.00'), description="Total debit for the account in the period.")
+    credit_total: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(Decimal('0.00'), description="Total credit for the account in the period.")
+
+class TrialBalance(BaseModel):
+    report_date: datetime = Field(default_factory=datetime.utcnow, description="Date the trial balance was generated.")
+    entries: List[TrialBalanceEntry] = Field(..., description="List of all accounts with their debit/credit totals.")
+    total_debits: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(..., description="Sum of all debit totals.")
+    total_credits: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(..., description="Sum of all credit totals.")
+
+    @model_validator(mode='after')
+    def check_balanced_trial_balance(self) -> 'TrialBalance':
+        if self.total_debits != self.total_credits:
+            raise ValueError("Trial Balance is not balanced: Total Debits must equal Total Credits.")
+        return self

@@ -1,6 +1,10 @@
 from neo4j import AsyncSession
 from typing import Optional, List
-from accounting_service.models import AccountCreate, AccountUpdate, AccountInDB, JournalEntryCreate, JournalEntryInDB # NEW imports
+from accounting_service.models import (
+    AccountCreate, AccountUpdate, AccountInDB,
+    JournalEntryCreate, JournalEntryInDB,
+    LedgerAccountBalance, TrialBalanceEntry, TrialBalance # NEW imports
+)
 from datetime import datetime
 import uuid
 from decimal import Decimal
@@ -146,7 +150,7 @@ async def delete_account(session: AsyncSession, account_number: str) -> bool:
     return result.consume().counters.nodes_deleted > 0
 
 
-# --- Journal Entry CRUD (NEW) ---
+# --- Journal Entry CRUD ---
 
 async def create_journal_entry(session: AsyncSession, entry_data: JournalEntryCreate) -> JournalEntryInDB:
     entry_id = str(uuid.uuid4())
@@ -321,3 +325,79 @@ async def delete_journal_entry(session: AsyncSession, entry_id: str) -> bool:
 # For simplicity, we won't implement a direct `update_journal_entry` that modifies lines directly.
 # If required, it would involve deleting existing lines and creating new ones,
 # or creating reversal entries.
+
+
+# --- Ledger Posting and Trial Balance Generation (NEW) ---
+
+async def get_ledger_account_balance(session: AsyncSession, account_number: str) -> Optional[LedgerAccountBalance]:
+    # This query calculates the balance of a specific account by aggregating
+    # debits and credits from all journal lines affecting it.
+    query = """
+    MATCH (a:Account {account_number: $account_number})
+    OPTIONAL MATCH (jl:JournalLine)-[:AFFECTS]->(a)
+    RETURN 
+        a.account_number AS account_number, 
+        a.account_name AS account_name,
+        a.account_type AS account_type,
+        a.normal_balance AS normal_balance,
+        sum(jl.debit) AS total_debits,
+        sum(jl.credit) AS total_credits
+    """
+    result = await session.run(query, account_number=account_number)
+    record = await result.single()
+
+    if record:
+        total_debits = Decimal(str(record["total_debits"])) if record["total_debits"] is not None else Decimal('0.00')
+        total_credits = Decimal(str(record["total_credits"])) if record["total_credits"] is not None else Decimal('0.00')
+        
+        balance = total_debits - total_credits
+        if record["normal_balance"] == "Credit":
+            balance = total_credits - total_debits
+
+        return LedgerAccountBalance(
+            account_number=record["account_number"],
+            account_name=record["account_name"],
+            account_type=record["account_type"],
+            normal_balance=record["normal_balance"],
+            current_balance=balance
+        )
+    return None
+
+async def generate_trial_balance(session: AsyncSession) -> TrialBalance:
+    # This query aggregates all debits and credits for every account
+    # from all associated journal lines.
+    query = """
+    MATCH (a:Account)
+    OPTIONAL MATCH (jl:JournalLine)-[:AFFECTS]->(a)
+    RETURN 
+        a.account_number AS account_number, 
+        a.account_name AS account_name,
+        coalesce(sum(jl.debit), 0.0) AS total_debits,
+        coalesce(sum(jl.credit), 0.0) AS total_credits
+    ORDER BY a.account_number
+    """
+    result = await session.run(query)
+
+    entries: List[TrialBalanceEntry] = []
+    total_debits_sum = Decimal('0.00')
+    total_credits_sum = Decimal('0.00')
+
+    async for record in result:
+        debits = Decimal(str(record["total_debits"]))
+        credits = Decimal(str(record["total_credits"]))
+        
+        entries.append(TrialBalanceEntry(
+            account_number=record["account_number"],
+            account_name=record["account_name"],
+            debit_total=debits,
+            credit_total=credits
+        ))
+        total_debits_sum += debits
+        total_credits_sum += credits
+    
+    return TrialBalance(
+        report_date=datetime.utcnow(),
+        entries=entries,
+        total_debits=total_debits_sum,
+        total_credits=total_credits_sum
+    )
