@@ -70,3 +70,19 @@ services:
       neo4j:
         condition: service_healthy
     restart: on-failure
+
+  multimodal-pipeline-service: # NEW SERVICE
+    build:
+      context: ./multimodal-pipeline-service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Must match Identity Service's JWT_SECRET
+      # Add any other environment variables for external AI APIs here if they were used
+    depends_on:
+      # This service might not directly depend on Neo4j if it only processes and passes data
+      # It might depend on Identity Service for auth
+      identity-service:
+        condition: service_started # or service_healthy if it has a healthcheck
+    restart: on-failure
