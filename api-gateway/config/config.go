@@ -40,9 +40,12 @@ func LoadConfig() *Config {
 			{Path: "/trial-balance", TargetURL: os.Getenv("ACCOUNTING_SERVICE_URL"), AuthRequired: true},
 			{Path: "/financial-statements", TargetURL: os.Getenv("ACCOUNTING_SERVICE_URL"), AuthRequired: true},
 			{Path: "/budgets", TargetURL: os.Getenv("FINANCE_SERVICE_URL"), AuthRequired: true},
+			{Path: "/financial-ratios", TargetURL: os.Getenv("FINANCE_SERVICE_URL"), AuthRequired: true},
 			{Path: "/process-document-ocr", TargetURL: os.Getenv("MULTIMODAL_SERVICE_URL"), AuthRequired: true},
 			{Path: "/process-audio-to-text", TargetURL: os.Getenv("MULTIMODAL_SERVICE_URL"), AuthRequired: true},
 			{Path: "/process-multimodal-input", TargetURL: os.Getenv("MULTIMODAL_SERVICE_URL"), AuthRequired: true},
+			{Path: "/multimodal-to-journal-entry", TargetURL: os.Getenv("MULTIMODAL_SERVICE_URL"), AuthRequired: true},
+            {Path: "/banking", TargetURL: os.Getenv("BANKING_INTEGRATION_SERVICE_URL"), AuthRequired: true}, // NEW
 			// Add other service routes here
 		},
 	}
