@@ -5,12 +5,11 @@ import 'package:finacc_mobile_client/config.dart'; // For API URL
 import 'package:finacc_mobile_client/models/finance_models.dart'; // NEW: Import Finance Models
 
 class FinanceApiService {
-  final String _financeServiceUrl = '${AppConfig.apiUrl.replaceFirst(':8080', ':8001')}'; // Hardcoded for now, will use API Gateway path later
+  final String _financeServiceUrl = '${AppConfig.apiUrl.replaceFirst(':8080', ':8001')}'; // Hardcoded for now
 
   Future<Map<String, String>> _getHeaders() async {
     final token = await UserLocalData.getAuthToken();
     return {
-      'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
   }
@@ -51,6 +50,18 @@ class FinanceApiService {
       return Budget.fromJson(json.decode(response.body));
     } else {
       throw Exception('Failed to create budget: ${response.body}');
+    }
+  }
+
+  // --- Variance Analysis API Calls (NEW ADDITION) ---
+  Future<BudgetVarianceReport> getBudgetVarianceReport(String budgetId) async {
+    final headers = await _getHeaders();
+    final response = await http.get(Uri.parse('$_financeServiceUrl/budgets/$budgetId/variance-report'), headers: headers);
+
+    if (response.statusCode == 200) {
+      return BudgetVarianceReport.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to load budget variance report: ${response.body}');
     }
   }
 }
