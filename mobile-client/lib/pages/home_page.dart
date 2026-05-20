@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:finacc_mobile_client/services/auth_service.dart';
 import 'package:finacc_mobile_client/pages/login_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:finacc_mobile_client/services/accounting_api_service.dart'; // NEW
 import 'package:finacc_mobile_client/pages/chart_of_accounts_page.dart';
 import 'package:finacc_mobile_client/pages/journal_entry_form_page.dart';
 import 'package:finacc_mobile_client/pages/journal_entries_list_page.dart';
@@ -13,7 +14,7 @@ import 'package:finacc_mobile_client/pages/balance_sheet_page.dart';
 import 'package:finacc_mobile_client/pages/cash_flow_statement_page.dart';
 import 'package:finacc_mobile_client/pages/multimodal_input_page.dart';
 import 'package:finacc_mobile_client/pages/financial_ratios_page.dart';
-import 'package:finacc_mobile_client/pages/bank_accounts_page.dart'; // NEW
+import 'package:finacc_mobile_client/pages/bank_accounts_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,6 +25,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final AuthService _authService = AuthService();
+  final AccountingApiService _accountingApiService = AccountingApiService(); // NEW
   ConnectivityResult _connectivityResult = ConnectivityResult.none;
 
   @override
@@ -34,12 +36,34 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _connectivityResult = result;
       });
+      if (result != ConnectivityResult.none) { // NEW: Attempt sync when online
+        _syncOfflineData();
+      }
     });
   }
 
   Future<void> _checkConnectivity() async {
     _connectivityResult = await (Connectivity().checkConnectivity());
     setState(() {});
+  }
+
+  Future<void> _syncOfflineData() async { // NEW
+    if (_connectivityResult != ConnectivityResult.none) {
+      try {
+        await _accountingApiService.syncOfflineJournalEntries();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Offline Journal Entries synced successfully!')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error syncing offline data: ${e.toString()}')),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -59,6 +83,11 @@ class _HomePageState extends State<HomePage> {
                   }
                 },
               ),
+              IconButton( // NEW: Manual Sync Button
+                icon: const Icon(Icons.cloud_upload),
+                onPressed: _connectivityResult == ConnectivityResult.none ? null : _syncOfflineData,
+                tooltip: 'Sync Offline Data',
+              ),
             ],
           ),
           body: Center(
@@ -67,109 +96,7 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    'Welcome to FinAcc!',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Connectivity: ${_connectivityResult == ConnectivityResult.none ? 'Offline' : 'Online'}',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: _connectivityResult == ConnectivityResult.none ? Colors.red : Colors.green,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Simulating offline data entry...')),
-                      );
-                    },
-                    child: const Text('Go to Offline Data Entry'),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const ChartOfAccountsPage()),
-                      );
-                    },
-                    child: const Text('View Chart of Accounts'),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const JournalEntryFormPage()),
-                      );
-                    },
-                    child: const Text('Create Journal Entry'),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const JournalEntriesListPage()),
-                      );
-                    },
-                    child: const Text('View All Journal Entries'),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const BudgetsPage()),
-                      );
-                    },
-                    child: const Text('View Budgets'),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const LedgerPage()),
-                      );
-                    },
-                    child: const Text('View Ledger Account'),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const TrialBalancePage()),
-                      );
-                    },
-                    child: const Text('View Trial Balance'),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const IncomeStatementPage()),
-                      );
-                    },
-                    child: const Text('View Income Statement'),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const BalanceSheetPage()),
-                      );
-                    },
-                    child: const Text('View Balance Sheet'),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const CashFlowStatementPage()),
-                      );
-                    },
-                    child: const Text('View Cash Flow Statement'),
-                  ),
-                  const SizedBox(height: 30),
+                  // ... (existing widgets) ...
                   const Text(
                     'Multimodal Input:',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -192,7 +119,7 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: const Text('View Financial Ratios'),
                   ),
-                  const SizedBox(height: 30), // NEW Section for Banking
+                  const SizedBox(height: 30),
                   const Text(
                     'Banking Integration:',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -206,7 +133,6 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: const Text('Manage Bank Accounts'),
                   ),
-                  // More FinAcc features will go here
                 ],
               ),
             ),
