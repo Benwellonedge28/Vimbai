@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:finacc_mobile_client/services/auth_service.dart';
 import 'package:finacc_mobile_client/pages/login_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:finacc_mobile_client/pages/chart_of_accounts_page.dart'; // NEW
+import 'package:finacc_mobile_client/pages/journal_entry_form_page.dart'; // NEW
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -34,7 +36,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('FinAcc Home (Offline Ready)')),
+        title: const Text('FinAcc Home (Offline Ready)'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -74,6 +76,24 @@ class _HomePageState extends State<HomePage> {
                 );
               },
               child: const Text('Go to Offline Data Entry'),
+            ),
+            const SizedBox(height: 20), // NEW
+            ElevatedButton( // NEW
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const ChartOfAccountsPage()),
+                );
+              },
+              child: const Text('View Chart of Accounts'),
+            ),
+            const SizedBox(height: 20), // NEW
+            ElevatedButton( // NEW
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const JournalEntryFormPage()),
+                );
+              },
+              child: const Text('Create Journal Entry'),
             ),
             // More FinAcc features will go here
           ],
