@@ -13,6 +13,10 @@ This is the Accounting Service microservice for the FinAcc application, built wi
 - **Ledger & Trial Balance Generation:**
     - Calculate current balance for individual ledger accounts.
     - Generate a consolidated Trial Balance report.
+- **Financial Statement Generation:**
+    - Generate Income Statements for a period.
+    - Generate Balance Sheets as of a specific date.
+    - Generate Cash Flow Statements for a period (simplified indirect method).
 - Neo4j integration for flexible data modeling of accounting entities.
 - **JWT Authentication and Role-Based Access Control (RBAC)** for all API endpoints.
 
@@ -43,10 +47,10 @@ docker-compose up --build
 ```
 
 This command will:
-1.  Build the `identity-service` and `accounting-service` Docker images.
+1.  Build the `identity-service`, `accounting-service`, and `finance-service` Docker images.
 2.  Start a Neo4j container.
-3.  Start the `identity-service` and `accounting-service` containers, connecting them to Neo4j.
-4.  Ensure Neo4j schema constraints are created for both services, and initial roles are seeded.
+3.  Start all three microservices, connecting them to Neo4j.
+4.  Ensure Neo4j schema constraints are created for all services, and initial roles are seeded.
 
 The Accounting Service will be accessible at `http://localhost:8000`.
 
@@ -89,7 +93,7 @@ Use the copied JWT token in the `Authorization` header for all requests to the A
 **Header:** `Authorization: Bearer <YOUR_JWT_TOKEN_HERE>`
 
 **Permissions:**
-- `ACCOUNTANT` role has `accounting.*` permissions (or more granular `accounting.write.accounts`, `accounting.read.accounts`, etc.), allowing operations on accounts and journal entries.
+- `ACCOUNTANT` role has `accounting.*` permissions (or more granular `accounting.write.accounts`, `accounting.read.accounts`, `accounting.read.journal_entries`, `accounting.write.journal_entries`, `accounting.read.ledger`, `accounting.read.trial_balance`, `accounting.read.financial_statements`, etc.), allowing operations on accounts, journal entries, ledgers, trial balance, and financial statements.
 - `SUPER_ADMIN` role has `*.*` permissions, allowing all operations.
 
 ---
@@ -173,7 +177,7 @@ Example: `DELETE http://localhost:8000/accounts/1010`
       "credit": 0.00,
       "description": "Office Rent Expense"
     },
-    {f
+    {
       "account_number": "1010",
       "debit": 0.00,
       "credit": 1500.00,
@@ -215,6 +219,38 @@ Example: `GET http://localhost:8000/ledger/1010`
 
 ---
 
+### **Financial Statement Endpoints**
+
+**(Requires `accounting.read.financial_statements` permissions)**
+
+#### Get Income Statement
+
+**Endpoint:** `GET http://localhost:8000/financial-statements/income-statement`
+**Query Parameters:**
+- `start_date`: e.g., `2026-01-01T00:00:00Z`
+- `end_date`: e.g., `2026-03-31T23:59:59Z`
+
+Example: `GET http://localhost:8000/financial-statements/income-statement?start_date=2026-01-01T00:00:00Z&end_date=2026-03-31T23:59:59Z`
+
+#### Get Balance Sheet
+
+**Endpoint:** `GET http://localhost:8000/financial-statements/balance-sheet`
+**Query Parameters:**
+- `as_of_date`: e.g., `2026-03-31T23:59:59Z`
+
+Example: `GET http://localhost:8000/financial-statements/balance-sheet?as_of_date=2026-03-31T23:59:59Z`
+
+#### Get Cash Flow Statement
+
+**Endpoint:** `GET http://localhost:8000/financial-statements/cash-flow-statement`
+**Query Parameters:**
+- `start_date`: e.g., `2026-01-01T00:00:00Z`
+- `end_date`: e.g., `2026-03-31T23:59:59Z`
+
+Example: `GET http://localhost:8000/financial-statements/cash-flow-statement?start_date=2026-01-01T00:00:00Z&end_date=2026-03-31T23:59:59Z`
+
+---
+
 ### 5. Development
 
 If developing locally (outside Docker Compose), ensure you have Python (3.10+) installed and your environment variables (`NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `JWT_SECRET`) are correctly set.
@@ -242,7 +278,7 @@ Each `(:JournalLine)` node has properties `id`, `debit`, `credit`, `description`
 
 ## Future Enhancements
 
--   Full financial statement generation (Income Statement, Balance Sheet, Cash Flow Statement).
--   Support for specific accounting modalities (e.g., Fund Accounting dimensions).
+-   Refined Cash Flow Statement generation (e.g., direct method, more detailed indirect adjustments).
+-   Integration with other FinAcc services (e.g., Finance Service for budget vs. actual comparisons).
 -   Advanced error handling and validation for real-world accounting scenarios.
 -   Caching for frequently accessed reports.
