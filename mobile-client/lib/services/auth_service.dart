@@ -4,8 +4,17 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:finacc_mobile_client/local_db/user_local_data.dart';
 import 'package:finacc_mobile_client/models/user.dart';
 
+// IMPORTANT: This should be configured via environment variables or a config file
+// for different environments (dev, staging, prod).
+// For local development, ensure your backend Identity Service is accessible
+// at this URL from your mobile device/emulator.
+// If running Identity Service via docker-compose, use your host machine's IP
+// or a tunneling service like ngrok.
+const String _apiUrl = 'http://localhost:8080'; // Placeholder - replace as needed for your setup
+
 class AuthService {
-  final String _baseUrl = 'http://localhost:8080'; // Replace with your API Gateway URL
+  // Use the global _apiUrl constant
+  final String _baseUrl = _apiUrl; 
 
   Future<bool> register(String username, String email, String password) async {
     final connectivityResult = await (Connectivity().checkConnectivity());
@@ -73,7 +82,7 @@ class AuthService {
 
       // In a real app, the token needs to be parsed to get user details for offline caching.
       // For this POC, we'll simulate saving a generic user.
-      final user = User(id: 'online-user-id', username: username, email: '$username@example.com', role: 'ACCOUNTANT');
+      final user = User(id: 'online-user-id', username: username, email: '$username@example.com', role: 'ACCOUNTANT'); // User ID will come from JWT payload later
 
       await UserLocalData.saveUser(user);
       await UserLocalData.saveAuthToken(token);
