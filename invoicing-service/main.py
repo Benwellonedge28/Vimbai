@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.responses import JSONResponse # NEW
 from typing import List, Optional
 from neo4j import AsyncSession
 from invoicing_service import models, crud
 from invoicing_service.database import init_db_schema, Neo4jConnector
 from invoicing_service.dependencies import get_db_session, get_user_id, get_jwt_token
 from invoicing_service.utils.auth import check_permission
+from invoicing_service.exceptions import NotFoundError, ConflictError, ValidationError, UnauthorizedError, ForbiddenError # NEW
 import os
 from dotenv import load_dotenv
 from datetime import datetime
@@ -28,6 +30,43 @@ async def startup_event():
 async def shutdown_event():
     Neo4jConnector.close_driver() # Close driver
 
+# --- Global Exception Handlers (NEW) ---
+@app.exception_handler(NotFoundError)
+async def not_found_exception_handler(request, exc: NotFoundError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
+
+@app.exception_handler(ConflictError)
+async def conflict_exception_handler(request, exc: ConflictError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
+
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request, exc: ValidationError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
+    
+@app.exception_handler(UnauthorizedError)
+async def unauthorized_exception_handler(request, exc: UnauthorizedError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+@app.exception_handler(ForbiddenError)
+async def forbidden_exception_handler(request, exc: ForbiddenError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
+
 # --- Customer Endpoints ---
 @app.post("/customers/", response_model=models.CustomerInDB, status_code=status.HTTP_201_CREATED,
               dependencies=[Depends(check_permission("invoicing.write.customers"))])
@@ -38,7 +77,7 @@ async def create_new_customer(
 ):
     db_customer = await crud.get_customer_by_id(db_session, customer.customer_id, user_id)
     if db_customer:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Customer with this ID already exists for user.")
+        raise ConflictError(detail="Customer with this ID already exists for user.", code="CUSTOMER_EXISTS") # MODIFIED
     return await crud.create_customer(db_session, user_id, customer)
 
 @app.get("/customers/", response_model=List[models.CustomerInDB],
@@ -58,7 +97,7 @@ async def read_customer_by_id(
 ):
     db_customer = await crud.get_customer_by_id(db_session, customer_id, user_id)
     if db_customer is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found.")
+        raise NotFoundError(detail="Customer not found.", code="CUSTOMER_NOT_FOUND") # MODIFIED
     return db_customer
     
 @app.put("/customers/{customer_id}", response_model=models.CustomerInDB,
@@ -71,7 +110,7 @@ async def update_existing_customer(
 ):
     db_customer = await crud.update_customer(db_session, customer_id, user_id, customer)
     if db_customer is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found.")
+        raise NotFoundError(detail="Customer not found.", code="CUSTOMER_NOT_FOUND") # MODIFIED
     return db_customer
 
 @app.delete("/customers/{customer_id}", status_code=status.HTTP_204_NO_CONTENT,
@@ -83,7 +122,7 @@ async def delete_existing_customer(
 ):
     success = await crud.delete_customer(db_session, customer_id, user_id)
     if not success:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found.")
+        raise NotFoundError(detail="Customer not found.", code="CUSTOMER_NOT_FOUND") # MODIFIED
     return {"ok": True}
 
 # --- Invoice Endpoints ---
@@ -94,15 +133,13 @@ async def create_new_invoice(
     user_id: str = Depends(get_user_id),
     db_session: AsyncSession = Depends(get_db_session)
 ):
-    # Check if customer exists
     db_customer = await crud.get_customer_by_id(db_session, invoice.customer_id, user_id)
     if db_customer is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Customer not found.")
+        raise ValidationError(detail="Customer not found.", code="CUSTOMER_NOT_FOUND_FOR_INVOICE") # MODIFIED
     
-    # Check if invoice number already exists
     db_invoice = await crud.get_invoice_by_number(db_session, invoice.invoice_number, user_id)
     if db_invoice:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invoice with this number already exists.")
+        raise ConflictError(detail="Invoice with this number already exists.", code="INVOICE_EXISTS") # MODIFIED
     
     return await crud.create_invoice(db_session, user_id, invoice)
 
@@ -123,7 +160,7 @@ async def read_invoice_by_number(
 ):
     db_invoice = await crud.get_invoice_by_number(db_session, invoice_number, user_id)
     if db_invoice is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found.")
+        raise NotFoundError(detail="Invoice not found.", code="INVOICE_NOT_FOUND") # MODIFIED
     return db_invoice
     
 @app.put("/invoices/{invoice_number}", response_model=models.InvoiceInDB,
@@ -136,7 +173,7 @@ async def update_existing_invoice(
 ):
     db_invoice = await crud.update_invoice(db_session, invoice_number, user_id, invoice)
     if db_invoice is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found.")
+        raise NotFoundError(detail="Invoice not found.", code="INVOICE_NOT_FOUND") # MODIFIED
     return db_invoice
 
 @app.delete("/invoices/{invoice_number}", status_code=status.HTTP_204_NO_CONTENT,
@@ -148,7 +185,7 @@ async def delete_existing_invoice(
 ):
     success = await crud.delete_invoice(db_session, invoice_number, user_id)
     if not success:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found.")
+        raise NotFoundError(detail="Invoice not found.", code="INVOICE_NOT_FOUND") # MODIFIED
     return {"ok": True}
 
 @app.post("/invoices/{invoice_number}/record-payment", response_model=models.CreateJournalEntryResponse,
@@ -161,7 +198,10 @@ async def record_invoice_payment(
     jwt_token: str = Depends(get_jwt_token),
     db_session: AsyncSession = Depends(get_db_session)
 ):
-    return await crud.record_payment_for_invoice(db_session, invoice_number, user_id, payment_amount, payment_date, jwt_token)
+    try: # NEW: Catch errors from crud.record_payment_for_invoice
+        return await crud.record_payment_for_invoice(db_session, invoice_number, user_id, payment_amount, payment_date, jwt_token)
+    except ValueError as e: # Example: Invoice not found or already paid
+        raise ValidationError(detail=str(e), code="INVOICE_PAYMENT_ERROR") # MODIFIED
 
 # --- Root endpoint for health check ---
 @app.get("/")

@@ -1,11 +1,12 @@
 from neo4j import AsyncSession
 from invoicing_service.database import Neo4jConnector
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, status, Request
 from invoicing_service.utils.auth import get_current_user_claims
+from invoicing_service.exceptions import UnauthorizedError # NEW
 
 async def get_db_session() -> AsyncSession:
     driver = Neo4jConnector.get_driver()
-    session = driver.session(database="neo4j", default_access_mode="w") # Default to write access
+    session = driver.session(database="neo4j", default_access_mode="w")
     try:
         yield session
     finally:
@@ -17,5 +18,5 @@ async def get_user_id(claims: dict = Depends(get_current_user_claims)) -> str:
 async def get_jwt_token(request: Request, claims: dict = Depends(get_current_user_claims)) -> str:
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="JWT token missing or invalid format")
+        raise UnauthorizedError(detail="JWT token missing or invalid format.", code="MISSING_OR_INVALID_TOKEN_FORMAT") # MODIFIED
     return auth_header.split(" ")[1]
