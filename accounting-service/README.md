@@ -7,6 +7,9 @@ This is the Accounting Service microservice for the FinAcc application, built wi
 - **Chart of Accounts (COA) Management:**
     - Create, Read (single, all), Update, Delete accounts.
     - Support for hierarchical accounts (parent/child relationships).
+- **Journal Entry Management:**
+    - Create, Read (single, all), Delete journal entries and their associated lines.
+    - Ensures double-entry bookkeeping principles (debits = credits) and links entries to accounts.
 - Neo4j integration for flexible data modeling of accounting entities.
 - **JWT Authentication and Role-Based Access Control (RBAC)** for all API endpoints.
 
@@ -44,7 +47,7 @@ This command will:
 
 The Accounting Service will be accessible at `http://localhost:8000`.
 
-### 4. Interacting with the API (Authenticated Chart of Accounts)
+### 4. Interacting with the API (Authenticated Endpoints)
 
 All endpoints now require a valid JWT in the `Authorization: Bearer <token>` header.
 
@@ -60,7 +63,7 @@ First, register and log in via the Identity Service:
       "username": "accountant_user",
       "email": "accountant@finacc.com",
       "password": "password123",
-      "role_name": "ACCOUNTANT" 
+      "role_name": "ACCOUNTANT"
     }
     ```
     (Or `SUPER_ADMIN` for full access)
@@ -78,18 +81,23 @@ First, register and log in via the Identity Service:
 
 #### **Step 2: Make Authenticated Requests to Accounting Service**
 
-Use the copied JWT token in the `Authorization: Bearer <token>` header for all requests to the Accounting Service.
+Use the copied JWT token in the `Authorization` header for all requests to the Accounting Service.
 
 **Header:** `Authorization: Bearer <YOUR_JWT_TOKEN_HERE>`
 
 **Permissions:**
-- `ACCOUNTANT` role has `accounting.*` permissions, allowing `create`, `read`, `update`, `delete` operations on accounts.
+- `ACCOUNTANT` role has `accounting.*` permissions (or more granular `accounting.write.accounts`, `accounting.read.accounts`, etc.), allowing operations on accounts and journal entries.
 - `SUPER_ADMIN` role has `*.*` permissions, allowing all operations.
 
-#### Create a new Account (Requires `accounting.write.accounts` permission)
+---
+
+### **Chart of Accounts (COA) Endpoints**
+
+**(Requires `accounting.read.accounts` or `accounting.write.accounts` or `accounting.delete.accounts` permissions)**
+
+#### Create a new Account
 
 **Endpoint:** `POST http://localhost:8000/accounts/`
-
 **Body (JSON):**
 ```json
 {
@@ -101,17 +109,28 @@ Use the copied JWT token in the `Authorization: Bearer <token>` header for all r
   "parent_account_number": null
 }
 ```
+Or for a child account:
+```json
+{
+  "account_number": "1100",
+  "account_name": "Accounts Receivable",
+  "account_type": "Asset",
+  "normal_balance": "Debit",
+  "description": "Amounts owed by customers",
+  "parent_account_number": "1000" // Assuming 1000 is a parent account like "Current Assets"
+}
+```
 
-#### Get all Accounts (Requires `accounting.read.accounts` permission)
+#### Get all Accounts
 
 **Endpoint:** `GET http://localhost:8000/accounts/`
 
-#### Get Account by Number (Requires `accounting.read.accounts` permission)
+#### Get Account by Number
 
 **Endpoint:** `GET http://localhost:8000/accounts/{account_number}`
 Example: `GET http://localhost:8000/accounts/1010`
 
-#### Update an Account (Requires `accounting.write.accounts` permission)
+#### Update an Account
 
 **Endpoint:** `PUT http://localhost:8000/accounts/{account_number}`
 Example: `PUT http://localhost:8000/accounts/1010`
@@ -123,10 +142,58 @@ Example: `PUT http://localhost:8000/accounts/1010`
 }
 ```
 
-#### Delete an Account (Requires `accounting.delete.accounts` permission)
+#### Delete an Account
 
 **Endpoint:** `DELETE http://localhost:8000/accounts/{account_number}`
 Example: `DELETE http://localhost:8000/accounts/1010`
+
+---
+
+### **Journal Entry Endpoints**
+
+**(Requires `accounting.read.journal_entries` or `accounting.write.journal_entries` or `accounting.delete.journal_entries` permissions)**
+
+#### Create a new Journal Entry
+
+**Endpoint:** `POST http://localhost:8000/journal-entries/`
+**Body (JSON):**
+```json
+{
+  "entry_date": "2026-05-20T10:00:00Z",
+  "description": "Recorded payment for office rent.",
+  "reference_number": "RENT-05-26",
+  "source_module": "Manual",
+  "lines": [
+    {
+      "account_number": "6000",
+      "debit": 1500.00,
+      "credit": 0.00,
+      "description": "Office Rent Expense"
+    },
+    {
+      "account_number": "1010",
+      "debit": 0.00,
+      "credit": 1500.00,
+      "description": "Cash (Bank Account) paid"
+    }
+  ]
+}
+```
+*Note: Ensure accounts 6000 and 1010 exist in your Chart of Accounts before creating this entry.* 
+
+#### Get Journal Entry by ID
+
+**Endpoint:** `GET http://localhost:8000/journal-entries/{entry_id}`
+Example: `GET http://localhost:8000/journal-entries/a1b2c3d4-e5f6-7890-1234-567890abcdef`
+
+#### Get all Journal Entries
+
+**Endpoint:** `GET http://localhost:8000/journal-entries/`
+
+#### Delete a Journal Entry
+
+**Endpoint:** `DELETE http://localhost:8000/journal-entries/{entry_id}`
+Example: `DELETE http://localhost:8000/journal-entries/a1b2c3d4-e5f6-7890-1234-567890abcdef`
 
 ### 5. Development
 
@@ -146,13 +213,15 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 ## Database Model
 
 Accounts are stored as `(:Account)` nodes in Neo4j with properties like `id`, `account_number` (unique), `account_name` (unique), `account_type`, `normal_balance`, `description`, `created_at`, `updated_at`.
-
 Hierarchical relationships are modeled using `(:Account)-[:HAS_PARENT]->(:Account)`.
-
 Unique constraints are enforced on `Account.account_number` and `Account.account_name`.
+
+Journal entries are stored as `(:JournalEntry)` nodes with properties `id`, `entry_date`, `description`, `reference_number`, `source_module`, `created_at`, `updated_at`.
+Each journal entry has multiple `(:JournalLine)` nodes linked via `(:JournalEntry)-[:HAS_LINE]->(:JournalLine)`.
+Each `(:JournalLine)` node has properties `id`, `debit`, `credit`, `description` and is linked to an `(:Account)` node via `(:JournalLine)-[:AFFECTS]->(:Account)`.
 
 ## Future Enhancements
 
--   Implementation of Journal Entries and Journal Lines.
 -   Ledger posting and financial statement generation.
 -   Support for specific accounting modalities (e.g., Fund Accounting dimensions).
+-   Advanced error handling and validation for real-world accounting scenarios.
