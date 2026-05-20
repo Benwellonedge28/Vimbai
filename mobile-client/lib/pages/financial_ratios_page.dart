@@ -67,7 +67,7 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
                 return const Center(child: CircularProgressIndicator());
               } else if (snapshot.hasError) {
                 return Center(child: Text('Error: ${snapshot.error}'));
-              } else if (!snapshot.hasData) {
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
                 return const Center(child: Text('No financial ratios data found.'));
               } else {
                 final report = snapshot.data!;
@@ -83,17 +83,37 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
                       _buildRatioSection('Liquidity Ratios', [
                         _buildRatioRow('Current Ratio', report.liquidity.currentRatio),
                         _buildRatioRow('Quick Ratio', report.liquidity.quickRatio),
+                        _buildRatioRow('Cash Ratio', report.liquidity.cashRatio),
+                        _buildRatioRow('Working Capital', report.liquidity.workingCapital, isCurrency: true),
                       ]),
                       const SizedBox(height: 20),
                       _buildRatioSection('Solvency Ratios', [
                         _buildRatioRow('Debt-to-Equity Ratio', report.solvency.debtToEquityRatio),
                         _buildRatioRow('Debt-to-Asset Ratio', report.solvency.debtToAssetRatio),
+                        _buildRatioRow('Equity Multiplier', report.solvency.equityMultiplier),
+                        _buildRatioRow('Times Interest Earned', report.solvency.timesInterestEarned),
                       ]),
                       const SizedBox(height: 20),
                       _buildRatioSection('Profitability Ratios', [
                         _buildRatioRow('Gross Profit Margin', report.profitability.grossProfitMargin, percentage: true),
+                        _buildRatioRow('Operating Profit Margin', report.profitability.operatingProfitMargin, percentage: true),
                         _buildRatioRow('Net Profit Margin', report.profitability.netProfitMargin, percentage: true),
                         _buildRatioRow('Return on Assets', report.profitability.returnOnAssets, percentage: true),
+                        _buildRatioRow('Return on Equity', report.profitability.returnOnEquity, percentage: true),
+                      ]),
+                      const SizedBox(height: 20),
+                      _buildRatioSection('Efficiency Ratios', [
+                        _buildRatioRow('Inventory Turnover', report.efficiency.inventoryTurnover),
+                        _buildRatioRow('Accounts Receivable Turnover', report.efficiency.accountsReceivableTurnover),
+                        _buildRatioRow('Accounts Payable Turnover', report.efficiency.accountsPayableTurnover),
+                        _buildRatioRow('Asset Turnover', report.efficiency.assetTurnover),
+                        _buildRatioRow('Day Sales Outstanding', report.efficiency.daySalesOutstanding),
+                      ]),
+                      const SizedBox(height: 20),
+                      _buildRatioSection('Market Value Ratios', [
+                        _buildRatioRow('Earnings Per Share', report.marketValue.earningsPerShare, isCurrency: true),
+                        _buildRatioRow('Price-to-Earnings Ratio', report.marketValue.priceToEarningsRatio),
+                        _buildRatioRow('Book Value Per Share', report.marketValue.bookValuePerShare, isCurrency: true),
                       ]),
                     ],
                   ),
@@ -115,9 +135,9 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
         );
       }
 
-      Widget _buildRatioRow(String label, double? value, {bool percentage = false}) {
+      Widget _buildRatioRow(String label, double? value, {bool percentage = false, bool isCurrency = false}) {
         String displayValue = value != null
-            ? (percentage ? '${(value * 100).toStringAsFixed(2)}%' : value.toStringAsFixed(2))
+            ? (isCurrency ? '\$${value.toStringAsFixed(2)}' : (percentage ? '${(value * 100).toStringAsFixed(2)}%' : value.toStringAsFixed(2)))
             : 'N/A';
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 4.0),

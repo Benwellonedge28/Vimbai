@@ -1,79 +1,50 @@
-// ... (existing BudgetItem, Budget, ActualsSummary, BudgetVarianceItem, BudgetVarianceReport models) ...
+from pydantic import BaseModel, Field, condecimal, validator
+from typing import Optional, List, Literal
+from datetime import datetime
+from decimal import Decimal
 
-// --- Financial Ratio Models (NEW ADDITIONS) ---
+# ... (existing Budget and Variance Analysis models) ...
 
-class LiquidityRatios {
-  final double? currentRatio;
-  final double? quickRatio;
+# --- Financial Ratio Models (EXPANDED) ---
 
-  LiquidityRatios({this.currentRatio, this.quickRatio});
+class LiquidityRatios(BaseModel):
+    current_ratio: Optional[Decimal] = None   # Current Assets / Current Liabilities
+    quick_ratio: Optional[Decimal] = None     # (Cash + Marketable Securities + Accounts Receivable) / Current Liabilities
+    cash_ratio: Optional[Decimal] = None      # Cash / Current Liabilities
+    working_capital: Optional[Decimal] = None # Current Assets - Current Liabilities
 
-  factory LiquidityRatios.fromJson(Map<String, dynamic> json) {
-    return LiquidityRatios(
-      currentRatio: (json['current_ratio'] as num?)?.toDouble(),
-      quickRatio: (json['quick_ratio'] as num?)?.toDouble(),
-    );
-  }
-}
+class SolvencyRatios(BaseModel):
+    debt_to_equity_ratio: Optional[Decimal] = None  # Total Liabilities / Shareholder's Equity
+    debt_to_asset_ratio: Optional[Decimal] = None   # Total Liabilities / Total Assets
+    equity_multiplier: Optional[Decimal] = None     # Total Assets / Shareholder's Equity
+    times_interest_earned: Optional[Decimal] = None # EBIT / Interest Expense (requires more detailed IS)
 
-class SolvencyRatios {
-  final double? debtToEquityRatio;
-  final double? debtToAssetRatio;
+class ProfitabilityRatios(BaseModel):
+    gross_profit_margin: Optional[Decimal] = None # (Revenue - Cost of Goods Sold) / Revenue
+    operating_profit_margin: Optional[Decimal] = None # Operating Income (EBIT) / Revenue
+    net_profit_margin: Optional[Decimal] = None   # Net Income / Revenue
+    return_on_assets: Optional[Decimal] = None    # Net Income / Total Assets
+    return_on_equity: Optional[Decimal] = None    # Net Income / Shareholder's Equity
 
-  SolvencyRatios({this.debtToEquityRatio, this.debtToAssetRatio});
+class EfficiencyRatios(BaseModel): # NEW CATEGORY
+    inventory_turnover: Optional[Decimal] = None      # Cost of Goods Sold / Average Inventory
+    accounts_receivable_turnover: Optional[Decimal] = None # Sales Revenue / Average Accounts Receivable
+    accounts_payable_turnover: Optional[Decimal] = None    # Cost of Goods Sold / Average Accounts Payable
+    asset_turnover: Optional[Decimal] = None              # Sales Revenue / Average Total Assets
+    day_sales_outstanding: Optional[Decimal] = None       # (Average Accounts Receivable / Sales Revenue) * 365
 
-  factory SolvencyRatios.fromJson(Map<String, dynamic> json) {
-    return SolvencyRatios(
-      debtToEquityRatio: (json['debt_to_equity_ratio'] as num?)?.toDouble(),
-      debtToAssetRatio: (json['debt_to_asset_ratio'] as num?)?.toDouble(),
-    );
-  }
-}
+class MarketValueRatios(BaseModel): # NEW CATEGORY (Conceptual for a private company, needs shares data)
+    earnings_per_share: Optional[Decimal] = None # Net Income / Number of Shares Outstanding
+    price_to_earnings_ratio: Optional[Decimal] = None # Share Price / Earnings Per Share
+    book_value_per_share: Optional[Decimal] = None # (Total Equity - Preferred Stock) / Number of Shares Outstanding
 
-class ProfitabilityRatios {
-  final double? grossProfitMargin;
-  final double? netProfitMargin;
-  final double? returnOnAssets;
-
-  ProfitabilityRatios({this.grossProfitMargin, this.netProfitMargin, this.returnOnAssets});
-
-  factory ProfitabilityRatios.fromJson(Map<String, dynamic> json) {
-    return ProfitabilityRatios(
-      grossProfitMargin: (json['gross_profit_margin'] as num?)?.toDouble(),
-      netProfitMargin: (json['net_profit_margin'] as num?)?.toDouble(),
-      returnOnAssets: (json['return_on_assets'] as num?)?.toDouble(),
-    );
-  }
-}
-
-class FinancialRatiosReport {
-  final DateTime reportDate;
-  final DateTime startDate;
-  final DateTime endDate;
-  final LiquidityRatios liquidity;
-  final SolvencyRatios solvency;
-  final ProfitabilityRatios profitability;
-  final String currency;
-
-  FinancialRatiosReport({
-    required this.reportDate,
-    required this.startDate,
-    required this.endDate,
-    required this.liquidity,
-    required this.solvency,
-    required this.profitability,
-    required this.currency,
-  });
-
-  factory FinancialRatiosReport.fromJson(Map<String, dynamic> json) {
-    return FinancialRatiosReport(
-      reportDate: DateTime.parse(json['report_date']),
-      startDate: DateTime.parse(json['start_date']),
-      endDate: DateTime.parse(json['end_date']),
-      liquidity: LiquidityRatios.fromJson(json['liquidity']),
-      solvency: SolvencyRatios.fromJson(json['solvency']),
-      profitability: ProfitabilityRatios.fromJson(json['profitability']),
-      currency: json['currency'],
-    );
-  }
-}
+class FinancialRatiosReport(BaseModel):
+    report_date: datetime = Field(default_factory=datetime.utcnow)
+    start_date: datetime
+    end_date: datetime
+    liquidity: LiquidityRatios = Field(default_factory=LiquidityRatios) # Ensure default instances
+    solvency: SolvencyRatios = Field(default_factory=SolvencyRatios)
+    profitability: ProfitabilityRatios = Field(default_factory=ProfitabilityRatios)
+    efficiency: EfficiencyRatios = Field(default_factory=EfficiencyRatios) # NEW
+    market_value: MarketValueRatios = Field(default_factory=MarketValueRatios) # NEW
+    currency: str = Field("USD", description="Currency of the financial data.")
