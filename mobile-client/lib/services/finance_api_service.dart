@@ -5,7 +5,8 @@ import 'package:finacc_mobile_client/config.dart'; // For API URL
 import 'package:finacc_mobile_client/models/finance_models.dart'; // NEW: Import Finance Models
 
 class FinanceApiService {
-  final String _financeServiceUrl = '${AppConfig.apiUrl.replaceFirst(':8080', ':8001')}'; // Hardcoded for now
+  // final String _financeServiceUrl = '${AppConfig.apiUrl.replaceFirst(':8080', ':8001')}'; // Old hardcoded derivation
+  final String _financeServiceUrl = '${AppConfig.apiUrl}/budgets'; // NEW: Use API Gateway path prefix for budgets
 
   Future<Map<String, String>> _getHeaders() async {
     final token = await UserLocalData.getAuthToken();
@@ -17,7 +18,7 @@ class FinanceApiService {
   // --- Budget API Calls ---
   Future<List<Budget>> getBudgets() async {
     final headers = await _getHeaders();
-    final response = await http.get(Uri.parse('$_financeServiceUrl/budgets/'), headers: headers);
+    final response = await http.get(Uri.parse('$_financeServiceUrl/'), headers: headers); // Note the trailing slash
 
     if (response.statusCode == 200) {
       List<dynamic> budgetsJson = json.decode(response.body);
@@ -29,7 +30,7 @@ class FinanceApiService {
 
   Future<Budget> getBudgetById(String budgetId) async {
     final headers = await _getHeaders();
-    final response = await http.get(Uri.parse('$_financeServiceUrl/budgets/$budgetId'), headers: headers);
+    final response = await http.get(Uri.parse('$_financeServiceUrl/$budgetId'), headers: headers);
 
     if (response.statusCode == 200) {
       return Budget.fromJson(json.decode(response.body));
@@ -41,7 +42,7 @@ class FinanceApiService {
   Future<Budget> createBudget(Budget budget) async {
     final headers = await _getHeaders();
     final response = await http.post(
-      Uri.parse('$_financeServiceUrl/budgets/'),
+      Uri.parse('$_financeServiceUrl/'), // Note the trailing slash
       headers: headers,
       body: json.encode(budget.toJson()),
     );
@@ -56,7 +57,7 @@ class FinanceApiService {
   // --- Variance Analysis API Calls (NEW ADDITION) ---
   Future<BudgetVarianceReport> getBudgetVarianceReport(String budgetId) async {
     final headers = await _getHeaders();
-    final response = await http.get(Uri.parse('$_financeServiceUrl/budgets/$budgetId/variance-report'), headers: headers);
+    final response = await http.get(Uri.parse('$_financeServiceUrl/$budgetId/variance-report'), headers: headers);
 
     if (response.statusCode == 200) {
       return BudgetVarianceReport.fromJson(json.decode(response.body));

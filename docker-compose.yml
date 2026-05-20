@@ -27,8 +27,8 @@ services:
     build:
       context: ./identity-service
       dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
+    # ports: # No longer expose directly if accessed via gateway
+    #   - "8080:8080"
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
@@ -39,12 +39,12 @@ services:
         condition: service_healthy
     restart: on-failure
 
-  accounting-service: # NEW SERVICE
+  accounting-service:
     build:
       context: ./accounting-service
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+    # ports: # No longer expose directly if accessed via gateway
+    #   - "8000:8000"
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
@@ -59,8 +59,8 @@ services:
     build:
       context: ./finance-service
       dockerfile: Dockerfile
-    ports:
-      - "8001:8001"
+    # ports: # No longer expose directly if accessed via gateway
+    #   - "8001:8001"
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
@@ -71,18 +71,39 @@ services:
         condition: service_healthy
     restart: on-failure
 
-  multimodal-pipeline-service: # NEW SERVICE
+  multimodal-pipeline-service:
     build:
       context: ./multimodal-pipeline-service
       dockerfile: Dockerfile
-    ports:
-      - "8002:8002"
+    # ports: # No longer expose directly if accessed via gateway
+    #   - "8002:8002"
     environment:
       - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Must match Identity Service's JWT_SECRET
-      # Add any other environment variables for external AI APIs here if they were used
     depends_on:
-      # This service might not directly depend on Neo4j if it only processes and passes data
-      # It might depend on Identity Service for auth
       identity-service:
-        condition: service_started # or service_healthy if it has a healthcheck
+        condition: service_started
+    restart: on-failure
+
+  api-gateway: # NEW SERVICE
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081" # Expose gateway port to host
+    environment:
+      - PORT=8081
+      - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Must match across all services
+      - IDENTITY_SERVICE_URL=http://identity-service:8080 # Internal Docker network names
+      - ACCOUNTING_SERVICE_URL=http://accounting-service:8000
+      - FINANCE_SERVICE_URL=http://finance-service:8001
+      - MULTIMODAL_SERVICE_URL=http://multimodal-pipeline-service:8002
+    depends_on:
+      identity-service:
+        condition: service_started
+      accounting-service:
+        condition: service_started
+      finance-service:
+        condition: service_started
+      multimodal-pipeline-service:
+        condition: service_started
     restart: on-failure

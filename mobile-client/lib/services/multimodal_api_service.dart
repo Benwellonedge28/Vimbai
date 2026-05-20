@@ -7,7 +7,10 @@ import 'package:finacc_mobile_client/config.dart'; // For API URL
 import 'package:finacc_mobile_client/models/multimodal_models.dart'; // NEW: Import Multimodal Models
 
 class MultimodalApiService {
-  final String _multimodalServiceUrl = '${AppConfig.apiUrl.replaceFirst(':8080', ':8002')}'; // Hardcoded for now
+  // final String _multimodalServiceUrl = '${AppConfig.apiUrl.replaceFirst(':8080', ':8002')}'; // Old hardcoded derivation
+  final String _processDocumentOcrUrl = '${AppConfig.apiUrl}/process-document-ocr'; // NEW
+  final String _processAudioToTextUrl = '${AppConfig.apiUrl}/process-audio-to-text'; // NEW
+  final String _processMultimodalInputUrl = '${AppConfig.apiUrl}/process-multimodal-input'; // NEW
 
   Future<Map<String, String>> _getAuthHeaders() async {
     final token = await UserLocalData.getAuthToken();
@@ -23,7 +26,7 @@ class MultimodalApiService {
     final headers = await _getAuthHeaders();
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse('$_multimodalServiceUrl/process-document-ocr'),
+      Uri.parse('$_processDocumentOcrUrl'), // NEW URL
     );
     request.headers.addAll(headers);
     request.files.add(await http.MultipartFile.fromPath(
@@ -52,7 +55,7 @@ class MultimodalApiService {
     final headers = await _getAuthHeaders();
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse('$_multimodalServiceUrl/process-audio-to-text'),
+      Uri.parse('$_processAudioToTextUrl'), // NEW URL
     );
     request.headers.addAll(headers);
     request.files.add(await http.MultipartFile.fromPath(
@@ -88,7 +91,7 @@ class MultimodalApiService {
     });
 
     final response = await http.post(
-      Uri.parse('$_multimodalServiceUrl/process-multimodal-input'),
+      Uri.parse('$_processMultimodalInputUrl'), // NEW URL
       headers: {'Content-Type': 'application/json', ...headers},
       body: body,
     );

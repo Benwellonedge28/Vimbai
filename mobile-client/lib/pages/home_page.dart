@@ -1,3 +1,5 @@
+import 'package:finacc_mobile_client/config.dart';
+
 import 'package:flutter/material.dart';
 import 'package:finacc_mobile_client/services/auth_service.dart';
 import 'package:finacc_mobile_client/pages/login_page.dart';
@@ -128,7 +130,8 @@ class _HomePageState extends State<HomePage> {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => const LedgerPage()),
                       );
-                    },\n                    child: const Text('View Ledger Account'),
+                    },
+                    child: const Text('View Ledger Account'),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
