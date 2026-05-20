@@ -3,18 +3,10 @@ import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:finacc_mobile_client/local_db/user_local_data.dart';
 import 'package:finacc_mobile_client/models/user.dart';
-
-// IMPORTANT: This should be configured via environment variables or a config file
-// for different environments (dev, staging, prod).
-// For local development, ensure your backend Identity Service is accessible
-// at this URL from your mobile device/emulator.
-// If running Identity Service via docker-compose, use your host machine's IP
-// or a tunneling service like ngrok.
-const String _apiUrl = 'http://localhost:8080'; // Placeholder - replace as needed for your setup
+import 'package:finacc_mobile_client/config.dart'; // Import the new config file
 
 class AuthService {
-  // Use the global _apiUrl constant
-  final String _baseUrl = _apiUrl; 
+  final String _baseUrl = AppConfig.apiUrl; // Use the URL from AppConfig
 
   Future<bool> register(String username, String email, String password) async {
     final connectivityResult = await (Connectivity().checkConnectivity());
