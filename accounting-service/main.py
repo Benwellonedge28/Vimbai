@@ -1,13 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Query
+from fastapi.responses import JSONResponse # NEW
 from typing import List, Optional
 from neo4j import AsyncSession
 from accounting_service import models, crud
 from accounting_service.database import init_db_schema, Neo4jConnector
 from accounting_service.dependencies import get_db_session
 from accounting_service.utils.auth import check_permission
+from accounting_service.exceptions import NotFoundError, ConflictError, ValidationError, UnauthorizedError, ForbiddenError # NEW
 import os
 from dotenv import load_dotenv
-from datetime import datetime, timedelta # NEW
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -20,21 +22,57 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup_event():
-    Neo4jConnector.get_driver() # Initialize driver
-    await init_db_schema() # Ensure schema and constraints
+    Neo4jConnector.get_driver()
+    await init_db_schema()
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    Neo4jConnector.close_driver() # Close driver
+    Neo4jConnector.close_driver()
+
+# --- Global Exception Handlers (NEW) ---
+@app.exception_handler(NotFoundError)
+async def not_found_exception_handler(request, exc: NotFoundError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
+
+@app.exception_handler(ConflictError)
+async def conflict_exception_handler(request, exc: ConflictError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
+
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request, exc: ValidationError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
+
+@app.exception_handler(UnauthorizedError)
+async def unauthorized_exception_handler(request, exc: UnauthorizedError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+@app.exception_handler(ForbiddenError)
+async def forbidden_exception_handler(request, exc: ForbiddenError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=exc.detail,
+    )
 
 # --- Chart of Accounts Endpoints ---
-
 @app.post("/accounts/", response_model=models.AccountInDB, status_code=status.HTTP_201_CREATED, 
           dependencies=[Depends(check_permission("accounting.write.accounts"))])
 async def create_new_account(account: models.AccountCreate, db_session: AsyncSession = Depends(get_db_session)):
     db_account = await crud.get_account_by_number(db_session, account.account_number)
     if db_account:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Account with this number already exists")
+        raise ConflictError(detail="Account with this number already exists.", code="ACCOUNT_EXISTS") # MODIFIED
     return await crud.create_account(db_session, account)
 
 @app.get("/accounts/{account_number}", response_model=models.AccountInDB, 
@@ -42,12 +80,12 @@ async def create_new_account(account: models.AccountCreate, db_session: AsyncSes
 async def read_account_by_number(account_number: str, db_session: AsyncSession = Depends(get_db_session)):
     db_account = await crud.get_account_by_number(db_session, account_number)
     if db_account is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+        raise NotFoundError(detail="Account not found.") # MODIFIED
     return db_account
-    
-@app.get("/accounts/")
-async def read_all_accounts(db_session: AsyncSession = Depends(get_db_session), 
-                           _=Depends(check_permission("accounting.read.accounts"))) -> List[models.AccountInDB]: 
+        
+@app.get("/accounts/", response_model=List[models.AccountInDB], 
+         dependencies=[Depends(check_permission("accounting.read.accounts"))])
+async def read_all_accounts(db_session: AsyncSession = Depends(get_db_session)): 
     return await crud.get_all_accounts(db_session)
 
 @app.put("/accounts/{account_number}", response_model=models.AccountInDB, 
@@ -55,7 +93,7 @@ async def read_all_accounts(db_session: AsyncSession = Depends(get_db_session),
 async def update_existing_account(account_number: str, account: models.AccountUpdate, db_session: AsyncSession = Depends(get_db_session)):
     db_account = await crud.update_account(db_session, account_number, account)
     if db_account is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+        raise NotFoundError(detail="Account not found.") # MODIFIED
     return db_account
 
 @app.delete("/accounts/{account_number}", status_code=status.HTTP_204_NO_CONTENT, 
@@ -63,30 +101,25 @@ async def update_existing_account(account_number: str, account: models.AccountUp
 async def delete_existing_account(account_number: str, db_session: AsyncSession = Depends(get_db_session)):
     success = await crud.delete_account(db_session, account_number)
     if not success:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+        raise NotFoundError(detail="Account not found.") # MODIFIED
     return {"ok": True}
 
 # --- Journal Entry Endpoints ---
-
 @app.post("/journal-entries/", response_model=models.JournalEntryInDB, status_code=status.HTTP_201_CREATED,
-          dependencies=[Depends(check_permission("accounting.write.journal_entries"))])
+              dependencies=[Depends(check_permission("accounting.write.journal_entries"))])
 async def create_new_journal_entry(entry: models.JournalEntryCreate, db_session: AsyncSession = Depends(get_db_session)):
-    # Basic validation: check if all accounts in lines exist
     for line in entry.lines:
         account = await crud.get_account_by_number(db_session, line.account_number)
         if not account:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Account number {line.account_number} in journal line does not exist."
-            )
+            raise ValidationError(detail=f"Account number {line.account_number} in journal line does not exist.", code="ACCOUNT_NOT_FOUND_IN_JE") # MODIFIED
     return await crud.create_journal_entry(db_session, entry)
 
 @app.get("/journal-entries/{entry_id}", response_model=models.JournalEntryInDB,
-         dependencies=[Depends(check_permission("accounting.read.journal_entries"))])
+             dependencies=[Depends(check_permission("accounting.read.journal_entries"))])
 async def read_journal_entry_by_id(entry_id: str, db_session: AsyncSession = Depends(get_db_session)):
     db_entry = await crud.get_journal_entry(db_session, entry_id)
     if db_entry is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+        raise NotFoundError(detail="Journal entry not found.") # MODIFIED
     return db_entry
 
 @app.get("/journal-entries/")
@@ -95,46 +128,45 @@ async def read_all_journal_entries(db_session: AsyncSession = Depends(get_db_ses
     return await crud.get_all_journal_entries(db_session)
 
 @app.delete("/journal-entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT,
-            dependencies=[Depends(check_permission("accounting.delete.journal_entries"))])
+                dependencies=[Depends(check_permission("accounting.delete.journal_entries"))])
 async def delete_existing_journal_entry(entry_id: str, db_session: AsyncSession = Depends(get_db_session)):
     success = await crud.delete_journal_entry(db_session, entry_id)
     if not success:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+        raise NotFoundError(detail="Journal entry not found.") # MODIFIED
     return {"ok": True}
 
 # --- Ledger and Trial Balance Endpoints ---
-
 @app.get("/ledger/{account_number}", response_model=models.LedgerAccountBalance,
-         dependencies=[Depends(check_permission("accounting.read.ledger"))])
+             dependencies=[Depends(check_permission("accounting.read.ledger"))])
 async def get_ledger_for_account(account_number: str, db_session: AsyncSession = Depends(get_db_session)):
     balance = await crud.get_ledger_account_balance(db_session, account_number)
     if balance is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found or no transactions")
+        raise NotFoundError(detail="Account not found or no transactions.") # MODIFIED
     return balance
 
-@app.get("/trial-balance/", response_model=models.TrialBalance,
-         dependencies=[Depends(check_permission("accounting.read.trial_balance"))])
-async def get_current_trial_balance(db_session: AsyncSession = Depends(get_db_session)): 
+@app.get("/trial-balance/")
+async def get_current_trial_balance(db_session: AsyncSession = Depends(get_db_session),
+                           _=Depends(check_permission("accounting.read.trial_balance"))) -> models.TrialBalance:
     trial_balance = await crud.generate_trial_balance(db_session)
     if not trial_balance.entries:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No accounts or transactions found to generate trial balance")
+        raise NotFoundError(detail="No accounts or transactions found to generate trial balance.") # MODIFIED
+    # Model validation will handle imbalance, raising Pydantic ValidationError
     return trial_balance
 
-# --- Financial Statement Endpoints (NEW) ---
-
+# --- Financial Statement Endpoints ---
 @app.get("/financial-statements/income-statement", response_model=models.IncomeStatement,
-         dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
+             dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
 async def get_income_statement(
     start_date: datetime = Query(..., description="Start date of the reporting period (ISO format)"),
     end_date: datetime = Query(..., description="End date of the reporting period (ISO format)"),
     db_session: AsyncSession = Depends(get_db_session)
 ):
     if start_date >= end_date:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Start date must be before end date")
+        raise ValidationError(detail="Start date must be before end date.", code="INVALID_DATE_RANGE") # MODIFIED
     return await crud.generate_income_statement(db_session, start_date, end_date)
 
 @app.get("/financial-statements/balance-sheet", response_model=models.BalanceSheet,
-         dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
+             dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
 async def get_balance_sheet(
     as_of_date: datetime = Query(..., description="Date for which the balance sheet is prepared (ISO format)"),
     db_session: AsyncSession = Depends(get_db_session)
@@ -142,16 +174,15 @@ async def get_balance_sheet(
     return await crud.generate_balance_sheet(db_session, as_of_date)
 
 @app.get("/financial-statements/cash-flow-statement", response_model=models.CashFlowStatement,
-             dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
+                 dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
 async def get_cash_flow_statement(
     start_date: datetime = Query(..., description="Start date of the reporting period (ISO format)"),
     end_date: datetime = Query(..., description="End date of the reporting period (ISO format)"),
     db_session: AsyncSession = Depends(get_db_session)
 ):
     if start_date >= end_date:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Start date must be before end date")
+        raise ValidationError(detail="Start date must be before end date.", code="INVALID_DATE_RANGE") # MODIFIED
     
-    # To generate CFS, we need the Net Income for the period first (from Income Statement)
     income_statement = await crud.generate_income_statement(db_session, start_date, end_date)
     net_income = income_statement.net_income
 
