@@ -10,6 +10,9 @@ This is the Accounting Service microservice for the FinAcc application, built wi
 - **Journal Entry Management:**
     - Create, Read (single, all), Delete journal entries and their associated lines.
     - Ensures double-entry bookkeeping principles (debits = credits) and links entries to accounts.
+- **Ledger & Trial Balance Generation:**
+    - Calculate current balance for individual ledger accounts.
+    - Generate a consolidated Trial Balance report.
 - Neo4j integration for flexible data modeling of accounting entities.
 - **JWT Authentication and Role-Based Access Control (RBAC)** for all API endpoints.
 
@@ -170,7 +173,7 @@ Example: `DELETE http://localhost:8000/accounts/1010`
       "credit": 0.00,
       "description": "Office Rent Expense"
     },
-    {
+    {f
       "account_number": "1010",
       "debit": 0.00,
       "credit": 1500.00,
@@ -179,7 +182,7 @@ Example: `DELETE http://localhost:8000/accounts/1010`
   ]
 }
 ```
-*Note: Ensure accounts 6000 and 1010 exist in your Chart of Accounts before creating this entry.* 
+*Note: Ensure accounts 6000 and 1010 exist in your Chart of Accounts before creating this entry.*
 
 #### Get Journal Entry by ID
 
@@ -194,6 +197,23 @@ Example: `GET http://localhost:8000/journal-entries/a1b2c3d4-e5f6-7890-1234-5678
 
 **Endpoint:** `DELETE http://localhost:8000/journal-entries/{entry_id}`
 Example: `DELETE http://localhost:8000/journal-entries/a1b2c3d4-e5f6-7890-1234-567890abcdef`
+
+---
+
+### **Ledger and Trial Balance Endpoints**
+
+**(Requires `accounting.read.ledger` or `accounting.read.trial_balance` permissions)**
+
+#### Get Ledger Account Balance
+
+**Endpoint:** `GET http://localhost:8000/ledger/{account_number}`
+Example: `GET http://localhost:8000/ledger/1010`
+
+#### Generate Trial Balance
+
+**Endpoint:** `GET http://localhost:8000/trial-balance/`
+
+---
 
 ### 5. Development
 
@@ -222,6 +242,7 @@ Each `(:JournalLine)` node has properties `id`, `debit`, `credit`, `description`
 
 ## Future Enhancements
 
--   Ledger posting and financial statement generation.
+-   Full financial statement generation (Income Statement, Balance Sheet, Cash Flow Statement).
 -   Support for specific accounting modalities (e.g., Fund Accounting dimensions).
 -   Advanced error handling and validation for real-world accounting scenarios.
+-   Caching for frequently accessed reports.
