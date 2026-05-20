@@ -23,6 +23,22 @@ services:
       timeout: 3s
       retries: 5
 
+  rabbitmq: # NEW SERVICE
+    image: rabbitmq:3-management-alpine
+    hostname: rabbitmq
+    ports:
+      - "5672:5672" # AMQP protocol port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: on-failure
+
   identity-service:
     build:
       context: ./identity-service
@@ -73,17 +89,24 @@ services:
     restart: on-failure
 
   multimodal-pipeline-service:
-    build:
+    build: 
       context: ./multimodal-pipeline-service
       dockerfile: Dockerfile
+    # ports: # Not exposed directly
+    #   - "8002:8002"
     environment:
-      - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Must match Identity Service's JWT_SECRET
-      - API_GATEWAY_URL=http://api-gateway:8081 # Internal Docker network URL for the gateway
+      - JWT_SECRET=your_super_secret_jwt_key
+      - API_GATEWAY_URL=http://api-gateway:8081
+      - RABBITMQ_HOST=rabbitmq # NEW
+      - RABBITMQ_USER=guest # NEW
+      - RABBITMQ_PASS=guest # NEW
     depends_on:
       identity-service:
         condition: service_started
       api-gateway:
         condition: service_started
+      rabbitmq: # NEW
+        condition: service_healthy
     restart: on-failure
 
   banking-integration-service:
@@ -94,8 +117,27 @@ services:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
-      - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Must match Identity Service's JWT_SECRET
-      - API_GATEWAY_URL=http://api-gateway:8081 # Internal URL for API Gateway
+      - JWT_SECRET=your_super_secret_jwt_key
+      - API_GATEWAY_URL=http://api-gateway:8081
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      identity-service:
+        condition: service_started
+      api-gateway:
+        condition: service_started
+    restart: on-failure
+
+  invoicing-service:
+    build:
+      context: ./invoicing-service
+      dockerfile: Dockerfile
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
+      - JWT_SECRET=your_super_secret_jwt_key
+      - API_GATEWAY_URL=http://api-gateway:8081
     depends_on:
       neo4j:
         condition: service_healthy
@@ -113,12 +155,13 @@ services:
       - "8081:8081" # Expose gateway port to host
     environment:
       - PORT=8081
-      - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Must match across all services
+      - JWT_SECRET=your_super_secret_jwt_key
       - IDENTITY_SERVICE_URL=http://identity-service:8080
       - ACCOUNTING_SERVICE_URL=http://accounting-service:8000
       - FINANCE_SERVICE_URL=http://finance-service:8001
       - MULTIMODAL_SERVICE_URL=http://multimodal-pipeline-service:8002
       - BANKING_INTEGRATION_SERVICE_URL=http://banking-integration-service:8003
+      - INVOICING_SERVICE_URL=http://invoicing-service:8004
     depends_on:
       identity-service:
         condition: service_started
@@ -130,16 +173,20 @@ services:
         condition: service_started
       banking-integration-service:
         condition: service_started
+      invoicing-service:
+        condition: service_started
+      rabbitmq: # NEW
+        condition: service_healthy
     restart: on-failure
 
-  web-frontend: # NEW SERVICE
+  web-frontend:
     build:
       context: ./web-frontend
       dockerfile: Dockerfile
     ports:
       - "3000:80"
     environment:
-      - VITE_API_BASE_URL=http://localhost:8081 # Point to the API Gateway
+      - VITE_API_BASE_URL=http://localhost:8081
     depends_on:
       api-gateway:
         condition: service_started
