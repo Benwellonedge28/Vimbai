@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Query
 from typing import List, Optional
 from neo4j import AsyncSession
 from accounting_service import models, crud
@@ -7,6 +7,7 @@ from accounting_service.dependencies import get_db_session
 from accounting_service.utils.auth import check_permission
 import os
 from dotenv import load_dotenv
+from datetime import datetime # NEW
 
 # Load environment variables
 load_dotenv()
@@ -46,7 +47,7 @@ async def read_account_by_number(account_number: str, db_session: AsyncSession =
     
 @app.get("/accounts/", response_model=List[models.AccountInDB], 
          dependencies=[Depends(check_permission("accounting.read.accounts"))])
-async def read_all_accounts(db_session: AsyncSession = Depends(get_db_session)): # Removed explicit return type hint to avoid IDE errors with List[...]
+async def read_all_accounts(db_session: AsyncSession = Depends(get_db_session)): 
     return await crud.get_all_accounts(db_session)
 
 @app.put("/accounts/{account_number}", response_model=models.AccountInDB, 
@@ -101,7 +102,7 @@ async def delete_existing_journal_entry(entry_id: str, db_session: AsyncSession 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
     return {"ok": True}
 
-# --- Ledger and Trial Balance Endpoints (NEW) ---
+# --- Ledger and Trial Balance Endpoints ---
 
 @app.get("/ledger/{account_number}", response_model=models.LedgerAccountBalance,
          dependencies=[Depends(check_permission("accounting.read.ledger"))])
@@ -113,11 +114,32 @@ async def get_ledger_for_account(account_number: str, db_session: AsyncSession =
 
 @app.get("/trial-balance/", response_model=models.TrialBalance,
          dependencies=[Depends(check_permission("accounting.read.trial_balance"))])
-async def get_current_trial_balance(db_session: AsyncSession = Depends(get_db_session)): # Removed explicit return type hint to avoid IDE errors with List[...]
+async def get_current_trial_balance(db_session: AsyncSession = Depends(get_db_session)): 
     trial_balance = await crud.generate_trial_balance(db_session)
     if not trial_balance.entries:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No accounts or transactions found to generate trial balance")
     return trial_balance
+
+# --- Financial Statement Endpoints (NEW) ---
+
+@app.get("/financial-statements/income-statement", response_model=models.IncomeStatement,
+         dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
+async def get_income_statement(
+    start_date: datetime = Query(..., description="Start date of the reporting period (ISO format)"),
+    end_date: datetime = Query(..., description="End date of the reporting period (ISO format)"),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    if start_date >= end_date:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Start date must be before end date")
+    return await crud.generate_income_statement(db_session, start_date, end_date)
+
+@app.get("/financial-statements/balance-sheet", response_model=models.BalanceSheet,
+         dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
+async def get_balance_sheet(
+    as_of_date: datetime = Query(..., description="Date for which the balance sheet is prepared (ISO format)"),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.generate_balance_sheet(db_session, as_of_date)
 
 # --- Root endpoint for health check ---
 @app.get("/")

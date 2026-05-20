@@ -1,403 +1,128 @@
-from neo4j import AsyncSession
-from typing import Optional, List
-from accounting_service.models import (
-    AccountCreate, AccountUpdate, AccountInDB,
-    JournalEntryCreate, JournalEntryInDB,
-    LedgerAccountBalance, TrialBalanceEntry, TrialBalance # NEW imports
-)
-from datetime import datetime
-import uuid
-from decimal import Decimal
+# ... (existing imports and CRUD operations) ...
 
-# --- Account CRUD ---
+# --- Financial Statement Generation (NEW) ---
 
-async def create_account(session: AsyncSession, account_data: AccountCreate) -> AccountInDB:
-    query = """
-    CREATE (a:Account {
-        id: $id,
-        account_number: $account_number,
-        account_name: $account_name,
-        account_type: $account_type,
-        normal_balance: $normal_balance,
-        description: $description,
-        created_at: datetime($created_at),
-        updated_at: datetime($updated_at)
-    })
-    WITH a
-    OPTIONAL MATCH (parent:Account {account_number: $parent_account_number})
-    WHERE $parent_account_number IS NOT NULL
-    CREATE (a)-[:HAS_PARENT]->(parent)
-    RETURN a
-    """
-    id_ = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
-
-    result = await session.run(
-        query,
-        id=id_,
-        created_at=created_at.isoformat(),
-        updated_at=updated_at.isoformat(),
-        **account_data.model_dump()
-    )
-    record = await result.single()
-    node = record["a"]
-    return AccountInDB(
-        id=node["id"],
-        account_number=node["account_number"],
-        account_name=node["account_name"],
-        account_type=node["account_type"],
-        normal_balance=node["normal_balance"],
-        description=node["description"],
-        parent_account_number=account_data.parent_account_number, # Neo4j doesn't return this directly from node on create
-        created_at=datetime.fromisoformat(node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(node["updated_at"].iso_format()),
-    )
-
-async def get_account_by_number(session: AsyncSession, account_number: str) -> Optional[AccountInDB]:
-    query = """
-    MATCH (a:Account {account_number: $account_number})
-    OPTIONAL MATCH (a)-[:HAS_PARENT]->(parent:Account)
-    RETURN a, parent.account_number AS parent_account_number
-    """
-    result = await session.run(query, account_number=account_number)
-    record = await result.single()
-    if record:
-        node = record["a"]
-        return AccountInDB(
-            id=node["id"],
-            account_number=node["account_number"],
-            account_name=node["account_name"],
-            account_type=node["account_type"],
-            normal_balance=node["normal_balance"],
-            description=node["description"],
-            parent_account_number=record["parent_account_number"],
-            created_at=datetime.fromisoformat(node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(node["updated_at"].iso_format()),
-        )
-    return None
-    
-async def get_all_accounts(session: AsyncSession) -> List[AccountInDB]:
-    query = """
-    MATCH (a:Account)
-    OPTIONAL MATCH (a)-[:HAS_PARENT]->(parent:Account)
-    RETURN a, parent.account_number AS parent_account_number
-    ORDER BY a.account_number
-    """
-    result = await session.run(query)
-    accounts = []
-    async for record in result:
-        node = record["a"]
-        accounts.append(AccountInDB(
-            id=node["id"],
-            account_number=node["account_number"],
-            account_name=node["account_name"],
-            account_type=node["account_type"],
-            normal_balance=node["normal_balance"],
-            description=node["description"],
-            parent_account_number=record["parent_account_number"],
-            created_at=datetime.fromisoformat(node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(node["updated_at"].iso_format()),
-        ))
-    return accounts
-
-async def update_account(session: AsyncSession, account_number: str, account_data: AccountUpdate) -> Optional[AccountInDB]:
-    update_fields = {k: v for k, v in account_data.model_dump(exclude_unset=True).items() if k != "parent_account_number"}
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
-
-    set_clauses = [f"a.{k} = ${k}" for k in update_fields.keys()]
-    set_query_part = ", ".join(set_clauses)
-
-    query = f"""
-    MATCH (a:Account {{account_number: $account_number}})
-    SET {set_query_part}
-    WITH a
-    OPTIONAL MATCH (a)-[old_rel:HAS_PARENT]->()
-    WHERE $parent_account_number IS NOT NULL AND old_rel IS NOT NULL
-    DELETE old_rel
-    WITH a
-    OPTIONAL MATCH (parent:Account {{account_number: $parent_account_number}})
-    WHERE $parent_account_number IS NOT NULL
-    CREATE (a)-[:HAS_PARENT]->(parent)
-    RETURN a, parent.account_number AS parent_account_number
-    """
-    
-    params = {"account_number": account_number, **update_fields, "parent_account_number": account_data.parent_account_number}
-    result = await session.run(query, params)
-    record = await result.single()
-    if record:
-        node = record["a"]
-        return AccountInDB(
-            id=node["id"],
-            account_number=node["account_number"],
-            account_name=node["account_name"],
-            account_type=node["account_type"],
-            normal_balance=node["normal_balance"],
-            description=node["description"],
-            parent_account_number=record["parent_account_number"],
-            created_at=datetime.fromisoformat(node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(node["updated_at"].iso_format()),
-        )
-    return None
-
-async def delete_account(session: AsyncSession, account_number: str) -> bool:
-    # Delete account and its relationships
-    query = """
-    MATCH (a:Account {account_number: $account_number})
-    DETACH DELETE a
-    """
-    result = await session.run(query, account_number=account_number)
-    return result.consume().counters.nodes_deleted > 0
-
-
-# --- Journal Entry CRUD ---
-
-async def create_journal_entry(session: AsyncSession, entry_data: JournalEntryCreate) -> JournalEntryInDB:
-    entry_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
-
-    # Cypher to create JournalEntry node and its lines, linking to Accounts
-    query = f"""
-    CREATE (je:JournalEntry {{
-        id: $id,
-        entry_date: datetime($entry_date),
-        description: $description,
-        reference_number: $reference_number,
-        source_module: $source_module,
-        created_at: datetime($created_at),
-        updated_at: datetime($updated_at)
-    }})
-    WITH je
-    UNWIND $lines AS line
-    MATCH (a:Account {{account_number: line.account_number}})
-    CREATE (jl:JournalLine {{
-        id: toString(randomUUID()),
-        debit: toFloat(line.debit),
-        credit: toFloat(line.credit),
-        description: line.description
-    }})
-    CREATE (je)-[:HAS_LINE]->(jl)
-    CREATE (jl)-[:AFFECTS]->(a)
-    RETURN je, collect(jl) as lines, collect(a) as accounts
-    """
-    
-    # Convert Decimal to float for Neo4j (or handle as string if precision is paramount with driver settings)
-    # For now, FastAPI's condecimal ensures it's a Decimal, convert to float for storage.
-    lines_for_neo4j = []
-    for line in entry_data.lines:
-        lines_for_neo4j.append({
-            "account_number": line.account_number,
-            "debit": float(line.debit),
-            "credit": float(line.credit),
-            "description": line.description
-        })
-
-    result = await session.run(
-        query,
-        id=entry_id,
-        entry_date=entry_data.entry_date.isoformat(),
-        description=entry_data.description,
-        reference_number=entry_data.reference_number,
-        source_module=entry_data.source_module,
-        created_at=created_at.isoformat(),
-        updated_at=updated_at.isoformat(),
-        lines=lines_for_neo4j
-    )
-
-    record = await result.single()
-    je_node = record["je"]
-    
-    # Reconstruct the JournalEntryInDB model from the returned data
-    reconstructed_lines = []
-    # Note: Retrieving line details and affected accounts in a single query would be more efficient
-    # For now, assuming successful creation, this reconstructs based on input
-    for line_data in entry_data.lines:
-        reconstructed_lines.append(models.JournalLineBase(
-            account_number=line_data.account_number,
-            debit=line_data.debit,
-            credit=line_data.credit,
-            description=line_data.description
-        ))
-
-    return JournalEntryInDB(
-        id=je_node["id"],
-        entry_date=datetime.fromisoformat(je_node["entry_date"].iso_format()),
-        description=je_node["description"],
-        reference_number=je_node["reference_number"],
-        source_module=je_node["source_module"],
-        created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(je_node["updated_at"].iso_format()),
-        lines=reconstructed_lines
-    )
-
-async def get_journal_entry(session: AsyncSession, entry_id: str) -> Optional[JournalEntryInDB]:
-    query = """
-    MATCH (je:JournalEntry {id: $entry_id})-[:HAS_LINE]->(jl:JournalLine)-[:AFFECTS]->(a:Account)
-    RETURN je, collect({
-        id: jl.id,
-        account_number: a.account_number,
-        debit: jl.debit,
-        credit: jl.credit,
-        description: jl.description
-    }) AS lines
-    """
-    result = await session.run(query, entry_id=entry_id)
-    record = await result.single()
-
-    if record:
-        je_node = record["je"]
-        lines_data = record["lines"]
-        
-        reconstructed_lines = []
-        for line_data in lines_data:
-            reconstructed_lines.append(models.JournalLineBase(
-                account_number=line_data["account_number"],
-                debit=Decimal(str(line_data["debit"])), # Convert float back to Decimal
-                credit=Decimal(str(line_data["credit"])),
-                description=line_data["description"]
-            ))
-
-        return JournalEntryInDB(
-            id=je_node["id"],
-            entry_date=datetime.fromisoformat(je_node["entry_date"].iso_format()),
-            description=je_node["description"],
-            reference_number=je_node["reference_number"],
-            source_module=je_node["source_module"],
-            created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(je_node["updated_at"].iso_format()),
-            lines=reconstructed_lines
-        )
-    return None
-
-async def get_all_journal_entries(session: AsyncSession) -> List[JournalEntryInDB]:
+async def generate_income_statement(session: AsyncSession, start_date: datetime, end_date: datetime) -> IncomeStatement:
+    # Aggregates revenues and expenses within a given period
+    # Note: Assumes positive for revenues and expenses are handled appropriately in journal entries.
+    # In a real system, the 'normal_balance' of the account would dictate if it's a debit or credit
+    # to increase the account, and how it impacts IS/BS. For simplicity, we sum debits/credits for IS items.
     query = """
     MATCH (je:JournalEntry)-[:HAS_LINE]->(jl:JournalLine)-[:AFFECTS]->(a:Account)
-    RETURN je, collect({
-        id: jl.id,
-        account_number: a.account_number,
-        debit: jl.debit,
-        credit: jl.credit,
-        description: jl.description
-    }) AS lines
-    ORDER BY je.entry_date DESC
-    """
-    result = await session.run(query)
-    entries = []
-    async for record in result:
-        je_node = record["je"]
-        lines_data = record["lines"]
-
-        reconstructed_lines = []
-        for line_data in lines_data:
-            reconstructed_lines.append(models.JournalLineBase(
-                account_number=line_data["account_number"],
-                debit=Decimal(str(line_data["debit"])),
-                credit=Decimal(str(line_data["credit"])),
-                description=line_data["description"]
-            ))
-        
-        entries.append(JournalEntryInDB(
-            id=je_node["id"],
-            entry_date=datetime.fromisoformat(je_node["entry_date"].iso_format()),
-            description=je_node["description"],
-            reference_number=je_node["reference_number"],
-            source_module=je_node["source_module"],
-            created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(je_node["updated_at"].iso_format()),
-            lines=reconstructed_lines
-        ))
-    return entries
-
-async def delete_journal_entry(session: AsyncSession, entry_id: str) -> bool:
-    # Delete JournalEntry node and all associated JournalLine nodes and relationships
-    query = """
-    MATCH (je:JournalEntry {id: $entry_id})
-    OPTIONAL MATCH (je)-[:HAS_LINE]->(jl:JournalLine)
-    DETACH DELETE je, jl
-    """
-    result = await session.run(query, entry_id=entry_id)
-    # Check if at least one JournalEntry node was deleted
-    return result.consume().counters.nodes_deleted > 0
-
-# Note: Update of Journal Entries is highly complex in accounting, often leading to
-# the creation of adjusting or reversing entries rather than direct modification.
-# For simplicity, we won't implement a direct `update_journal_entry` that modifies lines directly.
-# If required, it would involve deleting existing lines and creating new ones,
-# or creating reversal entries.
-
-
-# --- Ledger Posting and Trial Balance Generation (NEW) ---
-
-async def get_ledger_account_balance(session: AsyncSession, account_number: str) -> Optional[LedgerAccountBalance]:
-    # This query calculates the balance of a specific account by aggregating
-    # debits and credits from all journal lines affecting it.
-    query = """
-    MATCH (a:Account {account_number: $account_number})
-    OPTIONAL MATCH (jl:JournalLine)-[:AFFECTS]->(a)
+    WHERE je.entry_date >= datetime($start_date) AND je.entry_date <= datetime($end_date)
+    AND a.account_type IN ['Revenue', 'Expense']
+    WITH a, 
+         SUM(CASE WHEN jl.debit > 0 THEN jl.debit ELSE 0.0 END) AS total_debits,
+         SUM(CASE WHEN jl.credit > 0 THEN jl.credit ELSE 0.0 END) AS total_credits
     RETURN 
-        a.account_number AS account_number, 
-        a.account_name AS account_name,
-        a.account_type AS account_type,
+        a.account_type AS type,
+        a.account_name AS category,
         a.normal_balance AS normal_balance,
-        sum(jl.debit) AS total_debits,
-        sum(jl.credit) AS total_credits
+        total_debits,
+        total_credits
+    ORDER BY type, category
     """
-    result = await session.run(query, account_number=account_number)
-    record = await result.single()
+    result = await session.run(query, start_date=start_date.isoformat(), end_date=end_date.isoformat())
 
-    if record:
-        total_debits = Decimal(str(record["total_debits"])) if record["total_debits"] is not None else Decimal('0.00')
-        total_credits = Decimal(str(record["total_credits"])) if record["total_credits"] is not None else Decimal('0.00')
-        
-        balance = total_debits - total_credits
-        if record["normal_balance"] == "Credit":
-            balance = total_credits - total_debits
+    revenues: List[IncomeStatementItem] = []
+    expenses: List[IncomeStatementItem] = []
+    total_revenue = Decimal('0.00')
+    total_expense = Decimal('0.00')
 
-        return LedgerAccountBalance(
-            account_number=record["account_number"],
-            account_name=record["account_name"],
-            account_type=record["account_type"],
-            normal_balance=record["normal_balance"],
-            current_balance=balance
-        )
-    return None
+    async for record in result:
+        account_type = record["type"]
+        category = record["category"]
+        normal_balance = record["normal_balance"]
+        total_debits = Decimal(str(record["total_debits"]))
+        total_credits = Decimal(str(record["total_credits"]))
 
-async def generate_trial_balance(session: AsyncSession) -> TrialBalance:
-    # This query aggregates all debits and credits for every account
-    # from all associated journal lines.
+        amount = Decimal('0.00')
+        # For Income Statement items, usually, revenues increase with credits, expenses with debits
+        if normal_balance == 'Credit': # Revenue accounts
+            amount = total_credits - total_debits
+        elif normal_balance == 'Debit': # Expense accounts
+            amount = total_debits - total_credits
+
+        if account_type == 'Revenue':
+            revenues.append(IncomeStatementItem(category=category, amount=amount))
+            total_revenue += amount
+        elif account_type == 'Expense':
+            expenses.append(IncomeStatementItem(category=category, amount=amount))
+            total_expense += amount
+    
+    net_income = total_revenue - total_expense
+
+    return IncomeStatement(
+        report_date=datetime.utcnow(),
+        start_date=start_date,
+        end_date=end_date,
+        revenues=revenues,
+        expenses=expenses,
+        net_income=net_income
+    )
+
+
+async def generate_balance_sheet(session: AsyncSession, as_of_date: datetime) -> BalanceSheet:
+    # Aggregates balances for Asset, Liability, and Equity accounts up to a specific date.
+    # This query calculates the cumulative balance for each account.
     query = """
     MATCH (a:Account)
     OPTIONAL MATCH (jl:JournalLine)-[:AFFECTS]->(a)
+    MATCH (je:JournalEntry)-[:HAS_LINE]->(jl)
+    WHERE je.entry_date <= datetime($as_of_date)
+    AND a.account_type IN ['Asset', 'Liability', 'Equity']
+    WITH a, SUM(jl.debit) AS total_debits, SUM(jl.credit) AS total_credits
     RETURN 
-        a.account_number AS account_number, 
-        a.account_name AS account_name,
-        coalesce(sum(jl.debit), 0.0) AS total_debits,
-        coalesce(sum(jl.credit), 0.0) AS total_credits
-    ORDER BY a.account_number
+        a.account_type AS type,
+        a.account_name AS category,
+        a.normal_balance AS normal_balance,
+        coalesce(total_debits, 0.0) AS sum_debits,
+        coalesce(total_credits, 0.0) AS sum_credits
+    ORDER BY type, category
     """
-    result = await session.run(query)
+    result = await session.run(query, as_of_date=as_of_date.isoformat())
 
-    entries: List[TrialBalanceEntry] = []
-    total_debits_sum = Decimal('0.00')
-    total_credits_sum = Decimal('0.00')
+    assets: List[BalanceSheetItem] = []
+    liabilities: List[BalanceSheetItem] = []
+    equity: List[BalanceSheetItem] = []
+    total_assets = Decimal('0.00')
+    total_liabilities = Decimal('0.00')
+    total_equity = Decimal('0.00')
 
     async for record in result:
-        debits = Decimal(str(record["total_debits"]))
-        credits = Decimal(str(record["total_credits"]))
-        
-        entries.append(TrialBalanceEntry(
-            account_number=record["account_number"],
-            account_name=record["account_name"],
-            debit_total=debits,
-            credit_total=credits
-        ))
-        total_debits_sum += debits
-        total_credits_sum += credits
+        account_type = record["type"]
+        category = record["category"]
+        normal_balance = record["normal_balance"]
+        sum_debits = Decimal(str(record["sum_debits"]))
+        sum_credits = Decimal(str(record["sum_credits"]))
+
+        balance = Decimal('0.00')
+        if normal_balance == 'Debit':
+            balance = sum_debits - sum_credits
+        elif normal_balance == 'Credit':
+            balance = sum_credits - sum_debits
+
+        if account_type == 'Asset':
+            assets.append(BalanceSheetItem(category=category, amount=balance))
+            total_assets += balance
+        elif account_type == 'Liability':
+            liabilities.append(BalanceSheetItem(category=category, amount=balance))
+            total_liabilities += balance
+        elif account_type == 'Equity':
+            equity.append(BalanceSheetItem(category=category, amount=balance))
+            total_equity += balance
     
-    return TrialBalance(
+    # Note: Retained earnings / Net Income for the period would typically flow into Equity
+    # but for simplicity at this stage, we're calculating based on balances.
+    # A full implementation would involve linking Net Income from the IS to RE on the BS.
+    total_liabilities_equity = total_liabilities + total_equity
+
+    return BalanceSheet(
         report_date=datetime.utcnow(),
-        entries=entries,
-        total_debits=total_debits_sum,
-        total_credits=total_credits_sum
+        as_of_date=as_of_date,
+        assets=assets,
+        liabilities=liabilities,
+        equity=equity,
+        total_assets=total_assets,
+        total_liabilities_equity=total_liabilities_equity
     )

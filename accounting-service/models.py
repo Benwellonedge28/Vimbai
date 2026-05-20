@@ -1,108 +1,46 @@
-from pydantic import BaseModel, Field, condecimal, model_validator
-from typing import Optional, List
-from datetime import datetime
-from decimal import Decimal # Use Decimal for financial calculations to avoid floating point issues
+# ... (existing imports and models) ...
 
-# --- Chart of Accounts Models ---
-class AccountBase(BaseModel):
-    account_number: str = Field(..., example="1010", description="Unique numerical identifier for the account.")
-    account_name: str = Field(..., example="Cash (Bank Account)", description="Descriptive name of the account.")
-    account_type: str = Field(..., example="Asset", description="Type of account (Asset, Liability, Equity, Revenue, Expense).")
-    normal_balance: str = Field(..., example="Debit", description="Debit or Credit, indicating how increases are recorded.")
-    description: Optional[str] = Field(None, example="Main operating bank account.", description="Detailed description of the account.")
-    parent_account_number: Optional[str] = Field(None, example="1000", description="The account number of the parent account for hierarchical grouping.")
+# --- Financial Statement Models (NEW) ---
 
-class AccountCreate(AccountBase):
-    pass
+# Income Statement
+class IncomeStatementItem(BaseModel):
+    category: str = Field(..., description="Revenue or Expense category.")
+    amount: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="Net amount for the category.")
 
-class AccountUpdate(BaseModel):
-    account_name: Optional[str] = None
-    account_type: Optional[str] = None
-    normal_balance: Optional[str] = None
-    description: Optional[str] = None
-    parent_account_number: Optional[str] = None
+class IncomeStatement(BaseModel):
+    report_date: datetime = Field(default_factory=datetime.utcnow, description="Date the income statement was generated.")
+    start_date: datetime = Field(..., description="Start date of the reporting period.")
+    end_date: datetime = Field(..., description="End date of the reporting period.")
+    revenues: List[IncomeStatementItem] = Field(..., description="List of revenue items.")
+    expenses: List[IncomeStatementItem] = Field(..., description="List of expense items.")
+    net_income: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="Calculated net income.")
 
-class AccountInDB(AccountBase):
-    id: str = Field(..., example="uuid-string-for-node") # Neo4j node ID or UUID
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+# Balance Sheet
+class BalanceSheetItem(BaseModel):
+    category: str = Field(..., description="Asset, Liability, or Equity category.")
+    amount: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="Total amount for the category.")
 
-    class Config:
-        from_attributes = True
-
-# --- Journal Entry and Line Models ---
-
-class JournalLineBase(BaseModel):
-    account_number: str = Field(..., example="1010", description="Account number affected by this line.")
-    debit: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(Decimal('0.00'), description="Debit amount.")
-    credit: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(Decimal('0.00'), description="Credit amount.")
-    description: Optional[str] = Field(None, example="Payment for services.", description="Description of the journal line.")
-
-    # Validation: one and only one of debit/credit must be non-zero
-    @model_validator(mode='after')
-    def check_debit_credit(self) -> 'JournalLineBase':
-        if (self.debit > 0 and self.credit > 0) or \
-           (self.debit == 0 and self.credit == 0):
-            raise ValueError("Exactly one of 'debit' or 'credit' must be a positive amount.")
-        return self
-
-class JournalEntryBase(BaseModel):
-    entry_date: datetime = Field(default_factory=datetime.utcnow, description="Date of the journal entry.")
-    description: str = Field(..., example="Record monthly utility bill.", description="Overall description of the entry.")
-    reference_number: Optional[str] = Field(None, example="INV-2023-001", description="Reference number (e.g., invoice number, check number).")
-    source_module: str = Field("Manual", example="Manual", description="Module from which the entry originated (e.g., 'Manual', 'POS', 'Multimodal').")
-    lines: List[JournalLineBase] = Field(..., min_length=2, description="List of journal lines. Must have at least two lines for double-entry.")
-
-    # Validation: Debits must equal Credits (double-entry principle)
-    @model_validator(mode='after')
-    def check_balanced_entry(self) -> 'JournalEntryBase':
-        total_debit = sum(line.debit for line in self.lines)
-        total_credit = sum(line.credit for line in self.lines)
-        if total_debit != total_credit:
-            raise ValueError("Journal entry is not balanced: Total Debits must equal Total Credits.")
-        return self
-
-class JournalEntryCreate(JournalEntryBase):
-    pass
-
-class JournalEntryUpdate(BaseModel):
-    entry_date: Optional[datetime] = None
-    description: Optional[str] = None
-    reference_number: Optional[str] = None
-    source_module: Optional[str] = None
-    lines: Optional[List[JournalLineBase]] = None # Updating lines would be complex, often involves re-creating or specific adjustments.
-
-class JournalEntryInDB(JournalEntryBase):
-    id: str = Field(..., example="uuid-string-for-node") # Neo4j node ID or UUID
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    class Config:
-        from_attributes = True
-
-# --- Ledger and Trial Balance Models (NEW) ---
-
-class LedgerAccountBalance(BaseModel):
-    account_number: str = Field(..., description="Account number.")
-    account_name: str = Field(..., description="Account name.")
-    account_type: str = Field(..., description="Type of account.")
-    normal_balance: str = Field(..., description="Normal balance of the account (Debit/Credit).")
-    current_balance: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="The calculated current balance of the account.")
-
-class TrialBalanceEntry(BaseModel):
-    account_number: str = Field(..., description="Account number.")
-    account_name: str = Field(..., description="Account name.")
-    debit_total: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(Decimal('0.00'), description="Total debit for the account in the period.")
-    credit_total: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(Decimal('0.00'), description="Total credit for the account in the period.")
-
-class TrialBalance(BaseModel):
-    report_date: datetime = Field(default_factory=datetime.utcnow, description="Date the trial balance was generated.")
-    entries: List[TrialBalanceEntry] = Field(..., description="List of all accounts with their debit/credit totals.")
-    total_debits: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(..., description="Sum of all debit totals.")
-    total_credits: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(..., description="Sum of all credit totals.")
+class BalanceSheet(BaseModel):
+    report_date: datetime = Field(default_factory=datetime.utcnow, description="Date the balance sheet was generated.")
+    as_of_date: datetime = Field(..., description="The specific date for which the balance sheet is prepared.")
+    assets: List[BalanceSheetItem] = Field(..., description="List of asset items.")
+    liabilities: List[BalanceSheetItem] = Field(..., description="List of liability items.")
+    equity: List[BalanceSheetItem] = Field(..., description="List of equity items.")
+    total_assets: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(..., description="Sum of all assets.")
+    total_liabilities_equity: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(..., description="Sum of all liabilities and equity.")
 
     @model_validator(mode='after')
-    def check_balanced_trial_balance(self) -> 'TrialBalance':
-        if self.total_debits != self.total_credits:
-            raise ValueError("Trial Balance is not balanced: Total Debits must equal Total Credits.")
+    def check_balanced_balance_sheet(self) -> 'BalanceSheet':
+        if self.total_assets != self.total_liabilities_equity:
+            raise ValueError("Balance Sheet is not balanced: Total Assets must equal Total Liabilities + Equity.")
         return self
+
+# Cash Flow Statement (Placeholder for future)
+class CashFlowStatement(BaseModel):
+    report_date: datetime = Field(default_factory=datetime.utcnow)
+    start_date: datetime = Field(...)
+    end_date: datetime = Field(...)
+    operating_activities: List[dict] = []
+    investing_activities: List[dict] = []
+    financing_activities: List[dict] = []
+    net_cash_flow: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(Decimal('0.00'))
