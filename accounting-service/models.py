@@ -1,46 +1,23 @@
-# ... (existing imports and models) ...
+# ... (existing models) ...
 
-# --- Financial Statement Models (NEW) ---
+# Cash Flow Statement (Expanded)
+class CashFlowActivity(BaseModel):
+    description: str = Field(..., description="Description of the cash flow item.")
+    amount: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="Cash flow amount.")
 
-# Income Statement
-class IncomeStatementItem(BaseModel):
-    category: str = Field(..., description="Revenue or Expense category.")
-    amount: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="Net amount for the category.")
+class CashFlowSection(BaseModel):
+    title: str = Field(..., description="Title of the cash flow section (e.g., Operating Activities).")
+    activities: List[CashFlowActivity] = Field(..., description="List of individual cash flow activities.")
+    net_cash: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="Net cash flow for this section.")
 
-class IncomeStatement(BaseModel):
-    report_date: datetime = Field(default_factory=datetime.utcnow, description="Date the income statement was generated.")
+class CashFlowStatement(BaseModel):
+    report_date: datetime = Field(default_factory=datetime.utcnow, description="Date the cash flow statement was generated.")
     start_date: datetime = Field(..., description="Start date of the reporting period.")
     end_date: datetime = Field(..., description="End date of the reporting period.")
-    revenues: List[IncomeStatementItem] = Field(..., description="List of revenue items.")
-    expenses: List[IncomeStatementItem] = Field(..., description="List of expense items.")
-    net_income: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="Calculated net income.")
-
-# Balance Sheet
-class BalanceSheetItem(BaseModel):
-    category: str = Field(..., description="Asset, Liability, or Equity category.")
-    amount: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="Total amount for the category.")
-
-class BalanceSheet(BaseModel):
-    report_date: datetime = Field(default_factory=datetime.utcnow, description="Date the balance sheet was generated.")
-    as_of_date: datetime = Field(..., description="The specific date for which the balance sheet is prepared.")
-    assets: List[BalanceSheetItem] = Field(..., description="List of asset items.")
-    liabilities: List[BalanceSheetItem] = Field(..., description="List of liability items.")
-    equity: List[BalanceSheetItem] = Field(..., description="List of equity items.")
-    total_assets: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(..., description="Sum of all assets.")
-    total_liabilities_equity: condecimal(ge=Decimal('0.00'), decimal_places=2) = Field(..., description="Sum of all liabilities and equity.")
-
-    @model_validator(mode='after')
-    def check_balanced_balance_sheet(self) -> 'BalanceSheet':
-        if self.total_assets != self.total_liabilities_equity:
-            raise ValueError("Balance Sheet is not balanced: Total Assets must equal Total Liabilities + Equity.")
-        return self
-
-# Cash Flow Statement (Placeholder for future)
-class CashFlowStatement(BaseModel):
-    report_date: datetime = Field(default_factory=datetime.utcnow)
-    start_date: datetime = Field(...)
-    end_date: datetime = Field(...)
-    operating_activities: List[dict] = []
-    investing_activities: List[dict] = []
-    financing_activities: List[dict] = []
-    net_cash_flow: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(Decimal('0.00'))
+    net_income: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="Net Income from Income Statement.")
+    operating_activities: CashFlowSection = Field(..., description="Cash flow from operating activities.")
+    investing_activities: CashFlowSection = Field(..., description="Cash flow from investing activities.")
+    financing_activities: CashFlowSection = Field(..., description="Cash flow from financing activities.")
+    net_increase_decrease_in_cash: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="Net increase/decrease in cash during the period.")
+    beginning_cash_balance: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="Cash balance at the beginning of the period.")
+    ending_cash_balance: condecimal(ge=Decimal('-999999999999999.99'), decimal_places=2) = Field(..., description="Cash balance at the end of the period.")

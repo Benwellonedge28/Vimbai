@@ -7,7 +7,7 @@ from accounting_service.dependencies import get_db_session
 from accounting_service.utils.auth import check_permission
 import os
 from dotenv import load_dotenv
-from datetime import datetime # NEW
+from datetime import datetime, timedelta # NEW
 
 # Load environment variables
 load_dotenv()
@@ -45,9 +45,9 @@ async def read_account_by_number(account_number: str, db_session: AsyncSession =
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
     return db_account
     
-@app.get("/accounts/", response_model=List[models.AccountInDB], 
-         dependencies=[Depends(check_permission("accounting.read.accounts"))])
-async def read_all_accounts(db_session: AsyncSession = Depends(get_db_session)): 
+@app.get("/accounts/")
+async def read_all_accounts(db_session: AsyncSession = Depends(get_db_session), 
+                           _=Depends(check_permission("accounting.read.accounts"))) -> List[models.AccountInDB]: 
     return await crud.get_all_accounts(db_session)
 
 @app.put("/accounts/{account_number}", response_model=models.AccountInDB, 
@@ -140,6 +140,22 @@ async def get_balance_sheet(
     db_session: AsyncSession = Depends(get_db_session)
 ):
     return await crud.generate_balance_sheet(db_session, as_of_date)
+
+@app.get("/financial-statements/cash-flow-statement", response_model=models.CashFlowStatement,
+             dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
+async def get_cash_flow_statement(
+    start_date: datetime = Query(..., description="Start date of the reporting period (ISO format)"),
+    end_date: datetime = Query(..., description="End date of the reporting period (ISO format)"),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    if start_date >= end_date:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Start date must be before end date")
+    
+    # To generate CFS, we need the Net Income for the period first (from Income Statement)
+    income_statement = await crud.generate_income_statement(db_session, start_date, end_date)
+    net_income = income_statement.net_income
+
+    return await crud.generate_cash_flow_statement(db_session, start_date, end_date, net_income)
 
 # --- Root endpoint for health check ---
 @app.get("/")
