@@ -4,10 +4,13 @@ import 'package:finacc_mobile_client/pages/login_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:finacc_mobile_client/pages/chart_of_accounts_page.dart';
 import 'package:finacc_mobile_client/pages/journal_entry_form_page.dart';
-import 'package:finacc_mobile_client/pages/journal_entries_list_page.dart'; // NEW import
+import 'package:finacc_mobile_client/pages/journal_entries_list_page.dart';
 import 'package:finacc_mobile_client/pages/budgets_page.dart';
 import 'package:finacc_mobile_client/pages/ledger_page.dart';
 import 'package:finacc_mobile_client/pages/trial_balance_page.dart';
+import 'package:finacc_mobile_client/pages/income_statement_page.dart'; // NEW
+import 'package:finacc_mobile_client/pages/balance_sheet_page.dart'; // NEW
+import 'package:finacc_mobile_client/pages/cash_flow_statement_page.dart'; // NEW
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -56,7 +59,7 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           body: Center(
-            child: SingleChildScrollView( // Added SingleChildScrollView
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -100,7 +103,7 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: const Text('Create Journal Entry'),
                   ),
-                  const SizedBox(height: 20), // NEW Button
+                  const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).push(
@@ -136,7 +139,33 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: const Text('View Trial Balance'),
                   ),
-                  // More FinAcc features will go here
+                  const SizedBox(height: 20), // NEW
+                  ElevatedButton( // NEW
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const IncomeStatementPage()),
+                      );
+                    },
+                    child: const Text('View Income Statement'),
+                  ),
+                  const SizedBox(height: 20), // NEW
+                  ElevatedButton( // NEW
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const BalanceSheetPage()),
+                      );
+                    },
+                    child: const Text('View Balance Sheet'),
+                  ),
+                  const SizedBox(height: 20), // NEW
+                  ElevatedButton( // NEW
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const CashFlowStatementPage()),
+                      );
+                    },
+                    child: const Text('View Cash Flow Statement'),
+                  ),
                 ],
               ),
             ),
