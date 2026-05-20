@@ -86,12 +86,10 @@ services:
         condition: service_started
     restart: on-failure
 
-  banking-integration-service: # NEW SERVICE
+  banking-integration-service:
     build:
       context: ./banking-integration-service
       dockerfile: Dockerfile
-    # ports: # Not exposed directly
-    #   - "8003:8003"
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
@@ -116,11 +114,11 @@ services:
     environment:
       - PORT=8081
       - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Must match across all services
-      - IDENTITY_SERVICE_URL=http://identity-service:8080 # Internal Docker network names
+      - IDENTITY_SERVICE_URL=http://identity-service:8080
       - ACCOUNTING_SERVICE_URL=http://accounting-service:8000
       - FINANCE_SERVICE_URL=http://finance-service:8001
       - MULTIMODAL_SERVICE_URL=http://multimodal-pipeline-service:8002
-      - BANKING_INTEGRATION_SERVICE_URL=http://banking-integration-service:8003 # NEW
+      - BANKING_INTEGRATION_SERVICE_URL=http://banking-integration-service:8003
     depends_on:
       identity-service:
         condition: service_started
@@ -130,6 +128,19 @@ services:
         condition: service_started
       multimodal-pipeline-service:
         condition: service_started
-      banking-integration-service: # NEW
+      banking-integration-service:
+        condition: service_started
+    restart: on-failure
+
+  web-frontend: # NEW SERVICE
+    build:
+      context: ./web-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8081 # Point to the API Gateway
+    depends_on:
+      api-gateway:
         condition: service_started
     restart: on-failure
