@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:finacc_mobile_client/services/finance_api_service.dart';
 import 'package:finacc_mobile_client/models/finance_models.dart';
-import 'package:finacc_mobile_client/pages/budget_detail_page.dart'; // Assuming this page will be created
+import 'package:finacc_mobile_client/pages/budget_detail_page.dart';
+import 'package:finacc_mobile_client/pages/budget_form_page.dart'; // NEW import
 
 class BudgetsPage extends StatefulWidget {
   const BudgetsPage({super.key});
@@ -18,6 +19,13 @@ class _BudgetsPageState extends State<BudgetsPage> {
   void initState() {
     super.initState();
     _budgetsFuture = _apiService.getBudgets();
+  }
+
+  // Helper to refresh budgets after a new one is created
+  void _refreshBudgets() {
+    setState(() {
+      _budgetsFuture = _apiService.getBudgets();
+    });
   }
 
   @override
@@ -59,14 +67,15 @@ class _BudgetsPageState extends State<BudgetsPage> {
             },
           ),
           floatingActionButton: FloatingActionButton(
-            onPressed: () {
+            onPressed: () async {
               // Navigate to a page to create a new budget
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Create Budget functionality not yet implemented.')),
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const BudgetFormPage()),
               );
+              _refreshBudgets(); // Refresh list after returning from form
             },
             child: const Icon(Icons.add),
           ),
-        );
+        );를
       }
     }
