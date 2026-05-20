@@ -7,6 +7,7 @@ import 'package:finacc_mobile_client/models/finance_models.dart'; // NEW: Import
 class FinanceApiService {
   // final String _financeServiceUrl = '${AppConfig.apiUrl.replaceFirst(':8080', ':8001')}'; // Old hardcoded derivation
   final String _financeServiceUrl = '${AppConfig.apiUrl}/budgets'; // NEW: Use API Gateway path prefix for budgets
+  final String _financialRatiosUrl = '${AppConfig.apiUrl}/financial-ratios'; // NEW: Use API Gateway path prefix for financial ratios
 
   Future<Map<String, String>> _getHeaders() async {
     final token = await UserLocalData.getAuthToken();
@@ -54,7 +55,7 @@ class FinanceApiService {
     }
   }
 
-  // --- Variance Analysis API Calls (NEW ADDITION) ---
+  // --- Variance Analysis API Calls ---
   Future<BudgetVarianceReport> getBudgetVarianceReport(String budgetId) async {
     final headers = await _getHeaders();
     final response = await http.get(Uri.parse('$_financeServiceUrl/$budgetId/variance-report'), headers: headers);
@@ -63,6 +64,21 @@ class FinanceApiService {
       return BudgetVarianceReport.fromJson(json.decode(response.body));
     } else {
       throw Exception('Failed to load budget variance report: ${response.body}');
+    }
+  }
+
+  // --- Financial Ratios API Calls (NEW ADDITION) ---
+  Future<FinancialRatiosReport> getFinancialRatios(DateTime startDate, DateTime endDate) async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$_financialRatiosUrl?start_date=${startDate.toIso8601String()}&end_date=${endDate.toIso8601String()}'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      return FinancialRatiosReport.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to load financial ratios report: ${response.body}');
     }
   }
 }

@@ -1,5 +1,3 @@
-import 'package:finacc_mobile_client/config.dart';
-
 import 'package:flutter/material.dart';
 import 'package:finacc_mobile_client/services/auth_service.dart';
 import 'package:finacc_mobile_client/pages/login_page.dart';
@@ -13,7 +11,8 @@ import 'package:finacc_mobile_client/pages/trial_balance_page.dart';
 import 'package:finacc_mobile_client/pages/income_statement_page.dart';
 import 'package:finacc_mobile_client/pages/balance_sheet_page.dart';
 import 'package:finacc_mobile_client/pages/cash_flow_statement_page.dart';
-import 'package:finacc_mobile_client/pages/multimodal_input_page.dart'; // NEW
+import 'package:finacc_mobile_client/pages/multimodal_input_page.dart';
+import 'package:finacc_mobile_client/pages/financial_ratios_page.dart'; // NEW
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -142,8 +141,8 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: const Text('View Trial Balance'),
                   ),
-                  const SizedBox(height: 20), // NEW
-                  ElevatedButton( // NEW
+                  const SizedBox(height: 20),
+                  ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => const IncomeStatementPage()),
@@ -151,8 +150,8 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: const Text('View Income Statement'),
                   ),
-                  const SizedBox(height: 20), // NEW
-                  ElevatedButton( // NEW
+                  const SizedBox(height: 20),
+                  ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => const BalanceSheetPage()),
@@ -160,8 +159,8 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: const Text('View Balance Sheet'),
                   ),
-                  const SizedBox(height: 20), // NEW
-                  ElevatedButton( // NEW
+                  const SizedBox(height: 20),
+                  ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => const CashFlowStatementPage()),
@@ -169,7 +168,7 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: const Text('View Cash Flow Statement'),
                   ),
-                  const SizedBox(height: 30), // NEW Section for Multimodal
+                  const SizedBox(height: 30),
                   const Text(
                     'Multimodal Input:',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -182,6 +181,15 @@ class _HomePageState extends State<HomePage> {
                       );
                     },
                     child: const Text('Process Image/Audio'),
+                  ),
+                  const SizedBox(height: 20), // NEW
+                  ElevatedButton( // NEW
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const FinancialRatiosPage()),
+                      );
+                    },
+                    child: const Text('View Financial Ratios'),
                   ),
                   // More FinAcc features will go here
                 ],
