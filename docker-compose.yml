@@ -66,9 +66,12 @@ services:
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
       - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Must match Identity Service's JWT_SECRET
+      - API_GATEWAY_URL=http://api-gateway:8081 # NEW: Internal URL for API Gateway
     depends_on:
       neo4j:
         condition: service_healthy
+      api-gateway:
+        condition: service_started
     restart: on-failure
 
   multimodal-pipeline-service:
@@ -79,12 +82,16 @@ services:
     #   - "8002:8002"
     environment:
       - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Must match Identity Service's JWT_SECRET
+      - API_GATEWAY_URL=http://api-gateway:8081 # Internal Docker network URL for the gateway
     depends_on:
       identity-service:
         condition: service_started
+      # It needs to call the Accounting Service via the API Gateway
+      api-gateway:
+        condition: service_started
     restart: on-failure
 
-  api-gateway: # NEW SERVICE
+  api-gateway:
     build:
       context: ./api-gateway
       dockerfile: Dockerfile

@@ -1,27 +1,25 @@
-# ... (existing Budget and BudgetItem models) ...
+# ... (existing Budget and Variance Analysis models) ...
 
-# --- Variance Analysis Models (NEW) ---
-class ActualsSummary(BaseModel):
-    account_number: str
-    total_debit: Decimal
-    total_credit: Decimal
-    balance: Decimal # Balance based on normal_balance
+# --- Financial Ratio Models (NEW) ---
 
-class BudgetVarianceItem(BaseModel):
-    category: str
-    account_number: Optional[str]
-    budgeted_amount: Decimal
-    actual_amount: Decimal
-    variance: Decimal # Actual - Budgeted
-    variance_percentage: float # (Variance / Budgeted) * 100
+class LiquidityRatios(BaseModel):
+    current_ratio: Optional[Decimal] = None # Current Assets / Current Liabilities
+    quick_ratio: Optional[Decimal] = None   # (Cash + Marketable Securities + Accounts Receivable) / Current Liabilities
 
-class BudgetVarianceReport(BaseModel):
-    budget_name: str
-    fiscal_year: int
-    period: str
+class SolvencyRatios(BaseModel):
+    debt_to_equity_ratio: Optional[Decimal] = None # Total Debt / Shareholder's Equity
+    debt_to_asset_ratio: Optional[Decimal] = None  # Total Debt / Total Assets
+
+class ProfitabilityRatios(BaseModel):
+    gross_profit_margin: Optional[Decimal] = None # (Revenue - Cost of Goods Sold) / Revenue
+    net_profit_margin: Optional[Decimal] = None   # Net Income / Revenue
+    return_on_assets: Optional[Decimal] = None    # Net Income / Total Assets
+
+class FinancialRatiosReport(BaseModel):
     report_date: datetime = Field(default_factory=datetime.utcnow)
-    items: List[BudgetVarianceItem]
-    total_budgeted: Decimal
-    total_actual: Decimal
-    total_variance: Decimal
-    total_variance_percentage: float # (Total Variance / Total Budgeted) * 100
+    start_date: datetime
+    end_date: datetime
+    liquidity: LiquidityRatios
+    solvency: SolvencyRatios
+    profitability: ProfitabilityRatios
+    currency: str = Field("USD", description="Currency of the financial data.")
