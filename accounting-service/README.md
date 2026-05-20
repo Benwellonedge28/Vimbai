@@ -8,6 +8,7 @@ This is the Accounting Service microservice for the FinAcc application, built wi
     - Create, Read (single, all), Update, Delete accounts.
     - Support for hierarchical accounts (parent/child relationships).
 - Neo4j integration for flexible data modeling of accounting entities.
+- **JWT Authentication and Role-Based Access Control (RBAC)** for all API endpoints.
 
 ## Getting Started
 
@@ -20,11 +21,12 @@ To run this service along with Neo4j and the Identity Service, you need Docker a
 
 ### 2. Environment Variables
 
-The service requires the following environment variables. It's recommended to set these in a `.env` file at the root of the project where `docker-compose.yml` is located, or directly in `docker-compose.yml` for local development.
+The services require the following environment variables. It's recommended to set these in a `.env` file at the root of the project where `docker-compose.yml` is located, or directly in `docker-compose.yml` for local development.
 
 - `NEO4J_URI`: The connection URI for your Neo4j database (e.g., `bolt://neo4j:7687` when running with Docker Compose).
 - `NEO4J_USER`: The username for Neo4j (e.g., `neo4j`).
 - `NEO4J_PASSWORD`: The password for Neo4j (e.g., `neo4j` for default Docker setup, **CHANGE THIS IN PRODUCTION**).
+- `JWT_SECRET`: A strong, random secret key for signing JWT tokens. **CRITICAL: This MUST match the `JWT_SECRET` used by the `identity-service` for token validation to work.**
 
 ### 3. Running the Services (with Docker Compose)
 
@@ -38,15 +40,53 @@ This command will:
 1.  Build the `identity-service` and `accounting-service` Docker images.
 2.  Start a Neo4j container.
 3.  Start the `identity-service` and `accounting-service` containers, connecting them to Neo4j.
-4.  Ensure Neo4j schema constraints are created for both services.
+4.  Ensure Neo4j schema constraints are created for both services, and initial roles are seeded.
 
 The Accounting Service will be accessible at `http://localhost:8000`.
 
-### 4. Interacting with the API (Chart of Accounts)
+### 4. Interacting with the API (Authenticated Chart of Accounts)
 
-You can use tools like `curl`, Postman, or Insomnia to interact with the service.
+All endpoints now require a valid JWT in the `Authorization: Bearer <token>` header.
 
-#### Create a new Account
+#### **Step 1: Get a JWT Token**
+
+First, register and log in via the Identity Service:
+
+1.  **Register a new user (if you haven't already):**
+    **Endpoint:** `POST http://localhost:8080/register`
+    **Body (JSON):**
+    ```json
+    {
+      "username": "accountant_user",
+      "email": "accountant@finacc.com",
+      "password": "password123",
+      "role_name": "ACCOUNTANT" 
+    }
+    ```
+    (Or `SUPER_ADMIN` for full access)
+
+2.  **Login to get a token:**
+    **Endpoint:** `POST http://localhost:8080/login`
+    **Body (JSON):**
+    ```json
+    {
+      "username": "accountant_user",
+      "password": "password123"
+    }
+    ```
+    This will return a `{"token": "eyJ..."}`. Copy this token.
+
+#### **Step 2: Make Authenticated Requests to Accounting Service**
+
+Use the copied JWT token in the `Authorization: Bearer <token>` header for all requests to the Accounting Service.
+
+**Header:** `Authorization: Bearer <YOUR_JWT_TOKEN_HERE>`
+
+**Permissions:**
+- `ACCOUNTANT` role has `accounting.*` permissions, allowing `create`, `read`, `update`, `delete` operations on accounts.
+- `SUPER_ADMIN` role has `*.*` permissions, allowing all operations.
+
+#### Create a new Account (Requires `accounting.write.accounts` permission)
 
 **Endpoint:** `POST http://localhost:8000/accounts/`
 
@@ -61,28 +101,17 @@ You can use tools like `curl`, Postman, or Insomnia to interact with the service
   "parent_account_number": null
 }
 ```
-Or for a child account:
-```json
-{
-  "account_number": "1100",
-  "account_name": "Accounts Receivable",
-  "account_type": "Asset",
-  "normal_balance": "Debit",
-  "description": "Amounts owed by customers",
-  "parent_account_number": "1000" // Assuming 1000 is a parent account like "Current Assets"
-}
-```
 
-#### Get all Accounts
+#### Get all Accounts (Requires `accounting.read.accounts` permission)
 
 **Endpoint:** `GET http://localhost:8000/accounts/`
 
-#### Get Account by Number
+#### Get Account by Number (Requires `accounting.read.accounts` permission)
 
 **Endpoint:** `GET http://localhost:8000/accounts/{account_number}`
 Example: `GET http://localhost:8000/accounts/1010`
 
-#### Update an Account
+#### Update an Account (Requires `accounting.write.accounts` permission)
 
 **Endpoint:** `PUT http://localhost:8000/accounts/{account_number}`
 Example: `PUT http://localhost:8000/accounts/1010`
@@ -94,14 +123,14 @@ Example: `PUT http://localhost:8000/accounts/1010`
 }
 ```
 
-#### Delete an Account
+#### Delete an Account (Requires `accounting.delete.accounts` permission)
 
 **Endpoint:** `DELETE http://localhost:8000/accounts/{account_number}`
 Example: `DELETE http://localhost:8000/accounts/1010`
 
 ### 5. Development
 
-If developing locally (outside Docker Compose), ensure you have Python (3.10+) installed and your environment variables (`NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`) are correctly set.
+If developing locally (outside Docker Compose), ensure you have Python (3.10+) installed and your environment variables (`NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `JWT_SECRET`) are correctly set.
 
 ```bash
 # Navigate to accounting-service directory
@@ -125,6 +154,5 @@ Unique constraints are enforced on `Account.account_number` and `Account.account
 ## Future Enhancements
 
 -   Implementation of Journal Entries and Journal Lines.
--   Integration with other FinAcc services (e.g., Identity Service for authentication).
 -   Ledger posting and financial statement generation.
 -   Support for specific accounting modalities (e.g., Fund Accounting dimensions).
