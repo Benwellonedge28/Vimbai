@@ -12,7 +12,8 @@ import 'package:finacc_mobile_client/pages/income_statement_page.dart';
 import 'package:finacc_mobile_client/pages/balance_sheet_page.dart';
 import 'package:finacc_mobile_client/pages/cash_flow_statement_page.dart';
 import 'package:finacc_mobile_client/pages/multimodal_input_page.dart';
-import 'package:finacc_mobile_client/pages/financial_ratios_page.dart'; // NEW
+import 'package:finacc_mobile_client/pages/financial_ratios_page.dart';
+import 'package:finacc_mobile_client/pages/bank_accounts_page.dart'; // NEW
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -182,14 +183,28 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: const Text('Process Image/Audio'),
                   ),
-                  const SizedBox(height: 20), // NEW
-                  ElevatedButton( // NEW
+                  const SizedBox(height: 20),
+                  ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => const FinancialRatiosPage()),
                       );
                     },
                     child: const Text('View Financial Ratios'),
+                  ),
+                  const SizedBox(height: 30), // NEW Section for Banking
+                  const Text(
+                    'Banking Integration:',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const BankAccountsPage()),
+                      );
+                    },
+                    child: const Text('Manage Bank Accounts'),
                   ),
                   // More FinAcc features will go here
                 ],
