@@ -8,9 +8,10 @@ import 'package:finacc_mobile_client/pages/journal_entries_list_page.dart';
 import 'package:finacc_mobile_client/pages/budgets_page.dart';
 import 'package:finacc_mobile_client/pages/ledger_page.dart';
 import 'package:finacc_mobile_client/pages/trial_balance_page.dart';
-import 'package:finacc_mobile_client/pages/income_statement_page.dart'; // NEW
-import 'package:finacc_mobile_client/pages/balance_sheet_page.dart'; // NEW
-import 'package:finacc_mobile_client/pages/cash_flow_statement_page.dart'; // NEW
+import 'package:finacc_mobile_client/pages/income_statement_page.dart';
+import 'package:finacc_mobile_client/pages/balance_sheet_page.dart';
+import 'package:finacc_mobile_client/pages/cash_flow_statement_page.dart';
+import 'package:finacc_mobile_client/pages/multimodal_input_page.dart'; // NEW
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -127,8 +128,7 @@ class _HomePageState extends State<HomePage> {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => const LedgerPage()),
                       );
-                    },
-                    child: const Text('View Ledger Account'),
+                    },\n                    child: const Text('View Ledger Account'),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
@@ -166,6 +166,21 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: const Text('View Cash Flow Statement'),
                   ),
+                  const SizedBox(height: 30), // NEW Section for Multimodal
+                  const Text(
+                    'Multimodal Input:',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const MultimodalInputPage()),
+                      );
+                    },
+                    child: const Text('Process Image/Audio'),
+                  ),
+                  // More FinAcc features will go here
                 ],
               ),
             ),

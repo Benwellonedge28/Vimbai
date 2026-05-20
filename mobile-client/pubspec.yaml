@@ -14,8 +14,10 @@ dependencies:
   shared_preferences: ^2.2.3 # For local storage
   http: ^1.2.1 # For making API calls
   connectivity_plus: ^6.0.3 # To check network status
-  decimal: ^2.3.3 # NEW: For precise financial calculations
-  intl: ^0.19.0 # NEW: For date formatting
+  decimal: ^2.3.3 # For precise financial calculations
+  intl: ^0.19.0 # For date formatting
+  image_picker: ^1.1.1 # NEW: For picking images from gallery/camera
+  record: ^7.0.0 # NEW: For audio recording
 
 dev_dependencies:
   flutter_test:
