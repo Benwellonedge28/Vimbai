@@ -7,7 +7,7 @@ from banking_integration_service.models import (
     TransactionCategorizationRuleCreate, TransactionCategorizationRuleUpdate, TransactionCategorizationRuleInDB,
     ReconciliationMatchCreate, ReconciliationMatchUpdate, ReconciliationMatchInDB
 )
-from datetime import datetime
+from datetime import datetime, date
 import uuid
 
 # --- BankConnection CRUD ---
@@ -79,6 +79,33 @@ async def get_bank_connection(session: AsyncSession, user_id: str, connection_id
             updated_at=datetime.fromisoformat(bc_node["updated_at"].iso_format()),
         )
     return None
+
+async def get_bank_connection_by_external_id(session: AsyncSession, external_id: str) -> Optional[BankConnectionInDB]: # NEW
+    query = """
+    MATCH (bc:BankConnection {external_id: $external_id})
+    OPTIONAL MATCH (u:User)-[:OWNS_BANK_CONNECTION]->(bc)
+    RETURN bc, u.id AS user_id
+    """
+    result = await session.run(query, external_id=external_id)
+    record = await result.single()
+
+    if record:
+        bc_node = record["bc"]
+        user_id = record["user_id"] # Get user_id from the OWNS_BANK_CONNECTION relationship
+        return BankConnectionInDB(
+            id=bc_node["id"],
+            user_id=user_id,
+            provider=bc_node["provider"],
+            access_token=bc_node["access_token"],
+            external_id=bc_node["external_id"],
+            status=bc_node["status"],
+            last_synced_at=datetime.fromisoformat(bc_node["last_synced_at"].iso_format()) if bc_node.get("last_synced_at") else None,
+            metadata=bc_node["metadata"],
+            created_at=datetime.fromisoformat(bc_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(bc_node["updated_at"].iso_format()),
+        )
+    return None
+
 
 async def get_all_bank_connections(session: AsyncSession, user_id: str) -> List[BankConnectionInDB]:
     query = """
@@ -369,6 +396,36 @@ async def get_bank_transaction(session: AsyncSession, transaction_id: str) -> Op
             updated_at=datetime.fromisoformat(bt_node["updated_at"].iso_format()),
         )
     return None
+
+async def get_bank_transaction_by_provider_id(session: AsyncSession, provider_transaction_id: str) -> Optional[BankTransactionInDB]: # NEW
+    query = """
+    MATCH (bt:BankTransaction {transaction_id: $provider_transaction_id})
+    RETURN bt
+    """
+    result = await session.run(query, provider_transaction_id=provider_transaction_id)
+    record = await result.single()
+
+    if record:
+        bt_node = record["bt"]
+        return BankTransactionInDB(
+            id=bt_node["id"],
+            transaction_id=bt_node["transaction_id"],
+            account_id=bt_node["account_id"],
+            description=bt_node["description"],
+            amount=bt_node["amount"],
+            date=bt_node["date"],
+            posted_date=bt_node["posted_date"],
+            category=bt_node["category"],
+            type=bt_node["type"],
+            status=bt_node["status"],
+            finacc_journal_entry_id=bt_node["finacc_journal_entry_id"],
+            is_reconciled=bt_node["is_reconciled"],
+            metadata=bt_node["metadata"],
+            created_at=datetime.fromisoformat(bt_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(bt_node["updated_at"].iso_format()),
+        )
+    return None
+
 
 async def get_bank_transactions_for_account(session: AsyncSession, account_id: str) -> List[BankTransactionInDB]:
     query = """
