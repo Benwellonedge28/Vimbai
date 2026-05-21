@@ -1,252 +1,289 @@
 // mobile-client/lib/widgets/multimodal_entry_window.dart
 
 import 'package:flutter/material.dart';
-import 'package:finacc_mobile_client/models/multimodal_models.dart'; // To use DocumentParseResult, AudioParseResult etc.
-import 'package:finacc_mobile_client/services/multimodal_api_service.dart'; // To interact with the multimodal service
-import 'package:finacc_mobile_client/services/accounting_api_service.dart'; // To create/update journal entries
-import 'package:finacc_mobile_client/models/accounting_models.dart'; // For JournalEntryCreate, JournalLineCreate
+import 'package:provider/provider.dart';
+import 'package:finacc_mobile_client/models/multimodal_models.dart';
+import 'package:finacc_mobile_client/models/accounting_models.dart';
+import 'package:finacc_mobile_client/services/multimodal_api_service.dart';
+import 'package:finacc_mobile_client/services/accounting_api_service.dart';
+import 'package:finacc_mobile_client/local_db/local_database.dart';
 import 'package:decimal/decimal.dart'; // For Decimal type
+import 'package:uuid/uuid.dart'; // For generating unique IDs
 
 class MultimodalEntryWindow extends StatefulWidget {
-  final MultimodalInput? initialInput; // Could be an offline-queued task or newly received input
-  final DocumentParseResult? initialDocumentResult;
-  final AudioParseResult? initialAudioResult;
+  final String? taskId; // Optional: if opening an existing task for review
 
-  const MultimodalEntryWindow({
-    Key? key,
-    this.initialInput,
-    this.initialDocumentResult,
-    this.initialAudioResult,
-  }) : super(key: key);
+  const MultimodalEntryWindow({Key? key, this.taskId}) : super(key: key);
 
   @override
   _MultimodalEntryWindowState createState() => _MultimodalEntryWindowState();
 }
 
 class _MultimodalEntryWindowState extends State<MultimodalEntryWindow> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _descriptionController;
-  late TextEditingController _amountController;
-  late TextEditingController _debitAccountController;
-  late TextEditingController _creditAccountController;
-  late DateTime _entryDate;
-  String? _extractedText; // For OCR/ASR output
-  List<ExtractedDataField> _extractedFields = []; // For structured data from OCR
-
-  bool _isProcessing = false;
+  MultimodalProcessingTaskInDB? _task;
+  bool _isLoading = true;
   String? _errorMessage;
-  String? _successMessage;
+  Map<String, TextEditingController> _controllers = {};
+  List<ExtractedDataField> _editableFields = [];
 
   @override
   void initState() {
     super.initState();
-    _descriptionController = TextEditingController();
-    _amountController = TextEditingController();
-    _debitAccountController = TextEditingController();
-    _creditAccountController = TextEditingController();
-    _entryDate = DateTime.now();
-
-    _initializeFromProps();
+    _fetchTask();
   }
 
-  void _initializeFromProps() {
-    if (widget.initialDocumentResult != null) {
-      _extractedText = widget.initialDocumentResult!.rawText;
-      _extractedFields = widget.initialDocumentResult!.extractedData;
-      _descriptionController.text = _findExtractedValue('description') ?? '';
-      _amountController.text = _findExtractedValue('total_amount') ?? '';
-      _entryDate = DateTime.tryParse(_findExtractedValue('date') ?? '') ?? DateTime.now();
-      // Pre-fill accounts based on AI suggestions or user preferences if available
-      _debitAccountController.text = _findExtractedValue('suggested_debit_account') ?? '';
-      _creditAccountController.text = _findExtractedValue('suggested_credit_account') ?? '';
-    } else if (widget.initialAudioResult != null) {
-      _extractedText = widget.initialAudioResult!.transcribedText;
-      _descriptionController.text = _extractedText ?? '';
-      // Parse commands or text for amount, accounts, etc. (more complex AI task)
-    } else if (widget.initialInput != null && widget.initialInput!.inputType == 'text') {
-      _extractedText = widget.initialInput!.data;
-      _descriptionController.text = _extractedText ?? '';
-    }
+  @override
+  void dispose() {
+    _controllers.values.forEach((controller) => controller.dispose());
+    super.dispose();
   }
 
-  String? _findExtractedValue(String fieldName) {
-    try {
-      return _extractedFields.firstWhere((field) => field.name == fieldName).value;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  Future<void> _submitJournalEntry() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
+  Future<void> _fetchTask() async {
     setState(() {
-      _isProcessing = true;
+      _isLoading = true;
       _errorMessage = null;
-      _successMessage = null;
     });
-
     try {
-      final journalEntry = JournalEntryCreate(
-        entryDate: _entryDate,
-        description: _descriptionController.text,
-        sourceModule: "Multimodal Entry Window",
-        referenceNumber: widget.initialInput?.id ?? 'MM-${DateTime.now().millisecondsSinceEpoch}',
-        lines: [
-          JournalLineCreate(
-            accountNumber: _debitAccountController.text,
-            debit: Decimal.parse(_amountController.text),
-            credit: Decimal.parse('0.00'),
-            description: _descriptionController.text,
+      if (widget.taskId != null) {
+        _task = await Provider.of<MultimodalApiService>(context, listen: false).getTask(widget.taskId!);
+      } else {
+        // For new inputs, we'd typically create a task first and then fetch it
+        // For now, let's mock a simple task if no ID is provided
+        _task = MultimodalProcessingTaskInDB(
+          id: Uuid().v4(),
+          userId: 'mock_user_id', // Replace with actual user ID
+          inputType: MultimodalInputType.document,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          status: MultimodalProcessingStatus.reviewPending,
+          documentResult: DocumentParseResult(
+            extractedData: [
+              ExtractedDataField(name: 'vendor_name', value: 'Mock Mart', confidence: 0.9),
+              ExtractedDataField(name: 'date', value: DateTime.now().toIso8601String().split('T')[0], confidence: 0.85),
+              ExtractedDataField(name: 'total_amount', value: '123.45', confidence: 0.92),
+              ExtractedDataField(name: 'category', value: 'Groceries', confidence: 0.7),
+            ],
+            aiConfidence: 0.8,
           ),
-          JournalLineCreate(
-            accountNumber: _creditAccountController.text,
-            debit: Decimal.parse('0.00'),
-            credit: Decimal.parse(_amountController.text),
-            description: _descriptionController.text,
-          ),
-        ],
-      );
-
-      final AccountingApiService accountingApiService = AccountingApiService();
-      await accountingApiService.createJournalEntry(journalEntry, isSynced: false); // Create locally first
-
-      setState(() {
-        _successMessage = 'Journal Entry successfully submitted (queued for sync if offline)!';
-        _isProcessing = false;
-        // Optionally mark the original multimodal task as processed or linked
-      });
-      // Navigate back or clear form
+          suggestedJournalEntry: {
+            'description': 'Mock Mart Purchase',
+            'amount': '123.45',
+            'date': DateTime.now().toIso8601String().split('T')[0],
+          }
+        );
+      }
+      _populateEditableFields();
     } catch (e) {
+      _errorMessage = 'Failed to load task: $e';
+      print(_errorMessage);
+    } finally {
       setState(() {
-        _errorMessage = 'Failed to submit Journal Entry: ${e.toString()}';
-        _isProcessing = false;
+        _isLoading = false;
       });
     }
   }
 
-  Future<void> _provideFeedback(String feedbackType, String comment) async {
-    // This would send feedback back to the multimodal service for model improvement
-    // E.g., MultimodalApiService.sendFeedback(widget.initialInput?.id, feedbackType, comment, currentExtractedData, userCorrections)
-    print('Feedback received: $feedbackType - $comment');
-    setState(() {
-      _successMessage = 'Feedback sent successfully!';
-    });
+  void _populateEditableFields() {
+    _editableFields.clear();
+    _controllers.values.forEach((controller) => controller.dispose()); // Dispose old controllers
+    _controllers.clear();
+
+    if (_task?.documentResult != null) {
+      _editableFields.addAll(_task!.documentResult!.extractedData);
+    } else if (_task?.audioResult != null) {
+      _editableFields.addAll(_task!.audioResult!.extractedCommands);
+    } else if (_task?.imageResult != null) {
+      _editableFields.addAll(_task!.imageResult!.extractedObjects);
+    }
+
+    for (var field in _editableFields) {
+      _controllers[field.name] = TextEditingController(text: field.value);
+    }
+  }
+
+  Future<void> _submitCorrections() async {
+    if (_task == null) return;
+
+    final multimodalApiService = Provider.of<MultimodalApiService>(context, listen: false);
+    final localDatabase = Provider.of<LocalDatabase>(context, listen: false);
+    final syncService = Provider.of<SyncService>(context, listen: false);
+
+    try {
+      for (var field in _editableFields) {
+        final correctedValue = _controllers[field.name]?.text;
+        if (correctedValue != null && correctedValue != field.value) {
+          final correction = UserCorrection(
+            taskId: _task!.id,
+            userId: _task!.userId,
+            fieldName: field.name,
+            originalValue: field.value,
+            correctedValue: correctedValue,
+            feedbackType: UserCorrectionType.valueCorrection,
+            submittedAt: DateTime.now(),
+          );
+          // Save to local DB first (for offline support)
+          await localDatabase.saveUserCorrection(UserCorrectionInDB(
+            id: Uuid().v4(), // Generate ID for local storage
+            taskId: correction.taskId,
+            userId: correction.userId,
+            fieldName: correction.fieldName,
+            originalValue: correction.originalValue,
+            correctedValue: correction.correctedValue,
+            feedbackType: correction.feedbackType,
+            submittedAt: correction.submittedAt,
+          ));
+          // Attempt to submit to API. SyncService will handle if offline.
+          await multimodalApiService.submitUserCorrection(_task!.id, correction);
+          await localDatabase.markUserCorrectionAsSynced(correction.id); // Mark as synced if successful
+        }
+      }
+
+      // After corrections, update task status (e.g., to 'completed' or 'user_corrected')
+      // and potentially create a Journal Entry
+      await _createJournalEntryFromSuggested();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Corrections submitted and Journal Entry created!')), 
+      );
+      // Trigger a sync if not already running
+      syncService.syncAll();
+      Navigator.pop(context); // Go back after submission
+
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to submit corrections: $e';
+      });
+      print(_errorMessage);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $_errorMessage')), 
+      );
+    }
+  }
+
+  Future<void> _createJournalEntryFromSuggested() async {
+    if (_task?.suggestedJournalEntry == null) return;
+
+    final accountingApiService = Provider.of<AccountingApiService>(context, listen: false);
+    final localDatabase = Provider.of<LocalDatabase>(context, listen: false);
+
+    // Create Journal Lines (mock for now, need actual accounts)
+    final entryDate = DateTime.parse(_controllers['date']?.text ?? _task!.suggestedJournalEntry!['date']);
+    final amount = Decimal.parse(_controllers['total_amount']?.text ?? _task!.suggestedJournalEntry!['amount']);
+    final description = _controllers['description']?.text ?? _task!.suggestedJournalEntry!['description'];
+
+    // Simplified example: Debit an expense, Credit Cash/Bank
+    final journalEntryCreate = JournalEntryCreate(
+      entryDate: entryDate,
+      description: description,
+      sourceModule: 'Multimodal', // Indicates origin
+      lines: [
+        JournalLineCreate(accountNumber: '5000-Groceries', debit: amount, credit: Decimal.zero, description: description),
+        JournalLineCreate(accountNumber: '1010-Cash', debit: Decimal.zero, credit: amount, description: description),
+      ],
+    );
+
+    // Save to local DB first
+    final localEntry = JournalEntryInDB(
+      id: Uuid().v4(),
+      entryDate: journalEntryCreate.entryDate,
+      description: journalEntryCreate.description,
+      sourceModule: journalEntryCreate.sourceModule,
+      referenceNumber: journalEntryCreate.referenceNumber,
+      lines: journalEntryCreate.lines.map((e) => JournalLineInDB(
+        id: Uuid().v4(),
+        accountNumber: e.accountNumber,
+        debit: e.debit,
+        credit: e.credit,
+        description: e.description,
+      )).toList(),
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    await localDatabase.saveJournalEntry(localEntry);
+
+    // Then attempt to push to backend
+    try {
+      final createdEntry = await accountingApiService.createJournalEntry(journalEntryCreate);
+      await localDatabase.markJournalEntryAsSynced(localEntry.id); // Mark local as synced if successful
+      print('Journal Entry created via API: ${createdEntry.id}');
+      
+      // Update the multimodal task to link to the new JE
+      await Provider.of<MultimodalApiService>(context, listen: false).updateTask(_task!.id, MultimodalProcessingTaskUpdate(
+        linkedFinaccEntityId: createdEntry.id,
+        status: MultimodalProcessingStatus.completed,
+      ));
+
+    } catch (e) {
+      print('Failed to create Journal Entry via API: $e. It will be synced later.');
+      // The local entry remains unsynced and will be picked up by SyncService
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Review & Create Entry'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_extractedText != null) ...[
-                  Text('Extracted Text:', style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 8),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(_extractedText!),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                Text('Extracted Fields:', style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 8),
-                ..._extractedFields.map((field) => Text('${field.name}: ${field.value}')).toList(),
-                const SizedBox(height: 16),
-                Text('Journal Entry Details:', style: Theme.of(context).textTheme.headlineSmall),
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: const InputDecoration(labelText: 'Description'),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a description';
-                    }
-                    return null;
-                  },
-                ),
-                TextFormField(
-                  controller: _amountController,
-                  decoration: const InputDecoration(labelText: 'Amount'),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter an amount';
-                    }
-                    if (Decimal.tryParse(value) == null) {
-                      return 'Please enter a valid number';
-                    }
-                    return null;
-                  },
-                ),
-                TextFormField(
-                  controller: _debitAccountController,
-                  decoration: const InputDecoration(labelText: 'Debit Account Number'),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a debit account';
-                    }
-                    return null;
-                  },
-                ),
-                TextFormField(
-                  controller: _creditAccountController,
-                  decoration: const InputDecoration(labelText: 'Credit Account Number'),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a credit account';
-                    }
-                    return null;
-                  },
-                ),
-                // Date picker for _entryDate
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _isProcessing ? null : _submitJournalEntry,
-                  child: _isProcessing
-                      ? const CircularProgressIndicator()
-                      : const Text('Create Journal Entry'),
-                ),
-                if (_errorMessage != null)
-                  Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-                if (_successMessage != null)
-                  Text(_successMessage!, style: const TextStyle(color: Colors.green)),
-                const SizedBox(height: 24),
-                Text('Feedback for AI Model:', style: Theme.of(context).textTheme.headlineSmall),
-                ElevatedButton(
-                  onPressed: () => _provideFeedback('incorrect_extraction', 'Extracted data was wrong.'),
-                  child: const Text('Data Incorrect'),
-                ),
-                ElevatedButton(
-                  onPressed: () => _provideFeedback('wrong_category', 'Suggested category was wrong.'),
-                  child: const Text('Wrong Category'),
-                ),
-                // More feedback options
-              ],
+        title: const Text('Multimodal Entry Review'),
+        actions: [
+          if (!_isLoading) 
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _fetchTask,
             ),
-          ),
-        ),
+        ],
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(child: Text('Error: $_errorMessage'))
+              : _task == null
+                  ? const Center(child: Text('No task data available'))
+                  : Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Review Extracted Data', style: Theme.of(context).textTheme.headlineSmall),
+                          const SizedBox(height: 16),
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: _editableFields.length,
+                              itemBuilder: (context, index) {
+                                final field = _editableFields[index];
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Row(
+                                    children: [
+                                      SizedBox(width: 120, child: Text(field.name, style: TextStyle(fontWeight: FontWeight.bold))),
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _controllers[field.name],
+                                          decoration: InputDecoration(
+                                            labelText: 'Corrected ${field.name}',
+                                            hintText: field.value,
+                                            border: const OutlineInputBorder(),
+                                            suffixIcon: field.confidence != null && field.confidence! < 0.8
+                                                ? Tooltip(message: 'Low confidence: ${(field.confidence! * 100).toStringAsFixed(0)}%', child: Icon(Icons.warning, color: Colors.orange))
+                                                : null,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Center(
+                            child: ElevatedButton(
+                              onPressed: _submitCorrections,
+                              child: const Text('Submit Corrections & Create Journal Entry'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
     );
-  }
-
-  @override
-  void dispose() {
-    _descriptionController.dispose();
-    _amountController.dispose();
-    _debitAccountController.dispose();
-    _creditAccountController.dispose();
-    super.dispose();
   }
 }
