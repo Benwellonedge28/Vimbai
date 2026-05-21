@@ -1,12 +1,12 @@
 from neo4j import AsyncSession
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from finance_service.models import (
-    BudgetCreate, BudgetUpdate, BudgetInDB, BudgetItemCreate, BudgetItemInDB, BudgetItemUpdate, # Added BudgetItemUpdate
-    ActualsSummary, BudgetVarianceItem, BudgetVarianceReport,
+    BudgetCreate, BudgetUpdate, BudgetInDB, BudgetItemCreate, BudgetItemInDB, BudgetItemUpdate,
+    ActualsSummary, BudgetItemBase, BudgetVarianceItem, BudgetVarianceReport,
     LiquidityRatios, SolvencyRatios, ProfitabilityRatios, FinancialRatiosReport,
     EfficiencyRatios, MarketRatios
 )
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 from decimal import Decimal
 import httpx
@@ -14,6 +14,7 @@ import os
 from finance_service.exceptions import ValidationError, NotFoundError
 
 API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
+ACCOUNTING_SERVICE_URL = f"{API_GATEWAY_URL}/accounting"
 
 # --- Budget CRUD (modified to handle items separately) ---
 async def create_budget(session: AsyncSession, budget_data: BudgetCreate) -> BudgetInDB:
@@ -179,7 +180,7 @@ async def delete_budget(session: AsyncSession, budget_id: str) -> bool:
     return result.consume().counters.nodes_deleted > 0
 
 
-# --- Budget Item CRUD (NEW) ---
+# --- Budget Item CRUD ---
 async def create_budget_item(session: AsyncSession, budget_id: str, item_data: BudgetItemCreate) -> Optional[BudgetItemInDB]:
     item_id = str(uuid.uuid4())
     created_at = datetime.utcnow()
@@ -251,10 +252,10 @@ async def get_budget_item(session: AsyncSession, budget_id: str, item_id: str) -
 async def update_budget_item(session: AsyncSession, budget_id: str, item_id: str, item_data: BudgetItemUpdate) -> Optional[BudgetItemInDB]:
     update_fields = item_data.model_dump(exclude_unset=True)
     if not update_fields:
-        return await get_budget_item(session, budget_id, item_id)
+        return await get_budget_item(session, budget_id, item_id) # No fields to update
 
     update_fields["updated_at"] = datetime.utcnow().isoformat()
-    if "budgeted_amount" in update_fields:
+    if "budgeted_amount" in update_fields and update_fields["budgeted_amount"]:
         update_fields["budgeted_amount"] = float(update_fields["budgeted_amount"])
 
     set_clauses = [f"bi.{k} = ${k}" for k in update_fields.keys()]
@@ -282,15 +283,116 @@ async def delete_budget_item(session: AsyncSession, budget_id: str, item_id: str
     result = await session.run(query, budget_id=budget_id, item_id=item_id)
     return result.consume().counters.nodes_deleted > 0
 
-# --- Accounting Service Data Fetching (unchanged) ---
-async def fetch_income_statement_from_accounting(jwt_token: str, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
-    # ... (unchanged) ...
-    pass
-async def fetch_balance_sheet_from_accounting(jwt_token: str, as_of_date: datetime) -> Dict[str, Any]:
-    # ... (unchanged) ...
-    pass
 
-# --- Financial Ratio Calculations (unchanged) ---
-async def generate_financial_ratios_report(jwt_token: str, start_date: datetime, end_date: datetime) -> FinancialRatiosReport:
-    # ... (unchanged) ...
-    pass
+# --- NEW: Budget Variance Reporting ---
+async def get_account_actual_balance_from_accounting_service(
+    user_id: str,
+    account_number: str,
+    start_date: datetime,
+    end_date: datetime,
+    jwt_token: str # JWT token for authentication with internal services
+) -> Tuple[Decimal, Decimal]:
+    """
+    Fetches the total debits and credits for a given account within a date range from the Accounting Service.
+    """
+    accounting_service_period_activity_url = f"{ACCOUNTING_SERVICE_URL}/accounts/{account_number}/period-activity"
+    params = {
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "user_id": user_id
+    }
+    headers = {"Authorization": f"Bearer {jwt_token}"}
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(accounting_service_period_activity_url, params=params, headers=headers)
+            response.raise_for_status() # Raise an exception for 4xx or 5xx status codes
+            data = response.json()
+            
+            total_debits = Decimal(str(data.get("total_debits", 0.0)))
+            total_credits = Decimal(str(data.get("total_credits", 0.0)))
+            
+            return total_debits, total_credits
+            
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            print(f"Account {account_number} not found in accounting service for period activity.")
+            return Decimal('0.00'), Decimal('0.00')
+        raise ValidationError(detail=f"Error fetching actuals from accounting service: {e.response.text}")
+    except httpx.RequestError as e:
+        raise ValidationError(detail=f"Network error fetching actuals from accounting service: {e}")
+    except Exception as e:
+        raise ValidationError(detail=f"Unexpected error fetching actuals from accounting service: {e}")
+
+
+async def get_budget_variance_report(
+    session: AsyncSession,
+    user_id: str,
+    budget_id: str,
+    jwt_token: str # Required to call accounting service
+) -> BudgetVarianceReport:
+    """
+    Generates a budget vs. actuals variance report for a given budget.
+    """
+    budget = await get_budget(session, budget_id)
+    if not budget:
+        raise NotFoundError(detail=f"Budget with ID {budget_id} not found.")
+
+    variance_items: List[BudgetVarianceItem] = []
+    total_budgeted_expense = Decimal('0.00')
+    total_actual_expense = Decimal('0.00')
+    total_budgeted_revenue = Decimal('0.00')
+    total_actual_revenue = Decimal('0.00')
+
+    for item in budget.items:
+        # Fetch actual activity for the account associated with the budget item
+        actual_debits, actual_credits = await get_account_actual_balance_from_accounting_service(
+            user_id=user_id,
+            account_number=item.account_number,
+            start_date=budget.start_date,
+            end_date=budget.end_date,
+            jwt_token=jwt_token
+        )
+
+        actual_amount = Decimal('0.00')
+        if item.budget_type == 'expense':
+            actual_amount = actual_debits # Expenses increase with debits
+            total_budgeted_expense += item.budgeted_amount
+            total_actual_expense += actual_amount
+        elif item.budget_type == 'revenue':
+            actual_amount = actual_credits # Revenues increase with credits
+            total_budgeted_revenue += item.budgeted_amount
+            total_actual_revenue += actual_amount
+        
+        variance = actual_amount - item.budgeted_amount
+        variance_percentage = (variance / item.budgeted_amount * Decimal('100')) if item.budgeted_amount != Decimal('0.00') else Decimal('0.00')
+
+        variance_items.append(
+            BudgetVarianceItem(
+                category=item.category,
+                account_number=item.account_number,
+                budgeted_amount=item.budgeted_amount,
+                actual_amount=actual_amount,
+                variance=variance,
+                variance_percentage=variance_percentage,
+                budget_type=item.budget_type
+            )
+        )
+    
+    overall_variance_expense = total_actual_expense - total_budgeted_expense
+    overall_variance_revenue = total_actual_revenue - total_budgeted_revenue
+
+    return BudgetVarianceReport(
+        budget_id=budget.id,
+        budget_name=budget.name,
+        start_date=budget.start_date,
+        end_date=budget.end_date,
+        currency=budget.currency,
+        items=variance_items,
+        total_budgeted_expense=total_budgeted_expense,
+        total_actual_expense=total_actual_expense,
+        overall_variance_expense=overall_variance_expense,
+        total_budgeted_revenue=total_budgeted_revenue,
+        total_actual_revenue=total_actual_revenue,
+        overall_variance_revenue=overall_variance_revenue,
+    )
