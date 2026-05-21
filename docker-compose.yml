@@ -66,6 +66,7 @@ services:
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
       - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Must match Identity Service's JWT_SECRET
+      - API_GATEWAY_URL=http://api-gateway:8081
     depends_on:
       neo4j:
         condition: service_healthy
@@ -107,7 +108,7 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_healthy
-      fraud-detection-service: # NEW: Multimodal might send data to fraud detection
+      fraud-detection-service:
         condition: service_started
     restart: on-failure
 
@@ -128,13 +129,13 @@ services:
         condition: service_started
       api-gateway:
         condition: service_started
-      fraud-detection-service: # NEW: Banking will send transactions for fraud analysis
+      fraud-detection-service:
         condition: service_started
     restart: on-failure
 
-  invoicing-service:
+  supply-chain-service: # RENAMED FROM invoicing-service
     build:
-      context: ./invoicing-service
+      context: ./supply-chain-service # Updated context
       dockerfile: Dockerfile
     environment:
       - NEO4J_URI=bolt://neo4j:7687
@@ -151,7 +152,7 @@ services:
         condition: service_started
     restart: on-failure
 
-  fraud-detection-service: # NEW SERVICE
+  fraud-detection-service:
     build:
       context: ./fraud-detection-service
       dockerfile: Dockerfile
@@ -181,8 +182,8 @@ services:
       - FINANCE_SERVICE_URL=http://finance-service:8001
       - MULTIMODAL_SERVICE_URL=http://multimodal-pipeline-service:8002
       - BANKING_INTEGRATION_SERVICE_URL=http://banking-integration-service:8003
-      - INVOICING_SERVICE_URL=http://invoicing-service:8004
-      - FRAUD_DETECTION_SERVICE_URL=http://fraud-detection-service:8005 # NEW
+      - SUPPLY_CHAIN_SERVICE_URL=http://supply-chain-service:8004 # RENAMED
+      - FRAUD_DETECTION_SERVICE_URL=http://fraud-detection-service:8005
     depends_on:
       identity-service:
         condition: service_started
@@ -194,11 +195,11 @@ services:
         condition: service_started
       banking-integration-service:
         condition: service_started
-      invoicing-service:
+      supply-chain-service: # RENAMED
         condition: service_started
       rabbitmq:
         condition: service_healthy
-      fraud-detection-service: # NEW
+      fraud-detection-service:
         condition: service_started
     restart: on-failure
 

@@ -22,8 +22,8 @@ type Config struct {
 	FinanceServiceURL   string
 	MultimodalServiceURL string
 	BankingIntegrationServiceURL string
-	InvoicingServiceURL string
-	FraudDetectionServiceURL string // NEW
+	SupplyChainServiceURL string // RENAMED FROM InvoicingServiceURL
+	FraudDetectionServiceURL string
 	Routes              []Route
 }
 
@@ -39,11 +39,12 @@ func LoadConfig() *Config {
 		Port:                port,
 		JwtSecret:           getEnv("JWT_SECRET", "your_super_secret_jwt_key"),
 		IdentityServiceURL:  getEnv("IDENTITY_SERVICE_URL", "http://localhost:8080"),
-		AccountingServiceURL: getEnv("ACCOUNTING_SERVICE_URL", "http://localhost:8000"),		FinanceServiceURL:   getEnv("FINANCE_SERVICE_URL", "http://localhost:8001"),
+		AccountingServiceURL: getEnv("ACCOUNTING_SERVICE_URL", "http://localhost:8000"),
+		FinanceServiceURL:   getEnv("FINANCE_SERVICE_URL", "http://localhost:8001"),
 		MultimodalServiceURL: getEnv("MULTIMODAL_SERVICE_URL", "http://localhost:8002"),
 		BankingIntegrationServiceURL: getEnv("BANKING_INTEGRATION_SERVICE_URL", "http://localhost:8003"),
-		InvoicingServiceURL: getEnv("INVOICING_SERVICE_URL", "http://localhost:8004"),
-		FraudDetectionServiceURL: getEnv("FRAUD_DETECTION_SERVICE_URL", "http://localhost:8005"), // NEW
+		SupplyChainServiceURL: getEnv("SUPPLY_CHAIN_SERVICE_URL", "http://localhost:8004"), // RENAMED
+		FraudDetectionServiceURL: getEnv("FRAUD_DETECTION_SERVICE_URL", "http://localhost:8005"),
 	}
 
 	cfg.Routes = []Route{
@@ -64,9 +65,12 @@ func LoadConfig() *Config {
 		{Path: "/banking-integration", TargetURL: cfg.BankingIntegrationServiceURL, AuthRequired: true},
 		{Path: "/banks", TargetURL: cfg.BankingIntegrationServiceURL, AuthRequired: true},
 		{Path: "/transactions", TargetURL: cfg.BankingIntegrationServiceURL, AuthRequired: true},
-		{Path: "/invoices", TargetURL: cfg.InvoicingServiceURL, AuthRequired: true},
-		{Path: "/customers", TargetURL: cfg.InvoicingServiceURL, AuthRequired: true},
-		{Path: "/fraud-detection", TargetURL: cfg.FraudDetectionServiceURL, AuthRequired: true}, // NEW ROUTE
+		{Path: "/customers", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true}, // ROUTED TO NEW SERVICE
+		{Path: "/sales-invoices", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true}, // RENAMED ROUTE
+		{Path: "/suppliers", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true}, // NEW ROUTE
+		{Path: "/inventory-items", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true}, // NEW ROUTE
+		{Path: "/purchase-orders", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true}, // NEW ROUTE
+		{Path: "/fraud-detection", TargetURL: cfg.FraudDetectionServiceURL, AuthRequired: true},
 	}
 
 	return cfg
