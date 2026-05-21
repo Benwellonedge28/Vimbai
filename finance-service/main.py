@@ -4,13 +4,15 @@ from typing import List, Optional, Dict, Any
 from neo4j import AsyncSession
 from finance_service import models, crud
 from finance_service.database import init_db_schema, Neo4jConnector
-from finance_service.dependencies import get_db_session, get_jwt_token
+from finance_service.dependencies import get_db_session, get_jwt_token, get_user_id # Added get_user_id
 from finance_service.utils.auth import check_permission
 from finance_service.exceptions import NotFoundError, ConflictError, ValidationError, UnauthorizedError, ForbiddenError
 import os
 from dotenv import load_dotenv
 from datetime import datetime
 from pydantic import ValidationError as PydanticValidationError # NEW: to catch pydantic's internal validation errors
+from decimal import Decimal # Added Decimal for potential future use or consistency
+
 
 # Load environment variables
 load_dotenv()
@@ -23,6 +25,11 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup_event():
+    Neo4jConnector.configure(
+        uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        user=os.getenv("NEO4J_USER", "neo4j"),
+        password=os.getenv("NEO4J_PASSWORD", "neo4j")
+    )
     Neo4jConnector.get_driver()
     await init_db_schema()
 
@@ -73,7 +80,7 @@ async def pydantic_validation_exception_handler(request, exc: PydanticValidation
     error_details = []
     for error in errors:
         loc = ".".join(map(str, error["loc"]))
-        error_details.append(f"Field '{loc}': {error["msg"]}")
+        error_details.append(f"Field '{loc}': {error['msg']}")
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": "Validation error: " + "; ".join(error_details), "code": "PYDANTIC_VALIDATION_ERROR"},
@@ -123,7 +130,7 @@ async def delete_existing_budget(budget_id: str, db_session: AsyncSession = Depe
         raise NotFoundError(detail="Budget not found.")
     return {"ok": True}
 
-# --- Budget Item Endpoints (NEW) ---
+# --- Budget Item Endpoints ---
 @app.post("/budgets/{budget_id}/items/", response_model=models.BudgetItemInDB, status_code=status.HTTP_201_CREATED,
               dependencies=[Depends(check_permission("finance.write.budget_items"))])
 async def create_new_budget_item(
@@ -176,6 +183,18 @@ async def delete_existing_budget_item(
     if not success:
         raise NotFoundError(detail="Budget item not found.", code="BUDGET_ITEM_NOT_FOUND")
     return {"ok": True}
+
+# --- NEW: Budget Reporting Endpoints ---
+@app.get("/budgets/{budget_id}/variance-report", response_model=models.BudgetVarianceReport,
+             dependencies=[Depends(check_permission("finance.read.budgets"))])
+async def get_budget_variance_report_endpoint(
+    budget_id: str,
+    user_id: str = Depends(get_user_id), # Assuming get_user_id is available in finance_service.dependencies
+    jwt_token: str = Depends(get_jwt_token),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.get_budget_variance_report(db_session, user_id, budget_id, jwt_token)
+
 
 # --- Financial Analysis Endpoints ---
 # ... (unchanged) ...
