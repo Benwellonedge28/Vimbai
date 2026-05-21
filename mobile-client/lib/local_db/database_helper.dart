@@ -1,7 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:finacc_mobile_client/models/accounting_models.dart'; // Import accounting models
-import 'package:finacc_mobile_client/models/finance_models.dart'; // NEW: Import finance models
+import 'package:finacc_mobile_client/models/finance_models.dart'; // Import finance models
+import 'package:finacc_mobile_client/models/multimodal_models.dart'; // NEW: Import multimodal models
 import 'package:uuid/uuid.dart';
 
 class DatabaseHelper {
@@ -25,9 +26,9 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'finacc_offline.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // NEW: Increment database version
       onCreate: _onCreate,
-      onUpgrade: _onUpgrade, // NEW: Add onUpgrade for schema changes
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -74,7 +75,7 @@ class DatabaseHelper {
           )
         ''');
 
-    // NEW: Create Budgets table
+    // Create Budgets table
     await db.execute('''
           CREATE TABLE budgets(
             id TEXT PRIMARY KEY,
@@ -89,7 +90,7 @@ class DatabaseHelper {
           )
         ''');
 
-    // NEW: Create BudgetItems table
+    // Create BudgetItems table
     await db.execute('''
           CREATE TABLE budget_items(
             id TEXT PRIMARY KEY,
@@ -103,13 +104,35 @@ class DatabaseHelper {
             FOREIGN KEY (budget_id) REFERENCES budgets(id) ON DELETE CASCADE
           )
         ''');
+    
+    // NEW: Create MultimodalTasks table
+    await db.execute('''
+          CREATE TABLE multimodal_tasks(
+            id TEXT PRIMARY KEY,
+            input_type TEXT,
+            data TEXT, -- Base64 encoded file data or URL
+            source_context TEXT,
+            is_synced INTEGER DEFAULT 0,
+            created_at TEXT,
+            updated_at TEXT
+          )
+        ''');
   }
 
-  // NEW: Handle database upgrades if schema changes in future versions
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Example: if upgrading from version 1 to 2, add new tables
-    if (oldVersion < 1) {
-      // This case should not be hit if _onCreate is called for version 1
+    if (oldVersion < 2) {
+      // Migrate from version 1 to 2: Add multimodal_tasks table
+      await db.execute('''
+            CREATE TABLE multimodal_tasks(
+              id TEXT PRIMARY KEY,
+              input_type TEXT,
+              data TEXT, -- Base64 encoded file data or URL
+              source_context TEXT,
+              is_synced INTEGER DEFAULT 0,
+              created_at TEXT,
+              updated_at TEXT
+            )
+          ''');
     }
     // Add future migrations here
   }
@@ -184,8 +207,7 @@ class DatabaseHelper {
         return JournalLine.fromJson(lineMaps[i]);
       });
       unsyncedEntries.add(JournalEntry.fromJson({...entryMap, 'lines': lines}));
-    }
-    return unsyncedEntries;
+    }\n    return unsyncedEntries;
   }
 
   Future<int> markJournalEntryAsSynced(String entryId) async {
@@ -194,7 +216,7 @@ class DatabaseHelper {
         where: 'id = ?', whereArgs: [entryId]);
   }
 
-  // NEW: --- Budget CRUD ---
+  // --- Budget CRUD ---
   Future<int> insertBudget(Budget budget, {bool isSynced = false}) async {
     final db = await database;
     final budgetId = budget.id ?? uuid.v4();
@@ -246,7 +268,7 @@ class DatabaseHelper {
     for (var budgetMap in budgetMaps) {
       final items = await getBudgetItemsForBudget(budgetMap['id']);
       unsyncedBudgets.add(Budget.fromJson({...budgetMap, 'items': items}));
-    }
+    })
     return unsyncedBudgets;
   }
 
@@ -263,7 +285,7 @@ class DatabaseHelper {
   }
 
 
-  // NEW: --- BudgetItem CRUD ---
+  // --- BudgetItem CRUD ---
   Future<int> insertBudgetItem(String budgetId, BudgetItem item, {bool isSynced = false}) async {
     final db = await database;
     return await db.insert('budget_items', {
@@ -304,5 +326,35 @@ class DatabaseHelper {
   Future<int> deleteBudgetItemLocal(String itemId) async {
     final db = await database;
     return await db.delete('budget_items', where: 'id = ?', whereArgs: [itemId]);
+  }
+
+  // NEW: --- Multimodal Task CRUD ---
+  Future<int> insertMultimodalTask(MultimodalInput task, {bool isSynced = false}) async {
+    final db = await database;
+    final taskId = uuid.v4(); // Always generate a new local ID for pending tasks
+    final result = await db.insert('multimodal_tasks', {
+      'id': taskId,
+      'input_type': task.inputType,
+      'data': task.data, // This should be base64 for files or raw URL for URL inputs
+      'source_context': task.sourceContext,
+      'is_synced': isSynced ? 1 : 0,
+      'created_at': DateTime.now().toIso8601String(),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+    return result;
+  }
+
+  Future<List<MultimodalInput>> getUnsyncedMultimodalTasks() async {
+    final db = await database;
+    final List<Map<String, dynamic>> taskMaps = await db.query('multimodal_tasks', where: 'is_synced = ?', whereArgs: [0]);
+    return List.generate(taskMaps.length, (i) {
+      return MultimodalInput.fromJson(taskMaps[i]);
+    });
+  }
+
+  Future<int> markMultimodalTaskAsSynced(String taskId) async {
+    final db = await database;
+    return await db.update('multimodal_tasks', {'is_synced': 1, 'updated_at': DateTime.now().toIso8601String()},
+        where: 'id = ?', whereArgs: [taskId]);
   }
 }
