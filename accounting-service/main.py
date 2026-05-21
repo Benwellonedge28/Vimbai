@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
-from typing import List, Optional
+from typing import List, Optional, Dict # Added Dict for response model
 from neo4j import AsyncSession
 from accounting_service import models, crud
 from accounting_service.database import init_db_schema, Neo4jConnector
@@ -11,6 +11,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 from pydantic import ValidationError as PydanticValidationError
+from decimal import Decimal # Added Decimal for response type
 
 # Load environment variables
 load_dotenv()
@@ -138,6 +139,20 @@ async def delete_existing_account(
     if not success:
         raise NotFoundError(detail="Account not found or linked to existing entries.")
     return {"ok": True}
+
+# --- NEW: Endpoint to get account activity for a period (for Budget Variance Report) ---
+@app.get("/accounts/{account_number}/period-activity", response_model=Dict[str, Decimal],
+             dependencies=[Depends(check_permission("accounting.read.accounts"))])
+async def get_account_activity_for_period(
+    account_number: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    start_date: datetime = Query(..., description="Start date for the period (ISO format)."),
+    end_date: datetime = Query(..., description="End date for the period (ISO format).")
+):
+    total_debits, total_credits = await crud.get_account_period_activity(db_session, user_id, account_number, start_date, end_date)
+    return {"total_debits": total_debits, "total_credits": total_credits}
+
 
 # --- Journal Entry Endpoints ---
 @app.post("/journal-entries/", response_model=models.JournalEntryInDB, status_code=status.HTTP_201_CREATED,
