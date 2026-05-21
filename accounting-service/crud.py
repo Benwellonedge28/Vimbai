@@ -206,9 +206,11 @@ async def create_journal_entry(session: AsyncSession, user_id: str, journal_entr
 
     # --- NEW: Call Fraud Detection Service ---
     fraud_result = await _send_journal_entry_for_fraud_analysis(user_id, journal_entry_data, jwt_token)
-    
+    journal_entry_data.fraud_flag = fraud_result.fraud_flag
+    journal_entry_data.fraud_score = fraud_result.fraud_score
+
     # Create JournalEntry node
-    query_je = """
+    query = """
     MATCH (u:User {id: $user_id})
     CREATE (je:JournalEntry {
         id: $id,
@@ -218,57 +220,50 @@ async def create_journal_entry(session: AsyncSession, user_id: str, journal_entr
         source_module: $source_module,
         status: $status,
         fraud_flag: $fraud_flag,
-        fraud_score: toFloat($fraud_score),
+        fraud_score: $fraud_score,
         created_at: datetime($created_at),
         updated_at: datetime($updated_at)
     })
     CREATE (u)-[:OWNS_JOURNAL_ENTRY]->(je)
     RETURN je
     """
-    params_je = journal_entry_data.model_dump(exclude={"lines"})
-    params_je["id"] = entry_neo4j_id
-    params_je["user_id"] = user_id
-    params_je["entry_date"] = params_je["entry_date"].isoformat()
-    params_je["created_at"] = created_at.isoformat()
-    params_je["updated_at"] = updated_at.isoformat()
-    params_je["fraud_flag"] = fraud_result.fraud_flag # NEW
-    params_je["fraud_score"] = fraud_result.fraud_score # NEW
+    params = journal_entry_data.model_dump(exclude={"lines"})
+    params["id"] = entry_neo4j_id
+    params["user_id"] = user_id
+    params["entry_date"] = journal_entry_data.entry_date.isoformat()
+    params["created_at"] = created_at.isoformat()
+    params["updated_at"] = updated_at.isoformat()
 
-    je_result = await session.run(query_je, params_je)
-    je_node = (await je_result.single())["je"]
+    result = await session.run(query, params)
+    record = await result.single()
+    je_node = record["je"]
 
-    # Create JournalLine nodes and link to JournalEntry and Account
-    lines_in_db = []
-    for line_data in journal_entry_data.lines:
+    # Create JournalLine nodes and link them
+    for i, line_data in enumerate(journal_entry_data.lines):
         line_neo4j_id = str(uuid.uuid4())
-        query_line = """
+        line_query = """
         MATCH (je:JournalEntry {id: $je_id})
-        MATCH (a:Account {user_id: $user_id, account_number: $account_number})
+        MATCH (a:Account {account_number: $account_number})
         CREATE (jl:JournalLine {
             id: $id,
-            debit: toFloat($debit),
-            credit: toFloat($credit),
-            description: $description
+            debit: $debit,
+            credit: $credit,
+            description: $description,
+            created_at: datetime($created_at),
+            updated_at: datetime($updated_at)
         })
-        CREATE (je)-[:HAS_LINE]->(jl)
+        CREATE (je)-[:HAS_LINE {order: $order}]->(jl)
         CREATE (jl)-[:IMPACTS]->(a)
         RETURN jl
         """
-        params_line = line_data.model_dump()
-        params_line["id"] = line_neo4j_id
-        params_line["je_id"] = entry_neo4j_id
-        params_line["user_id"] = user_id
-        params_line["debit"] = float(params_line["debit"])
-        params_line["credit"] = float(params_line["credit"])
+        line_params = line_data.model_dump()
+        line_params["id"] = line_neo4j_id
+        line_params["je_id"] = entry_neo4j_id
+        line_params["order"] = i
+        line_params["created_at"] = created_at.isoformat()
+        line_params["updated_at"] = updated_at.isoformat()
 
-        jl_result = await session.run(query_line, params_line)
-        jl_node = (await jl_result.single())["jl"]
-        lines_in_db.append(JournalLineBase(
-            account_number=line_data.account_number,
-            debit=Decimal(str(jl_node["debit"])),
-            credit=Decimal(str(jl_node["credit"])),
-            description=jl_node["description"]
-        ))
+        await session.run(line_query, line_params)
 
     return JournalEntryInDB(
         id=je_node["id"],
@@ -278,18 +273,17 @@ async def create_journal_entry(session: AsyncSession, user_id: str, journal_entr
         reference_number=je_node["reference_number"],
         source_module=je_node["source_module"],
         status=je_node["status"],
-        lines=lines_in_db,
         fraud_flag=je_node["fraud_flag"],
         fraud_score=je_node["fraud_score"],
         created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
         updated_at=datetime.fromisoformat(je_node["updated_at"].iso_format()),
+        lines=journal_entry_data.lines
     )
-
 
 async def get_journal_entry(session: AsyncSession, user_id: str, entry_id: str) -> Optional[JournalEntryInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry {id: $entry_id})
-    OPTIONAL MATCH (je)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account)
+    OPTIONAL MATCH (je)-[hl:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account)
     RETURN je, COLLECT({
         id: jl.id,
         account_number: a.account_number,
@@ -301,20 +295,16 @@ async def get_journal_entry(session: AsyncSession, user_id: str, entry_id: str) 
     result = await session.run(query, user_id=user_id, entry_id=entry_id)
     record = await result.single()
 
-    if record:
+    if record and record["je"]:
         je_node = record["je"]
         lines_data = record["lines_data"]
-        
-        lines_in_db = []
-        for line_data in lines_data:
-            if line_data and line_data.get("account_number"): # Check for valid line data
-                lines_in_db.append(JournalLineBase(
-                    account_number=line_data["account_number"],
-                    debit=Decimal(str(line_data["debit"])),
-                    credit=Decimal(str(line_data["credit"])),
-                    description=line_data["description"]
-                ))
-        
+        lines = [JournalLineBase(
+            account_number=line["account_number"],
+            debit=Decimal(str(line["debit"])),
+            credit=Decimal(str(line["credit"])),
+            description=line["description"]
+        ) for line in lines_data]
+
         return JournalEntryInDB(
             id=je_node["id"],
             user_id=user_id,
@@ -323,70 +313,67 @@ async def get_journal_entry(session: AsyncSession, user_id: str, entry_id: str) 
             reference_number=je_node["reference_number"],
             source_module=je_node["source_module"],
             status=je_node["status"],
-            lines=lines_in_db,
-            fraud_flag=je_node["fraud_flag"],
-            fraud_score=je_node["fraud_score"],
+            fraud_flag=je_node.get("fraud_flag", "safe"), # Default for older entries
+            fraud_score=je_node.get("fraud_score"), # Default for older entries
             created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
             updated_at=datetime.fromisoformat(je_node["updated_at"].iso_format()),
+            lines=lines
         )
     return None
 
 async def get_all_journal_entries(session: AsyncSession, user_id: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> List[JournalEntryInDB]:
-    query_parts = []
-    params = {"user_id": user_id}
-
-    query_parts.append("MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)")
-
+    date_filter = ""
     if start_date:
-        query_parts.append("WHERE je.entry_date >= datetime($start_date)")
+        date_filter += " AND je.entry_date >= datetime($start_date)"
+    if end_date:
+        date_filter += " AND je.entry_date <= datetime($end_date)"
+
+    query = f"""
+    MATCH (u:User {{id: $user_id}})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)
+    OPTIONAL MATCH (je)-[hl:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account)
+    WHERE TRUE {date_filter}
+    RETURN je, COLLECT({{
+        id: jl.id,
+        account_number: a.account_number,
+        debit: jl.debit,
+        credit: jl.credit,
+        description: jl.description
+    }}) AS lines_data
+    ORDER BY je.entry_date DESC
+    """
+    params = {"user_id": user_id}
+    if start_date:
         params["start_date"] = start_date.isoformat()
     if end_date:
-        if "WHERE" not in query_parts[-1]:
-            query_parts.append("WHERE je.entry_date <= datetime($end_date)")
-        else:
-            query_parts.append("AND je.entry_date <= datetime($end_date)")
         params["end_date"] = end_date.isoformat()
 
-    query_parts.append("OPTIONAL MATCH (je)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account)")
-    query_parts.append("RETURN je, COLLECT({id: jl.id, account_number: a.account_number, debit: jl.debit, credit: jl.credit, description: jl.description}) AS lines_data")
-    query_parts.append("ORDER BY je.entry_date DESC")
-
-    query = " ".join(query_parts)
     result = await session.run(query, params)
-
-    entries_map: Dict[str, JournalEntryInDB] = {}
-
+    journal_entries = []
     async for record in result:
         je_node = record["je"]
         lines_data = record["lines_data"]
-        entry_id = je_node["id"]
+        lines = [JournalLineBase(
+            account_number=line["account_number"],
+            debit=Decimal(str(line["debit"])),
+            credit=Decimal(str(line["credit"])),
+            description=line["description"]
+        ) for line in lines_data if line["account_number"] is not None] # Filter out null lines for entries without lines
 
-        if entry_id not in entries_map:
-            entries_map[entry_id] = JournalEntryInDB(
-                id=je_node["id"],
-                user_id=user_id,
-                entry_date=datetime.fromisoformat(je_node["entry_date"].iso_format()),
-                description=je_node["description"],
-                reference_number=je_node["reference_number"],
-                source_module=je_node["source_module"],
-                status=je_node["status"],
-                lines=[],
-                fraud_flag=je_node["fraud_flag"],
-                fraud_score=je_node["fraud_score"],
-                created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
-                updated_at=datetime.fromisoformat(je_node["updated_at"].iso_format()),
-            )
-        
-        for line_data in lines_data:
-            if line_data and line_data.get("account_number"):
-                entries_map[entry_id].lines.append(JournalLineBase(
-                    account_number=line_data["account_number"],
-                    debit=Decimal(str(line_data["debit"])),
-                    credit=Decimal(str(line_data["credit"])),
-                    description=line_data["description"]
-                ))
-    
-    return list(entries_map.values())
+        journal_entries.append(JournalEntryInDB(
+            id=je_node["id"],
+            user_id=user_id,
+            entry_date=datetime.fromisoformat(je_node["entry_date"].iso_format()),
+            description=je_node["description"],
+            reference_number=je_node["reference_number"],
+            source_module=je_node["source_module"],
+            status=je_node["status"],
+            fraud_flag=je_node.get("fraud_flag", "safe"),
+            fraud_score=je_node.get("fraud_score"),
+            created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(je_node["updated_at"].iso_format()),
+            lines=lines
+        ))
+    return journal_entries
 
 async def update_journal_entry(session: AsyncSession, user_id: str, entry_id: str, journal_entry_data: JournalEntryUpdate) -> Optional[JournalEntryInDB]:
     update_fields = journal_entry_data.model_dump(exclude_unset=True)
@@ -394,8 +381,6 @@ async def update_journal_entry(session: AsyncSession, user_id: str, entry_id: st
         return await get_journal_entry(session, user_id, entry_id)
 
     update_fields["updated_at"] = datetime.utcnow().isoformat()
-    if "entry_date" in update_fields and update_fields["entry_date"]:
-        update_fields["entry_date"] = update_fields["entry_date"].isoformat()
 
     set_clauses = [f"je.{k} = ${k}" for k in update_fields.keys()]
     set_query_part = ", ".join(set_clauses)
@@ -415,6 +400,11 @@ async def update_journal_entry(session: AsyncSession, user_id: str, entry_id: st
     return None
 
 async def delete_journal_entry(session: AsyncSession, user_id: str, entry_id: str) -> bool:
+    # Check if entry is already posted
+    existing_je = await get_journal_entry(session, user_id, entry_id)
+    if existing_je and existing_je.status == 'posted':
+        raise ConflictError(detail="Posted journal entries cannot be deleted directly.", code="POSTED_JE_CANNOT_DELETE")
+
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry {id: $entry_id})
     OPTIONAL MATCH (je)-[:HAS_LINE]->(jl:JournalLine)
@@ -430,9 +420,9 @@ async def get_journal_entry_by_reference(session: AsyncSession, user_id: str, re
     """
     result = await session.run(query, user_id=user_id, reference_number=reference_number, source_module=source_module)
     record = await result.single()
+
     if record:
         je_node = record["je"]
-        # Note: This partial JE object might not have full lines, but only used for existence check
         return JournalEntryInDB(
             id=je_node["id"],
             user_id=user_id,
@@ -441,207 +431,340 @@ async def get_journal_entry_by_reference(session: AsyncSession, user_id: str, re
             reference_number=je_node["reference_number"],
             source_module=je_node["source_module"],
             status=je_node["status"],
-            lines=[], # Not fetching lines here for quick check
-            fraud_flag=je_node["fraud_flag"],
-            fraud_score=je_node["fraud_score"],
             created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
             updated_at=datetime.fromisoformat(je_node["updated_at"].iso_format()),
+            lines=[] # Lines not fetched in this specific query
         )
     return None
 
-# --- Helper to convert JournalEntry to TransactionForFraudCheck (NEW) ---
 async def _send_journal_entry_for_fraud_analysis(user_id: str, journal_entry_data: JournalEntryCreate, jwt_token: str) -> FraudDetectionResult:
-    """Internal helper to send journal entry data to Fraud Detection Service."""
+    # This is a placeholder for actual inter-service communication
+    # In a real scenario, this would call the Fraud Detection Service
+    # using httpx or a message queue.
 
-    # Aggregate JE lines into a single pseudo-transaction for fraud analysis
-    total_debit = sum(line.debit for line in journal_entry_data.lines)
-    
-    # For a balanced JE, total_debit == total_credits. Use one as the transaction amount.
-    transaction_amount = total_debit 
+    # For now, simulate a response
+    print(f"Simulating fraud analysis for JE: {journal_entry_data.description}")
 
-    # Infer sender/recipient from common JE patterns or use placeholders
-    sender_account = ""
-    recipient_account = ""
-    
-    # Example: if a JE debits an expense and credits cash, cash is the source, expense is the destination
-    # For simplicity, we can use the first debit and credit accounts.
-    debit_accounts = [line.account_number for line in journal_entry_data.lines if line.debit > 0]
-    credit_accounts = [line.account_number for line in journal_entry_data.lines if line.credit > 0]
+    # Example: Simple heuristic (e.g., large amount = higher risk)
+    total_amount = sum(line.debit for line in journal_entry_data.lines) # Debits == Credits
 
-    if debit_accounts: sender_account = debit_accounts[0] # Often the 'source' of the value
-    if credit_accounts: recipient_account = credit_accounts[0] # Often the 'destination' of the value
+    if total_amount > 100000:
+        fraud_flag = "high_risk"
+        fraud_score = 0.95
+        reason = "Very high transaction amount detected."
+    elif total_amount > 50000:
+        fraud_flag = "suspicious"
+        fraud_score = 0.7
+        reason = "High transaction amount detected."
+    else:
+        fraud_flag = "safe"
+        fraud_score = 0.1
+        reason = "Normal transaction amount."
 
-    transaction_type = "journal_entry" # Custom type for fraud service
-    
-    transaction_for_fraud = TransactionForFraudCheck(
-        transaction_id=journal_entry_data.reference_number or str(uuid.uuid4()), # Use reference_number as transaction_id
-        amount=transaction_amount,
-        currency="USD", # Assuming USD for now
-        sender_account_id=sender_account,
-        recipient_account_id=recipient_account,
-        transaction_type=transaction_type,
-        timestamp=journal_entry_data.entry_date,
-        previous_transactions_count_24h=0, # No historical data from JE context
-        avg_daily_transaction_amount_7d=Decimal('0.00') # No historical data from JE context
+    return FraudDetectionResult(
+        transaction_id=str(uuid.uuid4()), # Placeholder
+        fraud_score=fraud_score,
+        fraud_flag=fraud_flag,
+        reason=reason
     )
 
-    headers = {
-        "Authorization": f"Bearer {jwt_token}",
-        "Content-Type": "application/json"
-    }
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                f"{API_GATEWAY_URL}/fraud-detection/analyze-transaction/",
-                headers=headers,
-                json=transaction_for_fraud.model_dump(by_alias=True)
-            )
-            response.raise_for_status()
-            return FraudDetectionResult(**response.json())
-        except httpx.HTTPStatusError as e:
-            error_detail = e.response.json().get("detail", e.response.text)
-            print(f"Fraud Detection Service error for JE: {error_detail}")
-            return FraudDetectionResult(
-                transaction_id=transaction_for_fraud.transaction_id,
-                fraud_score=0.0,
-                fraud_flag="safe", # Default to safe if service fails
-                reason=f"Fraud detection service failed for JE: {error_detail}",
-                model_version="N/A_service_unavailable"
-            )
-        except httpx.RequestError as e:
-            print(f"Network error communicating with Fraud Detection Service for JE: {e}")
-            return FraudDetectionResult(
-                transaction_id=transaction_for_fraud.transaction_id,
-                fraud_score=0.0,
-                fraud_flag="safe", # Default to safe if service unavailable
-                reason=f"Network error connecting to Fraud Detection Service for JE: {e}",
-                model_version="N/A_network_error"
-            )
 
-# --- Vendor Bill Management (NEW) ---
-async def create_vendor_bill_from_po(session: AsyncSession, user_id: str, vendor_bill_data: VendorBillCreate, jwt_token: str) -> VendorBillInDB:
-    # 1. Fetch Purchase Order details from Supply Chain Service
-    headers = {
-        "Authorization": f"Bearer {jwt_token}",
-        "Content-Type": "application/json"
-    }
-    async with httpx.AsyncClient() as client:
-        try:
-            po_response = await client.get(
-                f"{API_GATEWAY_URL}/purchase-orders/{vendor_bill_data.purchase_order_id}",
-                headers=headers
-            )
-            po_response.raise_for_status()
-            po_details = po_response.json()
-            purchase_order = PurchaseOrderInDB(**po_details)
-        except httpx.HTTPStatusError as e:
-            error_detail = e.response.json().get("detail", e.response.text)
-            raise NotFoundError(detail=f"Purchase Order not found or inaccessible: {error_detail}", code="PURCHASE_ORDER_NOT_FOUND")
-        except httpx.RequestError as e:
-            raise ValidationError(detail=f"Network error communicating with Supply Chain Service: {e}", code="UPSTREAM_SC_NETWORK_ERROR")
+# --- Vendor Bill CRUD ---
+async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_data: VendorBillCreate, jwt_token: str) -> VendorBillInDB:
+    bill_neo4j_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+    updated_at = datetime.utcnow()
 
-    # 2. Construct Journal Entry lines
-    # Debit Inventory/Expense for each item, Credit Accounts Payable for total
-    journal_lines: List[JournalLineBase] = []
-
-    # For each item in the PO, debit an Inventory Asset or Expense account.
-    # For simplicity, we'll use a generic Inventory Asset account (e.g., 1400) and Expense (6000).
-    # In a real system, this mapping would be more sophisticated (e.g., based on item type).
-    inventory_asset_account = "1400" # Example Inventory Asset Account
-    expense_account = "6000" # Example Expense Account (for services or non-inventory purchases)
-    accounts_payable_account = "2000" # Example Accounts Payable Account
-
-    for item in purchase_order.items:
-        # Decide if it's an asset (inventory) or expense. Simplified: assume all are inventory for now.
-        # Debit the Inventory Asset account
-        journal_lines.append(JournalLineBase(
-            account_number=inventory_asset_account, 
-            debit=item.line_total, 
-            credit=Decimal('0.00'), 
-            description=f"Purchase of {item.quantity} units of Inventory Item {item.inventory_item_id}"
-        ))
-
-    # Add any additional lines specified in the VendorBillCreate request
-    if vendor_bill_data.additional_lines:
-        journal_lines.extend(vendor_bill_data.additional_lines)
-
-    # Calculate total amount to credit to Accounts Payable (PO total + additional lines total)
-    total_bill_amount = purchase_order.total_amount + sum(line.debit - line.credit for line in vendor_bill_data.additional_lines or [])
-    journal_lines.append(JournalLineBase(
-        account_number=accounts_payable_account,
-        debit=Decimal('0.00'),
-        credit=total_bill_amount,
-        description=f"Vendor Bill for PO {purchase_order.id}"
-    ))
-
-    # 3. Create Journal Entry
-    journal_entry_create_data = JournalEntryCreate(
-        entry_date=vendor_bill_data.bill_date,
-        description=f"Vendor Bill for Purchase Order {purchase_order.id} from {purchase_order.supplier_id}",
-        reference_number=f"VB-{purchase_order.id}",
-        source_module="SupplyChain",
-        lines=journal_lines,
-        status="posted" # Vendor bills are typically posted directly
-    )
-
-    created_je = await create_journal_entry(session, user_id, journal_entry_create_data, jwt_token) # Reuse existing JE creation
-
-    # 4. Create VendorBillInDB record (linking PO to JE)
-    vendor_bill_id = str(uuid.uuid4())
-    query_vb = """
+    # Create VendorBill node
+    query = """
     MATCH (u:User {id: $user_id})
-    MATCH (po:PurchaseOrder {id: $purchase_order_id})
-    MATCH (je:JournalEntry {id: $journal_entry_id})
     CREATE (vb:VendorBill {
         id: $id,
-        purchase_order_id: $purchase_order_id,
+        vendor_id: $vendor_id,
+        bill_number: $bill_number,
         bill_date: datetime($bill_date),
         due_date: datetime($due_date),
-        journal_entry_id: $journal_entry_id,
-        created_at: datetime($created_at)
+        total_amount: $total_amount,
+        status: $status,
+        description: $description,
+        created_at: datetime($created_at),
+        updated_at: datetime($updated_at)
     })
     CREATE (u)-[:OWNS_VENDOR_BILL]->(vb)
-    CREATE (vb)-[:RELATED_TO_PO]->(po)
-    CREATE (vb)-[:CREATED_JE]->(je)
     RETURN vb
     """
-    params_vb = {
-        "id": vendor_bill_id,
-        "user_id": user_id,
-        "purchase_order_id": vendor_bill_data.purchase_order_id,
-        "bill_date": vendor_bill_data.bill_date.isoformat(),
-        "due_date": vendor_bill_data.due_date.isoformat(),
-        "journal_entry_id": created_je.id,
-        "created_at": datetime.utcnow().isoformat()
-    }
-    result_vb = await session.run(query_vb, params_vb)
-    vb_node = (await result_vb.single())["vb"]
+    params = vendor_bill_data.model_dump()
+    params["id"] = bill_neo4j_id
+    params["user_id"] = user_id
+    params["bill_date"] = vendor_bill_data.bill_date.isoformat()
+    params["due_date"] = vendor_bill_data.due_date.isoformat()
+    params["total_amount"] = float(vendor_bill_data.total_amount) # Store Decimal as float in Neo4j if needed, or handle conversion
+
+    result = await session.run(query, params)
+    record = await result.single()
+    vb_node = record["vb"]
+
+    # TODO: Link to Journal Entry automatically?
 
     return VendorBillInDB(
         id=vb_node["id"],
-        purchase_order_id=vb_node["purchase_order_id"],
+        user_id=user_id,
+        vendor_id=vb_node["vendor_id"],
+        bill_number=vb_node["bill_number"],
         bill_date=datetime.fromisoformat(vb_node["bill_date"].iso_format()),
         due_date=datetime.fromisoformat(vb_node["due_date"].iso_format()),
-        journal_entry_id=vb_node["journal_entry_id"],
+        total_amount=Decimal(str(vb_node["total_amount"])),
+        status=vb_node["status"],
+        description=vb_node["description"],
         created_at=datetime.fromisoformat(vb_node["created_at"].iso_format()),
+        updated_at=datetime.fromisoformat(vb_node["updated_at"].iso_format()),
+    )
+
+# --- Ledger Endpoints ---
+async def get_ledger_report(session: AsyncSession, user_id: str, account_number: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> LedgerReport:
+    account = await get_account(session, user_id, account_number)
+    if not account:
+        raise NotFoundError(detail=f"Account {account_number} not found for user.", code="ACCOUNT_NOT_FOUND")
+
+    # Initial balance at the start_date (or beginning of time if no start_date)
+    initial_balance = Decimal('0.00')
+    if start_date:
+        initial_balance = await get_account_balance(session, user_id, account_number, as_of_date=start_date - timedelta(microseconds=1))
+
+    # Fetch all journal lines affecting this account within the period
+    date_filter = ""
+    if start_date:
+        date_filter += " AND je.entry_date >= datetime($start_date)"
+    if end_date:
+        date_filter += " AND je.entry_date <= datetime($end_date)"
+
+    query = f"""
+    MATCH (u:User {{id: $user_id}})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account {{account_number: $account_number}})
+    WHERE je.status = 'posted' {date_filter}
+    RETURN je.id AS entry_id, je.entry_date AS entry_date, je.description AS entry_description,
+           jl.debit AS debit, jl.credit AS credit, je.source_module AS source_module
+    ORDER BY je.entry_date, je.created_at
+    """
+    params = {"user_id": user_id, "account_number": account_number}
+    if start_date:
+        params["start_date"] = start_date.isoformat()
+    if end_date:
+        params["end_date"] = end_date.isoformat()
+
+    result = await session.run(query, params)
+    entries: List[LedgerEntry] = []
+    current_balance = initial_balance
+
+    async for record in result:
+        debit = Decimal(str(record["debit"]))
+        credit = Decimal(str(record["credit"]))
+
+        # Apply normal balance rules to update running balance
+        if account.normal_balance == "debit":
+            current_balance = current_balance + debit - credit
+        else: # normal_balance == "credit"
+            current_balance = current_balance - debit + credit
+        
+        entries.append(LedgerEntry(
+            entry_id=record["entry_id"],
+            entry_date=datetime.fromisoformat(record["entry_date"].iso_format()),
+            description=record["entry_description"],
+            debit=debit,
+            credit=credit,
+            balance=current_balance,
+            source_module=record["source_module"]
+        ))
+    
+    end_balance = current_balance # The final running balance after all entries
+
+    return LedgerReport(
+        account_number=account_number,
+        account_name=account.name,
+        normal_balance=account.normal_balance,
+        start_balance=initial_balance,
+        entries=entries,
+        end_balance=end_balance
+    )
+
+# --- Trial Balance Endpoints ---
+async def get_trial_balance_report(session: AsyncSession, user_id: str, as_of_date: Optional[datetime] = None) -> TrialBalanceReport:
+    all_accounts = await get_all_accounts(session, user_id)
+    trial_balance_accounts: List[TrialBalanceAccount] = []
+    total_debits = Decimal('0.00')
+    total_credits = Decimal('0.00')
+
+    for account in all_accounts:
+        balance = await get_account_balance(session, user_id, account.account_number, as_of_date)
+        
+        tb_account = TrialBalanceAccount(
+            account_number=account.account_number,
+            account_name=account.name,
+            account_type=account.account_type,
+            debit=Decimal('0.00'),
+            credit=Decimal('0.00')
+        )
+
+        if account.normal_balance == "debit":
+            if balance >= 0:
+                tb_account.debit = balance
+                total_debits += balance
+            else: # If debit-normal account has a credit balance
+                tb_account.credit = -balance
+                total_credits += -balance
+        else: # account.normal_balance == "credit"
+            if balance >= 0:
+                tb_account.credit = balance
+                total_credits += balance
+            else: # If credit-normal account has a debit balance
+                tb_account.debit = -balance
+                total_debits += -balance
+        
+        trial_balance_accounts.append(tb_account)
+
+    is_balanced = total_debits == total_credits
+
+    return TrialBalanceReport(
+        report_date=as_of_date if as_of_date else datetime.utcnow(),
+        accounts=trial_balance_accounts,
+        total_debits=total_debits,
+        total_credits=total_credits,
+        is_balanced=is_balanced
+    )
+
+# --- Financial Statement Generation ---
+async def get_income_statement(session: AsyncSession, user_id: str, start_date: datetime, end_date: datetime) -> IncomeStatement:
+    all_accounts = await get_all_accounts(session, user_id)
+    
+    revenues: List[FinancialStatementLine] = []
+    expenses: List[FinancialStatementLine] = []
+    
+    total_revenues = Decimal('0.00')
+    total_expenses = Decimal('0.00')
+
+    for account in all_accounts:
+        if account.account_type in ["revenue", "expense"]:
+            # Calculate balance for the period (end_date - start_date)
+            # Need to get the sum of debits and credits for the period, not just an as_of_date balance
+            query = """
+            MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account {account_number: $account_number})
+            WHERE je.status = 'posted' AND je.entry_date >= datetime($start_date) AND je.entry_date <= datetime($end_date)
+            RETURN SUM(jl.debit) AS period_debits, SUM(jl.credit) AS period_credits
+            """
+            params = {"user_id": user_id, "account_number": account.account_number, "start_date": start_date.isoformat(), "end_date": end_date.isoformat()}
+            result = await session.run(query, params)
+            record = await result.single()
+
+            period_debits = Decimal(str(record["period_debits"])) if record and record["period_debits"] else Decimal('0.00')
+            period_credits = Decimal(str(record["period_credits"])) if record and record["period_credits"] else Decimal('0.00')
+
+            period_net_change = Decimal('0.00')
+            if account.account_type == "revenue":
+                # Revenue increases with credit, decreases with debit
+                period_net_change = period_credits - period_debits
+                total_revenues += period_net_change
+                revenues.append(FinancialStatementLine(category=account.name, amount=period_net_change))
+            elif account.account_type == "expense":
+                # Expense increases with debit, decreases with credit
+                period_net_change = period_debits - period_credits
+                total_expenses += period_net_change
+                expenses.append(FinancialStatementLine(category=account.name, amount=period_net_change))
+    
+    net_income = total_revenues - total_expenses
+
+    return IncomeStatement(
+        start_date=start_date,
+        end_date=end_date,
+        revenues=revenues,
+        expenses=expenses,
+        net_income=net_income
+    )
+
+async def get_balance_sheet(session: AsyncSession, user_id: str, as_of_date: datetime) -> BalanceSheet:
+    all_accounts = await get_all_accounts(session, user_id)
+
+    assets: List[FinancialStatementLine] = []
+    liabilities: List[FinancialStatementLine] = []
+    equity: List[FinancialStatementLine] = []
+
+    total_assets = Decimal('0.00')
+    total_liabilities = Decimal('0.00')
+    total_equity = Decimal('0.00')
+
+    for account in all_accounts:
+        if account.account_type in ["asset", "liability", "equity"]:
+            balance = await get_account_balance(session, user_id, account.account_number, as_of_date)
+            
+            if account.account_type == "asset":
+                total_assets += balance
+                assets.append(FinancialStatementLine(category=account.name, amount=balance))
+            elif account.account_type == "liability":
+                total_liabilities += balance
+                liabilities.append(FinancialStatementLine(category=account.name, amount=balance))
+            elif account.account_type == "equity":
+                # For equity, consider retained earnings from prior period income statements if available
+                # For simplicity in this first pass, we just use the current balance of equity accounts
+                total_equity += balance
+                equity.append(FinancialStatementLine(category=account.name, amount=balance))
+    
+    total_liabilities_equity = total_liabilities + total_equity
+    is_balanced = total_assets == total_liabilities_equity
+
+    return BalanceSheet(
+        as_of_date=as_of_date,
+        assets=assets,
+        liabilities=liabilities,
+        equity=equity,
+        total_assets=total_assets,
+        total_liabilities=total_liabilities,
+        total_equity=total_equity,
+        total_liabilities_equity=total_liabilities_equity # Should equal total_assets
     )
 
 
-# --- Ledger Reports (unchanged) ---
-async def get_ledger_report(session: AsyncSession, user_id: str, account_number: str, start_date: datetime, end_date: datetime) -> LedgerReport:
-    # ... (unchanged) ...
-    pass
+async def get_all_journal_entries_for_account_type(session: AsyncSession, user_id: str, account_type: str, start_date: datetime, end_date: datetime) -> List[JournalEntryInDB]:
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account {account_type: $account_type})
+    WHERE je.status = 'posted' AND je.entry_date >= datetime($start_date) AND je.entry_date <= datetime($end_date)
+    RETURN je, COLLECT({
+        id: jl.id,
+        account_number: a.account_number,
+        debit: jl.debit,
+        credit: jl.credit,
+        description: jl.description
+    }) AS lines_data
+    ORDER BY je.entry_date, je.created_at
+    """
+    params = {
+        "user_id": user_id,
+        "account_type": account_type,
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat()
+    }
+    result = await session.run(query, params)
+    
+    journal_entries = []
+    async for record in result:
+        je_node = record["je"]
+        lines_data = record["lines_data"]
+        lines = [JournalLineBase(
+            account_number=line["account_number"],
+            debit=Decimal(str(line["debit"])),
+            credit=Decimal(str(line["credit"])),
+            description=line["description"]
+        ) for line in lines_data if line["account_number"] is not None]
 
-# --- Trial Balance (unchanged) ---
-async def get_trial_balance_report(session: AsyncSession, user_id: str, as_of_date: datetime) -> TrialBalanceReport:
-    # ... (unchanged) ...
-    pass
-
-# --- Financial Statements (unchanged) ---
-async def get_income_statement(session: AsyncSession, user_id: str, start_date: datetime, end_date: datetime) -> IncomeStatement:
-    # ... (unchanged) ...
-    pass
-
-async def get_balance_sheet(session: AsyncSession, user_id: str, as_of_date: datetime) -> BalanceSheet:
-    # ... (unchanged) ...
-    pass
+        journal_entries.append(JournalEntryInDB(
+            id=je_node["id"],
+            user_id=user_id,
+            entry_date=datetime.fromisoformat(je_node["entry_date"].iso_format()),
+            description=je_node["description"],
+            reference_number=je_node["reference_number"],
+            source_module=je_node["source_module"],
+            status=je_node["status"],
+            fraud_flag=je_node.get("fraud_flag", "safe"),
+            fraud_score=je_node.get("fraud_score"),
+            created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(je_node["updated_at"].iso_format()),
+            lines=lines
+        ))
+    return journal_entries
