@@ -173,6 +173,65 @@ class FraudDetectionResult(BaseModel): # Copied from fraud-detection-service/mod
     reason: Optional[str] = Field(None, description="Reason or rules triggered for the flag.")
     model_version: str = Field(..., description="Version of the ML model used for detection.")
 
+# --- Supply Chain Service Models (for inter-service communication) ---
+# New base model for PurchaseOrderItem to match what is returned from SC Service CRUD
+class PurchaseOrderItemBase(BaseModel):
+    inventory_item_id: str
+    quantity: int
+    unit_price: condecimal(decimal_places=2, ge=Decimal('0.00'))
+    line_total: condecimal(decimal_places=2, ge=Decimal('0.00'))
+
+    @validator('unit_price', 'line_total', pre=True)
+    def convert_to_decimal(cls, v):
+        if isinstance(v, float):
+            return Decimal(str(v))
+        return v
+
+# New base model for PurchaseOrder to match what is returned from SC Service CRUD
+class PurchaseOrderBase(BaseModel):
+    supplier_id: str
+    order_date: datetime
+    expected_delivery_date: Optional[datetime]
+    total_amount: condecimal(decimal_places=2, ge=Decimal('0.00'))
+    currency: str
+    status: Literal["draft", "pending_approval", "approved", "ordered", "received", "cancelled", "partially_received"]
+    notes: Optional[str]
+    items: List[PurchaseOrderItemBase]
+
+    @validator('total_amount', pre=True)
+    def convert_to_decimal(cls, v):
+        if isinstance(v, float):
+            return Decimal(str(v))
+        return v
+
+class PurchaseOrderInDB(PurchaseOrderBase):
+    id: str
+    user_id: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# --- New model for creating Vendor Bills ---
+class VendorBillCreate(BaseModel):
+    purchase_order_id: str = Field(..., description="ID of the associated Purchase Order.")
+    bill_date: datetime = Field(default_factory=datetime.utcnow, description="Date the vendor bill was received/recorded.")
+    due_date: datetime = Field(..., description="Date payment for the bill is due.")
+    # Optionally, allow overriding or adding additional lines not from PO
+    additional_lines: Optional[List[JournalLineBase]] = Field(None, description="Additional journal lines not derived from the PO (e.g., shipping, taxes).")
+
+class VendorBillInDB(BaseModel):
+    id: str = Field(..., example="uuid-string-for-node")
+    purchase_order_id: str
+    bill_date: datetime
+    due_date: datetime
+    journal_entry_id: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
 # --- Error Response Model ---
 class ErrorResponse(BaseModel):
     detail: str

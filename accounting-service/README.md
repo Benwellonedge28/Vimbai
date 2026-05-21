@@ -7,7 +7,8 @@ This service serves as the core financial ledger for the FinAcc system. It manag
 -   **Chart of Accounts (COA) Management:** CRUD operations for defining and managing financial accounts.
 -   **Journal Entry Management:** CRUD operations for recording financial transactions, ensuring double-entry accounting principles.
 -   **Automated Journal Entry Validation:** Checks for balanced debits and credits.
--   **Fraud Detection Integration:** Automatically sends new journal entries to the Fraud Detection Service for anomaly detection. (NEW)
+-   **Fraud Detection Integration:** Automatically sends new journal entries to the Fraud Detection Service for anomaly detection.
+-   **Vendor Bill Processing:** Automates the creation of journal entries for vendor bills based on Purchase Orders from the Supply Chain Service. (NEW)
 -   **Ledger Generation:** Provides detailed transaction histories for individual accounts.
 -   **Trial Balance Generation:** Summarizes all account balances to verify the equality of debits and credits.
 -   **Financial Statement Generation:** Dynamically generates Income Statements and Balance Sheets based on recorded transactions.
@@ -16,7 +17,7 @@ This service serves as the core financial ledger for the FinAcc system. It manag
 
 ## Architecture
 
-The Accounting Service is a FastAPI application that uses Neo4j as its primary data store for the Chart of Accounts and Journal Entries. It communicates with other FinAcc microservices (like Banking Integration, Multimodal Pipeline, and Finance Service) via the API Gateway using `httpx`.
+The Accounting Service is a FastAPI application that uses Neo4j as its primary data store for the Chart of Accounts and Journal Entries. It communicates with other FinAcc microservices (like Banking Integration, Multimodal Pipeline, and Finance Service, Supply Chain Service) via the API Gateway using `httpx`.
 
 ## Getting Started
 
@@ -71,32 +72,36 @@ Use the copied JWT token in the `Authorization` header for all requests.
 ### **Journal Entry Endpoints**
 
 #### Create a New Journal Entry
-
 **Endpoint:** `POST http://localhost:8081/journal-entries/` (via API Gateway)
 **Permissions:** `accounting.write.journal_entries`
+
+*Upon creation, this journal entry will automatically be sent to the Fraud Detection Service for analysis.* 
+
+# ... (rest of the Journal Entry Endpoints are unchanged) ...
+
+---
+
+### **Vendor Bill Endpoints (NEW)**
+
+#### Create a Vendor Bill from a Purchase Order
+**Endpoint:** `POST http://localhost:8081/vendor-bills/` (via API Gateway)
+**Permissions:** `accounting.create.vendor_bill`
 **Body (JSON):**
 ```json
 {
-  "entry_date": "2026-05-20T14:30:00Z",
-  "description": "Recorded payment for office supplies",
-  "reference_number": "INV-2026-001",
-  "source_module": "Manual",
-  "lines": [
+  "purchase_order_id": "uuid-of-purchase-order",
+  "bill_date": "2026-05-25T09:00:00Z",
+  "due_date": "2026-06-25T00:00:00Z",
+  "additional_lines": [
     {
-      "account_number": "6000",
-      "debit": 150.00,
+      "account_number": "6100",
+      "debit": 50.00,
       "credit": 0.00,
-      "description": "Office Supplies Expense"
-    },
-    {
-      "account_number": "1010",
-      "debit": 0.00,
-      "credit": 150.00,
-      "description": "Cash Account"
+      "description": "Shipping Expense"
     }
   ]
 }
 ```
-*Upon creation, this journal entry will automatically be sent to the Fraud Detection Service for analysis.* 
+*This endpoint will fetch the Purchase Order details from the Supply Chain Service and automatically create a corresponding Journal Entry.* 
 
 # ... (rest of the README.md content is unchanged) ...

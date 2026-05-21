@@ -85,7 +85,59 @@ async def pydantic_validation_exception_handler(request, exc: PydanticValidation
     )
 
 # --- Chart of Accounts Endpoints ---
-# ... (unchanged) ...
+@app.post("/accounts/", response_model=models.AccountInDB, status_code=status.HTTP_201_CREATED,
+              dependencies=[Depends(check_permission("accounting.write.accounts"))])
+async def create_new_account(
+    account: models.AccountCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.create_account(db_session, user_id, account)
+
+@app.get("/accounts/{account_number}", response_model=models.AccountInDB,
+             dependencies=[Depends(check_permission("accounting.read.accounts"))])
+async def read_account_by_number(
+    account_number: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    db_account = await crud.get_account(db_session, user_id, account_number)
+    if db_account is None:
+        raise NotFoundError(detail="Account not found.")
+    return db_account
+
+@app.get("/accounts/", response_model=List[models.AccountInDB],
+             dependencies=[Depends(check_permission("accounting.read.accounts"))])
+async def read_all_accounts(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.get_all_accounts(db_session, user_id)
+
+@app.put("/accounts/{account_number}", response_model=models.AccountInDB,
+             dependencies=[Depends(check_permission("accounting.write.accounts"))])
+async def update_existing_account(
+    account_number: str,
+    account: models.AccountUpdate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    db_account = await crud.update_account(db_session, user_id, account_number, account)
+    if db_account is None:
+        raise NotFoundError(detail="Account not found.")
+    return db_account
+
+@app.delete("/accounts/{account_number}", status_code=status.HTTP_204_NO_CONTENT,
+                dependencies=[Depends(check_permission("accounting.delete.accounts"))])
+async def delete_existing_account(
+    account_number: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    success = await crud.delete_account(db_session, user_id, account_number)
+    if not success:
+        raise NotFoundError(detail="Account not found or linked to existing entries.")
+    return {"ok": True}
 
 # --- Journal Entry Endpoints ---
 @app.post("/journal-entries/", response_model=models.JournalEntryInDB, status_code=status.HTTP_201_CREATED,
@@ -145,14 +197,58 @@ async def delete_existing_journal_entry(
         raise NotFoundError(detail="Journal entry not found.")
     return {"ok": True}
 
+# --- Vendor Bill Endpoints (NEW) ---
+@app.post("/vendor-bills/", response_model=models.VendorBillInDB, status_code=status.HTTP_201_CREATED,
+              dependencies=[Depends(check_permission("accounting.create.vendor_bill"))])
+async def create_vendor_bill(
+    vendor_bill: models.VendorBillCreate,
+    user_id: str = Depends(get_user_id),
+    jwt_token: str = Depends(get_jwt_token),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.create_vendor_bill_from_po(db_session, user_id, vendor_bill, jwt_token)
+
 # --- Ledger Endpoints ---
-# ... (unchanged) ...
+@app.get("/ledgers/{account_number}", response_model=models.LedgerReport,
+             dependencies=[Depends(check_permission("accounting.read.ledgers"))])
+async def get_account_ledger(
+    account_number: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    start_date: Optional[datetime] = Query(None, description="Start date for ledger entries (ISO format)."),
+    end_date: Optional[datetime] = Query(None, description="End date for ledger entries (ISO format).")
+):
+    return await crud.get_ledger_report(db_session, user_id, account_number, start_date, end_date)
 
 # --- Trial Balance Endpoints ---
-# ... (unchanged) ...
+@app.get("/trial-balance/", response_model=models.TrialBalanceReport,
+             dependencies=[Depends(check_permission("accounting.read.trial_balance"))])
+async def get_current_trial_balance(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    as_of_date: Optional[datetime] = Query(None, description="Generate trial balance as of this date (ISO format).")
+):
+    return await crud.get_trial_balance_report(db_session, user_id, as_of_date)
 
 # --- Financial Statement Endpoints ---
-# ... (unchanged) ...
+@app.get("/financial-statements/income-statement/", response_model=models.IncomeStatement,
+             dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
+async def get_current_income_statement(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    start_date: datetime = Query(..., description="Start date of the reporting period (ISO format)."),
+    end_date: datetime = Query(..., description="End date of the reporting period (ISO format).")
+):
+    return await crud.get_income_statement(db_session, user_id, start_date, end_date)
+
+@app.get("/financial-statements/balance-sheet/", response_model=models.BalanceSheet,
+             dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
+async def get_current_balance_sheet(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    as_of_date: datetime = Query(..., description="Generate balance sheet as of this date (ISO format).")
+):
+    return await crud.get_balance_sheet(db_session, user_id, as_of_date)
 
 # --- Root endpoint for health check ---
 @app.get("/")
