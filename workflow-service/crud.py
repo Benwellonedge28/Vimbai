@@ -7,52 +7,63 @@ from workflow_service.models import (
 )
 from datetime import datetime
 import uuid
+import json # For serializing/deserializing complex Pydantic models to/from JSON strings for Neo4j properties
 
-# --- Workflow Definition CRUD ---
+# Helper function to convert Pydantic models to Neo4j-compatible dictionary (handles nested models)
+def _to_neo4j_props(model_instance: BaseModel) -> Dict[str, Any]:
+    data = model_instance.model_dump()
+    # Convert nested Pydantic models to JSON strings for Neo4j storage
+    for key, value in data.items():
+        if isinstance(value, list) and all(isinstance(item, WorkflowStep) for item in value):
+            data[key] = json.dumps([item.model_dump() for item in value])
+        elif isinstance(value, list) and all(isinstance(item, WorkflowTaskStatus) for item in value):
+            data[key] = json.dumps([item.model_dump() for item in value])
+        elif isinstance(value, datetime):
+            data[key] = value.isoformat()
+    return data
+
+# Helper function to reconstruct Pydantic models from Neo4j properties
+def _from_neo4j_props(node_props: Dict[str, Any], model_class: BaseModel) -> BaseModel:
+    props = node_props.copy()
+    if 'created_at' in props and isinstance(props['created_at'], str):
+        props['created_at'] = datetime.fromisoformat(props['created_at'])
+    if 'updated_at' in props and isinstance(props['updated_at'], str):
+        props['updated_at'] = datetime.fromisoformat(props['updated_at'])
+    if 'start_date' in props and isinstance(props['start_date'], str):
+        props['start_date'] = datetime.fromisoformat(props['start_date'])
+    if 'end_date' in props and isinstance(props['end_date'], str):
+        props['end_date'] = datetime.fromisoformat(props['end_date'])
+    if 'completed_at' in props and isinstance(props['completed_at'], str):
+        props['completed_at'] = datetime.fromisoformat(props['completed_at'])
+
+    # Reconstruct nested Pydantic models from JSON strings
+    if 'steps' in props and isinstance(props['steps'], str):
+        props['steps'] = [WorkflowStep(**item) for item in json.loads(props['steps'])]
+    if 'tasks' in props and isinstance(props['tasks'], str):
+        props['tasks'] = [WorkflowTaskStatus(**item) for item in json.loads(props['tasks'])]
+
+    return model_class(**props)
+
+# --- WorkflowDefinition CRUD ---
 async def create_workflow_definition(session: AsyncSession, definition_data: WorkflowDefinitionCreate) -> WorkflowDefinitionInDB:
     definition_id = str(uuid.uuid4())
     created_at = datetime.utcnow()
     updated_at = datetime.utcnow()
 
-    # Convert WorkflowStep objects to dictionaries for storage
-    steps_data = [step.model_dump() for step in definition_data.steps]
+    props = _to_neo4j_props(definition_data)
+    props["id"] = definition_id
+    props["created_at"] = created_at.isoformat()
+    props["updated_at"] = updated_at.isoformat()
 
     query = """
-    CREATE (wd:WorkflowDefinition {
-        id: $id,
-        name: $name,
-        description: $description,
-        trigger_event: $trigger_event,
-        steps: $steps,
-        is_active: $is_active,
-        created_at: datetime($created_at),
-        updated_at: datetime($updated_at)
-    })
+    CREATE (wd:WorkflowDefinition $props)
     RETURN wd
     """
-    params = definition_data.model_dump()
-    params["id"] = definition_id
-    params["steps"] = steps_data  # Store steps as a list of dictionaries
-    params["created_at"] = created_at.isoformat()
-    params["updated_at"] = updated_at.isoformat()
-
-    result = await session.run(query, params)
+    result = await session.run(query, props=props)
     record = await result.single()
-    wd_node = record["wd"]
+    
+    return _from_neo4j_props(record["wd"], WorkflowDefinitionInDB)
 
-    # Reconstruct steps from stored dictionaries
-    reconstructed_steps = [WorkflowStep(**s) for s in wd_node["steps"]]
-
-    return WorkflowDefinitionInDB(
-        id=wd_node["id"],
-        name=wd_node["name"],
-        description=wd_node["description"],
-        trigger_event=wd_node["trigger_event"],
-        steps=reconstructed_steps,
-        is_active=wd_node["is_active"],
-        created_at=datetime.fromisoformat(wd_node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(wd_node["updated_at"].iso_format()),
-    )
 
 async def get_workflow_definition(session: AsyncSession, definition_id: str) -> Optional[WorkflowDefinitionInDB]:
     query = """
@@ -63,21 +74,11 @@ async def get_workflow_definition(session: AsyncSession, definition_id: str) -> 
     record = await result.single()
 
     if record:
-        wd_node = record["wd"]
-        reconstructed_steps = [WorkflowStep(**s) for s in wd_node["steps"]]
-        return WorkflowDefinitionInDB(
-            id=wd_node["id"],
-            name=wd_node["name"],
-            description=wd_node["description"],
-            trigger_event=wd_node["trigger_event"],
-            steps=reconstructed_steps,
-            is_active=wd_node["is_active"],
-            created_at=datetime.fromisoformat(wd_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(wd_node["updated_at"].iso_format()),
-        )
+        return _from_neo4j_props(record["wd"], WorkflowDefinitionInDB)
     return None
 
-async def get_workflow_definitions_by_trigger_event(session: AsyncSession, trigger_event: str) -> List[WorkflowDefinitionInDB]:
+
+async def get_workflow_definition_by_trigger(session: AsyncSession, trigger_event: str) -> List[WorkflowDefinitionInDB]:
     query = """
     MATCH (wd:WorkflowDefinition {trigger_event: $trigger_event, is_active: true})
     RETURN wd
@@ -85,19 +86,9 @@ async def get_workflow_definitions_by_trigger_event(session: AsyncSession, trigg
     result = await session.run(query, trigger_event=trigger_event)
     definitions = []
     async for record in result:
-        wd_node = record["wd"]
-        reconstructed_steps = [WorkflowStep(**s) for s in wd_node["steps"]]
-        definitions.append(WorkflowDefinitionInDB(
-            id=wd_node["id"],
-            name=wd_node["name"],
-            description=wd_node["description"],
-            trigger_event=wd_node["trigger_event"],
-            steps=reconstructed_steps,
-            is_active=wd_node["is_active"],
-            created_at=datetime.fromisoformat(wd_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(wd_node["updated_at"].iso_format()),
-        ))
+        definitions.append(_from_neo4j_props(record["wd"], WorkflowDefinitionInDB))
     return definitions
+
 
 async def get_all_workflow_definitions(session: AsyncSession) -> List[WorkflowDefinitionInDB]:
     query = """
@@ -108,18 +99,7 @@ async def get_all_workflow_definitions(session: AsyncSession) -> List[WorkflowDe
     result = await session.run(query)
     definitions = []
     async for record in result:
-        wd_node = record["wd"]
-        reconstructed_steps = [WorkflowStep(**s) for s in wd_node["steps"]]
-        definitions.append(WorkflowDefinitionInDB(
-            id=wd_node["id"],
-            name=wd_node["name"],
-            description=wd_node["description"],
-            trigger_event=wd_node["trigger_event"],
-            steps=reconstructed_steps,
-            is_active=wd_node["is_active"],
-            created_at=datetime.fromisoformat(wd_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(wd_node["updated_at"].iso_format()),
-        ))
+        definitions.append(_from_neo4j_props(record["wd"], WorkflowDefinitionInDB))
     return definitions
 
 
@@ -129,8 +109,12 @@ async def update_workflow_definition(session: AsyncSession, definition_id: str, 
         return await get_workflow_definition(session, definition_id)
 
     update_fields["updated_at"] = datetime.utcnow().isoformat()
-    if "steps" in update_fields:
-        update_fields["steps"] = [step.model_dump() for step in definition_data.steps] # Convert steps to dicts
+    # Convert nested models to JSON string before update
+    for key, value in update_fields.items():
+        if isinstance(value, list) and all(isinstance(item, WorkflowStep) for item in value):
+            update_fields[key] = json.dumps([item.model_dump() for item in value])
+        elif isinstance(value, datetime):
+            update_fields[key] = value.isoformat()
 
     set_clauses = [f"wd.{k} = ${k}" for k in update_fields.keys()]
     set_query_part = ", ".join(set_clauses)
@@ -148,6 +132,7 @@ async def update_workflow_definition(session: AsyncSession, definition_id: str, 
         return await get_workflow_definition(session, definition_id)
     return None
 
+
 async def delete_workflow_definition(session: AsyncSession, definition_id: str) -> bool:
     query = """
     MATCH (wd:WorkflowDefinition {id: $definition_id})
@@ -156,100 +141,56 @@ async def delete_workflow_definition(session: AsyncSession, definition_id: str) 
     result = await session.run(query, definition_id=definition_id)
     return result.consume().counters.nodes_deleted > 0
 
-# --- Workflow Instance CRUD ---
+
+# --- WorkflowInstance CRUD ---
 async def create_workflow_instance(session: AsyncSession, instance_data: WorkflowInstanceCreate) -> WorkflowInstanceInDB:
     instance_id = str(uuid.uuid4())
     created_at = datetime.utcnow()
     updated_at = datetime.utcnow()
 
+    props = _to_neo4j_props(instance_data)
+    props["id"] = instance_id
+    props["created_at"] = created_at.isoformat()
+    props["updated_at"] = updated_at.isoformat()
+    # Initialize tasks list for the new instance
+    props["tasks"] = json.dumps([]) # Start with no tasks
+
     query = """
     MATCH (wd:WorkflowDefinition {id: $workflow_definition_id})
-    CREATE (wi:WorkflowInstance {
-        id: $id,
-        workflow_definition_id: $workflow_definition_id,
-        triggered_by_event: $triggered_by_event,
-        status: $status,
-        current_step_ids: $current_step_ids,
-        context: $context,
-        start_date: datetime($start_date),
-        end_date: $end_date,
-        created_at: datetime($created_at),
-        updated_at: datetime($updated_at)
-    })
+    CREATE (wi:WorkflowInstance $props)
     CREATE (wi)-[:BASED_ON]->(wd)
     RETURN wi
     """
-    params = instance_data.model_dump()
-    params["id"] = instance_id
-    params["triggered_by_event"] = str(params["triggered_by_event"]) # Ensure string for storage
-    params["current_step_ids"] = [] # Start with no active steps
-    params["start_date"] = params["start_date"].isoformat()
-    if params["end_date"]:
-        params["end_date"] = params["end_date"].isoformat()
-    params["created_at"] = created_at.isoformat()
-    params["updated_at"] = updated_at.isoformat()
-
-    result = await session.run(query, params)
+    result = await session.run(query, workflow_definition_id=instance_data.workflow_definition_id, props=props)
     record = await result.single()
-    wi_node = record["wi"]
 
-    return WorkflowInstanceInDB(
-        id=wi_node["id"],
-        workflow_definition_id=wi_node["workflow_definition_id"],
-        triggered_by_event=wi_node["triggered_by_event"],
-        status=wi_node["status"],
-        current_step_ids=wi_node["current_step_ids"],
-        context=wi_node["context"],
-        start_date=datetime.fromisoformat(wi_node["start_date"].iso_format()),
-        end_date=datetime.fromisoformat(wi_node["end_date"].iso_format()) if wi_node.get("end_date") else None,
-        tasks=[], # Tasks will be added separately
-        created_at=datetime.fromisoformat(wi_node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(wi_node["updated_at"].iso_format()),
-    )
+    return _from_neo4j_props(record["wi"], WorkflowInstanceInDB)
+
 
 async def get_workflow_instance(session: AsyncSession, instance_id: str) -> Optional[WorkflowInstanceInDB]:
     query = """
     MATCH (wi:WorkflowInstance {id: $instance_id})
-    OPTIONAL MATCH (wi)-[:HAS_TASK_STATUS]->(wts:WorkflowTaskStatus)
-    RETURN wi, COLLECT(wts) AS tasks_data
+    RETURN wi
     """
-    params = {"instance_id": instance_id}
-    result = await session.run(query, params)
+    result = await session.run(query, instance_id=instance_id)
     record = await result.single()
 
     if record:
-        wi_node = record["wi"]
-        tasks_data = record["tasks_data"]
-        
-        reconstructed_tasks = []
-        for task_node in tasks_data:
-            if task_node:
-                reconstructed_tasks.append(WorkflowTaskStatus(
-                    task_id=task_node["task_id"],
-                    step_id=task_node["step_id"],
-                    status=task_node["status"],
-                    assigned_to_user_id=task_node.get("assigned_to_user_id"),
-                    assigned_to_role=task_node.get("assigned_to_role"),
-                    completed_by_user_id=task_node.get("completed_by_user_id"),
-                    completed_at=datetime.fromisoformat(task_node["completed_at"].iso_format()) if task_node.get("completed_at") else None,
-                    comments=task_node.get("comments"),
-                    payload=task_node["payload"],
-                ))
-
-        return WorkflowInstanceInDB(
-            id=wi_node["id"],
-            workflow_definition_id=wi_node["workflow_definition_id"],
-            triggered_by_event=wi_node["triggered_by_event"],
-            status=wi_node["status"],
-            current_step_ids=wi_node["current_step_ids"],
-            context=wi_node["context"],
-            start_date=datetime.fromisoformat(wi_node["start_date"].iso_format()),
-            end_date=datetime.fromisoformat(wi_node["end_date"].iso_format()) if wi_node.get("end_date") else None,
-            tasks=reconstructed_tasks,
-            created_at=datetime.fromisoformat(wi_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(wi_node["updated_at"].iso_format()),
-        )
+        return _from_neo4j_props(record["wi"], WorkflowInstanceInDB)
     return None
+
+
+async def get_workflow_instances_by_definition(session: AsyncSession, definition_id: str) -> List[WorkflowInstanceInDB]:
+    query = """
+    MATCH (wi:WorkflowInstance)-[:BASED_ON]->(wd:WorkflowDefinition {id: $definition_id})
+    RETURN wi
+    ORDER BY wi.start_date DESC
+    """
+    result = await session.run(query, definition_id=definition_id)
+    instances = []
+    async for record in result:
+        instances.append(_from_neo4j_props(record["wi"], WorkflowInstanceInDB))
+    return instances
 
 
 async def update_workflow_instance(session: AsyncSession, instance_id: str, instance_data: WorkflowInstanceUpdate) -> Optional[WorkflowInstanceInDB]:
@@ -258,10 +199,12 @@ async def update_workflow_instance(session: AsyncSession, instance_id: str, inst
         return await get_workflow_instance(session, instance_id)
 
     update_fields["updated_at"] = datetime.utcnow().isoformat()
-    if "start_date" in update_fields:
-        update_fields["start_date"] = update_fields["start_date"].isoformat()
-    if "end_date" in update_fields and update_fields["end_date"]:
-        update_fields["end_date"] = update_fields["end_date"].isoformat()
+    # Convert nested models to JSON string before update
+    for key, value in update_fields.items():
+        if isinstance(value, list) and all(isinstance(item, WorkflowTaskStatus) for item in value):
+            update_fields[key] = json.dumps([item.model_dump() for item in value])
+        elif isinstance(value, datetime):
+            update_fields[key] = value.isoformat()
 
     set_clauses = [f"wi.{k} = ${k}" for k in update_fields.keys()]
     set_query_part = ", ".join(set_clauses)
@@ -279,6 +222,7 @@ async def update_workflow_instance(session: AsyncSession, instance_id: str, inst
         return await get_workflow_instance(session, instance_id)
     return None
 
+
 async def delete_workflow_instance(session: AsyncSession, instance_id: str) -> bool:
     query = """
     MATCH (wi:WorkflowInstance {id: $instance_id})
@@ -286,31 +230,3 @@ async def delete_workflow_instance(session: AsyncSession, instance_id: str) -> b
     """
     result = await session.run(query, instance_id=instance_id)
     return result.consume().counters.nodes_deleted > 0
-
-
-async def add_task_status_to_instance(session: AsyncSession, instance_id: str, task_status: WorkflowTaskStatus) -> Optional[WorkflowInstanceInDB]:
-    task_status_data = task_status.model_dump()
-    task_status_data["completed_at"] = task_status_data["completed_at"].isoformat() if task_status_data["completed_at"] else None
-
-    query = """
-    MATCH (wi:WorkflowInstance {id: $instance_id})
-    CREATE (wts:WorkflowTaskStatus {
-        task_id: $task_id,
-        step_id: $step_id,
-        status: $status,
-        assigned_to_user_id: $assigned_to_user_id,
-        assigned_to_role: $assigned_to_role,
-        completed_by_user_id: $completed_by_user_id,
-        completed_at: datetime($completed_at),
-        comments: $comments,
-        payload: $payload
-    })
-    CREATE (wi)-[:HAS_TASK_STATUS]->(wts)
-    RETURN wi
-    """
-    params = {"instance_id": instance_id, **task_status_data}
-    result = await session.run(query, params)
-    record = await result.single()
-    if record:
-        return await get_workflow_instance(session, instance_id)
-    return None
