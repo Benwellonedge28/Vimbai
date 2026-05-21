@@ -1,157 +1,143 @@
 from neo4j import AsyncSession
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any
 from finance_service.models import (
-    BudgetCreate, BudgetUpdate, BudgetInDB, BudgetItemCreate, BudgetItemInDB, BudgetItemUpdate,
-    ActualsSummary, BudgetItemBase, BudgetVarianceItem, BudgetVarianceReport,
-    LiquidityRatios, SolvencyRatios, ProfitabilityRatios, FinancialRatiosReport,
-    EfficiencyRatios, MarketRatios
+    BudgetItemCreate, BudgetItemUpdate, BudgetItemInDB,
+    BudgetCreate, BudgetUpdate, BudgetInDB,
+    FinancialForecastCreate, FinancialForecastUpdate, FinancialForecastInDB, # NEW
+    ScenarioCreate, ScenarioUpdate, ScenarioInDB, # NEW
+    FinancialForecastDataPoint, ScenarioParameter # NEW
 )
-from datetime import datetime, timedelta
+from datetime import datetime, date
 import uuid
-from decimal import Decimal
-import httpx
-import os
-from finance_service.exceptions import ValidationError, NotFoundError
 
-API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
-ACCOUNTING_SERVICE_URL = f"{API_GATEWAY_URL}/accounting"
-
-# --- Budget CRUD (modified to handle items separately) ---
-async def create_budget(session: AsyncSession, budget_data: BudgetCreate) -> BudgetInDB:
+# --- Budget CRUD ---
+async def create_budget(session: AsyncSession, budget_data: BudgetCreate, user_id: str) -> BudgetInDB:
     budget_id = str(uuid.uuid4())
     created_at = datetime.utcnow()
     updated_at = datetime.utcnow()
 
     query = """
+    MATCH (u:User {id: $user_id})
     CREATE (b:Budget {
         id: $id,
         name: $name,
-        start_date: datetime($start_date),
-        end_date: datetime($end_date),
+        start_date: date($start_date),
+        end_date: date($end_date),
         currency: $currency,
         description: $description,
         created_at: datetime($created_at),
         updated_at: datetime($updated_at)
     })
+    CREATE (u)-[:OWNS_BUDGET]->(b)
     RETURN b
     """
     params = budget_data.model_dump()
     params["id"] = budget_id
-    params["start_date"] = params["start_date"].isoformat()
-    params["end_date"] = params["end_date"].isoformat()
+    params["user_id"] = user_id
+    params["start_date"] = params["start_date"].isoformat().split('T')[0] # Store as date string
+    params["end_date"] = params["end_date"].isoformat().split('T')[0] # Store as date string
     params["created_at"] = created_at.isoformat()
     params["updated_at"] = updated_at.isoformat()
 
     result = await session.run(query, params)
     record = await result.single()
-    budget_node = record["b"]
+    b_node = record["b"]
 
     return BudgetInDB(
-        id=budget_node["id"],
-        name=budget_node["name"],
-        start_date=datetime.fromisoformat(budget_node["start_date"].iso_format()),
-        end_date=datetime.fromisoformat(budget_node["end_date"].iso_format()),
-        currency=budget_node["currency"],
-        description=budget_node["description"],
-        created_at=datetime.fromisoformat(budget_node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(budget_node["updated_at"].iso_format()),
-        items=[] # No items on initial creation
+        id=b_node["id"],
+        name=b_node["name"],
+        start_date=datetime.fromisoformat(b_node["start_date"]),
+        end_date=datetime.fromisoformat(b_node["end_date"]),
+        currency=b_node["currency"],
+        description=b_node["description"],
+        created_at=datetime.fromisoformat(b_node["created_at"].iso_format()),
+        updated_at=datetime.fromisoformat(b_node["updated_at"].iso_format()),
+        items=[]
     )
 
 async def get_budget(session: AsyncSession, budget_id: str) -> Optional[BudgetInDB]:
     query = """
     MATCH (b:Budget {id: $budget_id})
     OPTIONAL MATCH (b)-[:HAS_ITEM]->(bi:BudgetItem)
-    RETURN b, COLLECT(bi) AS items
+    RETURN b, COLLECT(bi) AS budget_items
     """
     result = await session.run(query, budget_id=budget_id)
     record = await result.single()
 
     if record:
-        budget_node = record["b"]
-        items_data = record["items"]
-        
-        budget_items_in_db = []
-        for item_node in items_data:
-            if item_node: # Only add if item_node is not None (COLLECT can return [None] if no items)
-                budget_items_in_db.append(BudgetItemInDB(
-                    id=item_node["id"],
-                    budget_id=budget_id,
-                    category=item_node["category"],
-                    account_number=item_node["account_number"],
-                    budgeted_amount=Decimal(str(item_node["budgeted_amount"])),
-                    budget_type=item_node["budget_type"],
-                    created_at=datetime.fromisoformat(item_node["created_at"].iso_format()),
-                    updated_at=datetime.fromisoformat(item_node["updated_at"].iso_format()),
-                ))
+        b_node = record["b"]
+        budget_items = []
+        for bi_node in record["budget_items"]:
+            budget_items.append(BudgetItemInDB(
+                id=bi_node["id"],
+                budget_id=bi_node["budget_id"],
+                category=bi_node["category"],
+                account_number=bi_node["account_number"],
+                budgeted_amount=bi_node["budgeted_amount"],
+                budget_type=bi_node["budget_type"],
+                created_at=datetime.fromisoformat(bi_node["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(bi_node["updated_at"].iso_format()),
+            ))
         
         return BudgetInDB(
-            id=budget_node["id"],
-            name=budget_node["name"],
-            start_date=datetime.fromisoformat(budget_node["start_date"].iso_format()),
-            end_date=datetime.fromisoformat(budget_node["end_date"].iso_format()),
-            currency=budget_node["currency"],
-            description=budget_node["description"],
-            created_at=datetime.fromisoformat(budget_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(budget_node["updated_at"].iso_format()),
-            items=budget_items_in_db
+            id=b_node["id"],
+            name=b_node["name"],
+            start_date=datetime.fromisoformat(b_node["start_date"]),
+            end_date=datetime.fromisoformat(b_node["end_date"]),
+            currency=b_node["currency"],
+            description=b_node["description"],
+            created_at=datetime.fromisoformat(b_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(b_node["updated_at"].iso_format()),
+            items=budget_items
         )
     return None
 
-async def get_all_budgets(session: AsyncSession) -> List[BudgetInDB]:
+async def get_budgets_by_user(session: AsyncSession, user_id: str) -> List[BudgetInDB]:
     query = """
-    MATCH (b:Budget)
+    MATCH (u:User {id: $user_id})-[:OWNS_BUDGET]->(b:Budget)
     OPTIONAL MATCH (b)-[:HAS_ITEM]->(bi:BudgetItem)
-    RETURN b, COLLECT(bi) AS items
+    RETURN b, COLLECT(bi) AS budget_items
     ORDER BY b.start_date DESC
     """
-    result = await session.run(query)
-
-    budgets_map: Dict[str, BudgetInDB] = {}
-
+    result = await session.run(query, user_id=user_id)
+    budgets = []
     async for record in result:
-        budget_node = record["b"]
-        items_data = record["items"]
-        budget_id = budget_node["id"]
+        b_node = record["b"]
+        budget_items = []
+        for bi_node in record["budget_items"]:
+            budget_items.append(BudgetItemInDB(
+                id=bi_node["id"],
+                budget_id=bi_node["budget_id"],
+                category=bi_node["category"],
+                account_number=bi_node["account_number"],
+                budgeted_amount=bi_node["budgeted_amount"],
+                budget_type=bi_node["budget_type"],
+                created_at=datetime.fromisoformat(bi_node["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(bi_node["updated_at"].iso_format()),
+            ))
+        budgets.append(BudgetInDB(
+            id=b_node["id"],
+            name=b_node["name"],
+            start_date=datetime.fromisoformat(b_node["start_date"]),
+            end_date=datetime.fromisoformat(b_node["end_date"]),
+            currency=b_node["currency"],
+            description=b_node["description"],
+            created_at=datetime.fromisoformat(b_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(b_node["updated_at"].iso_format()),
+            items=budget_items
+        ))
+    return budgets
 
-        if budget_id not in budgets_map:
-            budgets_map[budget_id] = BudgetInDB(
-                id=budget_node["id"],
-                name=budget_node["name"],
-                start_date=datetime.fromisoformat(budget_node["start_date"].iso_format()),
-                end_date=datetime.fromisoformat(budget_node["end_date"].iso_format()),
-                currency=budget_node["currency"],
-                description=budget_node["description"],
-                created_at=datetime.fromisoformat(budget_node["created_at"].iso_format()),
-                updated_at=datetime.fromisoformat(budget_node["updated_at"].iso_format()),
-                items=[],
-            )
-        
-        for item_node in items_data:
-            if item_node:
-                budgets_map[budget_id].items.append(BudgetItemInDB(
-                    id=item_node["id"],
-                    budget_id=budget_id,
-                    category=item_node["category"],
-                    account_number=item_node["account_number"],
-                    budgeted_amount=Decimal(str(item_node["budgeted_amount"])),
-                    budget_type=item_node["budget_type"],
-                    created_at=datetime.fromisoformat(item_node["created_at"].iso_format()),
-                    updated_at=datetime.fromisoformat(item_node["updated_at"].iso_format()),
-                ))
-    
-    return list(budgets_map.values())
-    
 async def update_budget(session: AsyncSession, budget_id: str, budget_data: BudgetUpdate) -> Optional[BudgetInDB]:
     update_fields = budget_data.model_dump(exclude_unset=True)
     if not update_fields:
-        return await get_budget(session, budget_id) # No fields to update
+        return await get_budget(session, budget_id)
 
     update_fields["updated_at"] = datetime.utcnow().isoformat()
-    if "start_date" in update_fields and update_fields["start_date"]:
-        update_fields["start_date"] = update_fields["start_date"].isoformat()
-    if "end_date" in update_fields and update_fields["end_date"]:
-        update_fields["end_date"] = update_fields["end_date"].isoformat()
+    if "start_date" in update_fields:
+        update_fields["start_date"] = update_fields["start_date"].isoformat().split('T')[0]
+    if "end_date" in update_fields:
+        update_fields["end_date"] = update_fields["end_date"].isoformat().split('T')[0]
 
     set_clauses = [f"b.{k} = ${k}" for k in update_fields.keys()]
     set_query_part = ", ".join(set_clauses)
@@ -161,7 +147,6 @@ async def update_budget(session: AsyncSession, budget_id: str, budget_data: Budg
     SET {set_query_part}
     RETURN b
     """
-    
     params = {"budget_id": budget_id, **update_fields}
     result = await session.run(query, params)
     record = await result.single()
@@ -173,30 +158,25 @@ async def update_budget(session: AsyncSession, budget_id: str, budget_data: Budg
 async def delete_budget(session: AsyncSession, budget_id: str) -> bool:
     query = """
     MATCH (b:Budget {id: $budget_id})
-    OPTIONAL MATCH (b)-[:HAS_ITEM]->(bi:BudgetItem)
-    DETACH DELETE b, bi
+    DETACH DELETE b
     """
     result = await session.run(query, budget_id=budget_id)
     return result.consume().counters.nodes_deleted > 0
 
-
-# --- Budget Item CRUD ---
-async def create_budget_item(session: AsyncSession, budget_id: str, item_data: BudgetItemCreate) -> Optional[BudgetItemInDB]:
+# --- BudgetItem CRUD ---
+async def create_budget_item(session: AsyncSession, budget_id: str, item_data: BudgetItemCreate) -> BudgetItemInDB:
     item_id = str(uuid.uuid4())
     created_at = datetime.utcnow()
     updated_at = datetime.utcnow()
 
-    # Check if the account number exists in the Accounting Service
-    # This interaction implies a call to the Accounting Service's COA endpoint
-    # For simplicity, we assume account validation is done upstream or the account exists.
-    
     query = """
     MATCH (b:Budget {id: $budget_id})
     CREATE (bi:BudgetItem {
         id: $id,
+        budget_id: $budget_id,
         category: $category,
         account_number: $account_number,
-        budgeted_amount: toFloat($budgeted_amount),
+        budgeted_amount: $budgeted_amount,
         budget_type: $budget_type,
         created_at: datetime($created_at),
         updated_at: datetime($updated_at)
@@ -207,192 +187,407 @@ async def create_budget_item(session: AsyncSession, budget_id: str, item_data: B
     params = item_data.model_dump()
     params["id"] = item_id
     params["budget_id"] = budget_id
-    params["budgeted_amount"] = float(params["budgeted_amount"])
+    params["budgeted_amount"] = float(params["budgeted_amount"]) # Convert Decimal to float for Neo4j
     params["created_at"] = created_at.isoformat()
     params["updated_at"] = updated_at.isoformat()
 
     result = await session.run(query, params)
     record = await result.single()
-    if record:
-        item_node = record["bi"]
-        return BudgetItemInDB(
-            id=item_node["id"],
-            budget_id=budget_id,
-            category=item_node["category"],
-            account_number=item_node["account_number"],
-            budgeted_amount=Decimal(str(item_node["budgeted_amount"])),
-            budget_type=item_node["budget_type"],
-            created_at=datetime.fromisoformat(item_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(item_node["updated_at"].iso_format()),
-        )
-    return None
+    bi_node = record["bi"]
 
-async def get_budget_item(session: AsyncSession, budget_id: str, item_id: str) -> Optional[BudgetItemInDB]:
-    query = """
-    MATCH (b:Budget {id: $budget_id})-[:HAS_ITEM]->(bi:BudgetItem {id: $item_id})
-    RETURN bi
-    """
-    result = await session.run(query, budget_id=budget_id, item_id=item_id)
-    record = await result.single()
+    return BudgetItemInDB(
+        id=bi_node["id"],
+        budget_id=bi_node["budget_id"],
+        category=bi_node["category"],
+        account_number=bi_node["account_number"],
+        budgeted_amount=bi_node["budgeted_amount"],
+        budget_type=bi_node["budget_type"],
+        created_at=datetime.fromisoformat(bi_node["created_at"].iso_format()),
+        updated_at=datetime.fromisoformat(bi_node["updated_at"].iso_format()),
+    )
 
-    if record:
-        item_node = record["bi"]
-        return BudgetItemInDB(
-            id=item_node["id"],
-            budget_id=budget_id,
-            category=item_node["category"],
-            account_number=item_node["account_number"],
-            budgeted_amount=Decimal(str(item_node["budgeted_amount"])),
-            budget_type=item_node["budget_type"],
-            created_at=datetime.fromisoformat(item_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(item_node["updated_at"].iso_format()),
-        )
-    return None
-
-async def update_budget_item(session: AsyncSession, budget_id: str, item_id: str, item_data: BudgetItemUpdate) -> Optional[BudgetItemInDB]:
+async def update_budget_item(session: AsyncSession, item_id: str, item_data: BudgetItemUpdate) -> Optional[BudgetItemInDB]:
     update_fields = item_data.model_dump(exclude_unset=True)
     if not update_fields:
-        return await get_budget_item(session, budget_id, item_id) # No fields to update
+        return await get_budget_item(session, item_id)
 
     update_fields["updated_at"] = datetime.utcnow().isoformat()
-    if "budgeted_amount" in update_fields and update_fields["budgeted_amount"]:
+    if "budgeted_amount" in update_fields:
         update_fields["budgeted_amount"] = float(update_fields["budgeted_amount"])
 
     set_clauses = [f"bi.{k} = ${k}" for k in update_fields.keys()]
     set_query_part = ", ".join(set_clauses)
 
     query = f"""
-    MATCH (b:Budget {{id: $budget_id}})-[:HAS_ITEM]->(bi:BudgetItem {{id: $item_id}})
+    MATCH (bi:BudgetItem {{id: $item_id}})
     SET {set_query_part}
     RETURN bi
     """
-    
-    params = {"budget_id": budget_id, "item_id": item_id, **update_fields}
+    params = {"item_id": item_id, **update_fields}
     result = await session.run(query, params)
     record = await result.single()
 
     if record:
-        return await get_budget_item(session, budget_id, item_id)
+        # Re-fetch to get parent budget_id
+        fetch_query = """
+        MATCH (b:Budget)-[:HAS_ITEM]->(bi:BudgetItem {id: $item_id})
+        RETURN b, bi
+        """
+        fetch_result = await session.run(fetch_query, item_id=item_id)
+        fetch_record = await fetch_result.single()
+        if fetch_record:
+            b_node = fetch_record["b"]
+            bi_node = fetch_record["bi"]
+            return BudgetItemInDB(
+                id=bi_node["id"],
+                budget_id=b_node["id"],
+                category=bi_node["category"],
+                account_number=bi_node["account_number"],
+                budgeted_amount=bi_node["budgeted_amount"],
+                budget_type=bi_node["budget_type"],
+                created_at=datetime.fromisoformat(bi_node["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(bi_node["updated_at"].iso_format()),
+            )
     return None
 
-async def delete_budget_item(session: AsyncSession, budget_id: str, item_id: str) -> bool:
+async def get_budget_item(session: AsyncSession, item_id: str) -> Optional[BudgetItemInDB]:
     query = """
-    MATCH (b:Budget {id: $budget_id})-[:HAS_ITEM]->(bi:BudgetItem {id: $item_id})
+    MATCH (b:Budget)-[:HAS_ITEM]->(bi:BudgetItem {id: $item_id})
+    RETURN b, bi
+    """
+    result = await session.run(query, item_id=item_id)
+    record = await result.single()
+
+    if record:
+        b_node = record["b"]
+        bi_node = record["bi"]
+        return BudgetItemInDB(
+            id=bi_node["id"],
+            budget_id=b_node["id"],
+            category=bi_node["category"],
+            account_number=bi_node["account_number"],
+            budgeted_amount=bi_node["budgeted_amount"],
+            budget_type=bi_node["budget_type"],
+            created_at=datetime.fromisoformat(bi_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(bi_node["updated_at"].iso_format()),
+        )
+    return None
+
+async def delete_budget_item(session: AsyncSession, item_id: str) -> bool:
+    query = """
+    MATCH (bi:BudgetItem {id: $item_id})
     DETACH DELETE bi
     """
-    result = await session.run(query, budget_id=budget_id, item_id=item_id)
+    result = await session.run(query, item_id=item_id)
     return result.consume().counters.nodes_deleted > 0
 
+# --- FinancialForecast CRUD (NEW) ---
+async def create_financial_forecast(session: AsyncSession, forecast_data: FinancialForecastCreate) -> FinancialForecastInDB:
+    forecast_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+    updated_at = datetime.utcnow()
 
-# --- NEW: Budget Variance Reporting ---
-async def get_account_actual_balance_from_accounting_service(
-    user_id: str,
-    account_number: str,
-    start_date: datetime,
-    end_date: datetime,
-    jwt_token: str # JWT token for authentication with internal services
-) -> Tuple[Decimal, Decimal]:
+    # Convert data points to dictionaries for storage
+    data_points_data = [dp.model_dump() for dp in forecast_data.data_points]
+    for dp in data_points_data:
+        dp["period"] = dp["period"].isoformat()
+        dp["amount"] = float(dp["amount"])
+
+    query = """
+    MATCH (u:User {id: $owner_user_id})
+    CREATE (ff:FinancialForecast {
+        id: $id,
+        name: $name,
+        description: $description,
+        start_date: date($start_date),
+        end_date: date($end_date),
+        forecast_type: $forecast_type,
+        methodology: $methodology,
+        owner_user_id: $owner_user_id,
+        data_points: $data_points,
+        created_at: datetime($created_at),
+        updated_at: datetime($updated_at)
+    })
+    CREATE (u)-[:OWNS_FORECAST]->(ff)
+    RETURN ff
     """
-    Fetches the total debits and credits for a given account within a date range from the Accounting Service.
-    """
-    accounting_service_period_activity_url = f"{ACCOUNTING_SERVICE_URL}/accounts/{account_number}/period-activity"
-    params = {
-        "start_date": start_date.isoformat(),
-        "end_date": end_date.isoformat(),
-        "user_id": user_id
-    }
-    headers = {"Authorization": f"Bearer {jwt_token}"}
+    params = forecast_data.model_dump()
+    params["id"] = forecast_id
+    params["start_date"] = params["start_date"].isoformat()
+    params["end_date"] = params["end_date"].isoformat()
+    params["data_points"] = data_points_data
+    params["created_at"] = created_at.isoformat()
+    params["updated_at"] = updated_at.isoformat()
 
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(accounting_service_period_activity_url, params=params, headers=headers)
-            response.raise_for_status() # Raise an exception for 4xx or 5xx status codes
-            data = response.json()
-            
-            total_debits = Decimal(str(data.get("total_debits", 0.0)))
-            total_credits = Decimal(str(data.get("total_credits", 0.0)))
-            
-            return total_debits, total_credits
-            
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code == 404:
-            print(f"Account {account_number} not found in accounting service for period activity.")
-            return Decimal('0.00'), Decimal('0.00')
-        raise ValidationError(detail=f"Error fetching actuals from accounting service: {e.response.text}")
-    except httpx.RequestError as e:
-        raise ValidationError(detail=f"Network error fetching actuals from accounting service: {e}")
-    except Exception as e:
-        raise ValidationError(detail=f"Unexpected error fetching actuals from accounting service: {e}")
+    result = await session.run(query, params)
+    record = await result.single()
+    ff_node = record["ff"]
 
+    reconstructed_data_points = []
+    if ff_node.get("data_points"):
+        for dp in ff_node["data_points"]:
+            reconstructed_data_points.append(FinancialForecastDataPoint(
+                period=date.fromisoformat(dp["period"]),
+                value_type=dp["value_type"],
+                amount=Decimal(str(dp["amount"]))
+            ))
 
-async def get_budget_variance_report(
-    session: AsyncSession,
-    user_id: str,
-    budget_id: str,
-    jwt_token: str # Required to call accounting service
-) -> BudgetVarianceReport:
-    """
-    Generates a budget vs. actuals variance report for a given budget.
-    """
-    budget = await get_budget(session, budget_id)
-    if not budget:
-        raise NotFoundError(detail=f"Budget with ID {budget_id} not found.")
-
-    variance_items: List[BudgetVarianceItem] = []
-    total_budgeted_expense = Decimal('0.00')
-    total_actual_expense = Decimal('0.00')
-    total_budgeted_revenue = Decimal('0.00')
-    total_actual_revenue = Decimal('0.00')
-
-    for item in budget.items:
-        # Fetch actual activity for the account associated with the budget item
-        actual_debits, actual_credits = await get_account_actual_balance_from_accounting_service(
-            user_id=user_id,
-            account_number=item.account_number,
-            start_date=budget.start_date,
-            end_date=budget.end_date,
-            jwt_token=jwt_token
-        )
-
-        actual_amount = Decimal('0.00')
-        if item.budget_type == 'expense':
-            actual_amount = actual_debits # Expenses increase with debits
-            total_budgeted_expense += item.budgeted_amount
-            total_actual_expense += actual_amount
-        elif item.budget_type == 'revenue':
-            actual_amount = actual_credits # Revenues increase with credits
-            total_budgeted_revenue += item.budgeted_amount
-            total_actual_revenue += actual_amount
-        
-        variance = actual_amount - item.budgeted_amount
-        variance_percentage = (variance / item.budgeted_amount * Decimal('100')) if item.budgeted_amount != Decimal('0.00') else Decimal('0.00')
-
-        variance_items.append(
-            BudgetVarianceItem(
-                category=item.category,
-                account_number=item.account_number,
-                budgeted_amount=item.budgeted_amount,
-                actual_amount=actual_amount,
-                variance=variance,
-                variance_percentage=variance_percentage,
-                budget_type=item.budget_type
-            )
-        )
-    
-    overall_variance_expense = total_actual_expense - total_budgeted_expense
-    overall_variance_revenue = total_actual_revenue - total_budgeted_revenue
-
-    return BudgetVarianceReport(
-        budget_id=budget.id,
-        budget_name=budget.name,
-        start_date=budget.start_date,
-        end_date=budget.end_date,
-        currency=budget.currency,
-        items=variance_items,
-        total_budgeted_expense=total_budgeted_expense,
-        total_actual_expense=total_actual_expense,
-        overall_variance_expense=overall_variance_expense,
-        total_budgeted_revenue=total_budgeted_revenue,
-        total_actual_revenue=total_actual_revenue,
-        overall_variance_revenue=overall_variance_revenue,
+    return FinancialForecastInDB(
+        id=ff_node["id"],
+        name=ff_node["name"],
+        description=ff_node["description"],
+        start_date=date.fromisoformat(ff_node["start_date"]),
+        end_date=date.fromisoformat(ff_node["end_date"]),
+        forecast_type=ff_node["forecast_type"],
+        methodology=ff_node["methodology"],
+        owner_user_id=ff_node["owner_user_id"],
+        data_points=reconstructed_data_points,
+        created_at=datetime.fromisoformat(ff_node["created_at"].iso_format()),
+        updated_at=datetime.fromisoformat(ff_node["updated_at"].iso_format()),
     )
+
+async def get_financial_forecast(session: AsyncSession, forecast_id: str) -> Optional[FinancialForecastInDB]:
+    query = """
+    MATCH (ff:FinancialForecast {id: $forecast_id})
+    RETURN ff
+    """
+    result = await session.run(query, forecast_id=forecast_id)
+    record = await result.single()
+
+    if record:
+        ff_node = record["ff"]
+        reconstructed_data_points = []
+        if ff_node.get("data_points"):
+            for dp in ff_node["data_points"]:
+                reconstructed_data_points.append(FinancialForecastDataPoint(
+                    period=date.fromisoformat(dp["period"]),
+                    value_type=dp["value_type"],
+                    amount=Decimal(str(dp["amount"]))
+                ))
+        return FinancialForecastInDB(
+            id=ff_node["id"],
+            name=ff_node["name"],
+            description=ff_node["description"],
+            start_date=date.fromisoformat(ff_node["start_date"]),
+            end_date=date.fromisoformat(ff_node["end_date"]),
+            forecast_type=ff_node["forecast_type"],
+            methodology=ff_node["methodology"],
+            owner_user_id=ff_node["owner_user_id"],
+            data_points=reconstructed_data_points,
+            created_at=datetime.fromisoformat(ff_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(ff_node["updated_at"].iso_format()),
+        )
+    return None
+
+async def get_all_financial_forecasts_by_user(session: AsyncSession, user_id: str) -> List[FinancialForecastInDB]:
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_FORECAST]->(ff:FinancialForecast)
+    RETURN ff
+    ORDER BY ff.name
+    """
+    result = await session.run(query, user_id=user_id)
+    forecasts = []
+    async for record in result:
+        ff_node = record["ff"]
+        reconstructed_data_points = []
+        if ff_node.get("data_points"):
+            for dp in ff_node["data_points"]:
+                reconstructed_data_points.append(FinancialForecastDataPoint(
+                    period=date.fromisoformat(dp["period"]),
+                    value_type=dp["value_type"],
+                    amount=Decimal(str(dp["amount"]))
+                ))
+        forecasts.append(FinancialForecastInDB(
+            id=ff_node["id"],
+            name=ff_node["name"],
+            description=ff_node["description"],
+            start_date=date.fromisoformat(ff_node["start_date"]),
+            end_date=date.fromisoformat(ff_node["end_date"]),
+            forecast_type=ff_node["forecast_type"],
+            methodology=ff_node["methodology"],
+            owner_user_id=ff_node["owner_user_id"],
+            data_points=reconstructed_data_points,
+            created_at=datetime.fromisoformat(ff_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(ff_node["updated_at"].iso_format()),
+        ))
+    return forecasts
+
+async def update_financial_forecast(session: AsyncSession, forecast_id: str, forecast_data: FinancialForecastUpdate) -> Optional[FinancialForecastInDB]:
+    update_fields = forecast_data.model_dump(exclude_unset=True)
+    if not update_fields:
+        return await get_financial_forecast(session, forecast_id)
+
+    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    if "start_date" in update_fields:
+        update_fields["start_date"] = update_fields["start_date"].isoformat()
+    if "end_date" in update_fields:
+        update_fields["end_date"] = update_fields["end_date"].isoformat()
+    if "data_points" in update_fields:
+        data_points_data = [dp.model_dump() for dp in forecast_data.data_points]
+        for dp in data_points_data:
+            dp["period"] = dp["period"].isoformat()
+            dp["amount"] = float(dp["amount"])
+        update_fields["data_points"] = data_points_data
+
+    set_clauses = [f"ff.{k} = ${k}" for k in update_fields.keys()]
+    set_query_part = ", ".join(set_clauses)
+
+    query = f"""
+    MATCH (ff:FinancialForecast {{id: $forecast_id}})
+    SET {set_query_part}
+    RETURN ff
+    """
+    params = {"forecast_id": forecast_id, **update_fields}
+    result = await session.run(query, params)
+    record = await result.single()
+
+    if record:
+        return await get_financial_forecast(session, forecast_id)
+    return None
+
+async def delete_financial_forecast(session: AsyncSession, forecast_id: str) -> bool:
+    query = """
+    MATCH (ff:FinancialForecast {id: $forecast_id})
+    DETACH DELETE ff
+    """
+    result = await session.run(query, forecast_id=forecast_id)
+    return result.consume().counters.nodes_deleted > 0
+
+# --- Scenario CRUD (NEW) ---
+async def create_scenario(session: AsyncSession, scenario_data: ScenarioCreate) -> ScenarioInDB:
+    scenario_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+    updated_at = datetime.utcnow()
+
+    # Convert parameters to dictionaries for storage
+    parameters_data = [p.model_dump() for p in scenario_data.parameters]
+
+    query = """
+    MATCH (u:User {id: $owner_user_id})
+    OPTIONAL MATCH (ff:FinancialForecast {id: $base_forecast_id})
+    CREATE (s:Scenario {
+        id: $id,
+        name: $name,
+        description: $description,
+        base_forecast_id: $base_forecast_id,
+        parameters: $parameters,
+        owner_user_id: $owner_user_id,
+        created_at: datetime($created_at),
+        updated_at: datetime($updated_at)
+    })
+    CREATE (u)-[:OWNS_SCENARIO]->(s)
+    WITH s, ff
+    WHERE ff IS NOT NULL
+    CREATE (s)-[:BASED_ON_FORECAST]->(ff)
+    RETURN s
+    """
+    params = scenario_data.model_dump()
+    params["id"] = scenario_id
+    params["parameters"] = parameters_data
+    params["created_at"] = created_at.isoformat()
+    params["updated_at"] = updated_at.isoformat()
+
+    result = await session.run(query, params)
+    record = await result.single()
+    s_node = record["s"]
+
+    reconstructed_parameters = []
+    if s_node.get("parameters"):
+        for p in s_node["parameters"]:
+            reconstructed_parameters.append(ScenarioParameter(**p))
+
+    return ScenarioInDB(
+        id=s_node["id"],
+        name=s_node["name"],
+        description=s_node["description"],
+        base_forecast_id=s_node["base_forecast_id"],
+        parameters=reconstructed_parameters,
+        owner_user_id=s_node["owner_user_id"],
+        created_at=datetime.fromisoformat(s_node["created_at"].iso_format()),
+        updated_at=datetime.fromisoformat(s_node["updated_at"].iso_format()),
+    )
+
+async def get_scenario(session: AsyncSession, scenario_id: str) -> Optional[ScenarioInDB]:
+    query = """
+    MATCH (s:Scenario {id: $scenario_id})
+    RETURN s
+    """
+    result = await session.run(query, scenario_id=scenario_id)
+    record = await result.single()
+
+    if record:
+        s_node = record["s"]
+        reconstructed_parameters = []
+        if s_node.get("parameters"):
+            for p in s_node["parameters"]:
+                reconstructed_parameters.append(ScenarioParameter(**p))
+        return ScenarioInDB(
+            id=s_node["id"],
+            name=s_node["name"],
+            description=s_node["description"],
+            base_forecast_id=s_node["base_forecast_id"],
+            parameters=reconstructed_parameters,
+            owner_user_id=s_node["owner_user_id"],
+            created_at=datetime.fromisoformat(s_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(s_node["updated_at"].iso_format()),
+        )
+    return None
+
+async def get_all_scenarios_by_user(session: AsyncSession, user_id: str) -> List[ScenarioInDB]:
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_SCENARIO]->(s:Scenario)
+    RETURN s
+    ORDER BY s.name
+    """
+    result = await session.run(query, user_id=user_id)
+    scenarios = []
+    async for record in result:
+        s_node = record["s"]
+        reconstructed_parameters = []
+        if s_node.get("parameters"):
+            for p in s_node["parameters"]:
+                reconstructed_parameters.append(ScenarioParameter(**p))
+        scenarios.append(ScenarioInDB(
+            id=s_node["id"],
+            name=s_node["name"],
+            description=s_node["description"],
+            base_forecast_id=s_node["base_forecast_id"],
+            parameters=reconstructed_parameters,
+            owner_user_id=s_node["owner_user_id"],
+            created_at=datetime.fromisoformat(s_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(s_node["updated_at"].iso_format()),
+        ))
+    return scenarios
+
+async def update_scenario(session: AsyncSession, scenario_id: str, scenario_data: ScenarioUpdate) -> Optional[ScenarioInDB]:
+    update_fields = scenario_data.model_dump(exclude_unset=True)
+    if not update_fields:
+        return await get_scenario(session, scenario_id)
+
+    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    if "parameters" in update_fields:
+        update_fields["parameters"] = [p.model_dump() for p in scenario_data.parameters]
+
+    set_clauses = [f"s.{k} = ${k}" for k in update_fields.keys()]
+    set_query_part = ", ".join(set_clauses)
+
+    query = f"""
+    MATCH (s:Scenario {{id: $scenario_id}})
+    SET {set_query_part}
+    RETURN s
+    """
+    params = {"scenario_id": scenario_id, **update_fields}
+    result = await session.run(query, params)
+    record = await result.single()
+
+    if record:
+        return await get_scenario(session, scenario_id)
+    return None
+
+async def delete_scenario(session: AsyncSession, scenario_id: str) -> bool:
+    query = """
+    MATCH (s:Scenario {id: $scenario_id})
+    DETACH DELETE s
+    """
+    result = await session.run(query, scenario_id=scenario_id)
+    return result.consume().counters.nodes_deleted > 0
