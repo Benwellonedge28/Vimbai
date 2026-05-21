@@ -1,17 +1,20 @@
 # FinAcc Banking Integration Service
 
-This service is responsible for managing connections to external bank accounts and fetching transaction data. It acts as a bridge between FinAcc and financial institutions, automating the import of transaction data for reconciliation and accounting purposes.
+This service facilitates connecting to various financial institutions, retrieving bank account and transaction data, and integrating this data with the core FinAcc Accounting Service for automated reconciliation and journal entry creation.
 
 ## Features
 
--   **Bank Account Management (CRUD):** Allows users to link and manage their bank accounts within FinAcc.
--   **Transaction Fetching (Mocked):** Simulates fetching recent transactions from a connected bank account.
--   **Transaction Storage:** Stores fetched transactions in Neo4j, linking them to the respective bank accounts.
+-   **Bank Account Management:** CRUD operations for connecting and managing bank accounts.
+-   **Transaction Retrieval:** Simulates fetching transaction data from connected banks.
+-   **Transaction Categorization:** Supports categorization of transactions.
+-   **Automated Journal Entry Creation:** Can create corresponding journal entries in the Accounting Service.
+-   **Fraud Detection Integration:** Automatically sends new transactions to the Fraud Detection Service for analysis upon creation. (NEW)
 -   **JWT Authentication and Role-Based Access Control (RBAC)** for all API endpoints.
+-   **Robust Error Handling:** Standardized error responses with custom exceptions.
 
 ## Architecture
 
-The service uses FastAPI (Python) and Neo4j for persistent storage of bank account and transaction data. It communicates with external banking APIs (mocked for this implementation) to retrieve transaction details. All external communication from clients should go through the API Gateway.
+The Banking Integration Service is a FastAPI application that uses Neo4j to store bank and bank account details, as well as transaction records. It communicates with the Accounting Service (for journal entries) and the Fraud Detection Service (for transaction analysis) via the API Gateway using `httpx`.
 
 ## Getting Started
 
@@ -26,11 +29,11 @@ To run this service along with Neo4j and other FinAcc services, you need Docker 
 
 The service requires the following environment variables. It's recommended to set these in a `.env` file at the root of the project where `docker-compose.yml` is located.
 
--   `NEO4J_URI`: The connection URI for your Neo4j database (e.g., `bolt://neo4j:7687` when running with Docker Compose).
--   `NEO4J_USER`: The username for Neo4j (e.g., `neo4j`).
--   `NEO4J_PASSWORD`: The password for Neo4j (e.g., `neo4j` for default Docker setup, **CHANGE THIS IN PRODUCTION**).
--   `JWT_SECRET`: A strong, random secret key for signing JWT tokens. **CRITICAL: This MUST match the `JWT_SECRET` used by the `identity-service` and all other microservices for token validation to work.**
--   `API_GATEWAY_URL`: The internal URL of the API Gateway (e.g., `http://api-gateway:8081` when running with Docker Compose). This is used for generating correct `tokenUrl` for `OAuth2PasswordBearer`.
+-   `NEO4J_URI`: Connection URI for the Neo4j database (e.g., `bolt://neo4j:7687`).
+-   `NEO4J_USER`: Username for Neo4j.
+-   `NEO4J_PASSWORD`: Password for Neo4j.
+-   `JWT_SECRET`: A strong, random secret key for signing JWT tokens. **CRITICAL: This MUST match the `JWT_SECRET` used by the `identity-service` for token validation to work.**
+-   `API_GATEWAY_URL`: The internal URL of the API Gateway (e.g., `http://api-gateway:8081` when running with Docker Compose).
 
 ### 3. Running the Services (with Docker Compose)
 
@@ -44,16 +47,16 @@ This command will:
 1.  Build the `banking-integration-service` and other FinAcc Docker images.
 2.  Start a Neo4j container and all other FinAcc microservices.
 
-The Banking Integration Service will be accessible via the API Gateway at `http://localhost:8081` (prefix `/banking/accounts`, etc.).
+The Banking Integration Service API endpoints will be accessible via the API Gateway at `http://localhost:8081`.
 
 ### 4. Interacting with the API (Authenticated Endpoints)
 
-All endpoints now require a valid JWT in the `Authorization: Bearer <token>` header.
+All endpoints require a valid JWT in the `Authorization: Bearer <token>` header.
 
 #### **Step 1: Get a JWT Token**
 
 Refer to the `identity-service/README.md` for instructions on how to register a user and obtain a JWT token.
-Ensure the user has relevant `banking.*` permissions, or `SUPER_ADMIN` role. For example, a `BANKING_ADMIN` role could have `banking.*` permissions.
+Ensure the user has relevant `banking.*` permissions, or `SUPER_ADMIN` role.
 
 #### **Step 2: Make Authenticated Requests via API Gateway**
 
@@ -63,90 +66,74 @@ Use the copied JWT token in the `Authorization` header for all requests.
 
 ---
 
-### **Bank Account Endpoints**
+### **Transaction Endpoints**
 
-**(Requires `banking.write.accounts` or `banking.read.accounts` or `banking.delete.accounts` permissions)**
+#### Create a New Transaction
 
-#### Create a New Bank Account
-
-**Endpoint:** `POST http://localhost:8081/banking/accounts/` (via API Gateway)
-**Headers:** `Content-Type: application/json`, `Authorization: Bearer <YOUR_JWT_TOKEN_HERE>`
+**Endpoint:** `POST http://localhost:8081/transactions/` (via API Gateway)
+**Permissions:** `banking.write.transactions`
 **Body (JSON):**
 ```json
 {
-  "bank_name": "My Awesome Bank",
-  "account_name": "Main Checking",
-  "account_id": "MAA-123-XYZ",
-  "account_type": "checking",
+  "bank_account_id": "uuid-of-bank-account",
+  "transaction_id": "BANK-TRANS-12345",
+  "description": "Payment to Vendor X",
+  "amount": -150.00,
   "currency": "USD",
-  "current_balance": 1500.75,
-  "is_synced": false
+  "transaction_date": "2026-05-20T10:00:00Z",
+  "post_date": "2026-05-21T09:00:00Z",
+  "category": "Supplies",
+  "accounting_account_number": "6010"
 }
 ```
+*Upon creation, this transaction will automatically be sent to the Fraud Detection Service for analysis.* 
 
-#### Get All Bank Accounts for User
+#### Get a Specific Transaction
 
-**Endpoint:** `GET http://localhost:8081/banking/accounts/` (via API Gateway)
+**Endpoint:** `GET http://localhost:8081/transactions/{transaction_id}` (via API Gateway)
+**Permissions:** `banking.read.transactions`
 
-#### Get Bank Account by ID
+#### Get All Transactions
 
-**Endpoint:** `GET http://localhost:8081/banking/accounts/{account_id}` (via API Gateway)
-Example: `GET http://localhost:8081/banking/accounts/MAA-123-XYZ`
+**Endpoint:** `GET http://localhost:8081/transactions/` (via API Gateway)
+**Permissions:** `banking.read.transactions`
+Query parameters: `bank_account_id`, `start_date`, `end_date` for filtering.
 
-#### Update Bank Account
+#### Update an Existing Transaction
 
-**Endpoint:** `PUT http://localhost:8081/banking/accounts/{account_id}` (via API Gateway)
-Example: `PUT http://localhost:8081/banking/accounts/MAA-123-XYZ`
-**Body (JSON - partial update):**
+**Endpoint:** `PUT http://localhost:8081/transactions/{transaction_id}` (via API Gateway)
+**Permissions:** `banking.write.transactions`
+
+#### Delete an Existing Transaction
+
+**Endpoint:** `DELETE http://localhost:8081/transactions/{transaction_id}` (via API Gateway)
+**Permissions:** `banking.delete.transactions`
+
+#### Create Journal Entry for a Transaction
+
+**Endpoint:** `POST http://localhost:8081/transactions/{transaction_id}/create-journal-entry` (via API Gateway)
+**Permissions:** `banking.create.journal_entry`
+**Query Parameters:**
+-   `debit_account_number`: e.g., "5000"
+-   `credit_account_number`: e.g., "1010"
+
+---
+
+## Error Handling
+
+The service employs custom exceptions and global exception handlers to provide structured and informative error responses:
 ```json
 {
-  "account_name": "Primary Checking Account",
-  "is_synced": true
+  "detail": "Descriptive error message",
+  "code": "ERROR_CODE_ENUM",
+  "status_code": 404
 }
 ```
-
-#### Delete Bank Account
-
-**Endpoint:** `DELETE http://localhost:8081/banking/accounts/{account_id}` (via API Gateway)
-Example: `DELETE http://localhost:8081/banking/accounts/MAA-123-XYZ`
-
----
-
-### **Bank Transaction Endpoints**
-
-**(Requires `banking.read.transactions` or `banking.fetch.transactions` permissions)**
-
-#### Fetch and Store Transactions (Mocked)
-
-**Endpoint:** `POST http://localhost:8081/banking/accounts/{account_id}/fetch-transactions` (via API Gateway)
-Example: `POST http://localhost:8081/banking/accounts/MAA-123-XYZ/fetch-transactions`
-*This endpoint will simulate fetching and storing a few new transactions.*
-
-#### Get Transactions for Bank Account
-
-**Endpoint:** `GET http://localhost:8081/banking/accounts/{account_id}/transactions` (via API Gateway)
-Example: `GET http://localhost:8081/banking/accounts/MAA-123-XYZ/transactions`
-
----
-
-### 5. Development
-
-If developing locally (outside Docker Compose), ensure you have Python (3.10+) installed and your environment variables (`NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `JWT_SECRET`, `API_GATEWAY_URL`) are correctly set.
-
-```bash
-# Navigate to banking-integration-service directory
-cd banking-integration-service
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run locally
-uvicorn main:app --host 0.0.0.0 --port 8003
-```
+Common error codes include: `NOT_FOUND`, `CONFLICT_ERROR`, `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `BANK_ACCOUNT_NOT_FOUND`, `TRANSACTION_EXISTS`, `JOURNAL_ENTRY_EXISTS_FOR_TRANSACTION`, `UPSTREAM_JE_ERROR`, `UPSTREAM_JE_NETWORK_ERROR`.
 
 ## Future Enhancements
 
--   Integration with real external banking APIs (e.g., Plaid, Finicity, Open Banking APIs).
--   Automated categorization of transactions.
--   Intelligent reconciliation suggestions with the Accounting Service.
--   Handling webhooks from banking APIs for real-time updates.
+-   Integration with real bank APIs (e.g., Plaid, Finicity).
+-   Automated transaction categorization using ML.
+-   Improved reconciliation features.
+-   Advanced fraud detection rules and ML model integration.

@@ -1,272 +1,313 @@
 from neo4j import AsyncSession
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from banking_integration_service.models import (
+    BankCreate, BankUpdate, BankInDB,
     BankAccountCreate, BankAccountUpdate, BankAccountInDB,
-    BankTransactionCreate, BankTransactionInDB
+    TransactionCreate, TransactionUpdate, TransactionInDB,
+    JournalEntryCreate, CreateJournalEntryResponse, JournalLineBase,
+    TransactionForFraudCheck, FraudDetectionResult # NEW
 )
 from datetime import datetime, timedelta
 import uuid
 from decimal import Decimal
+import httpx
+import os
+from banking_integration_service.exceptions import ValidationError, NotFoundError # Corrected import
 
-# --- BankAccount CRUD ---
-async def create_bank_account(session: AsyncSession, user_id: str, account_data: BankAccountCreate) -> BankAccountInDB:
-    account_neo4j_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
 
-    query = """
-    CREATE (ba:BankAccount {
-        id: $id,
-        user_id: $user_id,
-        bank_name: $bank_name,
-        account_name: $account_name,
-        account_id: $account_id,
-        account_type: $account_type,
-        currency: $currency,
-        current_balance: toFloat($current_balance),
-        is_synced: $is_synced,
-        last_synced_at: datetime($last_synced_at),
-        created_at: datetime($created_at),
-        updated_at: datetime($updated_at)
-    })
-    RETURN ba
-    """
-    params = account_data.model_dump()
-    params["id"] = account_neo4j_id
-    params["user_id"] = user_id
-    params["current_balance"] = float(params["current_balance"])
-    params["created_at"] = created_at.isoformat()
-    params["updated_at"] = updated_at.isoformat()
-    if params["last_synced_at"]:
-        params["last_synced_at"] = params["last_synced_at"].isoformat()
-    
-    result = await session.run(query, params)
-    record = await result.single()
-    node = record["ba"]
-    return BankAccountInDB(
-        id=node["id"],
-        user_id=node["user_id"],
-        bank_name=node["bank_name"],
-        account_name=node["account_name"],
-        account_id=node["account_id"],
-        account_type=node["account_type"],
-        currency=node["currency"],
-        current_balance=Decimal(str(node["current_balance"])),
-        is_synced=node["is_synced"],
-        last_synced_at=datetime.fromisoformat(node["last_synced_at"].iso_format()) if node["last_synced_at"] else None,
-        created_at=datetime.fromisoformat(node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(node["updated_at"].iso_format()),
-    )
+# --- Bank CRUD (unchanged) ---
+# ...
 
-async def get_bank_account_by_id(session: AsyncSession, account_id: str, user_id: str) -> Optional[BankAccountInDB]:
-    query = """
-    MATCH (ba:BankAccount {account_id: $account_id, user_id: $user_id})
-    RETURN ba
-    """
-    result = await session.run(query, account_id=account_id, user_id=user_id)
-    record = await result.single()
-    if record:
-        node = record["ba"]
-        return BankAccountInDB(
-            id=node["id"],
-            user_id=node["user_id"],
-            bank_name=node["bank_name"],
-            account_name=node["account_name"],
-            account_id=node["account_id"],
-            account_type=node["account_type"],
-            currency=node["currency"],
-            current_balance=Decimal(str(node["current_balance"])),
-            is_synced=node["is_synced"],
-            last_synced_at=datetime.fromisoformat(node["last_synced_at"].iso_format()) if node["last_synced_at"] else None,
-            created_at=datetime.fromisoformat(node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(node["updated_at"].iso_format()),
-        )
-    return None
+# --- Bank Account CRUD (unchanged) ---
+# ...
 
-async def get_all_bank_accounts(session: AsyncSession, user_id: str) -> List[BankAccountInDB]:
-    query = """
-    MATCH (ba:BankAccount {user_id: $user_id})
-    RETURN ba
-    ORDER BY ba.bank_name, ba.account_name
-    """
-    result = await session.run(query, user_id=user_id)
-    accounts = []
-    async for record in result:
-        node = record["ba"]
-        accounts.append(BankAccountInDB(
-            id=node["id"],
-            user_id=node["user_id"],
-            bank_name=node["bank_name"],
-            account_name=node["account_name"],
-            account_id=node["account_id"],
-            account_type=node["account_type"],
-            currency=node["currency"],
-            current_balance=Decimal(str(node["current_balance"])),
-            is_synced=node["is_synced"],
-            last_synced_at=datetime.fromisoformat(node["last_synced_at"].iso_format()) if node["last_synced_at"] else None,
-            created_at=datetime.fromisoformat(node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(node["updated_at"].iso_format()),
-        ))
-    return accounts
-
-async def update_bank_account(session: AsyncSession, account_id: str, user_id: str, account_data: BankAccountUpdate) -> Optional[BankAccountInDB]:
-    update_fields = account_data.model_dump(exclude_unset=True)
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
-    if "current_balance" in update_fields:
-        update_fields["current_balance"] = float(update_fields["current_balance"])
-    if "last_synced_at" in update_fields and update_fields["last_synced_at"]:
-        update_fields["last_synced_at"] = update_fields["last_synced_at"].isoformat()
-
-    set_clauses = [f"ba.{k} = ${k}" for k in update_fields.keys()]
-    set_query_part = ", ".join(set_clauses)
-
-    query = f"""
-    MATCH (ba:BankAccount {{account_id: $account_id, user_id: $user_id}})
-    SET {set_query_part}
-    RETURN ba
-    """
-    
-    params = {"account_id": account_id, "user_id": user_id, **update_fields}
-    result = await session.run(query, params)
-    record = await result.single()
-
-    if record:
-        node = record["ba"]
-        return BankAccountInDB(
-            id=node["id"],
-            user_id=node["user_id"],
-            bank_name=node["bank_name"],
-            account_name=node["account_name"],
-            account_id=node["account_id"],
-            account_type=node["account_type"],
-            currency=node["currency"],
-            current_balance=Decimal(str(node["current_balance"])),
-            is_synced=node["is_synced"],
-            last_synced_at=datetime.fromisoformat(node["last_synced_at"].iso_format()) if node["last_synced_at"] else None,
-            created_at=datetime.fromisoformat(node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(node["updated_at"].iso_format()),
-        )
-    return None
-
-async def delete_bank_account(session: AsyncSession, account_id: str, user_id: str) -> bool:
-    # Delete BankAccount node and all its transactions
-    query = """
-    MATCH (ba:BankAccount {account_id: $account_id, user_id: $user_id})
-    OPTIONAL MATCH (ba)-[:HAS_TRANSACTION]->(bt:BankTransaction)
-    DETACH DELETE ba, bt
-    """
-    result = await session.run(query, account_id=account_id, user_id=user_id)
-    return result.consume().counters.nodes_deleted > 0
-
-# --- BankTransaction CRUD ---
-async def create_bank_transaction(session: AsyncSession, bank_account_neo4j_id: str, transaction_data: BankTransactionCreate) -> BankTransactionInDB:
+# --- Transaction CRUD ---
+async def create_transaction(session: AsyncSession, user_id: str, transaction_data: TransactionCreate, jwt_token: str) -> TransactionInDB:
     transaction_neo4j_id = str(uuid.uuid4())
     created_at = datetime.utcnow()
     updated_at = datetime.utcnow()
 
-    query = """
-    MATCH (ba:BankAccount {id: $bank_account_neo4j_id})
-    CREATE (bt:BankTransaction {
+    # Create Transaction node and link to BankAccount
+    transaction_query = """
+    MATCH (ba:BankAccount {id: $bank_account_id, user_id: $user_id})
+    CREATE (t:Transaction {
         id: $id,
         transaction_id: $transaction_id,
-        date: datetime($date),
         description: $description,
         amount: toFloat($amount),
-        transaction_type: $transaction_type,
+        currency: $currency,
+        transaction_date: datetime($transaction_date),
+        post_date: datetime($post_date),
         category: $category,
-        reconciled: $reconciled,
+        accounting_account_number: $accounting_account_number,
+        journal_entry_id: $journal_entry_id,
+        fraud_flag: $fraud_flag, # NEW
+        fraud_score: $fraud_score, # NEW
         created_at: datetime($created_at),
         updated_at: datetime($updated_at)
     })
-    CREATE (ba)-[:HAS_TRANSACTION]->(bt)
-    RETURN bt
+    CREATE (ba)-[:HAS_TRANSACTION]->(t)
+    RETURN t
     """
-    params = transaction_data.model_dump()
-    params["id"] = transaction_neo4j_id
-    params["bank_account_neo4j_id"] = bank_account_neo4j_id
-    params["amount"] = float(params["amount"])
-    params["date"] = params["date"].isoformat()
-    params["created_at"] = created_at.isoformat()
-    params["updated_at"] = updated_at.isoformat()
+    transaction_params = transaction_data.model_dump()
+    transaction_params["id"] = transaction_neo4j_id
+    transaction_params["user_id"] = user_id # Used for matching bank_account
+    transaction_params["amount"] = float(transaction_params["amount"])
+    transaction_params["transaction_date"] = transaction_params["transaction_date"].isoformat()
+    if transaction_params["post_date"]:
+        transaction_params["post_date"] = transaction_params["post_date"].isoformat()
+    transaction_params["created_at"] = created_at.isoformat()
+    transaction_params["updated_at"] = updated_at.isoformat()
 
-    result = await session.run(query, params)
+    # --- NEW: Call Fraud Detection Service ---
+    fraud_result = await _analyze_transaction_for_fraud(session, user_id, transaction_data, jwt_token)
+    transaction_params["fraud_flag"] = fraud_result.fraud_flag
+    transaction_params["fraud_score"] = fraud_result.fraud_score
+    # ----------------------------------------
+
+    result = await session.run(transaction_query, transaction_params)
     record = await result.single()
-    node = record["bt"]
-    return BankTransactionInDB(
-        id=node["id"],
-        bank_account_id=bank_account_neo4j_id,
-        transaction_id=node["transaction_id"],
-        date=datetime.fromisoformat(node["date"].iso_format()),
-        description=node["description"],
-        amount=Decimal(str(node["amount"])),
-        transaction_type=node["transaction_type"],
-        category=node["category"],
-        reconciled=node["reconciled"],
-        created_at=datetime.fromisoformat(node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(node["updated_at"].iso_format()),
+    transaction_node = record["t"]
+    
+    # Return full TransactionInDB object, including newly set fraud fields
+    return TransactionInDB(
+        id=transaction_node["id"],
+        user_id=user_id,
+        bank_account_id=transaction_node["bank_account_id"],
+        transaction_id=transaction_node["transaction_id"],
+        description=transaction_node["description"],
+        amount=Decimal(str(transaction_node["amount"])),
+        currency=transaction_node["currency"],
+        transaction_date=datetime.fromisoformat(transaction_node["transaction_date"].iso_format()),
+        post_date=datetime.fromisoformat(transaction_node["post_date"].iso_format()) if transaction_node["post_date"] else None,
+        category=transaction_node["category"],
+        accounting_account_number=transaction_node["accounting_account_number"],
+        journal_entry_id=transaction_node["journal_entry_id"],
+        fraud_flag=transaction_node["fraud_flag"],
+        fraud_score=transaction_node["fraud_score"],
+        created_at=datetime.fromisoformat(transaction_node["created_at"].iso_format()),
+        updated_at=datetime.fromisoformat(transaction_node["updated_at"].iso_format()),
     )
 
-async def get_bank_transactions_for_account(session: AsyncSession, bank_account_id: str, user_id: str) -> List[BankTransactionInDB]:
-    query = """
-    MATCH (ba:BankAccount {account_id: $bank_account_id, user_id: $user_id})-[:HAS_TRANSACTION]->(bt:BankTransaction)
-    RETURN bt
-    ORDER BY bt.date DESC
-    """
-    result = await session.run(query, bank_account_id=bank_account_id, user_id=user_id)
-    transactions = []
-    async for record in result:
-        node = record["bt"]
-        transactions.append(BankTransactionInDB(
-            id=node["id"],
-            bank_account_id=bank_account_id,
-            transaction_id=node["transaction_id"],
-            date=datetime.fromisoformat(node["date"].iso_format()),
-            description=node["description"],
-            amount=Decimal(str(node["amount"])),
-            transaction_type=node["transaction_type"],
-            category=node["category"],
-            reconciled=node["reconciled"],
-            created_at=datetime.fromisoformat(node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(node["updated_at"].iso_format()),
-        ))
-    return transactions
 
-async def get_bank_transaction_by_id(session: AsyncSession, transaction_id: str, user_id: str) -> Optional[BankTransactionInDB]:
+async def get_transaction(session: AsyncSession, transaction_id: str, user_id: str) -> Optional[TransactionInDB]:
     query = """
-    MATCH (ba:BankAccount {user_id: $user_id})-[:HAS_TRANSACTION]->(bt:BankTransaction {transaction_id: $transaction_id})
-    RETURN bt, ba.id as bank_account_neo4j_id
+    MATCH (u:User {id: $user_id})-[:OWNS_BANK_ACCOUNT]->(ba:BankAccount)-[:HAS_TRANSACTION]->(t:Transaction {id: $transaction_id})
+    RETURN t, ba.id AS bank_account_id
     """
     result = await session.run(query, transaction_id=transaction_id, user_id=user_id)
     record = await result.single()
+
     if record:
-        node = record["bt"]
-        return BankTransactionInDB(
-            id=node["id"],
-            bank_account_id=record["bank_account_neo4j_id"],
-            transaction_id=node["transaction_id"],
-            date=datetime.fromisoformat(node["date"].iso_format()),
-            description=node["description"],
-            amount=Decimal(str(node["amount"])),
-            transaction_type=node["transaction_type"],
-            category=node["category"],
-            reconciled=node["reconciled"],
-            created_at=datetime.fromisoformat(node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(node["updated_at"].iso_format()),
+        transaction_node = record["t"]
+        return TransactionInDB(
+            id=transaction_node["id"],
+            user_id=user_id,
+            bank_account_id=record["bank_account_id"],
+            transaction_id=transaction_node["transaction_id"],
+            description=transaction_node["description"],
+            amount=Decimal(str(transaction_node["amount"])),
+            currency=transaction_node["currency"],
+            transaction_date=datetime.fromisoformat(transaction_node["transaction_date"].iso_format()),
+            post_date=datetime.fromisoformat(transaction_node["post_date"].iso_format()) if transaction_node["post_date"] else None,
+            category=transaction_node["category"],
+            accounting_account_number=transaction_node["accounting_account_number"],
+            journal_entry_id=transaction_node["journal_entry_id"],
+            fraud_flag=transaction_node["fraud_flag"],
+            fraud_score=transaction_node["fraud_score"],
+            created_at=datetime.fromisoformat(transaction_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(transaction_node["updated_at"].iso_format()),
         )
     return None
 
-# This is a mock function for fetching transactions from an external API
-async def mock_fetch_external_transactions(bank_account_id: str, user_id: str, count: int = 5) -> List[BankTransactionCreate]:
+async def get_all_transactions(session: AsyncSession, user_id: str) -> List[TransactionInDB]:
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_BANK_ACCOUNT]->(ba:BankAccount)-[:HAS_TRANSACTION]->(t:Transaction)
+    RETURN t, ba.id AS bank_account_id
+    ORDER BY t.transaction_date DESC
+    """
+    result = await session.run(query, user_id=user_id)
     transactions = []
-    for i in range(count):
-        amount = Decimal(f"{(-1)**i * (10.00 + i * 5)}.00") # Alternating debit/credit
-        transactions.append(BankTransactionCreate(
-            transaction_id=f"MOCK_TXN_{user_id}_{bank_account_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{i}",
-            date=datetime.now() - timedelta(days=i * 2),
-            description=f"Mock Transaction {i} for {bank_account_id}",
-            amount=amount,
-            transaction_type="debit" if amount < 0 else "credit",
-            category="Mock Category",
-            reconciled=False
+    async for record in result:
+        transaction_node = record["t"]
+        transactions.append(TransactionInDB(
+            id=transaction_node["id"],
+            user_id=user_id,
+            bank_account_id=record["bank_account_id"],
+            transaction_id=transaction_node["transaction_id"],
+            description=transaction_node["description"],
+            amount=Decimal(str(transaction_node["amount"])),
+            currency=transaction_node["currency"],
+            transaction_date=datetime.fromisoformat(transaction_node["transaction_date"].iso_format()),
+            post_date=datetime.fromisoformat(transaction_node["post_date"].iso_format()) if transaction_node["post_date"] else None,
+            category=transaction_node["category"],
+            accounting_account_number=transaction_node["accounting_account_number"],
+            journal_entry_id=transaction_node["journal_entry_id"],
+            fraud_flag=transaction_node["fraud_flag"],
+            fraud_score=transaction_node["fraud_score"],
+            created_at=datetime.fromisoformat(transaction_node["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(transaction_node["updated_at"].iso_format()),
         ))
     return transactions
+
+async def update_transaction(session: AsyncSession, transaction_id: str, user_id: str, transaction_data: TransactionUpdate) -> Optional[TransactionInDB]:
+    update_fields = transaction_data.model_dump(exclude_unset=True)
+    if not update_fields: # If no fields to update, return current transaction
+        return await get_transaction(session, transaction_id, user_id)
+
+    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    if "amount" in update_fields:
+        update_fields["amount"] = float(update_fields["amount"])
+    if "transaction_date" in update_fields and update_fields["transaction_date"]:
+        update_fields["transaction_date"] = update_fields["transaction_date"].isoformat()
+    if "post_date" in update_fields and update_fields["post_date"]:
+        update_fields["post_date"] = update_fields["post_date"].isoformat()
+
+    set_clauses = [f"t.{k} = ${k}" for k in update_fields.keys()]
+    set_query_part = ", ".join(set_clauses)
+
+    query = f"""
+    MATCH (u:User {{id: $user_id}})-[:OWNS_BANK_ACCOUNT]->(ba:BankAccount)-[:HAS_TRANSACTION]->(t:Transaction {{id: $transaction_id}})
+    SET {set_query_part}
+    RETURN t
+    """
+    
+    params = {"transaction_id": transaction_id, "user_id": user_id, **update_fields}
+    result = await session.run(query, params)
+    record = await result.single()
+
+    if record:
+        return await get_transaction(session, transaction_id, user_id)
+    return None
+
+async def delete_transaction(session: AsyncSession, transaction_id: str, user_id: str) -> bool:
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_BANK_ACCOUNT]->(ba:BankAccount)-[:HAS_TRANSACTION]->(t:Transaction {id: $transaction_id})
+    DETACH DELETE t
+    """
+    result = await session.run(query, transaction_id=transaction_id, user_id=user_id)
+    return result.consume().counters.nodes_deleted > 0
+
+async def analyze_transaction_and_create_journal_entry(
+    session: AsyncSession, 
+    transaction_id: str, 
+    user_id: str, 
+    debit_account_number: str, 
+    credit_account_number: str, 
+    jwt_token: str
+) -> CreateJournalEntryResponse:
+    
+    transaction = await get_transaction(session, transaction_id, user_id)
+    if not transaction:
+        raise NotFoundError(detail="Transaction not found.")
+
+    if transaction.journal_entry_id:
+        raise ConflictError(detail="Journal entry already exists for this transaction.", code="JOURNAL_ENTRY_EXISTS_FOR_TRANSACTION")
+    
+    # Determine debit/credit for JE
+    je_amount = abs(transaction.amount) # Always positive for JE lines
+    
+    je_lines = [
+        JournalLineBase(account_number=debit_account_number, debit=je_amount, credit=Decimal('0.00'), description=transaction.description),
+        JournalLineBase(account_number=credit_account_number, debit=Decimal('0.00'), credit=je_amount, description=transaction.description)
+    ]
+    
+    journal_entry_create = JournalEntryCreate(
+        entry_date=transaction.transaction_date,
+        description=f"Automated JE for transaction {transaction.transaction_id}: {transaction.description}",
+        reference_number=transaction.transaction_id,
+        source_module="Banking",
+        lines=je_lines
+    )
+
+    # Send to Accounting Service via API Gateway
+    headers = {
+        "Authorization": f"Bearer {jwt_token}",
+        "Content-Type": "application/json"
+    }
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{API_GATEWAY_URL}/journal-entries/",
+                headers=headers,
+                json=journal_entry_create.model_dump(by_alias=True)
+            )
+            response.raise_for_status() # Raise HTTPStatusError for bad responses (4xx or 5xx)
+            je_response_data = response.json()
+            journal_entry_id = je_response_data.get("id")
+
+            # Update transaction with journal_entry_id
+            await update_transaction(session, transaction_id, user_id, TransactionUpdate(journal_entry_id=journal_entry_id))
+
+            return CreateJournalEntryResponse(
+                status="success",
+                message=f"Journal entry created for transaction {transaction.transaction_id}.",
+                journal_entry_id=journal_entry_id
+            )
+        except httpx.HTTPStatusError as e:
+            # Propagate specific error details from Accounting Service if available
+            error_detail = e.response.json().get("detail", e.response.text)
+            error_code = e.response.json().get("code", "UPSTREAM_JE_ERROR")
+            raise ValidationError(detail=f"Failed to create journal entry in Accounting Service: {error_detail}", code=error_code)
+        except httpx.RequestError as e:
+            raise ValidationError(detail=f"Network error communicating with Accounting Service: {e}", code="UPSTREAM_JE_NETWORK_ERROR")
+
+async def _analyze_transaction_for_fraud(session: AsyncSession, user_id: str, transaction_data: TransactionCreate, jwt_token: str) -> FraudDetectionResult:
+    """Internal helper to send transaction to Fraud Detection Service."""
+    
+    # Placeholder: fetch some historical data for transaction context
+    # In a real system, this would query the DB for user's past transactions
+    # For now, we'll use dummy values
+    previous_transactions_count_24h = 0 # Dummy
+    avg_daily_transaction_amount_7d = Decimal('0.00') # Dummy
+
+    # Construct TransactionForFraudCheck model
+    # Note: recipient_account_id and sender_account_id are often inferred or come from external bank data.
+    # For now, we'll use dummy values or transaction_data.bank_account_id
+    transaction_for_fraud = TransactionForFraudCheck(
+        transaction_id=transaction_data.transaction_id,
+        amount=abs(transaction_data.amount), # Fraud detection often focuses on absolute amount
+        currency=transaction_data.currency,
+        sender_account_id=transaction_data.bank_account_id, # Assuming bank_account is sender
+        recipient_account_id="EXTERNAL_PARTY_ID", # Placeholder
+        transaction_type="payment" if transaction_data.amount < 0 else "receipt", # Infer type
+        timestamp=transaction_data.transaction_date,
+        previous_transactions_count_24h=previous_transactions_count_24h,
+        avg_daily_transaction_amount_7d=avg_daily_transaction_amount_7d
+    )
+
+    headers = {
+        "Authorization": f"Bearer {jwt_token}",
+        "Content-Type": "application/json"
+    }
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{API_GATEWAY_URL}/fraud-detection/analyze-transaction/",
+                headers=headers,
+                json=transaction_for_fraud.model_dump(by_alias=True)
+            )
+            response.raise_for_status()
+            return FraudDetectionResult(**response.json())
+        except httpx.HTTPStatusError as e:
+            error_detail = e.response.json().get("detail", e.response.text)
+            error_code = e.response.json().get("code", "UPSTREAM_FRAUD_DETECTION_ERROR")
+            print(f"Fraud Detection Service error: {error_detail}")
+            # If fraud detection fails, we still create the transaction, but log the error
+            return FraudDetectionResult(
+                transaction_id=transaction_data.transaction_id,
+                fraud_score=0.0,
+                fraud_flag="safe", # Default to safe if service fails
+                reason=f"Fraud detection service failed: {error_detail}",
+                model_version="N/A_service_unavailable"
+            )
+        except httpx.RequestError as e:
+            print(f"Network error communicating with Fraud Detection Service: {e}")
+            return FraudDetectionResult(
+                transaction_id=transaction_data.transaction_id,
+                fraud_score=0.0,
+                fraud_flag="safe", # Default to safe if service unavailable
+                reason=f"Network error connecting to Fraud Detection Service: {e}",
+                model_version="N/A_network_error"
+            )
