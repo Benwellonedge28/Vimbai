@@ -23,7 +23,7 @@ services:
       timeout: 3s
       retries: 5
 
-  rabbitmq: # NEW SERVICE
+  rabbitmq: 
     image: rabbitmq:3-management-alpine
     hostname: rabbitmq
     ports:
@@ -97,16 +97,18 @@ services:
     environment:
       - JWT_SECRET=your_super_secret_jwt_key
       - API_GATEWAY_URL=http://api-gateway:8081
-      - RABBITMQ_HOST=rabbitmq # NEW
-      - RABBITMQ_USER=guest # NEW
-      - RABBITMQ_PASS=guest # NEW
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASS=guest
     depends_on:
       identity-service:
         condition: service_started
       api-gateway:
         condition: service_started
-      rabbitmq: # NEW
+      rabbitmq:
         condition: service_healthy
+      fraud-detection-service: # NEW: Multimodal might send data to fraud detection
+        condition: service_started
     restart: on-failure
 
   banking-integration-service:
@@ -125,6 +127,8 @@ services:
       identity-service:
         condition: service_started
       api-gateway:
+        condition: service_started
+      fraud-detection-service: # NEW: Banking will send transactions for fraud analysis
         condition: service_started
     restart: on-failure
 
@@ -147,6 +151,22 @@ services:
         condition: service_started
     restart: on-failure
 
+  fraud-detection-service: # NEW SERVICE
+    build:
+      context: ./fraud-detection-service
+      dockerfile: Dockerfile
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
+      - JWT_SECRET=your_super_secret_jwt_key
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      identity-service:
+        condition: service_started
+    restart: on-failure
+
   api-gateway:
     build:
       context: ./api-gateway
@@ -162,6 +182,7 @@ services:
       - MULTIMODAL_SERVICE_URL=http://multimodal-pipeline-service:8002
       - BANKING_INTEGRATION_SERVICE_URL=http://banking-integration-service:8003
       - INVOICING_SERVICE_URL=http://invoicing-service:8004
+      - FRAUD_DETECTION_SERVICE_URL=http://fraud-detection-service:8005 # NEW
     depends_on:
       identity-service:
         condition: service_started
@@ -175,8 +196,10 @@ services:
         condition: service_started
       invoicing-service:
         condition: service_started
-      rabbitmq: # NEW
+      rabbitmq:
         condition: service_healthy
+      fraud-detection-service: # NEW
+        condition: service_started
     restart: on-failure
 
   web-frontend:
