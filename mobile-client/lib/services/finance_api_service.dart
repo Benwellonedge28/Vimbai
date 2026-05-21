@@ -3,134 +3,272 @@ import 'package:http/http.dart' as http;
 import 'package:finacc_mobile_client/local_db/user_local_data.dart';
 import 'package:finacc_mobile_client/config.dart'; // For API URL
 import 'package:finacc_mobile_client/models/finance_models.dart'; // Import Finance Models
-import 'package:connectivity_plus/connectivity_plus.dart'; // For offline detection - NEW
-import 'package:finacc_mobile_client/local_db/database_helper.dart'; // For local DB access - NEW
+import 'package:connectivity_plus/connectivity_plus.dart'; // For offline detection
+import 'package:finacc_mobile_client/local_db/database_helper.dart'; // For local DB access
+import 'package:uuid/uuid.dart'; // For generating UUIDs
 
 class FinanceApiService {
   final String _financeServiceUrl = '${AppConfig.apiUrl}/budgets'; // Use API Gateway path prefix for budgets
   final String _financialRatiosUrl = '${AppConfig.apiUrl}/financial-ratios'; // Use API Gateway path prefix for financial ratios
 
-  final DatabaseHelper _dbHelper = DatabaseHelper(); // NEW: For local budget storage
+  final DatabaseHelper _dbHelper = DatabaseHelper();
 
   Future<Map<String, String>> _getHeaders() async {
     final token = await UserLocalData.getAuthToken();
     return {
-      'Content-Type': 'application/json', // Ensure content type is set
+      'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
   }
 
-  // --- Budget API Calls (NEW ADDITIONS) ---
-  Future<Budget> createBudget(BudgetCreate budget) async {
-    final headers = await _getHeaders();
-    final response = await http.post(
-      Uri.parse('$_financeServiceUrl/'),
-      headers: headers,
-      body: json.encode(budget.toJson()),
-    );
+  // --- Budget API Calls with Offline Support ---
+  Future<Budget> createBudget(BudgetCreate budgetCreate, {bool isOffline = false}) async {
+    final connectivityResult = await (Connectivity().checkConnectivity());
+    if (isOffline || connectivityResult == ConnectivityResult.none) {
+      final localBudget = Budget(
+        id: budgetCreate.id ?? const Uuid().v4(), // Ensure local ID
+        name: budgetCreate.name,
+        startDate: budgetCreate.startDate,
+        endDate: budgetCreate.endDate,
+        currency: budgetCreate.currency,
+        description: budgetCreate.description,
+        items: [], // Items will be added separately or synced later
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await _dbHelper.insertBudget(localBudget, isSynced: false);
+      print('Offline: Stored budget locally: ${localBudget.name}');
+      return localBudget;
+    }
 
-    if (response.statusCode == 201) {
-      return Budget.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to create budget: ${response.body}');
+    // Try to send to remote
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(
+        Uri.parse('$_financeServiceUrl/'),
+        headers: headers,
+        body: json.encode(budgetCreate.toJson()),
+      );
+
+      if (response.statusCode == 201) {
+        print('Online: Successfully created budget remotely: ${budgetCreate.name}');
+        return Budget.fromJson(json.decode(response.body));
+      } else {
+        print('Online: Failed to create budget remotely: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to create budget: ${response.body}');
+      }
+    } catch (e) {
+      print('Online: Error creating budget remotely, attempting local save: $e');
+      final localBudget = Budget(
+        id: budgetCreate.id ?? const Uuid().v4(), // Ensure local ID
+        name: budgetCreate.name,
+        startDate: budgetCreate.startDate,
+        endDate: budgetCreate.endDate,
+        currency: budgetCreate.currency,
+        description: budgetCreate.description,
+        items: [], // Items will be added separately or synced later
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await _dbHelper.insertBudget(localBudget, isSynced: false);
+      throw Exception('Failed to create budget remotely, saved offline: $e');
     }
   }
 
-  Future<List<Budget>> getBudgets() async {
+  Future<List<Budget>> getBudgets({bool forceRemote = false}) async {
+    final connectivityResult = await (Connectivity().checkConnectivity());
+    if (!forceRemote && connectivityResult == ConnectivityResult.none) {
+      print('Offline: Fetching budgets from local DB.');
+      return await _dbHelper.getBudgetsFromLocal();
+    }
+
     final headers = await _getHeaders();
     final response = await http.get(Uri.parse('$_financeServiceUrl/'), headers: headers);
 
     if (response.statusCode == 200) {
       List<dynamic> budgetsJson = json.decode(response.body);
-      return budgetsJson.map((json) => Budget.fromJson(json)).toList();
+      List<Budget> budgets = budgetsJson.map((json) => Budget.fromJson(json)).toList();
+      // Store in local DB
+      print('Online: Fetched budgets from remote, updating local DB.');
+      await _dbHelper.deleteAllBudgets(); // Clear old budgets
+      for (var budget in budgets) {
+        await _dbHelper.insertBudget(budget); // Insert with items
+      }
+      return budgets;
     } else {
+      print('Failed to load budgets: ${response.statusCode} - ${response.body}');
       throw Exception('Failed to load budgets: ${response.body}');
     }
   }
 
   Future<Budget> getBudgetById(String budgetId) async {
+    final connectivityResult = await (Connectivity().checkConnectivity());
+    if (connectivityResult == ConnectivityResult.none) {
+      print('Offline: Attempting to fetch budget from local DB: $budgetId');
+      final localBudget = await _dbHelper.getBudget(budgetId);
+      if (localBudget != null) {
+        return localBudget;
+      }
+      throw Exception('Budget $budgetId not found in local DB while offline.');
+    }
+
     final headers = await _getHeaders();
     final response = await http.get(Uri.parse('$_financeServiceUrl/$budgetId'), headers: headers);
 
     if (response.statusCode == 200) {
-      return Budget.fromJson(json.decode(response.body));
+      final remoteBudget = Budget.fromJson(json.decode(response.body));
+      // Update local DB with fresh data
+      await _dbHelper.insertBudget(remoteBudget, isSynced: true);
+      return remoteBudget;
     } else {
       throw Exception('Failed to load budget: ${response.body}');
     }
   }
 
-  Future<Budget> updateBudget(String budgetId, BudgetUpdate budget) async {
-    final headers = await _getHeaders();
-    final response = await http.put(
-      Uri.parse('$_financeServiceUrl/$budgetId'),
-      headers: headers,
-      body: json.encode(budget.toJson()),
-    );
+  // Future<Budget> updateBudget(String budgetId, BudgetUpdate budget) async {
+  //   // For now, update operations require online connection.
+  //   // Offline updates would require more complex conflict resolution logic.
+  //   final headers = await _getHeaders();
+  //   final response = await http.put(
+  //     Uri.parse('$_financeServiceUrl/$budgetId'),
+  //     headers: headers,
+  //     body: json.encode(budget.toJson()),
+  //   );
 
-    if (response.statusCode == 200) {
-      return Budget.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to update budget: ${response.body}');
+  //   if (response.statusCode == 200) {
+  //     return Budget.fromJson(json.decode(response.body));
+  //   } else {
+  //     throw Exception('Failed to update budget: ${response.body}');
+  //   }
+  // }
+
+  // Future<void> deleteBudget(String budgetId) async {
+  //   // For now, delete operations require online connection.
+  //   final headers = await _getHeaders();
+  //   final response = await http.delete(
+  //     Uri.parse('$_financeServiceUrl/$budgetId'),
+  //     headers: headers,
+  //   );
+
+  //   if (response.statusCode != 204) {
+  //     throw Exception('Failed to delete budget: ${response.body}');
+  //   }
+  // }
+
+  // --- Budget Item API Calls with Offline Support ---
+  Future<BudgetItem> createBudgetItem(String budgetId, BudgetItemCreate itemCreate, {bool isOffline = false}) async {
+    final connectivityResult = await (Connectivity().checkConnectivity());
+    if (isOffline || connectivityResult == ConnectivityResult.none) {
+      final localItem = BudgetItem(
+        id: itemCreate.id ?? const Uuid().v4(),
+        budgetId: budgetId,
+        category: itemCreate.category,
+        accountNumber: itemCreate.accountNumber,
+        budgetedAmount: itemCreate.budgetedAmount,
+        budgetType: itemCreate.budgetType,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await _dbHelper.insertBudgetItem(budgetId, localItem, isSynced: false);
+      print('Offline: Stored budget item locally: ${localItem.category}');
+      return localItem;
+    }
+
+    try {
+      final headers = await _getHeaders();
+      final response = await http.post(
+        Uri.parse('$_financeServiceUrl/$budgetId/items/'),
+        headers: headers,
+        body: json.encode(itemCreate.toJson()),
+      );
+
+      if (response.statusCode == 201) {
+        print('Online: Successfully created budget item remotely: ${itemCreate.category}');
+        return BudgetItem.fromJson(json.decode(response.body));
+      } else {
+        print('Online: Failed to create budget item remotely: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to create budget item: ${response.body}');
+      }
+    } catch (e) {
+      print('Online: Error creating budget item remotely, attempting local save: $e');
+      final localItem = BudgetItem(
+        id: itemCreate.id ?? const Uuid().v4(),
+        budgetId: budgetId,
+        category: itemCreate.category,
+        accountNumber: itemCreate.accountNumber,
+        budgetedAmount: itemCreate.budgetedAmount,
+        budgetType: itemCreate.budgetType,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await _dbHelper.insertBudgetItem(budgetId, localItem, isSynced: false);
+      throw Exception('Failed to create budget item remotely, saved offline: $e');
     }
   }
 
-  Future<void> deleteBudget(String budgetId) async {
-    final headers = await _getHeaders();
-    final response = await http.delete(
-      Uri.parse('$_financeServiceUrl/$budgetId'),
-      headers: headers,
-    );
+  // Future<BudgetItem> updateBudgetItem(String budgetId, String itemId, BudgetItemUpdate item) async {
+  //   // For now, update operations require online connection.
+  //   final headers = await _getHeaders();
+  //   final response = await http.put(
+  //     Uri.parse('$_financeServiceUrl/$budgetId/items/$itemId'),
+  //     headers: headers,
+  //     body: json.encode(item.toJson()),
+  //   );
 
-    if (response.statusCode != 204) {
-      throw Exception('Failed to delete budget: ${response.body}');
+  //   if (response.statusCode == 200) {
+  //     return BudgetItem.fromJson(json.decode(response.body));
+  //   } else {
+  //     throw Exception('Failed to update budget item: ${response.body}');
+  //   }
+  // }
+
+  // Future<void> deleteBudgetItem(String budgetId, String itemId) async {
+  //   // For now, delete operations require online connection.
+  //   final headers = await _getHeaders();
+  //   final response = await http.delete(
+  //     Uri.parse('$_financeServiceUrl/$budgetId/items/$itemId'),
+  //     headers: headers,
+  //   );
+
+  //   if (response.statusCode != 204) {
+  //     throw Exception('Failed to delete budget item: ${response.body}');
+  //   }
+  // }
+
+  // --- Sync Offline Data (NEW) ---
+  Future<void> syncOfflineBudgets() async {
+    print('Attempting to sync offline budgets...');
+    final connectivityResult = await (Connectivity().checkConnectivity());
+    if (connectivityResult == ConnectivityResult.none) {
+      print('Sync failed: No internet connection.');
+      throw Exception('No internet connection to sync data.');
     }
-  }
 
-  // --- Budget Item API Calls (NEW ADDITIONS) ---
-  Future<BudgetItem> createBudgetItem(String budgetId, BudgetItemCreate item) async {
-    final headers = await _getHeaders();
-    final response = await http.post(
-      Uri.parse('$_financeServiceUrl/$budgetId/items/'),
-      headers: headers,
-      body: json.encode(item.toJson()),
-    );
-
-    if (response.statusCode == 201) {
-      return BudgetItem.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to create budget item: ${response.body}');
+    final unsyncedBudgets = await _dbHelper.getUnsyncedBudgets();
+    if (unsyncedBudgets.isEmpty) {
+      print('No unsynced budgets found.');
+      return;
     }
-  }
 
-  Future<BudgetItem> updateBudgetItem(String budgetId, String itemId, BudgetItemUpdate item) async {
-    final headers = await _getHeaders();
-    final response = await http.put(
-      Uri.parse('$_financeServiceUrl/$budgetId/items/$itemId'),
-      headers: headers,
-      body: json.encode(item.toJson()),
-    );
-
-    if (response.statusCode == 200) {
-      return BudgetItem.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to update budget item: ${response.body}');
-    }
-  }
-
-  Future<void> deleteBudgetItem(String budgetId, String itemId) async {
-    final headers = await _getHeaders();
-    final response = await http.delete(
-      Uri.parse('$_financeServiceUrl/$budgetId/items/$itemId'),
-      headers: headers,
-    );
-
-    if (response.statusCode != 204) {
-      throw Exception('Failed to delete budget item: ${response.body}');
-    }
-  }
+    print('Found ${unsyncedBudgets.length} unsynced budgets. Starting sync...');
+    for (var budget in unsyncedBudgets) {
+      try {
+        // Create the budget remotely
+        final remoteBudget = await createBudget(
+          BudgetCreate(
+            name: budget.name,
+            startDate: budget.startDate,
+            endDate: budget.endDate,
+            currency: budget.currency,
+            description: budget.description,
+          )
+        );
+        // Mark the local budget as synced
+        await _dbHelper.markBudgetAsSynced(budget.id!);\n        print('Successfully synced offline budget: ${budget.name}');\n\n        // Then sync its items. Assumes remoteBudget.id is the new canonical ID\n        for (var item in budget.items) {\n          await createBudgetItem(remoteBudget.id!, BudgetItemCreate(\n            category: item.category,\n            accountNumber: item.accountNumber,\n            budgetedAmount: item.budgetedAmount,\n            budgetType: item.budgetType,\n          ));\n          // No need to mark budget item as synced separately, as they are part of the budget's sync lifecycle\n        }\n      } on http.ClientException catch (e) {\n        print('Network error during sync for budget ${budget.id}: $e');\n      } catch (e) {\n        print('Failed to sync budget ${budget.id}: $e');\n      }\n    }\n    print('Offline budget sync complete.');\n  }\n
 
   // --- Variance Analysis API Calls ---
   Future<BudgetVarianceReport> getBudgetVarianceReport(String budgetId) async {
+    // For now, variance reports require online connection as they aggregate live data.
     final headers = await _getHeaders();
     final response = await http.get(Uri.parse('$_financeServiceUrl/$budgetId/variance-report'), headers: headers);
 
@@ -143,6 +281,7 @@ class FinanceApiService {
 
   // --- Financial Ratios API Calls ---
   Future<FinancialRatiosReport> getFinancialRatios(DateTime startDate, DateTime endDate) async {
+    // For now, financial ratios require online connection as they aggregate live data.
     final headers = await _getHeaders();
     final response = await http.get(
       Uri.parse('$_financialRatiosUrl?start_date=${startDate.toIso8601String()}&end_date=${endDate.toIso8601String()}'),
