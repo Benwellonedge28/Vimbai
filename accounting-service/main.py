@@ -78,7 +78,7 @@ async def pydantic_validation_exception_handler(request, exc: PydanticValidation
     error_details = []
     for error in errors:
         loc = ".".join(map(str, error["loc"]))
-        error_details.append(f"Field '{loc}': {error["msg"]}")
+        error_details.append(f"Field '{loc}': {error['msg']}")
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": "Validation error: " + "; ".join(error_details), "code": "PYDANTIC_VALIDATION_ERROR"},
@@ -206,7 +206,8 @@ async def create_vendor_bill(
     jwt_token: str = Depends(get_jwt_token),
     db_session: AsyncSession = Depends(get_db_session)
 ):
-    return await crud.create_vendor_bill_from_po(db_session, user_id, vendor_bill, jwt_token)
+    # crud.create_vendor_bill is expected based on models.py
+    return await crud.create_vendor_bill(db_session, user_id, vendor_bill, jwt_token)
 
 # --- Ledger Endpoints ---
 @app.get("/ledgers/{account_number}", response_model=models.LedgerReport,
@@ -226,31 +227,26 @@ async def get_account_ledger(
 async def get_current_trial_balance(
     user_id: str = Depends(get_user_id),
     db_session: AsyncSession = Depends(get_db_session),
-    as_of_date: Optional[datetime] = Query(None, description="Generate trial balance as of this date (ISO format).")
+    as_of_date: Optional[datetime] = Query(None, description="As-of date for trial balance (ISO format).")
 ):
     return await crud.get_trial_balance_report(db_session, user_id, as_of_date)
 
 # --- Financial Statement Endpoints ---
-@app.get("/financial-statements/income-statement/", response_model=models.IncomeStatement,
+@app.get("/financial-statements/income-statement", response_model=models.IncomeStatement,
              dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
-async def get_current_income_statement(
+async def get_income_statement_report(
+    start_date: datetime = Query(..., description="Start date for income statement (ISO format)."),
+    end_date: datetime = Query(..., description="End date for income statement (ISO format)."),
     user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
-    start_date: datetime = Query(..., description="Start date of the reporting period (ISO format)."),
-    end_date: datetime = Query(..., description="End date of the reporting period (ISO format).")
+    db_session: AsyncSession = Depends(get_db_session)
 ):
     return await crud.get_income_statement(db_session, user_id, start_date, end_date)
 
-@app.get("/financial-statements/balance-sheet/", response_model=models.BalanceSheet,
+@app.get("/financial-statements/balance-sheet", response_model=models.BalanceSheet,
              dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
-async def get_current_balance_sheet(
+async def get_balance_sheet_report(
+    as_of_date: datetime = Query(..., description="As-of date for balance sheet (ISO format)."),
     user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
-    as_of_date: datetime = Query(..., description="Generate balance sheet as of this date (ISO format).")
+    db_session: AsyncSession = Depends(get_db_session)
 ):
     return await crud.get_balance_sheet(db_session, user_id, as_of_date)
-
-# --- Root endpoint for health check ---
-@app.get("/")
-async def read_root():
-    return {"message": "FinAcc Accounting Service is running!"}
