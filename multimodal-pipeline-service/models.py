@@ -1,98 +1,114 @@
-from pydantic import BaseModel, Field, condecimal, validator
-from typing import Optional, List, Literal, Dict, Any, Union
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
-from decimal import Decimal
 
-# --- Existing Multimodal Models (unchanged) ---
-class ExtractedField(BaseModel):
-    field_name: str = Field(..., example="total_amount", description="Name of the extracted field.")
-    value: str = Field(..., example="123.45", description="Extracted value as a string.")
-    confidence: Optional[float] = Field(None, ge=0.0, le=1.0, description="Confidence score of the extraction.")
-    bounding_box: Optional[List[float]] = Field(None, description="[x_min, y_min, x_max, y_max] coordinates.")
-
-class DocumentParseResult(BaseModel):
-    document_type: str = Field(..., example="receipt", description="Categorized type of the document.")
-    extracted_data: List[ExtractedField] = Field(..., description="List of extracted fields.")
-    raw_text: Optional[str] = Field(None, description="Full OCR text from the document.")
-    status: str = Field(..., example="completed", description="Status of the parsing operation.")
-    processing_time_ms: Optional[int] = Field(None, description="Time taken for processing in milliseconds.")
-    error_message: Optional[str] = Field(None, description="Error message if processing failed.")
-
-class AudioParseResult(BaseModel):
-    transcription: str = Field(..., description="Full transcription of the audio.")
-    speaker_diarization: Optional[List[Dict[str, Any]]] = Field(None, description="Speaker segmentation details.")
-    extracted_entities: Optional[List[ExtractedField]] = Field(None, description="Key entities extracted from transcription.")
-    status: str = Field(..., example="completed", description="Status of the parsing operation.")
-    processing_time_ms: Optional[int] = Field(None, description="Time taken for processing in milliseconds.")
-    error_message: Optional[str] = Field(None, description="Error message if processing failed.")
-
+# --- Generic Multimodal Input Model ---
 class MultimodalInput(BaseModel):
-    input_type: str = Field(..., example="image_url", description="Type of input (e.g., 'image_url', 'base64_image', 'audio_url', 'text').")
-    data: str = Field(..., description="The input data (URL, Base64 string, text content).")
-    source_context: Optional[str] = Field(None, description="Additional context about the source of the input.")
-
-# --- Journal Entry Models (copied from accounting-service for inter-service communication) ---
-class JournalLineBase(BaseModel):
-    account_number: str
-    debit: Decimal = Field(Decimal('0.00'))
-    credit: Decimal = Field(Decimal('0.00'))
-    description: Optional[str] = None
-
-class JournalEntryCreate(BaseModel):
-    entry_date: datetime = Field(default_factory=datetime.utcnow)
-    description: str
-    reference_number: Optional[str] = None
-    source_module: str = "Multimodal"
-    lines: List[JournalLineBase]
-    status: Literal['pending', 'posted', 'reviewed', 'voided'] = Field('pending', description="Current status of the journal entry.")
-
-# --- Fraud Detection Service Models (copied from fraud-detection-service for inter-service communication) ---
-class TransactionForFraudCheck(BaseModel):
-    transaction_id: str = Field(..., description="Unique ID of the transaction.")
-    amount: condecimal(decimal_places=2, gt=Decimal('0.00')) = Field(..., description="Amount of the transaction.")
-    currency: str = Field("USD", max_length=3, description="Currency of the transaction (ISO 4217).")
-    sender_account_id: str = Field(..., description="ID of the sender's account.")
-    recipient_account_id: str = Field(..., description="ID of the recipient's account.")
-    transaction_type: Literal["debit", "credit", "transfer", "payment", "purchase"] = Field(..., description="Type of transaction.")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Timestamp of the transaction.")
-    location_data: Optional[Dict[str, Any]] = Field(None, description="Geographic location data of the transaction.")
-    device_info: Optional[Dict[str, Any]] = Field(None, description="Device information (e.g., IP address, OS, browser).")
-    previous_transactions_count_24h: int = Field(0, ge=0, description="Number of transactions by sender in last 24h.")
-    avg_daily_transaction_amount_7d: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(Decimal('0.00'), description="Average daily transaction amount by sender over 7 days.")
-
-    @validator('amount', pre=True)
-    def convert_to_decimal(cls, v):
-        if isinstance(v, float):
-            return Decimal(str(v))
-        return v
-
-class FraudDetectionResult(BaseModel):
-    transaction_id: str = Field(..., description="ID of the transaction that was analyzed.")
-    fraud_score: float = Field(..., ge=0.0, le=1.0, description="Probability or score indicating likelihood of fraud (0-1).")
-    fraud_flag: Literal["safe", "low_risk", "suspicious", "high_risk"] = Field(..., description="Categorical flag for fraud risk.")
-    reason: Optional[str] = Field(None, description="Reason or rules triggered for the flag.")
-    model_version: str = Field(..., description="Version of the ML model used for detection.")
-
-class AutomatedJournalEntryResponse(BaseModel):
-    status: str = Field(..., example="success", description="Status of the journal entry creation.")
-    message: str = Field(..., example="Journal entry created successfully.", description="Detailed message.")
-    journal_entry_id: Optional[str] = Field(None, description="ID of the created journal entry.")
-    extracted_data: Optional[Dict[str, Any]] = Field(None, description="Data extracted from multimodal input.")
-    proposed_journal_entry: Optional[JournalEntryCreate] = Field(None, description="The journal entry proposed/created.")
-    fraud_detection_result: Optional[FraudDetectionResult] = Field(None, description="Result from fraud detection service.") # NEW
+    id: str = Field(..., description="Unique ID for the multimodal input task.")
+    user_id: str = Field(..., description="ID of the user who provided the input.")
+    input_type: Literal["document", "audio", "image", "text", "video"] = Field(..., description="Type of the input data.")
+    data_url: Optional[str] = Field(None, description="URL to the raw input data (e.g., image file, audio file).")
+    raw_text: Optional[str] = Field(None, description="Raw text content if input_type is 'text' or from ASR/OCR.")
+    status: Literal["pending", "processing", "review_required", "completed", "failed"] = Field("pending")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    metadata: Dict[str, Any] = Field({}, description="Additional metadata for the input.")
+    # New fields for linking to processing task
+    processing_task_id: Optional[str] = Field(None, description="ID of the associated MultimodalProcessingTask.")
 
 
-# --- Task Status Response (unchanged) ---
-class TaskStatusResponse(BaseModel):
-    task_id: str
-    status: Literal["queued", "processing", "completed", "failed"]
-    progress: int = Field(0, ge=0, le=100)
-    message: Optional[str] = None
-    result: Optional[Union[DocumentParseResult, AudioParseResult, AutomatedJournalEntryResponse, Dict[str, Any]]] = None # Store serialized result
-    error: Optional[str] = None
+# --- Extracted Data Field (generic for any type of extraction) ---
+class ExtractedDataField(BaseModel):
+    name: str = Field(..., description="Name of the extracted field (e.g., 'total_amount', 'vendor_name').")
+    value: str = Field(..., description="Extracted value as a string.")
+    confidence: Optional[float] = Field(None, ge=0.0, le=1.0, description="Confidence score of the extraction (0.0 to 1.0).")
+    data_type: Literal["string", "number", "date", "boolean", "currency"] = Field("string", description="Inferred data type.")
+    unit: Optional[str] = Field(None, description="Unit for the value (e.g., 'USD', '%').")
+    bounding_box: Optional[List[float]] = Field(None, description="Bounding box coordinates [x1, y1, x2, y2] if applicable.")
+    original_value: Optional[str] = Field(None, description="The original raw value from which this field was extracted.")
 
-# --- Error Response Model (unchanged) ---
-class ErrorResponse(BaseModel):
-    detail: str
-    code: Optional[str] = None
-    status_code: int = 500
+
+# --- Document Parsing Result Models (for OCR, PDF analysis etc.) ---
+class DocumentParseResult(BaseModel):
+    raw_text: Optional[str] = Field(None, description="Full extracted text from the document.")
+    extracted_data: List[ExtractedDataField] = Field([], description="Structured data fields extracted.")
+    ai_confidence: Optional[float] = Field(None, ge=0.0, le=1.0, description="Overall AI confidence for the extraction.")
+    errors: List[str] = Field([], description="List of errors encountered during parsing.")
+
+
+# --- Audio Parsing Result Models (for ASR) ---
+class AudioParseResult(BaseModel):
+    transcribed_text: Optional[str] = Field(None, description="Full transcribed text from the audio.")
+    extracted_commands: List[ExtractedDataField] = Field([], description="Structured commands or data extracted from audio.")
+    ai_confidence: Optional[float] = Field(None, ge=0.0, le=1.0, description="Overall AI confidence for the transcription/extraction.")
+    errors: List[str] = Field([], description="List of errors encountered during parsing.")
+
+
+# --- Image Parsing Result Models (for object detection, scene understanding) ---
+class ImageParseResult(BaseModel):
+    description: Optional[str] = Field(None, description="AI-generated description of the image content.")
+    extracted_objects: List[ExtractedDataField] = Field([], description="Detected objects and their attributes.")
+    ai_confidence: Optional[float] = Field(None, ge=0.0, le=1.0, description="Overall AI confidence for the image analysis.")
+    errors: List[str] = Field([], description="List of errors encountered during parsing.")
+
+
+# --- Multimodal Processing Task (new core entity for this service) ---
+class MultimodalProcessingTaskBase(BaseModel):
+    user_id: str = Field(..., description="ID of the user who initiated the task.")
+    input_type: Literal["document", "audio", "image", "text", "video"] = Field(..., description="Type of the original input data.")
+    input_url: Optional[str] = Field(None, description="URL to the original raw input data.")
+    input_raw_text: Optional[str] = Field(None, description="Raw text content if directly provided or from initial OCR/ASR.")
+    status: Literal["received", "processing", "ai_extracted", "review_pending", "user_corrected", "completed", "failed"] = Field("received")
+    processing_start_time: Optional[datetime] = None
+    processing_end_time: Optional[datetime] = None
+    last_review_request_time: Optional[datetime] = None
+    document_result: Optional[DocumentParseResult] = Field(None, description="Results from document parsing.")
+    audio_result: Optional[AudioParseResult] = Field(None, description="Results from audio parsing.")
+    image_result: Optional[ImageParseResult] = Field(None, description="Results from image parsing.")
+    suggested_journal_entry: Optional[Dict[str, Any]] = Field(None, description="AI's suggestion for a journal entry structure.")
+    linked_finacc_entity_id: Optional[str] = Field(None, description="ID of the FinAcc entity (e.g., JournalEntry) created from this task.")
+    errors: List[str] = Field([], description="List of errors during processing.")
+    metadata: Dict[str, Any] = Field({}, description="Additional metadata for the processing task.")
+    ai_model_version: str = Field("1.0", description="Version of the AI model used for extraction.")
+
+class MultimodalProcessingTaskCreate(MultimodalProcessingTaskBase):
+    pass
+
+class MultimodalProcessingTaskUpdate(BaseModel):
+    status: Optional[Literal["received", "processing", "ai_extracted", "review_pending", "user_corrected", "completed", "failed"]] = None
+    processing_start_time: Optional[datetime] = None
+    processing_end_time: Optional[datetime] = None
+    last_review_request_time: Optional[datetime] = None
+    document_result: Optional[DocumentParseResult] = None
+    audio_result: Optional[AudioParseResult] = None
+    image_result: Optional[ImageParseResult] = None
+    suggested_journal_entry: Optional[Dict[str, Any]] = None
+    linked_finacc_entity_id: Optional[str] = None
+    errors: Optional[List[str]] = None
+    metadata: Optional[Dict[str, Any]] = None
+    ai_model_version: Optional[str] = None
+
+class MultimodalProcessingTaskInDB(MultimodalProcessingTaskBase):
+    id: str = Field(..., example="uuid-string-for-node")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+
+# --- User Correction / Feedback Model (for improving AI) ---
+class UserCorrection(BaseModel):
+    task_id: str = Field(..., description="ID of the MultimodalProcessingTask this correction relates to.")
+    user_id: str = Field(..., description="ID of the user who provided the correction.")
+    field_name: str = Field(..., description="Name of the field that was corrected (e.g., 'total_amount').")
+    original_value: Optional[str] = Field(None, description="Value originally extracted by AI.")
+    corrected_value: str = Field(..., description="Value provided by the user.")
+    feedback_type: Literal["value_correction", "missing_field", "incorrect_category"] = Field(..., description="Type of feedback.")
+    comment: Optional[str] = Field(None, description="Additional comments from the user.")
+    submitted_at: datetime = Field(default_factory=datetime.utcnow)
+
+class UserCorrectionInDB(UserCorrection):
+    id: str = Field(..., example="uuid-string-for-node")
+    class Config:
+        from_attributes = True
