@@ -1,14 +1,18 @@
+import os # NEW
 from typing import List, Optional
 from neo4j import AsyncSession
 from banking_integration_service import models, crud
-# from accounting_service.models import JournalEntryCreate, JournalLineCreate # Assuming accounting models are accessible
-# from accounting_service.crud import create_journal_entry # Assuming accounting CRUD is accessible
+from banking_integration_service.clients.accounting_service_client import ( # NEW
+    AccountingServiceClient, AccountingServiceClientException,
+    MockJournalEntryCreate, MockJournalLineCreate
+)
 from decimal import Decimal
-import uuid # For mock JE ID
+import uuid
 
 class TransactionProcessor:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
+        self.accounting_service_client = AccountingServiceClient() # NEW
 
     async def _apply_categorization_rules(self, user_id: str, transaction: models.BankTransactionInDB) -> models.BankTransactionUpdate:
         """Applies user-defined categorization rules to a bank transaction."""
@@ -18,7 +22,7 @@ class TransactionProcessor:
         rules.sort(key=lambda rule: rule.priority)
 
         updated_category = transaction.category
-        target_finacc_account_number_from_rule: Optional[str] = None
+        # target_finacc_account_number_from_rule: Optional[str] = None # Removed this as it's not part of BankTransactionUpdate
 
         for rule in rules:
             if not rule.is_active:
@@ -29,27 +33,20 @@ class TransactionProcessor:
                 if rule.match_pattern.lower() in transaction.description.lower():
                     match_found = True
             elif rule.match_field == "payee" and rule.match_pattern:
-                # Plaid transactions don't always have a distinct 'payee' field directly.
-                # Often it's part of the description or extracted from merchant_name.
-                # For this simple example, we'll check in description.
                 if rule.match_pattern.lower() in transaction.description.lower():
                     match_found = True
             elif rule.match_field == "amount_range":
                 # Assuming match_pattern is something like "min-max" or just "exact_amount"
-                # This would require more sophisticated parsing of match_pattern
-                pass # Skipping for now, more complex rule logic.
+                pass 
 
             if match_found:
                 updated_category = rule.target_category
-                if rule.target_finacc_account_number:
-                    target_finacc_account_number_from_rule = rule.target_finacc_account_number
-                # Apply only the first matching rule based on priority
+                # No longer setting target_finacc_account_number directly on BankTransactionUpdate, 
+                # as it is used for JE creation dynamically.
                 break
         
         return models.BankTransactionUpdate(
             category=updated_category,
-            # For now, target_finacc_account_number is passed through to JE creation, not stored on BT itself.
-            # If it needs to be stored on BT, models.BankTransactionInDB needs to be extended.
         )
 
     async def process_new_bank_transaction(self, user_id: str, transaction: models.BankTransactionInDB) -> models.BankTransactionInDB:
@@ -67,65 +64,58 @@ class TransactionProcessor:
             transaction = await crud.update_bank_transaction(
                 self.db_session,
                 transaction.id!,
-                categorization_update # Use the update model
+                categorization_update
             )
-            # Re-fetch the transaction to ensure all fields are up-to-date
-            transaction = (await crud.get_bank_transaction(self.db_session, transaction.id!))!
+            transaction = (await crud.get_bank_transaction(self.db_session, transaction.id!))! # Re-fetch updated transaction
 
         # 2. If not already reconciled, create a draft Journal Entry
         if not transaction.is_reconciled and not transaction.finacc_journal_entry_id:
-            # Determine debit/credit for JE
-            # For simplicity: positive amount = expense (debit to expense, credit to cash)
-            # negative amount = revenue (debit to cash, credit to revenue)
-            # This logic needs to be more robust for different account types.
-            # The `target_finacc_account_number_from_rule` would be retrieved from `_apply_categorization_rules`
-            # For now, using placeholders directly.
-            target_finacc_account_number: Optional[str] = None # Should come from categorization_update
-            # Example: Retrieve rule again to get account number
+            target_finacc_account_number: Optional[str] = None
             rules = await crud.get_all_categorization_rules(self.db_session, user_id)
             for rule in rules:
-                if rule.is_active and rule.target_finacc_account_number and \n                   ((rule.match_field == "description" and rule.match_pattern.lower() in transaction.description.lower()) or \n                    (rule.match_field == "payee" and rule.match_pattern.lower() in transaction.description.lower())):\n                    target_finacc_account_number = rule.target_finacc_account_number
+                if rule.is_active and rule.target_finacc_account_number and \
+                   ((rule.match_field == "description" and rule.match_pattern.lower() in transaction.description.lower()) or \
+                    (rule.match_field == "payee" and rule.match_pattern.lower() in transaction.description.lower())):
+                    target_finacc_account_number = rule.target_finacc_account_number
                     break
 
             if transaction.amount > Decimal('0.00'): # Outgoing transaction (expense)
-                debit_account = target_finacc_account_number or os.getenv("DEFAULT_EXPENSE_ACCOUNT_NUMBER", "5000") # Placeholder Expense Account
-                credit_account = os.getenv("DEFAULT_CASH_ACCOUNT_NUMBER", "1000") # Placeholder Cash Account
+                debit_account = target_finacc_account_number or os.getenv("DEFAULT_EXPENSE_ACCOUNT_NUMBER", "5000")
+                credit_account = os.getenv("DEFAULT_CASH_ACCOUNT_NUMBER", "1000")
                 description_je = f"Bank Expense: {transaction.description} ({transaction.category or 'Uncategorized'})"
             else: # Incoming transaction (revenue)
-                debit_account = os.getenv("DEFAULT_CASH_ACCOUNT_NUMBER", "1000") # Placeholder Cash Account
-                credit_account = target_finacc_account_number or os.getenv("DEFAULT_REVENUE_ACCOUNT_NUMBER", "4000") # Placeholder Revenue Account
+                debit_account = os.getenv("DEFAULT_CASH_ACCOUNT_NUMBER", "1000")
+                credit_account = target_finacc_account_number or os.getenv("DEFAULT_REVENUE_ACCOUNT_NUMBER", "4000")
                 description_je = f"Bank Revenue: {transaction.description} ({transaction.category or 'Uncategorized'})"
 
-            # Create JournalEntryCreate object - MOCKED for now
-            # journal_entry_data = JournalEntryCreate(
-            #     entry_date=transaction.date,
-            #     description=description_je,
-            #     source_module="Banking Integration",
-            #     reference_number=transaction.transaction_id,
-            #     lines=[
-            #         JournalLineCreate(account_number=debit_account, debit=abs(transaction.amount), credit=Decimal('0.00'), description=description_je),
-            #         JournalLineCreate(account_number=credit_account, debit=Decimal('0.00'), credit=abs(transaction.amount), description=description_je),
-            #     ]
-            # )
+            journal_entry_data = MockJournalEntryCreate( # Using Mock class, should be actual JournalEntryCreate
+                entry_date=transaction.date.isoformat(),
+                description=description_je,
+                source_module="Banking Integration",
+                reference_number=transaction.transaction_id,
+                lines=[
+                    MockJournalLineCreate(account_number=debit_account, debit=float(abs(transaction.amount)), credit=float(Decimal('0.00')), description=description_je),
+                    MockJournalLineCreate(account_number=credit_account, debit=float(Decimal('0.00')), credit=float(abs(transaction.amount)), description=description_je),
+                ]
+            )
             
             try:
-                # In a real microservice architecture, this would be an HTTP call to the Accounting Service
-                # For now, we mock the creation of a Journal Entry ID
-                new_je_id = str(uuid.uuid4())
-                print(f"MOCK: Created Journal Entry {new_je_id} for transaction {transaction.id}")
+                # Actual call to Accounting Service
+                new_je_response = await self.accounting_service_client.create_journal_entry(journal_entry_data, user_id)
+                new_je_id = new_je_response.get("id")
+                print(f"Created Journal Entry {new_je_id} for transaction {transaction.id}")
                 
-                # Update bank transaction with new JE ID
                 transaction = await crud.update_bank_transaction(
                     self.db_session,
                     transaction.id!,
                     models.BankTransactionUpdate(finacc_journal_entry_id=new_je_id)
                 )
+            except AccountingServiceClientException as e:
+                print(f"ERROR: Failed to create journal entry for transaction {transaction.id}: {e.args[0]}")
             except Exception as e:
-                print(f"ERROR: Failed to create MOCKED journal entry for transaction {transaction.id}: {e}")
+                print(f"ERROR: An unexpected error occurred while creating journal entry for transaction {transaction.id}: {e}")
 
         # 3. Attempt to find reconciliation match
-        # For simplicity, if we just created a JE, we can assume it's matched.
-        # This would also create a ReconciliationMatch entity in a full implementation.
         if transaction.finacc_journal_entry_id and not transaction.is_reconciled:
             transaction = await crud.update_bank_transaction(
                 self.db_session,
