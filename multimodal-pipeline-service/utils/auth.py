@@ -1,16 +1,16 @@
 import os
-from fastapi import Depends, status, Request # Removed HTTPException, use custom ones
+from fastapi import Depends, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
-from multimodal_pipeline_service.exceptions import UnauthorizedError, ForbiddenError # NEW
+from multimodal_pipeline_service.exceptions import UnauthorizedError, ForbiddenError
 
 JWT_SECRET = os.getenv("JWT_SECRET", "your_super_secret_jwt_key")
 ALGORITHM = "HS256"
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8081/identity/login") # Point to API Gateway
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8081/identity/login")
 
 async def get_current_user_claims(token: str = Depends(oauth2_scheme)):
-    credentials_exception = UnauthorizedError(detail="Could not validate credentials", code="INVALID_CREDENTIALS") # MODIFIED
+    credentials_exception = UnauthorizedError(detail="Could not validate credentials", code="INVALID_CREDENTIALS")
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
         user_id: str = payload.get("user_id")
@@ -43,5 +43,5 @@ def check_permission(required_permission: str):
             return
 
         if required_permission not in user_permissions:
-            raise ForbiddenError(detail=f"Not enough permissions. Requires: {required_permission}", code="INSUFFICIENT_PERMISSIONS") # MODIFIED
+            raise ForbiddenError(detail=f"Not enough permissions. Requires: {required_permission}", code="INSUFFICIENT_PERMISSIONS")
     return permission_checker

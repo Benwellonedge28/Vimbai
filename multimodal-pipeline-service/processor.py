@@ -5,11 +5,12 @@ import re
 from decimal import Decimal
 from typing import Dict, Any, List, Union, Optional
 import httpx
-import base64 # NEW
+import base64
 
 from multimodal_pipeline_service.models import (
     MultimodalInput, DocumentParseResult, ExtractedField, AudioParseResult,
-    JournalLineBase, JournalEntryCreate, AutomatedJournalEntryResponse
+    JournalLineBase, JournalEntryCreate, AutomatedJournalEntryResponse,
+    TransactionForFraudCheck, FraudDetectionResult # NEW
 )
 
 # In-memory store for task results (for demonstration purposes)
@@ -112,6 +113,40 @@ class MultimodalProcessor:
                     proposed_journal_entry=journal_entry
                 )
 
+    async def _send_transaction_to_fraud_detection_service(self, jwt_token: str, transaction_data: TransactionForFraudCheck) -> FraudDetectionResult:
+        """Internal helper to send transaction to Fraud Detection Service."""
+        headers = {
+            "Authorization": f"Bearer {jwt_token}",
+            "Content-Type": "application/json"
+        }
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(
+                    f"{self.api_gateway_url}/fraud-detection/analyze-transaction/",
+                    headers=headers,
+                    json=transaction_data.model_dump(by_alias=True)
+                )
+                response.raise_for_status()
+                return FraudDetectionResult(**response.json())
+            except httpx.HTTPStatusError as e:
+                error_detail = e.response.json().get("detail", e.response.text)
+                print(f"Fraud Detection Service error: {error_detail}")
+                return FraudDetectionResult(
+                    transaction_id=transaction_data.transaction_id,
+                    fraud_score=0.0,
+                    fraud_flag="safe", # Default to safe if service fails
+                    reason=f"Fraud detection service failed: {error_detail}",
+                    model_version="N/A_service_unavailable"
+                )
+            except httpx.RequestError as e:
+                print(f"Network error communicating with Fraud Detection Service: {e}")
+                return FraudDetectionResult(
+                    transaction_id=transaction_data.transaction_id,
+                    fraud_score=0.0,
+                    fraud_flag="safe", # Default to safe if service unavailable
+                    reason=f"Network error connecting to Fraud Detection Service: {e}",
+                    model_version="N/A_network_error"
+                )
 
     async def process_document_ocr(self, image_data: Union[str, bytes], source_context: Optional[str] = None) -> DocumentParseResult:
         start_time = datetime.now()
@@ -130,8 +165,9 @@ class MultimodalProcessor:
                 raw_text = "Simulated OCR from bytes: Total: $75.20, Date: 2026-05-18, Vendor: Groceries"
             elif isinstance(image_data, str) and len(image_data) > 100: # Assuming base64 string from queue
                 try:
-                    decoded_bytes = base64.b64decode(image_data)
-                    raw_text = "Simulated OCR from Base64 via Queue: Total: $75.20, Date: 2026-05-18, Vendor: QueuedGroceries"
+                    # Dummy transaction ID for fraud check from multimodal input
+                    temp_transaction_id = f"MM-{datetime.utcnow().timestamp()}-{hash(image_data) % 10000}"
+                    raw_text = f"Simulated OCR from Base64 via Queue: Total: $75.20, Date: 2026-05-18, Vendor: QueuedGroceries. TransactionID:{temp_transaction_id}"
                 except Exception:
                     raise ValueError("Invalid base64 image data.")
             else:
@@ -173,8 +209,9 @@ class MultimodalProcessor:
                 transcription = "Simulated transcription from bytes: Record a payment of two hundred fifty to accounts payable."
             elif isinstance(audio_data, str) and len(audio_data) > 100: # Assuming base64 string from queue
                 try:
-                    decoded_bytes = base64.b64decode(audio_data)
-                    transcription = "Simulated transcription from Base64 via Queue: Record a payment of three hundred to accounts receivable."
+                    # Dummy transaction ID for fraud check from multimodal input
+                    temp_transaction_id = f"MM-{datetime.utcnow().timestamp()}-{hash(audio_data) % 10000}"
+                    transcription = f"Simulated transcription from Base64 via Queue: Record a payment of three hundred to accounts receivable. TransactionID:{temp_transaction_id}"
                 except Exception:
                     raise ValueError("Invalid base64 audio data.")
             else:
@@ -201,13 +238,13 @@ class MultimodalProcessor:
 
     async def process_multimodal_input_sync(self, multimodal_input: MultimodalInput, jwt_token: Optional[str] = None) -> Union[DocumentParseResult, AudioParseResult, Dict[str, Any]]:
         """Synchronous processing of multimodal input (for direct API calls or fallback)."""
-        if multimodal_input.input_type in ["image_url"]:
+        if multimodal_input.input_type == "base64_image": # Handle base64 from queue
             return await self.process_document_ocr(multimodal_input.data, multimodal_input.source_context)
-        elif multimodal_input.input_type == "base64_image": # Handle base64 from queue
-            return await self.process_document_ocr(multimodal_input.data, multimodal_input.source_context)
-        elif multimodal_input.input_type in ["audio_url"]:
-            return await self.process_audio_to_text(multimodal_input.data, multimodal_input.source_context)
         elif multimodal_input.input_type == "base64_audio": # Handle base64 from queue
+            return await self.process_audio_to_text(multimodal_input.data, multimodal_input.source_context)
+        elif multimodal_input.input_type in ["image_url", "bytes_image"]: # Still need this path for actual bytes from file upload
+            return await self.process_document_ocr(multimodal_input.data, multimodal_input.source_context)
+        elif multimodal_input.input_type in ["audio_url", "bytes_audio"]: # Same here
             return await self.process_audio_to_text(multimodal_input.data, multimodal_input.source_context)
         elif multimodal_input.input_type == "text":
             await asyncio.sleep(0.3)
@@ -245,7 +282,36 @@ class MultimodalProcessor:
             proposed_je_dict = processed_result["proposed_journal_entry"]
             if proposed_je_dict:
                 proposed_je = JournalEntryCreate(**proposed_je_dict)
-                return await self.send_journal_entry_to_accounting_service(jwt_token, proposed_je)
+
+                # NEW: Perform fraud detection before sending to accounting
+                # For multimodal input, we need to create a dummy transaction_id
+                transaction_id = f"MM-{datetime.utcnow().timestamp()}-{hash(multimodal_input.data) % 10000}"
+                amount = Decimal('0.00')
+                for item in extracted_data:
+                    if item.field_name == "total_amount":
+                        try:
+                            amount = Decimal(re.sub(r'[^\d.]', '', item.value))
+                        except Exception:
+                            pass
+                
+                # If amount is not extracted, default to 1.00 for fraud check
+                if amount == Decimal('0.00'): amount = Decimal('1.00')
+
+                transaction_for_fraud = TransactionForFraudCheck(
+                    transaction_id=transaction_id,
+                    amount=amount,
+                    currency="USD", # Default currency
+                    sender_account_id="MultimodalSource",
+                    recipient_account_id="MultimodalDestination",
+                    transaction_type="unknown",
+                    timestamp=proposed_je.entry_date if proposed_je else datetime.utcnow()
+                )
+                fraud_detection_result = await self._send_transaction_to_fraud_detection_service(jwt_token, transaction_for_fraud)
+
+                je_response = await self.send_journal_entry_to_accounting_service(jwt_token, proposed_je)
+                je_response.fraud_detection_result = fraud_detection_result # Attach fraud result
+
+                return je_response
             else:
                 return AutomatedJournalEntryResponse(
                     status="failed",
@@ -270,5 +336,30 @@ class MultimodalProcessor:
                 message="Extracted data could not be mapped to a valid Journal Entry (e.g., missing amount, unbalanced).",
                 extracted_data=processed_result
             )
+        
+        # NEW: Perform fraud detection
+        transaction_id = f"MM-{datetime.utcnow().timestamp()}-{hash(multimodal_input.data) % 10000}"
+        amount = Decimal('0.00')
+        for item in extracted_data:
+            if item.field_name == "total_amount":
+                try:
+                    amount = Decimal(re.sub(r'[^\d.]', '', item.value))
+                except Exception:
+                    pass
+        if amount == Decimal('0.00'): amount = Decimal('1.00')
 
-        return await self.send_journal_entry_to_accounting_service(jwt_token, proposed_journal_entry)
+        transaction_for_fraud = TransactionForFraudCheck(
+            transaction_id=transaction_id,
+            amount=amount,
+            currency="USD", # Default currency
+            sender_account_id="MultimodalSource",
+            recipient_account_id="MultimodalDestination",
+            transaction_type="unknown",
+            timestamp=proposed_journal_entry.entry_date if proposed_journal_entry else datetime.utcnow()
+        )
+        fraud_detection_result = await self._send_transaction_to_fraud_detection_service(jwt_token, transaction_for_fraud)
+
+        je_response = await self.send_journal_entry_to_accounting_service(jwt_token, proposed_journal_entry)
+        je_response.fraud_detection_result = fraud_detection_result # Attach fraud result
+
+        return je_response

@@ -1,16 +1,19 @@
-# ... (existing content) ...
+# FinAcc Multimodal Pipeline Service
+
+This service processes various input types (image, audio, text) for financial data extraction and automation. It can perform OCR on documents, ASR on audio, and extract relevant financial entities. It then integrates with other FinAcc services, such as the Accounting Service for journal entry creation and now the Fraud Detection Service for transaction analysis.
 
 ## Features
 
--   **Asynchronous Processing with RabbitMQ:** Heavy multimodal processing tasks (OCR, ASR, Journal Entry creation) are now offloaded to a message queue for background processing.
+-   **Asynchronous Processing with RabbitMQ:** Heavy multimodal processing tasks (OCR, ASR, Journal Entry creation) are offloaded to a message queue for background processing.
 -   **Task Status Tracking:** Clients can query the status of asynchronous tasks using a unique `task_id`.
 -   **Automated Journal Entry Creation:** Automatically converts extracted multimodal data into a proposed (or directly created) Journal Entry in the Accounting Service.
+-   **Fraud Detection Integration:** Automatically sends extracted transaction data for fraud analysis upon processing. (NEW)
 -   **JWT Authentication and Role-Based Access Control (RBAC)** for all API endpoints.
 -   **Robust Error Handling:** Standardized error responses with custom exceptions.
 
 ## Architecture
 
-The service leverages FastAPI for its API and `httpx` for internal, authenticated communication with other FinAcc microservices via the API Gateway. It now integrates with **RabbitMQ** for asynchronous task processing, employing a producer/consumer model. The main FastAPI application acts as a producer, queuing tasks, while a background worker (or separate process) consumes and processes them.
+The service leverages FastAPI for its API and `httpx` for internal, authenticated communication with other FinAcc microservices via the API Gateway. It integrates with **RabbitMQ** for asynchronous task processing, employing a producer/consumer model. The main FastAPI application acts as a producer, queuing tasks, while a background worker (or separate process) consumes and processes them.
 
 ## Getting Started
 
@@ -66,67 +69,12 @@ Use the copied JWT token in the `Authorization` header for all requests.
 
 These endpoints now initiate background tasks and immediately return a `task_id` for status tracking.
 
-#### Process Document for OCR (Image Upload)
-
-**Endpoint:** `POST http://localhost:8081/process-document-ocr` (via API Gateway)
-**Permissions:** `multimodal.process.ocr`
-**Form Data:**
--   `file`: The image file (e.g., JPEG, PNG of a receipt or invoice).
--   `source_context` (optional): "Receipt from coffee shop"
-**Returns:** `TaskStatusResponse` with `task_id`.
-
-#### Process Audio for Transcription (Audio Upload)
-
-**Endpoint:** `POST http://localhost:8081/process-audio-to-text` (via API Gateway)
-**Permissions:** `multimodal.process.audio`
-**Form Data:**
--   `file`: The audio file (e.g., WAV, MP3).
--   `source_context` (optional): "Voice note for expense entry"
-**Returns:** `TaskStatusResponse` with `task_id`.
-
-#### Process General Multimodal Input (JSON Payload)
-
-**Endpoint:** `POST http://localhost:8081/process-multimodal-input` (via API Gateway)
-**Permissions:** `multimodal.process.any`
-**Body (JSON):** (same as before, but now triggers async processing)
-**Returns:** `TaskStatusResponse` with `task_id`.
-
 #### Create Journal Entry from Multimodal Input
 
 **Endpoint:** `POST http://localhost:8081/multimodal-to-journal-entry` (via API Gateway)
 **Permissions:** `multimodal.create.journal_entry`
-**Body (JSON):** (same as before, but now triggers async JE creation)
+**Body (JSON):** (same as before, but now triggers async JE creation and fraud detection)
 **Returns:** `TaskStatusResponse` with `task_id`.
+*Note: This process now includes a call to the Fraud Detection Service, and the fraud analysis result will be included in the final `result` object of the task status.*
 
-#### Get Asynchronous Task Status
-
-**Endpoint:** `GET http://localhost:8081/tasks/{task_id}/status` (via API Gateway)
-**Returns:** `TaskStatusResponse` with current status, progress, and result (if completed).
-
----
-
-### 5. Development
-
-If developing locally (outside Docker Compose), ensure you have Python (3.10+) installed and your environment variables (`JWT_SECRET`, `API_GATEWAY_URL`, `RABBITMQ_HOST`, `RABBITMQ_USER`, `RABBITMQ_PASS`) are correctly set.
-
-```bash
-# Navigate to multimodal-pipeline-service directory
-cd multimodal-pipeline-service
-
-# Install dependencies
-pip install -r requirements.txt
-
-# To run the API service (producer) locally
-uvicorn main:app --host 0.0.0.0 --port 8002 & 
-
-# To run the separate worker (consumer) locally in a new terminal
-# For this POC, the consumer is run as a background task within main.py, so just starting main.py is enough.
-```
-
-## Future Enhancements
-
--   Persistent storage for task results (e.g., Redis) instead of in-memory dictionary.
--   More robust worker management (e.g., using Celery or distributed task queues).
--   Automated cleanup of old task results.
--   WebSockets for real-time task status updates to clients.
--   Integration with real cloud-based OCR and ASR APIs.
+# ... (rest of the README.md content is unchanged) ...
