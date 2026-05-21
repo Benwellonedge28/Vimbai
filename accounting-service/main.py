@@ -206,7 +206,6 @@ async def create_vendor_bill(
     jwt_token: str = Depends(get_jwt_token),
     db_session: AsyncSession = Depends(get_db_session)
 ):
-    # crud.create_vendor_bill is expected based on models.py
     return await crud.create_vendor_bill(db_session, user_id, vendor_bill, jwt_token)
 
 # --- Ledger Endpoints ---
@@ -227,26 +226,27 @@ async def get_account_ledger(
 async def get_current_trial_balance(
     user_id: str = Depends(get_user_id),
     db_session: AsyncSession = Depends(get_db_session),
-    as_of_date: Optional[datetime] = Query(None, description="As-of date for trial balance (ISO format).")
+    as_of_date: Optional[datetime] = Query(None, description="Date to generate trial balance as of (ISO format).")
 ):
     return await crud.get_trial_balance_report(db_session, user_id, as_of_date)
 
-# --- Financial Statement Endpoints ---
-@app.get("/financial-statements/income-statement", response_model=models.IncomeStatement,
-             dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
+# --- Income Statement Endpoints ---
+@app.get("/income-statement/", response_model=models.IncomeStatement,
+             dependencies=[Depends(check_permission("accounting.read.income_statement"))])
 async def get_income_statement_report(
-    start_date: datetime = Query(..., description="Start date for income statement (ISO format)."),
-    end_date: datetime = Query(..., description="End date for income statement (ISO format)."),
     user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session)
+    db_session: AsyncSession = Depends(get_db_session),
+    start_date: datetime = Query(..., description="Start date for the income statement period (ISO format)."),
+    end_date: datetime = Query(..., description="End date for the income statement period (ISO format).")
 ):
     return await crud.get_income_statement(db_session, user_id, start_date, end_date)
 
-@app.get("/financial-statements/balance-sheet", response_model=models.BalanceSheet,
-             dependencies=[Depends(check_permission("accounting.read.financial_statements"))])
+# --- Balance Sheet Endpoints ---
+@app.get("/balance-sheet/", response_model=models.BalanceSheet,
+             dependencies=[Depends(check_permission("accounting.read.balance_sheet"))])
 async def get_balance_sheet_report(
-    as_of_date: datetime = Query(..., description="As-of date for balance sheet (ISO format)."),
     user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session)
+    db_session: AsyncSession = Depends(get_db_session),
+    as_of_date: datetime = Query(..., description="Date to generate the balance sheet as of (ISO format).")
 ):
     return await crud.get_balance_sheet(db_session, user_id, as_of_date)
