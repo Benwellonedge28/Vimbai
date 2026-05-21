@@ -4,11 +4,14 @@ from typing import List, Optional
 from neo4j import AsyncSession
 from automation_engine_service import models, crud
 from automation_engine_service.database import init_db_schema, Neo4jConnector
-from automation_engine_service.dependencies import get_db_session, get_user_id # Assuming these are defined
-from automation_engine_service.utils.auth import check_permission # Assuming check_permission is defined
+from automation_engine_service.dependencies import get_db_session, get_user_id
+from automation_engine_service.utils.auth import check_permission
 from automation_engine_service.exceptions import NotFoundError, ConflictError, ValidationError, UnauthorizedError, ForbiddenError
+from automation_engine_service.scheduler import run_scheduler # NEW
+from automation_engine_service.executor import execute_task_instance # NEW
 import os
 from dotenv import load_dotenv
+import asyncio
 
 # Load environment variables
 load_dotenv()
@@ -27,13 +30,16 @@ async def startup_event():
         password=os.getenv("NEO4J_PASSWORD", "neo4j")
     )
     Neo4jConnector.get_driver()
-    await init_db_schema() # Initialize Neo4j schema specific to automation engine service
+    await init_db_schema()
+
+    # Start the scheduler as a background task
+    asyncio.create_task(run_scheduler(get_db_session())) # Pass a new session for the background task
 
 @app.on_event("shutdown")
 async def shutdown_event():
     await Neo4jConnector.close_driver()
 
-# --- Global Exception Handlers (placeholders) ---
+# --- Global Exception Handlers ---
 @app.exception_handler(NotFoundError)
 async def not_found_exception_handler(request, exc: NotFoundError):
     return JSONResponse(status_code=exc.status_code, content=exc.detail)
@@ -138,6 +144,29 @@ async def update_automation_task_instance(
     if updated_instance is None:
         raise NotFoundError(detail="Automation Task Instance not found.")
     return updated_instance
+
+@app.post("/task-definitions/{definition_id}/trigger", status_code=status.HTTP_202_ACCEPTED,
+              dependencies=[Depends(check_permission("automation.execute.tasks"))])
+async def trigger_automation_task_manually(
+    definition_id: str,
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    definition = await crud.get_automation_task_definition(db_session, definition_id)
+    if not definition:
+        raise NotFoundError(detail="Automation Task Definition not found.")
+
+    instance_create = models.AutomationTaskInstanceCreate(
+        task_definition_id=definition_id,
+        triggered_by="manual",
+        start_time=datetime.utcnow()
+    )
+    instance = await crud.create_automation_task_instance(db_session, instance_create)
+    
+    # Execute the instance immediately in a background task
+    asyncio.create_task(execute_task_instance(db_session, instance.id!))
+
+    return {"message": f"Automation task '{definition.name}' triggered successfully. Instance ID: {instance.id}"}
+
 
 # --- Automation Log Endpoints ---
 @app.post("/task-instances/{instance_id}/logs/", response_model=models.AutomationLogInDB, status_code=status.HTTP_201_CREATED,
