@@ -1,172 +1,151 @@
-from pydantic import BaseModel, Field, condecimal, validator
-from typing import Optional, List, Literal, Dict, Any
-from datetime import datetime
-from decimal import Decimal
+from pydantic import BaseModel, Field, condecimal
+from typing import Optional, List, Dict, Any, Literal
+from datetime import datetime, date
 
-# --- Bank Models ---
-class BankBase(BaseModel):
-    name: str = Field(..., min_length=3, max_length=100, description="Name of the bank.")
-    access_token: str = Field(..., description="Encrypted access token for the bank's API.")
-    # Other bank-specific credentials
+class BankConnectionBase(BaseModel):
+    provider: str = Field(..., description="Bank API provider (e.g., Plaid, Yodlee, Direct Integration).", min_length=1)
+    access_token: str = Field(..., description="Encrypted access token for the bank API.")
+    external_id: str = Field(..., description="Provider-specific ID for the connection or institution.")
+    status: Literal["active", "inactive", "reauth_required", "error"] = Field("active")
+    last_synced_at: Optional[datetime] = None
+    metadata: Dict[str, Any] = Field({}, description="Provider-specific metadata.")
 
-class BankCreate(BankBase):
-    pass
+class BankConnectionCreate(BankConnectionBase):
+    user_id: str = Field(..., description="The user ID to whom this connection belongs.")
 
-class BankUpdate(BaseModel):
-    name: Optional[str] = None
+class BankConnectionUpdate(BaseModel):
     access_token: Optional[str] = None
+    status: Optional[Literal["active", "inactive", "reauth_required", "error"]] = None
+    last_synced_at: Optional[datetime] = None
+    metadata: Optional[Dict[str, Any]] = None
 
-class BankInDB(BankBase):
+class BankConnectionInDB(BankConnectionBase):
     id: str = Field(..., example="uuid-string-for-node")
-    user_id: str = Field(..., description="ID of the user who owns this bank connection.")
+    user_id: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
         from_attributes = True
 
-# --- Account Models (from bank perspective) ---
 class BankAccountBase(BaseModel):
-    bank_id: str = Field(..., description="ID of the connected bank.")
-    account_name: str = Field(..., description="Name of the account (e.g., 'Checking', 'Savings').")
-    account_number: str = Field(..., description="Bank account number (masked or sensitive, depending on security).")
-    account_type: Literal["checking", "savings", "credit_card", "loan"] = Field(..., description="Type of bank account.")
-    balance: condecimal(decimal_places=2) = Field(..., description="Current balance of the account.")
-    currency: str = Field("USD", max_length=3, description="Currency of the account.")
-
-    @validator('balance', pre=True)
-    def convert_to_decimal(cls, v):
-        if isinstance(v, float):
-            return Decimal(str(v))
-        return v
+    account_id: str = Field(..., description="Provider-specific ID for the bank account.")
+    connection_id: str = Field(..., description="ID of the BankConnection it belongs to.")
+    name: str = Field(..., description="Account name (e.g., Checking, Savings, Credit Card).", min_length=1)
+    mask: str = Field(..., description="Last 4 digits of the account number.")
+    type: str = Field(..., description="Account type (e.g., depository, credit).", min_length=1)
+    subtype: str = Field(..., description="Account subtype (e.g., checking, savings, commercial credit card).", min_length=1)
+    currency: str = Field(..., max_length=3, description="ISO 4217 currency code (e.g., USD, ZAR).", example="USD")
+    current_balance: condecimal(max_digits=18, decimal_places=2) = Field(..., description="Current balance of the account.")
+    available_balance: Optional[condecimal(max_digits=18, decimal_places=2)] = Field(None, description="Available balance (if different from current).")
+    finacc_account_number: Optional[str] = Field(None, description="Corresponding account number in FinAcc Accounting Service.")
+    status: Literal["active", "inactive", "closed"] = Field("active")
 
 class BankAccountCreate(BankAccountBase):
     pass
 
 class BankAccountUpdate(BaseModel):
-    account_name: Optional[str] = None
-    account_number: Optional[str] = None
-    account_type: Optional[Literal["checking", "savings", "credit_card", "loan"]] = None
-    balance: Optional[condecimal(decimal_places=2)] = None
-    currency: Optional[str] = None
-
-    @validator('balance', pre=True)
-    def convert_to_decimal(cls, v):
-        if isinstance(v, float):
-            return Decimal(str(v))
-        return v
+    name: Optional[str] = None
+    type: Optional[str] = None
+    subtype: Optional[str] = None
+    current_balance: Optional[condecimal(max_digits=18, decimal_places=2)] = None
+    available_balance: Optional[condecimal(max_digits=18, decimal_places=2)] = None
+    finacc_account_number: Optional[str] = None
+    status: Optional[Literal["active", "inactive", "closed"]] = None
 
 class BankAccountInDB(BankAccountBase):
     id: str = Field(..., example="uuid-string-for-node")
-    user_id: str = Field(..., description="ID of the user who owns this bank account.")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
         from_attributes = True
 
-# --- Transaction Models ---
-class TransactionBase(BaseModel):
-    bank_account_id: str = Field(..., description="ID of the bank account this transaction belongs to.")
-    transaction_id: str = Field(..., description="Unique ID provided by the bank/provider for this transaction.")
-    description: str = Field(..., max_length=500, description="Description of the transaction.")
-    amount: condecimal(decimal_places=2) = Field(..., description="Amount of the transaction. Positive for income, negative for expense.")
-    currency: str = Field("USD", max_length=3, description="Currency of the transaction.")
-    transaction_date: datetime = Field(..., description="Date of the transaction.")
-    post_date: Optional[datetime] = Field(None, description="Date the transaction was posted by the bank.")
-    category: Optional[str] = Field(None, max_length=100, description="Categorization of the transaction (e.g., 'Groceries', 'Salary').")
-    accounting_account_number: Optional[str] = Field(None, description="Mapped account number in the Accounting Service's COA.")
-    journal_entry_id: Optional[str] = Field(None, description="ID of the corresponding JournalEntry in the Accounting Service.")
-    fraud_flag: Literal["safe", "low_risk", "suspicious", "high_risk"] = Field("safe", description="Flag from fraud detection service.") # NEW
-    fraud_score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Fraud score from fraud detection service.") # NEW
+class BankTransactionBase(BaseModel):
+    transaction_id: str = Field(..., description="Provider-specific ID for the transaction.")
+    account_id: str = Field(..., description="ID of the BankAccount it belongs to.")
+    description: str = Field(..., description="Transaction description from the bank.")
+    amount: condecimal(max_digits=18, decimal_places=2) = Field(..., description="Transaction amount (positive for debit, negative for credit).", multiple_of=Decimal("0.01"))
+    date: date = Field(..., description="Date of the transaction.")
+    posted_date: Optional[date] = Field(None, description="Date transaction was posted.")
+    category: Optional[str] = Field(None, description="AI-categorized transaction category.")
+    type: Optional[str] = Field(None, description="Transaction type (e.g., ACH, card_payment, check, transfer).")
+    status: Literal["pending", "posted", "cancelled"] = Field("posted")
+    finacc_journal_entry_id: Optional[str] = Field(None, description="ID of the corresponding JournalEntry in FinAcc.")
+    is_reconciled: bool = False
+    metadata: Dict[str, Any] = Field({}, description="Provider-specific transaction metadata.")
 
-
-    @validator('amount', pre=True)
-    def convert_to_decimal(cls, v):
-        if isinstance(v, float):
-            return Decimal(str(v))
-        return v
-
-class TransactionCreate(TransactionBase):
+class BankTransactionCreate(BankTransactionBase):
     pass
 
-class TransactionUpdate(BaseModel):
+class BankTransactionUpdate(BaseModel):
     description: Optional[str] = None
-    amount: Optional[condecimal(decimal_places=2)] = None
-    currency: Optional[str] = None
-    transaction_date: Optional[datetime] = None
-    post_date: Optional[datetime] = None
     category: Optional[str] = None
-    accounting_account_number: Optional[str] = None
-    journal_entry_id: Optional[str] = None
-    fraud_flag: Optional[Literal["safe", "low_risk", "suspicious", "high_risk"]] = None # NEW
-    fraud_score: Optional[float] = Field(None, ge=0.0, le=1.0) # NEW
+    finacc_journal_entry_id: Optional[str] = None
+    is_reconciled: Optional[bool] = None
+    metadata: Optional[Dict[str, Any]] = None
 
-    @validator('amount', pre=True)
-    def convert_to_decimal(cls, v):
-        if isinstance(v, float):
-            return Decimal(str(v))
-        return v
-
-class TransactionInDB(TransactionBase):
+class BankTransactionInDB(BankTransactionBase):
     id: str = Field(..., example="uuid-string-for-node")
-    user_id: str = Field(..., description="ID of the user who owns this transaction.")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
         from_attributes = True
 
-# --- Journal Entry Models (for inter-service communication) ---
-class JournalLineBase(BaseModel):
-    account_number: str
-    debit: Decimal = Field(Decimal('0.00'))
-    credit: Decimal = Field(Decimal('0.00'))
-    description: Optional[str] = None
+class TransactionCategorizationRuleBase(BaseModel):
+    user_id: str = Field(..., description="User ID to whom this rule belongs.")
+    rule_name: str = Field(..., min_length=3, max_length=100, description="Name of the categorization rule.")
+    match_field: Literal["description", "payee", "amount_range"] = Field(..., description="Field to match against.")
+    match_pattern: str = Field(..., description="Regex pattern or keyword to match.")
+    target_category: str = Field(..., description="Category to assign (e.g., 'Utilities', 'Travel').")
+    target_finacc_account_number: Optional[str] = Field(None, description="Optional: FinAcc account number to suggest for JE.")
+    is_active: bool = True
+    priority: int = Field(0, description="Lower number means higher priority.")
 
-class JournalEntryCreate(BaseModel):
-    entry_date: datetime = Field(default_factory=datetime.utcnow)
-    description: str
-    reference_number: Optional[str] = None
-    source_module: str = "Banking"
-    lines: List[JournalLineBase]
-    status: Literal['pending', 'posted', 'reviewed', 'voided'] = Field('pending', description="Current status of the journal entry.")
+class TransactionCategorizationRuleCreate(TransactionCategorizationRuleBase):
+    pass
 
-class CreateJournalEntryResponse(BaseModel):
-    status: str
-    message: str
-    journal_entry_id: Optional[str] = None
+class TransactionCategorizationRuleUpdate(BaseModel):
+    rule_name: Optional[str] = None
+    match_field: Optional[Literal["description", "payee", "amount_range"]] = None
+    match_pattern: Optional[str] = None
+    target_category: Optional[str] = None
+    target_finacc_account_number: Optional[str] = None
+    is_active: Optional[bool] = None
+    priority: Optional[int] = None
 
-# --- Fraud Detection Service Models (for inter-service communication) ---
-class TransactionForFraudCheck(BaseModel): # Copied from fraud-detection-service/models.py
-    transaction_id: str = Field(..., description="Unique ID of the transaction.")
-    amount: condecimal(decimal_places=2, gt=Decimal('0.00')) = Field(..., description="Amount of the transaction.")
-    currency: str = Field("USD", max_length=3, description="Currency of the transaction (ISO 4217).")
-    sender_account_id: str = Field(..., description="ID of the sender's account.")
-    recipient_account_id: str = Field(..., description="ID of the recipient's account.")
-    transaction_type: Literal["debit", "credit", "transfer", "payment", "purchase"] = Field(..., description="Type of transaction.")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Timestamp of the transaction.")
-    location_data: Optional[Dict[str, Any]] = Field(None, description="Geographic location data of the transaction.")
-    device_info: Optional[Dict[str, Any]] = Field(None, description="Device information (e.g., IP address, OS, browser).")
-    previous_transactions_count_24h: int = Field(0, ge=0, description="Number of transactions by sender in last 24h.")
-    avg_daily_transaction_amount_7d: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(Decimal('0.00'), description="Average daily transaction amount by sender over 7 days.")
+class TransactionCategorizationRuleInDB(TransactionCategorizationRuleBase):
+    id: str = Field(..., example="uuid-string-for-node")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    @validator('amount', pre=True)
-    def convert_to_decimal(cls, v):
-        if isinstance(v, float):
-            return Decimal(str(v))
-        return v
+    class Config:
+        from_attributes = True
 
-class FraudDetectionResult(BaseModel): # Copied from fraud-detection-service/models.py
-    transaction_id: str = Field(..., description="ID of the transaction that was analyzed.")
-    fraud_score: float = Field(..., ge=0.0, le=1.0, description="Probability or score indicating likelihood of fraud (0-1).")
-    fraud_flag: Literal["safe", "low_risk", "suspicious", "high_risk"] = Field(..., description="Categorical flag for fraud risk.")
-    reason: Optional[str] = Field(None, description="Reason or rules triggered for the flag.")
-    model_version: str = Field(..., description="Version of the ML model used for detection.")
+class ReconciliationMatchBase(BaseModel):
+    bank_transaction_id: str = Field(..., description="ID of the BankTransaction.")
+    finacc_journal_entry_id: str = Field(..., description="ID of the JournalEntry in FinAcc.")
+    match_type: Literal["exact", "fuzzy", "manual"] = Field(..., description="How the match was made.")
+    matched_amount: condecimal(max_digits=18, decimal_places=2) = Field(..., description="Amount that matched.")
+    matched_date: date = Field(..., description="Date of the match.")
+    is_confirmed: bool = False
+    confirmed_by_user_id: Optional[str] = None
+    confirmed_at: Optional[datetime] = None
 
+class ReconciliationMatchCreate(ReconciliationMatchBase):
+    pass
 
-# --- Error Response Model ---
-class ErrorResponse(BaseModel):
-    detail: str
-    code: Optional[str] = None
-    status_code: int = 500
+class ReconciliationMatchUpdate(BaseModel):
+    match_type: Optional[Literal["exact", "fuzzy", "manual"]] = None
+    is_confirmed: Optional[bool] = None
+    confirmed_by_user_id: Optional[str] = None
+    confirmed_at: Optional[datetime] = None
+
+class ReconciliationMatchInDB(ReconciliationMatchBase):
+    id: str = Field(..., example="uuid-string-for-node")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
