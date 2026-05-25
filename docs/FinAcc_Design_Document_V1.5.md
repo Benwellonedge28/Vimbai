@@ -298,6 +298,8 @@ FinAcc will leverage a **Graph Database**, specifically **Neo4j Community Editio
 *   **Local Automation Agents:** These agents operate directly on the local graph database.
 *   **Synchronization:** Data changes (new nodes/relationships) made offline are reconciled with the central Neo4j instance when online. Conflict resolution will leverage the graph's versioning.
 
+*   **An admin interface in which I will turn features on/off when I want or when the users requests for them or remove them. This will help a lot.
+
 ---
 
 This FinAcc V1.5 design document represents a cutting-edge approach to financial management, combining automation, multimodal input, robust security, comprehensive accounting support, offline resilience, and the power of graph databases for ultimate flexibility and insight.
