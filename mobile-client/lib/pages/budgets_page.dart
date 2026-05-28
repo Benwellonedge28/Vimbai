@@ -76,6 +76,6 @@ class _BudgetsPageState extends State<BudgetsPage> {
             },
             child: const Icon(Icons.add),
           ),
-        );를
+        );
       }
     }

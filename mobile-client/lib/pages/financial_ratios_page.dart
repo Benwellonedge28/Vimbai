@@ -67,7 +67,7 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
                 return const Center(child: CircularProgressIndicator());
               } else if (snapshot.hasError) {
                 return Center(child: Text('Error: ${snapshot.error}'));
-              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              } else if (!snapshot.hasData) {
                 return const Center(child: Text('No financial ratios data found.'));
               } else {
                 final report = snapshot.data!;

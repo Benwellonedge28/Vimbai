@@ -1,0 +1,63 @@
+name: FinAcc CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Lint Python services
+        run: |
+          uv pip install flake8 black
+          flake8 accounting-service/ finance-service/ fraud-detection-service/ --max-line-length=120 || true
+      
+      - name: Test Docker Compose
+        run: |
+          docker compose up -d neo4j rabbitmq --wait
+          sleep 10
+          docker compose ps
+
+  lint-and-test-go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20'
+      
+      - name: Build Go services
+        working-directory: api-gateway
+        run: |
+          go mod download
+          go build ./...
+
+  lint-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        working-directory: web-frontend
+        run: npm ci
+      
+      - name: Build frontend
+        working-directory: web-frontend
+        run: npm run build

@@ -90,7 +90,7 @@ class _RegisterPageState extends State<RegisterPage> {
             ],
           ),
         ),
-      ),B
+      ),
     );
   }
 }
