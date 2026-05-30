@@ -21,6 +21,12 @@ export default function Layout() {
                 <NavLink to="/journal-entries" className={({isActive}) => isActive ? "bg-indigo-700 px-3 py-2 rounded-md" : "px-3 py-2 rounded-md hover:bg-indigo-500"}>
                   Journal Entries
                 </NavLink>
+                <NavLink to="/banking" className={({isActive}) => isActive ? "bg-indigo-700 px-3 py-2 rounded-md" : "px-3 py-2 rounded-md hover:bg-indigo-500"}>
+                  Banking
+                </NavLink>
+                <NavLink to="/invoicing" className={({isActive}) => isActive ? "bg-indigo-700 px-3 py-2 rounded-md" : "px-3 py-2 rounded-md hover:bg-indigo-500"}>
+                  Invoicing
+                </NavLink>
                 <NavLink to="/reports" className={({isActive}) => isActive ? "bg-indigo-700 px-3 py-2 rounded-md" : "px-3 py-2 rounded-md hover:bg-indigo-500"}>
                   Reports
                 </NavLink>

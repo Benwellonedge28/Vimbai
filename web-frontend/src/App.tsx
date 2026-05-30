@@ -7,6 +7,8 @@ import Accounts from './pages/Accounts'
 import JournalEntries from './pages/JournalEntries'
 import Reports from './pages/Reports'
 import Workflow from './pages/Workflow'
+import Banking from './pages/Banking'
+import Invoicing from './pages/Invoicing'
 import Layout from './components/Layout'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -28,6 +30,8 @@ function AppRoutes() {
         <Route path="journal-entries" element={<JournalEntries />} />
         <Route path="reports" element={<Reports />} />
         <Route path="workflow" element={<Workflow />} />
+        <Route path="banking" element={<Banking />} />
+        <Route path="invoicing" element={<Invoicing />} />
       </Route>
     </Routes>
   )
