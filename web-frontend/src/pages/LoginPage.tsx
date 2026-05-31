@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 
 const LoginPage: React.FC = () => {
@@ -12,10 +12,10 @@ const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const success = await login(username, password);
-    if (success) {
+    try {
+      await login(username, password);
       navigate('/');
-    } else {
+    } catch {
       setError('Login failed. Please check your credentials.');
     }
   };

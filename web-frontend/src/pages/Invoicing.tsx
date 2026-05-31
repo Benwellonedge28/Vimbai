@@ -13,19 +13,10 @@ interface Invoice {
   currency: string
 }
 
-interface LineItem {
-  id: string
-  description: string
-  quantity: number
-  unitPrice: number
-  total: number
-}
-
 export default function Invoicing() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
-  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     fetchInvoices()
@@ -76,12 +67,6 @@ export default function Invoicing() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Invoicing</h1>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
-          Create Invoice
-        </button>
       </div>
 
       {/* Filter Tabs */}

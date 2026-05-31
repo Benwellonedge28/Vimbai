@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useState } from 'react';
+import { api } from '../services/api';
 import { useNavigate, Link } from 'react-router-dom';
 
 const RegisterPage: React.FC = () => {
@@ -8,16 +8,15 @@ const RegisterPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [roleName, setRoleName] = useState('ACCOUNTANT'); // Default role
   const [error, setError] = useState('');
-  const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const success = await register(username, email, password, roleName);
-    if (success) {
-      navigate('/');
-    } else {
+    try {
+      await api.register(username, email, password, roleName);
+      navigate('/login');
+    } catch {
       setError('Registration failed. Please try again.');
     }
   };

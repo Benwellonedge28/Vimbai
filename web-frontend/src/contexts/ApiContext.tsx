@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react'
+import { createContext, useContext, ReactNode } from 'react'
 import axios, { AxiosInstance } from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'
@@ -18,7 +18,7 @@ export function ApiProvider({ children }: { children: ReactNode }) {
   client.interceptors.request.use((config) => {
     const token = localStorage.getItem('token')
     if (token) {
-.config.headers.Authorization = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token}`
     }
     return config
   })

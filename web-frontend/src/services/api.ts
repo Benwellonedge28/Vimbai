@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios'
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'
 
@@ -12,12 +12,33 @@ class ApiService {
       headers: { 'Content-Type': 'application/json' }
     })
 
-    this.client.interceptors.request.use((config) => {
+    this.client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
       if (this.token) {
         config.headers.Authorization = `Bearer ${this.token}`
       }
       return config
     })
+  }
+
+  // Generic HTTP methods for flexibility
+  async get<T>(url: string): Promise<T> {
+    const response = await this.client.get<T>(url)
+    return response.data
+  }
+
+  async post<T>(url: string, data?: Record<string, unknown>): Promise<T> {
+    const response = await this.client.post<T>(url, data)
+    return response.data
+  }
+
+  async put<T>(url: string, data?: Record<string, unknown>): Promise<T> {
+    const response = await this.client.put<T>(url, data)
+    return response.data
+  }
+
+  async delete<T>(url: string): Promise<T> {
+    const response = await this.client.delete<T>(url)
+    return response.data
   }
 
   setToken(token: string) {
@@ -39,13 +60,12 @@ class ApiService {
     return response.data
   }
 
-  // Accounting endpoints
   async getAccounts() {
     const response = await this.client.get('/accounts/')
     return response.data
   }
 
-  async createAccount(account: any) {
+  async createAccount(account: Record<string, unknown>) {
     const response = await this.client.post('/accounts/', account)
     return response.data
   }
@@ -58,7 +78,7 @@ class ApiService {
     return response.data
   }
 
-  async createJournalEntry(entry: any) {
+  async createJournalEntry(entry: Record<string, unknown>) {
     const response = await this.client.post('/journal-entries/', entry)
     return response.data
   }
@@ -79,24 +99,22 @@ class ApiService {
     return response.data
   }
 
-  // Reporting endpoints
   async getDashboards() {
     const response = await this.client.get('/reports/dashboards/')
     return response.data
   }
 
-  async executeReport(request: any) {
+  async executeReport(request: Record<string, unknown>) {
     const response = await this.client.post('/reports/reports/execute', request)
     return response.data
   }
 
-  // Workflow endpoints
   async getWorkflowDefinitions() {
     const response = await this.client.get('/workflow/workflow-definitions/')
     return response.data
   }
 
-  async createWorkflowInstance(instance: any) {
+  async createWorkflowInstance(instance: Record<string, unknown>) {
     const response = await this.client.post('/workflow/workflow-instances/', instance)
     return response.data
   }
