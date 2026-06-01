@@ -265,3 +265,235 @@ async def get_balance_sheet_report(
     as_of_date: datetime = Query(..., description="Date to generate the balance sheet as of (ISO format).")
 ):
     return await crud.get_balance_sheet(db_session, user_id, as_of_date)
+
+# --- Sales Journal Endpoints ---
+@app.post("/sales-journal/", response_model=models.SalesJournalEntryInDB, status_code=status.HTTP_201_CREATED,
+          dependencies=[Depends(check_permission("accounting.write.sales_journal"))])
+async def create_sales_journal_entry(
+    entry: models.SalesJournalEntryCreate,
+    user_id: str = Depends(get_user_id),
+    jwt_token: str = Depends(get_jwt_token),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.create_sales_journal_entry(db_session, user_id, entry, jwt_token)
+
+@app.get("/sales-journal/", response_model=List[models.SalesJournalEntryInDB],
+         dependencies=[Depends(check_permission("accounting.read.sales_journal"))])
+async def read_sales_journal_entries(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    start_date: Optional[datetime] = Query(None, description="Start date for filtering"),
+    end_date: Optional[datetime] = Query(None, description="End date for filtering"),
+    customer_id: Optional[str] = Query(None, description="Filter by customer ID"),
+    status: Optional[str] = Query(None, description="Filter by status")
+):
+    return await crud.get_sales_journal_entries(db_session, user_id, start_date, end_date, customer_id, status)
+
+@app.get("/sales-journal/{entry_id}", response_model=models.SalesJournalEntryInDB,
+         dependencies=[Depends(check_permission("accounting.read.sales_journal"))])
+async def read_sales_journal_entry(
+    entry_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.get_sales_journal_entry(db_session, user_id, entry_id)
+
+# --- Purchases Journal Endpoints ---
+@app.post("/purchases-journal/", response_model=models.PurchasesJournalEntryInDB, status_code=status.HTTP_201_CREATED,
+          dependencies=[Depends(check_permission("accounting.write.purchases_journal"))])
+async def create_purchases_journal_entry(
+    entry: models.PurchasesJournalEntryCreate,
+    user_id: str = Depends(get_user_id),
+    jwt_token: str = Depends(get_jwt_token),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.create_purchases_journal_entry(db_session, user_id, entry, jwt_token)
+
+@app.get("/purchases-journal/", response_model=List[models.PurchasesJournalEntryInDB],
+         dependencies=[Depends(check_permission("accounting.read.purchases_journal"))])
+async def read_purchases_journal_entries(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    vendor_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None)
+):
+    return await crud.get_purchases_journal_entries(db_session, user_id, start_date, end_date, vendor_id, status)
+
+# --- Cash Receipts Journal Endpoints ---
+@app.post("/cash-receipts-journal/", response_model=models.CashReceiptsJournalEntryInDB, status_code=status.HTTP_201_CREATED,
+          dependencies=[Depends(check_permission("accounting.write.cash_receipts"))])
+async def create_cash_receipts_entry(
+    entry: models.CashReceiptsJournalEntryCreate,
+    user_id: str = Depends(get_user_id),
+    jwt_token: str = Depends(get_jwt_token),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.create_cash_receipts_entry(db_session, user_id, entry, jwt_token)
+
+@app.get("/cash-receipts-journal/", response_model=List[models.CashReceiptsJournalEntryInDB],
+         dependencies=[Depends(check_permission("accounting.read.cash_receipts"))])
+async def read_cash_receipts_entries(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None)
+):
+    return await crud.get_cash_receipts_entries(db_session, user_id, start_date, end_date)
+
+# --- Cash Disbursements Journal Endpoints ---
+@app.post("/cash-disbursements-journal/", response_model=models.CashDisbursementsJournalEntryInDB, status_code=status.HTTP_201_CREATED,
+          dependencies=[Depends(check_permission("accounting.write.cash_disbursements"))])
+async def create_cash_disbursements_entry(
+    entry: models.CashDisbursementsJournalEntryCreate,
+    user_id: str = Depends(get_user_id),
+    jwt_token: str = Depends(get_jwt_token),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.create_cash_disbursements_entry(db_session, user_id, entry, jwt_token)
+
+@app.get("/cash-disbursements-journal/", response_model=List[models.CashDisbursementsJournalEntryInDB],
+         dependencies=[Depends(check_permission("accounting.read.cash_disbursements"))])
+async def read_cash_disbursements_entries(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None)
+):
+    return await crud.get_cash_disbursements_entries(db_session, user_id, start_date, end_date)
+
+# --- Sales Returns Journal Endpoints ---
+@app.post("/sales-returns-journal/", response_model=models.SalesReturnsJournalEntryInDB, status_code=status.HTTP_201_CREATED,
+          dependencies=[Depends(check_permission("accounting.write.sales_returns"))])
+async def create_sales_return_entry(
+    entry: models.SalesReturnsJournalEntryCreate,
+    user_id: str = Depends(get_user_id),
+    jwt_token: str = Depends(get_jwt_token),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.create_sales_return_entry(db_session, user_id, entry, jwt_token)
+
+# --- Purchases Returns Journal Endpoints ---
+@app.post("/purchases-returns-journal/", response_model=models.PurchasesReturnsJournalEntryInDB, status_code=status.HTTP_201_CREATED,
+          dependencies=[Depends(check_permission("accounting.write.purchases_returns"))])
+async def create_purchases_return_entry(
+    entry: models.PurchasesReturnsJournalEntryCreate,
+    user_id: str = Depends(get_user_id),
+    jwt_token: str = Depends(get_jwt_token),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.create_purchases_return_entry(db_session, user_id, entry, jwt_token)
+
+# --- Subsidiary Ledgers Endpoints ---
+@app.get("/subsidiary-ledgers/accounts-receivable/", response_model=models.AccountsReceivableLedgerReport,
+         dependencies=[Depends(check_permission("accounting.read.subsidiary_ledgers"))])
+async def get_ar_ledger_report(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    as_of_date: Optional[datetime] = Query(None, description="Date for AR aging"),
+    customer_id: Optional[str] = Query(None, description="Filter by customer")
+):
+    return await crud.get_ar_ledger_report(db_session, user_id, as_of_date, customer_id)
+
+@app.get("/subsidiary-ledgers/accounts-payable/", response_model=models.AccountsPayableLedgerReport,
+         dependencies=[Depends(check_permission("accounting.read.subsidiary_ledgers"))])
+async def get_ap_ledger_report(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    as_of_date: Optional[datetime] = Query(None, description="Date for AP aging"),
+    vendor_id: Optional[str] = Query(None, description="Filter by vendor")
+):
+    return await crud.get_ap_ledger_report(db_session, user_id, as_of_date, vendor_id)
+
+@app.get("/subsidiary-ledgers/fixed-assets/", response_model=models.FixedAssetsLedgerReport,
+         dependencies=[Depends(check_permission("accounting.read.subsidiary_ledgers"))])
+async def get_fixed_assets_ledger(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    as_of_date: Optional[datetime] = Query(None),
+    status: Optional[str] = Query(None, description="Filter by asset status")
+):
+    return await crud.get_fixed_assets_ledger(db_session, user_id, as_of_date, status)
+
+@app.get("/subsidiary-ledgers/inventory/", response_model=models.InventoryLedgerReport,
+         dependencies=[Depends(check_permission("accounting.read.subsidiary_ledgers"))])
+async def get_inventory_ledger(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    as_of_date: Optional[datetime] = Query(None),
+    category: Optional[str] = Query(None, description="Filter by category")
+):
+    return await crud.get_inventory_ledger(db_session, user_id, as_of_date, category)
+
+# --- Petty Cash Endpoints ---
+@app.post("/petty-cash-funds/", response_model=models.PettyCashFundInDB, status_code=status.HTTP_201_CREATED,
+          dependencies=[Depends(check_permission("accounting.write.petty_cash"))])
+async def create_petty_cash_fund(
+    fund: models.PettyCashFundCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.create_petty_cash_fund(db_session, user_id, fund)
+
+@app.get("/petty-cash-funds/", response_model=List[models.PettyCashFundInDB],
+         dependencies=[Depends(check_permission("accounting.read.petty_cash"))])
+async def read_petty_cash_funds(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.get_petty_cash_funds(db_session, user_id)
+
+@app.post("/petty-cash-entries/", response_model=models.PettyCashEntryInDB, status_code=status.HTTP_201_CREATED,
+          dependencies=[Depends(check_permission("accounting.write.petty_cash"))])
+async def create_petty_cash_entry(
+    entry: models.PettyCashEntryCreate,
+    user_id: str = Depends(get_user_id),
+    jwt_token: str = Depends(get_jwt_token),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.create_petty_cash_entry(db_session, user_id, entry, jwt_token)
+
+@app.get("/petty-cash-entries/", response_model=List[models.PettyCashEntryInDB],
+         dependencies=[Depends(check_permission("accounting.read.petty_cash"))])
+async def read_petty_cash_entries(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    fund_id: Optional[str] = Query(None, description="Filter by fund ID"),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None)
+):
+    return await crud.get_petty_cash_entries(db_session, user_id, fund_id, start_date, end_date)
+
+# --- Bank Reconciliation Endpoints ---
+@app.post("/bank-reconciliation/", response_model=models.BankReconciliationStatement, status_code=status.HTTP_201_CREATED,
+          dependencies=[Depends(check_permission("accounting.write.bank_reconciliation"))])
+async def create_bank_reconciliation(
+    bank_account: str,
+    statement_date: datetime,
+    statement_balance: Decimal,
+    user_id: str = Depends(get_user_id),
+    jwt_token: str = Depends(get_jwt_token),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.create_bank_reconciliation(db_session, user_id, bank_account, statement_date, statement_balance, jwt_token)
+
+@app.get("/bank-reconciliation/", response_model=List[models.BankReconciliationStatement],
+         dependencies=[Depends(check_permission("accounting.read.bank_reconciliation"))])
+async def get_bank_reconciliations(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    bank_account: Optional[str] = Query(None),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None)
+):
+    return await crud.get_bank_reconciliations(db_session, user_id, bank_account, start_date, end_date)
+
+@app.get("/bank-reconciliation/latest/{bank_account}", response_model=models.BankReconciliationStatement,
+         dependencies=[Depends(check_permission("accounting.read.bank_reconciliation"))])
+async def get_latest_reconciliation(
+    bank_account: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    return await crud.get_latest_bank_reconciliation(db_session, user_id, bank_account)

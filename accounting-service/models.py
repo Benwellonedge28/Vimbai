@@ -232,6 +232,408 @@ class VendorBillInDB(BaseModel):
     class Config:
         from_attributes = True
 
+# --- Special Journals Models (Books of Original Entry) ---
+
+class SalesJournalEntryBase(BaseModel):
+    """Records credit sales of goods - Book of Original Entry"""
+    invoice_number: str = Field(..., max_length=50, description="Sales invoice number")
+    customer_id: str = Field(..., description="Customer ID from identity service")
+    invoice_date: datetime = Field(default_factory=datetime.utcnow, description="Date of sale")
+    due_date: Optional[datetime] = Field(None, description="Payment due date")
+    total_amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(..., description="Total invoice amount")
+    tax_amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(Decimal('0.00'), description="Tax amount")
+    discount_amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(Decimal('0.00'), description="Discount amount")
+    currency: str = Field("USD", max_length=3, description="Currency code (ISO 4217)")
+    status: Literal['pending', 'invoiced', 'paid', 'cancelled', 'returned'] = Field('pending', description="Payment status")
+    notes: Optional[str] = Field(None, max_length=500, description="Additional notes")
+
+    @validator('total_amount', 'tax_amount', 'discount_amount', pre=True)
+    def convert_to_decimal(cls, v):
+        if isinstance(v, float):
+            return Decimal(str(v))
+        return v
+
+class SalesJournalEntryCreate(SalesJournalEntryBase):
+    pass
+
+class SalesJournalEntryInDB(SalesJournalEntryBase):
+    id: str = Field(..., example="uuid-string-for-node")
+    user_id: str = Field(..., description="ID of the user who owns this entry")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    journal_entry_id: Optional[str] = Field(None, description="Linked journal entry ID")
+
+    class Config:
+        from_attributes = True
+
+# --- Purchases Journal ---
+class PurchasesJournalEntryBase(BaseModel):
+    """Records credit purchases of goods - Book of Original Entry"""
+    purchase_order_number: str = Field(..., max_length=50, description="Purchase order number")
+    vendor_id: str = Field(..., description="Vendor ID")
+    purchase_date: datetime = Field(default_factory=datetime.utcnow, description="Date of purchase")
+    due_date: Optional[datetime] = Field(None, description="Payment due date")
+    total_amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(..., description="Total purchase amount")
+    tax_amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(Decimal('0.00'), description="Tax amount")
+    discount_amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(Decimal('0.00'), description="Discount amount")
+    currency: str = Field("USD", max_length=3, description="Currency code (ISO 4217)")
+    status: Literal['pending', 'ordered', 'received', 'paid', 'cancelled', 'returned'] = Field('pending', description="Purchase status")
+    notes: Optional[str] = Field(None, max_length=500, description="Additional notes")
+
+    @validator('total_amount', 'tax_amount', 'discount_amount', pre=True)
+    def convert_to_decimal(cls, v):
+        if isinstance(v, float):
+            return Decimal(str(v))
+        return v
+
+class PurchasesJournalEntryCreate(PurchasesJournalEntryBase):
+    pass
+
+class PurchasesJournalEntryInDB(PurchasesJournalEntryBase):
+    id: str = Field(..., example="uuid-string-for-node")
+    user_id: str = Field(..., description="ID of the user who owns this entry")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    journal_entry_id: Optional[str] = Field(None, description="Linked journal entry ID")
+
+    class Config:
+        from_attributes = True
+
+# --- Cash Receipts Journal ---
+class CashReceiptsJournalEntryBase(BaseModel):
+    """Records all cash coming into the business - Book of Original Entry"""
+    receipt_number: str = Field(..., max_length=50, description="Cash receipt number")
+    customer_id: Optional[str] = Field(None, description="Customer ID (for customer payments)")
+    receipt_date: datetime = Field(default_factory=datetime.utcnow, description="Date of receipt")
+    amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(..., description="Cash amount received")
+    payment_method: Literal['cash', 'check', 'bank_transfer', 'card', 'other'] = Field('cash', description="Payment method")
+    reference_number: Optional[str] = Field(None, max_length=100, description="Reference/cheque number")
+    bank_account: str = Field("1000", max_length=20, description="Cash/Bank account number")
+    description: str = Field(..., max_length=500, description="Description of cash receipt")
+    source_type: Literal['cash_sale', 'customer_payment', 'refund', 'loan', 'investment', 'other'] = Field('other', description="Source of cash receipt")
+    status: Literal['pending', 'posted', 'reversed'] = Field('posted', description="Receipt status")
+
+    @validator('amount', pre=True)
+    def convert_to_decimal(cls, v):
+        if isinstance(v, float):
+            return Decimal(str(v))
+        return v
+
+class CashReceiptsJournalEntryCreate(CashReceiptsJournalEntryBase):
+    pass
+
+class CashReceiptsJournalEntryInDB(CashReceiptsJournalEntryBase):
+    id: str = Field(..., example="uuid-string-for-node")
+    user_id: str = Field(..., description="ID of the user who owns this entry")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    journal_entry_id: Optional[str] = Field(None, description="Linked journal entry ID")
+
+    class Config:
+        from_attributes = True
+
+# --- Cash Disbursements Journal ---
+class CashDisbursementsJournalEntryBase(BaseModel):
+    """Records all cash going out of the business - Book of Original Entry"""
+    payment_number: str = Field(..., max_length=50, description="Payment/cheque number")
+    vendor_id: Optional[str] = Field(None, description="Vendor ID (for supplier payments)")
+    employee_id: Optional[str] = Field(None, description="Employee ID (for payroll)")
+    payment_date: datetime = Field(default_factory=datetime.utcnow, description="Date of payment")
+    amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(..., description="Cash amount paid")
+    payment_method: Literal['cash', 'check', 'bank_transfer', 'card', 'other'] = Field('check', description="Payment method")
+    reference_number: Optional[str] = Field(None, max_length=100, description="Reference/cheque number")
+    bank_account: str = Field("1000", max_length=20, description="Cash/Bank account number")
+    description: str = Field(..., max_length=500, description="Description of cash payment")
+    expense_account: str = Field(..., max_length=20, description="Expense account to be debited")
+    source_type: Literal['supplier_payment', 'salary', 'utility', 'rent', 'loan_repayment', 'refund', 'other'] = Field('other', description="Source of cash payment")
+    status: Literal['pending', 'posted', 'cancelled'] = Field('posted', description="Payment status")
+
+    @validator('amount', pre=True)
+    def convert_to_decimal(cls, v):
+        if isinstance(v, float):
+            return Decimal(str(v))
+        return v
+
+class CashDisbursementsJournalEntryCreate(CashDisbursementsJournalEntryBase):
+    pass
+
+class CashDisbursementsJournalEntryInDB(CashDisbursementsJournalEntryBase):
+    id: str = Field(..., example="uuid-string-for-node")
+    user_id: str = Field(..., description="ID of the user who owns this entry")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    journal_entry_id: Optional[str] = Field(None, description="Linked journal entry ID")
+
+    class Config:
+        from_attributes = True
+
+# --- Sales Returns Journal ---
+class SalesReturnsJournalEntryBase(BaseModel):
+    """Records goods returned by customers - Book of Original Entry"""
+    return_number: str = Field(..., max_length=50, description="Return merchandise authorization (RMA) number")
+    original_invoice_number: str = Field(..., max_length=50, description="Original sales invoice number")
+    customer_id: str = Field(..., description="Customer ID")
+    return_date: datetime = Field(default_factory=datetime.utcnow, description="Date of return")
+    total_amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(..., description="Total return amount")
+    tax_amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(Decimal('0.00'), description="Tax amount on return")
+    reason: str = Field(..., max_length=200, description="Reason for return")
+    status: Literal['pending', 'approved', 'received', 'refunded', 'rejected'] = Field('pending', description="Return status")
+    notes: Optional[str] = Field(None, max_length=500, description="Additional notes")
+
+    @validator('total_amount', 'tax_amount', pre=True)
+    def convert_to_decimal(cls, v):
+        if isinstance(v, float):
+            return Decimal(str(v))
+        return v
+
+class SalesReturnsJournalEntryCreate(SalesReturnsJournalEntryBase):
+    pass
+
+class SalesReturnsJournalEntryInDB(SalesReturnsJournalEntryBase):
+    id: str = Field(..., example="uuid-string-for-node")
+    user_id: str = Field(..., description="ID of the user who owns this entry")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    journal_entry_id: Optional[str] = Field(None, description="Linked journal entry ID")
+
+    class Config:
+        from_attributes = True
+
+# --- Purchases Returns Journal ---
+class PurchasesReturnsJournalEntryBase(BaseModel):
+    """Records goods returned to suppliers - Book of Original Entry"""
+    return_number: str = Field(..., max_length=50, description="Return number")
+    original_po_number: str = Field(..., max_length=50, description="Original purchase order number")
+    vendor_id: str = Field(..., description="Vendor ID")
+    return_date: datetime = Field(default_factory=datetime.utcnow, description="Date of return")
+    total_amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(..., description="Total return amount")
+    tax_amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(Decimal('0.00'), description="Tax amount on return")
+    reason: str = Field(..., max_length=200, description="Reason for return")
+    status: Literal['pending', 'approved', 'shipped', 'completed', 'rejected'] = Field('pending', description="Return status")
+    notes: Optional[str] = Field(None, max_length=500, description="Additional notes")
+
+    @validator('total_amount', 'tax_amount', pre=True)
+    def convert_to_decimal(cls, v):
+        if isinstance(v, float):
+            return Decimal(str(v))
+        return v
+
+class PurchasesReturnsJournalEntryCreate(PurchasesReturnsJournalEntryBase):
+    pass
+
+class PurchasesReturnsJournalEntryInDB(PurchasesReturnsJournalEntryBase):
+    id: str = Field(..., example="uuid-string-for-node")
+    user_id: str = Field(..., description="ID of the user who owns this entry")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    journal_entry_id: Optional[str] = Field(None, description="Linked journal entry ID")
+
+    class Config:
+        from_attributes = True
+
+# --- Subsidiary Ledger Models ---
+
+class AccountsReceivableLedgerEntry(BaseModel):
+    """Detailed breakdown for AR - Subsidiary Ledger"""
+    customer_id: str = Field(..., description="Customer ID")
+    customer_name: str = Field(..., max_length=200, description="Customer name")
+    invoice_number: str = Field(..., max_length=50, description="Invoice number")
+    invoice_date: datetime = Field(..., description="Invoice date")
+    due_date: datetime = Field(..., description="Payment due date")
+    invoice_amount: Decimal = Field(..., description="Total invoice amount")
+    balance_due: Decimal = Field(..., description="Current balance due")
+    amount_paid: Decimal = Field(Decimal('0.00'), description="Amount paid so far")
+    status: Literal['open', 'partial', 'paid', 'overdue', 'write_off'] = Field('open', description="Invoice status")
+    days_outstanding: int = Field(0, ge=0, description="Days since invoice date")
+
+class AccountsReceivableLedgerReport(BaseModel):
+    """Complete AR Subsidiary Ledger"""
+    as_of_date: datetime = Field(default_factory=datetime.utcnow)
+    entries: List[AccountsReceivableLedgerEntry] = []
+    total_invoice_amount: Decimal = Field(Decimal('0.00'))
+    total_balance_due: Decimal = Field(Decimal('0.00'))
+    total_amount_paid: Decimal = Field(Decimal('0.00'))
+    customer_count: int = Field(0)
+    overdue_count: int = Field(0)
+
+class AccountsPayableLedgerEntry(BaseModel):
+    """Detailed breakdown for AP - Subsidiary Ledger"""
+    vendor_id: str = Field(..., description="Vendor ID")
+    vendor_name: str = Field(..., max_length=200, description="Vendor name")
+    bill_number: str = Field(..., max_length=50, description="Bill/invoice number")
+    bill_date: datetime = Field(..., description="Bill date")
+    due_date: datetime = Field(..., description="Payment due date")
+    bill_amount: Decimal = Field(..., description="Total bill amount")
+    balance_due: Decimal = Field(..., description="Current balance due")
+    amount_paid: Decimal = Field(Decimal('0.00'), description="Amount paid so far")
+    status: Literal['open', 'partial', 'paid', 'overdue'] = Field('open', description="Bill status")
+    days_outstanding: int = Field(0, ge=0, description="Days since bill date")
+
+class AccountsPayableLedgerReport(BaseModel):
+    """Complete AP Subsidiary Ledger"""
+    as_of_date: datetime = Field(default_factory=datetime.utcnow)
+    entries: List[AccountsPayableLedgerEntry] = []
+    total_bill_amount: Decimal = Field(Decimal('0.00'))
+    total_balance_due: Decimal = Field(Decimal('0.00'))
+    total_amount_paid: Decimal = Field(Decimal('0.00'))
+    vendor_count: int = Field(0)
+    overdue_count: int = Field(0)
+
+class FixedAssetLedgerEntry(BaseModel):
+    """Fixed Assets Subsidiary Ledger"""
+    asset_id: str = Field(..., description="Fixed asset ID")
+    asset_name: str = Field(..., max_length=200, description="Asset name")
+    asset_category: str = Field(..., max_length=100, description="Asset category (Equipment, Vehicle, etc.)")
+    purchase_date: datetime = Field(..., description="Date of purchase")
+    purchase_cost: Decimal = Field(..., description="Original purchase cost")
+    salvage_value: Decimal = Field(Decimal('0.00'), description="Estimated salvage/residual value")
+    useful_life_years: int = Field(..., description="Estimated useful life in years")
+    depreciation_method: Literal['straight_line', 'declining_balance', 'units_of_production'] = Field('straight_line', description="Depreciation method")
+    accumulated_depreciation: Decimal = Field(Decimal('0.00'), description="Total depreciation to date")
+    net_book_value: Decimal = Field(..., description="Current book value (Purchase cost - Accumulated depreciation)")
+    location: Optional[str] = Field(None, max_length=200, description="Asset location")
+    responsible_person: Optional[str] = Field(None, max_length=200, description="Person responsible for asset")
+    status: Literal['active', 'disposed', 'under_repair', 'retired'] = Field('active', description="Asset status")
+
+class FixedAssetsLedgerReport(BaseModel):
+    """Complete Fixed Assets Subsidiary Ledger"""
+    as_of_date: datetime = Field(default_factory=datetime.utcnow)
+    entries: List[FixedAssetLedgerEntry] = []
+    total_purchase_cost: Decimal = Field(Decimal('0.00'))
+    total_accumulated_depreciation: Decimal = Field(Decimal('0.00'))
+    total_net_book_value: Decimal = Field(Decimal('0.00'))
+    asset_count: int = Field(0)
+
+class InventoryLedgerEntry(BaseModel):
+    """Inventory Subsidiary Ledger"""
+    item_id: str = Field(..., description="Inventory item ID")
+    item_name: str = Field(..., max_length=200, description="Item name")
+    sku: str = Field(..., max_length=50, description="Stock keeping unit")
+    category: str = Field(..., max_length=100, description="Item category")
+    unit_of_measure: str = Field(..., max_length=20, description="Unit of measure (pcs, kg, etc.)")
+    opening_quantity: int = Field(0, description="Opening stock quantity")
+    stock_in_quantity: int = Field(0, description="Total stock received")
+    stock_out_quantity: int = Field(0, description="Total stock sold/used")
+    closing_quantity: int = Field(0, description="Closing stock quantity")
+    unit_cost: Decimal = Field(..., description="Average unit cost")
+    closing_value: Decimal = Field(..., description="Closing stock value (Quantity * Unit Cost)")
+    reorder_level: Optional[int] = Field(None, description="Reorder point level")
+    warehouse_location: Optional[str] = Field(None, max_length=100, description="Warehouse/bin location")
+
+class InventoryLedgerReport(BaseModel):
+    """Complete Inventory Subsidiary Ledger"""
+    as_of_date: datetime = Field(default_factory=datetime.utcnow)
+    entries: List[InventoryLedgerEntry] = []
+    total_opening_value: Decimal = Field(Decimal('0.00'))
+    total_stock_in_value: Decimal = Field(Decimal('0.00'))
+    total_stock_out_value: Decimal = Field(Decimal('0.00'))
+    total_closing_value: Decimal = Field(Decimal('0.00'))
+    item_count: int = Field(0)
+    low_stock_count: int = Field(0)
+
+# --- Petty Cash Book ---
+class PettyCashEntryBase(BaseModel):
+    """Records small, miscellaneous cash expenses - Supporting Record"""
+    voucher_number: str = Field(..., max_length=50, description="Petty cash voucher number")
+    voucher_date: datetime = Field(default_factory=datetime.utcnow, description="Date of expenditure")
+    payee: str = Field(..., max_length=200, description="Person or vendor paid")
+    amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(..., description="Amount paid")
+    category: Literal['office_supplies', 'postage', 'transportation', 'meals', 'tips', 'miscellaneous'] = Field('miscellaneous', description="Expense category")
+    description: str = Field(..., max_length=500, description="Description of expenditure")
+    receipt_number: Optional[str] = Field(None, max_length=50, description="Receipt number")
+    approved_by: Optional[str] = Field(None, max_length=200, description="Name of person who approved")
+
+    @validator('amount', pre=True)
+    def convert_to_decimal(cls, v):
+        if isinstance(v, float):
+            return Decimal(str(v))
+        return v
+
+class PettyCashEntryCreate(PettyCashEntryBase):
+    pass
+
+class PettyCashEntryInDB(PettyCashEntryBase):
+    id: str = Field(..., example="uuid-string-for-node")
+    user_id: str = Field(..., description="ID of the user who owns this entry")
+    petty_cash_fund_id: str = Field(..., description="Petty cash fund ID")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    journal_entry_id: Optional[str] = Field(None, description="Linked journal entry ID")
+
+    class Config:
+        from_attributes = True
+
+class PettyCashFundBase(BaseModel):
+    """Petty Cash Fund record"""
+    fund_name: str = Field(..., max_length=100, description="Name of petty cash fund")
+    fund_number: str = Field(..., max_length=20, description="Fund identifier number")
+    imprest_amount: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(..., description="Imprest/float amount")
+    current_balance: condecimal(decimal_places=2, ge=Decimal('0.00')) = Field(Decimal('0.00'), description="Current balance")
+    custodian: str = Field(..., max_length=200, description="Person responsible for fund")
+    location: Optional[str] = Field(None, max_length=200, description="Location of fund")
+
+    @validator('imprest_amount', 'current_balance', pre=True)
+    def convert_to_decimal(cls, v):
+        if isinstance(v, float):
+            return Decimal(str(v))
+        return v
+
+class PettyCashFundCreate(PettyCashFundBase):
+    pass
+
+class PettyCashFundInDB(PettyCashFundBase):
+    id: str = Field(..., example="uuid-string-for-node")
+    user_id: str = Field(..., description="ID of the user who owns this fund")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+# --- Bank Reconciliation ---
+class BankReconciliationEntry(BaseModel):
+    """Bank statement line item for reconciliation"""
+    transaction_date: datetime = Field(..., description="Date of transaction")
+    description: str = Field(..., max_length=500, description="Transaction description")
+    debit: Decimal = Field(Decimal('0.00'), description="Debit amount (bank withdrawals)")
+    credit: Decimal = Field(Decimal('0.00'), description="Credit amount (bank deposits)")
+    running_balance: Decimal = Field(..., description="Running balance after this transaction")
+    reference: Optional[str] = Field(None, max_length=100, description="Reference number")
+    matched: bool = Field(False, description="Whether this item is matched to company records")
+    match_type: Optional[Literal['journal_entry', 'petty_cash', 'sales_receipt', 'payment']] = Field(None, description="Type of matching record")
+    matched_entry_id: Optional[str] = Field(None, description="ID of matched entry if any")
+
+class BankReconciliationStatement(BaseModel):
+    """Bank Reconciliation Statement - Supporting Record"""
+    bank_account_number: str = Field(..., max_length=50, description="Bank account number")
+    bank_name: str = Field(..., max_length=200, description="Bank name")
+    statement_date: datetime = Field(..., description="Statement date")
+    statement_balance: Decimal = Field(..., description="Balance per bank statement")
+    book_balance: Decimal = Field(..., description="Balance per company's books")
+
+    # Adjustments to Bank Statement
+    deposits_in_transit: List[BankReconciliationEntry] = Field(default_factory=list, description="Deposits not yet received by bank")
+    outstanding_checks: List[BankReconciliationEntry] = Field(default_factory=list, description="Checks issued but not yet cleared")
+
+    # Adjustments to Book Balance
+    bank_charges: Decimal = Field(Decimal('0.00'), description="Bank service charges not in books")
+    interest_earned: Decimal = Field(Decimal('0.00'), description="Interest earned not in books")
+    insufficient_funds: Decimal = Field(Decimal('0.00'), description="NSF checks not in books")
+    other_adjustments: Decimal = Field(Decimal('0.00'), description="Other adjustments")
+
+    # Results
+    adjusted_bank_balance: Decimal = Field(..., description="Adjusted bank balance")
+    adjusted_book_balance: Decimal = Field(..., description="Adjusted book balance")
+    difference: Decimal = Field(Decimal('0.00'), description="Difference between adjusted balances (should be 0)")
+
+    # Reconciliation items
+    bank_entries: List[BankReconciliationEntry] = Field(default_factory=list, description="All entries from bank statement")
+    journal_entries: List[BankReconciliationEntry] = Field(default_factory=list, description="All entries from company books")
+
+    is_reconciled: bool = Field(False, description="Whether bank is fully reconciled")
+    reconciled_date: Optional[datetime] = Field(None, description="Date reconciliation was completed")
+    reconciled_by: Optional[str] = Field(None, max_length=200, description="Person who reconciled")
+
 # --- Error Response Model ---
 class ErrorResponse(BaseModel):
     detail: str
