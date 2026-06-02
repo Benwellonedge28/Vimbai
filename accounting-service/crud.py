@@ -23,7 +23,14 @@ from accounting_service.models import (
     # Petty Cash
     PettyCashFundCreate, PettyCashFundInDB, PettyCashEntryCreate, PettyCashEntryInDB,
     # Bank Reconciliation
-    BankReconciliationStatement, BankReconciliationEntry
+    BankReconciliationStatement, BankReconciliationEntry,
+    # Incomplete Records / Single Entry System
+    StatementOfAffairsInDB, StatementOfAffairsAssetBase, StatementOfAffairsLiabilityBase,
+    CapitalCalculationInDB, CapitalCalculationEntryInDB, CapitalCalculationEntryCreate,
+    ControlAccountInDB, ControlAccountEntryInDB, ControlAccountEntryCreate,
+    ReceiptsPaymentsAccountInDB, ReceiptsPaymentsEntryInDB, ReceiptsPaymentsEntryCreate,
+    SingleEntryConversionInDB, SingleEntryConversionCreate,
+    ProfitEstimationInDB, ProfitEstimationCreate
 )
 from datetime import datetime, timedelta
 import uuid
@@ -2142,3 +2149,882 @@ async def get_latest_bank_reconciliation(session: AsyncSession, user_id: str, ba
         reconciled_date=None,
         reconciled_by=None
     )
+
+
+# ============================================================
+# INCOMPLETE RECORDS / SINGLE ENTRY SYSTEM CRUD
+# ============================================================
+
+# --- Statement of Affairs CRUD ---
+
+async def create_statement_of_affairs(session: AsyncSession, user_id: str, as_of_date: datetime, assets: List[StatementOfAffairsAssetBase], liabilities: List[StatementOfAffairsLiabilityBase], prepared_by: Optional[str] = None) -> StatementOfAffairsInDB:
+    """Create Statement of Affairs - shows assets, liabilities and capital at a point in time"""
+    statement_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+    prepared_date = created_at
+
+    # Calculate totals
+    total_assets = sum(asset.asset_value for asset in assets)
+    total_liabilities = sum(liability.liability_value for liability in liabilities)
+    capital = total_assets - total_liabilities
+
+    # Create Statement node
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (soa:StatementOfAffairs {
+        id: $id,
+        as_of_date: datetime($as_of_date),
+        prepared_by: $prepared_by,
+        prepared_date: datetime($prepared_date),
+        total_assets: toFloat($total_assets),
+        total_liabilities: toFloat($total_liabilities),
+        capital: toFloat($capital),
+        notes: $notes,
+        created_at: datetime($created_at)
+    })
+    CREATE (u)-[:OWNS_STATEMENT_OF_AFFAIRS]->(soa)
+    RETURN soa
+    """
+    params = {
+        "id": statement_id, "user_id": user_id, "as_of_date": as_of_date.isoformat(),
+        "prepared_by": prepared_by, "prepared_date": prepared_date.isoformat(),
+        "total_assets": float(total_assets), "total_liabilities": float(total_liabilities),
+        "capital": float(capital), "notes": None, "created_at": created_at.isoformat()
+    }
+    await session.run(query, params)
+
+    return StatementOfAffairsInDB(
+        id=statement_id, user_id=user_id, as_of_date=as_of_date.date(),
+        prepared_by=prepared_by, prepared_date=prepared_date,
+        total_assets=total_assets, total_liabilities=total_liabilities, capital=capital,
+        assets=assets, liabilities=liabilities, notes=None
+    )
+
+async def get_statement_of_affairs(session: AsyncSession, user_id: str, as_of_date: datetime) -> StatementOfAffairsInDB:
+    """Get Statement of Affairs as of a specific date"""
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_STATEMENT_OF_AFFAIRS]->(soa:StatementOfAffairs)
+    WHERE soa.as_of_date = datetime($as_of_date)
+    RETURN soa
+    """
+    result = await session.run(query, user_id=user_id, as_of_date=as_of_date.isoformat())
+    record = await result.single()
+    if not record:
+        raise NotFoundError(detail=f"No Statement of Affairs found for date {as_of_date}")
+    soa = record["soa"]
+    return StatementOfAffairsInDB(
+        id=soa["id"], user_id=user_id,
+        as_of_date=datetime.fromisoformat(soa["as_of_date"].iso_format()).date(),
+        prepared_by=soa["prepared_by"],
+        prepared_date=datetime.fromisoformat(soa["prepared_date"].iso_format()),
+        total_assets=Decimal(str(soa["total_assets"])),
+        total_liabilities=Decimal(str(soa["total_liabilities"])),
+        capital=Decimal(str(soa["capital"])),
+        assets=[], liabilities=[], notes=soa["notes"]
+    )
+
+async def get_all_statements_of_affairs(session: AsyncSession, user_id: str) -> List[StatementOfAffairsInDB]:
+    """Get all Statements of Affairs for a user"""
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_STATEMENT_OF_AFFAIRS]->(soa:StatementOfAffairs)
+    RETURN soa
+    ORDER BY soa.as_of_date DESC
+    """
+    result = await session.run(query, user_id=user_id)
+    statements = []
+    async for record in result:
+        soa = record["soa"]
+        statements.append(StatementOfAffairsInDB(
+            id=soa["id"], user_id=user_id,
+            as_of_date=datetime.fromisoformat(soa["as_of_date"].iso_format()).date(),
+            prepared_by=soa["prepared_by"],
+            prepared_date=datetime.fromisoformat(soa["prepared_date"].iso_format()),
+            total_assets=Decimal(str(soa["total_assets"])),
+            total_liabilities=Decimal(str(soa["total_liabilities"])),
+            capital=Decimal(str(soa["capital"])),
+            assets=[], liabilities=[], notes=soa["notes"]
+        ))
+    return statements
+
+
+# --- Capital Calculation CRUD ---
+
+async def create_capital_calculation(session: AsyncSession, user_id: str, calc: CapitalCalculationInDB) -> CapitalCalculationInDB:
+    """Create Capital Calculation - tracks capital changes over a period"""
+    calc_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+
+    # Calculate totals from entries
+    total_additional_capital = Decimal('0.00')
+    total_withdrawals = Decimal('0.00')
+    for entry in calc.entries:
+        if entry.entry_type == "additional_capital":
+            total_additional_capital += entry.amount
+        elif entry.entry_type == "withdrawal":
+            total_withdrawals += entry.amount
+
+    # Calculate closing capital and profit/loss
+    # Closing Capital = Opening Capital + Additional Capital + Net Profit - Withdrawals
+    # If net_profit is provided: Closing = Opening + Additional + NetProfit - Withdrawals
+    # Otherwise: calculate from entry types
+    if calc.net_profit > 0:
+        closing_capital = calc.opening_capital + total_additional_capital + calc.net_profit - total_withdrawals
+        profit_or_loss = "profit"
+    elif calc.net_loss > 0:
+        closing_capital = calc.opening_capital + total_additional_capital - calc.net_loss - total_withdrawals
+        profit_or_loss = "loss"
+    else:
+        closing_capital = calc.opening_capital  # No changes yet
+        profit_or_loss = "none"
+
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (cc:CapitalCalculation {
+        id: $id,
+        as_of_date: datetime($as_of_date),
+        period_start: datetime($period_start),
+        period_end: datetime($period_end),
+        opening_capital: toFloat($opening_capital),
+        closing_capital: toFloat($closing_capital),
+        total_additional_capital: toFloat($total_additional_capital),
+        total_withdrawals: toFloat($total_withdrawals),
+        net_profit: toFloat($net_profit),
+        net_loss: toFloat($net_loss),
+        profit_or_loss: $profit_or_loss,
+        prepared_by: $prepared_by,
+        notes: $notes,
+        created_at: datetime($created_at)
+    })
+    CREATE (u)-[:OWNS_CAPITAL_CALCULATION]->(cc)
+    RETURN cc
+    """
+    params = {
+        "id": calc_id, "user_id": user_id,
+        "as_of_date": calc.as_of_date.isoformat(),
+        "period_start": calc.period_start.isoformat(),
+        "period_end": calc.period_end.isoformat(),
+        "opening_capital": float(calc.opening_capital),
+        "closing_capital": float(closing_capital),
+        "total_additional_capital": float(total_additional_capital),
+        "total_withdrawals": float(total_withdrawals),
+        "net_profit": float(calc.net_profit),
+        "net_loss": float(calc.net_loss),
+        "profit_or_loss": profit_or_loss,
+        "prepared_by": calc.prepared_by,
+        "notes": calc.notes,
+        "created_at": created_at.isoformat()
+    }
+    await session.run(query, params)
+
+    # Create capital entry nodes
+    entries_in_db = []
+    for entry in calc.entries:
+        entry_id = str(uuid.uuid4())
+        entry_query = """
+        MATCH (cc:CapitalCalculation {id: $calc_id})
+        CREATE (e:CapitalCalculationEntry {
+            id: $entry_id,
+            entry_date: datetime($entry_date),
+            entry_type: $entry_type,
+            amount: toFloat($amount),
+            description: $description,
+            reference_number: $reference_number,
+            created_at: datetime($created_at)
+        })
+        CREATE (cc)-[:HAS_ENTRY]->(e)
+        RETURN e
+        """
+        entry_params = {
+            "calc_id": calc_id, "entry_id": entry_id,
+            "entry_date": entry.entry_date.isoformat(),
+            "entry_type": entry.entry_type,
+            "amount": float(entry.amount),
+            "description": entry.description,
+            "reference_number": entry.reference_number,
+            "created_at": created_at.isoformat()
+        }
+        await session.run(entry_query, entry_params)
+        entries_in_db.append(CapitalCalculationEntryInDB(
+            id=entry_id, capital_calculation_id=calc_id,
+            entry_date=entry.entry_date, entry_type=entry.entry_type,
+            amount=entry.amount, description=entry.description,
+            reference_number=entry.reference_number,
+            created_at=created_at
+        ))
+
+    return CapitalCalculationInDB(
+        id=calc_id, user_id=user_id,
+        as_of_date=calc.as_of_date,
+        period_start=calc.period_start, period_end=calc.period_end,
+        opening_capital=calc.opening_capital, closing_capital=closing_capital,
+        total_additional_capital=total_additional_capital, total_withdrawals=total_withdrawals,
+        net_profit=calc.net_profit, net_loss=calc.net_loss, profit_or_loss=profit_or_loss,
+        prepared_by=calc.prepared_by,
+        entries=entries_in_db, notes=calc.notes
+    )
+
+async def get_capital_calculation(session: AsyncSession, user_id: str, calc_id: str) -> CapitalCalculationInDB:
+    """Get Capital Calculation by ID"""
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_CAPITAL_CALCULATION]->(cc:CapitalCalculation {id: $calc_id})
+    OPTIONAL MATCH (cc)-[:HAS_ENTRY]->(e:CapitalCalculationEntry)
+    RETURN cc, collect(e) as entries
+    """
+    result = await session.run(query, user_id=user_id, calc_id=calc_id)
+    record = await result.single()
+    if not record:
+        raise NotFoundError(detail=f"Capital Calculation {calc_id} not found")
+
+    cc = record["cc"]
+    entries = []
+    for e in record["entries"]:
+        if e:
+            entries.append(CapitalCalculationEntryInDB(
+                id=e["id"], capital_calculation_id=calc_id,
+                entry_date=datetime.fromisoformat(e["entry_date"].iso_format()).date(),
+                entry_type=e["entry_type"], amount=Decimal(str(e["amount"])),
+                description=e["description"], reference_number=e["reference_number"],
+                created_at=datetime.fromisoformat(e["created_at"].iso_format())
+            ))
+
+    return CapitalCalculationInDB(
+        id=cc["id"], user_id=user_id,
+        as_of_date=datetime.fromisoformat(cc["as_of_date"].iso_format()).date(),
+        period_start=datetime.fromisoformat(cc["period_start"].iso_format()).date(),
+        period_end=datetime.fromisoformat(cc["period_end"].iso_format()).date(),
+        opening_capital=Decimal(str(cc["opening_capital"])),
+        closing_capital=Decimal(str(cc["closing_capital"])),
+        total_additional_capital=Decimal(str(cc["total_additional_capital"])),
+        total_withdrawals=Decimal(str(cc["total_withdrawals"])),
+        net_profit=Decimal(str(cc["net_profit"])),
+        net_loss=Decimal(str(cc["net_loss"])),
+        profit_or_loss=cc["profit_or_loss"],
+        prepared_by=cc["prepared_by"],
+        entries=entries, notes=cc["notes"]
+    )
+
+async def get_all_capital_calculations(session: AsyncSession, user_id: str) -> List[CapitalCalculationInDB]:
+    """Get all Capital Calculations"""
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_CAPITAL_CALCULATION]->(cc:CapitalCalculation)
+    RETURN cc
+    ORDER BY cc.as_of_date DESC
+    """
+    result = await session.run(query, user_id=user_id)
+    calcs = []
+    async for record in result:
+        cc = record["cc"]
+        calcs.append(CapitalCalculationInDB(
+            id=cc["id"], user_id=user_id,
+            as_of_date=datetime.fromisoformat(cc["as_of_date"].iso_format()).date(),
+            period_start=datetime.fromisoformat(cc["period_start"].iso_format()).date(),
+            period_end=datetime.fromisoformat(cc["period_end"].iso_format()).date(),
+            opening_capital=Decimal(str(cc["opening_capital"])),
+            closing_capital=Decimal(str(cc["closing_capital"])),
+            total_additional_capital=Decimal(str(cc["total_additional_capital"])),
+            total_withdrawals=Decimal(str(cc["total_withdrawals"])),
+            net_profit=Decimal(str(cc["net_profit"])),
+            net_loss=Decimal(str(cc["net_loss"])),
+            profit_or_loss=cc["profit_or_loss"],
+            prepared_by=cc["prepared_by"],
+            entries=[], notes=cc["notes"]
+        ))
+    return calcs
+
+
+# --- Control Account CRUD (Debtors & Creditors) ---
+
+async def create_control_account(session: AsyncSession, user_id: str, account: ControlAccountInDB) -> ControlAccountInDB:
+    """Create Control Account - tracks debtors or creditors balances"""
+    account_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+
+    # Calculate totals and closing balance
+    total_debits = Decimal('0.00')
+    total_credits = Decimal('0.00')
+    running_balance = account.opening_balance
+
+    for entry in account.entries:
+        if entry.entry_type in ["credit_sale", "payment_received", "discount_received"]:
+            # For debtors: sales increase debit, payments decrease debit
+            # For creditors: payments decrease credit, purchases increase credit
+            if account.account_type == "debtors":
+                if entry.entry_type == "credit_sale":
+                    running_balance += entry.amount
+                    total_debits += entry.amount
+                else:  # payment_received, discount_received
+                    running_balance -= entry.amount
+                    total_credits += entry.amount
+            else:  # creditors
+                if entry.entry_type in ["credit_purchase", "payment_made", "discount_allowed"]:
+                    running_balance += entry.amount
+                    total_credits += entry.amount
+                else:  # discount_received
+                    running_balance -= entry.amount
+                    total_debits += entry.amount
+
+    closing_balance = running_balance
+
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (ca:ControlAccount {
+        id: $id,
+        account_type: $account_type,
+        account_name: $account_name,
+        as_of_date: datetime($as_of_date),
+        opening_balance: toFloat($opening_balance),
+        closing_balance: toFloat($closing_balance),
+        total_debits: toFloat($total_debits),
+        total_credits: toFloat($total_credits),
+        prepared_by: $prepared_by,
+        notes: $notes,
+        created_at: datetime($created_at)
+    })
+    CREATE (u)-[:OWNS_CONTROL_ACCOUNT]->(ca)
+    RETURN ca
+    """
+    params = {
+        "id": account_id, "user_id": user_id,
+        "account_type": account.account_type,
+        "account_name": account.account_name,
+        "as_of_date": account.as_of_date.isoformat(),
+        "opening_balance": float(account.opening_balance),
+        "closing_balance": float(closing_balance),
+        "total_debits": float(total_debits),
+        "total_credits": float(total_credits),
+        "prepared_by": account.prepared_by,
+        "notes": account.notes,
+        "created_at": created_at.isoformat()
+    }
+    await session.run(query, params)
+
+    # Create entries
+    entries_in_db = []
+    running = account.opening_balance
+    for entry in account.entries:
+        entry_id = str(uuid.uuid4())
+        entry_query = """
+        MATCH (ca:ControlAccount {id: $account_id})
+        CREATE (e:ControlAccountEntry {
+            id: $entry_id,
+            entry_date: datetime($entry_date),
+            entry_type: $entry_type,
+            amount: toFloat($amount),
+            description: $description,
+            reference_number: $reference_number,
+            customer_id: $customer_id,
+            supplier_id: $supplier_id,
+            is_contra: $is_contra,
+            running_balance: toFloat($running_balance),
+            created_at: datetime($created_at)
+        })
+        CREATE (ca)-[:HAS_ENTRY]->(e)
+        """
+        entry_params = {
+            "account_id": account_id, "entry_id": entry_id,
+            "entry_date": entry.entry_date.isoformat(),
+            "entry_type": entry.entry_type,
+            "amount": float(entry.amount),
+            "description": entry.description,
+            "reference_number": entry.reference_number,
+            "customer_id": entry.customer_id,
+            "supplier_id": entry.supplier_id,
+            "is_contra": entry.isContra,
+            "running_balance": float(running),
+            "created_at": created_at.isoformat()
+        }
+        await session.run(entry_query, entry_params)
+        entries_in_db.append(ControlAccountEntryInDB(
+            id=entry_id, control_account_id=account_id,
+            entry_date=entry.entry_date, entry_type=entry.entry_type,
+            amount=entry.amount, description=entry.description,
+            reference_number=entry.reference_number,
+            customer_id=entry.customer_id, supplier_id=entry.supplier_id,
+            isContra=entry.isContra, running_balance=running,
+            created_at=created_at
+        ))
+
+        # Update running balance
+        if account.account_type == "debtors":
+            if entry.entry_type == "credit_sale":
+                running += entry.amount
+            else:
+                running -= entry.amount
+        else:  # creditors
+            if entry.entry_type in ["credit_purchase", "interest_charged"]:
+                running += entry.amount
+            else:
+                running -= entry.amount
+
+    return ControlAccountInDB(
+        id=account_id, user_id=user_id,
+        account_type=account.account_type, account_name=account.account_name,
+        as_of_date=account.as_of_date,
+        opening_balance=account.opening_balance,
+        total_debits=total_debits, total_credits=total_credits,
+        closing_balance=closing_balance,
+        prepared_by=account.prepared_by,
+        entries=entries_in_db, notes=account.notes
+    )
+
+async def get_control_accounts(session: AsyncSession, user_id: str, account_type: Optional[str] = None) -> List[ControlAccountInDB]:
+    """Get all Control Accounts, optionally filtered by type"""
+    type_filter = "AND ca.account_type = $account_type" if account_type else ""
+    query = f"""
+    MATCH (u:User {{id: $user_id}})-[:OWNS_CONTROL_ACCOUNT]->(ca:ControlAccount)
+    WHERE true {type_filter}
+    RETURN ca
+    ORDER BY ca.as_of_date DESC
+    """
+    params = {"user_id": user_id}
+    if account_type:
+        params["account_type"] = account_type
+
+    result = await session.run(query, params)
+    accounts = []
+    async for record in result:
+        ca = record["ca"]
+        accounts.append(ControlAccountInDB(
+            id=ca["id"], user_id=user_id,
+            account_type=ca["account_type"], account_name=ca["account_name"],
+            as_of_date=datetime.fromisoformat(ca["as_of_date"].iso_format()).date(),
+            opening_balance=Decimal(str(ca["opening_balance"])),
+            total_debits=Decimal(str(ca["total_debits"])),
+            total_credits=Decimal(str(ca["total_credits"])),
+            closing_balance=Decimal(str(ca["closing_balance"])),
+            prepared_by=ca["prepared_by"],
+            entries=[], notes=ca["notes"]
+        ))
+    return accounts
+
+
+# --- Receipts and Payments Account CRUD ---
+
+async def create_receipts_payments_account(session: AsyncSession, user_id: str, rp: ReceiptsPaymentsAccountInDB) -> ReceiptsPaymentsAccountInDB:
+    """Create Receipts and Payments Account - cash book summary for single entry"""
+    rp_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+
+    # Calculate totals by category
+    total_receipts = Decimal('0.00')
+    total_payments = Decimal('0.00')
+    total_capital_receipts = Decimal('0.00')
+    total_revenue_receipts = Decimal('0.00')
+    total_asset_payments = Decimal('0.00')
+    total_liability_payments = Decimal('0.00')
+    total_revenue_payments = Decimal('0.00')
+
+    for entry in rp.entries:
+        if entry.entry_type == "receipt":
+            total_receipts += entry.amount
+            if entry.category == "capital":
+                total_capital_receipts += entry.amount
+            else:
+                total_revenue_receipts += entry.amount
+        else:  # payment
+            total_payments += entry.amount
+            if entry.category == "asset":
+                total_asset_payments += entry.amount
+            elif entry.category == "liability":
+                total_liability_payments += entry.amount
+            else:  # revenue, capital, other
+                total_revenue_payments += entry.amount
+
+    # Calculate closing balances
+    opening_total = rp.opening_cash_balance + rp.opening_bank_balance
+    closing_total = opening_total + total_receipts - total_payments
+    closing_cash = rp.opening_cash_balance  # Simplified - would need contra entries for actual cash/bank split
+    closing_bank = rp.opening_bank_balance + total_receipts - total_payments
+
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (rap:ReceiptsPaymentsAccount {
+        id: $id,
+        account_name: $account_name,
+        period_start: datetime($period_start),
+        period_end: datetime($period_end),
+        opening_cash_balance: toFloat($opening_cash_balance),
+        opening_bank_balance: toFloat($opening_bank_balance),
+        total_receipts: toFloat($total_receipts),
+        total_payments: toFloat($total_payments),
+        total_capital_receipts: toFloat($total_capital_receipts),
+        total_revenue_receipts: toFloat($total_revenue_receipts),
+        total_asset_payments: toFloat($total_asset_payments),
+        total_liability_payments: toFloat($total_liability_payments),
+        total_revenue_payments: toFloat($total_revenue_payments),
+        closing_cash_balance: toFloat($closing_cash_balance),
+        closing_bank_balance: toFloat($closing_bank_balance),
+        closing_total_balance: toFloat($closing_total_balance),
+        prepared_by: $prepared_by,
+        notes: $notes,
+        created_at: datetime($created_at)
+    })
+    CREATE (u)-[:OWNS_RECEIPTS_PAYMENTS]->(rap)
+    RETURN rap
+    """
+    params = {
+        "id": rp_id, "user_id": user_id,
+        "account_name": rp.account_name,
+        "period_start": rp.period_start.isoformat(),
+        "period_end": rp.period_end.isoformat(),
+        "opening_cash_balance": float(rp.opening_cash_balance),
+        "opening_bank_balance": float(rp.opening_bank_balance),
+        "total_receipts": float(total_receipts),
+        "total_payments": float(total_payments),
+        "total_capital_receipts": float(total_capital_receipts),
+        "total_revenue_receipts": float(total_revenue_receipts),
+        "total_asset_payments": float(total_asset_payments),
+        "total_liability_payments": float(total_liability_payments),
+        "total_revenue_payments": float(total_revenue_payments),
+        "closing_cash_balance": float(closing_cash),
+        "closing_bank_balance": float(closing_bank),
+        "closing_total_balance": float(closing_total),
+        "prepared_by": rp.prepared_by,
+        "notes": rp.notes,
+        "created_at": created_at.isoformat()
+    }
+    await session.run(query, params)
+
+    # Create entries
+    entries_in_db = []
+    for entry in rp.entries:
+        entry_id = str(uuid.uuid4())
+        entry_query = """
+        MATCH (rap:ReceiptsPaymentsAccount {id: $rp_id})
+        CREATE (e:ReceiptsPaymentsEntry {
+            id: $entry_id,
+            entry_date: datetime($entry_date),
+            entry_type: $entry_type,
+            category: $category,
+            account_name: $account_name,
+            amount: toFloat($amount),
+            description: $description,
+            reference_number: $reference_number,
+            is_contra: $is_contra,
+            created_at: datetime($created_at)
+        })
+        CREATE (rap)-[:HAS_ENTRY]->(e)
+        """
+        entry_params = {
+            "rp_id": rp_id, "entry_id": entry_id,
+            "entry_date": entry.entry_date.isoformat(),
+            "entry_type": entry.entry_type,
+            "category": entry.category,
+            "account_name": entry.account_name,
+            "amount": float(entry.amount),
+            "description": entry.description,
+            "reference_number": entry.reference_number,
+            "is_contra": entry.isContra,
+            "created_at": created_at.isoformat()
+        }
+        await session.run(entry_query, entry_params)
+        entries_in_db.append(ReceiptsPaymentsEntryInDB(
+            id=entry_id, receipts_payments_id=rp_id,
+            entry_date=entry.entry_date, entry_type=entry.entry_type,
+            category=entry.category, account_name=entry.account_name,
+            amount=entry.amount, description=entry.description,
+            reference_number=entry.reference_number, isContra=entry.isContra,
+            created_at=created_at
+        ))
+
+    return ReceiptsPaymentsAccountInDB(
+        id=rp_id, user_id=user_id,
+        account_name=rp.account_name,
+        period_start=rp.period_start, period_end=rp.period_end,
+        opening_cash_balance=rp.opening_cash_balance,
+        opening_bank_balance=rp.opening_bank_balance,
+        total_receipts=total_receipts, total_payments=total_payments,
+        total_capital_receipts=total_capital_receipts,
+        total_revenue_receipts=total_revenue_receipts,
+        total_asset_payments=total_asset_payments,
+        total_liability_payments=total_liability_payments,
+        total_revenue_payments=total_revenue_payments,
+        closing_cash_balance=closing_cash,
+        closing_bank_balance=closing_bank,
+        closing_total_balance=closing_total,
+        entries=entries_in_db, notes=rp.notes
+    )
+
+async def get_receipts_payments_accounts(session: AsyncSession, user_id: str) -> List[ReceiptsPaymentsAccountInDB]:
+    """Get all Receipts and Payments Accounts"""
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_RECEIPTS_PAYMENTS]->(rap:ReceiptsPaymentsAccount)
+    RETURN rap
+    ORDER BY rap.period_end DESC
+    """
+    result = await session.run(query, user_id=user_id)
+    accounts = []
+    async for record in result:
+        rap = record["rap"]
+        accounts.append(ReceiptsPaymentsAccountInDB(
+            id=rap["id"], user_id=user_id,
+            account_name=rap["account_name"],
+            period_start=datetime.fromisoformat(rap["period_start"].iso_format()).date(),
+            period_end=datetime.fromisoformat(rap["period_end"].iso_format()).date(),
+            opening_cash_balance=Decimal(str(rap["opening_cash_balance"])),
+            opening_bank_balance=Decimal(str(rap["opening_bank_balance"])),
+            total_receipts=Decimal(str(rap["total_receipts"])),
+            total_payments=Decimal(str(rap["total_payments"])),
+            total_capital_receipts=Decimal(str(rap["total_capital_receipts"])),
+            total_revenue_receipts=Decimal(str(rap["total_revenue_receipts"])),
+            total_asset_payments=Decimal(str(rap["total_asset_payments"])),
+            total_liability_payments=Decimal(str(rap["total_liability_payments"])),
+            total_revenue_payments=Decimal(str(rap["total_revenue_payments"])),
+            closing_cash_balance=Decimal(str(rap["closing_cash_balance"])),
+            closing_bank_balance=Decimal(str(rap["closing_bank_balance"])),
+            closing_total_balance=Decimal(str(rap["closing_total_balance"])),
+            entries=[], notes=rap["notes"]
+        ))
+    return accounts
+
+
+# --- Single Entry Conversion CRUD ---
+
+async def create_single_entry_conversion(session: AsyncSession, user_id: str, conversion: SingleEntryConversionInDB, jwt_token: str) -> SingleEntryConversionInDB:
+    """Create Single Entry Conversion - converts single entry records to double entry"""
+    conv_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+
+    # Calculate Net Profit/Loss
+    # Net Profit = Closing Capital - Opening Capital + Drawings - Additional Capital
+    capital_increase = conversion.closing_capital - conversion.opening_capital
+    net_profit = capital_increase + conversion.drawings - conversion.additional_capital
+
+    if net_profit > 0:
+        profit_or_loss = "profit"
+        net_loss = Decimal('0.00')
+    elif net_profit < 0:
+        profit_or_loss = "loss"
+        net_loss = abs(net_profit)
+        net_profit = Decimal('0.00')
+    else:
+        profit_or_loss = "none"
+        net_loss = Decimal('0.00')
+
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (sec:SingleEntryConversion {
+        id: $id,
+        as_of_date: datetime($as_of_date),
+        source_type: $source_type,
+        opening_capital: toFloat($opening_capital),
+        opening_debtors: toFloat($opening_debtors),
+        opening_creditors: toFloat($opening_creditors),
+        opening_cash: toFloat($opening_cash),
+        closing_capital: toFloat($closing_capital),
+        closing_debtors: toFloat($closing_debtors),
+        closing_creditors: toFloat($closing_creditors),
+        closing_cash: toFloat($closing_cash),
+        drawings: toFloat($drawings),
+        additional_capital: toFloat($additional_capital),
+        net_profit: toFloat($net_profit),
+        net_loss: toFloat($net_loss),
+        profit_or_loss: $profit_or_loss,
+        total_receipts: toFloat($total_receipts),
+        total_payments: toFloat($total_payments),
+        generated_journal_entries: $generated_journal_entries,
+        conversion_status: $conversion_status,
+        prepared_by: $prepared_by,
+        notes: $notes,
+        created_at: datetime($created_at)
+    })
+    CREATE (u)-[:OWNS_SINGLE_ENTRY_CONVERSION]->(sec)
+    RETURN sec
+    """
+    params = {
+        "id": conv_id, "user_id": user_id,
+        "as_of_date": conversion.as_of_date.isoformat(),
+        "source_type": conversion.source_type,
+        "opening_capital": float(conversion.opening_capital),
+        "opening_debtors": float(conversion.opening_debtors),
+        "opening_creditors": float(conversion.opening_creditors),
+        "opening_cash": float(conversion.opening_cash),
+        "closing_capital": float(conversion.closing_capital),
+        "closing_debtors": float(conversion.closing_debtors),
+        "closing_creditors": float(conversion.closing_creditors),
+        "closing_cash": float(conversion.closing_cash),
+        "drawings": float(conversion.drawings),
+        "additional_capital": float(conversion.additional_capital),
+        "net_profit": float(net_profit),
+        "net_loss": float(net_loss),
+        "profit_or_loss": profit_or_loss,
+        "total_receipts": float(conversion.total_receipts),
+        "total_payments": float(conversion.total_payments),
+        "generated_journal_entries": conversion.generated_journal_entries,
+        "conversion_status": conversion.conversion_status,
+        "prepared_by": conversion.prepared_by,
+        "notes": conversion.notes,
+        "created_at": created_at.isoformat()
+    }
+    await session.run(query, params)
+
+    return SingleEntryConversionInDB(
+        id=conv_id, user_id=user_id,
+        as_of_date=conversion.as_of_date,
+        source_type=conversion.source_type,
+        opening_capital=conversion.opening_capital,
+        opening_debtors=conversion.opening_debtors,
+        opening_creditors=conversion.opening_creditors,
+        opening_cash=conversion.opening_cash,
+        closing_capital=conversion.closing_capital,
+        closing_debtors=conversion.closing_debtors,
+        closing_creditors=conversion.closing_creditors,
+        closing_cash=conversion.closing_cash,
+        drawings=conversion.drawings,
+        additional_capital=conversion.additional_capital,
+        net_profit=net_profit, net_loss=net_loss,
+        profit_or_loss=profit_or_loss,
+        total_receipts=conversion.total_receipts,
+        total_payments=conversion.total_payments,
+        generated_journal_entries=conversion.generated_journal_entries,
+        conversion_status=conversion.conversion_status,
+        prepared_by=conversion.prepared_by,
+        notes=conversion.notes
+    )
+
+async def get_single_entry_conversions(session: AsyncSession, user_id: str) -> List[SingleEntryConversionInDB]:
+    """Get all Single Entry Conversions"""
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_SINGLE_ENTRY_CONVERSION]->(sec:SingleEntryConversion)
+    RETURN sec
+    ORDER BY sec.as_of_date DESC
+    """
+    result = await session.run(query, user_id=user_id)
+    conversions = []
+    async for record in result:
+        sec = record["sec"]
+        conversions.append(SingleEntryConversionInDB(
+            id=sec["id"], user_id=user_id,
+            as_of_date=datetime.fromisoformat(sec["as_of_date"].iso_format()).date(),
+            source_type=sec["source_type"],
+            opening_capital=Decimal(str(sec["opening_capital"])),
+            opening_debtors=Decimal(str(sec["opening_debtors"])),
+            opening_creditors=Decimal(str(sec["opening_creditors"])),
+            opening_cash=Decimal(str(sec["opening_cash"])),
+            closing_capital=Decimal(str(sec["closing_capital"])),
+            closing_debtors=Decimal(str(sec["closing_debtors"])),
+            closing_creditors=Decimal(str(sec["closing_creditors"])),
+            closing_cash=Decimal(str(sec["closing_cash"])),
+            drawings=Decimal(str(sec["drawings"])),
+            additional_capital=Decimal(str(sec["additional_capital"])),
+            net_profit=Decimal(str(sec["net_profit"])),
+            net_loss=Decimal(str(sec["net_loss"])),
+            profit_or_loss=sec["profit_or_loss"],
+            total_receipts=Decimal(str(sec["total_receipts"])),
+            total_payments=Decimal(str(sec["total_payments"])),
+            generated_journal_entries=sec["generated_journal_entries"],
+            conversion_status=sec["conversion_status"],
+            prepared_by=sec["prepared_by"],
+            notes=sec["notes"]
+        ))
+    return conversions
+
+
+# --- Profit Estimation CRUD ---
+
+async def create_profit_estimation(session: AsyncSession, user_id: str, estimation: ProfitEstimationInDB) -> ProfitEstimationInDB:
+    """Create Profit Estimation - calculates profit/loss from capital changes"""
+    est_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+
+    # Calculate profit/loss
+    # Net Profit/Loss = Closing Capital - Opening Capital + Drawings - Additional Capital
+    calculated_capital_increase = estimation.closing_capital - estimation.opening_capital
+    net_profit = calculated_capital_increase + estimation.drawings - estimation.additional_capital
+
+    if net_profit > 0:
+        profit_or_loss = "profit"
+        net_loss = Decimal('0.00')
+    elif net_profit < 0:
+        profit_or_loss = "loss"
+        net_loss = abs(net_profit)
+        net_profit = Decimal('0.00')
+    else:
+        profit_or_loss = "none"
+        net_loss = Decimal('0.00')
+
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (pe:ProfitEstimation {
+        id: $id,
+        as_of_date: datetime($as_of_date),
+        period_start: datetime($period_start),
+        period_end: datetime($period_end),
+        opening_capital: toFloat($opening_capital),
+        closing_capital: toFloat($closing_capital),
+        additional_capital: toFloat($additional_capital),
+        drawings: toFloat($drawings),
+        calculated_capital_increase: toFloat($calculated_capital_increase),
+        net_profit: toFloat($net_profit),
+        net_loss: toFloat($net_loss),
+        profit_or_loss: $profit_or_loss,
+        prepared_by: $prepared_by,
+        notes: $notes,
+        created_at: datetime($created_at)
+    })
+    CREATE (u)-[:OWNS_PROFIT_ESTIMATION]->(pe)
+    RETURN pe
+    """
+    params = {
+        "id": est_id, "user_id": user_id,
+        "as_of_date": estimation.as_of_date.isoformat(),
+        "period_start": estimation.period_start.isoformat(),
+        "period_end": estimation.period_end.isoformat(),
+        "opening_capital": float(estimation.opening_capital),
+        "closing_capital": float(estimation.closing_capital),
+        "additional_capital": float(estimation.additional_capital),
+        "drawings": float(estimation.drawings),
+        "calculated_capital_increase": float(calculated_capital_increase),
+        "net_profit": float(net_profit),
+        "net_loss": float(net_loss),
+        "profit_or_loss": profit_or_loss,
+        "prepared_by": estimation.prepared_by,
+        "notes": estimation.notes,
+        "created_at": created_at.isoformat()
+    }
+    await session.run(query, params)
+
+    return ProfitEstimationInDB(
+        id=est_id, user_id=user_id,
+        as_of_date=estimation.as_of_date,
+        period_start=estimation.period_start,
+        period_end=estimation.period_end,
+        opening_capital=estimation.opening_capital,
+        closing_capital=estimation.closing_capital,
+        additional_capital=estimation.additional_capital,
+        drawings=estimation.drawings,
+        calculated_capital_increase=calculated_capital_increase,
+        net_profit=net_profit, net_loss=net_loss,
+        profit_or_loss=profit_or_loss,
+        prepared_by=estimation.prepared_by,
+        notes=estimation.notes
+    )
+
+async def get_profit_estimations(session: AsyncSession, user_id: str) -> List[ProfitEstimationInDB]:
+    """Get all Profit Estimations"""
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_PROFIT_ESTIMATION]->(pe:ProfitEstimation)
+    RETURN pe
+    ORDER BY pe.as_of_date DESC
+    """
+    result = await session.run(query, user_id=user_id)
+    estimations = []
+    async for record in result:
+        pe = record["pe"]
+        estimations.append(ProfitEstimationInDB(
+            id=pe["id"], user_id=user_id,
+            as_of_date=datetime.fromisoformat(pe["as_of_date"].iso_format()).date(),
+            period_start=datetime.fromisoformat(pe["period_start"].iso_format()).date(),
+            period_end=datetime.fromisoformat(pe["period_end"].iso_format()).date(),
+            opening_capital=Decimal(str(pe["opening_capital"])),
+            closing_capital=Decimal(str(pe["closing_capital"])),
+            additional_capital=Decimal(str(pe["additional_capital"])),
+            drawings=Decimal(str(pe["drawings"])),
+            calculated_capital_increase=Decimal(str(pe["calculated_capital_increase"])),
+            net_profit=Decimal(str(pe["net_profit"])),
+            net_loss=Decimal(str(pe["net_loss"])),
+            profit_or_loss=pe["profit_or_loss"],
+            prepared_by=pe["prepared_by"],
+            notes=pe["notes"]
+        ))
+    return estimations

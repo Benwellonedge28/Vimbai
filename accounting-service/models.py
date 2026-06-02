@@ -634,6 +634,333 @@ class BankReconciliationStatement(BaseModel):
     reconciled_date: Optional[datetime] = Field(None, description="Date reconciliation was completed")
     reconciled_by: Optional[str] = Field(None, max_length=200, description="Person who reconciled")
 
+
+# =============================================================================
+# INCOMPLETE RECORDS / SINGLE ENTRY SYSTEM MODELS
+# =============================================================================
+
+# --- Statement of Affairs Models ---
+
+class StatementOfAffairsAssetBase(BaseModel):
+    """Base model for assets in Statement of Affairs"""
+    asset_name: str = Field(..., max_length=200, description="Name of the asset")
+    asset_category: Optional[str] = Field(None, max_length=100, description="Category of asset (Fixed, Current, etc.)")
+    asset_value: Decimal = Field(..., description="Value of the asset")
+    asset_notes: Optional[str] = Field(None, description="Additional notes about the asset")
+    is_debtor: bool = Field(False, description="Whether this is a debtor (money owed to business)")
+
+class StatementOfAffairsLiabilityBase(BaseModel):
+    """Base model for liabilities in Statement of Affairs"""
+    liability_name: str = Field(..., max_length=200, description="Name of the liability")
+    liability_category: Optional[str] = Field(None, max_length=100, description="Category of liability (Current, Long-term, etc.)")
+    liability_value: Decimal = Field(..., description="Value of the liability")
+    liability_notes: Optional[str] = Field(None, description="Additional notes about the liability")
+    is_creditor: bool = Field(False, description="Whether this is a creditor (money owed by business)")
+
+class StatementOfAffairsCreate(StatementOfAffairsAssetBase):
+    """Model for creating Statement of Affairs"""
+    pass
+
+class StatementOfAffairsLiabilityCreate(StatementOfAffairsLiabilityBase):
+    """Model for creating Statement of Affairs liability"""
+    pass
+
+class StatementOfAffairsBase(BaseModel):
+    """Base model for Statement of Affairs"""
+    as_of_date: date = Field(..., description="Date of Statement of Affairs")
+    prepared_by: Optional[str] = Field(None, max_length=200, description="Person who prepared the statement")
+    prepared_date: Optional[datetime] = Field(None, description="Date statement was prepared")
+
+class StatementOfAffairsInDB(StatementOfAffairsBase):
+    """Full Statement of Affairs model as stored in database"""
+    id: str = Field(..., description="Unique identifier")
+    user_id: str = Field(..., description="User who created this statement")
+    total_assets: Decimal = Field(..., description="Total of all assets")
+    total_liabilities: Decimal = Field(..., description="Total of all liabilities")
+    capital: Decimal = Field(..., description="Capital (Assets - Liabilities)")
+    assets: List[StatementOfAffairsAssetBase] = Field(default_factory=list, description="List of assets")
+    liabilities: List[StatementOfAffairsLiabilityBase] = Field(default_factory=list, description="List of liabilities")
+    notes: Optional[str] = Field(None, description="Additional notes")
+
+    class Config:
+        from_attributes = True
+
+# --- Capital Calculation Models ---
+
+class CapitalCalculationEntryBase(BaseModel):
+    """Base model for capital calculation entries"""
+    entry_date: date = Field(..., description="Date of capital change")
+    entry_type: Literal["additional_capital", "withdrawal", "net_profit", "net_loss"] = Field(
+        ..., description="Type of capital change"
+    )
+    amount: Decimal = Field(..., description="Amount of the change")
+    description: str = Field(..., max_length=500, description="Description of the change")
+    reference_number: Optional[str] = Field(None, max_length=100, description="Reference/cheque number")
+
+class CapitalCalculationEntryCreate(CapitalCalculationEntryBase):
+    """Model for creating capital calculation entry"""
+    pass
+
+class CapitalCalculationEntryInDB(CapitalCalculationEntryBase):
+    """Capital calculation entry as stored in database"""
+    id: str = Field(..., description="Unique identifier")
+    capital_calculation_id: str = Field(..., description="Parent capital calculation ID")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+class CapitalCalculationBase(BaseModel):
+    """Base model for Capital Calculation"""
+    as_of_date: date = Field(..., description="Date of calculation (usually end of period)")
+    period_start: date = Field(..., description="Start of accounting period")
+    period_end: date = Field(..., description="End of accounting period")
+    opening_capital: Decimal = Field(..., description="Capital at beginning of period")
+    prepared_by: Optional[str] = Field(None, max_length=200, description="Person who prepared the calculation")
+
+class CapitalCalculationCreate(CapitalCalculationBase):
+    """Model for creating capital calculation"""
+    entries: List[CapitalCalculationEntryCreate] = Field(default_factory=list, description="Capital changes during period")
+
+class CapitalCalculationInDB(CapitalCalculationBase):
+    """Full Capital Calculation model as stored in database"""
+    id: str = Field(..., description="Unique identifier")
+    user_id: str = Field(..., description="User who created this calculation")
+    closing_capital: Decimal = Field(..., description="Capital at end of period")
+    total_additional_capital: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Total capital introduced")
+    total_withdrawals: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Total drawings/withdrawals")
+    net_profit: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Net profit for period")
+    net_loss: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Net loss for period")
+    profit_or_loss: Literal["profit", "loss", "none"] = Field("none", description="Whether profit or loss")
+    entries: List[CapitalCalculationEntryInDB] = Field(default_factory=list, description="Capital changes during period")
+    notes: Optional[str] = Field(None, description="Additional notes")
+
+    class Config:
+        from_attributes = True
+
+# --- Control Account Models ---
+
+class ControlAccountEntryBase(BaseModel):
+    """Base model for control account entries"""
+    entry_date: date = Field(..., description="Date of the transaction")
+    entry_type: Literal["credit_sale", "cash_sale", "payment_received", "bad_debt", "discount_allowed",
+                        "credit_purchase", "cash_purchase", "payment_made", "discount_received", "interest_charged"] = Field(
+        ..., description="Type of transaction"
+    )
+    amount: Decimal = Field(..., description="Amount of transaction")
+    description: str = Field(..., max_length=500, description="Description of transaction")
+    reference_number: Optional[str] = Field(None, max_length=100, description="Invoice/Receipt/Cheque number")
+    customer_id: Optional[str] = Field(None, max_length=200, description="Customer identifier (for debtors)")
+    supplier_id: Optional[str] = Field(None, max_length=200, description="Supplier identifier (for creditors)")
+    isContra: bool = Field(False, description="Whether this is a contra entry")
+
+class ControlAccountEntryCreate(ControlAccountEntryBase):
+    """Model for creating control account entry"""
+    pass
+
+class ControlAccountEntryInDB(ControlAccountEntryBase):
+    """Control account entry as stored in database"""
+    id: str = Field(..., description="Unique identifier")
+    control_account_id: str = Field(..., description="Parent control account ID")
+    running_balance: Decimal = Field(..., description="Balance after this entry")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+class ControlAccountBase(BaseModel):
+    """Base model for Control Account"""
+    account_type: Literal["debtors", "creditors"] = Field(..., description="Type of control account")
+    account_name: str = Field(..., max_length=200, description="Name of the account (e.g., Debtors Control)")
+    as_of_date: date = Field(..., description="Date for the balance")
+    prepared_by: Optional[str] = Field(None, max_length=200, description="Person who prepared the account")
+
+class ControlAccountCreate(ControlAccountBase):
+    """Model for creating control account"""
+    opening_balance: Decimal = Field(..., description="Opening balance")
+    entries: List[ControlAccountEntryCreate] = Field(default_factory=list, description="Transactions during period")
+
+class ControlAccountInDB(ControlAccountBase):
+    """Full Control Account model as stored in database"""
+    id: str = Field(..., description="Unique identifier")
+    user_id: str = Field(..., description="User who created this account")
+    opening_balance: Decimal = Field(..., description="Opening balance")
+    total_debits: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Total debits")
+    total_credits: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Total credits")
+    closing_balance: Decimal = Field(..., description="Closing balance")
+    entries: List[ControlAccountEntryInDB] = Field(default_factory=list, description="Transactions during period")
+    notes: Optional[str] = Field(None, description="Additional notes")
+
+    class Config:
+        from_attributes = True
+
+# --- Receipts and Payments Account Models ---
+
+class ReceiptsPaymentsEntryBase(BaseModel):
+    """Base model for receipts and payments entries"""
+    entry_date: date = Field(..., description="Date of transaction")
+    entry_type: Literal["receipt", "payment"] = Field(..., description="Type of transaction")
+    category: Literal["capital", "revenue", "asset", "liability", "other"] = Field(
+        ..., description="Category of transaction"
+    )
+    account_name: str = Field(..., max_length=200, description="Name of account")
+    amount: Decimal = Field(..., description="Amount received or paid")
+    description: str = Field(..., max_length=500, description="Description of transaction")
+    reference_number: Optional[str] = Field(None, max_length=100, description="Reference/Cheque number")
+    isContra: bool = Field(False, description="Whether this is a contra entry (bank to cash)")
+
+class ReceiptsPaymentsEntryCreate(ReceiptsPaymentsEntryBase):
+    """Model for creating receipts and payments entry"""
+    pass
+
+class ReceiptsPaymentsEntryInDB(ReceiptsPaymentsEntryBase):
+    """Receipts and payments entry as stored in database"""
+    id: str = Field(..., description="Unique identifier")
+    receipts_payments_id: str = Field(..., description="Parent receipts and payments ID")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+class ReceiptsPaymentsAccountBase(BaseModel):
+    """Base model for Receipts and Payments Account"""
+    account_name: str = Field(..., max_length=200, description="Name of account")
+    period_start: date = Field(..., description="Start of period")
+    period_end: date = Field(..., description="End of period")
+    prepared_by: Optional[str] = Field(None, max_length=200, description="Person who prepared the account")
+
+class ReceiptsPaymentsAccountCreate(ReceiptsPaymentsAccountBase):
+    """Model for creating receipts and payments account"""
+    opening_cash_balance: Decimal = Field(..., description="Opening cash balance")
+    opening_bank_balance: Decimal = Field(..., description="Opening bank balance")
+    entries: List[ReceiptsPaymentsEntryCreate] = Field(default_factory=list, description="All transactions during period")
+
+class ReceiptsPaymentsAccountInDB(ReceiptsPaymentsAccountBase):
+    """Full Receipts and Payments Account model as stored in database"""
+    id: str = Field(..., description="Unique identifier")
+    user_id: str = Field(..., description="User who created this account")
+    opening_cash_balance: Decimal = Field(..., description="Opening cash balance")
+    opening_bank_balance: Decimal = Field(..., description="Opening bank balance")
+
+    # Summary totals
+    total_receipts: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Total receipts")
+    total_payments: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Total payments")
+    total_capital_receipts: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Capital receipts")
+    total_revenue_receipts: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Revenue receipts")
+    total_asset_payments: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Asset payments")
+    total_liability_payments: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Liability payments")
+    total_revenue_payments: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Revenue payments")
+
+    # Closing balances
+    closing_cash_balance: Decimal = Field(..., description="Closing cash balance")
+    closing_bank_balance: Decimal = Field(..., description="Closing bank balance")
+    closing_total_balance: Decimal = Field(..., description="Total closing balance (Cash + Bank)")
+
+    entries: List[ReceiptsPaymentsEntryInDB] = Field(default_factory=list, description="All transactions during period")
+    notes: Optional[str] = Field(None, description="Additional notes")
+
+    class Config:
+        from_attributes = True
+
+# --- Single Entry Conversion Models ---
+
+class SingleEntryConversionBase(BaseModel):
+    """Base model for Single Entry Conversion"""
+    as_of_date: date = Field(..., description="Date for conversion")
+    prepared_by: Optional[str] = Field(None, max_length=200, description="Person who prepared the conversion")
+
+class SingleEntryConversionCreate(SingleEntryConversionBase):
+    """Model for creating single entry conversion"""
+    source_type: Literal["statement_of_affairs", "capital_calculation", "control_account",
+                         "receipts_payments", "all"] = Field(..., description="Source type for conversion")
+    opening_capital: Optional[Decimal] = Field(None, description="Opening capital if not from statement")
+    opening_debtors: Optional[Decimal] = Field(None, description="Opening debtors balance")
+    opening_creditors: Optional[Decimal] = Field(None, description="Opening creditors balance")
+    closing_capital: Optional[Decimal] = Field(None, description="Closing capital")
+    closing_debtors: Optional[Decimal] = Field(None, description="Closing debtors balance")
+    closing_creditors: Optional[Decimal] = Field(None, description="Closing creditors balance")
+    drawings: Optional[Decimal] = Field(None, description="Total drawings during period")
+    additional_capital: Optional[Decimal] = Field(None, description="Additional capital introduced")
+
+class SingleEntryConversionInDB(SingleEntryConversionBase):
+    """Full Single Entry Conversion model as stored in database"""
+    id: str = Field(..., description="Unique identifier")
+    user_id: str = Field(..., description="User who created this conversion")
+    source_type: str = Field(..., description="Source type for conversion")
+
+    # Opening Balances
+    opening_capital: Decimal = Field(..., description="Opening capital")
+    opening_debtors: Decimal = Field(..., description="Opening debtors")
+    opening_creditors: Decimal = Field(..., description="Opening creditors")
+    opening_cash: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Opening cash/bank")
+
+    # Closing Balances
+    closing_capital: Decimal = Field(..., description="Closing capital")
+    closing_debtors: Decimal = Field(..., description="Closing debtors")
+    closing_creditors: Decimal = Field(..., description="Closing creditors")
+    closing_cash: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Closing cash/bank")
+
+    # Capital Changes
+    drawings: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Total drawings")
+    additional_capital: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Additional capital")
+
+    # Calculated Profit/Loss
+    net_profit: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Net profit for period")
+    net_loss: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Net loss for period")
+    profit_or_loss: Literal["profit", "loss", "none"] = Field("none", description="Whether profit or loss")
+
+    # Summary
+    total_receipts: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Total receipts from R&P")
+    total_payments: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Total payments from R&P")
+
+    # Generated Journal Entries Summary
+    generated_journal_entries: int = Field(0, description="Number of journal entries generated")
+    conversion_status: Literal["pending", "in_progress", "completed", "failed"] = Field("pending", description="Conversion status")
+    notes: Optional[str] = Field(None, description="Additional notes")
+
+    class Config:
+        from_attributes = True
+
+# --- Profit Estimation from Statement of Affairs ---
+
+class ProfitEstimationBase(BaseModel):
+    """Base model for Profit Estimation"""
+    as_of_date: date = Field(..., description="Date of estimation")
+    period_start: date = Field(..., description="Start of period")
+    period_end: date = Field(..., description="End of period")
+    prepared_by: Optional[str] = Field(None, max_length=200, description="Person who prepared the estimation")
+
+class ProfitEstimationCreate(ProfitEstimationBase):
+    """Model for creating profit estimation"""
+    opening_capital: Decimal = Field(..., description="Capital at beginning of period")
+    closing_capital: Decimal = Field(..., description="Capital at end of period")
+    additional_capital: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Additional capital introduced during period")
+    drawings: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Total drawings during period")
+
+class ProfitEstimationInDB(ProfitEstimationBase):
+    """Full Profit Estimation model as stored in database"""
+    id: str = Field(..., description="Unique identifier")
+    user_id: str = Field(..., description="User who created this estimation")
+
+    # Inputs
+    opening_capital: Decimal = Field(..., description="Capital at beginning of period")
+    closing_capital: Decimal = Field(..., description="Capital at end of period")
+    additional_capital: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Additional capital introduced")
+    drawings: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Total drawings")
+
+    # Calculation
+    # Net Profit/Loss = Closing Capital + Drawings - Opening Capital - Additional Capital
+    # Or: Closing Capital - Opening Capital + Drawings - Additional Capital
+    calculated_capital_increase: Decimal = Field(..., description="Change in capital")
+    net_profit: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Net profit for period")
+    net_loss: Decimal = Field(default_factory=lambda: Decimal('0.00'), description="Net loss for period")
+    profit_or_loss: Literal["profit", "loss", "none"] = Field("none", description="Whether profit or loss")
+
+    notes: Optional[str] = Field(None, description="Additional notes")
+
+    class Config:
+        from_attributes = True
+
 # --- Error Response Model ---
 class ErrorResponse(BaseModel):
     detail: str

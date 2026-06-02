@@ -497,3 +497,164 @@ async def get_latest_reconciliation(
     db_session: AsyncSession = Depends(get_db_session)
 ):
     return await crud.get_latest_bank_reconciliation(db_session, user_id, bank_account)
+
+
+# =============================================================================
+# INCOMPLETE RECORDS / SINGLE ENTRY SYSTEM ENDPOINTS
+# =============================================================================
+
+# --- Statement of Affairs Endpoints ---
+
+@app.post("/statements-of-affairs/", response_model=models.StatementOfAffairsInDB, status_code=status.HTTP_201_CREATED,
+         dependencies=[Depends(check_permission("accounting.write.incomplete_records"))])
+async def create_statement_of_affairs(
+    as_of_date: datetime,
+    assets: List[models.StatementOfAffairsAssetBase],
+    liabilities: List[models.StatementOfAffairsLiabilityBase],
+    prepared_by: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Create Statement of Affairs - shows assets, liabilities and capital at a point in time (similar to Balance Sheet but for single entry businesses)"""
+    return await crud.create_statement_of_affairs(db_session, user_id, as_of_date, assets, liabilities, prepared_by)
+
+@app.get("/statements-of-affairs/", response_model=List[models.StatementOfAffairsInDB],
+         dependencies=[Depends(check_permission("accounting.read.incomplete_records"))])
+async def get_all_statements_of_affairs(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Get all Statements of Affairs"""
+    return await crud.get_all_statements_of_affairs(db_session, user_id)
+
+@app.get("/statements-of-affairs/{as_of_date}", response_model=models.StatementOfAffairsInDB,
+         dependencies=[Depends(check_permission("accounting.read.incomplete_records"))])
+async def get_statement_of_affairs_by_date(
+    as_of_date: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Get Statement of Affairs as of a specific date"""
+    return await crud.get_statement_of_affairs(db_session, user_id, as_of_date)
+
+
+# --- Capital Calculation Endpoints ---
+
+@app.post("/capital-calculations/", response_model=models.CapitalCalculationInDB, status_code=status.HTTP_201_CREATED,
+         dependencies=[Depends(check_permission("accounting.write.incomplete_records"))])
+async def create_capital_calculation(
+    calc: models.CapitalCalculationInDB,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Create Capital Calculation - tracks capital changes over a period"""
+    return await crud.create_capital_calculation(db_session, user_id, calc)
+
+@app.get("/capital-calculations/", response_model=List[models.CapitalCalculationInDB],
+         dependencies=[Depends(check_permission("accounting.read.incomplete_records"))])
+async def get_all_capital_calculations(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Get all Capital Calculations"""
+    return await crud.get_all_capital_calculations(db_session, user_id)
+
+@app.get("/capital-calculations/{calc_id}", response_model=models.CapitalCalculationInDB,
+         dependencies=[Depends(check_permission("accounting.read.incomplete_records"))])
+async def get_capital_calculation_by_id(
+    calc_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Get Capital Calculation by ID"""
+    return await crud.get_capital_calculation(db_session, user_id, calc_id)
+
+
+# --- Control Account Endpoints (Debtors & Creditors) ---
+
+@app.post("/control-accounts/", response_model=models.ControlAccountInDB, status_code=status.HTTP_201_CREATED,
+         dependencies=[Depends(check_permission("accounting.write.incomplete_records"))])
+async def create_control_account(
+    account: models.ControlAccountInDB,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Create Control Account - tracks debtors or creditors balances"""
+    return await crud.create_control_account(db_session, user_id, account)
+
+@app.get("/control-accounts/", response_model=List[models.ControlAccountInDB],
+         dependencies=[Depends(check_permission("accounting.read.incomplete_records"))])
+async def get_all_control_accounts(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+    account_type: Optional[str] = Query(None, description="Filter by type: 'debtors' or 'creditors'")
+):
+    """Get all Control Accounts, optionally filtered by type"""
+    return await crud.get_control_accounts(db_session, user_id, account_type)
+
+
+# --- Receipts and Payments Account Endpoints ---
+
+@app.post("/receipts-payments/", response_model=models.ReceiptsPaymentsAccountInDB, status_code=status.HTTP_201_CREATED,
+         dependencies=[Depends(check_permission("accounting.write.incomplete_records"))])
+async def create_receipts_payments_account(
+    rp: models.ReceiptsPaymentsAccountInDB,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Create Receipts and Payments Account - cash book summary for single entry businesses"""
+    return await crud.create_receipts_payments_account(db_session, user_id, rp)
+
+@app.get("/receipts-payments/", response_model=List[models.ReceiptsPaymentsAccountInDB],
+         dependencies=[Depends(check_permission("accounting.read.incomplete_records"))])
+async def get_all_receipts_payments_accounts(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Get all Receipts and Payments Accounts"""
+    return await crud.get_receipts_payments_accounts(db_session, user_id)
+
+
+# --- Single Entry Conversion Endpoints ---
+
+@app.post("/single-entry-conversions/", response_model=models.SingleEntryConversionInDB, status_code=status.HTTP_201_CREATED,
+         dependencies=[Depends(check_permission("accounting.write.incomplete_records"))])
+async def create_single_entry_conversion(
+    conversion: models.SingleEntryConversionInDB,
+    user_id: str = Depends(get_user_id),
+    jwt_token: str = Depends(get_jwt_token),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Create Single Entry Conversion - converts single entry records to double entry system"""
+    return await crud.create_single_entry_conversion(db_session, user_id, conversion, jwt_token)
+
+@app.get("/single-entry-conversions/", response_model=List[models.SingleEntryConversionInDB],
+         dependencies=[Depends(check_permission("accounting.read.incomplete_records"))])
+async def get_all_single_entry_conversions(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Get all Single Entry Conversions"""
+    return await crud.get_single_entry_conversions(db_session, user_id)
+
+
+# --- Profit Estimation Endpoints ---
+
+@app.post("/profit-estimations/", response_model=models.ProfitEstimationInDB, status_code=status.HTTP_201_CREATED,
+         dependencies=[Depends(check_permission("accounting.write.incomplete_records"))])
+async def create_profit_estimation(
+    estimation: models.ProfitEstimationInDB,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Create Profit Estimation - calculates profit/loss from capital changes (alternative method for single entry)"""
+    return await crud.create_profit_estimation(db_session, user_id, estimation)
+
+@app.get("/profit-estimations/", response_model=List[models.ProfitEstimationInDB],
+         dependencies=[Depends(check_permission("accounting.read.incomplete_records"))])
+async def get_all_profit_estimations(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Get all Profit Estimations"""
+    return await crud.get_profit_estimations(db_session, user_id)
