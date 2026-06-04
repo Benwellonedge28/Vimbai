@@ -1,0 +1,135 @@
+# FinAcc Prometheus Configuration
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'finacc'
+    environment: 'production'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - 'alertmanager:9093'
+
+rule_files:
+  - '/etc/prometheus/alert_rules.yml'
+
+scrape_configs:
+  # FinAcc API Gateway
+  - job_name: 'finacc-api-gateway'
+    static_configs:
+      - targets: ['api-gateway:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Accounting Service
+  - job_name: 'finacc-accounting-service'
+    static_configs:
+      - targets: ['accounting-service:8001']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'accounting-service'
+
+  # NPO Service
+  - job_name: 'finacc-npo-service'
+    static_configs:
+      - targets: ['npo-service:8002']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'npo-service'
+
+  # Banking Integration Service
+  - job_name: 'finacc-banking-service'
+    static_configs:
+      - targets: ['banking-integration-service:8003']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Finance Service
+  - job_name: 'finacc-finance-service'
+    static_configs:
+      - targets: ['finance-service:8004']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Fraud Detection Service
+  - job_name: 'finacc-fraud-detection-service'
+    static_configs:
+      - targets: ['fraud-detection-service:8005']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Reporting Service
+  - job_name: 'finacc-reporting-service'
+    static_configs:
+      - targets: ['reporting-service:8006']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Workflow Service
+  - job_name: 'finacc-workflow-service'
+    static_configs:
+      - targets: ['workflow-service:8007']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Automation Engine Service
+  - job_name: 'finacc-automation-engine'
+    static_configs:
+      - targets: ['automation-engine-service:8008']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Multimodal Pipeline Service
+  - job_name: 'finacc-multimodal-pipeline'
+    static_configs:
+      - targets: ['multimodal-pipeline-service:8009']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Supply Chain Service
+  - job_name: 'finacc-supply-chain'
+    static_configs:
+      - targets: ['supply-chain-service:8010']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Invoicing Service
+  - job_name: 'finacc-invoicing-service'
+    static_configs:
+      - targets: ['invoicing-service:8011']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Identity Service
+  - job_name: 'finacc-identity-service'
+    static_configs:
+      - targets: ['identity-service:8012']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Neo4j Database Metrics
+  - job_name: 'finacc-neo4j'
+    static_configs:
+      - targets: ['neo4j:7474']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Node Exporter (System Metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

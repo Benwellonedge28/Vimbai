@@ -1,0 +1,35 @@
+# Extended dependencies for API documentation and monitoring
+
+# API Documentation
+fastapi==0.110.0
+uvicorn[standard]==0.28.0  # Standard includes websockets for docs
+pydantic==2.6.4
+python-dotenv==1.0.1
+
+# Database
+neo4j==5.19.0
+
+# Authentication
+python-jose[cryptography]==3.3.0
+
+# API Documentation Enhancements
+# ---------------------------
+# OpenAPI Schema Generation
+python-multipart==0.0.9  # For file uploads in OpenAPI docs
+
+# Alternative documentation
+# swigger>=0.3.0  # Alternative Swagger UI
+
+# Performance Testing
+# ------------------
+locust==2.20.0  # Load testing framework
+
+# Monitoring
+# ----------
+prometheus-client==0.19.0  # Prometheus metrics
+psutil==5.9.8  # System metrics
+
+# Documentation
+# ------------
+sphinx==7.3.7  # For generating documentation
+sphinx-rtd-theme==2.0.0  # Read the Docs theme for Sphinx

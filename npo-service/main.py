@@ -14,6 +14,7 @@ Comprehensive API for NPO accounting covering all 100 concepts:
 
 from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
+from fastapi.openapi.utils import get_openapi
 from typing import List, Optional, Dict, Any
 from neo4j import AsyncSession
 from npo_service import models, crud
@@ -25,14 +26,103 @@ from dotenv import load_dotenv
 from datetime import datetime, date
 from pydantic import ValidationError as PydanticValidationError
 from decimal import Decimal
+import uuid
 
 load_dotenv()
+
+# =============================================================================
+# OPENAPI SCHEMA CONFIGURATION
+# =============================================================================
+
+def custom_openapi():
+    """Generate custom OpenAPI schema with FinAcc NPO-specific metadata."""
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title="FinAcc NPO Service",
+        description="""
+## FinAcc NPO (Non-Profit Organization) Service API
+
+Comprehensive API for non-profit organization accounting covering fund accounting,
+net assets management, grant lifecycle, and impact measurement.
+
+### Features
+- **Fund Accounting**: General, restricted, endowment, capital, project funds
+- **Net Assets**: With/Without donor restrictions tracking
+- **Revenue Management**: Donations, grants, memberships, fundraising
+- **Donor Management**: Donor information and contribution history
+- **Grant Lifecycle**: Application, approval, drawdowns, reporting
+- **Budget Management**: Budget planning and variance analysis
+- **Project & Program Tracking**: Resource allocation and metrics
+- **Compliance & Governance**: Internal controls and audit reports
+- **Impact Measurement**: SROI analysis, volunteer tracking
+
+### NPO Accounting Concepts (100 Total)
+1. Fund Accounting (General, Restricted, Endowment, Capital, Project)
+2. Net Assets Classification (With/Without Donor Restrictions)
+3. Revenue Recognition (Contributions, Grants, Memberships)
+4. Asset Management (Tangible, Intangible, Current, Fixed)
+5. Liability Tracking (Current, Long-term)
+6. Financial Statements (Statement of Activities, Position)
+7. Budget Variance Analysis
+8. Grant Reporting Requirements
+9. Donor Gift Processing
+10. Program Cost Allocation
+
+### Authentication
+All endpoints require JWT Bearer token authentication.
+
+### Rate Limits
+- Default: 1000 requests/minute
+- Authenticated: 5000 requests/minute
+        """,
+        version="1.0.0",
+        routes=app.routes,
+    )
+
+    # Add security schemes
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Enter your JWT token"
+        }
+    }
+
+    # Add custom tags for organization
+    openapi_schema["tags"] = [
+        {"name": "funds", "description": "NPO Fund Accounting - fund creation, transactions, restrictions"},
+        {"name": "net-assets", "description": "Net assets classification and tracking"},
+        {"name": "donations", "description": "Donation tracking and management"},
+        {"name": "grants", "description": "Grant lifecycle management"},
+        {"name": "donors", "description": "Donor information and history"},
+        {"name": "budgets", "description": "NPO budget planning and variance"},
+        {"name": "projects", "description": "NPO project tracking"},
+        {"name": "programs", "description": "NPO program management"},
+        {"name": "compliance", "description": "Internal controls and audit reports"},
+        {"name": "impact", "description": "Impact measurement and SROI"},
+        {"name": "volunteers", "description": "Volunteer hours tracking"},
+        {"name": "statements", "description": "NPO financial statements"},
+        {"name": "assets", "description": "NPO asset management"},
+        {"name": "health", "description": "Service health checks"}
+    ]
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
 
 app = FastAPI(
     title="FinAcc NPO Service",
     description="Non-Profit Organization Accounting Service - Manages fund accounting, net assets, grants, budgets, compliance, and impact measurement.",
     version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
+
+# Apply custom OpenAPI schema
+app.openapi = custom_openapi
 
 @app.on_event("startup")
 async def startup_event():

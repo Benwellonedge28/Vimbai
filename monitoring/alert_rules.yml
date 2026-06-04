@@ -1,0 +1,172 @@
+# FinAcc Prometheus Alert Rules
+
+groups:
+  # Service Availability Alerts
+  - name: finacc.availability
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been down for more than 1 minute"
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(finacc_http_requests_total{status_code=~"5.."}[5m])) by (service)
+          / sum(rate(finacc_http_requests_total[5m])) by (service) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate on {{ $labels.service }}"
+          description: "Error rate is {{ $value | humanizePercentage }} which exceeds 5% threshold"
+
+      - alert: ElevatedErrorRate
+        expr: |
+          sum(rate(finacc_http_requests_total{status_code=~"5.."}[5m])) by (service)
+          / sum(rate(finacc_http_requests_total[5m])) by (service) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated error rate on {{ $labels.service }}"
+          description: "Error rate is {{ $value | humanizePercentage }} which exceeds 1% threshold"
+
+  # Latency Alerts
+  - name: finacc.latency
+    rules:
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(finacc_http_request_duration_seconds_bucket[5m])) by (le, service)) > 2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High latency on {{ $labels.service }}"
+          description: "P95 latency is {{ $value }}s which exceeds 2s threshold"
+
+      - alert: ElevatedLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(finacc_http_request_duration_seconds_bucket[5m])) by (le, service)) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated latency on {{ $labels.service }}"
+          description: "P95 latency is {{ $value }}s which exceeds 1s threshold"
+
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95, sum(rate(finacc_db_query_duration_seconds_bucket[5m])) by (le, service, operation)) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow database queries on {{ $labels.service }}"
+          description: "P95 query duration for {{ $labels.operation }} is {{ $value }}s"
+
+  # Database Alerts
+  - name: finacc.database
+    rules:
+      - alert: DatabaseConnectionExhaustion
+        expr: |
+          finacc_db_connection_pool_used / finacc_db_connection_pool_size > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection pool near exhaustion"
+          description: "Connection pool usage is {{ $value | humanizePercentage }}"
+
+      - alert: HighDatabaseErrorRate
+        expr: |
+          sum(rate(finacc_db_errors_total[5m])) by (service) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database error rate on {{ $labels.service }}"
+          description: "Database errors per second: {{ $value }}"
+
+  # System Resource Alerts
+  - name: finacc.system
+    rules:
+      - alert: HighCPUUsage
+        expr: |
+          finacc_cpu_usage_percent > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.service }}"
+          description: "CPU usage is {{ $value }}%"
+
+      - alert: HighMemoryUsage
+        expr: |
+          finacc_memory_usage_bytes / (finacc_memory_usage_bytes + (1 - finacc_memory_usage_bytes)) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.service }}"
+          description: "Memory usage exceeds 90%"
+
+      - alert: DiskSpaceLow
+        expr: |
+          finacc_disk_usage_percent > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on service {{ $labels.service }}"
+          description: "Disk usage is {{ $value }}%"
+
+  # Business Metrics Alerts
+  - name: finacc.business
+    rules:
+      - alert: HighTransactionFailureRate
+        expr: |
+          sum(rate(finacc_transactions_total{status="failed"}[5m])) by (service, type)
+          / sum(rate(finacc_transactions_total[5m])) by (service, type) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High transaction failure rate"
+          description: "{{ $labels.type }} transactions failing at {{ $value | humanizePercentage }}"
+
+      - alert: NoJournalEntries
+        expr: |
+          increase(finacc_journal_entries_total[1h]) == 0
+        for: 2h
+        labels:
+          severity: info
+        annotations:
+          summary: "No journal entries created"
+          description: "No journal entries have been created in the last 2 hours"
+
+  # Health Status Alerts
+  - name: finacc.health
+    rules:
+      - alert: ServiceUnhealthy
+        expr: |
+          finacc_service_health == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.service }} is unhealthy"
+          description: "Service health check has been failing"
+
+      - alert: DatabaseUnhealthy
+        expr: |
+          finacc_database_health == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database for {{ $labels.service }} is unhealthy"
+          description: "Database health check has been failing"

@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
+from fastapi.openapi.utils import get_openapi
 from typing import List, Optional, Dict # Added Dict for response model
 from neo4j import AsyncSession
 from accounting_service import models, crud
@@ -16,11 +17,83 @@ from decimal import Decimal # Added Decimal for response type
 # Load environment variables
 load_dotenv()
 
+# =============================================================================
+# OPENAPI SCHEMA CONFIGURATION
+# =============================================================================
+
+def custom_openapi():
+    """Generate custom OpenAPI schema with FinAcc-specific metadata."""
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title="FinAcc Accounting Service",
+        description="""
+## FinAcc Accounting Service API
+
+Comprehensive accounting API covering double-entry bookkeeping, special journals,
+subsidiary ledgers, and financial reporting.
+
+### Features
+- **Chart of Accounts**: Complete account hierarchy management
+- **Journal Entries**: Double-entry transaction recording
+- **Ledger Reports**: Account activity and balance tracking
+- **Financial Statements**: Trial balance, income statement, balance sheet
+- **Special Journals**: Sales, purchases, cash receipts/disbursements
+- **Subsidiary Ledgers**: AR/AP aging, fixed assets, inventory
+- **Petty Cash**: Fund management and tracking
+- **Bank Reconciliation**: Statement matching and verification
+- **Incomplete Records**: Single-entry accounting support
+
+### Authentication
+All endpoints require JWT Bearer token authentication.
+
+### Rate Limits
+- Default: 1000 requests/minute
+- Authenticated: 5000 requests/minute
+        """,
+        version="1.0.0",
+        routes=app.routes,
+    )
+
+    # Add security schemes
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Enter your JWT token"
+        }
+    }
+
+    # Add custom tags for organization
+    openapi_schema["tags"] = [
+        {"name": "accounts", "description": "Chart of Accounts management"},
+        {"name": "journal-entries", "description": "Journal Entry operations"},
+        {"name": "ledgers", "description": "Ledger reports and queries"},
+        {"name": "financial-statements", "description": "Financial statement generation"},
+        {"name": "special-journals", "description": "Special journal operations"},
+        {"name": "subsidiary-ledgers", "description": "Subsidiary ledger reports"},
+        {"name": "petty-cash", "description": "Petty cash fund management"},
+        {"name": "bank-reconciliation", "description": "Bank reconciliation operations"},
+        {"name": "incomplete-records", "description": "Single-entry accounting"},
+        {"name": "health", "description": "Service health checks"}
+    ]
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
 app = FastAPI(
     title="FinAcc Accounting Service",
     description="Manages Chart of Accounts, Journal Entries, Ledgers, Trial Balance, and Financial Statements.",
     version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
+
+# Apply custom OpenAPI schema
+app.openapi = custom_openapi
 
 @app.on_event("startup")
 async def startup_event():
