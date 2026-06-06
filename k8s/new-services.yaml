@@ -1,0 +1,169 @@
+# Alerts Service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alerts-service
+  namespace: finacc
+  labels:
+    app: alerts-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: alerts-service
+  template:
+    metadata:
+      labels:
+        app: alerts-service
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8090"
+    spec:
+      containers:
+      - name: alerts-service
+        image: finacc/alerts-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8090
+          name: http
+        env:
+        - name: PORT
+          value: "8090"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alerts-service
+  namespace: finacc
+  labels:
+    app: alerts-service
+spec:
+  selector:
+    app: alerts-service
+  ports:
+  - name: http
+    port: 8090
+    targetPort: 8090
+
+---
+# Notifications Service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notifications-service
+  namespace: finacc
+  labels:
+    app: notifications-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notifications-service
+  template:
+    metadata:
+      labels:
+        app: notifications-service
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8091"
+    spec:
+      containers:
+      - name: notifications-service
+        image: finacc/notifications-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8091
+          name: http
+        env:
+        - name: PORT
+          value: "8091"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notifications-service
+  namespace: finacc
+  labels:
+    app: notifications-service
+spec:
+  selector:
+    app: notifications-service
+  ports:
+  - name: http
+    port: 8091
+    targetPort: 8091
+
+---
+# Currency Service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: currency-service
+  namespace: finacc
+  labels:
+    app: currency-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: currency-service
+  template:
+    metadata:
+      labels:
+        app: currency-service
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8092"
+    spec:
+      containers:
+      - name: currency-service
+        image: finacc/currency-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8092
+          name: http
+        env:
+        - name: PORT
+          value: "8092"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: currency-service
+  namespace: finacc
+  labels:
+    app: currency-service
+spec:
+  selector:
+    app: currency-service
+  ports:
+  - name: http
+    port: 8092
+    targetPort: 8092

@@ -1,0 +1,51 @@
+# FinAcc Kustomization Configuration
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: finacc
+
+resources:
+- namespace.yaml
+- api-gateway.yaml
+- identity-service.yaml
+- accounting-service.yaml
+- new-services.yaml
+- ingress.yaml
+
+commonLabels:
+  app.kubernetes.io/name: finacc
+  app.kubernetes.io/part-of: finacc
+
+vars:
+- name: NEO4J_URI
+  objref:
+    kind: ConfigMap
+    name: finacc-config
+    apiVersion: v1
+    fieldref:
+      fieldPath: data.NEO4J_URI
+
+configMapGenerator:
+- name: finacc-config
+ literais:
+  - LOG_LEVEL=INFO
+
+secretGenerator:
+- name: finacc-secrets
+  type: Opaque
+  envs:
+  - secrets.env
+
+images:
+- name: finacc/api-gateway
+  newTag: latest
+- name: finacc/identity-service
+  newTag: latest
+- name: finacc/accounting-service
+  newTag: latest
+- name: finacc/alerts-service
+  newTag: latest
+- name: finacc/notifications-service
+  newTag: latest
+- name: finacc/currency-service
+  newTag: latest

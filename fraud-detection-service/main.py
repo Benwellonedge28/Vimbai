@@ -7,7 +7,15 @@ from fraud_detection_service.database import init_db_schema, Neo4jConnector
 from fraud_detection_service.dependencies import get_db_session
 from fraud_detection_service.utils.auth import check_permission
 from fraud_detection_service.exceptions import NotFoundError, ConflictError, ValidationError, UnauthorizedError, ForbiddenError
-from fraud_detection_service.ml_model import FraudDetector
+
+# Try production model, fall back to basic if not available
+try:
+    from ml_model_production import create_fraud_detector
+    fraud_detector = create_fraud_detector()
+except ImportError:
+    from fraud_detection_service.ml_model import FraudDetector
+    fraud_detector = FraudDetector()
+
 import os
 from dotenv import load_dotenv
 from pydantic import ValidationError as PydanticValidationError
@@ -20,9 +28,6 @@ app = FastAPI(
     description="Detects and flags suspicious financial transactions using ML models.",
     version="0.1.0",
 )
-
-# Initialize ML Model
-fraud_detector = FraudDetector()
 
 @app.on_event("startup")
 async def startup_event():
@@ -136,3 +141,56 @@ async def update_fraud_flag_status(
 @app.get("/")
 async def read_root():
     return {"message": "FinAcc Fraud Detection Service is running!"}
+
+# --- Production ML Endpoints ---
+@app.get("/model/health")
+async def get_model_health():
+    """Get ML model health status"""
+    if hasattr(fraud_detector, 'get_service_health'):
+        return fraud_detector.get_service_health()
+    return {"status": "ready", "model_version": "v1.0-rule_based"}
+
+@app.get("/model/metrics")
+async def get_model_metrics():
+    """Get ML model performance metrics"""
+    if hasattr(fraud_detector, 'get_model_metrics'):
+        return fraud_detector.get_model_metrics()
+    return {"message": "Metrics not available for basic model"}
+
+@app.post("/model/ab-test/enable")
+async def enable_ab_testing(treatment_percentage: float = 0.1):
+    """Enable A/B testing for model comparison"""
+    if hasattr(fraud_detector, 'enable_ab_testing'):
+        fraud_detector.enable_ab_testing(treatment_percentage)
+        return {"status": "enabled", "treatment_percentage": treatment_percentage}
+    return {"status": "not_supported"}
+
+@app.post("/model/ab-test/disable")
+async def disable_ab_testing():
+    """Disable A/B testing"""
+    if hasattr(fraud_detector, 'disable_ab_testing'):
+        fraud_detector.disable_ab_testing()
+        return {"status": "disabled"}
+    return {"status": "not_supported"}
+
+@app.post("/analyze-transaction/batch")
+async def batch_analyze_transactions(
+    transactions: List[models.TransactionForFraudCheck],
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """Analyze multiple transactions in batch"""
+    results = fraud_detector.batch_predict(transactions)
+
+    # Create fraud flags for high-risk transactions
+    for result in results:
+        if result.get("fraud_score", 0) >= 0.5:
+            fraud_flag_create = models.FraudulentTransactionFlagCreate(
+                transaction_id=result["transaction_id"],
+                fraud_score=result["fraud_score"],
+                fraud_flag=result["fraud_flag"],
+                reason=result["reason"],
+                model_version=result.get("model_version", "v1.0")
+            )
+            await crud.create_fraud_flag(db_session, fraud_flag_create)
+
+    return {"total": len(transactions), "results": results}

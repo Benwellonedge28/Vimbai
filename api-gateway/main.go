@@ -181,6 +181,17 @@ func main() {
 		AllowHeaders: []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-User-ID", "X-Username", "X-User-Role", "X-User-Permissions"},
 	}))
 
+	// Rate limiting middleware (applied before auth)
+	if cfg.RateLimit.Enabled {
+		rateLimitConfig := middleware.RateLimitConfig{
+			RequestsPerSecond: cfg.RateLimit.RequestsPerSecond,
+			BurstSize:        cfg.RateLimit.BurstSize,
+			Enabled:          true,
+		}
+		e.Use(middleware.RateLimitMiddleware(rateLimitConfig))
+		log.Printf("Rate limiting enabled: %d req/s, burst: %d\n", cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.BurstSize)
+	}
+
 	// Global JWT Authentication Middleware
 	e.Use(middleware.AuthMiddleware(cfg))
 

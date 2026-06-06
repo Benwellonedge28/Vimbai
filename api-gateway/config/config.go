@@ -4,27 +4,46 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Route defines the configuration for a single microservice route
 type Route struct {
-	Path         string
-	TargetURL    string
-	AuthRequired bool
+	Path               string
+	TargetURL          string
+	AuthRequired       bool
+	RateLimitPerSecond int // Per-route rate limit override (0 = use default)
+	RateLimitBurst     int // Per-route burst override (0 = use default)
+}
+
+// RateLimitConfig holds global rate limiting configuration
+type RateLimitConfig struct {
+	Enabled           bool
+	RequestsPerSecond int
+	BurstSize         int
+	// Per-route overrides
+	RouteOverrides map[string]RouteRateLimit
+}
+
+// RouteRateLimit defines per-route rate limit settings
+type RouteRateLimit struct {
+	RequestsPerSecond int
+	BurstSize         int
 }
 
 // Config holds the entire application configuration
 type Config struct {
-	Port                int
-	JwtSecret           string
-	IdentityServiceURL  string
-	AccountingServiceURL string
-	FinanceServiceURL   string
-	MultimodalServiceURL string
-	BankingIntegrationServiceURL string
-	SupplyChainServiceURL string // RENAMED FROM InvoicingServiceURL
-	FraudDetectionServiceURL string
-	Routes              []Route
+	Port                          int
+	JwtSecret                     string
+	IdentityServiceURL            string
+	AccountingServiceURL          string
+	FinanceServiceURL             string
+	MultimodalServiceURL          string
+	BankingIntegrationServiceURL  string
+	SupplyChainServiceURL         string // RENAMED FROM InvoicingServiceURL
+	FraudDetectionServiceURL     string
+	Routes                        []Route
+	RateLimit                     RateLimitConfig
 }
 
 // LoadConfig loads configuration from environment variables
@@ -35,16 +54,27 @@ func LoadConfig() *Config {
 		port = 8081 // Default port
 	}
 
+	// Load rate limit configuration
+	rateLimitEnabled := getEnv("RATE_LIMIT_ENABLED", "true") == "true"
+	rateLimitRPS := getEnvInt("RATE_LIMIT_RPS", 100)
+	rateLimitBurst := getEnvInt("RATE_LIMIT_BURST", 200)
+
 	cfg := &Config{
-		Port:                port,
-		JwtSecret:           getEnv("JWT_SECRET", "your_super_secret_jwt_key"),
-		IdentityServiceURL:  getEnv("IDENTITY_SERVICE_URL", "http://localhost:8080"),
-		AccountingServiceURL: getEnv("ACCOUNTING_SERVICE_URL", "http://localhost:8000"),
-		FinanceServiceURL:   getEnv("FINANCE_SERVICE_URL", "http://localhost:8001"),
-		MultimodalServiceURL: getEnv("MULTIMODAL_SERVICE_URL", "http://localhost:8002"),
+		Port:                          port,
+		JwtSecret:                     getEnv("JWT_SECRET", "your_super_secret_jwt_key"),
+		IdentityServiceURL:            getEnv("IDENTITY_SERVICE_URL", "http://localhost:8080"),
+		AccountingServiceURL:          getEnv("ACCOUNTING_SERVICE_URL", "http://localhost:8000"),
+		FinanceServiceURL:            getEnv("FINANCE_SERVICE_URL", "http://localhost:8001"),
+		MultimodalServiceURL:         getEnv("MULTIMODAL_SERVICE_URL", "http://localhost:8002"),
 		BankingIntegrationServiceURL: getEnv("BANKING_INTEGRATION_SERVICE_URL", "http://localhost:8003"),
-		SupplyChainServiceURL: getEnv("SUPPLY_CHAIN_SERVICE_URL", "http://localhost:8004"), // RENAMED
-		FraudDetectionServiceURL: getEnv("FRAUD_DETECTION_SERVICE_URL", "http://localhost:8005"),
+		SupplyChainServiceURL:        getEnv("SUPPLY_CHAIN_SERVICE_URL", "http://localhost:8004"), // RENAMED
+		FraudDetectionServiceURL:     getEnv("FRAUD_DETECTION_SERVICE_URL", "http://localhost:8005"),
+		RateLimit: RateLimitConfig{
+			Enabled:           rateLimitEnabled,
+			RequestsPerSecond: rateLimitRPS,
+			BurstSize:         rateLimitBurst,
+			RouteOverrides:    loadRouteRateLimits(),
+		},
 	}
 
 	cfg.Routes = []Route{
@@ -82,4 +112,46 @@ func getEnv(key, defaultValue string) string {
 	}
 	log.Printf("Environment variable %s not set, using default value: %s", key, defaultValue)
 	return defaultValue
+}
+
+func getEnvInt(key string, defaultVal int) int {
+	if val := getEnv(key, ""); val != "" {
+		if intVal, err := strconv.Atoi(val); err == nil {
+			return intVal
+		}
+	}
+	return defaultVal
+}
+
+// loadRouteRateLimits loads per-route rate limit overrides from environment
+func loadRouteRateLimits() map[string]RouteRateLimit {
+	overrides := make(map[string]RouteRateLimit)
+
+	// Define stricter limits for sensitive endpoints
+	sensitiveRoutes := []string{
+		"/identity",
+		"/auth",
+		"/oauth",
+	}
+
+	for _, route := range sensitiveRoutes {
+		rps := getEnvInt("RATE_LIMIT_"+sanitizeEnvKey(route)+"_RPS", 10)
+		burst := getEnvInt("RATE_LIMIT_"+sanitizeEnvKey(route)+"_BURST", 20)
+		if rps > 0 || burst > 0 {
+			overrides[route] = RouteRateLimit{
+				RequestsPerSecond: rps,
+				BurstSize:         burst,
+			}
+		}
+	}
+
+	return overrides
+}
+
+// sanitizeEnvKey removes special characters for env var names
+func sanitizeEnvKey(key string) string {
+	result := strings.ReplaceAll(key, "-", "_")
+	result = strings.ReplaceAll(result, "/", "_")
+	result = strings.ToUpper(result)
+	return result
 }
