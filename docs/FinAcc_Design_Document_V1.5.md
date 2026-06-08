@@ -302,4 +302,137 @@ FinAcc will leverage a **Graph Database**, specifically **Neo4j Community Editio
 
 ---
 
+### **15. Complete Graph Data Model Reference**
+
+This section documents all implemented node types and relationships in the FinAcc Neo4j graph database.
+
+#### **15.1 Node Types**
+
+**Core Accounting Nodes:**
+- `User` - System user with authentication and permissions
+- `Account` - Chart of accounts entry (account_number, name, type, normal_balance)
+- `JournalEntry` - Financial transaction record (entry_date, description, status)
+- `JournalLine` - Individual debit/credit line within journal entry
+
+**Special Journal Nodes:**
+- `SalesJournalEntry` - Sales transaction records
+- `PurchasesJournalEntry` - Purchase transaction records
+- `CashReceiptsJournalEntry` - Cash incoming records
+- `CashDisbursementsJournalEntry` - Cash outgoing records
+- `SalesReturnsJournalEntry` - Sales return records
+- `PurchasesReturnsJournalEntry` - Purchase return records
+
+**Subsidiary Ledger Nodes:**
+- `PettyCashFund` - Petty cash fund management
+- `PettyCashEntry` - Individual petty cash transaction
+- `BankReconciliation` - Bank statement reconciliation records
+
+**Dimensional Accounting Nodes:**
+- `Project` - Project dimension for tracking expenses/revenues (project_code, project_name, budget_allocated, status)
+- `Fund` - Fund dimension for nonprofit/government accounting (fund_code, fund_name, fund_type, restriction_level, balance)
+- `Department` - Department dimension for organizational tracking (department_code, department_name, head_name, budget_allocated)
+- `Location` - Location dimension for geographic tracking (location_code, location_name, address, region)
+
+**Audit and Governance Nodes:**
+- `AuditEvent` - Immutable audit trail records (event_type, resource_type, resource_id, timestamp, user_id, user_email)
+
+**Incomplete Records System Nodes:**
+- `StatementOfAffairs` - Assets and liabilities at a point in time
+- `CapitalCalculation` - Capital changes over period
+- `ControlAccount` - Debtors/creditors control accounts
+- `ReceiptsPaymentsAccount` - Cash book summary
+
+**Scenario Modeling Nodes:**
+- `Scenario` - What-If analysis scenario (name, type, variables, assumptions)
+- `ModelingRule` - Rule for scenario evaluation (conditions, actions, priority)
+
+**Workflow Nodes:**
+- `WorkflowDefinition` - Workflow template (states, transitions, initial_state, final_states)
+- `WorkflowState` - State in workflow (name, type, assignable_roles)
+- `WorkflowTransition` - Transition between states (from_state, to_state, conditions, required_approvals)
+- `WorkflowInstance` - Active workflow instance (current_state, status, history)
+
+#### **15.2 Key Relationship Types**
+
+**Ownership Relationships:**
+- `(User)-[:OWNS_ACCOUNT]->(Account)` - User owns an account
+- `(User)-[:OWNS_JOURNAL_ENTRY]->(JournalEntry)` - User owns journal entry
+- `(User)-[:OWNS_PROJECT]->(Project)` - User owns project dimension
+- `(User)-[:OWNS_FUND]->(Fund)` - User owns fund dimension
+- `(User)-[:OWNS_DEPARTMENT]->(Department)` - User owns department dimension
+- `(User)-[:OWNS_LOCATION]->(Location)` - User owns location dimension
+- `(User)-[:PERFORMED]->(AuditEvent)` - User performed audit event
+
+**Financial Relationships:**
+- `(JournalEntry)-[:HAS_LINE]->(JournalLine)` - Entry has lines
+- `(JournalLine)-[:IMPACTS]->(Account)` - Line impacts account
+- `(JournalEntry)-[:POSTED_TO]->(Period)` - Entry posted to period
+- `(Account)-[:IS_CHILD_OF]->(Account)` - Account hierarchy
+
+**Dimension Relationships:**
+- `(JournalEntry)-[:LINKED_TO]->(Project)` - Entry linked to project
+- `(JournalEntry)-[:LINKED_TO]->(Fund)` - Entry linked to fund
+- `(JournalEntry)-[:LINKED_TO]->(Department)` - Entry linked to department
+- `(JournalEntry)-[:LINKED_TO]->(Location)` - Entry linked to location
+
+**Special Journal Relationships:**
+- `(SalesJournalEntry)-[:GENERATED_JOURNAL_ENTRY]->(JournalEntry)` - Sales generates JE
+- `(PurchasesJournalEntry)-[:GENERATED_JOURNAL_ENTRY]->(JournalEntry)` - Purchase generates JE
+- `(PettyCashEntry)-[:GENERATED_JOURNAL_ENTRY]->(JournalEntry)` - Petty cash generates JE
+- `(PettyCashEntry)-[:FROM_FUND]->(PettyCashFund)` - Entry from fund
+
+**Audit Relationships:**
+- `(User)-[:PERFORMED]->(AuditEvent)` - User performed action
+- `(AuditEvent)-[:AFFECTS]->(JournalEntry)` - Audit event affects entry
+
+**Workflow Relationships:**
+- `(WorkflowInstance)-[:DEFINES]->(WorkflowDefinition)` - Instance uses definition
+- `(WorkflowInstance)-[:CURRENTLY_IN]->(WorkflowState)` - Current state
+
+#### **15.3 Indexes and Constraints**
+
+**Constraints (ensure data integrity):**
+- `Account.account_number` - UNIQUE
+- `Account.account_name` - UNIQUE
+- `AuditEvent.id` - UNIQUE
+- `Project.id` - UNIQUE, `Project.project_code` - UNIQUE
+- `Fund.id` - UNIQUE, `Fund.fund_code` - UNIQUE
+- `Department.id` - UNIQUE, `Department.department_code` - UNIQUE
+- `Location.id` - UNIQUE, `Location.location_code` - UNIQUE
+
+**Indexes (optimize query performance):**
+- `AuditEvent(resource_id, resource_type)` - Fast audit lookups
+- `AuditEvent(user_id, timestamp)` - User activity tracking
+- `AuditEvent(event_type)` - Event filtering
+- `JournalEntry(entry_date)` - Date-based queries
+- `JournalEntry(status)` - Status filtering
+
+#### **15.4 Example Graph Queries**
+
+**Get all entries for a project with variance:**
+```cypher
+MATCH (p:Project {project_code: 'PROJ001'})<-[:LINKED_TO]-(je:JournalEntry)
+WHERE je.entry_date >= datetime('2026-01-01') AND je.entry_date < datetime('2026-04-01')
+OPTIONAL MATCH (je)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account)
+RETURN p.project_name, je.entry_date, je.description, a.account_name, jl.debit, jl.credit
+ORDER BY je.entry_date
+```
+
+**Audit trail for a journal entry:**
+```cypher
+MATCH (ae:AuditEvent {resource_type: 'JournalEntry', resource_id: $je_id})
+MATCH (u:User)-[:PERFORMED]->(ae)
+RETURN ae.event_type, ae.timestamp, u.email, ae.action_details
+ORDER BY ae.timestamp DESC
+```
+
+**Dimensional reporting by department:**
+```cypher
+MATCH (d:Department {department_code: 'DEPT001'})<-[:LINKED_TO]-(je:JournalEntry)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account)
+WHERE je.status = 'posted'
+RETURN d.department_name, a.account_type, SUM(jl.debit) as total_debits, SUM(jl.credit) as total_credits
+```
+
+---
+
 This FinAcc V1.5 design document represents a cutting-edge approach to financial management, combining automation, multimodal input, robust security, comprehensive accounting support, offline resilience, and the power of graph databases for ultimate flexibility and insight.
