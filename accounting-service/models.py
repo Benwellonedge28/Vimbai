@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, condecimal, validator
 from typing import Optional, List, Literal, Dict, Any, Union
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 
 # --- Account Models ---
@@ -966,3 +966,191 @@ class ErrorResponse(BaseModel):
     detail: str
     code: Optional[str] = None
     status_code: int = 500
+
+
+# =============================================================================
+# IMMUTABLE AUDIT TRAIL - Graph Relationships
+# Every change to financial data is recorded as a new Audit_Event node
+# =============================================================================
+
+class AuditEventType(str, Enum) if 'Enum' in dir() else str:
+    """Types of audit events"""
+    CREATED = "created"
+    UPDATED = "updated"
+    DELETED = "deleted"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    POSTED = "posted"
+    VOIDED = "voided"
+    RECONCILED = "reconciled"
+    EXPORTED = "exported"
+
+class AuditEventBase(BaseModel):
+    """Base model for audit events - immutable record of all changes"""
+    event_type: Literal["created", "updated", "deleted", "approved", "rejected", "posted", "voided", "reconciled", "exported"]
+    resource_type: str = Field(..., description="Type of resource (Account, JournalEntry, etc.)")
+    resource_id: str = Field(..., description="ID of the affected resource")
+    action_details: Optional[Dict[str, Any]] = Field(None, description="Details of what changed")
+    ip_address: Optional[str] = Field(None, description="IP address of the user")
+    user_agent: Optional[str] = Field(None, description="User agent string")
+
+class AuditEventInDB(AuditEventBase):
+    """Full audit event as stored in database (immutable)"""
+    id: str = Field(..., description="Unique audit event ID")
+    user_id: str = Field(..., description="User who performed the action")
+    user_email: str = Field(..., description="Email of the user")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="When the action occurred")
+
+    class Config:
+        from_attributes = True
+
+class AuditTrailResponse(BaseModel):
+    """Response containing audit trail for a resource"""
+    resource_id: str
+    resource_type: str
+    events: List[AuditEventInDB]
+    total_events: int
+
+
+# =============================================================================
+# DIMENSIONAL ACCOUNTING - First-class nodes for dimensions
+# Dimensions like Project, Fund, Department, Location are modeled as nodes
+# =============================================================================
+
+class DimensionType(str, Enum) if 'Enum' in dir() else str:
+    """Types of dimensions"""
+    PROJECT = "project"
+    FUND = "fund"
+    DEPARTMENT = "department"
+    LOCATION = "location"
+    CUSTOMER = "customer"
+    VENDOR = "vendor"
+    PRODUCT = "product"
+    COST_CENTER = "cost_center"
+
+class ProjectDimensionBase(BaseModel):
+    """Project dimension - for tracking expenses/revenues by project"""
+    project_code: str = Field(..., max_length=50, description="Unique project code")
+    project_name: str = Field(..., max_length=200, description="Project name")
+    project_manager: Optional[str] = Field(None, max_length=200, description="Project manager name")
+    start_date: Optional[date] = Field(None, description="Project start date")
+    end_date: Optional[date] = Field(None, description="Project end date")
+    budget_allocated: Optional[Decimal] = Field(None, description="Total budget allocated")
+    status: Literal["planning", "active", "on_hold", "completed", "cancelled"] = Field("planning", description="Project status")
+    description: Optional[str] = Field(None, max_length=500, description="Project description")
+    parent_project_id: Optional[str] = Field(None, description="Parent project for hierarchical projects")
+
+class ProjectDimensionCreate(ProjectDimensionBase):
+    pass
+
+class ProjectDimensionInDB(ProjectDimensionBase):
+    id: str = Field(..., description="Unique project dimension ID")
+    user_id: str = Field(..., description="User who created this project")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+
+class FundDimensionBase(BaseModel):
+    """Fund dimension - for nonprofit/government fund accounting"""
+    fund_code: str = Field(..., max_length=50, description="Unique fund code")
+    fund_name: str = Field(..., max_length=200, description="Fund name")
+    fund_type: Literal["general", "special_revenue", "capital_projects", "enterprise", "internal_service", "trust", "agency"] = Field("general", description="Type of fund")
+    restriction_level: Literal["restricted", "unrestricted", "temporarily_restricted", "permanently_restricted"] = Field("unrestricted", description="Fund restriction level")
+    balance: Decimal = Field(Decimal('0.00'), description="Current fund balance")
+    budget_allocated: Optional[Decimal] = Field(None, description="Total budget allocated to fund")
+    parent_fund_id: Optional[str] = Field(None, description="Parent fund for hierarchical funds")
+    description: Optional[str] = Field(None, max_length=500, description="Fund description")
+
+class FundDimensionCreate(FundDimensionBase):
+    pass
+
+class FundDimensionInDB(FundDimensionBase):
+    id: str = Field(..., description="Unique fund dimension ID")
+    user_id: str = Field(..., description="User who created this fund")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+
+class DepartmentDimensionBase(BaseModel):
+    """Department dimension - for tracking by organizational unit"""
+    department_code: str = Field(..., max_length=50, description="Unique department code")
+    department_name: str = Field(..., max_length=200, description="Department name")
+    head_name: Optional[str] = Field(None, max_length=200, description="Department head name")
+    cost_center_code: Optional[str] = Field(None, max_length=50, description="Associated cost center code")
+    parent_department_id: Optional[str] = Field(None, description="Parent department for hierarchical org structure")
+    budget_allocated: Optional[Decimal] = Field(None, description="Department budget")
+    description: Optional[str] = Field(None, max_length=500, description="Department description")
+
+class DepartmentDimensionCreate(DepartmentDimensionBase):
+    pass
+
+class DepartmentDimensionInDB(DepartmentDimensionBase):
+    id: str = Field(..., description="Unique department dimension ID")
+    user_id: str = Field(..., description="User who created this department")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+
+class LocationDimensionBase(BaseModel):
+    """Location dimension - for geographic/physical location tracking"""
+    location_code: str = Field(..., max_length=50, description="Unique location code")
+    location_name: str = Field(..., max_length=200, description="Location name")
+    address: Optional[str] = Field(None, max_length=500, description="Full address")
+    city: Optional[str] = Field(None, max_length=100, description="City")
+    state: Optional[str] = Field(None, max_length=100, description="State/Province")
+    country: Optional[str] = Field(None, max_length=100, description="Country")
+    postal_code: Optional[str] = Field(None, max_length=20, description="Postal/ZIP code")
+    region: Optional[str] = Field(None, max_length=100, description="Region for reporting")
+
+class LocationDimensionCreate(LocationDimensionBase):
+    pass
+
+class LocationDimensionInDB(LocationDimensionBase):
+    id: str = Field(..., description="Unique location dimension ID")
+    user_id: str = Field(..., description="User who created this location")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+
+class JournalEntryDimensionLink(BaseModel):
+    """Link model for attaching dimensions to journal entry lines"""
+    dimension_type: Literal["project", "fund", "department", "location", "customer", "vendor", "product", "cost_center"]
+    dimension_id: str = Field(..., description="ID of the dimension")
+
+class JournalEntryWithDimensions(BaseModel):
+    """Extended journal entry model with dimension support"""
+    entry_date: datetime = Field(default_factory=datetime.utcnow)
+    description: str = Field(..., max_length=1000)
+    reference_number: Optional[str] = Field(None, max_length=100)
+    source_module: str = Field(..., max_length=50)
+    lines: List[JournalLineBase]
+    status: Literal['pending', 'posted', 'reviewed', 'voided'] = Field('pending')
+    dimensions: Optional[List[JournalEntryDimensionLink]] = Field(None, description="Dimensions to attach to the journal entry")
+    project_id: Optional[str] = Field(None, description="Shortcut: link to a project dimension")
+    fund_id: Optional[str] = Field(None, description="Shortcut: link to a fund dimension")
+    department_id: Optional[str] = Field(None, description="Shortcut: link to a department dimension")
+    location_id: Optional[str] = Field(None, description="Shortcut: link to a location dimension")
+
+
+class BudgetItemWithDimensions(BaseModel):
+    """Budget item with dimension support"""
+    budget_id: str
+    account_number: str
+    period_start: date
+    period_end: date
+    allocated_amount: Decimal
+    spent_amount: Decimal = Decimal('0.00')
+    variance_threshold_percent: float = 10.0
+    dimensions: Optional[List[JournalEntryDimensionLink]] = Field(None)

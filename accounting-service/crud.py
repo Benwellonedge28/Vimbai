@@ -30,7 +30,14 @@ from accounting_service.models import (
     ControlAccountInDB, ControlAccountEntryInDB, ControlAccountEntryCreate,
     ReceiptsPaymentsAccountInDB, ReceiptsPaymentsEntryInDB, ReceiptsPaymentsEntryCreate,
     SingleEntryConversionInDB, SingleEntryConversionCreate,
-    ProfitEstimationInDB, ProfitEstimationCreate
+    ProfitEstimationInDB, ProfitEstimationCreate,
+    # Audit Trail
+    AuditEventInDB, AuditTrailResponse,
+    # Dimensional Accounting
+    ProjectDimensionCreate, ProjectDimensionInDB,
+    FundDimensionCreate, FundDimensionInDB,
+    DepartmentDimensionCreate, DepartmentDimensionInDB,
+    LocationDimensionCreate, LocationDimensionInDB
 )
 from datetime import datetime, timedelta
 import uuid
@@ -3028,3 +3035,556 @@ async def get_profit_estimations(session: AsyncSession, user_id: str) -> List[Pr
             notes=pe["notes"]
         ))
     return estimations
+
+
+# ============================================================
+# IMMUTABLE AUDIT TRAIL CRUD
+# Every change to financial data is recorded as an Audit_Event node
+# linked to the affected data and the User who made the change
+# ============================================================
+
+async def create_audit_event(
+    session: AsyncSession,
+    user_id: str,
+    user_email: str,
+    event_type: str,
+    resource_type: str,
+    resource_id: str,
+    action_details: Optional[Dict[str, Any]] = None,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None
+) -> AuditEventInDB:
+    """Create an immutable audit event - records a change to any financial data"""
+    audit_id = str(uuid.uuid4())
+    timestamp = datetime.utcnow()
+
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (ae:AuditEvent {
+        id: $id,
+        event_type: $event_type,
+        resource_type: $resource_type,
+        resource_id: $resource_id,
+        action_details: $action_details,
+        ip_address: $ip_address,
+        user_agent: $user_agent,
+        user_id: $user_id,
+        user_email: $user_email,
+        timestamp: datetime($timestamp)
+    })
+    CREATE (u)-[:PERFORMED]->(ae)
+    RETURN ae
+    """
+    params = {
+        "id": audit_id,
+        "user_id": user_id,
+        "user_email": user_email,
+        "event_type": event_type,
+        "resource_type": resource_type,
+        "resource_id": resource_id,
+        "action_details": str(action_details) if action_details else None,
+        "ip_address": ip_address,
+        "user_agent": user_agent,
+        "timestamp": timestamp.isoformat()
+    }
+    result = await session.run(query, params)
+    record = await result.single()
+    ae = record["ae"]
+
+    return AuditEventInDB(
+        id=ae["id"],
+        user_id=ae["user_id"],
+        user_email=ae["user_email"],
+        event_type=ae["event_type"],
+        resource_type=ae["resource_type"],
+        resource_id=ae["resource_id"],
+        action_details=eval(ae["action_details"]) if ae["action_details"] else None,
+        ip_address=ae["ip_address"],
+        user_agent=ae["user_agent"],
+        timestamp=datetime.fromisoformat(ae["timestamp"].iso_format())
+    )
+
+
+async def get_audit_trail(
+    session: AsyncSession,
+    resource_type: str,
+    resource_id: str,
+    limit: int = 100
+) -> AuditTrailResponse:
+    """Get complete audit trail for a specific resource"""
+    query = """
+    MATCH (ae:AuditEvent {resource_type: $resource_type, resource_id: $resource_id})
+    MATCH (u:User)-[:PERFORMED]->(ae)
+    RETURN ae, u.email as user_email
+    ORDER BY ae.timestamp DESC
+    LIMIT $limit
+    """
+    result = await session.run(query, resource_type=resource_type, resource_id=resource_id, limit=limit)
+
+    events = []
+    async for record in result:
+        ae = record["ae"]
+        events.append(AuditEventInDB(
+            id=ae["id"],
+            user_id=ae["user_id"],
+            user_email=record["user_email"],
+            event_type=ae["event_type"],
+            resource_type=ae["resource_type"],
+            resource_id=ae["resource_id"],
+            action_details=eval(ae["action_details"]) if ae["action_details"] else None,
+            ip_address=ae["ip_address"],
+            user_agent=ae["user_agent"],
+            timestamp=datetime.fromisoformat(ae["timestamp"].iso_format())
+        ))
+
+    return AuditTrailResponse(
+        resource_id=resource_id,
+        resource_type=resource_type,
+        events=events,
+        total_events=len(events)
+    )
+
+
+async def get_user_audit_history(
+    session: AsyncSession,
+    user_id: str,
+    event_type: Optional[str] = None,
+    limit: int = 100
+) -> List[AuditEventInDB]:
+    """Get audit history for a specific user"""
+    type_filter = "AND ae.event_type = $event_type" if event_type else ""
+
+    query = f"""
+    MATCH (u:User {{id: $user_id}})-[:PERFORMED]->(ae:AuditEvent)
+    WHERE true {type_filter}
+    RETURN ae
+    ORDER BY ae.timestamp DESC
+    LIMIT $limit
+    """
+    params = {"user_id": user_id, "limit": limit}
+    if event_type:
+        params["event_type"] = event_type
+
+    result = await session.run(query, params)
+    events = []
+    async for record in result:
+        ae = record["ae"]
+        events.append(AuditEventInDB(
+            id=ae["id"],
+            user_id=ae["user_id"],
+            user_email=ae["user_email"],
+            event_type=ae["event_type"],
+            resource_type=ae["resource_type"],
+            resource_id=ae["resource_id"],
+            action_details=eval(ae["action_details"]) if ae["action_details"] else None,
+            ip_address=ae["ip_address"],
+            user_agent=ae["user_agent"],
+            timestamp=datetime.fromisoformat(ae["timestamp"].iso_format())
+        ))
+    return events
+
+
+# ============================================================
+# DIMENSIONAL ACCOUNTING CRUD
+# Dimensions like Project, Fund, Department, Location are first-class nodes
+# ============================================================
+
+# --- Project Dimension CRUD ---
+
+async def create_project_dimension(session: AsyncSession, user_id: str, project: ProjectDimensionCreate) -> ProjectDimensionInDB:
+    """Create a Project dimension for tracking expenses/revenues by project"""
+    project_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (p:Project {
+        id: $id,
+        project_code: $project_code,
+        project_name: $project_name,
+        project_manager: $project_manager,
+        start_date: $start_date,
+        end_date: $end_date,
+        budget_allocated: $budget_allocated,
+        status: $status,
+        description: $description,
+        parent_project_id: $parent_project_id,
+        created_at: datetime($created_at),
+        updated_at: datetime($updated_at)
+    })
+    CREATE (u)-[:OWNS_PROJECT]->(p)
+    RETURN p
+    """
+    params = {
+        "id": project_id,
+        "user_id": user_id,
+        "project_code": project.project_code,
+        "project_name": project.project_name,
+        "project_manager": project.project_manager,
+        "start_date": project.start_date.isoformat() if project.start_date else None,
+        "end_date": project.end_date.isoformat() if project.end_date else None,
+        "budget_allocated": float(project.budget_allocated) if project.budget_allocated else None,
+        "status": project.status,
+        "description": project.description,
+        "parent_project_id": project.parent_project_id,
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat()
+    }
+    result = await session.run(query, params)
+    record = await result.single()
+    p = record["p"]
+
+    return ProjectDimensionInDB(
+        id=p["id"],
+        user_id=user_id,
+        project_code=p["project_code"],
+        project_name=p["project_name"],
+        project_manager=p["project_manager"],
+        start_date=datetime.fromisoformat(p["start_date"].iso_format()).date() if p["start_date"] else None,
+        end_date=datetime.fromisoformat(p["end_date"].iso_format()).date() if p["end_date"] else None,
+        budget_allocated=Decimal(str(p["budget_allocated"])) if p["budget_allocated"] else None,
+        status=p["status"],
+        description=p["description"],
+        parent_project_id=p["parent_project_id"],
+        created_at=datetime.fromisoformat(p["created_at"].iso_format()),
+        updated_at=datetime.fromisoformat(p["updated_at"].iso_format())
+    )
+
+
+async def get_projects(session: AsyncSession, user_id: str, status: Optional[str] = None) -> List[ProjectDimensionInDB]:
+    """Get all projects"""
+    status_filter = "AND p.status = $status" if status else ""
+    query = f"""
+    MATCH (u:User {{id: $user_id}})-[:OWNS_PROJECT]->(p:Project)
+    WHERE true {status_filter}
+    RETURN p
+    ORDER BY p.project_code
+    """
+    params = {"user_id": user_id}
+    if status:
+        params["status"] = status
+
+    result = await session.run(query, params)
+    projects = []
+    async for record in result:
+        p = record["p"]
+        projects.append(ProjectDimensionInDB(
+            id=p["id"],
+            user_id=user_id,
+            project_code=p["project_code"],
+            project_name=p["project_name"],
+            project_manager=p["project_manager"],
+            start_date=datetime.fromisoformat(p["start_date"].iso_format()).date() if p["start_date"] else None,
+            end_date=datetime.fromisoformat(p["end_date"].iso_format()).date() if p["end_date"] else None,
+            budget_allocated=Decimal(str(p["budget_allocated"])) if p["budget_allocated"] else None,
+            status=p["status"],
+            description=p["description"],
+            parent_project_id=p["parent_project_id"],
+            created_at=datetime.fromisoformat(p["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(p["updated_at"].iso_format())
+        ))
+    return projects
+
+
+# --- Fund Dimension CRUD ---
+
+async def create_fund_dimension(session: AsyncSession, user_id: str, fund: FundDimensionCreate) -> FundDimensionInDB:
+    """Create a Fund dimension for nonprofit/government fund accounting"""
+    fund_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (f:Fund {
+        id: $id,
+        fund_code: $fund_code,
+        fund_name: $fund_name,
+        fund_type: $fund_type,
+        restriction_level: $restriction_level,
+        balance: toFloat($balance),
+        budget_allocated: $budget_allocated,
+        parent_fund_id: $parent_fund_id,
+        description: $description,
+        created_at: datetime($created_at),
+        updated_at: datetime($updated_at)
+    })
+    CREATE (u)-[:OWNS_FUND]->(f)
+    RETURN f
+    """
+    params = {
+        "id": fund_id,
+        "user_id": user_id,
+        "fund_code": fund.fund_code,
+        "fund_name": fund.fund_name,
+        "fund_type": fund.fund_type,
+        "restriction_level": fund.restriction_level,
+        "balance": float(fund.balance),
+        "budget_allocated": float(fund.budget_allocated) if fund.budget_allocated else None,
+        "parent_fund_id": fund.parent_fund_id,
+        "description": fund.description,
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat()
+    }
+    result = await session.run(query, params)
+    record = await result.single()
+    f = record["f"]
+
+    return FundDimensionInDB(
+        id=f["id"],
+        user_id=user_id,
+        fund_code=f["fund_code"],
+        fund_name=f["fund_name"],
+        fund_type=f["fund_type"],
+        restriction_level=f["restriction_level"],
+        balance=Decimal(str(f["balance"])),
+        budget_allocated=Decimal(str(f["budget_allocated"])) if f["budget_allocated"] else None,
+        parent_fund_id=f["parent_fund_id"],
+        description=f["description"],
+        created_at=datetime.fromisoformat(f["created_at"].iso_format()),
+        updated_at=datetime.fromisoformat(f["updated_at"].iso_format())
+    )
+
+
+async def get_funds(session: AsyncSession, user_id: str, fund_type: Optional[str] = None) -> List[FundDimensionInDB]:
+    """Get all funds"""
+    type_filter = "AND f.fund_type = $fund_type" if fund_type else ""
+    query = f"""
+    MATCH (u:User {{id: $user_id}})-[:OWNS_FUND]->(f:Fund)
+    WHERE true {type_filter}
+    RETURN f
+    ORDER BY f.fund_code
+    """
+    params = {"user_id": user_id}
+    if fund_type:
+        params["fund_type"] = fund_type
+
+    result = await session.run(query, params)
+    funds = []
+    async for record in result:
+        f = record["f"]
+        funds.append(FundDimensionInDB(
+            id=f["id"],
+            user_id=user_id,
+            fund_code=f["fund_code"],
+            fund_name=f["fund_name"],
+            fund_type=f["fund_type"],
+            restriction_level=f["restriction_level"],
+            balance=Decimal(str(f["balance"])),
+            budget_allocated=Decimal(str(f["budget_allocated"])) if f["budget_allocated"] else None,
+            parent_fund_id=f["parent_fund_id"],
+            description=f["description"],
+            created_at=datetime.fromisoformat(f["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(f["updated_at"].iso_format())
+        ))
+    return funds
+
+
+# --- Department Dimension CRUD ---
+
+async def create_department_dimension(session: AsyncSession, user_id: str, dept: DepartmentDimensionCreate) -> DepartmentDimensionInDB:
+    """Create a Department dimension for tracking by organizational unit"""
+    dept_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (d:Department {
+        id: $id,
+        department_code: $department_code,
+        department_name: $department_name,
+        head_name: $head_name,
+        cost_center_code: $cost_center_code,
+        parent_department_id: $parent_department_id,
+        budget_allocated: $budget_allocated,
+        description: $description,
+        created_at: datetime($created_at),
+        updated_at: datetime($updated_at)
+    })
+    CREATE (u)-[:OWNS_DEPARTMENT]->(d)
+    RETURN d
+    """
+    params = {
+        "id": dept_id,
+        "user_id": user_id,
+        "department_code": dept.department_code,
+        "department_name": dept.department_name,
+        "head_name": dept.head_name,
+        "cost_center_code": dept.cost_center_code,
+        "parent_department_id": dept.parent_department_id,
+        "budget_allocated": float(dept.budget_allocated) if dept.budget_allocated else None,
+        "description": dept.description,
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat()
+    }
+    result = await session.run(query, params)
+    record = await result.single()
+    d = record["d"]
+
+    return DepartmentDimensionInDB(
+        id=d["id"],
+        user_id=user_id,
+        department_code=d["department_code"],
+        department_name=d["department_name"],
+        head_name=d["head_name"],
+        cost_center_code=d["cost_center_code"],
+        parent_department_id=d["parent_department_id"],
+        budget_allocated=Decimal(str(d["budget_allocated"])) if d["budget_allocated"] else None,
+        description=d["description"],
+        created_at=datetime.fromisoformat(d["created_at"].iso_format()),
+        updated_at=datetime.fromisoformat(d["updated_at"].iso_format())
+    )
+
+
+async def get_departments(session: AsyncSession, user_id: str) -> List[DepartmentDimensionInDB]:
+    """Get all departments"""
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_DEPARTMENT]->(d:Department)
+    RETURN d
+    ORDER BY d.department_code
+    """
+    result = await session.run(query, user_id=user_id)
+    departments = []
+    async for record in result:
+        d = record["d"]
+        departments.append(DepartmentDimensionInDB(
+            id=d["id"],
+            user_id=user_id,
+            department_code=d["department_code"],
+            department_name=d["department_name"],
+            head_name=d["head_name"],
+            cost_center_code=d["cost_center_code"],
+            parent_department_id=d["parent_department_id"],
+            budget_allocated=Decimal(str(d["budget_allocated"])) if d["budget_allocated"] else None,
+            description=d["description"],
+            created_at=datetime.fromisoformat(d["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(d["updated_at"].iso_format())
+        ))
+    return departments
+
+
+# --- Location Dimension CRUD ---
+
+async def create_location_dimension(session: AsyncSession, user_id: str, loc: LocationDimensionCreate) -> LocationDimensionInDB:
+    """Create a Location dimension for geographic/physical location tracking"""
+    loc_id = str(uuid.uuid4())
+    created_at = datetime.utcnow()
+
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (l:Location {
+        id: $id,
+        location_code: $location_code,
+        location_name: $location_name,
+        address: $address,
+        city: $city,
+        state: $state,
+        country: $country,
+        postal_code: $postal_code,
+        region: $region,
+        created_at: datetime($created_at),
+        updated_at: datetime($updated_at)
+    })
+    CREATE (u)-[:OWNS_LOCATION]->(l)
+    RETURN l
+    """
+    params = {
+        "id": loc_id,
+        "user_id": user_id,
+        "location_code": loc.location_code,
+        "location_name": loc.location_name,
+        "address": loc.address,
+        "city": loc.city,
+        "state": loc.state,
+        "country": loc.country,
+        "postal_code": loc.postal_code,
+        "region": loc.region,
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat()
+    }
+    result = await session.run(query, params)
+    record = await result.single()
+    l = record["l"]
+
+    return LocationDimensionInDB(
+        id=l["id"],
+        user_id=user_id,
+        location_code=l["location_code"],
+        location_name=l["location_name"],
+        address=l["address"],
+        city=l["city"],
+        state=l["state"],
+        country=l["country"],
+        postal_code=l["postal_code"],
+        region=l["region"],
+        created_at=datetime.fromisoformat(l["created_at"].iso_format()),
+        updated_at=datetime.fromisoformat(l["updated_at"].iso_format())
+    )
+
+
+async def get_locations(session: AsyncSession, user_id: str, region: Optional[str] = None) -> List[LocationDimensionInDB]:
+    """Get all locations"""
+    region_filter = "AND l.region = $region" if region else ""
+    query = f"""
+    MATCH (u:User {{id: $user_id}})-[:OWNS_LOCATION]->(l:Location)
+    WHERE true {region_filter}
+    RETURN l
+    ORDER BY l.location_code
+    """
+    params = {"user_id": user_id}
+    if region:
+        params["region"] = region
+
+    result = await session.run(query, params)
+    locations = []
+    async for record in result:
+        l = record["l"]
+        locations.append(LocationDimensionInDB(
+            id=l["id"],
+            user_id=user_id,
+            location_code=l["location_code"],
+            location_name=l["location_name"],
+            address=l["address"],
+            city=l["city"],
+            state=l["state"],
+            country=l["country"],
+            postal_code=l["postal_code"],
+            region=l["region"],
+            created_at=datetime.fromisoformat(l["created_at"].iso_format()),
+            updated_at=datetime.fromisoformat(l["updated_at"].iso_format())
+        ))
+    return locations
+
+
+# --- Journal Entry Dimension Linkage ---
+
+async def link_journal_entry_to_dimension(
+    session: AsyncSession,
+    journal_entry_id: str,
+    dimension_type: str,
+    dimension_id: str
+) -> bool:
+    """Link a journal entry to a dimension (project, fund, department, location)"""
+    query = """
+    MATCH (je:JournalEntry {id: $journal_entry_id})
+    MATCH (d:Project {id: $dimension_id}) WHERE $dimension_type = 'project'
+    CREATE (je)-[:LINKED_TO]->(d)
+    RETURN true as linked
+    UNION
+    MATCH (je:JournalEntry {id: $journal_entry_id})
+    MATCH (d:Fund {id: $dimension_id}) WHERE $dimension_type = 'fund'
+    CREATE (je)-[:LINKED_TO]->(d)
+    RETURN true as linked
+    UNION
+    MATCH (je:JournalEntry {id: $journal_entry_id})
+    MATCH (d:Department {id: $dimension_id}) WHERE $dimension_type = 'department'
+    CREATE (je)-[:LINKED_TO]->(d)
+    RETURN true as linked
+    UNION
+    MATCH (je:JournalEntry {id: $journal_entry_id})
+    MATCH (d:Location {id: $dimension_id}) WHERE $dimension_type = 'location'
+    CREATE (je)-[:LINKED_TO]->(d)
+    RETURN true as linked
+    """
+    result = await session.run(query, journal_entry_id=journal_entry_id, dimension_type=dimension_type, dimension_id=dimension_id)
+    record = await result.single()
+    return record is not None and record.get("linked", False)
