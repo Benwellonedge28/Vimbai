@@ -47,8 +47,8 @@ def _from_neo4j_props(node_props: Dict[str, Any], model_class: BaseModel) -> Bas
 # --- WorkflowDefinition CRUD ---
 async def create_workflow_definition(session: AsyncSession, definition_data: WorkflowDefinitionCreate) -> WorkflowDefinitionInDB:
     definition_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     props = _to_neo4j_props(definition_data)
     props["id"] = definition_id
@@ -108,7 +108,7 @@ async def update_workflow_definition(session: AsyncSession, definition_id: str, 
     if not update_fields:
         return await get_workflow_definition(session, definition_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     # Convert nested models to JSON string before update
     for key, value in update_fields.items():
         if isinstance(value, list) and all(isinstance(item, WorkflowStep) for item in value):
@@ -145,8 +145,8 @@ async def delete_workflow_definition(session: AsyncSession, definition_id: str) 
 # --- WorkflowInstance CRUD ---
 async def create_workflow_instance(session: AsyncSession, instance_data: WorkflowInstanceCreate) -> WorkflowInstanceInDB:
     instance_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     props = _to_neo4j_props(instance_data)
     props["id"] = instance_id
@@ -198,7 +198,7 @@ async def update_workflow_instance(session: AsyncSession, instance_id: str, inst
     if not update_fields:
         return await get_workflow_instance(session, instance_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     # Convert nested models to JSON string before update
     for key, value in update_fields.items():
         if isinstance(value, list) and all(isinstance(item, WorkflowTaskStatus) for item in value):

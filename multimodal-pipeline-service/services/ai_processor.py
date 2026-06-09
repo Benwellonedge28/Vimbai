@@ -46,7 +46,7 @@ class AIProcessor:
         # Update status to processing
         await crud.update_multimodal_processing_task(self.db_session, task_id, models.MultimodalProcessingTaskUpdate(
             status="processing",
-            processing_start_time=datetime.utcnow()
+            processing_start_time=datetime.now(timezone.utc)
         ))
 
         try:
@@ -77,7 +77,7 @@ class AIProcessor:
                                   result_update.audio_result.ai_confidence if result_update.audio_result else 0.0)
             
             result_update.status = "ai_extracted" if overall_confidence > 0.9 else "review_pending"
-            result_update.processing_end_time = datetime.utcnow()
+            result_update.processing_end_time = datetime.now(timezone.utc)
             
             await crud.update_multimodal_processing_task(self.db_session, task_id, result_update)
             print(f"AIProcessor: Task {task_id} processing completed with status {result_update.status}.")
@@ -87,5 +87,5 @@ class AIProcessor:
             await crud.update_multimodal_processing_task(self.db_session, task_id, models.MultimodalProcessingTaskUpdate(
                 status="failed",
                 errors=[str(e)],
-                processing_end_time=datetime.utcnow()
+                processing_end_time=datetime.now(timezone.utc)
             ))

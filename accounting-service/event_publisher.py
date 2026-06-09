@@ -61,7 +61,7 @@ async def publish_event(
     """
     event_data = {
         "event_type": event_type,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "source_service": "accounting-service",
         "payload": payload,
         "metadata": {
@@ -147,7 +147,7 @@ async def publish_journal_entry_posted(
     payload = {
         "journal_entry_id": journal_entry_id,
         "status": "posted",
-        "posted_at": datetime.utcnow().isoformat()
+        "posted_at": datetime.now(timezone.utc).isoformat()
     }
     return await publish_event(
         EventType.JOURNAL_ENTRY_POSTED,
@@ -211,7 +211,7 @@ async def publish_fraud_alert(
         "journal_entry_id": journal_entry_id,
         "risk_score": risk_score,
         "risk_factors": risk_factors,
-        "alert_timestamp": datetime.utcnow().isoformat()
+        "alert_timestamp": datetime.now(timezone.utc).isoformat()
     }
     return await publish_event(
         EventType.FRAUD_ALERT,

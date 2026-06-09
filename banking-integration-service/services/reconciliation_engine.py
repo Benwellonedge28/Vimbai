@@ -1,6 +1,6 @@
 import uuid
 from typing import List, Dict, Any, Optional
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timezone, timedelta
 from neo4j import AsyncSession
 from banking_integration_service import crud, models
 # from accounting_service.crud import get_journal_entry_by_id # Assuming accounting_service.crud is available
@@ -44,8 +44,8 @@ class ReconciliationEngine:
                 description="Mock JE for bank transaction",
                 sourceModule="Banking",
                 lines=[], # Simplified, real JE has lines
-                createdAt=datetime.utcnow(),
-                updatedAt=datetime.utcnow(),
+                createdAt=datetime.now(timezone.utc),
+                updatedAt=datetime.now(timezone.utc),
             )
         ]
 
@@ -67,8 +67,8 @@ class ReconciliationEngine:
                     matched_amount=abs(bank_transaction.amount),
                     matched_date=je_in_db.entryDate,
                     is_confirmed=False,
-                    createdAt=datetime.utcnow(),
-                    updatedAt=datetime.utcnow(),
+                    createdAt=datetime.now(timezone.utc),
+                    updatedAt=datetime.now(timezone.utc),
                 ))
         return potential_matches
 
@@ -89,8 +89,8 @@ class ReconciliationEngine:
                 posted_date=date(2026, 5, 19),
                 is_reconciled=False,
                 currency="USD",
-                createdAt=datetime.utcnow(),
-                updatedAt=datetime.utcnow(),
+                createdAt=datetime.now(timezone.utc),
+                updatedAt=datetime.now(timezone.utc),
             ),
              models.BankTransactionInDB(
                 id="bt-2-unreconciled",
@@ -102,8 +102,8 @@ class ReconciliationEngine:
                 posted_date=date(2026, 5, 20),
                 is_reconciled=False,
                 currency="USD",
-                createdAt=datetime.utcnow(),
-                updatedAt=datetime.utcnow(),
+                createdAt=datetime.now(timezone.utc),
+                updatedAt=datetime.now(timezone.utc),
             )
         ]
         return [t for t in mock_unreconciled_transactions if not t.is_reconciled]
@@ -135,7 +135,7 @@ class ReconciliationEngine:
         updated_match = await crud.update_reconciliation_match(self.db_session, match_id, models.ReconciliationMatchUpdate(
             is_confirmed=True,
             confirmed_by_user_id=confirmed_by_user_id,
-            confirmed_at=datetime.utcnow()
+            confirmed_at=datetime.now(timezone.utc)
         ))
         if not updated_match:
             raise ReconciliationEngineException(f"Failed to update reconciliation match {match_id}.")
@@ -173,7 +173,7 @@ class ReconciliationEngine:
             matched_date=bank_transaction.date,
             is_confirmed=True,
             confirmed_by_user_id=user_id,
-            confirmed_at=datetime.utcnow()
+            confirmed_at=datetime.now(timezone.utc)
         )
         new_match = await crud.create_reconciliation_match(self.db_session, manual_match_data)
 

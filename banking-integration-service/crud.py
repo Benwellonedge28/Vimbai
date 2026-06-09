@@ -7,7 +7,7 @@ from banking_integration_service.models import (
     TransactionCategorizationRuleCreate, TransactionCategorizationRuleUpdate, TransactionCategorizationRuleInDB,
     ReconciliationMatchCreate, ReconciliationMatchUpdate, ReconciliationMatchInDB # NEW
 )
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 import uuid
 from decimal import Decimal
 from pydantic import BaseModel # Import BaseModel for _to_neo4j_props helper
@@ -45,8 +45,8 @@ def _from_neo4j_props(node_props: Dict[str, Any], model_class: BaseModel) -> Bas
 # --- BankConnection CRUD ---
 async def create_bank_connection(session: AsyncSession, connection_data: BankConnectionCreate) -> BankConnectionInDB:
     connection_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     props = _to_neo4j_props(connection_data)
     props["id"] = connection_id
@@ -86,7 +86,7 @@ async def update_bank_connection(session: AsyncSession, connection_id: str, conn
     if not update_fields:
         return await get_bank_connection(session, connection_id)
     
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     # Fetch existing data to merge for _to_neo4j_props conversion if needed (Pydantic updates)
     existing_conn = await get_bank_connection(session, connection_id)
     if not existing_conn:
@@ -119,8 +119,8 @@ async def delete_bank_connection(session: AsyncSession, connection_id: str) -> b
 # --- BankAccount CRUD ---
 async def create_bank_account(session: AsyncSession, account_data: BankAccountCreate) -> BankAccountInDB:
     account_uuid = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     props = _to_neo4j_props(account_data)
     props["id"] = account_uuid
@@ -160,7 +160,7 @@ async def update_bank_account(session: AsyncSession, account_id: str, account_da
     if not update_fields:
         return await get_bank_account(session, account_id)
     
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     existing_account = await get_bank_account(session, account_id)
     if not existing_account:
         return None
@@ -192,8 +192,8 @@ async def delete_bank_account(session: AsyncSession, account_id: str) -> bool:
 # --- BankTransaction CRUD ---
 async def create_bank_transaction(session: AsyncSession, transaction_data: BankTransactionCreate) -> BankTransactionInDB:
     transaction_uuid = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     props = _to_neo4j_props(transaction_data)
     props["id"] = transaction_uuid
@@ -233,7 +233,7 @@ async def update_bank_transaction(session: AsyncSession, transaction_id: str, tr
     if not update_fields:
         return await get_bank_transaction(session, transaction_id)
     
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     existing_transaction = await get_bank_transaction(session, transaction_id)
     if not existing_transaction:
         return None
@@ -265,8 +265,8 @@ async def delete_bank_transaction(session: AsyncSession, transaction_id: str) ->
 # --- TransactionCategorizationRule CRUD ---
 async def create_categorization_rule(session: AsyncSession, rule_data: TransactionCategorizationRuleCreate) -> TransactionCategorizationRuleInDB:
     rule_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     props = _to_neo4j_props(rule_data)
     props["id"] = rule_id
@@ -306,7 +306,7 @@ async def update_categorization_rule(session: AsyncSession, rule_id: str, rule_d
     if not update_fields:
         return await get_categorization_rule(session, rule_id)
     
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     existing_rule = await get_categorization_rule(session, rule_id)
     if not existing_rule:
         return None
@@ -338,8 +338,8 @@ async def delete_categorization_rule(session: AsyncSession, rule_id: str) -> boo
 # --- ReconciliationMatch CRUD (NEW) ---
 async def create_reconciliation_match(session: AsyncSession, match_data: ReconciliationMatchCreate) -> ReconciliationMatchInDB:
     match_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     props = _to_neo4j_props(match_data)
     props["id"] = match_id
@@ -390,7 +390,7 @@ async def update_reconciliation_match(session: AsyncSession, match_id: str, matc
     if not update_fields:
         return await get_reconciliation_match(session, match_id)
     
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     existing_match = await get_reconciliation_match(session, match_id)
     if not existing_match:
         return None

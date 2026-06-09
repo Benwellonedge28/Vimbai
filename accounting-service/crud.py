@@ -39,7 +39,7 @@ from accounting_service.models import (
     DepartmentDimensionCreate, DepartmentDimensionInDB,
     LocationDimensionCreate, LocationDimensionInDB
 )
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 from decimal import Decimal
 import httpx
@@ -51,8 +51,8 @@ API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
 # --- Account CRUD ---
 async def create_account(session: AsyncSession, user_id: str, account_data: AccountCreate) -> AccountInDB:
     account_neo4j_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     # Check for existing account number for this user
     existing_account = await get_account(session, user_id, account_data.account_number)
@@ -152,7 +152,7 @@ async def update_account(session: AsyncSession, user_id: str, account_number: st
     if not update_fields:
         return await get_account(session, user_id, account_number) # No fields to update
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     set_clauses = [f"a.{k} = ${k}" for k in update_fields.keys()]
     set_query_part = ", ".join(set_clauses)
@@ -248,8 +248,8 @@ async def get_account_period_activity(session: AsyncSession, user_id: str, accou
 # --- Journal Entry CRUD ---
 async def create_journal_entry(session: AsyncSession, user_id: str, journal_entry_data: JournalEntryCreate, jwt_token: str) -> JournalEntryInDB:
     entry_neo4j_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     # Verify all account numbers exist and belong to the user
     for line in journal_entry_data.lines:
@@ -473,7 +473,7 @@ async def update_journal_entry(session: AsyncSession, user_id: str, entry_id: st
     if not update_fields:
         return await get_journal_entry(session, user_id, entry_id) # No fields to update
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "entry_date" in update_fields:
         update_fields["entry_date"] = update_fields["entry_date"].isoformat()
 
@@ -554,8 +554,8 @@ async def _send_journal_entry_for_fraud_analysis(user_id: str, journal_entry_dat
 # --- Vendor Bill CRUD ---
 async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_data: VendorBillCreate, jwt_token: str) -> VendorBillInDB:
     bill_neo4j_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     # Create VendorBill node
     query = """
@@ -608,7 +608,7 @@ async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_da
         JournalLineBase(account_number=accounts_payable_account_number, debit=Decimal('0.00'), credit=vendor_bill_data.total_amount, description=f"Vendor Bill {vendor_bill_data.bill_number}")
     ]
     journal_entry_data = JournalEntryCreate(
-        entry_date=datetime.utcnow(),
+        entry_date=datetime.now(timezone.utc),
         description=f"Auto-generated JE for Vendor Bill {vendor_bill_data.bill_number}",
         reference_number=vendor_bill_data.bill_number,
         source_module="VendorBilling",
@@ -750,7 +750,7 @@ async def get_trial_balance_report(session: AsyncSession, user_id: str, as_of_da
     is_balanced = (total_debits == total_credits)
 
     return TrialBalanceReport(
-        report_date=as_of_date if as_of_date else datetime.utcnow(),
+        report_date=as_of_date if as_of_date else datetime.now(timezone.utc),
         accounts=trial_balance_accounts,
         total_debits=total_debits,
         total_credits=total_credits,
@@ -867,8 +867,8 @@ async def get_balance_sheet(session: AsyncSession, user_id: str, as_of_date: dat
 # --- Vendor Bill CRUD ---
 async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_data: VendorBillCreate, jwt_token: str) -> VendorBillInDB:
     bill_neo4j_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     # Create VendorBill node
     query = """
@@ -921,7 +921,7 @@ async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_da
         JournalLineBase(account_number=accounts_payable_account_number, debit=Decimal('0.00'), credit=vendor_bill_data.total_amount, description=f"Vendor Bill {vendor_bill_data.bill_number}")
     ]
     journal_entry_data = JournalEntryCreate(
-        entry_date=datetime.utcnow(),
+        entry_date=datetime.now(timezone.utc),
         description=f"Auto-generated JE for Vendor Bill {vendor_bill_data.bill_number}",
         reference_number=vendor_bill_data.bill_number,
         source_module="VendorBilling",
@@ -972,7 +972,7 @@ async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_da
 async def create_sales_journal_entry(session: AsyncSession, user_id: str, entry: SalesJournalEntryCreate, jwt_token: str) -> SalesJournalEntryInDB:
     """Create Sales Journal Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     # Create Sales Journal node
     query = """
@@ -1122,7 +1122,7 @@ async def get_sales_journal_entry(session: AsyncSession, user_id: str, entry_id:
 async def create_purchases_journal_entry(session: AsyncSession, user_id: str, entry: PurchasesJournalEntryCreate, jwt_token: str) -> PurchasesJournalEntryInDB:
     """Create Purchases Journal Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -1246,7 +1246,7 @@ async def get_purchases_journal_entries(session: AsyncSession, user_id: str, sta
 async def create_cash_receipts_entry(session: AsyncSession, user_id: str, entry: CashReceiptsJournalEntryCreate, jwt_token: str) -> CashReceiptsJournalEntryInDB:
     """Create Cash Receipts Journal Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -1360,7 +1360,7 @@ async def get_cash_receipts_entries(session: AsyncSession, user_id: str, start_d
 async def create_cash_disbursements_entry(session: AsyncSession, user_id: str, entry: CashDisbursementsJournalEntryCreate, jwt_token: str) -> CashDisbursementsJournalEntryInDB:
     """Create Cash Disbursements Journal Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -1477,7 +1477,7 @@ async def get_cash_disbursements_entries(session: AsyncSession, user_id: str, st
 async def create_sales_return_entry(session: AsyncSession, user_id: str, entry: SalesReturnsJournalEntryCreate, jwt_token: str) -> SalesReturnsJournalEntryInDB:
     """Create Sales Returns Journal Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -1554,7 +1554,7 @@ async def create_sales_return_entry(session: AsyncSession, user_id: str, entry: 
 async def create_purchases_return_entry(session: AsyncSession, user_id: str, entry: PurchasesReturnsJournalEntryCreate, jwt_token: str) -> PurchasesReturnsJournalEntryInDB:
     """Create Purchases Returns Journal Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -1660,7 +1660,7 @@ async def get_ar_ledger_report(session: AsyncSession, user_id: str, as_of_date, 
     async for record in result:
         sj = record["sj"]
         invoice_date = datetime.fromisoformat(sj["invoice_date"].iso_format())
-        days_outstanding = (datetime.utcnow() - invoice_date).days
+        days_outstanding = (datetime.now(timezone.utc) - invoice_date).days
         total_amount = Decimal(str(sj["total_amount"]))
         balance_due = total_amount  # Simplified - would need payments tracking
         status = "overdue" if days_outstanding > 30 else sj["status"]
@@ -1684,7 +1684,7 @@ async def get_ar_ledger_report(session: AsyncSession, user_id: str, as_of_date, 
         total_balance += balance_due
 
     return AccountsReceivableLedgerReport(
-        as_of_date=as_of_date if as_of_date else datetime.utcnow(),
+        as_of_date=as_of_date if as_of_date else datetime.now(timezone.utc),
         entries=entries,
         total_invoice_amount=total_invoice,
         total_balance_due=total_balance,
@@ -1720,7 +1720,7 @@ async def get_ap_ledger_report(session: AsyncSession, user_id: str, as_of_date, 
     async for record in result:
         pj = record["pj"]
         bill_date = datetime.fromisoformat(pj["purchase_date"].iso_format())
-        days_outstanding = (datetime.utcnow() - bill_date).days
+        days_outstanding = (datetime.now(timezone.utc) - bill_date).days
         total_amount = Decimal(str(pj["total_amount"]))
         balance_due = total_amount
         status = "overdue" if days_outstanding > 30 else pj["status"]
@@ -1744,7 +1744,7 @@ async def get_ap_ledger_report(session: AsyncSession, user_id: str, as_of_date, 
         total_balance += balance_due
 
     return AccountsPayableLedgerReport(
-        as_of_date=as_of_date if as_of_date else datetime.utcnow(),
+        as_of_date=as_of_date if as_of_date else datetime.now(timezone.utc),
         entries=entries,
         total_bill_amount=total_bill,
         total_balance_due=total_balance,
@@ -1757,7 +1757,7 @@ async def get_fixed_assets_ledger(session: AsyncSession, user_id: str, as_of_dat
     """Get Fixed Assets Subsidiary Ledger"""
     # Placeholder implementation - would integrate with asset management
     return FixedAssetsLedgerReport(
-        as_of_date=as_of_date if as_of_date else datetime.utcnow(),
+        as_of_date=as_of_date if as_of_date else datetime.now(timezone.utc),
         entries=[],
         total_purchase_cost=Decimal('0.00'),
         total_accumulated_depreciation=Decimal('0.00'),
@@ -1769,7 +1769,7 @@ async def get_inventory_ledger(session: AsyncSession, user_id: str, as_of_date, 
     """Get Inventory Subsidiary Ledger"""
     # Placeholder - would integrate with supply chain service
     return InventoryLedgerReport(
-        as_of_date=as_of_date if as_of_date else datetime.utcnow(),
+        as_of_date=as_of_date if as_of_date else datetime.now(timezone.utc),
         entries=[],
         total_opening_value=Decimal('0.00'),
         total_stock_in_value=Decimal('0.00'),
@@ -1787,7 +1787,7 @@ async def get_inventory_ledger(session: AsyncSession, user_id: str, as_of_date, 
 async def create_petty_cash_fund(session: AsyncSession, user_id: str, fund: PettyCashFundCreate) -> PettyCashFundInDB:
     """Create Petty Cash Fund"""
     fund_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -1851,7 +1851,7 @@ async def get_petty_cash_funds(session: AsyncSession, user_id: str) -> List[Pett
 async def create_petty_cash_entry(session: AsyncSession, user_id: str, entry: PettyCashEntryCreate, jwt_token: str) -> PettyCashEntryInDB:
     """Create Petty Cash Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id}), (pcf:PettyCashFund {id: $petty_cash_fund_id})
@@ -1975,7 +1975,7 @@ async def get_petty_cash_entries(session: AsyncSession, user_id: str, fund_id, s
 async def create_bank_reconciliation(session: AsyncSession, user_id: str, bank_account: str, statement_date: datetime, statement_balance: Decimal, jwt_token: str) -> BankReconciliationStatement:
     """Create Bank Reconciliation Statement"""
     recon_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     # Get bank account transactions from journal entries
     query = """
@@ -2167,7 +2167,7 @@ async def get_latest_bank_reconciliation(session: AsyncSession, user_id: str, ba
 async def create_statement_of_affairs(session: AsyncSession, user_id: str, as_of_date: datetime, assets: List[StatementOfAffairsAssetBase], liabilities: List[StatementOfAffairsLiabilityBase], prepared_by: Optional[str] = None) -> StatementOfAffairsInDB:
     """Create Statement of Affairs - shows assets, liabilities and capital at a point in time"""
     statement_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
     prepared_date = created_at
 
     # Calculate totals
@@ -2259,7 +2259,7 @@ async def get_all_statements_of_affairs(session: AsyncSession, user_id: str) -> 
 async def create_capital_calculation(session: AsyncSession, user_id: str, calc: CapitalCalculationInDB) -> CapitalCalculationInDB:
     """Create Capital Calculation - tracks capital changes over a period"""
     calc_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     # Calculate totals from entries
     total_additional_capital = Decimal('0.00')
@@ -2444,7 +2444,7 @@ async def get_all_capital_calculations(session: AsyncSession, user_id: str) -> L
 async def create_control_account(session: AsyncSession, user_id: str, account: ControlAccountInDB) -> ControlAccountInDB:
     """Create Control Account - tracks debtors or creditors balances"""
     account_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     # Calculate totals and closing balance
     total_debits = Decimal('0.00')
@@ -2610,7 +2610,7 @@ async def get_control_accounts(session: AsyncSession, user_id: str, account_type
 async def create_receipts_payments_account(session: AsyncSession, user_id: str, rp: ReceiptsPaymentsAccountInDB) -> ReceiptsPaymentsAccountInDB:
     """Create Receipts and Payments Account - cash book summary for single entry"""
     rp_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     # Calculate totals by category
     total_receipts = Decimal('0.00')
@@ -2790,7 +2790,7 @@ async def get_receipts_payments_accounts(session: AsyncSession, user_id: str) ->
 async def create_single_entry_conversion(session: AsyncSession, user_id: str, conversion: SingleEntryConversionInDB, jwt_token: str) -> SingleEntryConversionInDB:
     """Create Single Entry Conversion - converts single entry records to double entry"""
     conv_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     # Calculate Net Profit/Loss
     # Net Profit = Closing Capital - Opening Capital + Drawings - Additional Capital
@@ -2932,7 +2932,7 @@ async def get_single_entry_conversions(session: AsyncSession, user_id: str) -> L
 async def create_profit_estimation(session: AsyncSession, user_id: str, estimation: ProfitEstimationInDB) -> ProfitEstimationInDB:
     """Create Profit Estimation - calculates profit/loss from capital changes"""
     est_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     # Calculate profit/loss
     # Net Profit/Loss = Closing Capital - Opening Capital + Drawings - Additional Capital
@@ -3056,7 +3056,7 @@ async def create_audit_event(
 ) -> AuditEventInDB:
     """Create an immutable audit event - records a change to any financial data"""
     audit_id = str(uuid.uuid4())
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -3194,7 +3194,7 @@ async def get_user_audit_history(
 async def create_project_dimension(session: AsyncSession, user_id: str, project: ProjectDimensionCreate) -> ProjectDimensionInDB:
     """Create a Project dimension for tracking expenses/revenues by project"""
     project_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -3291,7 +3291,7 @@ async def get_projects(session: AsyncSession, user_id: str, status: Optional[str
 async def create_fund_dimension(session: AsyncSession, user_id: str, fund: FundDimensionCreate) -> FundDimensionInDB:
     """Create a Fund dimension for nonprofit/government fund accounting"""
     fund_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -3384,7 +3384,7 @@ async def get_funds(session: AsyncSession, user_id: str, fund_type: Optional[str
 async def create_department_dimension(session: AsyncSession, user_id: str, dept: DepartmentDimensionCreate) -> DepartmentDimensionInDB:
     """Create a Department dimension for tracking by organizational unit"""
     dept_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -3467,7 +3467,7 @@ async def get_departments(session: AsyncSession, user_id: str) -> List[Departmen
 async def create_location_dimension(session: AsyncSession, user_id: str, loc: LocationDimensionCreate) -> LocationDimensionInDB:
     """Create a Location dimension for geographic/physical location tracking"""
     loc_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})

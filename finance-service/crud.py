@@ -7,14 +7,14 @@ from finance_service.models import (
     ScenarioCreate, ScenarioUpdate, ScenarioInDB, # NEW
     FinancialForecastDataPoint, ScenarioParameter # NEW
 )
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 import uuid
 
 # --- Budget CRUD ---
 async def create_budget(session: AsyncSession, budget_data: BudgetCreate, user_id: str) -> BudgetInDB:
     budget_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -133,7 +133,7 @@ async def update_budget(session: AsyncSession, budget_id: str, budget_data: Budg
     if not update_fields:
         return await get_budget(session, budget_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "start_date" in update_fields:
         update_fields["start_date"] = update_fields["start_date"].isoformat().split('T')[0]
     if "end_date" in update_fields:
@@ -166,8 +166,8 @@ async def delete_budget(session: AsyncSession, budget_id: str) -> bool:
 # --- BudgetItem CRUD ---
 async def create_budget_item(session: AsyncSession, budget_id: str, item_data: BudgetItemCreate) -> BudgetItemInDB:
     item_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (b:Budget {id: $budget_id})
@@ -211,7 +211,7 @@ async def update_budget_item(session: AsyncSession, item_id: str, item_data: Bud
     if not update_fields:
         return await get_budget_item(session, item_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "budgeted_amount" in update_fields:
         update_fields["budgeted_amount"] = float(update_fields["budgeted_amount"])
 
@@ -284,8 +284,8 @@ async def delete_budget_item(session: AsyncSession, item_id: str) -> bool:
 # --- FinancialForecast CRUD (NEW) ---
 async def create_financial_forecast(session: AsyncSession, forecast_data: FinancialForecastCreate) -> FinancialForecastInDB:
     forecast_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     # Convert data points to dictionaries for storage
     data_points_data = [dp.model_dump() for dp in forecast_data.data_points]
@@ -417,7 +417,7 @@ async def update_financial_forecast(session: AsyncSession, forecast_id: str, for
     if not update_fields:
         return await get_financial_forecast(session, forecast_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "start_date" in update_fields:
         update_fields["start_date"] = update_fields["start_date"].isoformat()
     if "end_date" in update_fields:
@@ -456,8 +456,8 @@ async def delete_financial_forecast(session: AsyncSession, forecast_id: str) -> 
 # --- Scenario CRUD (NEW) ---
 async def create_scenario(session: AsyncSession, scenario_data: ScenarioCreate) -> ScenarioInDB:
     scenario_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     # Convert parameters to dictionaries for storage
     parameters_data = [p.model_dump() for p in scenario_data.parameters]
@@ -564,7 +564,7 @@ async def update_scenario(session: AsyncSession, scenario_id: str, scenario_data
     if not update_fields:
         return await get_scenario(session, scenario_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "parameters" in update_fields:
         update_fields["parameters"] = [p.model_dump() for p in scenario_data.parameters]
 

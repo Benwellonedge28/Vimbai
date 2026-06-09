@@ -41,23 +41,74 @@ jobs:
 
       - name: Run Black (format check)
         run: |
-          black --check accounting-service/ finance-service/ fraud-detection-service/ \
-            banking-integration-service/ invoicing-service/ workflow-service/ \
-            reporting-service/ automation-engine-service/ multimodal-pipeline-service/ \
+          black --check \
+            accounting-service/ \
+            finance-service/ \
+            fraud-detection-service/ \
+            banking-integration-service/ \
+            invoicing-service/ \
+            workflow-service/ \
+            reporting-service/ \
+            automation-engine-service/ \
+            automation-engine/ \
+            multimodal-pipeline-service/ \
+            admin-service/ \
+            alerts-service/ \
+            cache-service/ \
+            currency-service/ \
+            message-bus-service/ \
+            notifications-service/ \
+            npo-service/ \
+            scenario-modeling-service/ \
+            supply-chain-service/ \
             2>/dev/null || true
 
       - name: Run isort (import check)
         run: |
-          isort --check-only accounting-service/ finance-service/ fraud-detection-service/ \
-            banking-integration-service/ invoicing-service/ workflow-service/ \
-            reporting-service/ automation-engine-service/ multimodal-pipeline-service/ \
+          isort --check-only \
+            accounting-service/ \
+            finance-service/ \
+            fraud-detection-service/ \
+            banking-integration-service/ \
+            invoicing-service/ \
+            workflow-service/ \
+            reporting-service/ \
+            automation-engine-service/ \
+            automation-engine/ \
+            multimodal-pipeline-service/ \
+            admin-service/ \
+            alerts-service/ \
+            cache-service/ \
+            currency-service/ \
+            message-bus-service/ \
+            notifications-service/ \
+            npo-service/ \
+            scenario-modeling-service/ \
+            supply-chain-service/ \
             2>/dev/null || true
 
       - name: Run flake8 (lint)
         run: |
-          flake8 accounting-service/ finance-service/ fraud-detection-service/ \
-            banking-integration-service/ invoicing-service/ workflow-service/ \
-            reporting-service/ automation-engine-service/ multimodal-pipeline-service/ \
+          flake8 \
+            accounting-service/ \
+            finance-service/ \
+            fraud-detection-service/ \
+            banking-integration-service/ \
+            invoicing-service/ \
+            workflow-service/ \
+            reporting-service/ \
+            automation-engine-service/ \
+            automation-engine/ \
+            multimodal-pipeline-service/ \
+            admin-service/ \
+            alerts-service/ \
+            cache-service/ \
+            currency-service/ \
+            message-bus-service/ \
+            notifications-service/ \
+            npo-service/ \
+            scenario-modeling-service/ \
+            supply-chain-service/ \
             --max-line-length=120 --extend-ignore=E501,W503,E203 || true
 
   lint-frontend:
@@ -100,59 +151,119 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-asyncio httpx pytest-cov
+          pip install pytest pytest-asyncio httpx pytest-cov neo4j-driver fastapi uvicorn pydantic python-dotenv python-jose passlib bcrypt APScheduler structlog
 
       - name: Test accounting-service
         run: |
-          cd accounting-service && pip install -q -r requirements.txt
+          cd accounting-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
       - name: Test finance-service
         run: |
-          cd finance-service && pip install -q -r requirements.txt
+          cd finance-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
       - name: Test fraud-detection-service
         run: |
-          cd fraud-detection-service && pip install -q -r requirements.txt
+          cd fraud-detection-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
       - name: Test banking-integration-service
         run: |
-          cd banking-integration-service && pip install -q -r requirements.txt
+          cd banking-integration-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
       - name: Test invoicing-service
         run: |
-          cd invoicing-service && pip install -q -r requirements.txt
+          cd invoicing-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
       - name: Test workflow-service
         run: |
-          cd workflow-service && pip install -q -r requirements.txt
+          cd workflow-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
       - name: Test reporting-service
         run: |
-          cd reporting-service && pip install -q -r requirements.txt
+          cd reporting-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
       - name: Test automation-engine-service
         run: |
-          cd automation-engine-service && pip install -q -r requirements.txt
+          cd automation-engine-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test automation-engine
+        run: |
+          cd automation-engine && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
       - name: Test multimodal-pipeline-service
         run: |
-          cd multimodal-pipeline-service && pip install -q -r requirements.txt
+          cd multimodal-pipeline-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test admin-service
+        run: |
+          cd admin-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test alerts-service
+        run: |
+          cd alerts-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test cache-service
+        run: |
+          cd cache-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test currency-service
+        run: |
+          cd currency-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test message-bus-service
+        run: |
+          cd message-bus-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test notifications-service
+        run: |
+          cd notifications-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test npo-service
+        run: |
+          cd npo-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test scenario-modeling-service
+        run: |
+          cd scenario-modeling-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test supply-chain-service
+        run: |
+          cd supply-chain-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 

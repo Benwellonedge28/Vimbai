@@ -17,8 +17,8 @@ async def init_db_schema():
 # --- Dashboard CRUD ---
 async def create_dashboard(session: AsyncSession, user_id: str, dashboard_data: DashboardCreate) -> DashboardInDB:
     dashboard_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     props = dashboard_data.model_dump()
     props["id"] = dashboard_id
@@ -62,7 +62,7 @@ async def update_dashboard(session: AsyncSession, dashboard_id: str, dashboard_d
     if not update_fields:
         return await get_dashboard(session, dashboard_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "widgets" in update_fields:
         update_fields["widgets"] = json.dumps(update_fields["widgets"])
 
@@ -92,8 +92,8 @@ async def delete_dashboard(session: AsyncSession, dashboard_id: str) -> bool:
 # --- Report Template CRUD ---
 async def create_report_template(session: AsyncSession, user_id: str, template_data: ReportTemplateCreate) -> ReportTemplateInDB:
     template_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     props = template_data.model_dump()
     props["id"] = template_id
@@ -156,7 +156,7 @@ async def execute_report_query(session: AsyncSession, query: str, parameters: Di
 
 async def execute_report(session: AsyncSession, request: ReportGenerationRequest) -> ReportResult:
     report_id = str(uuid.uuid4())
-    generated_at = datetime.utcnow()
+    generated_at = datetime.now(timezone.utc)
 
     if request.template_id:
         template = await get_report_template(session, request.template_id)
@@ -201,7 +201,7 @@ async def execute_report(session: AsyncSession, request: ReportGenerationRequest
 # --- Scheduled Reports ---
 async def create_scheduled_report(session: AsyncSession, user_id: str, report_data: ScheduledReportCreate) -> ScheduledReportInDB:
     scheduled_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     props = report_data.model_dump()
     props["id"] = scheduled_id

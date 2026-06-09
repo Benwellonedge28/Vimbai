@@ -59,8 +59,8 @@ def _from_neo4j_props(node_props: Dict[str, Any], model_class: BaseModel) -> Bas
 # --- MultimodalProcessingTask CRUD ---
 async def create_multimodal_processing_task(session: AsyncSession, task_data: MultimodalProcessingTaskCreate) -> MultimodalProcessingTaskInDB:
     task_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     props = _to_neo4j_props(task_data)
     props["id"] = task_id
@@ -108,7 +108,7 @@ async def update_multimodal_processing_task(session: AsyncSession, task_id: str,
     if not update_fields:
         return await get_multimodal_processing_task(session, task_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     # Convert nested models to JSON string before update
     for key, value in update_fields.items():
         if isinstance(value, (DocumentParseResult, AudioParseResult, ImageParseResult)):
@@ -146,7 +146,7 @@ async def delete_multimodal_processing_task(session: AsyncSession, task_id: str)
 # --- UserCorrection CRUD ---
 async def create_user_correction(session: AsyncSession, correction_data: UserCorrection) -> UserCorrectionInDB:
     correction_id = str(uuid.uuid4())
-    submitted_at = datetime.utcnow()
+    submitted_at = datetime.now(timezone.utc)
 
     props = correction_data.model_dump()
     props["id"] = correction_id

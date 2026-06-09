@@ -19,8 +19,8 @@ API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
 # --- Customer CRUD (unchanged from original invoicing service) ---
 async def create_customer(session: AsyncSession, user_id: str, customer_data: CustomerCreate) -> CustomerInDB:
     customer_neo4j_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     # Check for existing customer with same name/email for this user
     existing_customer_query = """
@@ -120,7 +120,7 @@ async def update_customer(session: AsyncSession, user_id: str, customer_id: str,
     if not update_fields:
         return await get_customer(session, user_id, customer_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     set_clauses = [f"c.{k} = ${k}" for k in update_fields.keys()]
     set_query_part = ", ".join(set_clauses)
@@ -150,8 +150,8 @@ async def delete_customer(session: AsyncSession, user_id: str, customer_id: str)
 # --- Sales Invoice CRUD (renamed from invoice_crud) ---
 async def create_sales_invoice(session: AsyncSession, user_id: str, invoice_data: SalesInvoiceCreate) -> SalesInvoiceInDB:
     invoice_neo4j_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     # Verify customer exists and belongs to user
     customer = await get_customer(session, user_id, invoice_data.customer_id)
@@ -320,7 +320,7 @@ async def update_sales_invoice(session: AsyncSession, user_id: str, invoice_id: 
     if not update_fields:
         return await get_sales_invoice(session, user_id, invoice_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "invoice_date" in update_fields and update_fields["invoice_date"]:
         update_fields["invoice_date"] = update_fields["invoice_date"].isoformat()
     if "due_date" in update_fields and update_fields["due_date"]:
@@ -357,8 +357,8 @@ async def delete_sales_invoice(session: AsyncSession, user_id: str, invoice_id: 
 # --- Supplier CRUD (NEW) ---
 async def create_supplier(session: AsyncSession, user_id: str, supplier_data: SupplierCreate) -> SupplierInDB:
     supplier_neo4j_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     # Check for existing supplier with same name/email for this user
     existing_supplier_query = """
@@ -462,7 +462,7 @@ async def update_supplier(session: AsyncSession, user_id: str, supplier_id: str,
     if not update_fields:
         return await get_supplier(session, user_id, supplier_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     set_clauses = [f"s.{k} = ${k}" for k in update_fields.keys()]
     set_query_part = ", ".join(set_clauses)
@@ -492,8 +492,8 @@ async def delete_supplier(session: AsyncSession, user_id: str, supplier_id: str)
 # --- Inventory Item CRUD (NEW) ---
 async def create_inventory_item(session: AsyncSession, user_id: str, item_data: InventoryItemCreate) -> InventoryItemInDB:
     item_neo4j_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     # Verify preferred_supplier_id if provided
     if item_data.preferred_supplier_id:
@@ -605,7 +605,7 @@ async def update_inventory_item(session: AsyncSession, user_id: str, item_id: st
     if not update_fields and "preferred_supplier_id" not in item_data.model_fields_set: # Check if supplier_id was specifically set to None
         return await get_inventory_item(session, user_id, item_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "unit_cost" in update_fields:
         update_fields["unit_cost"] = float(update_fields["unit_cost"])
 
@@ -658,8 +658,8 @@ async def delete_inventory_item(session: AsyncSession, user_id: str, item_id: st
 # --- Purchase Order CRUD (NEW) ---
 async def create_purchase_order(session: AsyncSession, user_id: str, po_data: PurchaseOrderCreate) -> PurchaseOrderInDB:
     po_neo4j_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     # Verify supplier exists and belongs to user
     supplier = await get_supplier(session, user_id, po_data.supplier_id)
@@ -846,7 +846,7 @@ async def update_purchase_order(session: AsyncSession, user_id: str, po_id: str,
     if not update_fields:
         return await get_purchase_order(session, user_id, po_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "order_date" in update_fields and update_fields["order_date"]:
         update_fields["order_date"] = update_fields["order_date"].isoformat()
     if "expected_delivery_date" in update_fields and update_fields["expected_delivery_date"]:

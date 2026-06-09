@@ -102,7 +102,7 @@ class WorkflowEngine:
         # Update the task status
         task_status_to_complete.status = task_completion_data.action # 'approve', 'reject', 'complete'
         task_status_to_complete.completed_by_user_id = task_completion_data.completed_by_user_id
-        task_status_to_complete.completed_at = datetime.utcnow()
+        task_status_to_complete.completed_at = datetime.now(timezone.utc)
         task_status_to_complete.comments = task_completion_data.comments
         
         # Remove from current_step_ids
@@ -128,7 +128,7 @@ class WorkflowEngine:
         # Check if workflow is completed (no more current_step_ids)
         if not instance.current_step_ids:
             instance.status = "completed"
-            instance.end_date = datetime.utcnow()
+            instance.end_date = datetime.now(timezone.utc)
         elif instance.status != "failed" and instance.status != "cancelled": # Ensure status isn't overwritten if already failed/cancelled
             instance.status = "running" # Still running if there are new steps
 

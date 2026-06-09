@@ -21,7 +21,7 @@ class MultimodalPipeline:
         # This is a basic mapping logic. A real system would use a more sophisticated NLU/ontology.
         amount = Decimal('0.00')
         description = source_context if source_context else "Multimodal input"
-        entry_date = datetime.utcnow()
+        entry_date = datetime.now(timezone.utc)
         reference_number = None
 
         for field in extracted_data:

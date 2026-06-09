@@ -12,7 +12,7 @@ def generate_uuid() -> str:
 
 def utc_now() -> datetime:
     """Get current UTC datetime"""
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 def decimal_to_float(value: Any) -> float:
     """Convert decimal to float for Neo4j storage"""

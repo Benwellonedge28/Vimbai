@@ -483,7 +483,7 @@ class IndexManager:
         return IndexHealthReport(
             indexes=existing_indexes,
             recommendations=recommendations,
-            last_analyzed=datetime.utcnow()
+            last_analyzed=datetime.now(timezone.utc)
         )
 
 
@@ -530,7 +530,7 @@ class QueryOptimizer:
                 query=query[:200],  # Truncate for storage
                 execution_time_ms=execution_time,
                 hits=len(records),
-                timestamp=datetime.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
             self.query_stats.append(stats)
 

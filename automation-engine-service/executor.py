@@ -21,7 +21,7 @@ async def execute_task_instance(db_session: AsyncSession, instance_id: str):
         print(f"Executor: Automation Task Definition {instance.task_definition_id} not found for instance {instance_id}.")
         await crud.update_automation_task_instance(db_session, instance_id, models.AutomationTaskInstanceUpdate(
             status="failed",
-            end_time=datetime.utcnow(),
+            end_time=datetime.now(timezone.utc),
             error_message="Task Definition not found."
         ))
         return
@@ -29,7 +29,7 @@ async def execute_task_instance(db_session: AsyncSession, instance_id: str):
     # Mark instance as running
     await crud.update_automation_task_instance(db_session, instance_id, models.AutomationTaskInstanceUpdate(
         status="running",
-        start_time=datetime.utcnow() # Ensure start time is recorded at actual execution start
+        start_time=datetime.now(timezone.utc) # Ensure start time is recorded at actual execution start
     ))
     await crud.create_automation_log(db_session, models.AutomationLogCreate(
         instance_id=instance_id,
@@ -75,7 +75,7 @@ async def execute_task_instance(db_session: AsyncSession, instance_id: str):
             ))
             await crud.update_automation_task_instance(db_session, instance_id, models.AutomationTaskInstanceUpdate(
                 status="completed",
-                end_time=datetime.utcnow(),
+                end_time=datetime.now(timezone.utc),
                 output=response_output
             ))
 
@@ -90,7 +90,7 @@ async def execute_task_instance(db_session: AsyncSession, instance_id: str):
         ))
         await crud.update_automation_task_instance(db_session, instance_id, models.AutomationTaskInstanceUpdate(
             status="failed",
-            end_time=datetime.utcnow(),
+            end_time=datetime.now(timezone.utc),
             error_message=error_message
         ))
     except Exception as e:
@@ -104,6 +104,6 @@ async def execute_task_instance(db_session: AsyncSession, instance_id: str):
         ))
         await crud.update_automation_task_instance(db_session, instance_id, models.AutomationTaskInstanceUpdate(
             status="failed",
-            end_time=datetime.utcnow(),
+            end_time=datetime.now(timezone.utc),
             error_message=error_message
         ))

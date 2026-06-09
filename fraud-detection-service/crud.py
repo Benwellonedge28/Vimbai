@@ -6,8 +6,8 @@ import uuid
 
 async def create_fraud_flag(session: AsyncSession, flag_data: FraudulentTransactionFlagCreate) -> FraudulentTransactionFlagInDB:
     flag_neo4j_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     query = """
     CREATE (f:FraudulentTransactionFlag {
@@ -96,7 +96,7 @@ async def get_all_fraud_flags(session: AsyncSession) -> List[FraudulentTransacti
     return flags
 
 async def update_fraud_flag_status(session: AsyncSession, flag_id: str, new_status: Literal["open", "investigating", "false_positive", "confirmed_fraud"]) -> Optional[FraudulentTransactionFlagInDB]:
-    updated_at = datetime.utcnow().isoformat()
+    updated_at = datetime.now(timezone.utc).isoformat()
     query = """
     MATCH (f:FraudulentTransactionFlag {id: $flag_id})
     SET f.status = $new_status, f.updated_at = datetime($updated_at)

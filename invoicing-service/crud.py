@@ -20,8 +20,8 @@ API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
 # --- Invoice CRUD ---
 async def create_invoice(session: AsyncSession, user_id: str, invoice_data: InvoiceCreate) -> InvoiceInDB:
     invoice_neo4j_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     # Create Invoice node and link to Customer
     invoice_query = """
@@ -203,7 +203,7 @@ async def get_all_invoices(session: AsyncSession, user_id: str) -> List[InvoiceI
     
 async def update_invoice(session: AsyncSession, invoice_number: str, user_id: str, invoice_data: InvoiceUpdate) -> Optional[InvoiceInDB]:
     update_fields = invoice_data.model_dump(exclude_unset=True)
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "total_amount" in update_fields:
         update_fields["total_amount"] = float(update_fields["total_amount"])
     if "invoice_date" in update_fields and update_fields["invoice_date"]:

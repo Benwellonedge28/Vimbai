@@ -38,7 +38,7 @@ from npo_service.models import (
     DonorReportBase, BeneficiaryAccountabilityBase, SustainabilityReportBase,
     FundType, GrantStatus, ProjectStatus, BudgetStatus, AssetStatus
 )
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import uuid
 import httpx
@@ -54,7 +54,7 @@ API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
 async def create_fund(session: AsyncSession, user_id: str, fund: FundCreate) -> FundInDB:
     """Create a new NPO fund"""
     fund_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
     updated_at = created_at
 
     # Check for existing fund code
@@ -221,13 +221,13 @@ async def update_fund_balance(session: AsyncSession, fund_id: str, amount: Decim
             f.total_disbursements = f.total_disbursements + toFloat($amount),
             f.updated_at = datetime($updated_at)
         """
-    await session.run(query, fund_id=fund_id, amount=float(amount), updated_at=datetime.utcnow().isoformat())
+    await session.run(query, fund_id=fund_id, amount=float(amount), updated_at=datetime.now(timezone.utc).isoformat())
 
 
 async def create_fund_transaction(session: AsyncSession, user_id: str, fund_id: str, transaction: FundTransactionCreate) -> FundTransactionInDB:
     """Create fund transaction with balance update"""
     tx_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     # Get current balance
     fund = await get_fund(session, user_id, fund_id)
@@ -352,7 +352,7 @@ async def get_fund_transactions(session: AsyncSession, user_id: str, fund_id: st
 async def create_fund_restriction(session: AsyncSession, user_id: str, fund_id: str, restriction: FundRestrictionCreate) -> FundRestrictionInDB:
     """Create fund restriction"""
     restriction_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id}), (f:NPOFund {id: $fund_id})
@@ -403,7 +403,7 @@ async def create_fund_restriction(session: AsyncSession, user_id: str, fund_id: 
 async def create_net_assets(session: AsyncSession, user_id: str, as_of_date: date, period_start: date, period_end: date) -> NetAssetsInDB:
     """Create net assets record"""
     assets_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     # Calculate totals from funds
     query = """
@@ -528,8 +528,8 @@ async def get_net_assets(session: AsyncSession, user_id: str, as_of_date: date) 
 async def create_donation(session: AsyncSession, user_id: str, donation: DonationCreate) -> DonationInDB:
     """Create donation and update fund balance"""
     donation_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    receipt_number = f"DON-{datetime.utcnow().strftime('%Y%m%d')}-{donation_id[:8]}"
+    created_at = datetime.now(timezone.utc)
+    receipt_number = f"DON-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{donation_id[:8]}"
 
     # Determine target fund
     target_fund_id = donation.fund_id
@@ -619,8 +619,8 @@ async def create_donation(session: AsyncSession, user_id: str, donation: Donatio
 async def create_grant(session: AsyncSession, user_id: str, grant: GrantCreate) -> GrantInDB:
     """Create grant"""
     grant_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    grant_code = f"GRT-{datetime.utcnow().strftime('%Y%m')}-{grant_id[:6]}"
+    created_at = datetime.now(timezone.utc)
+    grant_code = f"GRT-{datetime.now(timezone.utc).strftime('%Y%m')}-{grant_id[:6]}"
 
     query = """
     MATCH (u:User {id: $user_id}), (f:NPOFund {id: $fund_id})
@@ -747,7 +747,7 @@ async def get_grants(session: AsyncSession, user_id: str, status: Optional[Grant
 async def create_project(session: AsyncSession, user_id: str, project: ProjectCreate) -> ProjectInDB:
     """Create NPO project"""
     project_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -863,7 +863,7 @@ async def get_projects(session: AsyncSession, user_id: str, status: Optional[Pro
 async def create_program(session: AsyncSession, user_id: str, program: ProgramCreate) -> ProgramInDB:
     """Create NPO program"""
     program_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -961,8 +961,8 @@ async def get_programs(session: AsyncSession, user_id: str) -> List[ProgramInDB]
 async def create_donor(session: AsyncSession, user_id: str, donor: DonorCreate) -> DonorInDB:
     """Create donor"""
     donor_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    donor_code = f"DR-{datetime.utcnow().strftime('%Y%m')}-{donor_id[:6]}"
+    created_at = datetime.now(timezone.utc)
+    donor_code = f"DR-{datetime.now(timezone.utc).strftime('%Y%m')}-{donor_id[:6]}"
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -1062,7 +1062,7 @@ async def get_donors(session: AsyncSession, user_id: str) -> List[DonorInDB]:
 async def create_budget(session: AsyncSession, user_id: str, budget: BudgetCreate) -> BudgetInDB:
     """Create budget"""
     budget_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
     budget_code = f"BUD-{budget.fiscal_year}-{budget_id[:6]}"
 
     query = """
@@ -1248,7 +1248,7 @@ async def get_budgets(session: AsyncSession, user_id: str, fiscal_year: Optional
 async def create_internal_control(session: AsyncSession, user_id: str, control: InternalControlCreate) -> InternalControlInDB:
     """Create internal control"""
     control_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -1346,8 +1346,8 @@ async def get_internal_controls(session: AsyncSession, user_id: str) -> List[Int
 async def create_audit_report(session: AsyncSession, user_id: str, audit: AuditReportCreate) -> AuditReportInDB:
     """Create audit report"""
     audit_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    report_number = f"AUD-{datetime.utcnow().strftime('%Y%m%d')}-{audit_id[:6]}"
+    created_at = datetime.now(timezone.utc)
+    report_number = f"AUD-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{audit_id[:6]}"
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -1547,7 +1547,7 @@ async def create_impact_measurement(session: AsyncSession, user_id: str, measure
 async def create_volunteer_record(session: AsyncSession, user_id: str, record: VolunteerRecordCreate) -> VolunteerRecordInDB:
     """Create volunteer record"""
     record_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     # Calculate value of service
     hourly_rate = record.hourly_rate_value or Decimal('25.00')  # Default $25/hour
@@ -1658,7 +1658,7 @@ async def get_volunteer_records(session: AsyncSession, user_id: str, start_date=
 async def create_statement_of_activities(session: AsyncSession, user_id: str, period_start: date, period_end: date) -> StatementOfActivitiesInDB:
     """Create Statement of Activities"""
     stmt_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     # Calculate from donations, grants, and transactions
     donations_query = """
@@ -1788,7 +1788,7 @@ async def create_statement_of_activities(session: AsyncSession, user_id: str, pe
 async def create_statement_of_financial_position(session: AsyncSession, user_id: str, as_of_date: date) -> StatementOfFinancialPositionInDB:
     """Create Statement of Financial Position"""
     stmt_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
 
     # Get totals from funds
     query = """

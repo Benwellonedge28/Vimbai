@@ -47,7 +47,7 @@ class MultimodalProcessor:
         """
         # Default values
         total_amount = Decimal('0.00')
-        invoice_date = datetime.utcnow()
+        invoice_date = datetime.now(timezone.utc)
         vendor_name = "Unknown Vendor"
         description = source_context if source_context else "Multimodal document processing"
         reference_number = None

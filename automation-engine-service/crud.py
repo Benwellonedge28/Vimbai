@@ -11,8 +11,8 @@ import uuid
 # --- AutomationTaskDefinition CRUD ---
 async def create_automation_task_definition(session: AsyncSession, definition_data: AutomationTaskDefinitionCreate) -> AutomationTaskDefinitionInDB:
     definition_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (u:User {id: $owner_user_id})
@@ -135,7 +135,7 @@ async def update_automation_task_definition(session: AsyncSession, definition_id
     if not update_fields:
         return await get_automation_task_definition(session, definition_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "last_executed_at" in update_fields and update_fields["last_executed_at"]:
         update_fields["last_executed_at"] = update_fields["last_executed_at"].isoformat()
     if "next_execution_at" in update_fields and update_fields["next_execution_at"]:
@@ -168,8 +168,8 @@ async def delete_automation_task_definition(session: AsyncSession, definition_id
 # --- AutomationTaskInstance CRUD ---
 async def create_automation_task_instance(session: AsyncSession, instance_data: AutomationTaskInstanceCreate) -> AutomationTaskInstanceInDB:
     instance_id = str(uuid.uuid4())
-    created_at = datetime.utcnow()
-    updated_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
 
     query = """
     MATCH (atd:AutomationTaskDefinition {id: $task_definition_id})
@@ -267,7 +267,7 @@ async def update_automation_task_instance(session: AsyncSession, instance_id: st
     if not update_fields:
         return await get_automation_task_instance(session, instance_id)
 
-    update_fields["updated_at"] = datetime.utcnow().isoformat()
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "end_time" in update_fields and update_fields["end_time"]:
         update_fields["end_time"] = update_fields["end_time"].isoformat()
 
@@ -290,7 +290,7 @@ async def update_automation_task_instance(session: AsyncSession, instance_id: st
 # --- AutomationLog CRUD ---
 async def create_automation_log(session: AsyncSession, log_data: AutomationLogCreate) -> AutomationLogInDB:
     log_id = str(uuid.uuid4())
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(timezone.utc)
 
     query = """
     MATCH (ati:AutomationTaskInstance {id: $instance_id})

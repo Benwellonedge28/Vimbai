@@ -7,7 +7,7 @@ import random
 import pickle
 import hashlib
 from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 import asyncio
 import os
@@ -40,7 +40,7 @@ class ModelVersion:
     def __init__(self, version: str, model_path: Optional[str] = None):
         self.version = version
         self.model_path = model_path
-        self.loaded_at = datetime.utcnow()
+        self.loaded_at = datetime.now(timezone.utc)
         self.metrics = {
             "accuracy": 0.0,
             "precision": 0.0,
@@ -226,7 +226,7 @@ class ProductionFraudDetector:
 
         # Mark primary model as ready
         if self.active_model_version in self.models:
-            self.models[self.active_model_version].loaded_at = datetime.utcnow()
+            self.models[self.active_model_version].loaded_at = datetime.now(timezone.utc)
             self.status = ModelStatus.READY
 
         print(f"Fraud Detection Service ready with model: {self.active_model_version}")
@@ -385,7 +385,7 @@ class ProductionFraudDetector:
                 "fraud_flag": fraud_flag,
                 "reason": ". ".join(reasons) if reasons else "No specific issues detected",
                 "model_version": model_version,
-                "processed_at": datetime.utcnow().isoformat(),
+                "processed_at": datetime.now(timezone.utc).isoformat(),
                 "features_used": list(self.feature_engine.extract_features(transaction).keys())
             }
 
@@ -405,7 +405,7 @@ class ProductionFraudDetector:
                 "fraud_flag": "suspicious" if fraud_score >= 0.5 else "low_risk",
                 "reason": ". ".join(reasons) if reasons else "Fallback scoring applied",
                 "model_version": "fallback",
-                "processed_at": datetime.utcnow().isoformat(),
+                "processed_at": datetime.now(timezone.utc).isoformat(),
                 "fallback_used": True
             }
 
@@ -420,7 +420,7 @@ class ProductionFraudDetector:
         # Track recent predictions (rolling window)
         self.metrics["recent_predictions"].append({
             "score": fraud_score,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.now(timezone.utc)
         })
 
         # Keep only last 1000 predictions
