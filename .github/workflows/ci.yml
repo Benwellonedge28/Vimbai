@@ -56,11 +56,16 @@ jobs:
             alerts-service/ \
             cache-service/ \
             currency-service/ \
+            graphql-service/ \
             message-bus-service/ \
             notifications-service/ \
             npo-service/ \
             scenario-modeling-service/ \
             supply-chain-service/ \
+            pos-integration-service/ \
+            document-service/ \
+            bank-feed-service/ \
+            payment-gateway-service/ \
             2>/dev/null || true
 
       - name: Run isort (import check)
@@ -80,11 +85,16 @@ jobs:
             alerts-service/ \
             cache-service/ \
             currency-service/ \
+            graphql-service/ \
             message-bus-service/ \
             notifications-service/ \
             npo-service/ \
             scenario-modeling-service/ \
             supply-chain-service/ \
+            pos-integration-service/ \
+            document-service/ \
+            bank-feed-service/ \
+            payment-gateway-service/ \
             2>/dev/null || true
 
       - name: Run flake8 (lint)
@@ -104,11 +114,16 @@ jobs:
             alerts-service/ \
             cache-service/ \
             currency-service/ \
+            graphql-service/ \
             message-bus-service/ \
             notifications-service/ \
             npo-service/ \
             scenario-modeling-service/ \
             supply-chain-service/ \
+            pos-integration-service/ \
+            document-service/ \
+            bank-feed-service/ \
+            payment-gateway-service/ \
             --max-line-length=120 --extend-ignore=E501,W503,E203 || true
 
   lint-frontend:
@@ -264,6 +279,30 @@ jobs:
       - name: Test supply-chain-service
         run: |
           cd supply-chain-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test pos-integration-service
+        run: |
+          cd pos-integration-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test document-service
+        run: |
+          cd document-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test bank-feed-service
+        run: |
+          cd bank-feed-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test payment-gateway-service
+        run: |
+          cd payment-gateway-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
