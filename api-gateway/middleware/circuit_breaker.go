@@ -37,7 +37,7 @@ var DefaultCircuitBreakerConfig = CircuitBreakerConfig{
 	Timeout:     10 * time.Second,
 	ReadyToOpen: func(counts gobreaker.Counts) bool {
 		// Open the circuit if 60% or more of requests fail in a given interval (min 3 requests)
-		return counts.Request > 3 && float64(counts.Failure)/float64(counts.Request) >= 0.6
+		return counts.Requests > 3 && float64(counts.TotalFailures)/float64(counts.Requests) >= 0.6
 	},
 	OnStateChange: func(name string, from, to gobreaker.State) {
 		fmt.Printf("Circuit Breaker '%s' changed from %s to %s\n", name, from.String(), to.String())

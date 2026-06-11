@@ -31,7 +31,7 @@ func AuthMiddleware(cfg *config.Config) echo.MiddlewareFunc {
 			}
 
 			tokenString := parts[1]
-			claims, err := utils.ValidateToken(tokenString, cfg.JWTSecret)
+			claims, err := utils.ValidateToken(tokenString, cfg.JwtSecret)
 			if err != nil {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token: "+err.Error())
 			}

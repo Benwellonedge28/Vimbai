@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"log"
@@ -53,7 +52,7 @@ func (r *responseRecorder) WriteHeader(statusCode int) {
 type ProxyResilienceHandler struct {
 	proxy        *httputil.ReverseProxy
 	cb           *gobreaker.CircuitBreaker // nil if not used
-	retryCfg     middleware.RetryConfig // zero value if not used
+	retryCfg     middleware.RetryConfig    // zero value if not used
 	authRequired bool
 	routePath    string // Store original route path to trim correctly
 }
@@ -76,7 +75,7 @@ func (prh *ProxyResilienceHandler) Handle(c echo.Context) error {
 
 	// --- Circuit Breaker & Retry Logic ---
 	var finalRecordedResp *responseRecorder // Stores the response from the successful/final retry
-	var lastErr error                     // Stores the last error from a retry attempt
+	var lastErr error                        // Stores the last error from a retry attempt
 
 	// Function that executes the actual proxy call, potentially retrying
 	resilientProxyCall := func() (interface{}, error) {
@@ -103,11 +102,11 @@ func (prh *ProxyResilienceHandler) Handle(c echo.Context) error {
 					return fmt.Errorf("retryable HTTP status: %d", recorder.Status) // Signal to backoff to retry
 				}
 			}
-			
+
 			// For non-retryable errors (e.g., 4xx, or non-retryable 5xx)
 			if recorder.Status >= 400 {
 				finalRecordedResp = recorder // Capture response for immediate return
-				return backoff.Permanent(echo.NewHTTPError(recorder.Status, recordedResponse.Body.String())) // Permanent error, stop retrying
+				return backoff.Permanent(echo.NewHTTPError(recorder.Status, recorder.Body.String())) // Permanent error, stop retrying
 			}
 
 			// Success case
@@ -202,14 +201,14 @@ func main() {
 	// Initialize Circuit Breakers for each upstream service
 	circuitBreakers := make(map[string]*gobreaker.CircuitBreaker)
 	for _, route := range cfg.Routes {
-		if route.AuthRequired { 
+		if route.AuthRequired {
 			if _, exists := circuitBreakers[route.TargetURL]; !exists {
 				settings := gobreaker.Settings{
-					Name:        strings.ReplaceAll(strings.TrimPrefix(route.TargetURL, "http://"), ":", "_"),
-					MaxRequests: middleware.DefaultCircuitBreakerConfig.MaxRequests,
-					Interval:    middleware.DefaultCircuitBreakerConfig.Interval,
-					Timeout:     middleware.DefaultCircuitBreakerConfig.Timeout,
-					ReadyToOpen: middleware.DefaultCircuitBreakerConfig.ReadyToOpen,
+					Name:          strings.ReplaceAll(strings.TrimPrefix(route.TargetURL, "http://"), ":", "_"),
+					MaxRequests:   middleware.DefaultCircuitBreakerConfig.MaxRequests,
+					Interval:      middleware.DefaultCircuitBreakerConfig.Interval,
+					Timeout:       middleware.DefaultCircuitBreakerConfig.Timeout,
+					ReadyToTrip:   middleware.DefaultCircuitBreakerConfig.ReadyToOpen,
 					OnStateChange: middleware.DefaultCircuitBreakerConfig.OnStateChange,
 				}
 				circuitBreakers[route.TargetURL] = gobreaker.NewCircuitBreaker(settings)
@@ -230,7 +229,7 @@ func main() {
 		rp.Director = func(req *http.Request) {
 			req.URL.Scheme = targetURL.Scheme
 			req.URL.Host = targetURL.Host
-			req.Host = targetURL.Host 
+			req.Host = targetURL.Host
 			req.URL.Path = strings.TrimPrefix(req.URL.Path, route.Path)
 			if _, ok := req.Header["User-Agent"]; !ok {
 				req.Header.Set("User-Agent", "FinAcc-API-Gateway")
@@ -261,13 +260,9 @@ func main() {
 		rp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 			log.Printf("Proxy.ErrorHandler: Transport error to %s for %s%s: %v\n", targetURL.String(), route.Path, r.URL.Path, err)
 			// httputil.ReverseProxy's ErrorHandler is called for transport-level errors (e.g., connection refused).
-			// We need to signal this error back to the circuit breaker. This is done by propagating the error.
-			// For simplicity, we just return an HTTPError here which Recover middleware will catch.
-			ec := c.Echo()
-			ec.DefaultHTTPErrorHandler(err, c) // Use Echo's default error handler for proxy transport errors
-			if route.AuthRequired && circuitBreakers[route.TargetURL] != nil {
-				circuitBreakers[route.TargetURL].Fail() // Manually mark as failure for the circuit breaker
-			}
+			// We just log the error - the circuit breaker is already counting failures when Execute returns errors.
+			w.WriteHeader(http.StatusBadGateway)
+			fmt.Fprintf(w, `{"detail": "Bad Gateway", "code": "TRANSPORT_ERROR"}`)
 		}
 
 		// Define the resilience handler for the route

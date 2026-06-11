@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -43,6 +44,14 @@ func LoadRateLimitConfig() RateLimitConfig {
 	}
 
 	return cfg
+}
+
+// getEnv retrieves an environment variable or returns a default value
+func getEnv(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return defaultValue
 }
 
 func getEnvInt(key string, defaultVal int) int {
@@ -210,7 +219,7 @@ func RateLimitMiddleware(config RateLimitConfig) echo.MiddlewareFunc {
 			if !limiter.Allow(clientID) {
 				bucket := limiter.GetBucket(clientID)
 				remaining := int(bucket.GetTokens())
-				retryAfter := int(1.0 / limiter.config.RequestsPerSecond * float64(limiter.config.BurstSize))
+				retryAfter := int((1.0 / float64(limiter.config.RequestsPerSecond)) * float64(limiter.config.BurstSize))
 
 				c.Response().Header().Set("X-RateLimit-Limit", strconv.Itoa(config.RequestsPerSecond))
 				c.Response().Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))

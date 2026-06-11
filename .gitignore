@@ -1,3 +1,16 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Go build artifacts
+api-gateway/finacc-gateway
+*.exe
+
+# Frontend build
+web-frontend/dist/
+web-frontend/node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
