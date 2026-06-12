@@ -66,6 +66,8 @@ jobs:
             document-service/ \
             bank-feed-service/ \
             payment-gateway-service/ \
+            identity-service/ \
+            audit-service/ \
             2>/dev/null || true
 
       - name: Run isort (import check)
@@ -95,6 +97,8 @@ jobs:
             document-service/ \
             bank-feed-service/ \
             payment-gateway-service/ \
+            identity-service/ \
+            audit-service/ \
             2>/dev/null || true
 
       - name: Run flake8 (lint)
@@ -303,6 +307,18 @@ jobs:
       - name: Test payment-gateway-service
         run: |
           cd payment-gateway-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test identity-service
+        run: |
+          cd identity-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test audit-service
+        run: |
+          cd audit-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
