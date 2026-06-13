@@ -68,6 +68,11 @@ jobs:
             payment-gateway-service/ \
             identity-service/ \
             audit-service/ \
+            accounting-standards-service/ \
+            suspense-error-service/ \
+            petty-cash-service/ \
+            cashbook-service/ \
+            budgeting-service/ \
             2>/dev/null || true
 
       - name: Run isort (import check)
@@ -99,6 +104,11 @@ jobs:
             payment-gateway-service/ \
             identity-service/ \
             audit-service/ \
+            accounting-standards-service/ \
+            suspense-error-service/ \
+            petty-cash-service/ \
+            cashbook-service/ \
+            budgeting-service/ \
             2>/dev/null || true
 
       - name: Run flake8 (lint)
@@ -128,6 +138,13 @@ jobs:
             document-service/ \
             bank-feed-service/ \
             payment-gateway-service/ \
+            identity-service/ \
+            audit-service/ \
+            accounting-standards-service/ \
+            suspense-error-service/ \
+            petty-cash-service/ \
+            cashbook-service/ \
+            budgeting-service/ \
             --max-line-length=120 --extend-ignore=E501,W503,E203 || true
 
   lint-frontend:
@@ -319,6 +336,36 @@ jobs:
       - name: Test audit-service
         run: |
           cd audit-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test accounting-standards-service
+        run: |
+          cd accounting-standards-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test suspense-error-service
+        run: |
+          cd suspense-error-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test petty-cash-service
+        run: |
+          cd petty-cash-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test cashbook-service
+        run: |
+          cd cashbook-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test budgeting-service
+        run: |
+          cd budgeting-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
