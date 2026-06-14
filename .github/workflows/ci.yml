@@ -73,6 +73,12 @@ jobs:
             petty-cash-service/ \
             cashbook-service/ \
             budgeting-service/ \
+            departmental-accounting-service/ \
+            company-accounting-service/ \
+            partnership-accounting-service/ \
+            consolidation-service/ \
+            tax-accounting-service/ \
+            cost-accounting-service/ \
             2>/dev/null || true
 
       - name: Run isort (import check)
@@ -109,6 +115,12 @@ jobs:
             petty-cash-service/ \
             cashbook-service/ \
             budgeting-service/ \
+            departmental-accounting-service/ \
+            company-accounting-service/ \
+            partnership-accounting-service/ \
+            consolidation-service/ \
+            tax-accounting-service/ \
+            cost-accounting-service/ \
             2>/dev/null || true
 
       - name: Run flake8 (lint)
@@ -145,6 +157,12 @@ jobs:
             petty-cash-service/ \
             cashbook-service/ \
             budgeting-service/ \
+            departmental-accounting-service/ \
+            company-accounting-service/ \
+            partnership-accounting-service/ \
+            consolidation-service/ \
+            tax-accounting-service/ \
+            cost-accounting-service/ \
             --max-line-length=120 --extend-ignore=E501,W503,E203 || true
 
   lint-frontend:
@@ -366,6 +384,42 @@ jobs:
       - name: Test budgeting-service
         run: |
           cd budgeting-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test departmental-accounting-service
+        run: |
+          cd departmental-accounting-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test company-accounting-service
+        run: |
+          cd company-accounting-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test partnership-accounting-service
+        run: |
+          cd partnership-accounting-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test consolidation-service
+        run: |
+          cd consolidation-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test tax-accounting-service
+        run: |
+          cd tax-accounting-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test cost-accounting-service
+        run: |
+          cd cost-accounting-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
