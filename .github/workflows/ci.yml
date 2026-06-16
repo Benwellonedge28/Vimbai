@@ -79,6 +79,38 @@ jobs:
             consolidation-service/ \
             tax-accounting-service/ \
             cost-accounting-service/ \
+            double-entry-principles-service/ \
+            business-documents-service/ \
+            provision-bad-debts-service/ \
+            bad-debts-recovery-service/ \
+            provision-doubtful-debts-service/ \
+            depreciation-service/ \
+            disposal-account-service/ \
+            fixed-assets-schedule-service/ \
+            sales-ledger-control-service/ \
+            purchases-ledger-control-service/ \
+            control-account-reconciliation-service/ \
+            bank-reconciliation-service/ \
+            partnership-agreement-service/ \
+            partnership-changes-service/ \
+            partnership-revaluation-service/ \
+            partnership-dissolution-service/ \
+            partnership-sale-service/ \
+            authorized-share-capital-service/ \
+            issued-share-capital-service/ \
+            ordinary-shares-service/ \
+            bonus-shares-service/ \
+            right-issues-service/ \
+            preference-shares-service/ \
+            general-reserve-service/ \
+            retained-profits-service/ \
+            capital-redemption-reserve-service/ \
+            share-premium-service/ \
+            revaluation-reserve-service/ \
+            debentures-service/ \
+            share-redemption-service/ \
+            capital-reconstruction-service/ \
+            cash-flow-statement-service/ \
             2>/dev/null || true
 
       - name: Run isort (import check)
@@ -121,6 +153,38 @@ jobs:
             consolidation-service/ \
             tax-accounting-service/ \
             cost-accounting-service/ \
+            double-entry-principles-service/ \
+            business-documents-service/ \
+            provision-bad-debts-service/ \
+            bad-debts-recovery-service/ \
+            provision-doubtful-debts-service/ \
+            depreciation-service/ \
+            disposal-account-service/ \
+            fixed-assets-schedule-service/ \
+            sales-ledger-control-service/ \
+            purchases-ledger-control-service/ \
+            control-account-reconciliation-service/ \
+            bank-reconciliation-service/ \
+            partnership-agreement-service/ \
+            partnership-changes-service/ \
+            partnership-revaluation-service/ \
+            partnership-dissolution-service/ \
+            partnership-sale-service/ \
+            authorized-share-capital-service/ \
+            issued-share-capital-service/ \
+            ordinary-shares-service/ \
+            bonus-shares-service/ \
+            right-issues-service/ \
+            preference-shares-service/ \
+            general-reserve-service/ \
+            retained-profits-service/ \
+            capital-redemption-reserve-service/ \
+            share-premium-service/ \
+            revaluation-reserve-service/ \
+            debentures-service/ \
+            share-redemption-service/ \
+            capital-reconstruction-service/ \
+            cash-flow-statement-service/ \
             2>/dev/null || true
 
       - name: Run flake8 (lint)
@@ -163,6 +227,38 @@ jobs:
             consolidation-service/ \
             tax-accounting-service/ \
             cost-accounting-service/ \
+            double-entry-principles-service/ \
+            business-documents-service/ \
+            provision-bad-debts-service/ \
+            bad-debts-recovery-service/ \
+            provision-doubtful-debts-service/ \
+            depreciation-service/ \
+            disposal-account-service/ \
+            fixed-assets-schedule-service/ \
+            sales-ledger-control-service/ \
+            purchases-ledger-control-service/ \
+            control-account-reconciliation-service/ \
+            bank-reconciliation-service/ \
+            partnership-agreement-service/ \
+            partnership-changes-service/ \
+            partnership-revaluation-service/ \
+            partnership-dissolution-service/ \
+            partnership-sale-service/ \
+            authorized-share-capital-service/ \
+            issued-share-capital-service/ \
+            ordinary-shares-service/ \
+            bonus-shares-service/ \
+            right-issues-service/ \
+            preference-shares-service/ \
+            general-reserve-service/ \
+            retained-profits-service/ \
+            capital-redemption-reserve-service/ \
+            share-premium-service/ \
+            revaluation-reserve-service/ \
+            debentures-service/ \
+            share-redemption-service/ \
+            capital-reconstruction-service/ \
+            cash-flow-statement-service/ \
             --max-line-length=120 --extend-ignore=E501,W503,E203 || true
 
   lint-frontend:
@@ -420,6 +516,198 @@ jobs:
       - name: Test cost-accounting-service
         run: |
           cd cost-accounting-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test double-entry-principles-service
+        run: |
+          cd double-entry-principles-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test business-documents-service
+        run: |
+          cd business-documents-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test provision-bad-debts-service
+        run: |
+          cd provision-bad-debts-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test bad-debts-recovery-service
+        run: |
+          cd bad-debts-recovery-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test provision-doubtful-debts-service
+        run: |
+          cd provision-doubtful-debts-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test depreciation-service
+        run: |
+          cd depreciation-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test disposal-account-service
+        run: |
+          cd disposal-account-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test fixed-assets-schedule-service
+        run: |
+          cd fixed-assets-schedule-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test sales-ledger-control-service
+        run: |
+          cd sales-ledger-control-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test purchases-ledger-control-service
+        run: |
+          cd purchases-ledger-control-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test control-account-reconciliation-service
+        run: |
+          cd control-account-reconciliation-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test bank-reconciliation-service
+        run: |
+          cd bank-reconciliation-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test partnership-agreement-service
+        run: |
+          cd partnership-agreement-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test partnership-changes-service
+        run: |
+          cd partnership-changes-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test partnership-revaluation-service
+        run: |
+          cd partnership-revaluation-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test partnership-dissolution-service
+        run: |
+          cd partnership-dissolution-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test partnership-sale-service
+        run: |
+          cd partnership-sale-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test authorized-share-capital-service
+        run: |
+          cd authorized-share-capital-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test issued-share-capital-service
+        run: |
+          cd issued-share-capital-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test ordinary-shares-service
+        run: |
+          cd ordinary-shares-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test bonus-shares-service
+        run: |
+          cd bonus-shares-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test right-issues-service
+        run: |
+          cd right-issues-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test preference-shares-service
+        run: |
+          cd preference-shares-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test general-reserve-service
+        run: |
+          cd general-reserve-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test retained-profits-service
+        run: |
+          cd retained-profits-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test capital-redemption-reserve-service
+        run: |
+          cd capital-redemption-reserve-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test share-premium-service
+        run: |
+          cd share-premium-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test revaluation-reserve-service
+        run: |
+          cd revaluation-reserve-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test debentures-service
+        run: |
+          cd debentures-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test share-redemption-service
+        run: |
+          cd share-redemption-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test capital-reconstruction-service
+        run: |
+          cd capital-reconstruction-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test cash-flow-statement-service
+        run: |
+          cd cash-flow-statement-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
