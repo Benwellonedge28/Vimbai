@@ -111,6 +111,29 @@ jobs:
             share-redemption-service/ \
             capital-reconstruction-service/ \
             cash-flow-statement-service/ \
+            fixed-cost-service/ \
+            variable-cost-service/ \
+            absorption-costing-service/ \
+            absorption-costing-statement-service/ \
+            marginal-costing-service/ \
+            prime-cost-service/ \
+            total-production-cost-service/ \
+            cost-centre-service/ \
+            basis-apportionment-service/ \
+            overhead-apportionment-service/ \
+            contribution-analysis-service/ \
+            make-or-buy-decision-service/ \
+            continue-shutdown-decision-service/ \
+            limiting-factor-service/ \
+            selling-price-reduction-service/ \
+            order-acceptance-service/ \
+            break-even-analysis-service/ \
+            break-even-point-service/ \
+            break-even-revenue-service/ \
+            break-even-output-service/ \
+            margin-safety-service/ \
+            overhead-absorption-rate-service/ \
+            over-under-absorption-service/ \
             2>/dev/null || true
 
       - name: Run isort (import check)
@@ -185,6 +208,29 @@ jobs:
             share-redemption-service/ \
             capital-reconstruction-service/ \
             cash-flow-statement-service/ \
+            fixed-cost-service/ \
+            variable-cost-service/ \
+            absorption-costing-service/ \
+            absorption-costing-statement-service/ \
+            marginal-costing-service/ \
+            prime-cost-service/ \
+            total-production-cost-service/ \
+            cost-centre-service/ \
+            basis-apportionment-service/ \
+            overhead-apportionment-service/ \
+            contribution-analysis-service/ \
+            make-or-buy-decision-service/ \
+            continue-shutdown-decision-service/ \
+            limiting-factor-service/ \
+            selling-price-reduction-service/ \
+            order-acceptance-service/ \
+            break-even-analysis-service/ \
+            break-even-point-service/ \
+            break-even-revenue-service/ \
+            break-even-output-service/ \
+            margin-safety-service/ \
+            overhead-absorption-rate-service/ \
+            over-under-absorption-service/ \
             2>/dev/null || true
 
       - name: Run flake8 (lint)
@@ -708,6 +754,144 @@ jobs:
       - name: Test cash-flow-statement-service
         run: |
           cd cash-flow-statement-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test fixed-cost-service
+        run: |
+          cd fixed-cost-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test variable-cost-service
+        run: |
+          cd variable-cost-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test absorption-costing-service
+        run: |
+          cd absorption-costing-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test absorption-costing-statement-service
+        run: |
+          cd absorption-costing-statement-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test marginal-costing-service
+        run: |
+          cd marginal-costing-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test prime-cost-service
+        run: |
+          cd prime-cost-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test total-production-cost-service
+        run: |
+          cd total-production-cost-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test cost-centre-service
+        run: |
+          cd cost-centre-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test basis-apportionment-service
+        run: |
+          cd basis-apportionment-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test overhead-apportionment-service
+        run: |
+          cd overhead-apportionment-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test contribution-analysis-service
+        run: |
+          cd contribution-analysis-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test make-or-buy-decision-service
+        run: |
+          cd make-or-buy-decision-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test continue-shutdown-decision-service
+        run: |
+          cd continue-shutdown-decision-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test limiting-factor-service
+        run: |
+          cd limiting-factor-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test selling-price-reduction-service
+        run: |
+          cd selling-price-reduction-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test order-acceptance-service
+        run: |
+          cd order-acceptance-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test break-even-analysis-service
+        run: |
+          cd break-even-analysis-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test break-even-point-service
+        run: |
+          cd break-even-point-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test break-even-revenue-service
+        run: |
+          cd break-even-revenue-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test break-even-output-service
+        run: |
+          cd break-even-output-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test margin-safety-service
+        run: |
+          cd margin-safety-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test overhead-absorption-rate-service
+        run: |
+          cd overhead-absorption-rate-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test over-under-absorption-service
+        run: |
+          cd over-under-absorption-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
