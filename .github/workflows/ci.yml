@@ -134,6 +134,33 @@ jobs:
             margin-safety-service/ \
             overhead-absorption-rate-service/ \
             over-under-absorption-service/ \
+            cash-flow-service/ \
+            profit-service/ \
+            discount-factor-service/ \
+            present-value-service/ \
+            cost-of-capital-service/ \
+            time-value-of-money-service/ \
+            initial-investment-service/ \
+            net-realizable-value-service/ \
+            variance-service/ \
+            contribution-per-unit-service/ \
+            standard-cost-service/ \
+            budgeted-cost-service/ \
+            actual-cost-service/ \
+            flexible-budget-service/ \
+            payback-period-service/ \
+            accounting-rate-return-service/ \
+            net-present-value-service/ \
+            internal-rate-return-service/ \
+            discounted-payback-period-service/ \
+            material-price-variance-service/ \
+            material-usage-variance-service/ \
+            material-cost-variance-service/ \
+            labour-rate-variance-service/ \
+            labour-efficiency-variance-service/ \
+            labour-cost-variance-service/ \
+            sales-price-variance-service/ \
+            sales-volume-variance-service/ \
             2>/dev/null || true
 
       - name: Run isort (import check)
@@ -892,6 +919,168 @@ jobs:
       - name: Test over-under-absorption-service
         run: |
           cd over-under-absorption-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test cash-flow-service
+        run: |
+          cd cash-flow-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test profit-service
+        run: |
+          cd profit-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test discount-factor-service
+        run: |
+          cd discount-factor-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test present-value-service
+        run: |
+          cd present-value-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test cost-of-capital-service
+        run: |
+          cd cost-of-capital-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test time-value-of-money-service
+        run: |
+          cd time-value-of-money-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test initial-investment-service
+        run: |
+          cd initial-investment-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test net-realizable-value-service
+        run: |
+          cd net-realizable-value-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test variance-service
+        run: |
+          cd variance-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test contribution-per-unit-service
+        run: |
+          cd contribution-per-unit-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test standard-cost-service
+        run: |
+          cd standard-cost-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test budgeted-cost-service
+        run: |
+          cd budgeted-cost-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test actual-cost-service
+        run: |
+          cd actual-cost-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test flexible-budget-service
+        run: |
+          cd flexible-budget-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test payback-period-service
+        run: |
+          cd payback-period-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test accounting-rate-return-service
+        run: |
+          cd accounting-rate-return-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test net-present-value-service
+        run: |
+          cd net-present-value-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test internal-rate-return-service
+        run: |
+          cd internal-rate-return-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test discounted-payback-period-service
+        run: |
+          cd discounted-payback-period-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test material-price-variance-service
+        run: |
+          cd material-price-variance-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test material-usage-variance-service
+        run: |
+          cd material-usage-variance-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test material-cost-variance-service
+        run: |
+          cd material-cost-variance-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test labour-rate-variance-service
+        run: |
+          cd labour-rate-variance-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test labour-efficiency-variance-service
+        run: |
+          cd labour-efficiency-variance-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test labour-cost-variance-service
+        run: |
+          cd labour-cost-variance-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test sales-price-variance-service
+        run: |
+          cd sales-price-variance-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test sales-volume-variance-service
+        run: |
+          cd sales-volume-variance-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
