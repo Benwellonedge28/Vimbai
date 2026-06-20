@@ -161,6 +161,15 @@ jobs:
             labour-cost-variance-service/ \
             sales-price-variance-service/ \
             sales-volume-variance-service/ \
+            ratio-analysis-service/ \
+            inventory-valuation-service/ \
+            trial-balance-service/ \
+            trading-account-service/ \
+            profit-loss-account-service/ \
+            balance-sheet-service/ \
+            working-capital-service/ \
+            tax-calculation-service/ \
+            payroll-accounting-service/ \
             2>/dev/null || true
 
       - name: Run isort (import check)
@@ -258,6 +267,15 @@ jobs:
             margin-safety-service/ \
             overhead-absorption-rate-service/ \
             over-under-absorption-service/ \
+            ratio-analysis-service/ \
+            inventory-valuation-service/ \
+            trial-balance-service/ \
+            trading-account-service/ \
+            profit-loss-account-service/ \
+            balance-sheet-service/ \
+            working-capital-service/ \
+            tax-calculation-service/ \
+            payroll-accounting-service/ \
             2>/dev/null || true
 
       - name: Run flake8 (lint)
@@ -332,6 +350,15 @@ jobs:
             share-redemption-service/ \
             capital-reconstruction-service/ \
             cash-flow-statement-service/ \
+            ratio-analysis-service/ \
+            inventory-valuation-service/ \
+            trial-balance-service/ \
+            trading-account-service/ \
+            profit-loss-account-service/ \
+            balance-sheet-service/ \
+            working-capital-service/ \
+            tax-calculation-service/ \
+            payroll-accounting-service/ \
             --max-line-length=120 --extend-ignore=E501,W503,E203 || true
 
   lint-frontend:
@@ -1081,6 +1108,60 @@ jobs:
       - name: Test sales-volume-variance-service
         run: |
           cd sales-volume-variance-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test ratio-analysis-service
+        run: |
+          cd ratio-analysis-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test inventory-valuation-service
+        run: |
+          cd inventory-valuation-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test trial-balance-service
+        run: |
+          cd trial-balance-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test trading-account-service
+        run: |
+          cd trading-account-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test profit-loss-account-service
+        run: |
+          cd profit-loss-account-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test balance-sheet-service
+        run: |
+          cd balance-sheet-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test working-capital-service
+        run: |
+          cd working-capital-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test tax-calculation-service
+        run: |
+          cd tax-calculation-service && pip install -q -r requirements.txt 2>/dev/null || true
+          pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
+        continue-on-error: true
+
+      - name: Test payroll-accounting-service
+        run: |
+          cd payroll-accounting-service && pip install -q -r requirements.txt 2>/dev/null || true
           pytest -v --cov=. --cov-report=xml --tb=short 2>/dev/null || echo "No tests found"
         continue-on-error: true
 
