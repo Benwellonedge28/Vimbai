@@ -1,116 +1,125 @@
 """
 Cash Flow Forecasting Service
-Port: 8167
-Short-term and long-term cash flow projections, scenario analysis
+Port: 8238
+Cash flow projection and forecasting
 """
 import httpx
 import structlog
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from fastapi import FastAPI
+from datetime import datetime, timedelta
+import json
 
 logger = structlog.get_logger()
 app = FastAPI(title="Cash Flow Forecasting Service", version="1.0.0")
 
 class CashFlowItem(BaseModel):
-    item_id: str
     category: str
-    description: str
     amount: float
     frequency: str
     certainty: str
 
-class ForecastRequest(BaseModel):
+class CashFlowForecastRequest(BaseModel):
     company_id: str
-    forecast_start_date: str
-    forecast_periods: int = Field(default=12, ge=1, le=36)
-    opening_cash: float
-    inflow_items: List[CashFlowItem]
-    outflow_items: List[CashFlowItem]
-    scenario: str = "base"
+    starting_cash: float
+    inflows: List[CashFlowItem]
+    outflows: List[CashFlowItem]
+    forecast_period_days: int
+    scenario: str
 
-class ForecastPeriod(BaseModel):
-    period: str
-    inflows: float
-    outflows: float
-    net_flow: float
-    closing_cash: float
-
-class ForecastResponse(BaseModel):
+class CashFlowForecastResponse(BaseModel):
     company_id: str
-    forecast_start_date: str
-    periods: List[ForecastPeriod]
-    total_inflows: float
-    total_outflows: float
-    net_cash_flow: float
-    minimum_cash_balance: float
-    maximum_cash_balance: float
-    financing_required: float
-    peak_funding_requirement: float
-
-async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{service_url}{endpoint}"
-            response = await client.post(url, json=data) if data else await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception as e:
-        logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
-        return {}
+    forecast_date: str
+    period_days: int
+    daily_forecasts: List[Dict[str, Any]]
+    weekly_summary: List[Dict[str, Any]]
+    monthly_summary: List[Dict[str, Any]]
+    ending_cash: float
+    peak_cash_needed: float
+    min_cash_balance: float
+    cash_burn_rate: float
+    runway_days: Optional[float]
+    scenarios: Dict[str, Any]
 
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "cash-flow-forecasting", "version": "1.0.0"}
 
-@app.post("/forecast", response_model=ForecastResponse)
-async def forecast_cash_flows(request: ForecastRequest):
-    logger.info("Forecasting cash flows", company=request.company_id, periods=request.forecast_periods)
+@app.post("/forecast", response_model=CashFlowForecastResponse)
+async def forecast_cash_flow(request: CashFlowForecastRequest):
+    logger.info("Forecasting cash flow", company=request.company_id, days=request.forecast_period_days)
 
-    certainty_multipliers = {"high": 1.0, "medium": 0.8, "low": 0.5}
+    daily_forecasts = []
+    cash_balance = request.starting_cash
+    min_cash = request.starting_cash
+    peak_needed = 0
+    
+    for day in range(request.forecast_period_days):
+        day_inflow = sum(item.amount for item in request.inflows 
+                        if item.frequency in ["daily", "weekly"] and day % (7 if item.frequency == "weekly" else 1) == 0)
+        day_outflow = sum(item.amount for item in request.outflows 
+                         if item.frequency in ["daily", "weekly"] and day % (7 if item.frequency == "weekly" else 1) == 0)
+        
+        cash_balance += day_inflow - day_outflow
+        min_cash = min(min_cash, cash_balance)
+        
+        daily_forecasts.append({
+            "day": day + 1,
+            "inflow": round(day_inflow, 2),
+            "outflow": round(day_outflow, 2),
+            "net_flow": round(day_inflow - day_outflow, 2),
+            "ending_cash": round(cash_balance, 2)
+        })
+        
+        if cash_balance < 0:
+            peak_needed = max(peak_needed, abs(cash_balance))
 
-    if request.scenario == "stress":
-        certainty_multipliers = {k: v * 0.7 for k, v in certainty_multipliers.items()}
+    weekly_summary = []
+    for w in range(0, request.forecast_period_days, 7):
+        week_data = daily_forecasts[w:min(w+7, len(daily_forecasts))]
+        weekly_summary.append({
+            "week": w // 7 + 1,
+            "total_inflow": round(sum(d["inflow"] for d in week_data), 2),
+            "total_outflow": round(sum(d["outflow"] for d in week_data), 2),
+            "ending_cash": week_data[-1]["ending_cash"] if week_data else request.starting_cash
+        })
 
-    periods = []
-    closing = request.opening_cash
-    min_cash = closing
-    max_cash = closing
-    financing_needed = 0.0
+    monthly_summary = []
+    for m in range(0, request.forecast_period_days, 30):
+        month_data = daily_forecasts[m:min(m+30, len(daily_forecasts))]
+        monthly_summary.append({
+            "month": m // 30 + 1,
+            "total_inflow": round(sum(d["inflow"] for d in month_data), 2),
+            "total_outflow": round(sum(d["outflow"] for d in month_data), 2),
+            "ending_cash": month_data[-1]["ending_cash"] if month_data else request.starting_cash
+        })
 
-    for i in range(1, request.forecast_periods + 1):
-        inflows = sum(item.amount * certainty_multipliers.get(item.certainty, 0.8) for item in request.inflow_items)
-        outflows = sum(item.amount * certainty_multipliers.get(item.certainty, 0.9) for item in request.outflow_items)
-        net_flow = inflows - outflows
-        closing = closing + net_flow
+    total_outflow = sum(d["outflow"] for d in daily_forecasts)
+    burn_rate = total_outflow / request.forecast_period_days if request.forecast_period_days else 0
+    runway = request.starting_cash / burn_rate if burn_rate > 0 else None
 
-        if closing < 0:
-            financing_needed += abs(closing)
-            closing = 0
+    scenarios = {
+        "base": {"ending_cash": cash_balance, "peak_need": peak_needed},
+        "optimistic": {"ending_cash": cash_balance * 1.2, "peak_need": peak_needed * 0.8},
+        "pessimistic": {"ending_cash": cash_balance * 0.7, "peak_need": peak_needed * 1.3}
+    }
 
-        min_cash = min(min_cash, closing)
-        max_cash = max(max_cash, closing)
-
-        periods.append(ForecastPeriod(
-            period=f"Month {i}",
-            inflows=inflows,
-            outflows=outflows,
-            net_flow=net_flow,
-            closing_cash=closing
-        ))
-
-    return ForecastResponse(
+    return CashFlowForecastResponse(
         company_id=request.company_id,
-        forecast_start_date=request.forecast_start_date,
-        periods=periods,
-        total_inflows=sum(p.inflows for p in periods),
-        total_outflows=sum(p.outflows for p in periods),
-        net_cash_flow=sum(p.net_flow for p in periods),
-        minimum_cash_balance=min_cash,
-        maximum_cash_balance=max_cash,
-        financing_required=financing_needed,
-        peak_funding_requirement=financing_needed
+        forecast_date=datetime.now().isoformat(),
+        period_days=request.forecast_period_days,
+        daily_forecasts=daily_forecasts,
+        weekly_summary=weekly_summary,
+        monthly_summary=monthly_summary,
+        ending_cash=round(cash_balance, 2),
+        peak_cash_needed=round(peak_needed, 2),
+        min_cash_balance=round(min_cash, 2),
+        cash_burn_rate=round(burn_rate, 2),
+        runway_days=round(runway, 2) if runway else None,
+        scenarios=scenarios
     )
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8167)
+    uvicorn.run(app, host="0.0.0.0", port=8238)

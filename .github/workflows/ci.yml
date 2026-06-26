@@ -82,6 +82,84 @@ jobs:
         run: yarn lint || true
 
   # ============================================================
+  # GitHub CodeQL Analysis
+  # ============================================================
+  codeql-analysis:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go, python, javascript
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:go,python,javascript"
+
+      - name: Upload CodeQL results
+        uses: github/codeql-action/upload-results@v3
+        if: always()
+
+  # ============================================================
+  # OWASP ZAP Security Scan
+  # ============================================================
+  zap-scan:
+    name: OWASP ZAP Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up ZAP
+        uses: zaproxy/action-setup-zap@v0.11.0
+        with:
+          version: stable
+
+      - name: Run ZAP Baseline Scan
+        run: |
+          mkdir -p zap-reports
+          docker run -t owasp/zap2docker-stable zap-baseline.py \
+            -t http://localhost:8000 \
+            -J zap-python-report.json \
+            || true
+        continue-on-error: true
+
+      - name: Run ZAP API Scan
+        run: |
+          docker run -t owasp/zap2docker-stable zap-api-scan.py \
+            -t http://localhost:8080 \
+            -f openapi \
+            -J zap-api-report.json \
+            || true
+        continue-on-error: true
+
+      - name: Upload ZAP Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-reports
+          path: zap-*.json
+          retention-days: 30
+
+      - name: Publish ZAP Results
+        uses: zaproxy/action-baseline@v0.11.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail-on: warning
+        continue-on-error: true
+
+  # ============================================================
   # Python Services - Unit Tests
   # ============================================================
   test-python-services:
@@ -136,11 +214,20 @@ jobs:
 
       - name: Build API Gateway
         working-directory: api-gateway
-        run: go build -v -o finacc-gateway ./...
+        run: go build -v -o finacc-gateway .
+
+      - name: Verify binary exists
+        run: |
+          ls -la api-gateway/finacc-gateway
+          file api-gateway/finacc-gateway
 
       - name: Run Go tests
         working-directory: api-gateway
         run: go test -v -race ./... 2>/dev/null || echo "No tests found"
+
+      - name: Run Go vet
+        working-directory: api-gateway
+        run: go vet ./...
 
   # ============================================================
   # React Frontend - Build
@@ -184,7 +271,7 @@ jobs:
   docker-build:
     name: Build All Docker Images
     runs-on: ubuntu-latest
-    needs: [lint-python, lint-frontend, test-python-services, build-go, build-frontend]
+    needs: [lint-python, lint-frontend, test-python-services, build-go, build-frontend, codeql-analysis]
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
@@ -218,7 +305,7 @@ jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [docker-build]
+    needs: [docker-build, zap-scan]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: production
@@ -273,6 +360,13 @@ jobs:
           sarif_file: 'trivy-results.sarif'
         continue-on-error: true
 
+      - name: Run Grype vulnerability scanner
+        uses: anchore/grype-action@main
+        with:
+          directory: '.'
+          fail-on: 'none'
+        continue-on-error: true
+
   # ============================================================
   # Generate SBOM
   # ============================================================
@@ -283,12 +377,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Generate SBOM
+      - name: Generate SBOM for Go
+        working-directory: api-gateway
         run: |
           if command -v syft &> /dev/null; then
-            syft . -o spdx-json > sbom.spdx.json || true
-          else
-            echo "Syft not installed, skipping SBOM generation" || true
+            syft . -o spdx-json > ../sbom-go.spdx.json || true
+          fi
+        continue-on-error: true
+
+      - name: Generate SBOM for all
+        run: |
+          if command -v syft &> /dev/null; then
+            syft . -o spdx-json --check-for-app-update=false > sbom-all.spdx.json 2>/dev/null || true
           fi
         continue-on-error: true
 
@@ -296,9 +396,28 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sbom
-          path: sbom.spdx.json
+          path: sbom-*.spdx.json
           retention-days: 90
         continue-on-error: true
+
+  # ============================================================
+  # Dependency Review
+  # ============================================================
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run dependency review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: critical
+          deny-packages: |
+            GPL-3.0
+            AGPL-3.0
+            LGPL-3.0
 
   # ============================================================
   # Notification on Failure
@@ -306,7 +425,7 @@ jobs:
   notify-failure:
     name: Notify on Failure
     runs-on: ubuntu-latest
-    needs: [lint-python, lint-frontend, test-python-services, build-go, build-frontend, docker-build, security-scan, sbom]
+    needs: [lint-python, lint-frontend, test-python-services, build-go, build-frontend, docker-build, security-scan, sbom, codeql-analysis, zap-scan]
     if: failure()
     steps:
       - name: Send notification

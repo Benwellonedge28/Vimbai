@@ -1,11 +1,11 @@
 """
 Transfer Pricing Service
-Port: 8185
-Intercompany transfer pricing methods, arm's length testing
+Port: 8294
+Intercompany pricing analysis
 """
 import httpx
 import structlog
-from typing import Any, Dict
+from typing import Any, Dict, List
 from pydantic import BaseModel
 from fastapi import FastAPI
 
@@ -14,62 +14,51 @@ app = FastAPI(title="Transfer Pricing Service", version="1.0.0")
 
 class TransferPricingRequest(BaseModel):
     company_id: str
-    transfer_type: str
-    cost: float
-    market_price: float
-    comparable_profit_margin: float
-    transaction_volume: int
+    intercompany_transactions: List[Dict[str, Any]]
+    arm_length_benchmark: Dict[str, float]
 
 class TransferPricingResponse(BaseModel):
     company_id: str
-    transfer_type: str
-    recommended_method: str
-    transfer_price: float
-    arm_length_range_low: float
-    arm_length_range_high: float
-    compliance_status: str
-
-async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{service_url}{endpoint}"
-            response = await client.post(url, json=data) if data else await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception as e:
-        logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
-        return {}
+    tp_analysis: List[Dict[str, Any]]
+    risk_assessment: Dict[str, Any]
+    recommendations: List[str]
 
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "transfer-pricing", "version": "1.0.0"}
 
-@app.post("/calculate", response_model=TransferPricingResponse)
-async def calculate_transfer_price(request: TransferPricingRequest):
-    logger.info("Calculating transfer price", company=request.company_id)
+@app.post("/analyze", response_model=TransferPricingResponse)
+async def analyze_transfer_pricing(request: TransferPricingRequest):
+    logger.info("Analyzing transfer pricing", company=request.company_id)
 
-    cost_plus_price = request.cost * (1 + request.comparable_profit_margin / 100)
-    arm_length_low = request.market_price * 0.9
-    arm_length_high = request.market_price * 1.1
-
-    if request.transfer_type == "goods":
-        method = "Comparable Uncontrolled Price"
-        transfer_price = request.market_price
-    else:
-        method = "Cost Plus"
-        transfer_price = cost_plus_price
-
-    compliant = arm_length_low <= transfer_price <= arm_length_high
-
-    return TransferPricingResponse(
-        company_id=request.company_id,
-        transfer_type=request.transfer_type,
-        recommended_method=method,
-        transfer_price=round(transfer_price, 2),
-        arm_length_range_low=round(arm_length_low, 2),
-        arm_length_range_high=round(arm_length_high, 2),
-        compliance_status="Compliant" if compliant else "Review Required"
-    )
+    tp_analysis = []
+    for tx in request.intercompany_transactions:
+        benchmark = request.arm_length_benchmark.get(tx.get("transaction_type", "default"), 0.5)
+        deviation = abs(tx.get("margin", 0) - benchmark) / benchmark if benchmark else 0
+        
+        tp_analysis.append({
+            "transaction_id": tx.get("id", "Unknown"),
+            "type": tx.get("transaction_type", "Unknown"),
+            "amount": tx.get("amount", 0),
+            "margin": tx.get("margin", 0),
+            "benchmark": benchmark,
+            "deviation_pct": round(deviation * 100, 2),
+            "compliant": deviation < 0.1
+        })
+    
+    non_compliant = sum(1 for t in tp_analysis if not t["compliant"])
+    risk_assessment = {
+        "total_transactions": len(tp_analysis),
+        "non_compliant": non_compliant,
+        "risk_level": "High" if non_compliant > 5 else "Medium" if non_compliant > 2 else "Low"
+    }
+    
+    recommendations = []
+    if non_compliant > 0:
+        recommendations.append(f"{non_compliant} transactions deviate from arm's length - review pricing")
+    
+    return TransferPricingResponse(company_id=request.company_id, tp_analysis=tp_analysis, risk_assessment=risk_assessment, recommendations=recommendations)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8185)
+    uvicorn.run(app, host="0.0.0.0", port=8294)
