@@ -1,99 +1,74 @@
 """
 Pension Accounting Service
-Port: 8222
-Defined benefit and contribution plans under IAS 19
+Port: 8368
+Pension plan accounting (ASC 715/IAS 19)
 """
 import httpx
 import structlog
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
+from datetime import datetime, date
 from pydantic import BaseModel
 from fastapi import FastAPI
 
 logger = structlog.get_logger()
 app = FastAPI(title="Pension Accounting Service", version="1.0.0")
 
-class PensionMetrics(BaseModel):
-    defined_benefit_obligation: float
-    plan_assets: float
-    net_liability: float
-    current_service_cost: float
-    interest_cost: float
-    return_on_plan_assets: float
-    actuarial_gains_losses: float
-    past_service_cost: float
-
-class PensionAccountingRequest(BaseModel):
+class PensionPlanRequest(BaseModel):
     company_id: str
-    period: str
+    plan_name: str
+    participant_count: int
     plan_assets: float
-    defined_benefit_obligation: float
-    current_service_cost: float
-    interest_cost: float
-    return_on_assets: float
-    actuarial_losses: float
-    contributions_paid: float
-    benefits_paid: float
+    projected_benefit_obligation: float
 
-class PensionAccountingResponse(BaseModel):
-    company_id: str
-    period: str
-    pension_metrics: PensionMetrics
-    funded_status: str
+class PensionPlanResponse(BaseModel):
+    plan_name: str
+    funded_status: float
+    funded_ratio: float
     pension_expense: float
-    asset_ceiling_test: bool
-    recommendations: list
+    net_pension_liability: float
 
-async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{service_url}{endpoint}"
-            response = await client.post(url, json=data) if data else await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception as e:
-        logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
-        return {}
+class PensionContributionRequest(BaseModel):
+    company_id: str
+    plan_name: str
+    contribution_amount: float
+    contribution_date: date
+
+class PensionContributionResponse(BaseModel):
+    contribution_id: str
+    amount: float
+    date: date
+    plan_funded_ratio: float
 
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "pension-accounting", "version": "1.0.0"}
 
-@app.post("/analyze", response_model=PensionAccountingResponse)
-async def analyze_pension_accounting(request: PensionAccountingRequest):
-    logger.info("Analyzing pension accounting", company=request.company_id, period=request.period)
-
-    net_liability = request.defined_benefit_obligation - request.plan_assets
-
-    pension_expense = (
-        request.current_service_cost +
-        request.interest_cost -
-        request.return_on_assets +
-        request.actuarial_losses
+@app.post("/assess", response_model=PensionPlanResponse)
+async def assess_pension_plan(request: PensionPlanRequest):
+    logger.info("Assessing pension plan", company=request.company_id, plan=request.plan_name)
+    
+    funded_ratio = request.plan_assets / request.projected_benefit_obligation if request.projected_benefit_obligation else 0
+    net_liability = request.projected_benefit_obligation - request.plan_assets
+    
+    return PensionPlanResponse(
+        plan_name=request.plan_name,
+        funded_status=round(net_liability, 2),
+        funded_ratio=round(funded_ratio, 4),
+        pension_expense=round(net_liability * 0.05, 2),
+        net_pension_liability=round(max(0, net_liability), 2)
     )
 
-    funded_status = "overfunded" if net_liability < 0 else "underfunded" if net_liability > 0 else "fully_funded"
-
-    asset_ceiling = request.plan_assets * 1.1
-    asset_ceiling_test = request.plan_assets <= asset_ceiling
-
-    return PensionAccountingResponse(
-        company_id=request.company_id,
-        period=request.period,
-        pension_metrics=PensionMetrics(
-            defined_benefit_obligation=request.defined_benefit_obligation,
-            plan_assets=request.plan_assets,
-            net_liability=net_liability,
-            current_service_cost=request.current_service_cost,
-            interest_cost=request.interest_cost,
-            return_on_plan_assets=request.return_on_assets,
-            actuarial_gains_losses=request.actuarial_losses,
-            past_service_cost=0.0
-        ),
-        funded_status=funded_status,
-        pension_expense=round(pension_expense, 2),
-        asset_ceiling_test=asset_ceiling_test,
-        recommendations=["Review actuarial assumptions annually", "Monitor pension funding levels", "Consider risk-sharing arrangements"] if funded_status == "underfunded" else ["Continue monitoring pension obligations"]
+@app.post("/contribute", response_model=PensionContributionResponse)
+async def contribute_to_pension(request: PensionContributionRequest):
+    logger.info("Contributing to pension", company=request.company_id, plan=request.plan_name)
+    
+    return PensionContributionResponse(
+        contribution_id=f"PEN-{datetime.now().strftime('%Y%m%d%H%M')}",
+        amount=request.contribution_amount,
+        date=request.contribution_date,
+        plan_funded_ratio=0.92
     )
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8222)
+    uvicorn.run(app, host="0.0.0.0", port=8368)

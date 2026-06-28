@@ -1,311 +1,207 @@
 """
-FinAcc Ratio Analysis Service
-Comprehensive financial ratio calculations.
-Includes liquidity, profitability, leverage, efficiency ratios.
+Ratio Analysis Service
+Port: 8348
+Financial ratio calculations and analysis
 """
-
-import os
-import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
-
 import httpx
 import structlog
+from typing import Any, Dict, List, Optional
+from datetime import datetime
+from pydantic import BaseModel
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
 
-SERVICE_NAME = "ratio-analysis-service"
-SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8130"))
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
+logger = structlog.get_logger()
+app = FastAPI(title="Ratio Analysis Service", version="1.0.0")
 
-structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
-)
-logger = structlog.get_logger(SERVICE_NAME)
+class FinancialRatiosRequest(BaseModel):
+    company_id: str
+    period: str
+    balance_sheet: Dict[str, float]
+    income_statement: Dict[str, float]
+    cash_flow: Dict[str, float]
 
-app = FastAPI(title="FinAcc Ratio Analysis Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+class FinancialRatiosResponse(BaseModel):
+    company_id: str
+    period: str
+    liquidity_ratios: Dict[str, float]
+    profitability_ratios: Dict[str, float]
+    leverage_ratios: Dict[str, float]
+    efficiency_ratios: Dict[str, float]
+    valuation_ratios: Dict[str, float]
+    overall_score: float
+    recommendations: List[str]
 
+class PeerComparisonRequest(BaseModel):
+    company_id: str
+    industry: str
+    company_ratios: Dict[str, float]
+    peer_ratios: List[Dict[str, float]]
 
-async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
-    """Call another internal FinAcc service."""
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{service_url}{endpoint}"
-            if data:
-                response = await client.post(url, json=data)
-            else:
-                response = await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception as e:
-        logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
-        return {}
+class PeerComparisonResponse(BaseModel):
+    company_id: str
+    industry: str
+    percentile_rankings: Dict[str, float]
+    strengths: List[str]
+    weaknesses: List[str]
+    improvement_areas: List[Dict[str, Any]]
 
+class TrendAnalysisRequest(BaseModel):
+    company_id: str
+    periods: List[str]
+    ratio_history: Dict[str, List[float]]
 
-@app.get("/health")
-async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
-
+class TrendAnalysisResponse(BaseModel):
+    company_id: str
+    trend_summary: Dict[str, Dict[str, Any]]
+    momentum: Dict[str, str]
+    predictions: Dict[str, float]
+    alerts: List[str]
 
 @app.get("/")
-async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Financial ratio analysis"}
+async def health_check():
+    return {"status": "healthy", "service": "ratio-analysis", "version": "1.0.0"}
 
+@app.post("/ratios", response_model=FinancialRatiosResponse)
+async def calculate_ratios(request: FinancialRatiosRequest):
+    logger.info("Calculating financial ratios", company=request.company_id, period=request.period)
 
-@app.post("/liquidity/current-ratio")
-async def calculate_current_ratio(current_assets: float, current_liabilities: float):
-    """
-    Current Ratio = Current Assets / Current Liabilities
-    Ideal: > 1.5
-    """
-    ratio = current_assets / current_liabilities if current_liabilities != 0 else 0
-    status = "Good" if ratio >= 1.5 else "Acceptable" if ratio >= 1 else "Poor"
+    bs = request.balance_sheet
+    is_ = request.income_statement
 
-    return {
-        "current_assets": current_assets,
-        "current_liabilities": current_liabilities,
-        "current_ratio": round(ratio, 2),
-        "interpretation": status,
-        "recommendation": "Maintain adequate working capital" if ratio >= 1.5 else "Improve liquidity position"
+    current_assets = bs.get("current_assets", 0)
+    current_liabilities = bs.get("current_liabilities", 0)
+    total_assets = bs.get("total_assets", 1)
+    total_debt = bs.get("total_debt", 0)
+    equity = bs.get("total_equity", 0)
+    revenue = is_.get("revenue", 0)
+    net_income = is_.get("net_income", 0)
+    ebit = is_.get("ebit", net_income)
+    cogs = is_.get("cogs", 0)
+    inventory = bs.get("inventory", 0)
+    ar = bs.get("accounts_receivable", 0)
+    ap = bs.get("accounts_payable", 0)
+
+    liquidity = {
+        "current_ratio": round(current_assets / current_liabilities if current_liabilities else 0, 4),
+        "quick_ratio": round((current_assets - inventory) / current_liabilities if current_liabilities else 0, 4),
+        "cash_ratio": round((bs.get("cash", 0) + bs.get("marketable_securities", 0)) / current_liabilities if current_liabilities else 0, 4),
+        "working_capital": round(current_assets - current_liabilities, 2)
     }
 
-
-@app.post("/liquidity/quick-ratio")
-async def calculate_quick_ratio(
-    current_assets: float,
-    inventory: float,
-    current_liabilities: float
-):
-    """
-    Quick Ratio = (Current Assets - Inventory) / Current Liabilities
-    Ideal: > 1
-    """
-    liquid_assets = current_assets - inventory
-    ratio = liquid_assets / current_liabilities if current_liabilities != 0 else 0
-    status = "Good" if ratio >= 1 else "Poor"
-
-    return {
-        "current_assets": current_assets,
-        "inventory": inventory,
-        "liquid_assets": liquid_assets,
-        "current_liabilities": current_liabilities,
-        "quick_ratio": round(ratio, 2),
-        "interpretation": status
+    profitability = {
+        "gross_margin": round((revenue - cogs) / revenue * 100 if revenue else 0, 2),
+        "operating_margin": round(ebit / revenue * 100 if revenue else 0, 2),
+        "net_margin": round(net_income / revenue * 100 if revenue else 0, 2),
+        "roe": round(net_income / equity * 100 if equity else 0, 2),
+        "roa": round(net_income / total_assets * 100 if total_assets else 0, 2),
+        "roce": round(ebit / (total_assets - current_liabilities) * 100 if total_assets else 0, 2)
     }
 
-
-@app.post("/liquidity/cash-ratio")
-async def calculate_cash_ratio(cash: float, current_liabilities: float):
-    """Cash Ratio = Cash / Current Liabilities"""
-    ratio = cash / current_liabilities if current_liabilities != 0 else 0
-    return {
-        "cash": cash,
-        "current_liabilities": current_liabilities,
-        "cash_ratio": round(ratio, 2)
+    leverage = {
+        "debt_to_equity": round(total_debt / equity if equity else 0, 4),
+        "debt_to_assets": round(total_debt / total_assets if total_assets else 0, 4),
+        "interest_coverage": round(ebit / (is_.get("interest_expense", 1) or 1), 2),
+        "equity_multiplier": round(total_assets / equity if equity else 0, 4)
     }
 
-
-@app.post("/liquidity/working-capital")
-async def calculate_working_capital(current_assets: float, current_liabilities: float):
-    """Working Capital = Current Assets - Current Liabilities"""
-    wc = current_assets - current_liabilities
-    return {
-        "current_assets": current_assets,
-        "current_liabilities": current_liabilities,
-        "working_capital": wc,
-        "interpretation": "Positive" if wc > 0 else "Negative - Liquidity Crisis"
+    efficiency = {
+        "asset_turnover": round(revenue / total_assets if total_assets else 0, 4),
+        "inventory_turnover": round(cogs / inventory if inventory else 0, 4),
+        "ar_turnover": round(revenue / ar if ar else 0, 4),
+        "ap_turnover": round(cogs / ap if ap else 0, 4),
+        "days_sales_outstanding": round(ar / revenue * 365 if revenue else 0, 2)
     }
 
-
-@app.post("/profitability/gross-margin")
-async def calculate_gross_margin(revenue: float, cost_of_goods_sold: float):
-    """Gross Profit Margin = (Gross Profit / Revenue) × 100"""
-    gross_profit = revenue - cost_of_goods_sold
-    margin = (gross_profit / revenue * 100) if revenue != 0 else 0
-    return {
-        "revenue": revenue,
-        "cost_of_goods_sold": cost_of_goods_sold,
-        "gross_profit": gross_profit,
-        "gross_margin_percent": round(margin, 2)
+    valuation = {
+        "pe_ratio": round(bs.get("market_cap", equity * 3) / net_income if net_income else 0, 2),
+        "pb_ratio": round(bs.get("market_cap", equity * 3) / equity if equity else 0, 2),
+        "ps_ratio": round(bs.get("market_cap", equity * 3) / revenue if revenue else 0, 2)
     }
 
+    overall_score = sum([
+        min(liquidity["current_ratio"] / 2, 100),
+        min(profitability["net_margin"] + 50, 100),
+        min(100 - leverage["debt_to_equity"] * 20, 100),
+        min(efficiency["asset_turnover"] * 50, 100)
+    ]) / 4
 
-@app.post("/profitability/net-margin")
-async def calculate_net_margin(revenue: float, net_profit: float):
-    """Net Profit Margin = (Net Profit / Revenue) × 100"""
-    margin = (net_profit / revenue * 100) if revenue != 0 else 0
-    return {
-        "revenue": revenue,
-        "net_profit": net_profit,
-        "net_margin_percent": round(margin, 2)
-    }
+    recommendations = []
+    if liquidity["current_ratio"] < 1.5:
+        recommendations.append("Improve liquidity position")
+    if profitability["net_margin"] < 10:
+        recommendations.append("Focus on cost reduction")
+    if leverage["debt_to_equity"] > 2:
+        recommendations.append("Consider debt reduction")
 
+    return FinancialRatiosResponse(
+        company_id=request.company_id,
+        period=request.period,
+        liquidity_ratios=liquidity,
+        profitability_ratios=profitability,
+        leverage_ratios=leverage,
+        efficiency_ratios=efficiency,
+        valuation_ratios=valuation,
+        overall_score=round(overall_score, 2),
+        recommendations=recommendations
+    )
 
-@app.post("/profitability/roe")
-async def calculate_return_on_equity(net_profit: float, shareholders_equity: float):
-    """Return on Equity = (Net Profit / Shareholders' Equity) × 100"""
-    roe = (net_profit / shareholders_equity * 100) if shareholders_equity != 0 else 0
-    return {
-        "net_profit": net_profit,
-        "shareholders_equity": shareholders_equity,
-        "roe_percent": round(roe, 2)
-    }
+@app.post("/peer-comparison", response_model=PeerComparisonResponse)
+async def compare_with_peers(request: PeerComparisonRequest):
+    logger.info("Comparing with peers", company=request.company_id, industry=request.industry)
 
+    percentile = {}
+    for ratio, value in request.company_ratios.items():
+        values = [p.get(ratio, 0) for p in request.peer_ratios]
+        values.append(value)
+        values.sort()
+        pct = values.index(value) / len(values) * 100
+        percentile[ratio] = round(pct, 2)
 
-@app.post("/profitability/roa")
-async def calculate_return_on_assets(net_profit: float, total_assets: float):
-    """Return on Assets = (Net Profit / Total Assets) × 100"""
-    roa = (net_profit / total_assets * 100) if total_assets != 0 else 0
-    return {
-        "net_profit": net_profit,
-        "total_assets": total_assets,
-        "roa_percent": round(roa, 2)
-    }
+    strengths = [k for k, v in percentile.items() if v >= 70]
+    weaknesses = [k for k, v in percentile.items() if v < 30]
 
+    return PeerComparisonResponse(
+        company_id=request.company_id,
+        industry=request.industry,
+        percentile_rankings=percentile,
+        strengths=strengths,
+        weaknesses=weaknesses,
+        improvement_areas=[{"ratio": w, "industry_avg": 50} for w in weaknesses]
+    )
 
-@app.post("/leverage/debt-ratio")
-async def calculate_debt_ratio(total_debt: float, total_assets: float):
-    """Debt Ratio = Total Debt / Total Assets"""
-    ratio = (total_debt / total_assets) if total_assets != 0 else 0
-    return {
-        "total_debt": total_debt,
-        "total_assets": total_assets,
-        "debt_ratio": round(ratio, 4)
-    }
+@app.post("/trend", response_model=TrendAnalysisResponse)
+async def analyze_trends(request: TrendAnalysisRequest):
+    logger.info("Analyzing ratio trends", company=request.company_id, periods=len(request.periods))
 
+    trend_summary = {}
+    momentum = {}
+    predictions = {}
+    alerts = []
 
-@app.post("/leverage/debt-equity")
-async def calculate_debt_equity_ratio(total_debt: float, shareholders_equity: float):
-    """Debt to Equity = Total Debt / Shareholders' Equity"""
-    ratio = (total_debt / shareholders_equity) if shareholders_equity != 0 else 0
-    return {
-        "total_debt": total_debt,
-        "shareholders_equity": shareholders_equity,
-        "debt_equity_ratio": round(ratio, 2)
-    }
-
-
-@app.post("/efficiency/inventory-turnover")
-async def calculate_inventory_turnover(cost_of_goods_sold: float, average_inventory: float):
-    """Inventory Turnover = COGS / Average Inventory"""
-    turnover = cost_of_goods_sold / average_inventory if average_inventory != 0 else 0
-    days = 365 / turnover if turnover != 0 else 0
-    return {
-        "cost_of_goods_sold": cost_of_goods_sold,
-        "average_inventory": average_inventory,
-        "inventory_turnover": round(turnover, 2),
-        "inventory_days": round(days, 1)
-    }
-
-
-@app.post("/efficiency/debtors-turnover")
-async def calculate_debtors_turnover(credit_sales: float, average_debtors: float):
-    """Debtors Turnover = Credit Sales / Average Debtors"""
-    turnover = credit_sales / average_debtors if average_debtors != 0 else 0
-    days = 365 / turnover if turnover != 0 else 0
-    return {
-        "credit_sales": credit_sales,
-        "average_debtors": average_debtors,
-        "debtors_turnover": round(turnover, 2),
-        "debtors_collection_period_days": round(days, 1)
-    }
-
-
-@app.post("/efficiency/creditors-turnover")
-async def calculate_creditors_turnover(credit_purchases: float, average_creditors: float):
-    """Creditors Turnover = Credit Purchases / Average Creditors"""
-    turnover = credit_purchases / average_creditors if average_creditors != 0 else 0
-    days = 365 / turnover if turnover != 0 else 0
-    return {
-        "credit_purchases": credit_purchases,
-        "average_creditors": average_creditors,
-        "creditors_turnover": round(turnover, 2),
-        "creditors_payment_period_days": round(days, 1)
-    }
-
-
-@app.post("/comprehensive-analysis")
-async def comprehensive_ratio_analysis(
-    current_assets: float,
-    current_liabilities: float,
-    inventory: float,
-    cash: float,
-    total_assets: float,
-    total_debt: float,
-    shareholders_equity: float,
-    revenue: float,
-    cost_of_goods_sold: float,
-    net_profit: float,
-    credit_sales: float,
-    average_debtors: float
-):
-    """Calculate all key ratios in one call."""
-    # Liquidity
-    current_ratio = current_assets / current_liabilities if current_liabilities != 0 else 0
-    quick_ratio = (current_assets - inventory) / current_liabilities if current_liabilities != 0 else 0
-    working_capital = current_assets - current_liabilities
-
-    # Profitability
-    gross_profit = revenue - cost_of_goods_sold
-    gross_margin = (gross_profit / revenue * 100) if revenue != 0 else 0
-    net_margin = (net_profit / revenue * 100) if revenue != 0 else 0
-    roe = (net_profit / shareholders_equity * 100) if shareholders_equity != 0 else 0
-    roa = (net_profit / total_assets * 100) if total_assets != 0 else 0
-
-    # Leverage
-    debt_ratio = (total_debt / total_assets) if total_assets != 0 else 0
-    debt_equity = (total_debt / shareholders_equity) if shareholders_equity != 0 else 0
-
-    # Efficiency
-    debtors_turnover = credit_sales / average_debtors if average_debtors != 0 else 0
-    collection_period = 365 / debtors_turnover if debtors_turnover != 0 else 0
-
-    return {
-        "liquidity_ratios": {
-            "current_ratio": round(current_ratio, 2),
-            "quick_ratio": round(quick_ratio, 2),
-            "cash_ratio": round(cash / current_liabilities, 2) if current_liabilities != 0 else 0,
-            "working_capital": working_capital
-        },
-        "profitability_ratios": {
-            "gross_margin_percent": round(gross_margin, 2),
-            "net_margin_percent": round(net_margin, 2),
-            "roe_percent": round(roe, 2),
-            "roa_percent": round(roa, 2)
-        },
-        "leverage_ratios": {
-            "debt_ratio": round(debt_ratio, 4),
-            "debt_equity_ratio": round(debt_equity, 2)
-        },
-        "efficiency_ratios": {
-            "debtors_turnover": round(debtors_turnover, 2),
-            "collection_period_days": round(collection_period, 1)
-        }
-    }
-
-
-@app.post("/compare-periods")
-async def compare_ratios(period_a: dict, period_b: dict):
-    """Compare ratios between two periods."""
-    comparison = {}
-    for key in period_a:
-        if isinstance(period_a[key], (int, float)) and isinstance(period_b.get(key), (int, float)):
-            diff = period_b[key] - period_a[key]
-            pct_change = (diff / period_a[key] * 100) if period_a[key] != 0 else 0
-            comparison[key] = {
-                "period_a": period_a[key],
-                "period_b": period_b[key],
-                "change": round(diff, 2),
-                "percent_change": round(pct_change, 2)
+    for ratio, values in request.ratio_history.items():
+        if len(values) >= 2:
+            change = values[-1] - values[0]
+            pct_change = change / values[0] * 100 if values[0] else 0
+            trend_summary[ratio] = {
+                "change": round(change, 4),
+                "pct_change": round(pct_change, 2),
+                "current": values[-1],
+                "average": round(sum(values) / len(values), 4)
             }
-    return {"comparison": comparison}
+            momentum[ratio] = "improving" if change > 0 else "declining"
+            predictions[ratio] = round(values[-1] * 1.02, 4)
+        else:
+            trend_summary[ratio] = {"current": values[0] if values else 0}
+            momentum[ratio] = "stable"
 
+    return TrendAnalysisResponse(
+        company_id=request.company_id,
+        trend_summary=trend_summary,
+        momentum=momentum,
+        predictions=predictions,
+        alerts=alerts
+    )
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    uvicorn.run(app, host="0.0.0.0", port=8348)
