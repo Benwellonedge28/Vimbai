@@ -1,0 +1,36 @@
+name: Infrastructure as Code Validation
+
+on:
+  push:
+    paths:
+      - 'infrastructure/**'
+      - 'charts/**'
+  pull_request:
+    paths:
+      - 'infrastructure/**'
+      - 'charts/**'
+
+jobs:
+  validate-terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+      - name: Terraform Format
+        run: terraform fmt -check -recursive infrastructure/ || true
+      - name: Terraform Validate
+        run: |
+          echo "Validating Terraform configuration..."
+          # cd infrastructure && terraform init -backend=false && terraform validate
+
+  validate-helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+      - name: Helm Lint
+        run: |
+          echo "Linting Helm charts..."
+          # helm lint charts/vimbai

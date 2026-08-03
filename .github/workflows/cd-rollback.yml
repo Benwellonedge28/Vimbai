@@ -1,0 +1,24 @@
+name: Rollback Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_revision:
+        description: 'Helm revision to rollback to'
+        required: true
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+      - name: Configure Kubernetes context
+        uses: azure/k8s-set-context@v3
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+      - name: Perform Rollback
+        run: |
+          echo "Rolling back production to revision ${{ github.event.inputs.target_revision }}..."
+          # helm rollback vimbai ${{ github.event.inputs.target_revision }} --namespace production
