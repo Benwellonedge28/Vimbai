@@ -1,5 +1,5 @@
 """
-FinAcc Audit & Compliance Service (Merged)
+Vimbai Audit & Compliance Service (Merged)
 Port: 8091
 
 This service consolidates the following former services:
@@ -63,7 +63,7 @@ structlog.configure(
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(
-    title="FinAcc Audit & Compliance Service",
+    title="Vimbai Audit & Compliance Service",
     description="Consolidated Audit Trail, Compliance, Planning, Reporting, and Monitoring",
     version=SERVICE_VERSION,
 )

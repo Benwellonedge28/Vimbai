@@ -22,7 +22,7 @@ class TransactionProcessor:
         rules.sort(key=lambda rule: rule.priority)
 
         updated_category = transaction.category
-        # target_finacc_account_number_from_rule: Optional[str] = None # Removed this as it's not part of BankTransactionUpdate
+        # target_vimbai_account_number_from_rule: Optional[str] = None # Removed this as it's not part of BankTransactionUpdate
 
         for rule in rules:
             if not rule.is_active:
@@ -41,7 +41,7 @@ class TransactionProcessor:
 
             if match_found:
                 updated_category = rule.target_category
-                # No longer setting target_finacc_account_number directly on BankTransactionUpdate, 
+                # No longer setting target_vimbai_account_number directly on BankTransactionUpdate, 
                 # as it is used for JE creation dynamically.
                 break
         
@@ -69,23 +69,23 @@ class TransactionProcessor:
             transaction = (await crud.get_bank_transaction(self.db_session, transaction.id!))! # Re-fetch updated transaction
 
         # 2. If not already reconciled, create a draft Journal Entry
-        if not transaction.is_reconciled and not transaction.finacc_journal_entry_id:
-            target_finacc_account_number: Optional[str] = None
+        if not transaction.is_reconciled and not transaction.vimbai_journal_entry_id:
+            target_vimbai_account_number: Optional[str] = None
             rules = await crud.get_all_categorization_rules(self.db_session, user_id)
             for rule in rules:
-                if rule.is_active and rule.target_finacc_account_number and \
+                if rule.is_active and rule.target_vimbai_account_number and \
                    ((rule.match_field == "description" and rule.match_pattern.lower() in transaction.description.lower()) or \
                     (rule.match_field == "payee" and rule.match_pattern.lower() in transaction.description.lower())):
-                    target_finacc_account_number = rule.target_finacc_account_number
+                    target_vimbai_account_number = rule.target_vimbai_account_number
                     break
 
             if transaction.amount > Decimal('0.00'): # Outgoing transaction (expense)
-                debit_account = target_finacc_account_number or os.getenv("DEFAULT_EXPENSE_ACCOUNT_NUMBER", "5000")
+                debit_account = target_vimbai_account_number or os.getenv("DEFAULT_EXPENSE_ACCOUNT_NUMBER", "5000")
                 credit_account = os.getenv("DEFAULT_CASH_ACCOUNT_NUMBER", "1000")
                 description_je = f"Bank Expense: {transaction.description} ({transaction.category or 'Uncategorized'})"
             else: # Incoming transaction (revenue)
                 debit_account = os.getenv("DEFAULT_CASH_ACCOUNT_NUMBER", "1000")
-                credit_account = target_finacc_account_number or os.getenv("DEFAULT_REVENUE_ACCOUNT_NUMBER", "4000")
+                credit_account = target_vimbai_account_number or os.getenv("DEFAULT_REVENUE_ACCOUNT_NUMBER", "4000")
                 description_je = f"Bank Revenue: {transaction.description} ({transaction.category or 'Uncategorized'})"
 
             journal_entry_data = MockJournalEntryCreate( # Using Mock class, should be actual JournalEntryCreate
@@ -108,7 +108,7 @@ class TransactionProcessor:
                 transaction = await crud.update_bank_transaction(
                     self.db_session,
                     transaction.id!,
-                    models.BankTransactionUpdate(finacc_journal_entry_id=new_je_id)
+                    models.BankTransactionUpdate(vimbai_journal_entry_id=new_je_id)
                 )
             except AccountingServiceClientException as e:
                 print(f"ERROR: Failed to create journal entry for transaction {transaction.id}: {e.args[0]}")
@@ -116,12 +116,12 @@ class TransactionProcessor:
                 print(f"ERROR: An unexpected error occurred while creating journal entry for transaction {transaction.id}: {e}")
 
         # 3. Attempt to find reconciliation match
-        if transaction.finacc_journal_entry_id and not transaction.is_reconciled:
+        if transaction.vimbai_journal_entry_id and not transaction.is_reconciled:
             transaction = await crud.update_bank_transaction(
                 self.db_session,
                 transaction.id!,
                 models.BankTransactionUpdate(is_reconciled=True)
             )
-            print(f"Transaction {transaction.id} reconciled with JE {transaction.finacc_journal_entry_id}")
+            print(f"Transaction {transaction.id} reconciled with JE {transaction.vimbai_journal_entry_id}")
             
         return transaction

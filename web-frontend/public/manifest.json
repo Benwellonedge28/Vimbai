@@ -1,6 +1,6 @@
 {
-  "name": "FinAcc - Financial Accounting System",
-  "short_name": "FinAcc",
+  "name": "Vimbai - Financial Accounting System",
+  "short_name": "Vimbai",
   "description": "Comprehensive financial management system with offline-first capabilities",
   "start_url": "/",
   "display": "standalone",

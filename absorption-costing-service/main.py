@@ -1,5 +1,5 @@
 """
-FinAcc Absorption Costing Service
+Vimbai Absorption Costing Service
 Manages total costing / absorption costing methods.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Absorption Costing Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Absorption Costing Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

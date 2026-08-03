@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Finance Service",
+    title="Vimbai Finance Service",
     description="Provides financial planning, budgeting, forecasting, and scenario analysis capabilities.",
     version="0.1.0",
 )
@@ -197,4 +197,4 @@ async def delete_forecast(
 # --- Root endpoint for health check ---
 @app.get("/")
 async def read_root():
-    return {"message": "FinAcc Finance Service is running!"}
+    return {"message": "Vimbai Finance Service is running!"}

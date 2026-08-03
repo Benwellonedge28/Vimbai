@@ -1,5 +1,5 @@
 """
-FinAcc Labour Cost Variance Service
+Vimbai Labour Cost Variance Service
 Calculates total labour cost variance.
 Total Labour Variance = Standard Labour Cost - Actual Labour Cost
 Breakdown: Rate Variance + Efficiency Variance
@@ -27,7 +27,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Labour Cost Variance Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Labour Cost Variance Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

@@ -1,5 +1,5 @@
 """
-FinAcc Preference Shares Service
+Vimbai Preference Shares Service
 Manages preference share issuance and dividends.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Preference Shares Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Preference Shares Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

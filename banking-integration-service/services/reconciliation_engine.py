@@ -62,7 +62,7 @@ class ReconciliationEngine:
                 potential_matches.append(models.ReconciliationMatchInDB(
                     id=match_id,
                     bank_transaction_id=bank_transaction.id,
-                    finacc_journal_entry_id=je_in_db.id,
+                    vimbai_journal_entry_id=je_in_db.id,
                     match_type="fuzzy", # Could be "exact" if all criteria are very strict
                     matched_amount=abs(bank_transaction.amount),
                     matched_date=je_in_db.entryDate,
@@ -146,7 +146,7 @@ class ReconciliationEngine:
         ))
         return updated_match
 
-    async def create_manual_reconciliation(self, bank_transaction_id: str, finacc_journal_entry_id: str, user_id: str) -> models.ReconciliationMatchInDB:
+    async def create_manual_reconciliation(self, bank_transaction_id: str, vimbai_journal_entry_id: str, user_id: str) -> models.ReconciliationMatchInDB:
         """
         Creates a manual reconciliation match between a bank transaction and a journal entry.
         """
@@ -160,14 +160,14 @@ class ReconciliationEngine:
         # Verify journal entry exists
         # This requires calling accounting service's crud, which is not directly available here.
         # For now, we will assume get_journal_entry_by_id fetches it.
-        # je = await get_journal_entry_by_id(self.db_session, finacc_journal_entry_id)
+        # je = await get_journal_entry_by_id(self.db_session, vimbai_journal_entry_id)
         # if not je:
-        #     raise NotFoundError(f"Journal Entry {finacc_journal_entry_id} not found.")
+        #     raise NotFoundError(f"Journal Entry {vimbai_journal_entry_id} not found.")
 
         # Create the manual match
         manual_match_data = models.ReconciliationMatchCreate(
             bank_transaction_id=bank_transaction_id,
-            finacc_journal_entry_id=finacc_journal_entry_id,
+            vimbai_journal_entry_id=vimbai_journal_entry_id,
             match_type="manual",
             matched_amount=abs(bank_transaction.amount), # Assuming full amount match for manual
             matched_date=bank_transaction.date,
@@ -180,6 +180,6 @@ class ReconciliationEngine:
         # Update the BankTransaction as reconciled
         await crud.update_bank_transaction(self.db_session, bank_transaction_id, models.BankTransactionUpdate(
             is_reconciled=True,
-            finacc_journal_entry_id=finacc_journal_entry_id # Link it here too for easier lookup
+            vimbai_journal_entry_id=vimbai_journal_entry_id # Link it here too for easier lookup
         ))
         return new_match

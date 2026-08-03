@@ -1,5 +1,5 @@
 """
-FinAcc Bonus Shares Service
+Vimbai Bonus Shares Service
 Manages capitalization of reserves into bonus shares.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Bonus Shares Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Bonus Shares Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

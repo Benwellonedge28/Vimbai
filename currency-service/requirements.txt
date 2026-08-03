@@ -1,4 +1,4 @@
-# FinAcc Currency Service - Python Dependencies
+# Vimbai Currency Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

@@ -16,7 +16,7 @@ from pydantic import ValidationError as PydanticValidationError
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Supply Chain Service", # Renamed
+    title="Vimbai Supply Chain Service", # Renamed
     description="Manages customer invoicing, suppliers, inventory, and purchase orders.", # Updated description
     version="0.1.0",
 )
@@ -362,4 +362,4 @@ async def delete_existing_purchase_order(
 # --- Root endpoint for health check ---
 @app.get("/")
 async def read_root():
-    return {"message": "FinAcc Supply Chain Service is running!"}
+    return {"message": "Vimbai Supply Chain Service is running!"}

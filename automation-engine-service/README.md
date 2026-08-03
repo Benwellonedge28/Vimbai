@@ -1,6 +1,6 @@
-# FinAcc Automation Engine Service
+# Vimbai Automation Engine Service
 
-The Automation Engine Service is responsible for managing and orchestrating automated tasks across the FinAcc microservices ecosystem. It provides a centralized system for scheduling, executing, and monitoring automated workflows.
+The Automation Engine Service is responsible for managing and orchestrating automated tasks across the Vimbai microservices ecosystem. It provides a centralized system for scheduling, executing, and monitoring automated workflows.
 
 ## Features
 
@@ -9,7 +9,7 @@ The Automation Engine Service is responsible for managing and orchestrating auto
 - **Manual Triggering**: Manually trigger automation tasks via API
 - **Task Instance Tracking**: Track execution status and results of individual task runs
 - **Comprehensive Logging**: Detailed logging for debugging and audit purposes
-- **Multi-Service Integration**: Can trigger actions across all FinAcc microservices
+- **Multi-Service Integration**: Can trigger actions across all Vimbai microservices
 
 ## Architecture
 
@@ -32,7 +32,7 @@ The Automation Engine Service is responsible for managing and orchestrating auto
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    FinAcc Microservices                         │
+│                    Vimbai Microservices                         │
 ├─────────────┬─────────────┬─────────────┬─────────────────────┤
 │ Accounting  │  Finance    │  Banking    │  Other Services      │
 │ Service     │  Service    │  Service    │                     │
@@ -145,9 +145,9 @@ automation-engine-service:
 
 ```bash
 curl http://localhost:8006/
-# Response: {"message": "FinAcc Automation Engine Service is running!"}
+# Response: {"message": "Vimbai Automation Engine Service is running!"}
 ```
 
 ## License
 
-MIT License - See FinAcc root README for details.
+MIT License - See Vimbai root README for details.

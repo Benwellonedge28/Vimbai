@@ -1,5 +1,5 @@
 """
-FinAcc Material Usage Variance Service
+Vimbai Material Usage Variance Service
 Calculates material usage/volume variance.
 Usage Variance = (Standard Quantity - Actual Quantity) × Standard Price
 """
@@ -26,7 +26,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Material Usage Variance Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Material Usage Variance Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

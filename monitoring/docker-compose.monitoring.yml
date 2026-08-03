@@ -3,7 +3,7 @@ version: '3.8'
 services:
   prometheus:
     image: prom/prometheus:v2.47.0
-    container_name: finacc-prometheus
+    container_name: vimbai-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -17,18 +17,18 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
     networks:
-      - finacc-monitoring
+      - vimbai-monitoring
     restart: unless-stopped
 
   grafana:
     image: grafana/grafana:10.2.0
-    container_name: finacc-grafana
+    container_name: vimbai-grafana
     ports:
       - "3000:3000"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - ./grafana/dashboards/*.json:/var/lib/grafana/dashboards/finacc/*.json:ro
+      - ./grafana/dashboards/*.json:/var/lib/grafana/dashboards/vimbai/*.json:ro
       - grafana_data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
@@ -36,14 +36,14 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
     networks:
-      - finacc-monitoring
+      - vimbai-monitoring
     depends_on:
       - prometheus
     restart: unless-stopped
 
   alertmanager:
     image: prom/alertmanager:v0.26.0
-    container_name: finacc-alertmanager
+    container_name: vimbai-alertmanager
     ports:
       - "9093:9093"
     volumes:
@@ -53,13 +53,13 @@ services:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
     networks:
-      - finacc-monitoring
+      - vimbai-monitoring
     restart: unless-stopped
 
   # Optional: node-exporter for system metrics
   node-exporter:
     image: prom/node-exporter:v1.6.1
-    container_name: finacc-node-exporter
+    container_name: vimbai-node-exporter
     ports:
       - "9100:9100"
     command:
@@ -72,7 +72,7 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     networks:
-      - finacc-monitoring
+      - vimbai-monitoring
     restart: unless-stopped
 
 volumes:
@@ -81,5 +81,5 @@ volumes:
   alertmanager_data:
 
 networks:
-  finacc-monitoring:
+  vimbai-monitoring:
     driver: bridge

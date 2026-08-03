@@ -1,5 +1,5 @@
 """
-FinAcc Ordinary Shares Service
+Vimbai Ordinary Shares Service
 Ordinary share management and dividend distribution.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Ordinary Shares Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Ordinary Shares Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

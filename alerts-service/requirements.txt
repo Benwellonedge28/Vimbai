@@ -1,4 +1,4 @@
-# FinAcc Alerts Service - Python Dependencies
+# Vimbai Alerts Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

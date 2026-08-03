@@ -1,6 +1,6 @@
 """
-FinAcc GraphQL API Service
-Provides GraphQL interface for all FinAcc services
+Vimbai GraphQL API Service
+Provides GraphQL interface for all Vimbai services
 """
 
 from fastapi import FastAPI, Depends, HTTPException
@@ -17,8 +17,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc GraphQL API",
-    description="GraphQL interface for FinAcc financial management system",
+    title="Vimbai GraphQL API",
+    description="GraphQL interface for Vimbai financial management system",
     version="0.1.0",
 )
 

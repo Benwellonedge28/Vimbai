@@ -1,4 +1,4 @@
-## FinAcc: Integrated Accounting & Finance Management System Design Document - V1.5
+## Vimbai: Integrated Accounting & Finance Management System Design Document - V1.5
 
 **Version:** 1.5
 **Date:** May 18, 2026, 20:59 UTC
@@ -9,7 +9,7 @@
 
 ### **1. Project Overview**
 
-The **FinAcc** application aims to provide a comprehensive, integrated solution for managing both accounting records and financial analysis functions for a business. Designed for high automation and accuracy, FinAcc will streamline the entire financial lifecycle from transaction recording to strategic financial planning, leveraging interconnected modules and real-time data processing. This initial version will focus on foundational functionality without direct AI/ML models integrated into decision-making, setting the stage for future autonomous capabilities.
+The **Vimbai** application aims to provide a comprehensive, integrated solution for managing both accounting records and financial analysis functions for a business. Designed for high automation and accuracy, Vimbai will streamline the entire financial lifecycle from transaction recording to strategic financial planning, leveraging interconnected modules and real-time data processing. This initial version will focus on foundational functionality without direct AI/ML models integrated into decision-making, setting the stage for future autonomous capabilities.
 
 **Goal:** To establish a single source of truth for all financial data, automate routine accounting processes, ensure daily accuracy, and empower proactive financial planning and analysis.
 
@@ -36,7 +36,7 @@ The **FinAcc** application aims to provide a comprehensive, integrated solution 
 
 ### **2. High-Level Architecture: Microservices & API Gateway**
 
-FinAcc employs a modular, decoupled microservices architecture to ensure scalability, maintainability, and clear separation of concerns, managed through a central API Gateway.
+Vimbai employs a modular, decoupled microservices architecture to ensure scalability, maintainability, and clear separation of concerns, managed through a central API Gateway.
 
 ```mermaid
 graph TD
@@ -103,7 +103,7 @@ graph TD
 
 ### **3. Data Model: Graph Database Approach (Neo4j Community Edition)**
 
-FinAcc will leverage a **Graph Database**, specifically **Neo4j Community Edition**, as its primary data store. This choice is driven by the complex, interconnected nature of financial data, especially when accommodating multiple accounting modalities, audit trails, and multimodal input linkages. Graph databases excel at modeling relationships directly, making queries about connections highly efficient and intuitive.
+Vimbai will leverage a **Graph Database**, specifically **Neo4j Community Edition**, as its primary data store. This choice is driven by the complex, interconnected nature of financial data, especially when accommodating multiple accounting modalities, audit trails, and multimodal input linkages. Graph databases excel at modeling relationships directly, making queries about connections highly efficient and intuitive.
 
 #### **3.1. Core Graph Database Concepts**
 
@@ -136,7 +136,7 @@ FinAcc will leverage a **Graph Database**, specifically **Neo4j Community Editio
     *   `(Transaction {id:'T1'})-[:MODIFIED_BY]->(User {id:'U1', role:'Accountant'})`
     *   `(Transaction {id:'T1'})-[:APPROVED_BY]->(User {id:'U2', role:'FinanceLead'})`
 
-#### **3.3. Advantages of Graph Database for FinAcc**
+#### **3.3. Advantages of Graph Database for Vimbai**
 
 *   **Flexibility for Accounting Modalities:** Easily model the nuances of Fund Accounting, Project Accounting, Fiduciary Accounting, and consolidation hierarchies as direct relationships, not complex join tables.
 *   **Rich Contextual Queries:** Efficiently answer questions like "Show all transactions funded by 'Grant A' that are part of 'Project Alpha' and were approved by 'FinanceLead' within Q2."
@@ -172,7 +172,7 @@ FinAcc will leverage a **Graph Database**, specifically **Neo4j Community Editio
 
 *   **Inputs:** Image/video streams (from Camera), audio streams (from Microphone), uploaded files (scans, PDFs).
 *   **Processes:** Capture & Pre-processing, OCR/ASR, Intelligent Document Processing (IDP) / Natural Language Processing (NLP) for entity recognition and categorization, Data Validation.
-*   **Outputs:** Structured data (JSON) mapped to FinAcc entities (e.g., `JournalEntry`, `Invoice`), awaiting user review.
+*   **Outputs:** Structured data (JSON) mapped to Vimbai entities (e.g., `JournalEntry`, `Invoice`), awaiting user review.
 
 #### **4.5. Reporting Service (New)**
 
@@ -229,7 +229,7 @@ FinAcc will leverage a **Graph Database**, specifically **Neo4j Community Editio
 #### **7.2. Voice Input**
 
 *   **On-Device Processing (Offline):** Mobile/Desktop clients use local ASR for speech-to-text and basic NLP for command/entity recognition.
-*   **Backend Processing (Online):** When synced, the Multimodal Pipeline Service uses more advanced NLP for nuanced intent and entity resolution, leveraging the full FinAcc Graph DB for contextual understanding.
+*   **Backend Processing (Online):** When synced, the Multimodal Pipeline Service uses more advanced NLP for nuanced intent and entity resolution, leveraging the full Vimbai Graph DB for contextual understanding.
 
 #### **7.3. Pipeline Orchestration & Integration Points (Multimodal to Graph DB)**
 
@@ -304,7 +304,7 @@ FinAcc will leverage a **Graph Database**, specifically **Neo4j Community Editio
 
 ### **15. Complete Graph Data Model Reference**
 
-This section documents all implemented node types and relationships in the FinAcc Neo4j graph database.
+This section documents all implemented node types and relationships in the Vimbai Neo4j graph database.
 
 #### **15.1 Node Types**
 
@@ -435,4 +435,4 @@ RETURN d.department_name, a.account_type, SUM(jl.debit) as total_debits, SUM(jl.
 
 ---
 
-This FinAcc V1.5 design document represents a cutting-edge approach to financial management, combining automation, multimodal input, robust security, comprehensive accounting support, offline resilience, and the power of graph databases for ultimate flexibility and insight.
+This Vimbai V1.5 design document represents a cutting-edge approach to financial management, combining automation, multimodal input, robust security, comprehensive accounting support, offline resilience, and the power of graph databases for ultimate flexibility and insight.

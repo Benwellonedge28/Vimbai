@@ -1,5 +1,5 @@
 """
-Comprehensive Tests for FinAcc Alerts Service
+Comprehensive Tests for Vimbai Alerts Service
 """
 
 import pytest

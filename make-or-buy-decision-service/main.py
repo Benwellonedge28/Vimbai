@@ -1,5 +1,5 @@
 """
-FinAcc Make or Buy Decision Service
+Vimbai Make or Buy Decision Service
 Helps decide between making internally or buying externally.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Make or Buy Decision Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Make or Buy Decision Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

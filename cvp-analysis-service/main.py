@@ -1,5 +1,5 @@
 """
-FinAcc CVP Analysis Service (Merged)
+Vimbai CVP Analysis Service (Merged)
 Port: 8078
 
 This service consolidates the following former services:
@@ -54,7 +54,7 @@ structlog.configure(
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(
-    title="FinAcc CVP Analysis Service",
+    title="Vimbai CVP Analysis Service",
     description="Consolidated Cost-Volume-Profit, Break-Even, and Contribution Margin Analysis",
     version=SERVICE_VERSION,
     docs_url="/docs",

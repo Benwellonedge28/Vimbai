@@ -1,5 +1,5 @@
 """
-FinAcc Budget Service (Merged)
+Vimbai Budget Service (Merged)
 Port: 8302
 
 This service consolidates the following former services:
@@ -48,7 +48,7 @@ structlog.configure(
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(
-    title="FinAcc Budget Service",
+    title="Vimbai Budget Service",
     description="Consolidated Budget Preparation, Monitoring, Variance Analysis, and Forecasting",
     version=SERVICE_VERSION,
 )

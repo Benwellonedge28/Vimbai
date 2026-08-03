@@ -1,6 +1,6 @@
-# FinAcc Reporting Service
+# Vimbai Reporting Service
 
-Advanced reporting and analytics service for FinAcc financial management system.
+Advanced reporting and analytics service for Vimbai financial management system.
 
 ## Features
 

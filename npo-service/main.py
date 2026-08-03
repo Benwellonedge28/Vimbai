@@ -35,14 +35,14 @@ load_dotenv()
 # =============================================================================
 
 def custom_openapi():
-    """Generate custom OpenAPI schema with FinAcc NPO-specific metadata."""
+    """Generate custom OpenAPI schema with Vimbai NPO-specific metadata."""
     if app.openapi_schema:
         return app.openapi_schema
 
     openapi_schema = get_openapi(
-        title="FinAcc NPO Service",
+        title="Vimbai NPO Service",
         description="""
-## FinAcc NPO (Non-Profit Organization) Service API
+## Vimbai NPO (Non-Profit Organization) Service API
 
 Comprehensive API for non-profit organization accounting covering fund accounting,
 net assets management, grant lifecycle, and impact measurement.
@@ -113,7 +113,7 @@ All endpoints require JWT Bearer token authentication.
     return app.openapi_schema
 
 app = FastAPI(
-    title="FinAcc NPO Service",
+    title="Vimbai NPO Service",
     description="Non-Profit Organization Accounting Service - Manages fund accounting, net assets, grants, budgets, compliance, and impact measurement.",
     version="0.1.0",
     docs_url="/docs",

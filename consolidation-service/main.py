@@ -1,5 +1,5 @@
 """
-FinAcc Consolidation Service (Merged)
+Vimbai Consolidation Service (Merged)
 Port: 8139
 
 This service consolidates the following former services:
@@ -48,7 +48,7 @@ structlog.configure(
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(
-    title="FinAcc Consolidation Service",
+    title="Vimbai Consolidation Service",
     description="Consolidated Group Financial Statements, NCI, Goodwill, Eliminations, and Currency Translation",
     version=SERVICE_VERSION,
 )

@@ -1,8 +1,8 @@
-# FinAcc Developer Documentation
+# Vimbai Developer Documentation
 
 ## Overview
 
-FinAcc is a comprehensive financial management system built with microservices architecture. This guide provides detailed documentation for developers working with the FinAcc codebase.
+Vimbai is a comprehensive financial management system built with microservices architecture. This guide provides detailed documentation for developers working with the Vimbai codebase.
 
 ## Table of Contents
 
@@ -19,7 +19,7 @@ FinAcc is a comprehensive financial management system built with microservices a
 
 ## Architecture
 
-FinAcc follows a microservices architecture pattern with the following key components:
+Vimbai follows a microservices architecture pattern with the following key components:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -339,8 +339,8 @@ curl -X GET http://localhost:8000/accounts/ \
 
 1. **Clone Repository**:
 ```bash
-git clone https://github.com/Benwellonedge28/FinAcc
-cd FinAcc
+git clone https://github.com/Benwellonedge28/Vimbai
+cd Vimbai
 ```
 
 2. **Setup Virtual Environment**:
@@ -453,7 +453,7 @@ http://localhost:3000 (admin/admin)
 
 ### Database Indexes
 
-FinAcc uses Neo4j indexes for optimal query performance. Indexes are automatically created on service startup.
+Vimbai uses Neo4j indexes for optimal query performance. Indexes are automatically created on service startup.
 
 See `database_optimization.py` for detailed index management.
 
@@ -484,16 +484,16 @@ Access metrics at `/metrics` endpoint of each service:
 
 ```
 # Request metrics
-finacc_http_requests_total
-finacc_http_request_duration_seconds
+vimbai_http_requests_total
+vimbai_http_request_duration_seconds
 
 # Database metrics
-finacc_db_queries_total
-finacc_db_query_duration_seconds
+vimbai_db_queries_total
+vimbai_db_query_duration_seconds
 
 # Business metrics
-finacc_transactions_total
-finacc_journal_entries_total
+vimbai_transactions_total
+vimbai_journal_entries_total
 ```
 
 ### Grafana Dashboards
@@ -556,6 +556,6 @@ MIT License - See LICENSE file for details.
 
 ---
 
-**Author**: FinAcc Development Team
+**Author**: Vimbai Development Team
 **Version**: 1.0.0
 **Last Updated**: June 2024

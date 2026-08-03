@@ -38,7 +38,7 @@ class BankAccountBase(BaseModel):
     currency: str = Field(..., max_length=3, description="ISO 4217 currency code (e.g., USD, ZAR).", example="USD")
     current_balance: condecimal(max_digits=18, decimal_places=2) = Field(..., description="Current balance of the account.")
     available_balance: Optional[condecimal(max_digits=18, decimal_places=2)] = Field(None, description="Available balance (if different from current).")
-    finacc_account_number: Optional[str] = Field(None, description="Corresponding account number in FinAcc Accounting Service.")
+    vimbai_account_number: Optional[str] = Field(None, description="Corresponding account number in Vimbai Accounting Service.")
     status: Literal["active", "inactive", "closed"] = Field("active")
 
 class BankAccountCreate(BankAccountBase):
@@ -50,7 +50,7 @@ class BankAccountUpdate(BaseModel):
     subtype: Optional[str] = None
     current_balance: Optional[condecimal(max_digits=18, decimal_places=2)] = None
     available_balance: Optional[condecimal(max_digits=18, decimal_places=2)] = None
-    finacc_account_number: Optional[str] = None
+    vimbai_account_number: Optional[str] = None
     status: Optional[Literal["active", "inactive", "closed"]] = None
 
 class BankAccountInDB(BankAccountBase):
@@ -71,7 +71,7 @@ class BankTransactionBase(BaseModel):
     category: Optional[str] = Field(None, description="AI-categorized transaction category.")
     type: Optional[str] = Field(None, description="Transaction type (e.g., ACH, card_payment, check, transfer).")
     status: Literal["pending", "posted", "cancelled"] = Field("posted")
-    finacc_journal_entry_id: Optional[str] = Field(None, description="ID of the corresponding JournalEntry in FinAcc.")
+    vimbai_journal_entry_id: Optional[str] = Field(None, description="ID of the corresponding JournalEntry in Vimbai.")
     is_reconciled: bool = False
     metadata: Dict[str, Any] = Field({}, description="Provider-specific transaction metadata.")
 
@@ -81,7 +81,7 @@ class BankTransactionCreate(BankTransactionBase):
 class BankTransactionUpdate(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
-    finacc_journal_entry_id: Optional[str] = None
+    vimbai_journal_entry_id: Optional[str] = None
     is_reconciled: Optional[bool] = None
     metadata: Optional[Dict[str, Any]] = None
 
@@ -99,7 +99,7 @@ class TransactionCategorizationRuleBase(BaseModel):
     match_field: Literal["description", "payee", "amount_range"] = Field(..., description="Field to match against.")
     match_pattern: str = Field(..., description="Regex pattern or keyword to match.")
     target_category: str = Field(..., description="Category to assign (e.g., 'Utilities', 'Travel').")
-    target_finacc_account_number: Optional[str] = Field(None, description="Optional: FinAcc account number to suggest for JE.")
+    target_vimbai_account_number: Optional[str] = Field(None, description="Optional: Vimbai account number to suggest for JE.")
     is_active: bool = True
     priority: int = Field(0, description="Lower number means higher priority.")
 
@@ -111,7 +111,7 @@ class TransactionCategorizationRuleUpdate(BaseModel):
     match_field: Optional[Literal["description", "payee", "amount_range"]] = None
     match_pattern: Optional[str] = None
     target_category: Optional[str] = None
-    target_finacc_account_number: Optional[str] = None
+    target_vimbai_account_number: Optional[str] = None
     is_active: Optional[bool] = None
     priority: Optional[int] = None
 
@@ -125,7 +125,7 @@ class TransactionCategorizationRuleInDB(TransactionCategorizationRuleBase):
 
 class ReconciliationMatchBase(BaseModel):
     bank_transaction_id: str = Field(..., description="ID of the BankTransaction.")
-    finacc_journal_entry_id: str = Field(..., description="ID of the JournalEntry in FinAcc.")
+    vimbai_journal_entry_id: str = Field(..., description="ID of the JournalEntry in Vimbai.")
     match_type: Literal["exact", "fuzzy", "manual"] = Field(..., description="How the match was made.")
     matched_amount: condecimal(max_digits=18, decimal_places=2) = Field(..., description="Amount that matched.")
     matched_date: date = Field(..., description="Date of the match.")

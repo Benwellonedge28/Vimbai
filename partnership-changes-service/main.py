@@ -1,5 +1,5 @@
 """
-FinAcc Partnership Changes Service
+Vimbai Partnership Changes Service
 Manages admission, retirement, death, and insolvency of partners.
 """
 
@@ -29,7 +29,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Partnership Changes Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Partnership Changes Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

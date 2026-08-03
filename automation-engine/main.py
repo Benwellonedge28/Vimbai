@@ -1,5 +1,5 @@
 """
-FinAcc Automation Engine
+Vimbai Automation Engine
 Scheduler and worker system for executing autonomous tasks across microservices
 """
 
@@ -17,7 +17,7 @@ import croniter
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Automation Engine",
+    title="Vimbai Automation Engine",
     description="Scheduler and worker for autonomous financial tasks",
     version="1.0.0",
 )

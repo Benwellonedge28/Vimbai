@@ -1,6 +1,6 @@
-# FinAcc Fraud Detection Service
+# Vimbai Fraud Detection Service
 
-This service provides capabilities for real-time and batch analysis of financial transactions to detect potential fraud using machine learning models and rule-based systems. It integrates with other FinAcc microservices to receive transaction data and flags suspicious activities for review.
+This service provides capabilities for real-time and batch analysis of financial transactions to detect potential fraud using machine learning models and rule-based systems. It integrates with other Vimbai microservices to receive transaction data and flags suspicious activities for review.
 
 ## Features
 
@@ -17,7 +17,7 @@ The Fraud Detection Service is a FastAPI application that uses Neo4j as its data
 
 ## Getting Started
 
-To run this service along with Neo4j and other FinAcc services, you need Docker and Docker Compose installed.
+To run this service along with Neo4j and other Vimbai services, you need Docker and Docker Compose installed.
 
 ### 1. Prerequisites
 
@@ -35,15 +35,15 @@ The service requires the following environment variables. It's recommended to se
 
 ### 3. Running the Services (with Docker Compose)
 
-Navigate to the root directory of the FinAcc project (where `docker-compose.yml` is located) and run:
+Navigate to the root directory of the Vimbai project (where `docker-compose.yml` is located) and run:
 
 ```bash
 docker-compose up --build
 ```
 
 This command will:
-1.  Build the `fraud-detection-service` and other FinAcc Docker images.
-2.  Start a Neo4j container and all other FinAcc microservices.
+1.  Build the `fraud-detection-service` and other Vimbai Docker images.
+2.  Start a Neo4j container and all other Vimbai microservices.
 
 The Fraud Detection Service API endpoints will be accessible via the API Gateway at `http://localhost:8081`.
 

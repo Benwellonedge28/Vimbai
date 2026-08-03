@@ -1,5 +1,5 @@
 """
-FinAcc General Reserve Service
+Vimbai General Reserve Service
 Manages general reserve fund operations.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc General Reserve Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai General Reserve Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

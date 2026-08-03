@@ -1,5 +1,5 @@
 """
-FinAcc Overhead Absorption Rate Service
+Vimbai Overhead Absorption Rate Service
 Calculates overhead absorption rates for cost centres.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Overhead Absorption Rate Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Overhead Absorption Rate Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

@@ -1,5 +1,5 @@
 """
-FinAcc Basis of Apportionment Service
+Vimbai Basis of Apportionment Service
 Handles different basis for apportioning costs to cost centres.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Basis of Apportionment Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Basis of Apportionment Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

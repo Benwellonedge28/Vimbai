@@ -1,5 +1,5 @@
 """
-FinAcc Notification Service
+Vimbai Notification Service
 Handles notifications for workflows, approvals, and system events
 """
 
@@ -19,8 +19,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Notifications Service",
-    description="Notification and messaging system for FinAcc workflows",
+    title="Vimbai Notifications Service",
+    description="Notification and messaging system for Vimbai workflows",
     version="0.1.0",
 )
 

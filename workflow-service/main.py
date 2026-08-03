@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Workflow Service",
+    title="Vimbai Workflow Service",
     description="Manages workflow definitions, orchestrates workflow instances, and handles approvals.",
     version="0.1.0",
 )
@@ -150,4 +150,4 @@ async def delete_workflow_instance(
 # --- Root endpoint for health check ---
 @app.get("/")
 async def read_root():
-    return {"message": "FinAcc Workflow Service is running!"}
+    return {"message": "Vimbai Workflow Service is running!"}

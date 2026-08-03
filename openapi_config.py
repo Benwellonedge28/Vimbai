@@ -1,9 +1,9 @@
 """
-OpenAPI Configuration for FinAcc Services
+OpenAPI Configuration for Vimbai Services
 
 This module provides shared OpenAPI configuration, custom schemas,
 and documentation utilities for consistent API documentation across
-all FinAcc microservices.
+all Vimbai microservices.
 
 Usage:
     from openapi_config import get_openapi_schema, add_api_documentation
@@ -22,9 +22,9 @@ from fastapi.openapi.utils import get_openapi
 # =============================================================================
 
 API_INFO = {
-    "title": "FinAcc - Integrated Accounting & Finance Management System",
+    "title": "Vimbai - Integrated Accounting & Finance Management System",
     "description": """
-FinAcc is a comprehensive financial management system with microservices architecture.
+Vimbai is a comprehensive financial management system with microservices architecture.
 
 ## Features
 
@@ -50,26 +50,26 @@ FinAcc is a comprehensive financial management system with microservices archite
 
 ## Support
 
-* Email: support@finacc.example.com
-* Documentation: https://docs.finacc.example.com
+* Email: support@vimbai.example.com
+* Documentation: https://docs.vimbai.example.com
 """,
     "version": "1.0.0",
     "contact": {
-        "name": "FinAcc Support",
-        "email": "support@finacc.example.com",
-        "url": "https://finacc.example.com/support"
+        "name": "Vimbai Support",
+        "email": "support@vimbai.example.com",
+        "url": "https://vimbai.example.com/support"
     },
     "license": {
         "name": "MIT License",
         "url": "https://opensource.org/licenses/MIT"
     },
-    "terms_of_service": "https://finacc.example.com/terms",
+    "terms_of_service": "https://vimbai.example.com/terms",
 }
 
 # External Documentation
 EXTERNAL_DOCS = {
     "description": "Full API Documentation",
-    "url": "https://docs.finacc.example.com/api"
+    "url": "https://docs.vimbai.example.com/api"
 }
 
 
@@ -106,7 +106,7 @@ TAGS_METADATA = [
         "description": "Chart of Accounts management - create, read, update, delete accounts",
         "externalDocs": {
             "description": "Account management documentation",
-            "url": "https://docs.finacc.example.com/accounts"
+            "url": "https://docs.vimbai.example.com/accounts"
         }
     },
     {
@@ -114,7 +114,7 @@ TAGS_METADATA = [
         "description": "Journal Entry operations - double-entry accounting transactions",
         "externalDocs": {
             "description": "Journal entries documentation",
-            "url": "https://docs.finacc.example.com/journal-entries"
+            "url": "https://docs.vimbai.example.com/journal-entries"
         }
     },
     {
@@ -307,7 +307,7 @@ CUSTOM_SCHEMAS = {
 
 def get_openapi_schema(app: FastAPI) -> Dict[str, Any]:
     """
-    Generate complete OpenAPI schema for a FinAcc service.
+    Generate complete OpenAPI schema for a Vimbai service.
 
     Args:
         app: FastAPI application instance
@@ -324,12 +324,12 @@ def get_openapi_schema(app: FastAPI) -> Dict[str, Any]:
         )
     else:
         openapi_schema = get_openapi(
-            title="FinAcc Service",
+            title="Vimbai Service",
             version="0.1.0",
             routes=app.routes,
         )
 
-    # Add FinAcc-specific metadata
+    # Add Vimbai-specific metadata
     openapi_schema.update({
         "info": {
             **API_INFO,
@@ -418,7 +418,7 @@ def generate_api_docs_html() -> str:
     <!DOCTYPE html>
     <html>
     <head>
-        <title>FinAcc API Documentation</title>
+        <title>Vimbai API Documentation</title>
         <style>
             body { font-family: Arial, sans-serif; margin: 40px; }
             .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; }
@@ -432,7 +432,7 @@ def generate_api_docs_html() -> str:
     </head>
     <body>
         <div class="header">
-            <h1>FinAcc API Documentation</h1>
+            <h1>Vimbai API Documentation</h1>
             <p>Version 1.0.0 | Last Updated: June 2024</p>
         </div>
 

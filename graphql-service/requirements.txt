@@ -1,4 +1,4 @@
-# FinAcc GraphQL Service - Python Dependencies
+# Vimbai GraphQL Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

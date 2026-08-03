@@ -348,13 +348,13 @@ async def create_reconciliation_match(session: AsyncSession, match_data: Reconci
 
     query = """
     MATCH (bt:BankTransaction {id: $bank_transaction_id})
-    MATCH (je:JournalEntry {id: $finacc_journal_entry_id})
+    MATCH (je:JournalEntry {id: $vimbai_journal_entry_id})
     CREATE (rm:ReconciliationMatch $props)
     CREATE (bt)-[:MATCHED_TO]->(rm)
     CREATE (rm)-[:MATCHES_ENTRY]->(je)
     RETURN rm
     """
-    result = await session.run(query, bank_transaction_id=match_data.bank_transaction_id, finacc_journal_entry_id=match_data.finacc_journal_entry_id, props=props)
+    result = await session.run(query, bank_transaction_id=match_data.bank_transaction_id, vimbai_journal_entry_id=match_data.vimbai_journal_entry_id, props=props)
     record = await result.single()
     return _from_neo4j_props(record["rm"], ReconciliationMatchInDB)
 
@@ -376,13 +376,13 @@ async def get_matches_for_bank_transaction(session: AsyncSession, bank_transacti
     result = await session.run(query, bank_transaction_id=bank_transaction_id)
     return [_from_neo4j_props(record["rm"], ReconciliationMatchInDB) async for record in result]
 
-async def get_matches_for_journal_entry(session: AsyncSession, finacc_journal_entry_id: str) -> List[ReconciliationMatchInDB]:
+async def get_matches_for_journal_entry(session: AsyncSession, vimbai_journal_entry_id: str) -> List[ReconciliationMatchInDB]:
     query = """
-    MATCH (rm:ReconciliationMatch)-[:MATCHES_ENTRY]->(je:JournalEntry {id: $finacc_journal_entry_id})
+    MATCH (rm:ReconciliationMatch)-[:MATCHES_ENTRY]->(je:JournalEntry {id: $vimbai_journal_entry_id})
     RETURN rm
     ORDER BY rm.created_at DESC
     """
-    result = await session.run(query, finacc_journal_entry_id=finacc_journal_entry_id)
+    result = await session.run(query, vimbai_journal_entry_id=vimbai_journal_entry_id)
     return [_from_neo4j_props(record["rm"], ReconciliationMatchInDB) async for record in result]
 
 async def update_reconciliation_match(session: AsyncSession, match_id: str, match_data: ReconciliationMatchUpdate) -> Optional[ReconciliationMatchInDB]:

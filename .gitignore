@@ -3,7 +3,7 @@ __pycache__/
 .pytest_cache/
 
 # Go build artifacts
-api-gateway/finacc-gateway
+api-gateway/vimbai-gateway
 *.exe
 
 # Frontend build

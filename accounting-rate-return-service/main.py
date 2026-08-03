@@ -1,5 +1,5 @@
 """
-FinAcc Accounting Rate of Return (ARR) Service
+Vimbai Accounting Rate of Return (ARR) Service
 Calculates ARR using average profit and average capital.
 ARR = (Average Annual Profit / Average Investment) × 100
 """
@@ -26,7 +26,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Accounting Rate of Return Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Accounting Rate of Return Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

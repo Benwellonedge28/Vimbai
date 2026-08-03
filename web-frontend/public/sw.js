@@ -1,9 +1,9 @@
-// FinAcc Service Worker - Offline First PWA Support
+// Vimbai Service Worker - Offline First PWA Support
 
-const CACHE_NAME = 'finacc-v1.0.0';
-const STATIC_CACHE = 'finacc-static-v1';
-const DYNAMIC_CACHE = 'finacc-dynamic-v1';
-const API_CACHE = 'finacc-api-v1';
+const CACHE_NAME = 'vimbai-v1.0.0';
+const STATIC_CACHE = 'vimbai-static-v1';
+const DYNAMIC_CACHE = 'vimbai-dynamic-v1';
+const API_CACHE = 'vimbai-api-v1';
 
 // Static assets to cache immediately
 const STATIC_ASSETS = [
@@ -194,7 +194,7 @@ self.addEventListener('push', (event) => {
 
   const data = event.data.json();
   const options = {
-    body: data.body || 'New notification from FinAcc',
+    body: data.body || 'New notification from Vimbai',
     icon: '/icons/icon-192x192.png',
     badge: '/icons/badge-72x72.png',
     vibrate: [100, 50, 100],
@@ -209,7 +209,7 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'FinAcc', options)
+    self.registration.showNotification(data.title || 'Vimbai', options)
   );
 });
 
@@ -303,7 +303,7 @@ async function syncJournalEntries() {
 // IndexedDB helper
 function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('finacc-offline', 1);
+    const request = indexedDB.open('vimbai-offline', 1);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);

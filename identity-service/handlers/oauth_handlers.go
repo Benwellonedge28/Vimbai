@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Benwellonedge28/FinAcc/identity-service/database"
-	"github.com/Benwellonedge28/FinAcc/identity-service/models"
-	"github.com/Benwellonedge28/FinAcc/identity-service/utils"
+	"github.com/Benwellonedge28/Vimbai/identity-service/database"
+	"github.com/Benwellonedge28/Vimbai/identity-service/models"
+	"github.com/Benwellonedge28/Vimbai/identity-service/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 	"golang.org/x/crypto/bcrypt"
@@ -385,7 +385,7 @@ func JWKS(w http.ResponseWriter, r *http.Request) {
 			{
 				Kty: "RSA",
 				Use: "sig",
-				Kid: "finacc-key-1",
+				Kid: "vimbai-key-1",
 				Alg: "RS256",
 				N:   "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw",
 				E: "AQAB",

@@ -1,5 +1,5 @@
 """
-FinAcc Double Entry Principles Service
+Vimbai Double Entry Principles Service
 Core double entry bookkeeping rules, debit/credit logic, and account type behaviors.
 """
 
@@ -29,7 +29,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Double Entry Principles Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Double Entry Principles Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

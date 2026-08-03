@@ -1,5 +1,5 @@
 """
-Comprehensive Tests for FinAcc Notifications Service
+Comprehensive Tests for Vimbai Notifications Service
 """
 
 import pytest

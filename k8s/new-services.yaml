@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: alerts-service
-  namespace: finacc
+  namespace: vimbai
   labels:
     app: alerts-service
     tier: backend
@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: alerts-service
-        image: finacc/alerts-service:latest
+        image: vimbai/alerts-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8090
@@ -43,7 +43,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: alerts-service
-  namespace: finacc
+  namespace: vimbai
   labels:
     app: alerts-service
 spec:
@@ -60,7 +60,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: notifications-service
-  namespace: finacc
+  namespace: vimbai
   labels:
     app: notifications-service
     tier: backend
@@ -80,7 +80,7 @@ spec:
     spec:
       containers:
       - name: notifications-service
-        image: finacc/notifications-service:latest
+        image: vimbai/notifications-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8091
@@ -100,7 +100,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: notifications-service
-  namespace: finacc
+  namespace: vimbai
   labels:
     app: notifications-service
 spec:
@@ -117,7 +117,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: currency-service
-  namespace: finacc
+  namespace: vimbai
   labels:
     app: currency-service
     tier: backend
@@ -137,7 +137,7 @@ spec:
     spec:
       containers:
       - name: currency-service
-        image: finacc/currency-service:latest
+        image: vimbai/currency-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8092
@@ -157,7 +157,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: currency-service
-  namespace: finacc
+  namespace: vimbai
   labels:
     app: currency-service
 spec:

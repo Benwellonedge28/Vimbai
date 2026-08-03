@@ -1,5 +1,5 @@
 """
-FinAcc Variable Cost Service
+Vimbai Variable Cost Service
 Manages variable cost classification and analysis.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Variable Cost Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Variable Cost Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

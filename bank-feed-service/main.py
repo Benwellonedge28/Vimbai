@@ -1,6 +1,6 @@
 """
-FinAcc Bank Feed Integration Service
-Connects to bank APIs to import transactions and reconcile with FinAcc records
+Vimbai Bank Feed Integration Service
+Connects to bank APIs to import transactions and reconcile with Vimbai records
 """
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, status
@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Bank Feed Integration Service",
+    title="Vimbai Bank Feed Integration Service",
     description="Bank API integration, transaction importing, and automated reconciliation",
     version="1.0.0",
 )
@@ -531,7 +531,7 @@ async def link_transaction(
     journal_entry_id: Optional[str] = None,
     invoice_id: Optional[str] = None
 ):
-    """Link transaction to FinAcc entities"""
+    """Link transaction to Vimbai entities"""
     if transaction_id not in imported_transactions:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
 

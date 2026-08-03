@@ -1,5 +1,5 @@
 """
-PDF and Excel Export Service for FinAcc Reporting
+PDF and Excel Export Service for Vimbai Reporting
 Provides comprehensive export functionality for financial reports
 """
 
@@ -50,7 +50,7 @@ except ImportError:
 class ExportService:
     """Service for exporting financial reports to PDF and Excel formats"""
 
-    def __init__(self, company_name: str = "FinAcc", logo_path: Optional[str] = None):
+    def __init__(self, company_name: str = "Vimbai", logo_path: Optional[str] = None):
         self.company_name = company_name
         self.logo_path = logo_path
 
@@ -760,6 +760,6 @@ class ExportService:
 
 
 # Factory function for creating export service
-def create_export_service(company_name: str = "FinAcc", logo_path: Optional[str] = None) -> ExportService:
+def create_export_service(company_name: str = "Vimbai", logo_path: Optional[str] = None) -> ExportService:
     """Create an ExportService instance"""
     return ExportService(company_name=company_name, logo_path=logo_path)

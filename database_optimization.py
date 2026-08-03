@@ -1,8 +1,8 @@
 """
-Database Performance Optimization Module for FinAcc
+Database Performance Optimization Module for Vimbai
 
 This module provides comprehensive Neo4j index management and query optimization
-to ensure high-performance database operations across all FinAcc services.
+to ensure high-performance database operations across all Vimbai services.
 
 Features:
 - Automatic index creation on service startup

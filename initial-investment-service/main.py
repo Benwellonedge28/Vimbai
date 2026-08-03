@@ -1,5 +1,5 @@
 """
-FinAcc Initial Investment Service
+Vimbai Initial Investment Service
 Handles initial investment calculations for capital projects.
 """
 
@@ -25,7 +25,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Initial Investment Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Initial Investment Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

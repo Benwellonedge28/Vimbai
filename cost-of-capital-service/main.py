@@ -1,5 +1,5 @@
 """
-FinAcc Cost of Capital Service
+Vimbai Cost of Capital Service
 Handles rate of interest/cost of capital calculations.
 """
 
@@ -26,7 +26,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Cost of Capital Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Cost of Capital Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

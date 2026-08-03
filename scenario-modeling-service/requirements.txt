@@ -1,4 +1,4 @@
-# FinAcc Scenario Modeling Service - Python Dependencies
+# Vimbai Scenario Modeling Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

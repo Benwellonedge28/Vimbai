@@ -1,5 +1,5 @@
 """
-FinAcc Retained Profits Service
+Vimbai Retained Profits Service
 Manages retained profits and profit appropriations.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Retained Profits Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Retained Profits Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

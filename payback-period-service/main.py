@@ -1,5 +1,5 @@
 """
-FinAcc Payback Period Service
+Vimbai Payback Period Service
 Calculates payback period using non-discounted cash flows.
 Payback Period = Time taken to recover initial investment
 """
@@ -26,7 +26,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Payback Period Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Payback Period Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

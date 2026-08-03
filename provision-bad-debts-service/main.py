@@ -1,5 +1,5 @@
 """
-FinAcc Provision for Bad Debts Service
+Vimbai Provision for Bad Debts Service
 Manages provisions for bad and doubtful debts.
 """
 
@@ -29,7 +29,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Provision for Bad Debts Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Provision for Bad Debts Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

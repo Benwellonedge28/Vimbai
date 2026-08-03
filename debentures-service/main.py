@@ -1,5 +1,5 @@
 """
-FinAcc Debentures Service
+Vimbai Debentures Service
 Manages debenture issuance, interest, and redemption.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Debentures Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Debentures Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

@@ -1,5 +1,5 @@
 """
-FinAcc Disposal Account Service
+Vimbai Disposal Account Service
 Manages disposal of fixed assets and calculation of profit/loss on disposal.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Disposal Account Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Disposal Account Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

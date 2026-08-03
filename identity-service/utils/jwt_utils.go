@@ -30,7 +30,7 @@ func GenerateJWT(userID, username, role string, permissions []string) (string, e
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expirationTime.Unix(),
 			IssuedAt:  time.Now().Unix(),
-			Issuer:    "finacc-identity-service",
+			Issuer:    "vimbai-identity-service",
 		},
 	}
 

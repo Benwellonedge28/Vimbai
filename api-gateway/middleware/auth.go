@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"finacc/api-gateway/config"
-	"finacc/api-gateway/utils"
+	"vimbai/api-gateway/config"
+	"vimbai/api-gateway/utils"
 	"net/http"
 	"strings"
 

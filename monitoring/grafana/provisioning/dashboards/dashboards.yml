@@ -1,13 +1,13 @@
 apiVersion: 1
 
 providers:
-  - name: 'FinAcc Dashboards'
+  - name: 'Vimbai Dashboards'
     orgId: 1
-    folder: 'FinAcc'
-    folderUid: 'finacc'
+    folder: 'Vimbai'
+    folderUid: 'vimbai'
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     allowUiUpdates: true
     options:
-      path: /var/lib/grafana/dashboards/finacc
+      path: /var/lib/grafana/dashboards/vimbai

@@ -1,4 +1,4 @@
-name: FinAcc Production CI/CD Pipeline
+name: Vimbai Production CI/CD Pipeline
 
 on:
   push:
@@ -150,7 +150,7 @@ jobs:
           cat > zap-reports/openapi.yaml << 'EOF'
           openapi: 3.0.0
           info:
-            title: FinAcc API
+            title: Vimbai API
             version: 1.0.0
           paths:
             /health:
@@ -396,12 +396,12 @@ jobs:
 
       - name: Build API Gateway
         working-directory: api-gateway
-        run: go build -v -o finacc-gateway .
+        run: go build -v -o vimbai-gateway .
 
       - name: Verify binary exists
         run: |
-          ls -la api-gateway/finacc-gateway
-          file api-gateway/finacc-gateway
+          ls -la api-gateway/vimbai-gateway
+          file api-gateway/vimbai-gateway
 
       - name: Run Go tests
         working-directory: api-gateway
@@ -500,7 +500,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: production
-      url: https://finacc.example.com
+      url: https://vimbai.example.com
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -517,8 +517,8 @@ jobs:
 
       - name: Deploy to Kubernetes
         run: |
-          helm upgrade --install finacc ./k8s/helm \
-            --namespace finacc \
+          helm upgrade --install vimbai ./k8s/helm \
+            --namespace vimbai \
             --create-namespace \
             --set image.tag=${{ github.sha }} \
             --wait --timeout 5m
@@ -670,6 +670,6 @@ jobs:
     steps:
       - name: Send notification
         run: |
-          echo "FinAcc CI/CD Pipeline failed. Please check the logs for details."
+          echo "Vimbai CI/CD Pipeline failed. Please check the logs for details."
           echo "Security scans completed - check GitHub Security tab for vulnerability reports."
         continue-on-error: true

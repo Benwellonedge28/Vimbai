@@ -1,5 +1,5 @@
 """
-FinAcc Suspense Account & Error Detection Service
+Vimbai Suspense Account & Error Detection Service
 Detects, tracks, and helps resolve accounting errors including:
 - Unbalanced journal entries
 - Missing information
@@ -22,7 +22,7 @@ import json
 from decimal import Decimal
 
 app = FastAPI(
-    title="FinAcc Suspense Account & Error Detection Service",
+    title="Vimbai Suspense Account & Error Detection Service",
     description="Comprehensive accounting error detection, suspense account management, and error correction workflows",
     version="1.0.0",
 )
@@ -1021,7 +1021,7 @@ async def check_and_notify_suspense(
                 notification = Notification(
                     id=str(uuid.uuid4()),
                     user_id=check_user_id,
-                    user_email=f"{check_user_id}@finacc.com",
+                    user_email=f"{check_user_id}@vimbai.com",
                     organization_id=organization_id,
                     type="suspense_alert",
                     title="Suspense Account Requires Immediate Attention",

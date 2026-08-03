@@ -1,5 +1,5 @@
 """
-FinAcc Multi-Currency Service
+Vimbai Multi-Currency Service
 Provides comprehensive currency management, conversion, and exchange rate handling
 """
 
@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Currency Service",
+    title="Vimbai Currency Service",
     description="Multi-currency support for financial transactions",
     version="0.1.0",
 )

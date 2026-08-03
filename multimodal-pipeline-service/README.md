@@ -1,6 +1,6 @@
-# FinAcc Multimodal Pipeline Service
+# Vimbai Multimodal Pipeline Service
 
-This service processes various input types (image, audio, text) for financial data extraction and automation. It can perform OCR on documents, ASR on audio, and extract relevant financial entities. It then integrates with other FinAcc services, such as the Accounting Service for journal entry creation and now the Fraud Detection Service for transaction analysis.
+This service processes various input types (image, audio, text) for financial data extraction and automation. It can perform OCR on documents, ASR on audio, and extract relevant financial entities. It then integrates with other Vimbai services, such as the Accounting Service for journal entry creation and now the Fraud Detection Service for transaction analysis.
 
 ## Features
 
@@ -13,11 +13,11 @@ This service processes various input types (image, audio, text) for financial da
 
 ## Architecture
 
-The service leverages FastAPI for its API and `httpx` for internal, authenticated communication with other FinAcc microservices via the API Gateway. It integrates with **RabbitMQ** for asynchronous task processing, employing a producer/consumer model. The main FastAPI application acts as a producer, queuing tasks, while a background worker (or separate process) consumes and processes them.
+The service leverages FastAPI for its API and `httpx` for internal, authenticated communication with other Vimbai microservices via the API Gateway. It integrates with **RabbitMQ** for asynchronous task processing, employing a producer/consumer model. The main FastAPI application acts as a producer, queuing tasks, while a background worker (or separate process) consumes and processes them.
 
 ## Getting Started
 
-To run this service along with Neo4j, RabbitMQ, and other FinAcc services, you need Docker and Docker Compose installed.
+To run this service along with Neo4j, RabbitMQ, and other Vimbai services, you need Docker and Docker Compose installed.
 
 ### 1. Prerequisites
 
@@ -36,15 +36,15 @@ The service requires the following environment variables. It's recommended to se
 
 ### 3. Running the Services (with Docker Compose)
 
-Navigate to the root directory of the FinAcc project (where `docker-compose.yml` is located) and run:
+Navigate to the root directory of the Vimbai project (where `docker-compose.yml` is located) and run:
 
 ```bash
 docker-compose up --build
 ```
 
 This command will:
-1.  Build the `multimodal-pipeline-service` and other FinAcc Docker images.
-2.  Start a Neo4j container, RabbitMQ, and all other FinAcc microservices.
+1.  Build the `multimodal-pipeline-service` and other Vimbai Docker images.
+2.  Start a Neo4j container, RabbitMQ, and all other Vimbai microservices.
 
 The Multimodal Pipeline Service API endpoints will be accessible via the API Gateway at `http://localhost:8081`.
 

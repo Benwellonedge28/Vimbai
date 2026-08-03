@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"finacc/api-gateway/config"
-	"finacc/api-gateway/middleware"
+	"vimbai/api-gateway/config"
+	"vimbai/api-gateway/middleware"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/labstack/echo/v4"
@@ -195,7 +195,7 @@ func main() {
 	e.Use(middleware.AuthMiddleware(cfg))
 
 	e.GET("/", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"message": "FinAcc API Gateway is running!"})
+		return c.JSON(http.StatusOK, map[string]string{"message": "Vimbai API Gateway is running!"})
 	})
 
 	// Initialize Circuit Breakers for each upstream service
@@ -232,7 +232,7 @@ func main() {
 			req.Host = targetURL.Host
 			req.URL.Path = strings.TrimPrefix(req.URL.Path, route.Path)
 			if _, ok := req.Header["User-Agent"]; !ok {
-				req.Header.Set("User-Agent", "FinAcc-API-Gateway")
+				req.Header.Set("User-Agent", "Vimbai-API-Gateway")
 			}
 			if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
 				if priorXFF := req.Header.Get("X-Forwarded-For"); priorXFF != "" {
@@ -284,6 +284,6 @@ func main() {
 		log.Printf("Proxying requests from %s to %s (Auth: %t, CB/Retry: %t)\n", route.Path, route.TargetURL, route.AuthRequired, route.AuthRequired)
 	}
 
-	log.Printf("Starting FinAcc API Gateway on port %d\n", cfg.Port)
+	log.Printf("Starting Vimbai API Gateway on port %d\n", cfg.Port)
 	e.Logger.Fatal(e.Start(":" + strconv.Itoa(cfg.Port)))
 }

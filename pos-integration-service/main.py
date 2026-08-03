@@ -1,5 +1,5 @@
 """
-FinAcc POS Integration Service
+Vimbai POS Integration Service
 Provides seamless integration with Point-of-Sale systems for real-time transaction syncing
 """
 
@@ -19,7 +19,7 @@ import httpx
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc POS Integration Service",
+    title="Vimbai POS Integration Service",
     description="Real-time POS transaction integration, inventory sync, and sales reconciliation",
     version="1.0.0",
 )

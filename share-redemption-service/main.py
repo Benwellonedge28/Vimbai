@@ -1,5 +1,5 @@
 """
-FinAcc Share Redemption Service
+Vimbai Share Redemption Service
 Manages redemption of shares including legal requirements and procedures.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Share Redemption Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Share Redemption Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

@@ -1,5 +1,5 @@
 """
-Comprehensive Tests for FinAcc API Gateway
+Comprehensive Tests for Vimbai API Gateway
 Includes tests for rate limiting, circuit breaker, and routing
 """
 

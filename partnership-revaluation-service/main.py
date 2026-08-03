@@ -1,5 +1,5 @@
 """
-FinAcc Partnership Revaluation Service
+Vimbai Partnership Revaluation Service
 Asset revaluation and goodwill treatment in partnerships.
 """
 
@@ -29,7 +29,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Partnership Revaluation Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Partnership Revaluation Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

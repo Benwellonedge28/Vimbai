@@ -1,4 +1,4 @@
-# FinAcc Supply Chain Service
+# Vimbai Supply Chain Service
 
 This service, formerly the Invoicing Service, has been expanded to manage critical aspects of the supply chain, including customer invoicing, supplier relationships, inventory tracking, and purchase order management. This expanded scope makes it a central component for achieving **Global Supply Chain Optimization & Risk Mitigation**.
 
@@ -14,11 +14,11 @@ This service, formerly the Invoicing Service, has been expanded to manage critic
 
 ## Architecture
 
-The Supply Chain Service is a FastAPI application that uses Neo4j to store customer, sales invoice, supplier, inventory item, and purchase order data. It communicates with other FinAcc microservices via the API Gateway using `httpx`.
+The Supply Chain Service is a FastAPI application that uses Neo4j to store customer, sales invoice, supplier, inventory item, and purchase order data. It communicates with other Vimbai microservices via the API Gateway using `httpx`.
 
 ## Getting Started
 
-To run this service along with Neo4j and other FinAcc services, you need Docker and Docker Compose installed.
+To run this service along with Neo4j and other Vimbai services, you need Docker and Docker Compose installed.
 
 ### 1. Prerequisites
 
@@ -37,15 +37,15 @@ The service requires the following environment variables. It's recommended to se
 
 ### 3. Running the Services (with Docker Compose)
 
-Navigate to the root directory of the FinAcc project (where `docker-compose.yml` is located) and run:
+Navigate to the root directory of the Vimbai project (where `docker-compose.yml` is located) and run:
 
 ```bash
 docker-compose up --build
 ```
 
 This command will:
-1.  Build the `supply-chain-service` and other FinAcc Docker images.
-2.  Start a Neo4j container and all other FinAcc microservices.
+1.  Build the `supply-chain-service` and other Vimbai Docker images.
+2.  Start a Neo4j container and all other Vimbai microservices.
 
 The Supply Chain Service API endpoints will be accessible via the API Gateway at `http://localhost:8081`.
 

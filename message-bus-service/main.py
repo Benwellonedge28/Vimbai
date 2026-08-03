@@ -1,5 +1,5 @@
 """
-FinAcc Message Bus Service
+Vimbai Message Bus Service
 RabbitMQ-based event bus for asynchronous communication between microservices
 """
 
@@ -19,7 +19,7 @@ from aio_pika import Message, DeliveryMode, ExchangeType
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Message Bus Service",
+    title="Vimbai Message Bus Service",
     description="RabbitMQ-based event bus for async microservices communication",
     version="1.0.0",
 )
@@ -29,8 +29,8 @@ app = FastAPI(
 # ============================================================================
 
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-EXCHANGE_NAME = "finacc_events"
-DEAD_LETTER_EXCHANGE = "finacc_dlx"
+EXCHANGE_NAME = "vimbai_events"
+DEAD_LETTER_EXCHANGE = "vimbai_dlx"
 
 # ============================================================================
 # Enums and Models
@@ -160,7 +160,7 @@ class EventBus:
 
             # Declare main queue
             main_queue = await self.rabbitmq_channel.declare_queue(
-                "finacc_events",
+                "vimbai_events",
                 durable=True,
                 arguments={
                     "x-dead-letter-exchange": DEAD_LETTER_EXCHANGE,

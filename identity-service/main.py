@@ -1,5 +1,5 @@
 """
-FinAcc Identity Service
+Vimbai Identity Service
 Comprehensive Authentication, Authorization (RBAC), and Session Management
 Implements OAuth2/OIDC, JWT, MFA, and Capability-Based Security
 """
@@ -23,7 +23,7 @@ load_dotenv()
 logger = structlog.get_logger()
 
 app = FastAPI(
-    title="FinAcc Identity Service",
+    title="Vimbai Identity Service",
     description="Authentication, Authorization (RBAC), and Session Management with OAuth2/OIDC, JWT, and MFA support",
     version="1.0.0",
 )

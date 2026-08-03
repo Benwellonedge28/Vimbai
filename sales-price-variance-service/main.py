@@ -1,5 +1,5 @@
 """
-FinAcc Sales Price Variance Service
+Vimbai Sales Price Variance Service
 Calculates sales price variance.
 Price Variance = (Actual Price - Standard Price) × Actual Quantity
 """
@@ -26,7 +26,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Sales Price Variance Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Sales Price Variance Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

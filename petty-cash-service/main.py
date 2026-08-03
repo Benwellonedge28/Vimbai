@@ -1,5 +1,5 @@
 """
-FinAcc Petty Cash Book Service
+Vimbai Petty Cash Book Service
 Dedicated service for petty cash management with full audit trail
 Supports multiple petty cash funds, reimbursement workflows, and integration
 with main accounting system
@@ -14,7 +14,7 @@ import uuid
 from decimal import Decimal
 
 app = FastAPI(
-    title="FinAcc Petty Cash Book Service",
+    title="Vimbai Petty Cash Book Service",
     description="Comprehensive petty cash management with fund tracking, reimbursement workflows, and accounting integration",
     version="1.0.0",
 )

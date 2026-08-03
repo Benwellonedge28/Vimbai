@@ -1,5 +1,5 @@
 """
-FinAcc Revaluation Reserve Service
+Vimbai Revaluation Reserve Service
 Manages revaluation reserve from asset revaluations.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Revaluation Reserve Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Revaluation Reserve Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

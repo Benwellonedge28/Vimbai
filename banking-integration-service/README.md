@@ -1,6 +1,6 @@
-# FinAcc Banking Integration Service
+# Vimbai Banking Integration Service
 
-This service facilitates connecting to various financial institutions, retrieving bank account and transaction data, and integrating this data with the core FinAcc Accounting Service for automated reconciliation and journal entry creation.
+This service facilitates connecting to various financial institutions, retrieving bank account and transaction data, and integrating this data with the core Vimbai Accounting Service for automated reconciliation and journal entry creation.
 
 ## Features
 
@@ -18,7 +18,7 @@ The Banking Integration Service is a FastAPI application that uses Neo4j to stor
 
 ## Getting Started
 
-To run this service along with Neo4j and other FinAcc services, you need Docker and Docker Compose installed.
+To run this service along with Neo4j and other Vimbai services, you need Docker and Docker Compose installed.
 
 ### 1. Prerequisites
 
@@ -37,15 +37,15 @@ The service requires the following environment variables. It's recommended to se
 
 ### 3. Running the Services (with Docker Compose)
 
-Navigate to the root directory of the FinAcc project (where `docker-compose.yml` is located) and run:
+Navigate to the root directory of the Vimbai project (where `docker-compose.yml` is located) and run:
 
 ```bash
 docker-compose up --build
 ```
 
 This command will:
-1.  Build the `banking-integration-service` and other FinAcc Docker images.
-2.  Start a Neo4j container and all other FinAcc microservices.
+1.  Build the `banking-integration-service` and other Vimbai Docker images.
+2.  Start a Neo4j container and all other Vimbai microservices.
 
 The Banking Integration Service API endpoints will be accessible via the API Gateway at `http://localhost:8081`.
 

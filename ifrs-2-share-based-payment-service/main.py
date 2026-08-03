@@ -63,7 +63,7 @@ class IFRS2Response(BaseModel):
     dilutive_effect: int
 
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
-    """Call another internal FinAcc service."""
+    """Call another internal Vimbai service."""
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{service_url}{endpoint}"

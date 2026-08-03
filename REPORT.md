@@ -1,18 +1,18 @@
-# FinAcc - Comprehensive Accounting Microservices Platform
+# Vimbai - Comprehensive Accounting Microservices Platform
 
 ## Executive Summary
 
-FinAcc is an enterprise-grade accounting microservices platform hosted at github.com/Benwellonedge28/FinAcc. The platform comprises 127 independent microservices designed to handle every aspect of modern accounting operations. Built on FastAPI with Python, each service operates independently, communicates through RESTful APIs, and can be deployed, scaled, and maintained separately. The architecture follows strict double-entry bookkeeping principles and supports comprehensive inter-service communication for complex accounting workflows.
+Vimbai is an enterprise-grade accounting microservices platform hosted at github.com/Benwellonedge28/Vimbai. The platform comprises 127 independent microservices designed to handle every aspect of modern accounting operations. Built on FastAPI with Python, each service operates independently, communicates through RESTful APIs, and can be deployed, scaled, and maintained separately. The architecture follows strict double-entry bookkeeping principles and supports comprehensive inter-service communication for complex accounting workflows.
 
 ## Project Overview
 
-The FinAcc platform represents a groundbreaking approach to accounting software architecture. Rather than building a monolithic application, the project decomposes every accounting function into a dedicated microservice. This decomposition enables unparalleled flexibility, allowing organizations to implement only the services they need while maintaining the ability to scale individual components based on demand. The platform serves as both a complete accounting solution and a modular toolkit that can integrate with existing financial systems.
+The Vimbai platform represents a groundbreaking approach to accounting software architecture. Rather than building a monolithic application, the project decomposes every accounting function into a dedicated microservice. This decomposition enables unparalleled flexibility, allowing organizations to implement only the services they need while maintaining the ability to scale individual components based on demand. The platform serves as both a complete accounting solution and a modular toolkit that can integrate with existing financial systems.
 
 The fundamental design philosophy centers on service independence and reusability. Each microservice exposes a well-defined API with comprehensive endpoints for creating, reading, updating, and managing accounting data. The services communicate with each other using HTTP calls through httpx.AsyncClient, enabling complex multi-service workflows while maintaining loose coupling between components. This architecture supports both standalone usage and orchestrated operation through the API Gateway.
 
 ## Architecture Overview
 
-The FinAcc architecture consists of multiple layers working together to provide a complete accounting ecosystem. At the foundation lies the API Gateway built with Go, which handles routing, authentication, and load balancing across all Python microservices. The gateway provides a unified entry point for client applications and ensures secure communication between services and external consumers.
+The Vimbai architecture consists of multiple layers working together to provide a complete accounting ecosystem. At the foundation lies the API Gateway built with Go, which handles routing, authentication, and load balancing across all Python microservices. The gateway provides a unified entry point for client applications and ensures secure communication between services and external consumers.
 
 Each Python microservice follows a consistent internal architecture built on FastAPI. Services include health check endpoints for container orchestration, structured JSON logging through structlog for observability, and comprehensive error handling. The microservices use Pydantic for data validation and serialization, ensuring type safety across service boundaries. All services maintain their own requirements.txt with specific dependencies, allowing independent versioning and updates.
 
@@ -98,7 +98,7 @@ Audit services ensure accounting accuracy and compliance. Audit-service provides
 
 ### External Integration Services
 
-Integration services connect FinAcc with external systems. Banking-integration-service integrates with banking systems for transaction feeds and payments. Bank-feed-service processes electronic bank statements. Payment-gateway-service handles payment processing through various providers. POS-integration-service connects point-of-sale systems for retail transactions. Currency-service manages multi-currency transactions and exchange rates.
+Integration services connect Vimbai with external systems. Banking-integration-service integrates with banking systems for transaction feeds and payments. Bank-feed-service processes electronic bank statements. Payment-gateway-service handles payment processing through various providers. POS-integration-service connects point-of-sale systems for retail transactions. Currency-service manages multi-currency transactions and exchange rates.
 
 ### Supporting Infrastructure Services
 
@@ -128,7 +128,7 @@ Monitoring is supported through structured logging, health check endpoints, and 
 
 ## Recent Additions
 
-The latest update added nine financial statement services, each implementing comprehensive inter-service communication capabilities. These services use httpx.AsyncClient to call other FinAcc services, enabling complex workflows such as generating a complete set of financial statements from raw transaction data.
+The latest update added nine financial statement services, each implementing comprehensive inter-service communication capabilities. These services use httpx.AsyncClient to call other Vimbai services, enabling complex workflows such as generating a complete set of financial statements from raw transaction data.
 
 New services include ratio-analysis-service for calculating financial ratios, inventory-valuation-service supporting multiple valuation methods, trial-balance-service for generating trial balances, trading-account-service for trading and manufacturing accounts, profit-loss-account-service for income statements, balance-sheet-service for statements of financial position, working-capital-service for liquidity analysis, tax-calculation-service for comprehensive tax calculations, and payroll-accounting-service for payroll processing with journal entries.
 
@@ -136,7 +136,7 @@ All new services follow the established patterns including health check endpoint
 
 ## Integration Capabilities
 
-FinAcc services communicate through well-defined REST APIs, enabling both internal and external integration. Internal services use the call_internal_service function to query other services for data. External systems can integrate through the API Gateway, which provides authentication and rate limiting.
+Vimbai services communicate through well-defined REST APIs, enabling both internal and external integration. Internal services use the call_internal_service function to query other services for data. External systems can integrate through the API Gateway, which provides authentication and rate limiting.
 
 The platform supports event-driven integration through the message bus service, enabling services to react to accounting events such as transaction creation or approval workflows. Webhook support allows external systems to receive notifications of accounting events.
 
@@ -144,6 +144,6 @@ Data exchange formats include JSON for API requests and responses, with Pydantic
 
 ## Conclusion
 
-FinAcc represents a comprehensive approach to accounting software architecture, decomposing every accounting function into an independently deployable microservice. With 127 services covering financial accounting, cost accounting, management accounting, tax, payroll, and financial reporting, the platform provides complete accounting functionality while maintaining the flexibility and scalability benefits of microservices architecture.
+Vimbai represents a comprehensive approach to accounting software architecture, decomposing every accounting function into an independently deployable microservice. With 127 services covering financial accounting, cost accounting, management accounting, tax, payroll, and financial reporting, the platform provides complete accounting functionality while maintaining the flexibility and scalability benefits of microservices architecture.
 
-The platform is production-ready with comprehensive CI/CD pipelines, security scanning, and monitoring capabilities. The consistent service architecture ensures maintainability while the inter-service communication capabilities enable complex multi-service workflows. Organizations can use FinAcc as a complete accounting platform or selectively implement specific services to complement existing systems.
+The platform is production-ready with comprehensive CI/CD pipelines, security scanning, and monitoring capabilities. The consistent service architecture ensures maintainability while the inter-service communication capabilities enable complex multi-service workflows. Organizations can use Vimbai as a complete accounting platform or selectively implement specific services to complement existing systems.

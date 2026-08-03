@@ -1,6 +1,6 @@
-# FinAcc Accounting Service
+# Vimbai Accounting Service
 
-This service serves as the core financial ledger for the FinAcc system. It manages the Chart of Accounts, processes Journal Entries, and generates fundamental financial reports like Ledgers, Trial Balances, Income Statements, and Balance Sheets.
+This service serves as the core financial ledger for the Vimbai system. It manages the Chart of Accounts, processes Journal Entries, and generates fundamental financial reports like Ledgers, Trial Balances, Income Statements, and Balance Sheets.
 
 ## Features
 
@@ -17,11 +17,11 @@ This service serves as the core financial ledger for the FinAcc system. It manag
 
 ## Architecture
 
-The Accounting Service is a FastAPI application that uses Neo4j as its primary data store for the Chart of Accounts and Journal Entries. It communicates with other FinAcc microservices (like Banking Integration, Multimodal Pipeline, and Finance Service, Supply Chain Service) via the API Gateway using `httpx`.
+The Accounting Service is a FastAPI application that uses Neo4j as its primary data store for the Chart of Accounts and Journal Entries. It communicates with other Vimbai microservices (like Banking Integration, Multimodal Pipeline, and Finance Service, Supply Chain Service) via the API Gateway using `httpx`.
 
 ## Getting Started
 
-To run this service along with Neo4j and other FinAcc services, you need Docker and Docker Compose installed.
+To run this service along with Neo4j and other Vimbai services, you need Docker and Docker Compose installed.
 
 ### 1. Prerequisites
 
@@ -40,15 +40,15 @@ The service requires the following environment variables. It's recommended to se
 
 ### 3. Running the Services (with Docker Compose)
 
-Navigate to the root directory of the FinAcc project (where `docker-compose.yml` is located) and run:
+Navigate to the root directory of the Vimbai project (where `docker-compose.yml` is located) and run:
 
 ```bash
 docker-compose up --build
 ```
 
 This command will:
-1.  Build the `accounting-service` and other FinAcc Docker images.
-2.  Start a Neo4j container and all other FinAcc microservices.
+1.  Build the `accounting-service` and other Vimbai Docker images.
+2.  Start a Neo4j container and all other Vimbai microservices.
 
 The Accounting Service API endpoints will be accessible via the API Gateway at `http://localhost:8081`.
 

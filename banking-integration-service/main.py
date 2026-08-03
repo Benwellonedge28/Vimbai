@@ -18,7 +18,7 @@ from decimal import Decimal # NEW
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Banking Integration Service",
+    title="Vimbai Banking Integration Service",
     description="Manages bank connections, synchronizes transactions, and facilitates reconciliation.",
     version="0.1.0",
 )
@@ -325,7 +325,7 @@ async def create_plaid_link_token(
     user_id: str = Depends(get_user_id)
 ):
     try:
-        client_name = os.getenv("PLAID_CLIENT_APP_NAME", "FinAcc")
+        client_name = os.getenv("PLAID_CLIENT_APP_NAME", "Vimbai")
         link_token_response = await plaid_client.create_link_token(user_id=user_id, client_name=client_name)
         return {"link_token": link_token_response["link_token"]}
     except PlaidClientException as e:
@@ -443,7 +443,7 @@ async def sync_transactions_for_connection(
                     # Process the new bank transaction using the TransactionProcessor
                     await transaction_processor.process_new_bank_transaction(user_id, new_bank_transaction) # NEW
                 else:
-                    print(f"Warning: Plaid account ID {tx_data['account_id']} not found in FinAcc for connection {connection_id}. Transaction skipped.")
+                    print(f"Warning: Plaid account ID {tx_data['account_id']} not found in Vimbai for connection {connection_id}. Transaction skipped.")
 
         await crud.update_bank_connection(db_session, user_id, connection_id, models.BankConnectionUpdate(last_synced_at=datetime.utcnow()))
 
@@ -468,8 +468,8 @@ async def plaid_webhook_receiver(
 
     bank_connection = await crud.get_bank_connection_by_external_id(db_session, item_id)
     if not bank_connection:
-        print(f"Warning: No FinAcc BankConnection found for Plaid item_id {item_id}.")
-        return {"status": "ignored", "message": "No matching FinAcc connection."}
+        print(f"Warning: No Vimbai BankConnection found for Plaid item_id {item_id}.")
+        return {"status": "ignored", "message": "No matching Vimbai connection."}
 
     if webhook_type == "TRANSACTIONS" and webhook_code in ["DEFAULT_UPDATE", "HISTORICAL_UPDATE", "INITIAL_UPDATE"]:
         print(f"New transactions available for Item {item_id}. Triggering immediate sync for connection {bank_connection.id}.")
@@ -480,7 +480,7 @@ async def plaid_webhook_receiver(
             print(f"Error initiating sync from webhook for item {item_id}: {e}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to initiate sync: {e}")
     elif webhook_type == "TRANSACTIONS" and webhook_code == "TRANSACTIONS_REMOVED":
-        print(f"Transactions removed for Item {item_id}. Need to update FinAcc transactions.")
+        print(f"Transactions removed for Item {item_id}. Need to update Vimbai transactions.")
         return {"status": "ok", "message": "Webhook processed, transactions removal noted."}
     
     return {"status": "ok", "message": "Webhook received and acknowledged. No action taken for this type/code."}
@@ -489,4 +489,4 @@ async def plaid_webhook_receiver(
 # --- Root endpoint for health check ---
 @app.get("/")
 async def read_root():
-    return {"message": "FinAcc Banking Integration Service is running!"}
+    return {"message": "Vimbai Banking Integration Service is running!"}

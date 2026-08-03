@@ -1,4 +1,4 @@
-FinAcc
+Vimbai
 
 The Universal Autonomous Financial Operating System
 
@@ -16,7 +16,7 @@ Why Traditional Accounting Systems Fail
 
 Vision of the Universal Financial Operating System
 
-Core Principles of FinAcc
+Core Principles of Vimbai
 
 Universal Ledger Theory
 
@@ -122,7 +122,7 @@ Global Financial Federation
 
 Future Financial Civilizations
 
-FinAcc Development Roadmap
+Vimbai Development Roadmap
 
 Engineering Organization Structure
 
@@ -130,9 +130,9 @@ Final Vision
 
 Chapter 1 — Introduction
 
-FinAcc is designed to become the most comprehensive autonomous financial operating system ever conceived.
+Vimbai is designed to become the most comprehensive autonomous financial operating system ever conceived.
 
-Unlike traditional accounting software that focuses primarily on bookkeeping or ERP workflows, FinAcc is designed as universal financial infrastructure capable of supporting:
+Unlike traditional accounting software that focuses primarily on bookkeeping or ERP workflows, Vimbai is designed as universal financial infrastructure capable of supporting:
 
 Individuals
 
@@ -236,7 +236,7 @@ fragmented financial ecosystems
 
 Era 5 — Autonomous Financial Operating Systems
 
-FinAcc represents the next era.
+Vimbai represents the next era.
 
 Characteristics:
 
@@ -278,7 +278,7 @@ poor government support
 
 fragmented integrations
 
-FinAcc solves these through:
+Vimbai solves these through:
 
 event-driven systems
 
@@ -296,7 +296,7 @@ The ultimate vision is:
 
 Every financial event in the world becomes computable, auditable, synchronized, and autonomous.
 
-FinAcc acts as:
+Vimbai acts as:
 
 personal finance infrastructure
 
@@ -316,7 +316,7 @@ event streams
 
 distributed synchronization
 
-Chapter 5 — Core Principles of FinAcc
+Chapter 5 — Core Principles of Vimbai
 
 Principle 1 — Financial Determinism
 
@@ -370,9 +370,9 @@ sovereign tax laws
 
 Chapter 6 — Universal Ledger Theory
 
-The ledger is the heart of FinAcc.
+The ledger is the heart of Vimbai.
 
-Unlike traditional systems that isolate accounting models, FinAcc uses a universal hierarchical ledger architecture.
+Unlike traditional systems that isolate accounting models, Vimbai uses a universal hierarchical ledger architecture.
 
 Universal Ledger Hierarchy
 
@@ -390,7 +390,7 @@ maintains audit integrity
 
 Chapter 7 — Accounting Science Foundations
 
-FinAcc is built on formal accounting science.
+Vimbai is built on formal accounting science.
 
 Core Accounting Equation
 
@@ -420,7 +420,7 @@ The total debits must equal total credits.
 
 Accrual Accounting
 
-FinAcc primarily operates on accrual accounting principles.
+Vimbai primarily operates on accrual accounting principles.
 
 Revenue and expenses are recognized when incurred.
 
@@ -448,7 +448,7 @@ treasury optimization
 
 Chapter 9 — Distributed Systems Foundations
 
-FinAcc is fundamentally a distributed computing system.
+Vimbai is fundamentally a distributed computing system.
 
 The architecture uses:
 
@@ -506,7 +506,7 @@ synchronization
 
 Chapter 12 — Personal Finance Architecture
 
-FinAcc must support ordinary people.
+Vimbai must support ordinary people.
 
 Personal Finance Features
 
@@ -764,7 +764,7 @@ cashflow forecasting
 
 Chapter 25 — Banking Integration Architecture
 
-FinAcc integrates with:
+Vimbai integrates with:
 
 banks
 
@@ -818,7 +818,7 @@ policies
 
 Chapter 28 — Federated Financial Networks
 
-FinAcc supports federation.
+Vimbai supports federation.
 
 Organizations may:
 
@@ -944,7 +944,7 @@ department isolation
 
 Chapter 36 — Service-Oriented Financial Architecture
 
-FinAcc uses service specialization.
+Vimbai uses service specialization.
 
 Each service:
 
@@ -1022,7 +1022,7 @@ webhook services
 
 Chapter 39 — Cloud-Native Infrastructure
 
-FinAcc is cloud-native.
+Vimbai is cloud-native.
 
 Core technologies:
 
@@ -1040,11 +1040,11 @@ Istio
 
 Chapter 40 — User-Owned Infrastructure Model
 
-One of the most revolutionary aspects of FinAcc is infrastructure sovereignty.
+One of the most revolutionary aspects of Vimbai is infrastructure sovereignty.
 
 Users fully own their deployments.
 
-FinAcc does not require centralized vendor hosting.
+Vimbai does not require centralized vendor hosting.
 
 Users may deploy:
 
@@ -1094,7 +1094,7 @@ air-gapped infrastructure
 
 Chapter 41 — Sovereign Cloud Architecture
 
-FinAcc supports sovereign deployments.
+Vimbai supports sovereign deployments.
 
 Countries may deploy:
 
@@ -1118,7 +1118,7 @@ Mobile App ↓ SQLite ↓ Encrypted Backup
 
 Home Lab Deployment
 
-Docker Compose ├── PostgreSQL ├── Redis ├── FinAcc Core └── Mobile Sync
+Docker Compose ├── PostgreSQL ├── Redis ├── Vimbai Core └── Mobile Sync
 
 Enterprise Deployment
 
@@ -1216,7 +1216,7 @@ procurement flows
 
 Chapter 49 — High Availability Engineering
 
-FinAcc supports:
+Vimbai supports:
 
 failover
 
@@ -1310,7 +1310,7 @@ ultra-high availability
 
 Chapter 56 — Global Financial Federation
 
-FinAcc may evolve into a federated global financial network.
+Vimbai may evolve into a federated global financial network.
 
 Independent deployments may interoperate while preserving sovereignty.
 
@@ -1328,7 +1328,7 @@ deterministic
 
 globally interoperable infrastructure
 
-Chapter 58 — FinAcc Development Roadmap
+Chapter 58 — Vimbai Development Roadmap
 
 Phase 1
 
@@ -1376,7 +1376,7 @@ government systems engineering
 
 Chapter 60 — Final Vision
 
-FinAcc ultimately becomes:
+Vimbai ultimately becomes:
 
 universal financial infrastructure
 
@@ -1408,13 +1408,13 @@ The future of finance is not isolated accounting software.
 
 The future is distributed autonomous financial operating systems.
 
-FinAcc is designed to become that future.
+Vimbai is designed to become that future.
 
 Chapter 61 — User-Owned Cloud Infrastructure Philosophy
 
-One of the defining principles of FinAcc is complete user ownership over infrastructure.
+One of the defining principles of Vimbai is complete user ownership over infrastructure.
 
-Unlike traditional SaaS accounting platforms that force users into vendor-controlled ecosystems, FinAcc is designed as infrastructure software.
+Unlike traditional SaaS accounting platforms that force users into vendor-controlled ecosystems, Vimbai is designed as infrastructure software.
 
 Users fully control:
 
@@ -1438,7 +1438,7 @@ This creates true financial sovereignty.
 
 Infrastructure Freedom
 
-Users may deploy FinAcc to:
+Users may deploy Vimbai to:
 
 AWS
 
@@ -1496,7 +1496,7 @@ Family Infrastructure Deployment
 
 Families may deploy:
 
-Home Server ├── PostgreSQL ├── Redis ├── FinAcc Core ├── Mobile Sync └── Backup Engine
+Home Server ├── PostgreSQL ├── Redis ├── Vimbai Core ├── Mobile Sync └── Backup Engine
 
 Capabilities:
 
@@ -1534,7 +1534,7 @@ Sovereign National Cloud ├── Ministry Clusters ├── Treasury Clusters
 
 Chapter 63 — Infrastructure-as-Code Philosophy
 
-All FinAcc deployments are reproducible.
+All Vimbai deployments are reproducible.
 
 Infrastructure is managed through:
 
@@ -1560,7 +1560,7 @@ version-controlled infrastructure
 
 Chapter 64 — Self-Hosting Models
 
-FinAcc supports multiple self-hosting patterns.
+Vimbai supports multiple self-hosting patterns.
 
 Single-Node Hosting
 
@@ -1618,7 +1618,7 @@ Chapter 65 — Regional Data Sovereignty
 
 Many jurisdictions require data localization.
 
-FinAcc supports:
+Vimbai supports:
 
 country-specific hosting
 
@@ -1662,7 +1662,7 @@ provider independence
 
 Chapter 67 — Edge Financial Computing
 
-FinAcc supports edge deployments.
+Vimbai supports edge deployments.
 
 Edge nodes may operate:
 
@@ -1730,7 +1730,7 @@ OpenTelemetry
 
 Chapter 70 — Disaster Recovery Infrastructure
 
-FinAcc deployments support:
+Vimbai deployments support:
 
 cross-region replication
 
@@ -1746,7 +1746,7 @@ active-active clusters
 
 Chapter 71 — Universal API Ecosystem
 
-FinAcc exposes universal APIs.
+Vimbai exposes universal APIs.
 
 Supported interfaces:
 
@@ -1764,7 +1764,7 @@ Kafka event streams
 
 Chapter 72 — Plugin and Extension Architecture
 
-Organizations may extend FinAcc.
+Organizations may extend Vimbai.
 
 Extensions include:
 
@@ -1810,7 +1810,7 @@ verifiable financial credentials
 
 Chapter 75 — Civilization-Scale Financial Infrastructure
 
-The long-term evolution of FinAcc is civilization-scale financial infrastructure.
+The long-term evolution of Vimbai is civilization-scale financial infrastructure.
 
 Potential future applications:
 
@@ -1838,7 +1838,7 @@ sovereignty erodes
 
 dependency increases
 
-FinAcc reverses this.
+Vimbai reverses this.
 
 The platform gives:
 
@@ -1856,7 +1856,7 @@ back to users.
 
 Chapter 77 — Final Closing Statement
 
-FinAcc is not designed merely as software.
+Vimbai is not designed merely as software.
 
 It is designed as:
 
@@ -1876,7 +1876,7 @@ The platform enables every person, organization, enterprise, and government to o
 
 The future of finance belongs to open, sovereign, autonomous, distributed financial operating systems.
 
-FinAcc is designed to become one of the foundational systems of that future.
+Vimbai is designed to become one of the foundational systems of that future.
 
 I expanded the book substantially with deeper coverage of:
 
@@ -1910,4 +1910,4 @@ Financial sovereignty philosophy
 
 Civilization-scale financial infrastructure
 
-The book now positions FinAcc not just as software, but as globally deployable autonomous financial infrastructure that users, enterprises, and governments can fully own and host on infrastructure of their choice.
+The book now positions Vimbai not just as software, but as globally deployable autonomous financial infrastructure that users, enterprises, and governments can fully own and host on infrastructure of their choice.

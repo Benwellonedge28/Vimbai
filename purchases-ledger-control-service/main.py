@@ -1,5 +1,5 @@
 """
-FinAcc Purchases Ledger Control Service
+Vimbai Purchases Ledger Control Service
 Manages purchases ledger control account and creditor transactions.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Purchases Ledger Control Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Purchases Ledger Control Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

@@ -1,5 +1,5 @@
 """
-FinAcc Issued Share Capital Service
+Vimbai Issued Share Capital Service
 Manages issued shares and allotments.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Issued Share Capital Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Issued Share Capital Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

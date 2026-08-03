@@ -13,10 +13,10 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN go build -o /finacc-identity-service ./main.go
+RUN go build -o /vimbai-identity-service ./main.go
 
 # Expose the port the application will listen on
 EXPOSE 8080
 
 # Command to run the executable
-CMD ["/finacc-identity-service"]
+CMD ["/vimbai-identity-service"]

@@ -1,5 +1,5 @@
 """
-FinAcc Tax Accounting Service
+Vimbai Tax Accounting Service
 Tax calculation, compliance, reporting, and planning for multiple jurisdictions.
 Supports VAT/GST, income tax, withholding tax, and indirect taxes.
 """
@@ -53,7 +53,7 @@ logger = structlog.get_logger(SERVICE_NAME)
 # ============================================================================
 
 app = FastAPI(
-    title="FinAcc Tax Accounting Service",
+    title="Vimbai Tax Accounting Service",
     description="Tax calculation, compliance, reporting, and planning for multiple jurisdictions",
     version=SERVICE_VERSION,
     docs_url="/docs",

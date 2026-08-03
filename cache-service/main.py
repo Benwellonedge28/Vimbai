@@ -1,6 +1,6 @@
 """
-FinAcc Redis Caching Service
-Provides distributed caching for all FinAcc services
+Vimbai Redis Caching Service
+Provides distributed caching for all Vimbai services
 """
 
 from fastapi import FastAPI, HTTPException, Depends, Query
@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Cache Service",
+    title="Vimbai Cache Service",
     description="Redis-based distributed caching service",
     version="0.1.0",
 )

@@ -1,5 +1,5 @@
 """
-FinAcc Cash Book Service
+Vimbai Cash Book Service
 Complete cash book management with multi-currency support,
 bank reconciliation, and cash flow tracking
 """
@@ -13,7 +13,7 @@ import uuid
 from decimal import Decimal
 
 app = FastAPI(
-    title="FinAcc Cash Book Service",
+    title="Vimbai Cash Book Service",
     description="Comprehensive cash book management with multi-currency support, bank reconciliation, and cash flow tracking",
     version="1.0.0",
 )

@@ -1,5 +1,5 @@
 """
-FinAcc Trading Account Service
+Vimbai Trading Account Service
 Generates trading account for manufacturing/merchandising businesses.
 """
 
@@ -27,12 +27,12 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Trading Account Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Trading Account Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
-    """Call another internal FinAcc service."""
+    """Call another internal Vimbai service."""
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{service_url}{endpoint}"

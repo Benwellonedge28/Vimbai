@@ -1,5 +1,5 @@
 """
-FinAcc Cost Centre Service
+Vimbai Cost Centre Service
 Manages cost centre classification and tracking.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Cost Centre Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Cost Centre Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

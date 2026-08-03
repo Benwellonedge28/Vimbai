@@ -1,5 +1,5 @@
 """
-FinAcc Document Management Service
+Vimbai Document Management Service
 Centralized document storage, retrieval, and management for financial documents
 """
 
@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Document Management Service",
+    title="Vimbai Document Management Service",
     description="Centralized document storage, OCR processing, and audit trail for financial documents",
     version="1.0.0",
 )
@@ -30,7 +30,7 @@ app = FastAPI(
 # Configuration
 # ============================================================================
 
-DOCUMENT_STORAGE_PATH = os.getenv("DOCUMENT_STORAGE_PATH", "/tmp/finacc_documents")
+DOCUMENT_STORAGE_PATH = os.getenv("DOCUMENT_STORAGE_PATH", "/tmp/vimbai_documents")
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE_MB", "50")) * 1024 * 1024  # 50MB default
 ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".gif", ".doc", ".docx", ".xls", ".xlsx", ".csv"}
 

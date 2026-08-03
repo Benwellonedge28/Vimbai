@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/Benwellonedge28/FinAcc/identity-service/models"
+	"github.com/Benwellonedge28/Vimbai/identity-service/models"
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 )
 

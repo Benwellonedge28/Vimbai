@@ -1,4 +1,4 @@
-# FinAcc Suspense Account & Error Detection Service - Python Dependencies
+# Vimbai Suspense Account & Error Detection Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

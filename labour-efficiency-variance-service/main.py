@@ -1,5 +1,5 @@
 """
-FinAcc Labour Efficiency Variance Service
+Vimbai Labour Efficiency Variance Service
 Calculates labour efficiency/idle time variance.
 Efficiency Variance = (Standard Hours - Actual Hours) × Standard Rate
 """
@@ -26,7 +26,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Labour Efficiency Variance Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Labour Efficiency Variance Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

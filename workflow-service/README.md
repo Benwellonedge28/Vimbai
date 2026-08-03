@@ -1,6 +1,6 @@
-# FinAcc Workflow Service
+# Vimbai Workflow Service
 
-A comprehensive workflow orchestration service for the FinAcc financial management system. This service manages workflow definitions, approval chains, and instance execution.
+A comprehensive workflow orchestration service for the Vimbai financial management system. This service manages workflow definitions, approval chains, and instance execution.
 
 ## Features
 

@@ -17,7 +17,7 @@ from pydantic import ValidationError as PydanticValidationError # NEW: to catch 
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Invoicing Service",
+    title="Vimbai Invoicing Service",
     description="Manages customers, invoices, and payments.",
     version="0.1.0",
 )
@@ -221,4 +221,4 @@ async def record_invoice_payment(
 # --- Root endpoint for health check ---
 @app.get("/")
 async def read_root():
-    return {"message": "FinAcc Invoicing Service is running!"}
+    return {"message": "Vimbai Invoicing Service is running!"}

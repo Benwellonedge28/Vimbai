@@ -17,8 +17,8 @@ import asyncio
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Automation Engine Service",
-    description="Manages and orchestrates automated tasks across FinAcc microservices.",
+    title="Vimbai Automation Engine Service",
+    description="Manages and orchestrates automated tasks across Vimbai microservices.",
     version="0.1.0",
 )
 
@@ -190,4 +190,4 @@ async def read_automation_logs_for_instance(
 # --- Root endpoint for health check ---
 @app.get("/")
 async def read_root():
-    return {"message": "FinAcc Automation Engine Service is running!"}
+    return {"message": "Vimbai Automation Engine Service is running!"}

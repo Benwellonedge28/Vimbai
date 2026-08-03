@@ -1,8 +1,8 @@
 """
-API Usage Examples and Documentation for FinAcc
+API Usage Examples and Documentation for Vimbai
 
 This module provides comprehensive examples demonstrating how to use
-the FinAcc API endpoints effectively.
+the Vimbai API endpoints effectively.
 
 Topics Covered:
 1. Authentication
@@ -28,7 +28,7 @@ from typing import Dict, List, Optional
 # CONFIGURATION
 # =============================================================================
 
-# Base URL for FinAcc API
+# Base URL for Vimbai API
 BASE_URL = "http://localhost:8000"
 
 # Authentication credentials
@@ -48,7 +48,7 @@ HEADERS = {
 
 def authenticate() -> Optional[str]:
     """
-    Authenticate with FinAcc and get JWT token.
+    Authenticate with Vimbai and get JWT token.
 
     Returns:
         JWT token string or None if authentication fails
@@ -844,10 +844,10 @@ if __name__ == "__main__":
     import sys
 
     print("""
-    FinAcc API Usage Examples
+    Vimbai API Usage Examples
     ========================
 
-    This module provides examples for using the FinAcc API.
+    This module provides examples for using the Vimbai API.
 
     Examples:
     1. authenticate() - Login and get JWT token

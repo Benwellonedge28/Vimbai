@@ -1,5 +1,5 @@
 """
-FinAcc Real-Time Alerts Service
+Vimbai Real-Time Alerts Service
 Provides real-time monitoring and alerting for financial events and metrics
 """
 
@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Alerts Service",
+    title="Vimbai Alerts Service",
     description="Real-time alerts and notifications for financial events",
     version="0.1.0",
 )

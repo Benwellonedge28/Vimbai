@@ -66,7 +66,7 @@ class MultimodalProcessingTaskBase(BaseModel):
     audio_result: Optional[AudioParseResult] = Field(None, description="Results from audio parsing.")
     image_result: Optional[ImageParseResult] = Field(None, description="Results from image parsing.")
     suggested_journal_entry: Optional[Dict[str, Any]] = Field(None, description="AI's suggestion for a journal entry structure.")
-    linked_finacc_entity_id: Optional[str] = Field(None, description="ID of the FinAcc entity (e.g., JournalEntry) created from this task.")
+    linked_vimbai_entity_id: Optional[str] = Field(None, description="ID of the Vimbai entity (e.g., JournalEntry) created from this task.")
     errors: List[str] = Field([], description="List of errors during processing.")
     metadata: Dict[str, Any] = Field({}, description="Additional metadata for the processing task.")
     ai_model_version: str = Field("1.0", description="Version of the AI model used for extraction.")
@@ -83,7 +83,7 @@ class MultimodalProcessingTaskUpdate(BaseModel):
     audio_result: Optional[AudioParseResult] = None
     image_result: Optional[ImageParseResult] = None
     suggested_journal_entry: Optional[Dict[str, Any]] = None
-    linked_finacc_entity_id: Optional[str] = None
+    linked_vimbai_entity_id: Optional[str] = None
     errors: Optional[List[str]] = None
     metadata: Optional[Dict[str, Any]] = None
     ai_model_version: Optional[str] = None

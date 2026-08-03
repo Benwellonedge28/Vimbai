@@ -1,5 +1,5 @@
 """
-FinAcc Admin Service
+Vimbai Admin Service
 Centralized admin interface for feature management, system configuration, and admin controls
 Includes organization-level feature settings, rollout schedules, feature dependencies,
 and user-requested feature management
@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Admin Service",
+    title="Vimbai Admin Service",
     description="Admin interface for system configuration, feature management, organization controls, and user feature requests",
     version="1.2.0",
 )
@@ -465,7 +465,7 @@ feature_requests: Dict[str, FeatureRequest] = {}
 SYSTEM_CONFIG: Dict[str, SystemConfig] = {
     "company_name": SystemConfig(
         key="company_name",
-        value="FinAcc Corporation",
+        value="Vimbai Corporation",
         description="Company name displayed in reports",
         category="general",
     ),
@@ -579,7 +579,7 @@ async def update_feature(feature_id: str, update: FeatureUpdate):
     # Log the change
     audit_logs.append(AuditLogEntry(
         user_id="admin",
-        user_email="admin@finacc.com",
+        user_email="admin@vimbai.com",
         action="feature_updated",
         resource_type="feature",
         resource_id=feature_id,
@@ -696,7 +696,7 @@ async def update_org_feature(
     # Log the change
     audit_logs.append(AuditLogEntry(
         user_id=updated_by,
-        user_email=f"{updated_by}@finacc.com",
+        user_email=f"{updated_by}@vimbai.com",
         action="org_feature_updated",
         resource_type="org_feature",
         resource_id=config_key,
@@ -814,7 +814,7 @@ async def create_rollout_schedule(
     # Log the change
     audit_logs.append(AuditLogEntry(
         user_id=created_by,
-        user_email=f"{created_by}@finacc.com",
+        user_email=f"{created_by}@vimbai.com",
         action="rollout_scheduled",
         resource_type="rollout_schedule",
         resource_id=feature_id,
@@ -924,7 +924,7 @@ async def review_feature_request(
     # Log the review
     audit_logs.append(AuditLogEntry(
         user_id=reviewed_by,
-        user_email=f"{reviewed_by}@finacc.com",
+        user_email=f"{reviewed_by}@vimbai.com",
         action="feature_request_reviewed",
         resource_type="feature_request",
         resource_id=request_id,
@@ -1002,7 +1002,7 @@ async def update_config(key: str, value: Any, updated_by: str = "admin"):
     # Log the change
     audit_logs.append(AuditLogEntry(
         user_id=updated_by,
-        user_email=f"{updated_by}@finacc.com",
+        user_email=f"{updated_by}@vimbai.com",
         action="config_updated",
         resource_type="config",
         resource_id=key,

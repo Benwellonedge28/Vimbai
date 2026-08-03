@@ -1,5 +1,5 @@
-# FinAcc Automation Engine Service Dockerfile
-# Manages automated tasks and scheduling across FinAcc microservices
+# Vimbai Automation Engine Service Dockerfile
+# Manages automated tasks and scheduling across Vimbai microservices
 
 FROM python:3.11-slim
 

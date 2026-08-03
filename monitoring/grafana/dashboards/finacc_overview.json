@@ -138,7 +138,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(finacc_http_requests_total[5m]))",
+          "expr": "sum(rate(vimbai_http_requests_total[5m]))",
           "refId": "A"
         }
       ],
@@ -195,7 +195,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(finacc_http_requests_total{status_code=~\"5..\"}[5m])) / sum(rate(finacc_http_requests_total[5m])) * 100",
+          "expr": "sum(rate(vimbai_http_requests_total{status_code=~\"5..\"}[5m])) / sum(rate(vimbai_http_requests_total[5m])) * 100",
           "refId": "A"
         }
       ],
@@ -252,7 +252,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(finacc_http_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(vimbai_http_request_duration_seconds_bucket[5m])) by (le))",
           "refId": "A"
         }
       ],
@@ -340,7 +340,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(finacc_http_requests_total[5m])) by (service)",
+          "expr": "sum(rate(vimbai_http_requests_total[5m])) by (service)",
           "legendFormat": "{{service}}",
           "refId": "A"
         }
@@ -416,12 +416,12 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(finacc_http_request_duration_seconds_bucket[5m])) by (le, service)) * 1000",
+          "expr": "histogram_quantile(0.95, sum(rate(vimbai_http_request_duration_seconds_bucket[5m])) by (le, service)) * 1000",
           "legendFormat": "{{service}} p95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(finacc_http_request_duration_seconds_bucket[5m])) by (le, service)) * 1000",
+          "expr": "histogram_quantile(0.99, sum(rate(vimbai_http_request_duration_seconds_bucket[5m])) by (le, service)) * 1000",
           "legendFormat": "{{service}} p99",
           "refId": "B"
         }
@@ -510,7 +510,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(finacc_db_query_duration_seconds_bucket[5m])) by (le, operation)) * 1000",
+          "expr": "histogram_quantile(0.95, sum(rate(vimbai_db_query_duration_seconds_bucket[5m])) by (le, operation)) * 1000",
           "legendFormat": "{{operation}}",
           "refId": "A"
         }
@@ -586,7 +586,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(finacc_db_queries_total[5m])) by (operation)",
+          "expr": "sum(rate(vimbai_db_queries_total[5m])) by (operation)",
           "legendFormat": "{{operation}}",
           "refId": "A"
         }
@@ -675,7 +675,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(finacc_transactions_total[1h])) by (type)",
+          "expr": "sum(increase(vimbai_transactions_total[1h])) by (type)",
           "legendFormat": "{{type}}",
           "refId": "A"
         }
@@ -751,7 +751,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(finacc_journal_entries_total[1h]))",
+          "expr": "sum(increase(vimbai_journal_entries_total[1h]))",
           "legendFormat": "Journal Entries",
           "refId": "A"
         }
@@ -827,7 +827,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(finacc_donations_total[1h])) by (type)",
+          "expr": "sum(increase(vimbai_donations_total[1h])) by (type)",
           "legendFormat": "{{type}}",
           "refId": "A"
         }
@@ -838,7 +838,7 @@
   ],
   "schemaVersion": 30,
   "style": "dark",
-  "tags": ["finacc", "accounting", "monitoring"],
+  "tags": ["vimbai", "accounting", "monitoring"],
   "templating": {
     "list": []
   },
@@ -848,7 +848,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "FinAcc Service Overview",
-  "uid": "finacc-service-overview",
+  "title": "Vimbai Service Overview",
+  "uid": "vimbai-service-overview",
   "version": 1
 }

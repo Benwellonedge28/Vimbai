@@ -1,4 +1,4 @@
-# FinAcc Bank Feed Integration Service - Python Dependencies
+# Vimbai Bank Feed Integration Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

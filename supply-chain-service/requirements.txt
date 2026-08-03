@@ -1,4 +1,4 @@
-# FinAcc Supply Chain Service - Python Dependencies
+# Vimbai Supply Chain Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

@@ -1,4 +1,4 @@
-# FinAcc Tax Accounting Service - Python Dependencies
+# Vimbai Tax Accounting Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

@@ -16,7 +16,7 @@ import asyncio
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Multimodal Pipeline Service",
+    title="Vimbai Multimodal Pipeline Service",
     description="Processes multimodal inputs (documents, audio, images) to extract financial data.",
     version="0.1.0",
 )
@@ -166,4 +166,4 @@ async def get_user_corrections(
 # --- Root endpoint for health check ---
 @app.get("/")
 async def read_root():
-    return {"message": "FinAcc Multimodal Pipeline Service is running!"}
+    return {"message": "Vimbai Multimodal Pipeline Service is running!"}

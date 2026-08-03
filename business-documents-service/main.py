@@ -1,5 +1,5 @@
 """
-FinAcc Business Documents Service
+Vimbai Business Documents Service
 Comprehensive document management for all business types and transactions.
 Documents can be used by any internal service.
 """
@@ -30,7 +30,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Business Documents Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Business Documents Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

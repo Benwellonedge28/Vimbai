@@ -1,4 +1,4 @@
-# FinAcc Cost Accounting Service - Python Dependencies
+# Vimbai Cost Accounting Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

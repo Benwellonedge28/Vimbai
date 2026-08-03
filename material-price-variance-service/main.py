@@ -1,5 +1,5 @@
 """
-FinAcc Material Price Variance Service
+Vimbai Material Price Variance Service
 Calculates material price variance.
 Price Variance = (Standard Price - Actual Price) × Actual Quantity
 """
@@ -26,7 +26,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Material Price Variance Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Material Price Variance Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

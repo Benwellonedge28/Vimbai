@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: accounting-service
-  namespace: finacc
+  namespace: vimbai
   labels:
     app: accounting-service
     tier: backend
@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: accounting-service
-        image: finacc/accounting-service:latest
+        image: vimbai/accounting-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
@@ -34,17 +34,17 @@ spec:
         - name: NEO4J_URI
           valueFrom:
             configMapKeyRef:
-              name: finacc-config
+              name: vimbai-config
               key: NEO4J_URI
         - name: NEO4J_USER
           valueFrom:
             configMapKeyRef:
-              name: finacc-config
+              name: vimbai-config
               key: NEO4J_USER
         - name: NEO4J_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: finacc-secrets
+              name: vimbai-secrets
               key: NEO4J_PASSWORD
         resources:
           requests:
@@ -71,7 +71,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: accounting-service
-  namespace: finacc
+  namespace: vimbai
   labels:
     app: accounting-service
 spec:
@@ -87,7 +87,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: accounting-service-hpa
-  namespace: finacc
+  namespace: vimbai
 spec:
   scaleTargetRef:
     apiVersion: apps/v1

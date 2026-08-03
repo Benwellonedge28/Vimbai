@@ -22,14 +22,14 @@ load_dotenv()
 # =============================================================================
 
 def custom_openapi():
-    """Generate custom OpenAPI schema with FinAcc-specific metadata."""
+    """Generate custom OpenAPI schema with Vimbai-specific metadata."""
     if app.openapi_schema:
         return app.openapi_schema
 
     openapi_schema = get_openapi(
-        title="FinAcc Accounting Service",
+        title="Vimbai Accounting Service",
         description="""
-## FinAcc Accounting Service API
+## Vimbai Accounting Service API
 
 Comprehensive accounting API covering double-entry bookkeeping, special journals,
 subsidiary ledgers, and financial reporting.
@@ -84,7 +84,7 @@ All endpoints require JWT Bearer token authentication.
     return app.openapi_schema
 
 app = FastAPI(
-    title="FinAcc Accounting Service",
+    title="Vimbai Accounting Service",
     description="Manages Chart of Accounts, Journal Entries, Ledgers, Trial Balance, and Financial Statements.",
     version="0.1.0",
     docs_url="/docs",

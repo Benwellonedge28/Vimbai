@@ -1,5 +1,5 @@
 """
-FinAcc Payment Gateway Service
+Vimbai Payment Gateway Service
 Processes payments, manages payment methods, handles refunds and disputes
 """
 
@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(
-    title="FinAcc Payment Gateway Service",
+    title="Vimbai Payment Gateway Service",
     description="Payment processing, payment method management, refunds, and dispute handling",
     version="1.0.0",
 )

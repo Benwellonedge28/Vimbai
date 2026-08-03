@@ -1,8 +1,8 @@
-# FinAcc Kustomization Configuration
+# Vimbai Kustomization Configuration
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: finacc
+namespace: vimbai
 
 resources:
 - namespace.yaml
@@ -13,39 +13,39 @@ resources:
 - ingress.yaml
 
 commonLabels:
-  app.kubernetes.io/name: finacc
-  app.kubernetes.io/part-of: finacc
+  app.kubernetes.io/name: vimbai
+  app.kubernetes.io/part-of: vimbai
 
 vars:
 - name: NEO4J_URI
   objref:
     kind: ConfigMap
-    name: finacc-config
+    name: vimbai-config
     apiVersion: v1
     fieldref:
       fieldPath: data.NEO4J_URI
 
 configMapGenerator:
-- name: finacc-config
+- name: vimbai-config
  literais:
   - LOG_LEVEL=INFO
 
 secretGenerator:
-- name: finacc-secrets
+- name: vimbai-secrets
   type: Opaque
   envs:
   - secrets.env
 
 images:
-- name: finacc/api-gateway
+- name: vimbai/api-gateway
   newTag: latest
-- name: finacc/identity-service
+- name: vimbai/identity-service
   newTag: latest
-- name: finacc/accounting-service
+- name: vimbai/accounting-service
   newTag: latest
-- name: finacc/alerts-service
+- name: vimbai/alerts-service
   newTag: latest
-- name: finacc/notifications-service
+- name: vimbai/notifications-service
   newTag: latest
-- name: finacc/currency-service
+- name: vimbai/currency-service
   newTag: latest

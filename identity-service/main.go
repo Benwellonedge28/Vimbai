@@ -4,8 +4,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Benwellonedge28/FinAcc/identity-service/database" // NEW
-	"github.com/Benwellonedge28/FinAcc/identity-service/handlers"
+	"github.com/Benwellonedge28/Vimbai/identity-service/database" // NEW
+	"github.com/Benwellonedge28/Vimbai/identity-service/handlers"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )

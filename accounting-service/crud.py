@@ -534,7 +534,7 @@ async def _send_journal_entry_for_fraud_analysis(user_id: str, journal_entry_dat
         transaction_type=transaction_type,
         timestamp=journal_entry_data.entry_date,
         location_data={"ip_address": "127.0.0.1"}, # Placeholder
-        device_info={"user_agent": "FinAcc-AccountingService"}, # Placeholder
+        device_info={"user_agent": "Vimbai-AccountingService"}, # Placeholder
     )
 
     headers = {"Authorization": f"Bearer {jwt_token}", "Content-Type": "application/json"}

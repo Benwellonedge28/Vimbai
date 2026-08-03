@@ -1,5 +1,5 @@
 """
-FinAcc Overhead Apportionment Service
+Vimbai Overhead Apportionment Service
 Handles overhead apportionment to production cost centres.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Overhead Apportionment Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Overhead Apportionment Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

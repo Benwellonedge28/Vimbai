@@ -1,5 +1,5 @@
 """
-FinAcc Accounting Standards Service
+Vimbai Accounting Standards Service
 Supports all major accounting standards worldwide including:
 - IFRS (International Financial Reporting Standards)
 - GAAP (US Generally Accepted Accounting Principles)
@@ -23,7 +23,7 @@ import hashlib
 import json
 
 app = FastAPI(
-    title="FinAcc Accounting Standards Service",
+    title="Vimbai Accounting Standards Service",
     description="Comprehensive accounting standards management supporting IFRS, US GAAP, UK GAAP, and 40+ national standards",
     version="1.0.0",
 )

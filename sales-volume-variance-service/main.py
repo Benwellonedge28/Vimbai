@@ -1,5 +1,5 @@
 """
-FinAcc Sales Volume Variance Service
+Vimbai Sales Volume Variance Service
 Calculates sales volume variance.
 Volume Variance = (Actual Quantity - Standard Quantity) × Standard Price
 """
@@ -26,7 +26,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Sales Volume Variance Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Sales Volume Variance Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

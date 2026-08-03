@@ -1,6 +1,6 @@
-# FinAcc Identity Service
+# Vimbai Identity Service
 
-This is the Identity Service microservice for the FinAcc application, responsible for user authentication, authorization, and role management. It is built in Go and uses Neo4j as its persistent data store.
+This is the Identity Service microservice for the Vimbai application, responsible for user authentication, authorization, and role management. It is built in Go and uses Neo4j as its persistent data store.
 
 ## Features
 
@@ -29,7 +29,7 @@ The service requires the following environment variables, typically set in a `.e
 
 ### 3. Running the Service (with Docker Compose)
 
-Navigate to the root directory of the FinAcc project (where `docker-compose.yml` is located) and run:
+Navigate to the root directory of the Vimbai project (where `docker-compose.yml` is located) and run:
 
 ```bash
 docker-compose up --build
@@ -73,7 +73,7 @@ You can use tools like `curl`, Postman, or Insomnia to interact with the service
 }
 ```
 
-This will return a JWT token, which you can then use to authenticate requests to other FinAcc services (once they are implemented).
+This will return a JWT token, which you can then use to authenticate requests to other Vimbai services (once they are implemented).
 
 ### 5. Neo4j Browser
 

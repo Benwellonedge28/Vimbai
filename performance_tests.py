@@ -1,8 +1,8 @@
 """
-Performance Testing Suite for FinAcc
+Performance Testing Suite for Vimbai
 
 This module provides comprehensive load testing and performance benchmarking
-for FinAcc microservices using Locust.
+for Vimbai microservices using Locust.
 
 Features:
 - API endpoint load testing
@@ -99,9 +99,9 @@ def generate_donation_data() -> Dict[str, Any]:
 # BASE TEST CONFIGURATION
 # =============================================================================
 
-class FinAccUser(HttpUser):
+class VimbaiUser(HttpUser):
     """
-    Base class for FinAcc load testing.
+    Base class for Vimbai load testing.
 
     Attributes:
         abstract: Prevents instantiation of this base class
@@ -138,7 +138,7 @@ class FinAccUser(HttpUser):
 # ACCOUNTING SERVICE TESTS
 # =============================================================================
 
-class AccountingServiceUser(FinAccUser):
+class AccountingServiceUser(VimbaiUser):
     """
     Load test user for accounting service endpoints.
     Tests CRUD operations, queries, and reporting endpoints.
@@ -272,7 +272,7 @@ class AccountingServiceUser(FinAccUser):
 # NPO SERVICE TESTS
 # =============================================================================
 
-class NPOServiceUser(FinAccUser):
+class NPOServiceUser(VimbaiUser):
     """
     Load test user for NPO service endpoints.
     Tests fund accounting, donations, grants, and reporting.
@@ -398,7 +398,7 @@ class NPOServiceUser(FinAccUser):
 # MIXED WORKLOAD TEST
 # =============================================================================
 
-class MixedWorkloadUser(FinAccUser):
+class MixedWorkloadUser(VimbaiUser):
     """
     Simulates realistic mixed workload across all services.
     Tests typical user behavior with varied operations.
@@ -473,7 +473,7 @@ class MixedWorkloadUser(FinAccUser):
 # SPIKE TEST SCENARIOS
 # =============================================================================
 
-class SpikeLoadUser(FinAccUser):
+class SpikeLoadUser(VimbaiUser):
     """
     Simulates spike load scenarios - sudden increases in traffic.
     Used for capacity planning and identifying bottlenecks.
@@ -629,7 +629,7 @@ def export_results_to_json(stats, filename: str = "performance_results.json"):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="FinAcc Performance Testing")
+    parser = argparse.ArgumentParser(description="Vimbai Performance Testing")
     parser.add_argument("--host", default="http://localhost:8000",
                        help="Target host URL")
     parser.add_argument("--users", type=int, default=10,
@@ -643,7 +643,7 @@ if __name__ == "__main__":
 
     print(f"""
     ========================================
-    FinAcc Performance Test Suite
+    Vimbai Performance Test Suite
     ========================================
 
     Target: {args.host}

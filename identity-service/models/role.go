@@ -40,5 +40,5 @@ var Roles = map[string]Role{
 		Name:        "CLERK",
 		Permissions: []string{"multimodal.input", "accounting.write.pending"},
 	},
-	// Add more roles as defined in FinAcc Design Document V1.5, Section 10.2
+	// Add more roles as defined in Vimbai Design Document V1.5, Section 10.2
 }

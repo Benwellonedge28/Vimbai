@@ -3,7 +3,7 @@ Scenario Modeling Service - Rule-based What-If Analysis
 ======================================================
 
 This service implements rule-based scenario modeling for financial forecasting
-and What-If analysis as specified in the FinAcc Design Document.
+and What-If analysis as specified in the Vimbai Design Document.
 
 Features:
 - Create and manage financial scenarios
@@ -179,7 +179,7 @@ storage = Storage()
 # =============================================================================
 
 app = FastAPI(
-    title="FinAcc Scenario Modeling Service",
+    title="Vimbai Scenario Modeling Service",
     description="Rule-based What-If analysis and financial forecasting",
     version="1.0.0"
 )

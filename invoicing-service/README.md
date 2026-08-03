@@ -1,4 +1,4 @@
-# FinAcc Invoicing Service
+# Vimbai Invoicing Service
 
 This service manages customer information, creates and tracks invoices, and handles payment recording. It integrates with the Accounting Service to ensure all invoicing-related financial transactions are correctly recorded as Journal Entries.
 
@@ -16,7 +16,7 @@ The service uses FastAPI (Python) and Neo4j for persistent storage of customer, 
 
 ## Getting Started
 
-To run this service along with Neo4j and other FinAcc services, you need Docker and Docker Compose installed.
+To run this service along with Neo4j and other Vimbai services, you need Docker and Docker Compose installed.
 
 ### 1. Prerequisites
 
@@ -35,15 +35,15 @@ The service requires the following environment variables. It's recommended to se
 
 ### 3. Running the Services (with Docker Compose)
 
-Navigate to the root directory of the FinAcc project (where `docker-compose.yml` is located) and run:
+Navigate to the root directory of the Vimbai project (where `docker-compose.yml` is located) and run:
 
 ```bash
 docker-compose up --build
 ```
 
 This command will:
-1.  Build the `invoicing-service` and other FinAcc Docker images.
-2.  Start a Neo4j container and all other FinAcc microservices.
+1.  Build the `invoicing-service` and other Vimbai Docker images.
+2.  Start a Neo4j container and all other Vimbai microservices.
 
 The Invoicing Service will be accessible via the API Gateway at `http://localhost:8081` (prefix `/invoicing/customers`, `/invoicing/invoices`, etc.).
 

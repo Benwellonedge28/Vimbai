@@ -1,5 +1,5 @@
 """
-FinAcc Absorption Costing Statement Service
+Vimbai Absorption Costing Statement Service
 Generates trading account and profit statements using absorption costing.
 """
 
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Absorption Costing Statement Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Absorption Costing Statement Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

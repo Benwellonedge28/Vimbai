@@ -1,5 +1,5 @@
 """
-FinAcc Actual Cost Service
+Vimbai Actual Cost Service
 Handles actual cost calculations and comparisons.
 """
 
@@ -25,7 +25,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Actual Cost Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Actual Cost Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

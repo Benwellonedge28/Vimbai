@@ -1,4 +1,4 @@
-# FinAcc Identity Service - Python Dependencies
+# Vimbai Identity Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

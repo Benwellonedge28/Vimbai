@@ -1,5 +1,5 @@
 """
-FinAcc Departmental Accounting Service
+Vimbai Departmental Accounting Service
 Dedicated service for departmental cost allocation, inter-department billing,
 and department-level financial reporting
 Uses existing services via internal API calls for core accounting functions
@@ -16,8 +16,8 @@ from decimal import Decimal
 import os
 
 app = FastAPI(
-    title="FinAcc Departmental Accounting Service",
-    description="Departmental cost allocation, inter-department billing, and department-level financial reporting using existing FinAcc services",
+    title="Vimbai Departmental Accounting Service",
+    description="Departmental cost allocation, inter-department billing, and department-level financial reporting using existing Vimbai services",
     version="1.0.0",
 )
 

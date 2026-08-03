@@ -1,8 +1,8 @@
-# FinAcc Monitoring Stack
+# Vimbai Monitoring Stack
 
 ## Overview
 
-This directory contains Docker configurations for the FinAcc monitoring stack using Prometheus and Grafana.
+This directory contains Docker configurations for the Vimbai monitoring stack using Prometheus and Grafana.
 
 ## Components
 
@@ -24,7 +24,7 @@ docker-compose -f docker-compose.monitoring.yml up -d
 ## Services
 
 ### Prometheus (Port 9090)
-- Scrapes metrics from all FinAcc services
+- Scrapes metrics from all Vimbai services
 - Stores time-series data
 - Runs alert rules
 

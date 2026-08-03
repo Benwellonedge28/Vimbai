@@ -1,4 +1,4 @@
-# FinAcc Message Bus Service - Python Dependencies
+# Vimbai Message Bus Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

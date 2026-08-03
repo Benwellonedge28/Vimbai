@@ -1,6 +1,6 @@
-# FinAcc API Gateway
+# Vimbai API Gateway
 
-This is the FinAcc API Gateway, built with Go and the Echo web framework. It serves as a single entry point for all client applications, routing requests to the appropriate backend microservices and centralizing authentication and authorization.
+This is the Vimbai API Gateway, built with Go and the Echo web framework. It serves as a single entry point for all client applications, routing requests to the appropriate backend microservices and centralizing authentication and authorization.
 
 ## Features
 
@@ -22,7 +22,7 @@ The API Gateway acts as a reverse proxy. When a request comes in:
 
 ## Getting Started
 
-To run this service along with Neo4j and other FinAcc services, you need Docker and Docker Compose installed.
+To run this service along with Neo4j and other Vimbai services, you need Docker and Docker Compose installed.
 
 ### 1. Prerequisites
 
@@ -43,14 +43,14 @@ The API Gateway requires the following environment variables. It's recommended t
 
 ### 3. Running the Services (with Docker Compose)
 
-Navigate to the root directory of the FinAcc project (where `docker-compose.yml` is located) and run:
+Navigate to the root directory of the Vimbai project (where `docker-compose.yml` is located) and run:
 
 ```bash
 docker-compose up --build
 ```
 
 This command will:
-1.  Build all FinAcc microservices, including the `api-gateway` Docker image.
+1.  Build all Vimbai microservices, including the `api-gateway` Docker image.
 2.  Start Neo4j and all microservice containers.
 
 The API Gateway will be accessible at `http://localhost:8081`.

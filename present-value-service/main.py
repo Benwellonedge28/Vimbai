@@ -1,5 +1,5 @@
 """
-FinAcc Present Value Service
+Vimbai Present Value Service
 Calculates present value of future cash flows.
 PV = FV / (1 + r)^n
 """
@@ -27,7 +27,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Present Value Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Present Value Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

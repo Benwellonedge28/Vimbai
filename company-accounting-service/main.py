@@ -1,5 +1,5 @@
 """
-FinAcc Company Accounting Service
+Vimbai Company Accounting Service
 Dedicated service for company-level financial management including
 shareholder equity, dividends, capital transactions, and company-specific reporting
 Uses existing services via internal API calls
@@ -16,7 +16,7 @@ from decimal import Decimal
 import os
 
 app = FastAPI(
-    title="FinAcc Company Accounting Service",
+    title="Vimbai Company Accounting Service",
     description="Company-level financial management including shareholder equity, dividends, capital transactions, and company-specific reporting",
     version="1.0.0",
 )

@@ -1,5 +1,5 @@
 """
-FinAcc Control Account Reconciliation Service
+Vimbai Control Account Reconciliation Service
 Handles reconciliation of all control accounts and error handling.
 """
 
@@ -29,7 +29,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Control Account Reconciliation Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Control Account Reconciliation Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

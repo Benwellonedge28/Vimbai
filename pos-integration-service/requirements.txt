@@ -1,4 +1,4 @@
-# FinAcc POS Integration Service - Python Dependencies
+# Vimbai POS Integration Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

@@ -1,8 +1,8 @@
-# FinAcc Prometheus Alert Rules
+# Vimbai Prometheus Alert Rules
 
 groups:
   # Service Availability Alerts
-  - name: finacc.availability
+  - name: vimbai.availability
     rules:
       - alert: ServiceDown
         expr: up == 0
@@ -15,8 +15,8 @@ groups:
 
       - alert: HighErrorRate
         expr: |
-          sum(rate(finacc_http_requests_total{status_code=~"5.."}[5m])) by (service)
-          / sum(rate(finacc_http_requests_total[5m])) by (service) > 0.05
+          sum(rate(vimbai_http_requests_total{status_code=~"5.."}[5m])) by (service)
+          / sum(rate(vimbai_http_requests_total[5m])) by (service) > 0.05
         for: 5m
         labels:
           severity: critical
@@ -26,8 +26,8 @@ groups:
 
       - alert: ElevatedErrorRate
         expr: |
-          sum(rate(finacc_http_requests_total{status_code=~"5.."}[5m])) by (service)
-          / sum(rate(finacc_http_requests_total[5m])) by (service) > 0.01
+          sum(rate(vimbai_http_requests_total{status_code=~"5.."}[5m])) by (service)
+          / sum(rate(vimbai_http_requests_total[5m])) by (service) > 0.01
         for: 10m
         labels:
           severity: warning
@@ -36,11 +36,11 @@ groups:
           description: "Error rate is {{ $value | humanizePercentage }} which exceeds 1% threshold"
 
   # Latency Alerts
-  - name: finacc.latency
+  - name: vimbai.latency
     rules:
       - alert: HighLatency
         expr: |
-          histogram_quantile(0.95, sum(rate(finacc_http_request_duration_seconds_bucket[5m])) by (le, service)) > 2
+          histogram_quantile(0.95, sum(rate(vimbai_http_request_duration_seconds_bucket[5m])) by (le, service)) > 2
         for: 5m
         labels:
           severity: critical
@@ -50,7 +50,7 @@ groups:
 
       - alert: ElevatedLatency
         expr: |
-          histogram_quantile(0.95, sum(rate(finacc_http_request_duration_seconds_bucket[5m])) by (le, service)) > 1
+          histogram_quantile(0.95, sum(rate(vimbai_http_request_duration_seconds_bucket[5m])) by (le, service)) > 1
         for: 10m
         labels:
           severity: warning
@@ -60,7 +60,7 @@ groups:
 
       - alert: SlowDatabaseQueries
         expr: |
-          histogram_quantile(0.95, sum(rate(finacc_db_query_duration_seconds_bucket[5m])) by (le, service, operation)) > 0.5
+          histogram_quantile(0.95, sum(rate(vimbai_db_query_duration_seconds_bucket[5m])) by (le, service, operation)) > 0.5
         for: 5m
         labels:
           severity: warning
@@ -69,11 +69,11 @@ groups:
           description: "P95 query duration for {{ $labels.operation }} is {{ $value }}s"
 
   # Database Alerts
-  - name: finacc.database
+  - name: vimbai.database
     rules:
       - alert: DatabaseConnectionExhaustion
         expr: |
-          finacc_db_connection_pool_used / finacc_db_connection_pool_size > 0.9
+          vimbai_db_connection_pool_used / vimbai_db_connection_pool_size > 0.9
         for: 5m
         labels:
           severity: critical
@@ -83,7 +83,7 @@ groups:
 
       - alert: HighDatabaseErrorRate
         expr: |
-          sum(rate(finacc_db_errors_total[5m])) by (service) > 1
+          sum(rate(vimbai_db_errors_total[5m])) by (service) > 1
         for: 5m
         labels:
           severity: warning
@@ -92,11 +92,11 @@ groups:
           description: "Database errors per second: {{ $value }}"
 
   # System Resource Alerts
-  - name: finacc.system
+  - name: vimbai.system
     rules:
       - alert: HighCPUUsage
         expr: |
-          finacc_cpu_usage_percent > 90
+          vimbai_cpu_usage_percent > 90
         for: 5m
         labels:
           severity: warning
@@ -106,7 +106,7 @@ groups:
 
       - alert: HighMemoryUsage
         expr: |
-          finacc_memory_usage_bytes / (finacc_memory_usage_bytes + (1 - finacc_memory_usage_bytes)) > 0.9
+          vimbai_memory_usage_bytes / (vimbai_memory_usage_bytes + (1 - vimbai_memory_usage_bytes)) > 0.9
         for: 5m
         labels:
           severity: warning
@@ -116,7 +116,7 @@ groups:
 
       - alert: DiskSpaceLow
         expr: |
-          finacc_disk_usage_percent > 80
+          vimbai_disk_usage_percent > 80
         for: 10m
         labels:
           severity: warning
@@ -125,12 +125,12 @@ groups:
           description: "Disk usage is {{ $value }}%"
 
   # Business Metrics Alerts
-  - name: finacc.business
+  - name: vimbai.business
     rules:
       - alert: HighTransactionFailureRate
         expr: |
-          sum(rate(finacc_transactions_total{status="failed"}[5m])) by (service, type)
-          / sum(rate(finacc_transactions_total[5m])) by (service, type) > 0.1
+          sum(rate(vimbai_transactions_total{status="failed"}[5m])) by (service, type)
+          / sum(rate(vimbai_transactions_total[5m])) by (service, type) > 0.1
         for: 5m
         labels:
           severity: warning
@@ -140,7 +140,7 @@ groups:
 
       - alert: NoJournalEntries
         expr: |
-          increase(finacc_journal_entries_total[1h]) == 0
+          increase(vimbai_journal_entries_total[1h]) == 0
         for: 2h
         labels:
           severity: info
@@ -149,11 +149,11 @@ groups:
           description: "No journal entries have been created in the last 2 hours"
 
   # Health Status Alerts
-  - name: finacc.health
+  - name: vimbai.health
     rules:
       - alert: ServiceUnhealthy
         expr: |
-          finacc_service_health == 0
+          vimbai_service_health == 0
         for: 1m
         labels:
           severity: critical
@@ -163,7 +163,7 @@ groups:
 
       - alert: DatabaseUnhealthy
         expr: |
-          finacc_database_health == 0
+          vimbai_database_health == 0
         for: 1m
         labels:
           severity: critical

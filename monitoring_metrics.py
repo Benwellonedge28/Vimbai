@@ -1,8 +1,8 @@
 """
-Prometheus Metrics Module for FinAcc Services
+Prometheus Metrics Module for Vimbai Services
 
 This module provides comprehensive metrics collection and exposure
-for Prometheus monitoring of FinAcc microservices.
+for Prometheus monitoring of Vimbai microservices.
 
 Features:
 - Request metrics (count, latency, status codes)
@@ -49,7 +49,7 @@ except ImportError:
 REGISTRY = CollectorRegistry()
 
 # Custom labels for all metrics
-DEFAULT_LABELS = {"service": "finacc"}
+DEFAULT_LABELS = {"service": "vimbai"}
 
 
 # =============================================================================
@@ -58,7 +58,7 @@ DEFAULT_LABELS = {"service": "finacc"}
 
 # HTTP Request Counter
 http_requests_total = Counter(
-    "finacc_http_requests_total",
+    "vimbai_http_requests_total",
     "Total number of HTTP requests",
     ["method", "endpoint", "status_code", "service"],
     registry=REGISTRY
@@ -66,7 +66,7 @@ http_requests_total = Counter(
 
 # HTTP Request Duration (Histogram)
 http_request_duration_seconds = Histogram(
-    "finacc_http_request_duration_seconds",
+    "vimbai_http_request_duration_seconds",
     "HTTP request duration in seconds",
     ["method", "endpoint", "service"],
     buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
@@ -75,7 +75,7 @@ http_request_duration_seconds = Histogram(
 
 # HTTP Request Size
 http_request_size_bytes = Histogram(
-    "finacc_http_request_size_bytes",
+    "vimbai_http_request_size_bytes",
     "HTTP request size in bytes",
     ["method", "endpoint", "service"],
     buckets=[100, 500, 1000, 5000, 10000, 50000, 100000],
@@ -84,7 +84,7 @@ http_request_size_bytes = Histogram(
 
 # HTTP Response Size
 http_response_size_bytes = Histogram(
-    "finacc_http_response_size_bytes",
+    "vimbai_http_response_size_bytes",
     "HTTP response size in bytes",
     ["method", "endpoint", "service"],
     buckets=[100, 500, 1000, 5000, 10000, 50000, 100000, 500000],
@@ -98,7 +98,7 @@ http_response_size_bytes = Histogram(
 
 # Database Query Counter
 db_queries_total = Counter(
-    "finacc_db_queries_total",
+    "vimbai_db_queries_total",
     "Total number of database queries",
     ["operation", "status", "service"],
     registry=REGISTRY
@@ -106,7 +106,7 @@ db_queries_total = Counter(
 
 # Database Query Duration
 db_query_duration_seconds = Histogram(
-    "finacc_db_query_duration_seconds",
+    "vimbai_db_query_duration_seconds",
     "Database query duration in seconds",
     ["operation", "service"],
     buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
@@ -115,14 +115,14 @@ db_query_duration_seconds = Histogram(
 
 # Database Connection Pool
 db_connection_pool_size = Gauge(
-    "finacc_db_connection_pool_size",
+    "vimbai_db_connection_pool_size",
     "Database connection pool size",
     ["service"],
     registry=REGISTRY
 )
 
 db_connection_pool_used = Gauge(
-    "finacc_db_connection_pool_used",
+    "vimbai_db_connection_pool_used",
     "Database connection pool used connections",
     ["service"],
     registry=REGISTRY
@@ -135,7 +135,7 @@ db_connection_pool_used = Gauge(
 
 # Transaction Counter
 transactions_total = Counter(
-    "finacc_transactions_total",
+    "vimbai_transactions_total",
     "Total number of financial transactions",
     ["type", "status", "service"],
     registry=REGISTRY
@@ -143,7 +143,7 @@ transactions_total = Counter(
 
 # Journal Entries
 journal_entries_total = Counter(
-    "finacc_journal_entries_total",
+    "vimbai_journal_entries_total",
     "Total number of journal entries created",
     ["status", "service"],
     registry=REGISTRY
@@ -151,7 +151,7 @@ journal_entries_total = Counter(
 
 # Account Operations
 account_operations_total = Counter(
-    "finacc_account_operations_total",
+    "vimbai_account_operations_total",
     "Total number of account operations",
     ["operation", "status", "service"],
     registry=REGISTRY
@@ -159,14 +159,14 @@ account_operations_total = Counter(
 
 # NPO-specific metrics
 donations_total = Counter(
-    "finacc_donations_total",
+    "vimbai_donations_total",
     "Total number of donations received",
     ["type", "status"],
     registry=REGISTRY
 )
 
 grants_total = Counter(
-    "finacc_grants_total",
+    "vimbai_grants_total",
     "Total number of grants",
     ["status", "fund_type"],
     registry=REGISTRY
@@ -179,7 +179,7 @@ grants_total = Counter(
 
 # Error Counter
 errors_total = Counter(
-    "finacc_errors_total",
+    "vimbai_errors_total",
     "Total number of errors",
     ["error_type", "endpoint", "service"],
     registry=REGISTRY
@@ -187,7 +187,7 @@ errors_total = Counter(
 
 # Validation Errors
 validation_errors_total = Counter(
-    "finacc_validation_errors_total",
+    "vimbai_validation_errors_total",
     "Total number of validation errors",
     ["field", "service"],
     registry=REGISTRY
@@ -195,7 +195,7 @@ validation_errors_total = Counter(
 
 # Database Errors
 db_errors_total = Counter(
-    "finacc_db_errors_total",
+    "vimbai_db_errors_total",
     "Total number of database errors",
     ["operation", "service"],
     registry=REGISTRY
@@ -208,7 +208,7 @@ db_errors_total = Counter(
 
 # CPU Usage
 cpu_usage_percent = Gauge(
-    "finacc_cpu_usage_percent",
+    "vimbai_cpu_usage_percent",
     "CPU usage percentage",
     ["service"],
     registry=REGISTRY
@@ -216,7 +216,7 @@ cpu_usage_percent = Gauge(
 
 # Memory Usage
 memory_usage_bytes = Gauge(
-    "finacc_memory_usage_bytes",
+    "vimbai_memory_usage_bytes",
     "Memory usage in bytes",
     ["service"],
     registry=REGISTRY
@@ -224,7 +224,7 @@ memory_usage_bytes = Gauge(
 
 # Disk Usage
 disk_usage_percent = Gauge(
-    "finacc_disk_usage_percent",
+    "vimbai_disk_usage_percent",
     "Disk usage percentage",
     ["service"],
     registry=REGISTRY
@@ -232,7 +232,7 @@ disk_usage_percent = Gauge(
 
 # Active Connections
 active_connections = Gauge(
-    "finacc_active_connections",
+    "vimbai_active_connections",
     "Number of active connections",
     ["type", "service"],
     registry=REGISTRY
@@ -245,7 +245,7 @@ active_connections = Gauge(
 
 # Request Rate (requests per second)
 request_rate = Gauge(
-    "finacc_request_rate",
+    "vimbai_request_rate",
     "Current request rate per second",
     ["service"],
     registry=REGISTRY
@@ -253,7 +253,7 @@ request_rate = Gauge(
 
 # Error Rate (errors per second)
 error_rate = Gauge(
-    "finacc_error_rate",
+    "vimbai_error_rate",
     "Current error rate per second",
     ["service"],
     registry=REGISTRY
@@ -266,7 +266,7 @@ error_rate = Gauge(
 
 class MetricsRegistry:
     """
-    Custom metrics registry for FinAcc services.
+    Custom metrics registry for Vimbai services.
     Provides methods to create and manage custom metrics.
     """
 
@@ -474,7 +474,7 @@ def get_metrics_content_type() -> str:
 # FASTAPI INTEGRATION
 # =============================================================================
 
-async def setup_metrics(app, service_name: str = "finacc"):
+async def setup_metrics(app, service_name: str = "vimbai"):
     """
     Setup Prometheus metrics endpoint for FastAPI application.
 
@@ -506,7 +506,7 @@ class MetricsMiddleware:
     FastAPI middleware for automatic request metrics collection.
     """
 
-    def __init__(self, app, service_name: str = "finacc"):
+    def __init__(self, app, service_name: str = "vimbai"):
         self.app = app
         self.service_name = service_name
 
@@ -568,7 +568,7 @@ class MetricsMiddleware:
 
 # Service Health Status
 service_health = Gauge(
-    "finacc_service_health",
+    "vimbai_service_health",
     "Service health status (1=healthy, 0=unhealthy)",
     ["service"],
     registry=REGISTRY
@@ -576,7 +576,7 @@ service_health = Gauge(
 
 # Database Health
 database_health = Gauge(
-    "finacc_database_health",
+    "vimbai_database_health",
     "Database health status (1=healthy, 0=unhealthy)",
     ["service"],
     registry=REGISTRY

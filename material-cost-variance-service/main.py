@@ -1,5 +1,5 @@
 """
-FinAcc Material Cost Variance Service
+Vimbai Material Cost Variance Service
 Calculates total material cost variance.
 Total Material Variance = Standard Cost - Actual Cost
 """
@@ -26,7 +26,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Material Cost Variance Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Material Cost Variance Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

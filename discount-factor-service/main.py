@@ -1,5 +1,5 @@
 """
-FinAcc Discount Factor Service
+Vimbai Discount Factor Service
 Calculates discount factors for present value calculations.
 Discount Factor = 1 / (1 + r)^n
 where r = rate of interest, n = number of years
@@ -28,7 +28,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="FinAcc Discount Factor Service", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Discount Factor Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

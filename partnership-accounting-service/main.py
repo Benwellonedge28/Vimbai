@@ -1,5 +1,5 @@
 """
-FinAcc Partnership Accounting Service
+Vimbai Partnership Accounting Service
 Partnership-specific accounting including partner management, profit sharing,
 capital accounts, and dissolution handling.
 """
@@ -54,7 +54,7 @@ logger = structlog.get_logger(SERVICE_NAME)
 # ============================================================================
 
 app = FastAPI(
-    title="FinAcc Partnership Accounting Service",
+    title="Vimbai Partnership Accounting Service",
     description="Partnership-specific accounting including partner management, profit sharing, capital accounts, and dissolution",
     version=SERVICE_VERSION,
     docs_url="/docs",

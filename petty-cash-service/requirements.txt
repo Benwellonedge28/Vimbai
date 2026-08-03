@@ -1,4 +1,4 @@
-# FinAcc Petty Cash Book Service - Python Dependencies
+# Vimbai Petty Cash Book Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0

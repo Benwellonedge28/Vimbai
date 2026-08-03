@@ -1,4 +1,4 @@
-# FinAcc Cache Service - Python Dependencies
+# Vimbai Cache Service - Python Dependencies
 
 # Web Framework
 fastapi==0.110.0
