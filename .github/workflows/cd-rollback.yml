@@ -1,6 +1,6 @@
 name: Rollback Production
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       target_revision:

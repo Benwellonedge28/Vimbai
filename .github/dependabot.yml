@@ -5,15 +5,35 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
-  - package-ecosystem: "gomod"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "weekly"
+  
   - package-ecosystem: "github-actions"
     directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Go modules are in specific directories
+  - package-ecosystem: "gomod"
+    directory: "/api-gateway"
+    schedule:
+      interval: "weekly"
+  
+  - package-ecosystem: "gomod"
+    directory: "/identity-service"
+    schedule:
+      interval: "weekly"
+
+  # Dockerfiles are in specific directories
+  - package-ecosystem: "docker"
+    directory: "/api-gateway"
+    schedule:
+      interval: "weekly"
+  
+  - package-ecosystem: "docker"
+    directory: "/identity-service"
+    schedule:
+      interval: "weekly"
+  
+  - package-ecosystem: "docker"
+    directory: "/web-frontend"
     schedule:
       interval: "weekly"

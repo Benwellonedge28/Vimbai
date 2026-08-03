@@ -1,6 +1,6 @@
 name: Comprehensive Security Scan
 
-on:
+"on":
   schedule:
     - cron: '0 2 * * 0' # Weekly on Sunday at 2 AM
   workflow_dispatch:

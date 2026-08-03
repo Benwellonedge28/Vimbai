@@ -1,6 +1,6 @@
 name: Repository Management
 
-on:
+"on":
   schedule:
     - cron: '0 0 * * *' # Daily
   pull_request:
@@ -10,6 +10,9 @@ jobs:
   stale-issues:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/stale@v8
         with:
@@ -19,8 +22,10 @@ jobs:
           stale-pr-message: 'This pull request has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs.'
 
   pr-validation:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
       - uses: actions/checkout@v3
       - name: Check PR Title
