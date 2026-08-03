@@ -196,7 +196,7 @@ jobs:
         if: always()
 
       - name: Publish ZAP Results
-        uses: zaproxy/action-baseline@v0.14.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fail-on: warning
