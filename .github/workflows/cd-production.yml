@@ -29,7 +29,7 @@ jobs:
   deploy-production:
     needs: build-and-push
     runs-on: ubuntu-latest
-    environment: 
+    environment:
       name: production
       url: https://api.vimbai.com
     steps:

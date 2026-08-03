@@ -1,0 +1,25 @@
+name: Release Automation
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Generate Changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v3
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: ${{ steps.changelog.outputs.changelog }}
+          generate_release_notes: true

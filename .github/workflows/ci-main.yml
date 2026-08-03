@@ -19,7 +19,7 @@ jobs:
           # Detect changed Python services
           PYTHON_CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '\.py$' | cut -d/ -f1 | sort -u | grep -v '^\.' | jq -R -s -c 'split("\n")[:-1]')
           echo "python_services=$PYTHON_CHANGED" >> $GITHUB_OUTPUT
-          
+
           # Detect changed Go services
           GO_CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '\.go$' | cut -d/ -f1 | sort -u | grep -v '^\.' | jq -R -s -c 'split("\n")[:-1]')
           echo "go_services=$GO_CHANGED" >> $GITHUB_OUTPUT

@@ -1,0 +1,29 @@
+name: Repository Management
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Daily
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  stale-issues:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v8
+        with:
+          days-before-stale: 60
+          days-before-close: 14
+          stale-issue-message: 'This issue has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs. Thank you for your contributions.'
+          stale-pr-message: 'This pull request has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs.'
+
+  pr-validation:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check PR Title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

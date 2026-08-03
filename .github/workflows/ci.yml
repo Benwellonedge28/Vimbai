@@ -104,7 +104,6 @@ jobs:
       actions: read
       contents: read
       packages: read
-      security-events: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
