@@ -1,6 +1,6 @@
 name: Infrastructure as Code Validation
 
-"on":
+on:
   push:
     paths:
       - 'infrastructure/**'

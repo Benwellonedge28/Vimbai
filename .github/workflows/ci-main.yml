@@ -1,6 +1,6 @@
 name: Vimbai Core CI
 
-"on":
+on:
   push:
     branches: [ "main", "develop" ]
   pull_request:
