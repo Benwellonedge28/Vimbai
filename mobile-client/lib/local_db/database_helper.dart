@@ -1,8 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:finacc_mobile_client/models/accounting_models.dart'; // Import accounting models
-import 'package:finacc_mobile_client/models/finance_models.dart'; // Import finance models
-import 'package:finacc_mobile_client/models/multimodal_models.dart'; // NEW: Import multimodal models
+import 'package:vimbai_mobile_client/models/accounting_models.dart'; // Import accounting models
+import 'package:vimbai_mobile_client/models/finance_models.dart'; // Import finance models
+import 'package:vimbai_mobile_client/models/multimodal_models.dart'; // NEW: Import multimodal models
 import 'package:uuid/uuid.dart';
 
 class DatabaseHelper {
@@ -23,7 +23,7 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'finacc_offline.db');
+    String path = join(await getDatabasesPath(), 'vimbai_offline.db');
     return await openDatabase(
       path,
       version: 2, // NEW: Increment database version

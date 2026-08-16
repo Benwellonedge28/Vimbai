@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:finacc_mobile_client/models/accounting_models.dart';
+import 'package:vimbai_mobile_client/models/accounting_models.dart';
 
 class JournalEntryDetailPage extends StatelessWidget {
   final JournalEntryInDB entry;

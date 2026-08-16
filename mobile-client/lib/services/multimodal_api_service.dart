@@ -2,8 +2,8 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:finacc_mobile_client/models/multimodal_models.dart'; // Ensure these models exist or are defined
-import 'package:finacc_mobile_client/services/auth_service.dart'; // For getting authentication token
+import 'package:vimbai_mobile_client/models/multimodal_models.dart'; // Ensure these models exist or are defined
+import 'package:vimbai_mobile_client/services/auth_service.dart'; // For getting authentication token
 
 class MultimodalApiService {
   final String _baseUrl = 'http://localhost:8001'; // Replace with actual Multimodal Service URL

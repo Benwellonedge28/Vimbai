@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:record/record.dart';
-import 'package:finacc_mobile_client/services/multimodal_api_service.dart';
-import 'package:finacc_mobile_client/models/multimodal_models.dart';
+import 'package:vimbai_mobile_client/services/multimodal_api_service.dart';
+import 'package:vimbai_mobile_client/models/multimodal_models.dart';
 
 class MultimodalInputPage extends StatefulWidget {
   const MultimodalInputPage({super.key});

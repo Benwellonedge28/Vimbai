@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:finacc_mobile_client/services/finance_api_service.dart';
-import 'package:finacc_mobile_client/models/finance_models.dart';
+import 'package:vimbai_mobile_client/services/finance_api_service.dart';
+import 'package:vimbai_mobile_client/models/finance_models.dart';
 import 'package:intl/intl.dart';
 
 class BudgetVarianceReportPage extends StatefulWidget {

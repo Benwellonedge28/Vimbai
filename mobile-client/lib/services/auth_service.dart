@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:finacc_mobile_client/local_db/user_local_data.dart';
-import 'package:finacc_mobile_client/config.dart'; // For API URL
+import 'package:vimbai_mobile_client/local_db/user_local_data.dart';
+import 'package:vimbai_mobile_client/config.dart'; // For API URL
 
 class AuthService {
   // final String _baseUrl = AppConfig.apiUrl; // Old: Was identity service base URL

@@ -10,7 +10,7 @@ export default function Layout() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <span className="text-xl font-bold">FinAcc</span>
+              <span className="text-xl font-bold">Vimbai</span>
               <div className="ml-10 flex space-x-4">
                 <NavLink to="/" className={({isActive}) => isActive ? "bg-indigo-700 px-3 py-2 rounded-md" : "px-3 py-2 rounded-md hover:bg-indigo-500"}>
                   Dashboard

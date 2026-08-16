@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:finacc_mobile_client/services/banking_api_service.dart';
-import 'package:finacc_mobile_client/models/banking_models.dart';
-import 'package:finacc_mobile_client/local_db/user_local_data.dart'; // To get current user ID
-import 'package:finacc_mobile_client/pages/bank_account_detail_page.dart';
+import 'package:vimbai_mobile_client/services/banking_api_service.dart';
+import 'package:vimbai_mobile_client/models/banking_models.dart';
+import 'package:vimbai_mobile_client/local_db/user_local_data.dart'; // To get current user ID
+import 'package:vimbai_mobile_client/pages/bank_account_detail_page.dart';
 
 class BankAccountsPage extends StatefulWidget {
   const BankAccountsPage({super.key});

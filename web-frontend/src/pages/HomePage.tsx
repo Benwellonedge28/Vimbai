@@ -12,7 +12,7 @@ const HomePage: React.FC = () => {
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <span className="text-xl font-bold text-gray-900">FinAcc Web</span>
+                <span className="text-xl font-bold text-gray-900">Vimbai Web</span>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 <Link to="/" className="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
@@ -38,7 +38,7 @@ const HomePage: React.FC = () => {
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome to your FinAcc Dashboard!</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Welcome to your Vimbai Dashboard!</h1>
           <div className="mt-4 p-6 bg-white shadow-md rounded-lg">
             <p className="text-gray-700">This is your central hub for managing financial data.</p>
             <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">

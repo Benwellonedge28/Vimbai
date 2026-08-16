@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:finacc_mobile_client/services/finance_api_service.dart';
-import 'package:finacc_mobile_client/models/finance_models.dart';
-import 'package:finacc_mobile_client/pages/budget_detail_page.dart';
-import 'package:finacc_mobile_client/pages/budget_form_page.dart'; // NEW import
+import 'package:vimbai_mobile_client/services/finance_api_service.dart';
+import 'package:vimbai_mobile_client/models/finance_models.dart';
+import 'package:vimbai_mobile_client/pages/budget_detail_page.dart';
+import 'package:vimbai_mobile_client/pages/budget_form_page.dart'; // NEW import
 
 class BudgetsPage extends StatefulWidget {
   const BudgetsPage({super.key});

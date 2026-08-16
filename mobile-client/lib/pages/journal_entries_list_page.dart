@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:finacc_mobile_client/services/accounting_api_service.dart';
-import 'package:finacc_mobile_client/models/accounting_models.dart';
-import 'package:finacc_mobile_client/pages/journal_entry_detail_page.dart'; // NEW import
+import 'package:vimbai_mobile_client/services/accounting_api_service.dart';
+import 'package:vimbai_mobile_client/models/accounting_models.dart';
+import 'package:vimbai_mobile_client/pages/journal_entry_detail_page.dart'; // NEW import
 
 class JournalEntriesListPage extends StatefulWidget {
   const JournalEntriesListPage({super.key});

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:finacc_mobile_client/services/auth_service.dart';
-import 'package:finacc_mobile_client/pages/login_page.dart';
+import 'package:vimbai_mobile_client/services/auth_service.dart';
+import 'package:vimbai_mobile_client/pages/login_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -51,7 +51,7 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('FinAcc Register')),
+      appBar: AppBar(title: const Text('Vimbai Register')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),

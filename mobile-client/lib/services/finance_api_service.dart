@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:finacc_mobile_client/local_db/user_local_data.dart';
-import 'package:finacc_mobile_client/config.dart'; // For API URL
-import 'package:finacc_mobile_client/models/finance_models.dart'; // Import Finance Models
+import 'package:vimbai_mobile_client/local_db/user_local_data.dart';
+import 'package:vimbai_mobile_client/config.dart'; // For API URL
+import 'package:vimbai_mobile_client/models/finance_models.dart'; // Import Finance Models
 import 'package:connectivity_plus/connectivity_plus.dart'; // For offline detection
-import 'package:finacc_mobile_client/local_db/database_helper.dart'; // For local DB access
+import 'package:vimbai_mobile_client/local_db/database_helper.dart'; // For local DB access
 import 'package:uuid/uuid.dart'; // For generating UUIDs
 
 class FinanceApiService {

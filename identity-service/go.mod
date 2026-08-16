@@ -1,4 +1,4 @@
-module github.com/Benwellonedge28/FinAcc/identity-service
+module github.com/Benwellonedge28/Vimbai/identity-service
 
 go 1.22.0
 

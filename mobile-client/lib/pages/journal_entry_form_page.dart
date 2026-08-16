@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:finacc_mobile_client/services/accounting_api_service.dart';
-import 'package:finacc_mobile_client/models/accounting_models.dart';
+import 'package:vimbai_mobile_client/services/accounting_api_service.dart';
+import 'package:vimbai_mobile_client/models/accounting_models.dart';
 import 'package:connectivity_plus/connectivity_plus.dart'; // NEW
 import 'package:uuid/uuid.dart'; // NEW for local UUID
 

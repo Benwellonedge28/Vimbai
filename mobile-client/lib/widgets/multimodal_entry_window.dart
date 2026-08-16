@@ -2,11 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:finacc_mobile_client/models/multimodal_models.dart';
-import 'package:finacc_mobile_client/models/accounting_models.dart';
-import 'package:finacc_mobile_client/services/multimodal_api_service.dart';
-import 'package:finacc_mobile_client/services/accounting_api_service.dart';
-import 'package:finacc_mobile_client/local_db/local_database.dart';
+import 'package:vimbai_mobile_client/models/multimodal_models.dart';
+import 'package:vimbai_mobile_client/models/accounting_models.dart';
+import 'package:vimbai_mobile_client/services/multimodal_api_service.dart';
+import 'package:vimbai_mobile_client/services/accounting_api_service.dart';
+import 'package:vimbai_mobile_client/local_db/local_database.dart';
 import 'package:decimal/decimal.dart'; // For Decimal type
 import 'package:uuid/uuid.dart'; // For generating unique IDs
 

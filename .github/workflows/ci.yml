@@ -123,16 +123,13 @@ jobs:
           category: "/language:go,python,javascript,typescript"
           upload: always
 
-      - name: Upload CodeQL results
-        uses: github/codeql-action/upload-results@v3
-        if: always()
-
   # ============================================================
   # OWASP ZAP Security Scan (Enhanced)
   # ============================================================
   zap-scan:
     name: OWASP ZAP Security Scan
     runs-on: ubuntu-latest
+    needs: [docker-build]
     if: github.actor != 'dependabot[bot]'
     permissions:
       security-events: write
@@ -255,6 +252,7 @@ jobs:
   trivy-scan:
     name: Trivy Vulnerability Scanner
     runs-on: ubuntu-latest
+    needs: [docker-build]
     if: github.actor != 'dependabot[bot]'
     permissions:
       security-events: write
@@ -310,6 +308,7 @@ jobs:
   grype-scan:
     name: Grype Vulnerability Scanner
     runs-on: ubuntu-latest
+    needs: [docker-build]
     if: github.actor != 'dependabot[bot]'
     permissions:
       security-events: write
@@ -384,7 +383,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-          cache-dependency-path: api-gateway/go.sum
+          cache-dependency-path: api-gateway/go.mod
 
       - name: Download dependencies
         working-directory: api-gateway

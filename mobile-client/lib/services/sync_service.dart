@@ -1,10 +1,10 @@
 // mobile-client/lib/services/sync_service.dart
 
 import 'dart:async';
-import 'package:finacc_mobile_client/local_db/local_database.dart'; // Assuming this exists
-import 'package:finacc_mobile_client/services/auth_service.dart';
-import 'package:finacc_mobile_client/services/accounting_api_service.dart';
-import 'package:finacc_mobile_client/services/multimodal_api_service.dart';
+import 'package:vimbai_mobile_client/local_db/local_database.dart'; // Assuming this exists
+import 'package:vimbai_mobile_client/services/auth_service.dart';
+import 'package:vimbai_mobile_client/services/accounting_api_service.dart';
+import 'package:vimbai_mobile_client/services/multimodal_api_service.dart';
 // Import other API services as needed
 
 class SyncService {

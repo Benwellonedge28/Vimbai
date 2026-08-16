@@ -6,6 +6,6 @@ class AppConfig {
   static const String apiUrl = 'http://localhost:8081'; // NEW: API Gateway URL
   // All other service URLs will now be derived from this base gateway URL
   // In a real application, this would be swapped out for
-  // 'https://api.finacc.dev' or 'https://api.finacc.prod'
+  // 'https://api.vimbai.dev' or 'https://api.vimbai.prod'
   // using build flavors or flutter_dotenv.
 }

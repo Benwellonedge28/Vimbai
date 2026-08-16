@@ -2,12 +2,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'; // For dependency injection
-import 'package:finacc_mobile_client/local_db/local_database.dart';
-import 'package:finacc_mobile_client/services/sync_service.dart';
-import 'package:finacc_mobile_client/services/auth_service.dart';
-import 'package:finacc_mobile_client/services/accounting_api_service.dart';
-import 'package:finacc_mobile_client/services/multimodal_api_service.dart';
-import 'package:finacc_mobile_client/widgets/multimodal_entry_window.dart';
+import 'package:vimbai_mobile_client/local_db/local_database.dart';
+import 'package:vimbai_mobile_client/services/sync_service.dart';
+import 'package:vimbai_mobile_client/services/auth_service.dart';
+import 'package:vimbai_mobile_client/services/accounting_api_service.dart';
+import 'package:vimbai_mobile_client/services/multimodal_api_service.dart';
+import 'package:vimbai_mobile_client/widgets/multimodal_entry_window.dart';
 // Import other API services as they are implemented
 
 void main() async {
@@ -45,18 +45,18 @@ void main() async {
         Provider<SyncService>.value(value: syncService),
         // Add providers for other services
       ],
-      child: const FinAccApp(),
+      child: const VimbaiApp(),
     ),
   );
 }
 
-class FinAccApp extends StatelessWidget {
-  const FinAccApp({Key? key}) : super(key: key);
+class VimbaiApp extends StatelessWidget {
+  const VimbaiApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FinAcc',
+      title: 'Vimbai',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -72,13 +72,13 @@ class MyHomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('FinAcc Home'),
+        title: const Text('Vimbai Home'),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text('Welcome to FinAcc Mobile!'),
+            const Text('Welcome to Vimbai Mobile!'),
             ElevatedButton(
               onPressed: () {
                 // Example of triggering manual sync

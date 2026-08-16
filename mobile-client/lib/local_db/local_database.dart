@@ -1,7 +1,7 @@
 // mobile-client/lib/local_db/local_database.dart
 
-import 'package:finacc_mobile_client/models/accounting_models.dart'; // Import Accounting models
-import 'package:finacc_mobile_client/models/multimodal_models.dart'; // Import Multimodal models
+import 'package:vimbai_mobile_client/models/accounting_models.dart'; // Import Accounting models
+import 'package:vimbai_mobile_client/models/multimodal_models.dart'; // Import Multimodal models
 import 'package:flutter/foundation.dart'; // For @required if not null safety
 
 // Assume a local database package like Isar, Hive, or Sqflite is used.

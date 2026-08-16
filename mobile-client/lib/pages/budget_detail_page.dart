@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:finacc_mobile_client/models/finance_models.dart';
-import 'package:finacc_mobile_client/pages/budget_variance_report_page.dart';
+import 'package:vimbai_mobile_client/models/finance_models.dart';
+import 'package:vimbai_mobile_client/pages/budget_variance_report_page.dart';
 
 class BudgetDetailPage extends StatelessWidget {
   final Budget budget;

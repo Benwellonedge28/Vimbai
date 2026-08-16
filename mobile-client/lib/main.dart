@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:finacc_mobile_client/pages/login_page.dart';
-import 'package:finacc_mobile_client/pages/home_page.dart';
-import 'package:finacc_mobile_client/services/auth_service.dart';
+import 'package:vimbai_mobile_client/pages/login_page.dart';
+import 'package:vimbai_mobile_client/pages/home_page.dart';
+import 'package:vimbai_mobile_client/services/auth_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -35,7 +35,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FinAcc Mobile Client',
+      title: 'Vimbai Mobile Client',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),

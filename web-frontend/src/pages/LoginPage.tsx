@@ -23,7 +23,7 @@ const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-center">Login to FinAcc</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center">Login to Vimbai</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Username</label>

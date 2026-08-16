@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:finacc_mobile_client/services/auth_service.dart';
-import 'package:finacc_mobile_client/pages/login_page.dart';
+import 'package:vimbai_mobile_client/services/auth_service.dart';
+import 'package:vimbai_mobile_client/pages/login_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:finacc_mobile_client/services/accounting_api_service.dart'; // NEW
-import 'package:finacc_mobile_client/pages/chart_of_accounts_page.dart';
-import 'package:finacc_mobile_client/pages/journal_entry_form_page.dart';
-import 'package:finacc_mobile_client/pages/journal_entries_list_page.dart';
-import 'package:finacc_mobile_client/pages/budgets_page.dart';
-import 'package:finacc_mobile_client/pages/ledger_page.dart';
-import 'package:finacc_mobile_client/pages/trial_balance_page.dart';
-import 'package:finacc_mobile_client/pages/income_statement_page.dart';
-import 'package:finacc_mobile_client/pages/balance_sheet_page.dart';
-import 'package:finacc_mobile_client/pages/cash_flow_statement_page.dart';
-import 'package:finacc_mobile_client/pages/multimodal_input_page.dart';
-import 'package:finacc_mobile_client/pages/financial_ratios_page.dart';
-import 'package:finacc_mobile_client/pages/bank_accounts_page.dart';
+import 'package:vimbai_mobile_client/services/accounting_api_service.dart'; // NEW
+import 'package:vimbai_mobile_client/pages/chart_of_accounts_page.dart';
+import 'package:vimbai_mobile_client/pages/journal_entry_form_page.dart';
+import 'package:vimbai_mobile_client/pages/journal_entries_list_page.dart';
+import 'package:vimbai_mobile_client/pages/budgets_page.dart';
+import 'package:vimbai_mobile_client/pages/ledger_page.dart';
+import 'package:vimbai_mobile_client/pages/trial_balance_page.dart';
+import 'package:vimbai_mobile_client/pages/income_statement_page.dart';
+import 'package:vimbai_mobile_client/pages/balance_sheet_page.dart';
+import 'package:vimbai_mobile_client/pages/cash_flow_statement_page.dart';
+import 'package:vimbai_mobile_client/pages/multimodal_input_page.dart';
+import 'package:vimbai_mobile_client/pages/financial_ratios_page.dart';
+import 'package:vimbai_mobile_client/pages/bank_accounts_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -70,7 +70,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
           appBar: AppBar(
-            title: const Text('FinAcc Home (Offline Ready)'),
+            title: const Text('Vimbai Home (Offline Ready)'),
             actions: [
               IconButton(
                 icon: const Icon(Icons.logout),

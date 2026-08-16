@@ -1,4 +1,4 @@
-module finacc/api-gateway
+module vimbai/api-gateway
 
 go 1.21
 
