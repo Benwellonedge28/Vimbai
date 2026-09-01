@@ -21,7 +21,8 @@ except ImportError:
 
 class JobCostEntry(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    job_id: str
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    job_id: str = ""
     cost_type: str  # materials, labor, overhead, subcontractor
     amount: float
     date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
