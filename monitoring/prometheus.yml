@@ -133,3 +133,15 @@ scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+
+  # OpenTelemetry Collector
+  - job_name: 'vimbai-otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8888']
+    scrape_interval: 15s
+
+  # Jaeger metrics
+  - job_name: 'vimbai-jaeger'
+    static_configs:
+      - targets: ['jaeger:14269']
+    scrape_interval: 15s

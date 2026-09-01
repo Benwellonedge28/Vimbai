@@ -1,0 +1,95 @@
+{{- if .Values.tracing.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: jaeger
+spec:
+  replicas: {{ .Values.tracing.jaeger.replicas }}
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+      - name: jaeger
+        image: {{ .Values.tracing.jaeger.image }}
+        ports:
+        - containerPort: 16686
+          name: ui
+        - containerPort: 4317
+          name: otlp-grpc
+        env:
+        - name: COLLECTOR_OTLP_ENABLED
+          value: "true"
+        resources:
+{{ toYaml .Values.tracing.jaeger.resources | indent 10 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: jaeger
+  ports:
+  - name: ui
+    port: 16686
+    targetPort: 16686
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: otel-collector
+spec:
+  replicas: {{ .Values.tracing.otelCollector.replicas }}
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+      - name: otel-collector
+        image: {{ .Values.tracing.otelCollector.image }}
+        ports:
+        - containerPort: 4317
+          name: otlp-grpc
+        - containerPort: 8888
+          name: metrics
+        env:
+        - name: OTEL_EXPORTER_JAEGER_ENDPOINT
+          value: "jaeger:14250"
+        resources:
+{{ toYaml .Values.tracing.otelCollector.resources | indent 10 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: otel-collector
+  ports:
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: metrics
+    port: 8888
+    targetPort: 8888
+{{- end }}

@@ -4,3 +4,11 @@ pydantic>=2.5.0
 httpx>=0.26.0
 structlog>=24.1.0
 python-dateutil>=2.8.2
+
+# OpenTelemetry tracing
+opentelemetry-api==1.24.0
+opentelemetry-sdk==1.24.0
+opentelemetry-exporter-otlp-proto-grpc==1.24.0
+opentelemetry-instrumentation-fastapi==0.45b0
+opentelemetry-instrumentation-httpx==0.45b0
+opentelemetry-instrumentation-logging==0.45b0

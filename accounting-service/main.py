@@ -93,6 +93,16 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+
+# Distributed tracing
+try:
+    from shared.tracing import setup_tracing, get_tracer
+    TRACER = setup_tracing(service_name="accounting-service", instrument_app=app)
+except ImportError:
+    TRACER = None
+    import logging
+    logging.getLogger(__name__).warning("OpenTelemetry not installed - tracing disabled")
+
 # Apply custom OpenAPI schema
 app.openapi = custom_openapi
 

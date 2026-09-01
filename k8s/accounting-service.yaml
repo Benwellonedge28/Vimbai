@@ -46,6 +46,12 @@ spec:
             secretKeyRef:
               name: vimbai-secrets
               key: NEO4J_PASSWORD
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector:4317"
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: grpc
+        - name: OTEL_SERVICE_NAMESPACE
+          value: vimbai
         resources:
           requests:
             memory: "512Mi"

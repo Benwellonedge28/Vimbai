@@ -1,137 +1,116 @@
 # Vimbai Helm Chart Values
-global:
-  imageRegistry: ghcr.io
-  imageRepository: benwellonedge28/vimbai
-  imagePullPolicy: Always
-  namespace: vimbai
+replicaCount: 2
 
-# Neo4j Configuration
-neo4j:
-  enabled: true
-  image: neo4j:5-community
-  auth:
-    password: ""  # Must be set via --set or values-production.yaml
-  resources:
-    requests:
-      memory: "512Mi"
-      cpu: "500m"
-    limits:
-      memory: "2Gi"
-      cpu: "1000m"
-  persistence:
-    enabled: true
-    size: 20Gi
-    storageClass: standard
+image:
+  repository: vimbai
+  pullPolicy: IfNotPresent
+  tag: latest
 
-# RabbitMQ Configuration
-rabbitmq:
-  enabled: true
-  image: rabbitmq:3-management-alpine
-  auth:
-    user: ""  # Must be set
-    password: ""  # Must be set
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "250m"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
-
-# API Gateway
-apiGateway:
-  enabled: true
-  replicas: 2
-  port: 8081
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "250m"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
-  rateLimit:
-    enabled: true
-    rps: 100
-    burst: 200
-
-# Identity Service
-identityService:
-  enabled: true
-  replicas: 3
-  port: 8080
-  resources:
-    requests:
-      memory: "512Mi"
-      cpu: "500m"
-    limits:
-      memory: "1Gi"
-      cpu: "1000m"
-
-# Accounting Service
-accountingService:
-  enabled: true
-  replicas: 3
-  port: 8000
-  resources:
-    requests:
-      memory: "512Mi"
-      cpu: "500m"
-    limits:
-      memory: "1Gi"
-      cpu: "1000m"
-  hpa:
-    minReplicas: 3
-    maxReplicas: 15
-    targetCPUUtilization: 70
-
-# Core Services (default config for all other services)
+# Core services configuration
 coreServices:
-  replicas: 2
-  resources:
-    requests:
-      memory: "128Mi"
-      cpu: "100m"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
+  - name: identity-service
+    port: 8081
+    replicas: 3
+    resources:
+      requests: { memory: "512Mi", cpu: "250m" }
+      limits: { memory: "1Gi", cpu: "1000m" }
+  - name: accounting-service
+    port: 8001
+    replicas: 2
+    resources:
+      requests: { memory: "512Mi", cpu: "250m" }
+      limits: { memory: "1Gi", cpu: "1000m" }
+  - name: finance-service
+    port: 8002
+    replicas: 2
+  - name: supply-chain-service
+    port: 8003
+    replicas: 2
+  - name: fraud-detection-service
+    port: 8004
+    replicas: 2
+  - name: banking-integration-service
+    port: 8005
+    replicas: 2
+  - name: multimodal-pipeline-service
+    port: 8006
+    replicas: 2
+  - name: workflow-service
+    port: 8007
+    replicas: 2
+  - name: reporting-service
+    port: 8008
+    replicas: 2
+  - name: automation-engine-service
+    port: 8009
+    replicas: 2
+
+# Infrastructure
+neo4j:
+  image: neo4j:5-community
+  port: 7687
+  storage: 50Gi
+
+rabbitmq:
+  image: rabbitmq:3-management-alpine
+  port: 5672
+  managementPort: 15672
+  storage: 10Gi
+
+# Tracing
+tracing:
+  enabled: true
+  jaeger:
+    image: jaegertracing/all-in-one:1.53
+    uiPort: 16686
+    replicas: 1
+    resources:
+      requests: { memory: "256Mi", cpu: "100m" }
+      limits: { memory: "512Mi", cpu: "500m" }
+  otelCollector:
+    image: otel/opentelemetry-collector-contrib:0.96.0
+    port: 4317
+    metricsPort: 8888
+    replicas: 1
+    resources:
+      requests: { memory: "128Mi", cpu: "50m" }
+      limits: { memory: "256Mi", cpu: "250m" }
+  endpoint: "http://otel-collector:4317"
+  protocol: grpc
+  namespace: vimbai
+  environment: production
 
 # Monitoring
 monitoring:
-  enabled: true
   prometheus:
     enabled: true
-    scrapeInterval: 15s
+    port: 9090
+    retention: 30d
   grafana:
     enabled: true
+    port: 3000
+    adminPassword: "admin123"
+  alertmanager:
+    enabled: true
+    port: 9093
+
+# API Gateway
+apiGateway:
+  image: vimbai/api-gateway:latest
+  port: 8000
+  replicas: 3
 
 # Ingress
 ingress:
   enabled: true
   className: nginx
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/rate-limit: "100"
-  hosts:
-    - name: api.vimbai.com
-      service: api-gateway
-      port: 8081
-    - name: app.vimbai.com
-      service: web-frontend
-      port: 80
+  host: api.vimbai.com
   tls:
     enabled: true
     secretName: vimbai-tls
 
-# Security
-security:
-  podSecurityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    fsGroup: 1000
-  networkPolicy:
-    enabled: true
-  podDisruptionBudget:
-    enabled: true
-    minAvailable: 2
+# Environment variables (shared across all services)
+env:
+  NEO4J_URI: bolt://neo4j:7687
+  NEO4J_USER: neo4j
+  LOG_LEVEL: INFO

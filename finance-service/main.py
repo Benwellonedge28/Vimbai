@@ -21,6 +21,16 @@ app = FastAPI(
     version="0.1.0",
 )
 
+
+# Distributed tracing
+try:
+    from shared.tracing import setup_tracing, get_tracer
+    TRACER = setup_tracing(service_name="finance-service", instrument_app=app)
+except ImportError:
+    TRACER = None
+    import logging
+    logging.getLogger(__name__).warning("OpenTelemetry not installed - tracing disabled")
+
 @app.on_event("startup")
 async def startup_event():
     Neo4jConnector.configure(
