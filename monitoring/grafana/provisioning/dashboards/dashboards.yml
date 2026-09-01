@@ -1,13 +1,7 @@
 apiVersion: 1
-
 providers:
   - name: 'Vimbai Dashboards'
-    orgId: 1
     folder: 'Vimbai'
-    folderUid: 'vimbai'
     type: file
-    disableDeletion: false
-    updateIntervalSeconds: 30
-    allowUiUpdates: true
     options:
-      path: /var/lib/grafana/dashboards/vimbai
+      path: /var/lib/grafana/dashboards

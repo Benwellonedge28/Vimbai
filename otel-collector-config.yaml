@@ -1,0 +1,62 @@
+# OpenTelemetry Collector Configuration for Vimbai
+# Receives traces from all services, processes them, and exports to Jaeger
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Batch traces for efficient export
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+
+  # Add service name as attribute if missing
+  attributes:
+    actions:
+      - key: service.namespace
+        value: vimbai
+        action: upsert
+
+  # Sample 50% of traces in production to reduce storage
+  probabilistic_sampler:
+    sampling_percentage: 100
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    check_interval: 2s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+exporters:
+  # Export to Jaeger
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # Export to stdout for debugging
+  debug:
+    verbosity: basic
+
+  # Export metrics to Prometheus
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes, batch]
+      exporters: [otlp/jaeger, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+  telemetry:
+    logs:
+      level: info

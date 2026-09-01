@@ -1,0 +1,66 @@
+name: Observability Stack Validation
+
+on:
+  push:
+    paths:
+      - 'monitoring/**'
+      - 'shared/tracing.py'
+      - 'shared/middleware.py'
+      - 'shared/health.py'
+      - 'otel-collector-config.yaml'
+      - 'prometheus.yml'
+    branches: [main, develop]
+  pull_request:
+    paths:
+      - 'monitoring/**'
+      - 'shared/tracing.py'
+      - 'shared/middleware.py'
+      - 'shared/health.py'
+    branches: [main, develop]
+
+jobs:
+  validate-configs:
+    name: Validate Observability Configs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pydantic fastapi pytest pytest-asyncio httpx
+
+      - name: Validate OTel collector config
+        run: |
+          if [ -f otel-collector-config.yaml ]; then
+            python -c "import yaml; yaml.safe_load(open('otel-collector-config.yaml'))" && echo "OTel config valid"
+          fi
+
+      - name: Validate Prometheus config
+        run: |
+          if [ -f prometheus.yml ]; then
+            python -c "import yaml; yaml.safe_load(open('prometheus.yml'))" && echo "Prometheus config valid"
+          fi
+
+      - name: Validate Grafana dashboards
+        run: |
+          for f in monitoring/grafana/dashboards/*.json; do
+            python -c "import json; json.load(open('$f'))" && echo "$f valid"
+          done
+
+      - name: Run shared infrastructure tests
+        run: |
+          PYTHONPATH=. python -m pytest tests/test_shared_infrastructure.py tests/test_tracing_infrastructure.py -v --tb=short
+
+      - name: Verify shared modules import cleanly
+        run: |
+          PYTHONPATH=. python -c "
+          from shared.config import ServiceConfig, Neo4jConfig, RedisConfig, RetryConfig
+          from shared.middleware import setup_middleware, get_request_id
+          from shared.health import create_health_router, register_health_check
+          print('All shared modules import successfully')
+          "

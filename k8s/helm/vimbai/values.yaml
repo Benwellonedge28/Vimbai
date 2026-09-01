@@ -89,6 +89,16 @@ podDisruptionBudget:
 networkPolicy:
   enabled: true
 
+# Observability Stack
+observability:
+  enabled: true
+  jaegerEnabled: true
+  prometheusEnabled: true
+  grafanaEnabled: true
+  grafanaPassword: "admin"
+  otlpEndpoint: "http://otel-collector:4317"
+  samplingRate: 100
+
 # Secrets
 secrets:
   jwtSecret: "change-me-in-production"
