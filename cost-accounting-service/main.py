@@ -1,19 +1,75 @@
-"""Cost Accounting Service - Port 8339"""
-import httpx; import structlog; from pydantic import BaseModel; from fastapi import FastAPI
-logger = structlog.get_logger(); app = FastAPI(title="Cost Accounting Service", version="1.0.0")
+"""Vimbai Cost Accounting Service - Standard costing, variance analysis, cost allocation. Port: 8347"""
+import os, uuid
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, List, Optional
+from collections import defaultdict
+import structlog
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-class CostAccountingRequest(BaseModel):
-    company_id: str; direct_materials: float; direct_labor: float; manufacturing_overhead: float; units_produced: float
+SERVICE_NAME = "cost-accounting-service"
+PORT = int(os.getenv("PORT", "8347"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()], wrapper_class=structlog.stdlib.BoundLogger, logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True)
+logger = structlog.get_logger(SERVICE_NAME)
+app = FastAPI(title="Vimbai Cost Accounting Service", version="2.0.0", docs_url="/docs")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+try:
+    from shared.tracing import setup_tracing; TRACER = setup_tracing(service_name="cost-accounting-service", instrument_app=app)
+except ImportError:
+    TRACER = None
+
+class VarianceType(str, Enum):
+    FAVORABLE = "favorable"; UNFAVORABLE = "unfavorable"
+
+class StandardCost(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str
+    product_name: str
+    direct_materials_std: float
+    direct_labor_std: float
+    overhead_std: float
+    standard_cost_per_unit: float = 0
+    actual_materials: float = 0
+    actual_labor: float = 0
+    actual_overhead: float = 0
+    actual_cost_per_unit: float = 0
+    material_variance: float = 0
+    labor_variance: float = 0
+    overhead_variance: float = 0
+    total_variance: float = 0
+    units_produced: int = 0
+
+_costs: Dict[str, List[StandardCost]] = defaultdict(list)
+
+def calc_variance(actual: float, standard: float) -> tuple:
+    diff = actual - standard
+    return diff, VarianceType.FAVORABLE if diff <= 0 else VarianceType.UNFAVORABLE
 
 @app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "cost-accounting"}
+async def health(): return {"status": "healthy", "service": SERVICE_NAME}
 
-@app.post("/calculate", response_model=dict)
-async def calculate_costs(request: CostAccountingRequest):
-    total_cost = request.direct_materials + request.direct_labor + request.manufacturing_overhead
-    unit_cost = total_cost / request.units_produced if request.units_produced else 0
-    return {"company_id": request.company_id, "total_cost": total_cost, "unit_cost": round(unit_cost, 2), "cost_breakdown": {"materials_pct": round(request.direct_materials / total_cost * 100, 2), "labor_pct": round(request.direct_labor / total_cost * 100, 2), "overhead_pct": round(request.manufacturing_overhead / total_cost * 100, 2)}}
+@app.post("/standards", response_model=StandardCost)
+async def set_standard_cost(cost: StandardCost):
+    cost.standard_cost_per_unit = cost.direct_materials_std + cost.direct_labor_std + cost.overhead_std
+    if cost.units_produced > 0:
+        cost.actual_cost_per_unit = (cost.actual_materials + cost.actual_labor + cost.actual_overhead) / cost.units_produced
+        cost.material_variance, _ = calc_variance(cost.actual_materials, cost.direct_materials_std * cost.units_produced)
+        cost.labor_variance, _ = calc_variance(cost.actual_labor, cost.direct_labor_std * cost.units_produced)
+        cost.overhead_variance, _ = calc_variance(cost.actual_overhead, cost.overhead_std * cost.units_produced)
+        cost.total_variance = cost.material_variance + cost.labor_variance + cost.overhead_variance
+    _costs[cost.company_id].append(cost)
+    return cost
+
+@app.get("/variances/{company_id}")
+async def get_variances(company_id: str):
+    costs = _costs.get(company_id, [])
+    return {"company_id": company_id, "items": costs, "total": len(costs), "total_variance": sum(c.total_variance for c in costs)}
+
+@app.get("/standards/{company_id}")
+async def get_standards(company_id: str):
+    return {"company_id": company_id, "standards": _costs.get(company_id, [])}
 
 if __name__ == "__main__":
-    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=8339)
+    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

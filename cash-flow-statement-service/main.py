@@ -1,19 +1,78 @@
-"""Cash Flow Statement Service - Port 8335"""
-import httpx; import structlog; from pydantic import BaseModel; from fastapi import FastAPI
-logger = structlog.get_logger(); app = FastAPI(title="Cash Flow Statement Service", version="1.0.0")
+"""Vimbai Cash Flow Statement Service - Generate cash flow statements (direct/indirect). Port: 8346"""
+import os, uuid
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, List, Optional
+from collections import defaultdict
+import structlog
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-class CashFlowRequest(BaseModel):
-    company_id: str; operating_cash: float; investing_cash: float; financing_cash: float; opening_cash: float
+SERVICE_NAME = "cash-flow-statement-service"
+PORT = int(os.getenv("PORT", "8346"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()], wrapper_class=structlog.stdlib.BoundLogger, logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True)
+logger = structlog.get_logger(SERVICE_NAME)
+app = FastAPI(title="Vimbai Cash Flow Statement Service", version="2.0.0", docs_url="/docs")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+try:
+    from shared.tracing import setup_tracing; TRACER = setup_tracing(service_name="cash-flow-statement-service", instrument_app=app)
+except ImportError:
+    TRACER = None
+
+class CashFlowMethod(str, Enum):
+    DIRECT = "direct"; INDIRECT = "indirect"
+
+class CashFlowLine(BaseModel):
+    description: str
+    amount: float
+    is_inflow: bool = True
+
+class CashFlowStatement(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str
+    period_start: datetime
+    period_end: datetime
+    method: CashFlowMethod = CashFlowMethod.INDIRECT
+    operating_activities: List[CashFlowLine] = []
+    investing_activities: List[CashFlowLine] = []
+    financing_activities: List[CashFlowLine] = []
+    net_operating: float = 0
+    net_investing: float = 0
+    net_financing: float = 0
+    net_change: float = 0
+    beginning_cash: float = 0
+    ending_cash: float = 0
+
+_statements: Dict[str, List[CashFlowStatement]] = defaultdict(list)
+
+def calc_net(lines: List[CashFlowLine]) -> float:
+    return sum(l.amount if l.is_inflow else -l.amount for l in lines)
 
 @app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "cash-flow-statement"}
+async def health(): return {"status": "healthy", "service": SERVICE_NAME}
 
-@app.post("/prepare", response_model=dict)
-async def prepare_cash_flow(request: CashFlowRequest):
-    net_cash = request.operating_cash + request.investing_cash + request.financing_cash
-    closing_cash = request.opening_cash + net_cash
-    return {"company_id": request.company_id, "net_cash_flow": net_cash, "closing_cash": closing_cash, "free_cash_flow": request.operating_cash + request.investing_cash}
+@app.post("/generate", response_model=CashFlowStatement)
+async def generate_statement(stmt: CashFlowStatement):
+    stmt.net_operating = calc_net(stmt.operating_activities)
+    stmt.net_investing = calc_net(stmt.investing_activities)
+    stmt.net_financing = calc_net(stmt.financing_activities)
+    stmt.net_change = stmt.net_operating + stmt.net_investing + stmt.net_financing
+    stmt.ending_cash = stmt.beginning_cash + stmt.net_change
+    _statements[stmt.company_id].append(stmt)
+    logger.info("cash_flow_generated", company_id=stmt.company_id, net_change=stmt.net_change, method=stmt.method.value)
+    return stmt
+
+@app.get("/latest/{company_id}")
+async def get_latest(company_id: str):
+    stmts = _statements.get(company_id, [])
+    if not stmts:
+        raise HTTPException(status_code=404, detail="No cash flow statements found")
+    return stmts[-1]
+
+@app.get("/history/{company_id}")
+async def get_history(company_id: str):
+    return {"company_id": company_id, "statements": _statements.get(company_id, []), "total": len(_statements.get(company_id, []))}
 
 if __name__ == "__main__":
-    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=8335)
+    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

@@ -74,7 +74,7 @@ async def pydantic_validation_exception_handler(request, exc: PydanticValidation
     error_details = []
     for error in errors:
         loc = ".".join(map(str, error["loc"]))
-        error_details.append(f"Field '{loc}': {error["msg"]}")
+        error_details.append(f"Field '{loc}': {error['msg']}")
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": "Validation error: " + "; ".join(error_details), "code": "PYDANTIC_VALIDATION_ERROR"},
