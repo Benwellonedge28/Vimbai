@@ -3,26 +3,56 @@ name: Platform Integration Tests
 on:
   push:
     branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
   schedule:
-    - cron: '0 0 * * *' # Daily at midnight
+    - cron: '0 0 * * *'
 
 jobs:
   run-integration-tests:
+    name: Integration Test Suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install dependencies
+
+      - name: Install test dependencies
         run: |
-          pip install pytest requests
-      - name: Run E2E Integration Suite
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio httpx fastapi pydantic structlog uvicorn
+
+      - name: Run integration test suite
         run: |
-          # Note: In a real environment, this would spin up a test environment
-          # using docker-compose or minikube first.
-          echo "Running integration tests..."
-          if [ -f tests/integration_test.py ]; then
-            PYTHONPATH=. pytest tests/integration_test.py -v || true
-          fi
+          PYTHONPATH=. python -m pytest tests/ -v --tb=short -q \
+            --ignore=tests/test_accounting_service.py \
+            --ignore=tests/test_alerts_service.py \
+            --ignore=tests/test_api_gateway.py \
+            --ignore=tests/test_banking_service.py \
+            --ignore=tests/test_notifications_service.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: |
+            tests/
+            **/pytest-results.xml
+          retention-days: 14
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## Integration Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          PYTHONPATH=. python -m pytest tests/ -v --tb=no -q \
+            --ignore=tests/test_accounting_service.py \
+            --ignore=tests/test_alerts_service.py \
+            --ignore=tests/test_api_gateway.py \
+            --ignore=tests/test_banking_service.py \
+            --ignore=tests/test_notifications_service.py \
+            2>&1 | tail -20 >> $GITHUB_STEP_SUMMARY

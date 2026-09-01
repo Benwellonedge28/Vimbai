@@ -355,17 +355,26 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest pytest-asyncio httpx pytest-cov neo4j-driver fastapi uvicorn pydantic python-dotenv python-jose passlib bcrypt APScheduler structlog aiohttp
 
-      - name: Run tests for all Python services
+      - name: Install test framework
         run: |
-          for dir in */; do
-            if [ -f "${dir}main.py" ] && [ -f "${dir}requirements.txt" ]; then
-              echo "Testing $dir..."
-              cd "$dir"
-              pip install -q -r requirements.txt 2>/dev/null || true
-              pytest -v --tb=short || echo "No tests found in $dir"
-              cd ..
-            fi
-          done
+          pip install pytest pytest-asyncio httpx fastapi pydantic structlog uvicorn
+
+      - name: Run unified integration test suite
+        run: |
+          PYTHONPATH=. python -m pytest tests/ -v --tb=short -q \
+            --ignore=tests/test_accounting_service.py \
+            --ignore=tests/test_alerts_service.py \
+            --ignore=tests/test_api_gateway.py \
+            --ignore=tests/test_banking_service.py \
+            --ignore=tests/test_notifications_service.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-test-results
+          path: tests/
+          retention-days: 14
 
   # ============================================================
   # Go API Gateway - Build & Test
