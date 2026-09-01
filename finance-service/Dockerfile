@@ -10,3 +10,6 @@ COPY . .
 EXPOSE 8001 # Finance service will run on port 8001
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+USER appuser

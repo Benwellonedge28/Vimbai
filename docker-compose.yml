@@ -13,7 +13,7 @@ services:
       - ./neo4j/import:/var/lib/neo4j/import
       - ./neo4j/plugins:/plugins
     environment:
-      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-neo4j}
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}
       - NEO4J_dbms_memory_heap_max__size=512M
       - NEO4J_dbms_connector_bolt_listen__address=0.0.0.0:7687
       - NEO4J_dbms_connector_http_listen__address=0.0.0.0:7474
@@ -30,8 +30,8 @@ services:
       - "5672:5672" # AMQP protocol port
       - "15672:15672" # Management UI port
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?Set RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:?Set RABBITMQ_PASS}
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
       interval: 10s
@@ -48,8 +48,8 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
-      - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Change this in production or use .env file
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}
+      - JWT_SECRET=${JWT_SECRET} # IMPORTANT: Change this in production or use .env file
     depends_on:
       neo4j:
         condition: service_healthy
@@ -64,8 +64,8 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
-      - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Must match Identity Service's JWT_SECRET
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}
+      - JWT_SECRET=${JWT_SECRET} # IMPORTANT: Must match Identity Service's JWT_SECRET
       - API_GATEWAY_URL=http://api-gateway:8081
     depends_on:
       neo4j:
@@ -79,8 +79,8 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
-      - JWT_SECRET=your_super_secret_jwt_key # IMPORTANT: Must match Identity Service's JWT_SECRET
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}
+      - JWT_SECRET=${JWT_SECRET} # IMPORTANT: Must match Identity Service's JWT_SECRET
       - API_GATEWAY_URL=http://api-gateway:8081 # Internal URL for API Gateway
     depends_on:
       neo4j:
@@ -96,11 +96,11 @@ services:
     # ports: # Not exposed directly
     #   - "8002:8002"
     environment:
-      - JWT_SECRET=your_super_secret_jwt_key
+      - JWT_SECRET=${JWT_SECRET}
       - API_GATEWAY_URL=http://api-gateway:8081
       - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_USER=guest
-      - RABBITMQ_PASS=guest
+      - RABBITMQ_USER=${RABBITMQ_USER:-vimbai_mq}
+      - RABBITMQ_PASS=${RABBITMQ_PASS:-ChangeMe_Str0ng_MQ_Pass!}
     depends_on:
       identity-service:
         condition: service_started
@@ -119,8 +119,8 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
-      - JWT_SECRET=your_super_secret_jwt_key
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}
+      - JWT_SECRET=${JWT_SECRET}
       - API_GATEWAY_URL=http://api-gateway:8081
     depends_on:
       neo4j:
@@ -140,8 +140,8 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
-      - JWT_SECRET=your_super_secret_jwt_key
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}
+      - JWT_SECRET=${JWT_SECRET}
       - API_GATEWAY_URL=http://api-gateway:8081
     depends_on:
       neo4j:
@@ -159,8 +159,8 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
-      - JWT_SECRET=your_super_secret_jwt_key
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       neo4j:
         condition: service_healthy
@@ -176,7 +176,7 @@ services:
       - "8081:8081" # Expose gateway port to host
     environment:
       - PORT=8081
-      - JWT_SECRET=your_super_secret_jwt_key
+      - JWT_SECRET=${JWT_SECRET}
       - IDENTITY_SERVICE_URL=http://identity-service:8080
       - ACCOUNTING_SERVICE_URL=http://accounting-service:8000
       - FINANCE_SERVICE_URL=http://finance-service:8001
@@ -210,8 +210,8 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
-      - JWT_SECRET=your_super_secret_jwt_key
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}
+      - JWT_SECRET=${JWT_SECRET}
       - API_GATEWAY_URL=http://api-gateway:8081
     depends_on:
       neo4j:
@@ -227,8 +227,8 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
-      - JWT_SECRET=your_super_secret_jwt_key
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}
+      - JWT_SECRET=${JWT_SECRET}
       - API_GATEWAY_URL=http://api-gateway:8081
     depends_on:
       neo4j:
@@ -242,8 +242,8 @@ services:
     environment:
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j}
-      - JWT_SECRET=your_super_secret_jwt_key
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}
+      - JWT_SECRET=${JWT_SECRET}
       - API_GATEWAY_URL=http://api-gateway:8081
     depends_on:
       neo4j:

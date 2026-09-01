@@ -16,3 +16,6 @@ EXPOSE 8005
 
 # Run the Uvicorn server
 CMD ["uvicorn", "fraud_detection_service.main:app", "--host", "0.0.0.0", "--port", "8005"]
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+USER appuser

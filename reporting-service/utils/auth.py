@@ -4,7 +4,7 @@ from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 security = HTTPBearer(auto_error=False)
-JWT_SECRET = os.getenv("JWT_SECRET", "your_super_secret_jwt_key")
+JWT_SECRET = os.environ["JWT_SECRET"]
 
 def check_permission(permission: str):
     async def checker(credentials: HTTPAuthorizationCredentials = Depends(security)):

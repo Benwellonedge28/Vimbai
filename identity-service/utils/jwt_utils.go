@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -8,7 +9,7 @@ import (
 
 // Define a secret key for signing the tokens.
 // In a real application, this should be a strong, randomly generated key loaded from environment variables or a secure vault.
-var jwtSecret = []byte("your_super_secret_jwt_key") // IMPORTANT: CHANGE THIS IN PRODUCTION
+var jwtSecret = []byte(os.Getenv("JWT_SECRET")) // Must be set via environment variable
 
 // Claims struct to hold custom claims for the JWT.
 type Claims struct {

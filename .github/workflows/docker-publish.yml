@@ -14,26 +14,81 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
+  detect-changed:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.detect.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed services
+        id: detect
+        run: |
+          if [ "${{ github.event.inputs.service }}" != "" ]; then
+            echo "services=[\"${{ github.event.inputs.service }}\"]" >> $GITHUB_OUTPUT
+          else
+            CHANGED=$(git diff --name-only HEAD^ HEAD | grep -oP '^[a-z][a-z0-9-]+/' | sed 's/\///' | sort -u)
+            SERVICES=$(echo "$CHANGED" | jq -R . | jq -s .)
+            echo "services=$SERVICES" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-push:
+    name: Build and Push
+    needs: detect-changed
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        service: ${{ fromJson(needs.detect-changed.outputs.services) }}
+      fail-fast: false
     steps:
-      - uses: actions/checkout@v3
-      - name: Log in to the Container registry
-        uses: docker/login-action@v2
+      - uses: actions/checkout@v4
+
+      - name: Check if Dockerfile exists
+        id: check
+        run: |
+          if [ -f "${{ matrix.service }}/Dockerfile" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "No Dockerfile for ${{ matrix.service }}, skipping"
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.check.outputs.exists == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container registry
+        if: steps.check.outputs.exists == 'true'
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Extract metadata
+        if: steps.check.outputs.exists == 'true'
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
       - name: Build and push
-        run: |
-          echo "Building Docker images for Vimbai services..."
-          # docker build -t ghcr.io/benwellonedge28/vimbai/api-gateway:latest ./api-gateway
-          # docker push ghcr.io/benwellonedge28/vimbai/api-gateway:latest
+        if: steps.check.outputs.exists == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.service }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

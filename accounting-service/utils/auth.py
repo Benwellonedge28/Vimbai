@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from accounting_service.exceptions import UnauthorizedError, ForbiddenError
 
-JWT_SECRET = os.getenv("JWT_SECRET", "your_super_secret_jwt_key")
+JWT_SECRET = os.environ["JWT_SECRET"]
 ALGORITHM = "HS256"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8081/identity/login")

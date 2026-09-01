@@ -12,3 +12,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 8002 # Multimodal service will run on port 8002
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002"]
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+USER appuser

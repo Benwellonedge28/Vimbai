@@ -44,7 +44,7 @@ jobs:
         run: |
           for dir in */; do
             if [ -f "${dir}main.py" ] && [ -f "${dir}requirements.txt" ]; then
-              black --check "$dir" --quiet 2>/dev/null || true
+              black --check "$dir" --quiet
             fi
           done
 
@@ -52,17 +52,17 @@ jobs:
         run: |
           for dir in */; do
             if [ -f "${dir}main.py" ] && [ -f "${dir}requirements.txt" ]; then
-              isort --check-only "$dir" --quiet 2>/dev/null || true
+              isort --check-only "$dir" --quiet
             fi
           done
 
       - name: Run flake8 (lint)
         run: |
-          flake8 . --max-line-length=120 --extend-ignore=E501,W503,E203 --quiet 2>/dev/null || true
+          flake8 . --max-line-length=120 --extend-ignore=E501,W503,E203 --quiet
 
       - name: Run Bandit (security lint)
         run: |
-          bandit -r . -f json -o bandit-report.json 2>/dev/null || true
+          bandit -r . -f json -o bandit-report.json
 
       - name: Upload Bandit Report
         uses: actions/upload-artifact@v4
@@ -93,7 +93,7 @@ jobs:
 
       - name: Run ESLint
         working-directory: web-frontend
-        run: yarn lint || true
+        run: yarn lint
 
   # ============================================================
   # GitHub CodeQL Analysis (Enhanced)
@@ -219,9 +219,9 @@ jobs:
 
       - name: Run Python Safety Check
         run: |
-          python -m pip install safety || true
-          safety check --json --output safety-report.json 2>/dev/null || true
-          safety check --bare 2>/dev/null || true
+          python -m pip install safety
+          safety check --json --output safety-report.json
+          safety check --bare
         continue-on-error: true
 
       - name: Upload Safety Report
@@ -234,8 +234,8 @@ jobs:
 
       - name: Check for known vulnerabilities in requirements
         run: |
-          python -m pip install pip-audit || true
-          pip-audit --format=json --output pip-audit-report.json 2>/dev/null || true
+          python -m pip install pip-audit
+          pip-audit --format=json --output pip-audit-report.json
         continue-on-error: true
 
       - name: Upload pip-audit Report

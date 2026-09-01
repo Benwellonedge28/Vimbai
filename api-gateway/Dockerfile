@@ -19,3 +19,6 @@ COPY --from=builder /app/config ./config
 EXPOSE 8081
 
 CMD ["./main"]
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+USER appuser

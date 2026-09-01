@@ -30,7 +30,7 @@ async def get_user_id(credentials: Optional[HTTPAuthorizationCredentials] = Depe
 
     try:
         token = credentials.credentials
-        JWT_SECRET = os.getenv("JWT_SECRET", "your_super_secret_jwt_key")
+        JWT_SECRET = os.environ["JWT_SECRET"]
 
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user_id = payload.get("sub") or payload.get("user_id")
@@ -67,7 +67,7 @@ async def check_permission(permission: str):
 
         try:
             token = credentials.credentials
-            JWT_SECRET = os.getenv("JWT_SECRET", "your_super_secret_jwt_key")
+            JWT_SECRET = os.environ["JWT_SECRET"]
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
 
             user_permissions = payload.get("permissions", [])

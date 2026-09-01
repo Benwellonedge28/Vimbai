@@ -3,6 +3,7 @@ name: Deploy to Production
 on:
   push:
     tags: [ 'v*.*.*' ]
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -10,37 +11,95 @@ env:
 
 jobs:
   build-and-push:
+    name: Build and Push Docker Images
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to the Container registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push Docker images
+
+      - name: Build and push core service images
         run: |
-          echo "Building and pushing production images..."
+          SERVICES=(
+            "api-gateway"
+            "identity-service"
+            "accounting-service"
+            "finance-service"
+            "multimodal-pipeline-service"
+            "banking-integration-service"
+            "supply-chain-service"
+            "fraud-detection-service"
+            "workflow-service"
+            "reporting-service"
+            "automation-engine-service"
+            "alerts-service"
+            "notifications-service"
+          )
+          for SERVICE in "${SERVICES[@]}"; do
+            if [ -f "${SERVICE}/Dockerfile" ]; then
+              echo "Building ${SERVICE}..."
+              docker buildx build \
+                --platform linux/amd64 \
+                -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${SERVICE}:${{ github.ref_name }} \
+                -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${SERVICE}:latest \
+                --push \
+                "./${SERVICE}"
+            fi
+          done
+
+      - name: Build and push web frontend
+        run: |
+          if [ -f "web-frontend/Dockerfile" ]; then
+            docker buildx build \
+              --platform linux/amd64 \
+              -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web-frontend:${{ github.ref_name }} \
+              -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web-frontend:latest \
+              --push \
+              "./web-frontend"
+          fi
 
   deploy-production:
+    name: Deploy to Production Cluster
     needs: build-and-push
     runs-on: ubuntu-latest
     environment:
       name: production
       url: https://api.vimbai.com
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
+        uses: azure/setup-kubectl@v4
+
       - name: Configure Kubernetes context
-        uses: azure/k8s-set-context@v3
+        uses: azure/k8s-set-context@v4
         with:
           kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+
       - name: Deploy to Production Cluster
         run: |
-          echo "Deploying to production environment using Helm..."
-          # helm upgrade --install vimbai ./charts/vimbai --namespace production -f values-prod.yaml
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -k k8s/
+          kubectl rollout restart deployment -n vimbai api-gateway
+          kubectl rollout restart deployment -n vimbai identity-service
+          kubectl rollout restart deployment -n vimbai accounting-service
+          kubectl rollout status deployment -n vimbai api-gateway --timeout=300s
+          kubectl rollout status deployment -n vimbai identity-service --timeout=300s
+          kubectl rollout status deployment -n vimbai accounting-service --timeout=300s
+
+      - name: Verify deployment health
+        run: |
+          kubectl get pods -n vimbai -o wide
+          kubectl get services -n vimbai
+          kubectl get ingress -n vimbai

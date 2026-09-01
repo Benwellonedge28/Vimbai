@@ -27,7 +27,7 @@ vars:
 
 configMapGenerator:
 - name: vimbai-config
- literais:
+ literals:
   - LOG_LEVEL=INFO
 
 secretGenerator:

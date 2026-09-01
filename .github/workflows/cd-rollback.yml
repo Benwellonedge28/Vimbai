@@ -1,24 +1,68 @@
-name: Rollback Production
+name: Production Rollback
 
 on:
   workflow_dispatch:
     inputs:
-      target_revision:
-        description: 'Helm revision to rollback to'
+      version:
+        description: 'Previous version tag to rollback to (e.g., v1.0.0)'
         required: true
+      service:
+        description: 'Specific service to rollback (leave empty for all)'
+        required: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   rollback:
+    name: Rollback Production Deployment
     runs-on: ubuntu-latest
-    environment: production
+    environment:
+      name: production
+      url: https://api.vimbai.com
     steps:
+      - uses: actions/checkout@v4
+
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
+        uses: azure/setup-kubectl@v4
+
       - name: Configure Kubernetes context
-        uses: azure/k8s-set-context@v3
+        uses: azure/k8s-set-context@v4
         with:
           kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
-      - name: Perform Rollback
+
+      - name: Rollback deployments
         run: |
-          echo "Rolling back production to revision ${{ github.event.inputs.target_revision }}..."
-          # helm rollback vimbai ${{ github.event.inputs.target_revision }} --namespace production
+          VERSION="${{ github.event.inputs.version }}"
+          SERVICE="${{ github.event.inputs.service }}"
+
+          if [ -n "$SERVICE" ]; then
+            SERVICES=("$SERVICE")
+          else
+            SERVICES=(
+              "api-gateway"
+              "identity-service"
+              "accounting-service"
+              "finance-service"
+              "multimodal-pipeline-service"
+              "banking-integration-service"
+              "supply-chain-service"
+              "fraud-detection-service"
+              "workflow-service"
+              "reporting-service"
+            )
+          fi
+
+          for SVC in "${SERVICES[@]}"; do
+            echo "Rolling back $SVC to $VERSION..."
+            kubectl set image deployment/$SVC \
+              $SVC=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/$SVC:$VERSION \
+              -n vimbai
+            kubectl rollout status deployment/$SVC -n vimbai --timeout=300s
+          done
+
+      - name: Verify rollback
+        run: |
+          kubectl get pods -n vimbai -o wide
+          kubectl get deployment -n vimbai

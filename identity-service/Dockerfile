@@ -20,3 +20,6 @@ EXPOSE 8080
 
 # Command to run the executable
 CMD ["/vimbai-identity-service"]
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+USER appuser

@@ -16,3 +16,6 @@ EXPOSE 8004
 
 # Run the Uvicorn server
 CMD ["uvicorn", "supply_chain_service.main:app", "--host", "0.0.0.0", "--port", "8004"]
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+USER appuser

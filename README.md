@@ -58,8 +58,8 @@ We welcome contributions! Please refer to the design document for architectural 
 
 ## License
 
-[Specify your license here, e.g., MIT, Apache 2.0]
+MIT License
 
 ## Contact
 
-For questions or support, please contact [Your Contact Information].
+For questions or support, please contact Samuel Mukandara.

@@ -5,7 +5,7 @@ import os
 import jwt
 
 security = HTTPBearer(auto_error=False)
-JWT_SECRET = os.getenv("JWT_SECRET", "your_super_secret_jwt_key")
+JWT_SECRET = os.environ["JWT_SECRET"]
 
 async def get_db_session():
     from reporting_service.database import Neo4jConnector

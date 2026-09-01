@@ -10,3 +10,6 @@ COPY . .
 EXPOSE 8004 # Invoicing service will run on port 8004
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8004"]
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+USER appuser

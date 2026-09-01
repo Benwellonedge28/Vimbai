@@ -8,7 +8,7 @@ import httpx
 security = HTTPBearer(auto_error=False)
 
 IDENTITY_SERVICE_URL = os.getenv("IDENTITY_SERVICE_URL", "http://identity-service:8080")
-JWT_SECRET = os.getenv("JWT_SECRET", "your_super_secret_jwt_key")
+JWT_SECRET = os.environ["JWT_SECRET"]
 
 async def get_user_id_from_token(token: str) -> str:
     """Extract user_id from JWT token"""

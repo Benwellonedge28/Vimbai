@@ -61,7 +61,7 @@ func LoadConfig() *Config {
 
 	cfg := &Config{
 		Port:                          port,
-		JwtSecret:                     getEnv("JWT_SECRET", "your_super_secret_jwt_key"),
+		JwtSecret:                     os.Getenv("JWT_SECRET"),
 		IdentityServiceURL:            getEnv("IDENTITY_SERVICE_URL", "http://localhost:8080"),
 		AccountingServiceURL:          getEnv("ACCOUNTING_SERVICE_URL", "http://localhost:8000"),
 		FinanceServiceURL:            getEnv("FINANCE_SERVICE_URL", "http://localhost:8001"),
