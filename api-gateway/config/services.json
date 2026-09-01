@@ -1,0 +1,2370 @@
+{
+  "services": [
+    {
+      "name": "absorption-costing-service",
+      "path": "/absorption-costing",
+      "url": "http://absorption-costing-service:8400",
+      "port": 8400,
+      "auth_required": true
+    },
+    {
+      "name": "absorption-costing-statement-service",
+      "path": "/absorption-costing-statement",
+      "url": "http://absorption-costing-statement-service:8401",
+      "port": 8401,
+      "auth_required": true
+    },
+    {
+      "name": "accounting-rate-return-service",
+      "path": "/accounting-rate-return",
+      "url": "http://accounting-rate-return-service:8402",
+      "port": 8402,
+      "auth_required": true
+    },
+    {
+      "name": "accounting-service",
+      "path": "/accounting",
+      "url": "http://accounting-service:8403",
+      "port": 8403,
+      "auth_required": true
+    },
+    {
+      "name": "accounting-standards-service",
+      "path": "/accounting-standards",
+      "url": "http://accounting-standards-service:8095",
+      "port": 8095,
+      "auth_required": true
+    },
+    {
+      "name": "accounts-payable-service",
+      "path": "/accounts-payable",
+      "url": "http://accounts-payable-service:8327",
+      "port": 8327,
+      "auth_required": true
+    },
+    {
+      "name": "accounts-receivable-service",
+      "path": "/accounts-receivable",
+      "url": "http://accounts-receivable-service:8328",
+      "port": 8328,
+      "auth_required": true
+    },
+    {
+      "name": "acquisition-financing-service",
+      "path": "/acquisition-financing",
+      "url": "http://acquisition-financing-service:8245",
+      "port": 8245,
+      "auth_required": true
+    },
+    {
+      "name": "activity-based-budget-service",
+      "path": "/activity-based-budget",
+      "url": "http://activity-based-budget-service:8177",
+      "port": 8177,
+      "auth_required": true
+    },
+    {
+      "name": "activity-based-costing-service",
+      "path": "/activity-based-costing",
+      "url": "http://activity-based-costing-service:8179",
+      "port": 8179,
+      "auth_required": true
+    },
+    {
+      "name": "actual-cost-service",
+      "path": "/actual-cost",
+      "url": "http://actual-cost-service:8404",
+      "port": 8404,
+      "auth_required": true
+    },
+    {
+      "name": "admin-service",
+      "path": "/admin",
+      "url": "http://admin-service:8099",
+      "port": 8099,
+      "auth_required": true
+    },
+    {
+      "name": "ai-readiness-service",
+      "path": "/ai-readiness",
+      "url": "http://ai-readiness-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "alerts-service",
+      "path": "/alerts",
+      "url": "http://alerts-service:8090",
+      "port": 8090,
+      "auth_required": true
+    },
+    {
+      "name": "amortization-service",
+      "path": "/amortization",
+      "url": "http://amortization-service:8357",
+      "port": 8357,
+      "auth_required": true
+    },
+    {
+      "name": "analytical-procedures-service",
+      "path": "/analytical-procedures",
+      "url": "http://analytical-procedures-service:8197",
+      "port": 8197,
+      "auth_required": true
+    },
+    {
+      "name": "analytics-service",
+      "path": "/analytics",
+      "url": "http://analytics-service:8364",
+      "port": 8364,
+      "auth_required": true
+    },
+    {
+      "name": "annual-report-service",
+      "path": "/annual-report",
+      "url": "http://annual-report-service:8210",
+      "port": 8210,
+      "auth_required": true
+    },
+    {
+      "name": "appropriation-control-service",
+      "path": "/appropriation-control",
+      "url": "http://appropriation-control-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "asset-allocation-service",
+      "path": "/asset-allocation",
+      "url": "http://asset-allocation-service:8235",
+      "port": 8235,
+      "auth_required": true
+    },
+    {
+      "name": "asset-turnover-service",
+      "path": "/asset-turnover",
+      "url": "http://asset-turnover-service:8216",
+      "port": 8216,
+      "auth_required": true
+    },
+    {
+      "name": "audit-compliance-service",
+      "path": "/audit-compliance",
+      "url": "http://audit-compliance-service:8405",
+      "port": 8405,
+      "auth_required": true
+    },
+    {
+      "name": "audit-evidence-service",
+      "path": "/audit-evidence",
+      "url": "http://audit-evidence-service:8201",
+      "port": 8201,
+      "auth_required": true
+    },
+    {
+      "name": "audit-sampling-service",
+      "path": "/audit-sampling",
+      "url": "http://audit-sampling-service:8196",
+      "port": 8196,
+      "auth_required": true
+    },
+    {
+      "name": "authorized-share-capital-service",
+      "path": "/authorized-share-capital",
+      "url": "http://authorized-share-capital-service:8406",
+      "port": 8406,
+      "auth_required": true
+    },
+    {
+      "name": "automation-engine",
+      "path": "/automation-engine",
+      "url": "http://automation-engine:8098",
+      "port": 8098,
+      "auth_required": true
+    },
+    {
+      "name": "automation-engine-service",
+      "path": "/automation-engine",
+      "url": "http://automation-engine-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "bad-debts-recovery-service",
+      "path": "/bad-debts-recovery",
+      "url": "http://bad-debts-recovery-service:8407",
+      "port": 8407,
+      "auth_required": true
+    },
+    {
+      "name": "balance-sheet-service",
+      "path": "/balance-sheet",
+      "url": "http://balance-sheet-service:8333",
+      "port": 8333,
+      "auth_required": true
+    },
+    {
+      "name": "balanced-scorecard-service",
+      "path": "/balanced-scorecard",
+      "url": "http://balanced-scorecard-service:8279",
+      "port": 8279,
+      "auth_required": true
+    },
+    {
+      "name": "bank-fee-analysis-service",
+      "path": "/bank-fee-analysis",
+      "url": "http://bank-fee-analysis-service:8189",
+      "port": 8189,
+      "auth_required": true
+    },
+    {
+      "name": "bank-feed-service",
+      "path": "/bank-feed",
+      "url": "http://bank-feed-service:8097",
+      "port": 8097,
+      "auth_required": true
+    },
+    {
+      "name": "bank-reconciliation-service",
+      "path": "/bank-reconciliation",
+      "url": "http://bank-reconciliation-service:8408",
+      "port": 8408,
+      "auth_required": true
+    },
+    {
+      "name": "bank-relationship-service",
+      "path": "/bank-relationship",
+      "url": "http://bank-relationship-service:8324",
+      "port": 8324,
+      "auth_required": true
+    },
+    {
+      "name": "banking-integration-service",
+      "path": "/banking-integration",
+      "url": "http://banking-integration-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "basis-apportionment-service",
+      "path": "/basis-apportionment",
+      "url": "http://basis-apportionment-service:8409",
+      "port": 8409,
+      "auth_required": true
+    },
+    {
+      "name": "benefits-admin-service",
+      "path": "/benefits-admin",
+      "url": "http://benefits-admin-service:8360",
+      "port": 8360,
+      "auth_required": true
+    },
+    {
+      "name": "biological-assets-service",
+      "path": "/biological-assets",
+      "url": "http://biological-assets-service:8146",
+      "port": 8146,
+      "auth_required": true
+    },
+    {
+      "name": "bonus-shares-service",
+      "path": "/bonus-shares",
+      "url": "http://bonus-shares-service:8410",
+      "port": 8410,
+      "auth_required": true
+    },
+    {
+      "name": "budget-service",
+      "path": "/budget",
+      "url": "http://budget-service:8411",
+      "port": 8411,
+      "auth_required": true
+    },
+    {
+      "name": "budgeted-cost-service",
+      "path": "/budgeted-cost",
+      "url": "http://budgeted-cost-service:8412",
+      "port": 8412,
+      "auth_required": true
+    },
+    {
+      "name": "business-combination-service",
+      "path": "/business-combination",
+      "url": "http://business-combination-service:8384",
+      "port": 8384,
+      "auth_required": true
+    },
+    {
+      "name": "business-documents-service",
+      "path": "/business-documents",
+      "url": "http://business-documents-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "business-valuation-service",
+      "path": "/business-valuation",
+      "url": "http://business-valuation-service:8155",
+      "port": 8155,
+      "auth_required": true
+    },
+    {
+      "name": "cache-service",
+      "path": "/cache",
+      "url": "http://cache-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "capital-allocation-service",
+      "path": "/capital-allocation",
+      "url": "http://capital-allocation-service:8289",
+      "port": 8289,
+      "auth_required": true
+    },
+    {
+      "name": "capital-budgeting-service",
+      "path": "/capital-budgeting",
+      "url": "http://capital-budgeting-service:8232",
+      "port": 8232,
+      "auth_required": true
+    },
+    {
+      "name": "capital-expenditure-budget-service",
+      "path": "/capital-expenditure-budget",
+      "url": "http://capital-expenditure-budget-service:8178",
+      "port": 8178,
+      "auth_required": true
+    },
+    {
+      "name": "capital-reconstruction-service",
+      "path": "/capital-reconstruction",
+      "url": "http://capital-reconstruction-service:8413",
+      "port": 8413,
+      "auth_required": true
+    },
+    {
+      "name": "capital-redemption-reserve-service",
+      "path": "/capital-redemption-reserve",
+      "url": "http://capital-redemption-reserve-service:8414",
+      "port": 8414,
+      "auth_required": true
+    },
+    {
+      "name": "cash-budget-service",
+      "path": "/cash-budget",
+      "url": "http://cash-budget-service:8171",
+      "port": 8171,
+      "auth_required": true
+    },
+    {
+      "name": "cash-flow-forecasting-service",
+      "path": "/cash-flow-forecasting",
+      "url": "http://cash-flow-forecasting-service:8238",
+      "port": 8238,
+      "auth_required": true
+    },
+    {
+      "name": "cash-flow-service",
+      "path": "/cash-flow",
+      "url": "http://cash-flow-service:8415",
+      "port": 8415,
+      "auth_required": true
+    },
+    {
+      "name": "cash-flow-statement-service",
+      "path": "/cash-flow-statement",
+      "url": "http://cash-flow-statement-service:8335",
+      "port": 8335,
+      "auth_required": true
+    },
+    {
+      "name": "cash-management-service",
+      "path": "/cash-management",
+      "url": "http://cash-management-service:8264",
+      "port": 8264,
+      "auth_required": true
+    },
+    {
+      "name": "cash-optimization-service",
+      "path": "/cash-optimization",
+      "url": "http://cash-optimization-service:8323",
+      "port": 8323,
+      "auth_required": true
+    },
+    {
+      "name": "cash-pooling-service",
+      "path": "/cash-pooling",
+      "url": "http://cash-pooling-service:8258",
+      "port": 8258,
+      "auth_required": true
+    },
+    {
+      "name": "cashbook-service",
+      "path": "/cashbook",
+      "url": "http://cashbook-service:8098",
+      "port": 8098,
+      "auth_required": true
+    },
+    {
+      "name": "commodity-hedging-service",
+      "path": "/commodity-hedging",
+      "url": "http://commodity-hedging-service:8253",
+      "port": 8253,
+      "auth_required": true
+    },
+    {
+      "name": "company-accounting-service",
+      "path": "/company-accounting",
+      "url": "http://company-accounting-service:8101",
+      "port": 8101,
+      "auth_required": true
+    },
+    {
+      "name": "comparative-financial-statements-service",
+      "path": "/comparative-financial-statements",
+      "url": "http://comparative-financial-statements-service:8142",
+      "port": 8142,
+      "auth_required": true
+    },
+    {
+      "name": "consolidation-service",
+      "path": "/consolidation",
+      "url": "http://consolidation-service:8416",
+      "port": 8416,
+      "auth_required": true
+    },
+    {
+      "name": "construction-contracts-service",
+      "path": "/construction-contracts",
+      "url": "http://construction-contracts-service:8219",
+      "port": 8219,
+      "auth_required": true
+    },
+    {
+      "name": "continue-shutdown-decision-service",
+      "path": "/continue-shutdown-decision",
+      "url": "http://continue-shutdown-decision-service:8417",
+      "port": 8417,
+      "auth_required": true
+    },
+    {
+      "name": "control-account-reconciliation-service",
+      "path": "/control-account-reconciliation",
+      "url": "http://control-account-reconciliation-service:8418",
+      "port": 8418,
+      "auth_required": true
+    },
+    {
+      "name": "corporate-governance-service",
+      "path": "/corporate-governance",
+      "url": "http://corporate-governance-service:8209",
+      "port": 8209,
+      "auth_required": true
+    },
+    {
+      "name": "corporate-tax-service",
+      "path": "/corporate-tax",
+      "url": "http://corporate-tax-service:8298",
+      "port": 8298,
+      "auth_required": true
+    },
+    {
+      "name": "cost-accounting-service",
+      "path": "/cost-accounting",
+      "url": "http://cost-accounting-service:8339",
+      "port": 8339,
+      "auth_required": true
+    },
+    {
+      "name": "cost-centre-service",
+      "path": "/cost-centre",
+      "url": "http://cost-centre-service:8419",
+      "port": 8419,
+      "auth_required": true
+    },
+    {
+      "name": "cost-of-capital-service",
+      "path": "/cost-of-capital",
+      "url": "http://cost-of-capital-service:8420",
+      "port": 8420,
+      "auth_required": true
+    },
+    {
+      "name": "cqrs-event-sourcing-service",
+      "path": "/cqrs-event-sourcing",
+      "url": "http://cqrs-event-sourcing-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "credit-derivatives-service",
+      "path": "/credit-derivatives",
+      "url": "http://credit-derivatives-service:8254",
+      "port": 8254,
+      "auth_required": true
+    },
+    {
+      "name": "credit-risk-analysis-service",
+      "path": "/credit-risk-analysis",
+      "url": "http://credit-risk-analysis-service:8163",
+      "port": 8163,
+      "auth_required": true
+    },
+    {
+      "name": "croic-service",
+      "path": "/croic",
+      "url": "http://croic-service:8214",
+      "port": 8214,
+      "auth_required": true
+    },
+    {
+      "name": "cross-currency-swap-service",
+      "path": "/cross-currency-swap",
+      "url": "http://cross-currency-swap-service:8256",
+      "port": 8256,
+      "auth_required": true
+    },
+    {
+      "name": "currency-hedging-service",
+      "path": "/currency-hedging",
+      "url": "http://currency-hedging-service:8251",
+      "port": 8251,
+      "auth_required": true
+    },
+    {
+      "name": "currency-service",
+      "path": "/currency",
+      "url": "http://currency-service:8092",
+      "port": 8092,
+      "auth_required": true
+    },
+    {
+      "name": "cvp-analysis-service",
+      "path": "/cvp-analysis",
+      "url": "http://cvp-analysis-service:8421",
+      "port": 8421,
+      "auth_required": true
+    },
+    {
+      "name": "dashboard-service",
+      "path": "/dashboard",
+      "url": "http://dashboard-service:8365",
+      "port": 8365,
+      "auth_required": true
+    },
+    {
+      "name": "data-sovereignty-service",
+      "path": "/data-sovereignty",
+      "url": "http://data-sovereignty-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "data-warehouse-service",
+      "path": "/data-warehouse",
+      "url": "http://data-warehouse-service:8362",
+      "port": 8362,
+      "auth_required": true
+    },
+    {
+      "name": "deal-structuring-service",
+      "path": "/deal-structuring",
+      "url": "http://deal-structuring-service:8246",
+      "port": 8246,
+      "auth_required": true
+    },
+    {
+      "name": "debentures-service",
+      "path": "/debentures",
+      "url": "http://debentures-service:8422",
+      "port": 8422,
+      "auth_required": true
+    },
+    {
+      "name": "debt-covenants-service",
+      "path": "/debt-covenants",
+      "url": "http://debt-covenants-service:8240",
+      "port": 8240,
+      "auth_required": true
+    },
+    {
+      "name": "debt-management-service",
+      "path": "/debt-management",
+      "url": "http://debt-management-service:8194",
+      "port": 8194,
+      "auth_required": true
+    },
+    {
+      "name": "departmental-accounting-service",
+      "path": "/departmental-accounting",
+      "url": "http://departmental-accounting-service:8100",
+      "port": 8100,
+      "auth_required": true
+    },
+    {
+      "name": "depreciation-service",
+      "path": "/depreciation",
+      "url": "http://depreciation-service:8356",
+      "port": 8356,
+      "auth_required": true
+    },
+    {
+      "name": "director-emoluments-service",
+      "path": "/director-emoluments",
+      "url": "http://director-emoluments-service:8208",
+      "port": 8208,
+      "auth_required": true
+    },
+    {
+      "name": "disaster-recovery-service",
+      "path": "/disaster-recovery",
+      "url": "http://disaster-recovery-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "discount-factor-service",
+      "path": "/discount-factor",
+      "url": "http://discount-factor-service:8423",
+      "port": 8423,
+      "auth_required": true
+    },
+    {
+      "name": "discounted-payback-period-service",
+      "path": "/discounted-payback-period",
+      "url": "http://discounted-payback-period-service:8424",
+      "port": 8424,
+      "auth_required": true
+    },
+    {
+      "name": "disposal-account-service",
+      "path": "/disposal-account",
+      "url": "http://disposal-account-service:8425",
+      "port": 8425,
+      "auth_required": true
+    },
+    {
+      "name": "disposal-group-service",
+      "path": "/disposal-group",
+      "url": "http://disposal-group-service:8226",
+      "port": 8226,
+      "auth_required": true
+    },
+    {
+      "name": "distributed-workflow-orchestration-service",
+      "path": "/distributed-workflow-orchestration",
+      "url": "http://distributed-workflow-orchestration-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "divestiture-service",
+      "path": "/divestiture",
+      "url": "http://divestiture-service:8385",
+      "port": 8385,
+      "auth_required": true
+    },
+    {
+      "name": "document-service",
+      "path": "/document",
+      "url": "http://document-service:8096",
+      "port": 8096,
+      "auth_required": true
+    },
+    {
+      "name": "double-entry-principles-service",
+      "path": "/double-entry-principles",
+      "url": "http://double-entry-principles-service:8426",
+      "port": 8426,
+      "auth_required": true
+    },
+    {
+      "name": "du-pont-service",
+      "path": "/du-pont",
+      "url": "http://du-pont-service:8211",
+      "port": 8211,
+      "auth_required": true
+    },
+    {
+      "name": "due-diligence-service",
+      "path": "/due-diligence",
+      "url": "http://due-diligence-service:8242",
+      "port": 8242,
+      "auth_required": true
+    },
+    {
+      "name": "edge-computing-service",
+      "path": "/edge-computing",
+      "url": "http://edge-computing-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "encrypted-backup-service",
+      "path": "/encrypted-backup",
+      "url": "http://encrypted-backup-service:8006",
+      "port": 8006,
+      "auth_required": true
+    },
+    {
+      "name": "enterprise-sso-service",
+      "path": "/enterprise-sso",
+      "url": "http://enterprise-sso-service:8004",
+      "port": 8004,
+      "auth_required": true
+    },
+    {
+      "name": "eps-service",
+      "path": "/eps",
+      "url": "http://eps-service:8207",
+      "port": 8207,
+      "auth_required": true
+    },
+    {
+      "name": "equity-changes-service",
+      "path": "/equity-changes",
+      "url": "http://equity-changes-service:8336",
+      "port": 8336,
+      "auth_required": true
+    },
+    {
+      "name": "equivalent-units-service",
+      "path": "/equivalent-units",
+      "url": "http://equivalent-units-service:8186",
+      "port": 8186,
+      "auth_required": true
+    },
+    {
+      "name": "esg-reporting-service",
+      "path": "/esg-reporting",
+      "url": "http://esg-reporting-service:8230",
+      "port": 8230,
+      "auth_required": true
+    },
+    {
+      "name": "etl-service",
+      "path": "/etl",
+      "url": "http://etl-service:8363",
+      "port": 8363,
+      "auth_required": true
+    },
+    {
+      "name": "eva-service",
+      "path": "/eva",
+      "url": "http://eva-service:8212",
+      "port": 8212,
+      "auth_required": true
+    },
+    {
+      "name": "event-streaming-service",
+      "path": "/event-streaming",
+      "url": "http://event-streaming-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "events-after-reporting-service",
+      "path": "/events-after-reporting",
+      "url": "http://events-after-reporting-service:8206",
+      "port": 8206,
+      "auth_required": true
+    },
+    {
+      "name": "exotic-derivatives-service",
+      "path": "/exotic-derivatives",
+      "url": "http://exotic-derivatives-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "expense-tracking-service",
+      "path": "/expense-tracking",
+      "url": "http://expense-tracking-service:8338",
+      "port": 8338,
+      "auth_required": true
+    },
+    {
+      "name": "family-community-group-service",
+      "path": "/family-community-group",
+      "url": "http://family-community-group-service:8005",
+      "port": 8005,
+      "auth_required": true
+    },
+    {
+      "name": "federated-network-service",
+      "path": "/federated-network",
+      "url": "http://federated-network-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "finance-service",
+      "path": "/finance",
+      "url": "http://finance-service:8427",
+      "port": 8427,
+      "auth_required": true
+    },
+    {
+      "name": "financial-distress-prediction-service",
+      "path": "/financial-distress-prediction",
+      "url": "http://financial-distress-prediction-service:8169",
+      "port": 8169,
+      "auth_required": true
+    },
+    {
+      "name": "financial-forecasting-service",
+      "path": "/financial-forecasting",
+      "url": "http://financial-forecasting-service:8287",
+      "port": 8287,
+      "auth_required": true
+    },
+    {
+      "name": "financial-identity-service",
+      "path": "/financial-identity",
+      "url": "http://financial-identity-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "financial-integrity-service",
+      "path": "/financial-integrity",
+      "url": "http://financial-integrity-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "financial-planning-service",
+      "path": "/financial-planning",
+      "url": "http://financial-planning-service:8231",
+      "port": 8231,
+      "auth_required": true
+    },
+    {
+      "name": "financial-reporting-service",
+      "path": "/financial-reporting",
+      "url": "http://financial-reporting-service:8267",
+      "port": 8267,
+      "auth_required": true
+    },
+    {
+      "name": "financial-state-machine-service",
+      "path": "/financial-state-machine",
+      "url": "http://financial-state-machine-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "financial-statements-service",
+      "path": "/financial-statements",
+      "url": "http://financial-statements-service:8332",
+      "port": 8332,
+      "auth_required": true
+    },
+    {
+      "name": "fixed-assets-register-service",
+      "path": "/fixed-assets-register",
+      "url": "http://fixed-assets-register-service:8355",
+      "port": 8355,
+      "auth_required": true
+    },
+    {
+      "name": "fixed-assets-schedule-service",
+      "path": "/fixed-assets-schedule",
+      "url": "http://fixed-assets-schedule-service:8428",
+      "port": 8428,
+      "auth_required": true
+    },
+    {
+      "name": "fixed-assets-service",
+      "path": "/fixed-assets",
+      "url": "http://fixed-assets-service:8329",
+      "port": 8329,
+      "auth_required": true
+    },
+    {
+      "name": "fixed-cost-service",
+      "path": "/fixed-cost",
+      "url": "http://fixed-cost-service:8429",
+      "port": 8429,
+      "auth_required": true
+    },
+    {
+      "name": "flexible-budget-service",
+      "path": "/flexible-budget",
+      "url": "http://flexible-budget-service:8430",
+      "port": 8430,
+      "auth_required": true
+    },
+    {
+      "name": "foreign-currency-translation-service",
+      "path": "/foreign-currency-translation",
+      "url": "http://foreign-currency-translation-service:8373",
+      "port": 8373,
+      "auth_required": true
+    },
+    {
+      "name": "foreign-exchange-service",
+      "path": "/foreign-exchange",
+      "url": "http://foreign-exchange-service:8192",
+      "port": 8192,
+      "auth_required": true
+    },
+    {
+      "name": "forensic-accounting-service",
+      "path": "/forensic-accounting",
+      "url": "http://forensic-accounting-service:8313",
+      "port": 8313,
+      "auth_required": true
+    },
+    {
+      "name": "forward-contracts-service",
+      "path": "/forward-contracts",
+      "url": "http://forward-contracts-service:8247",
+      "port": 8247,
+      "auth_required": true
+    },
+    {
+      "name": "fraud-detection-service",
+      "path": "/fraud-detection",
+      "url": "http://fraud-detection-service:8312",
+      "port": 8312,
+      "auth_required": true
+    },
+    {
+      "name": "fraud-risk-assessment-service",
+      "path": "/fraud-risk-assessment",
+      "url": "http://fraud-risk-assessment-service:8199",
+      "port": 8199,
+      "auth_required": true
+    },
+    {
+      "name": "fund-accounting-service",
+      "path": "/fund-accounting",
+      "url": "http://fund-accounting-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "fund-management-service",
+      "path": "/fund-management",
+      "url": "http://fund-management-service:8266",
+      "port": 8266,
+      "auth_required": true
+    },
+    {
+      "name": "futures-hedging-service",
+      "path": "/futures-hedging",
+      "url": "http://futures-hedging-service:8250",
+      "port": 8250,
+      "auth_required": true
+    },
+    {
+      "name": "general-ledger-service",
+      "path": "/general-ledger",
+      "url": "http://general-ledger-service:8330",
+      "port": 8330,
+      "auth_required": true
+    },
+    {
+      "name": "general-reserve-service",
+      "path": "/general-reserve",
+      "url": "http://general-reserve-service:8431",
+      "port": 8431,
+      "auth_required": true
+    },
+    {
+      "name": "going-concern-service",
+      "path": "/going-concern",
+      "url": "http://going-concern-service:8203",
+      "port": 8203,
+      "auth_required": true
+    },
+    {
+      "name": "goodwill-service",
+      "path": "/goodwill",
+      "url": "http://goodwill-service:8359",
+      "port": 8359,
+      "auth_required": true
+    },
+    {
+      "name": "government-grants-service",
+      "path": "/government-grants",
+      "url": "http://government-grants-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "graphql-service",
+      "path": "/graphql",
+      "url": "http://graphql-service:8095",
+      "port": 8095,
+      "auth_required": true
+    },
+    {
+      "name": "group-tax-service",
+      "path": "/group-tax",
+      "url": "http://group-tax-service:8297",
+      "port": 8297,
+      "auth_required": true
+    },
+    {
+      "name": "grpc-service",
+      "path": "/grpc",
+      "url": "http://grpc-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "high-availability-service",
+      "path": "/high-availability",
+      "url": "http://high-availability-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "household-finance-service",
+      "path": "/household-finance",
+      "url": "http://household-finance-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "identity-service",
+      "path": "/identity",
+      "url": "http://identity-service:8080",
+      "port": 8080,
+      "auth_required": false
+    },
+    {
+      "name": "ifrs-15-revenue-recognition-service",
+      "path": "/ifrs-15-revenue-recognition",
+      "url": "http://ifrs-15-revenue-recognition-service:8148",
+      "port": 8148,
+      "auth_required": true
+    },
+    {
+      "name": "ifrs-16-lease-accounting-service",
+      "path": "/ifrs-16-lease-accounting",
+      "url": "http://ifrs-16-lease-accounting-service:8147",
+      "port": 8147,
+      "auth_required": true
+    },
+    {
+      "name": "ifrs-2-share-based-payment-service",
+      "path": "/ifrs-2-share-based-payment",
+      "url": "http://ifrs-2-share-based-payment-service:8150",
+      "port": 8150,
+      "auth_required": true
+    },
+    {
+      "name": "ifrs-9-financial-instruments-service",
+      "path": "/ifrs-9-financial-instruments",
+      "url": "http://ifrs-9-financial-instruments-service:8149",
+      "port": 8149,
+      "auth_required": true
+    },
+    {
+      "name": "ifrs-reporting-service",
+      "path": "/ifrs-reporting",
+      "url": "http://ifrs-reporting-service:8268",
+      "port": 8268,
+      "auth_required": true
+    },
+    {
+      "name": "income-statement-service",
+      "path": "/income-statement",
+      "url": "http://income-statement-service:8334",
+      "port": 8334,
+      "auth_required": true
+    },
+    {
+      "name": "infrastructure-as-code-service",
+      "path": "/infrastructure-as-code",
+      "url": "http://infrastructure-as-code-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "initial-investment-service",
+      "path": "/initial-investment",
+      "url": "http://initial-investment-service:8432",
+      "port": 8432,
+      "auth_required": true
+    },
+    {
+      "name": "insurance-claims-service",
+      "path": "/insurance-claims",
+      "url": "http://insurance-claims-service:8367",
+      "port": 8367,
+      "auth_required": true
+    },
+    {
+      "name": "intangible-assets-service",
+      "path": "/intangible-assets",
+      "url": "http://intangible-assets-service:8358",
+      "port": 8358,
+      "auth_required": true
+    },
+    {
+      "name": "intercompany-service",
+      "path": "/intercompany",
+      "url": "http://intercompany-service:8350",
+      "port": 8350,
+      "auth_required": true
+    },
+    {
+      "name": "interest-rate-hedging-service",
+      "path": "/interest-rate-hedging",
+      "url": "http://interest-rate-hedging-service:8252",
+      "port": 8252,
+      "auth_required": true
+    },
+    {
+      "name": "interest-rate-risk-service",
+      "path": "/interest-rate-risk",
+      "url": "http://interest-rate-risk-service:8170",
+      "port": 8170,
+      "auth_required": true
+    },
+    {
+      "name": "interim-financial-reporting-service",
+      "path": "/interim-financial-reporting",
+      "url": "http://interim-financial-reporting-service:8141",
+      "port": 8141,
+      "auth_required": true
+    },
+    {
+      "name": "internal-control-evaluation-service",
+      "path": "/internal-control-evaluation",
+      "url": "http://internal-control-evaluation-service:8200",
+      "port": 8200,
+      "auth_required": true
+    },
+    {
+      "name": "internal-controls-testing-service",
+      "path": "/internal-controls-testing",
+      "url": "http://internal-controls-testing-service:8284",
+      "port": 8284,
+      "auth_required": true
+    },
+    {
+      "name": "internal-rate-return-service",
+      "path": "/internal-rate-return",
+      "url": "http://internal-rate-return-service:8433",
+      "port": 8433,
+      "auth_required": true
+    },
+    {
+      "name": "inventory-valuation-service",
+      "path": "/inventory-valuation",
+      "url": "http://inventory-valuation-service:8377",
+      "port": 8377,
+      "auth_required": true
+    },
+    {
+      "name": "investigation-service",
+      "path": "/investigation",
+      "url": "http://investigation-service:8314",
+      "port": 8314,
+      "auth_required": true
+    },
+    {
+      "name": "investment-appraisal-service",
+      "path": "/investment-appraisal",
+      "url": "http://investment-appraisal-service:8233",
+      "port": 8233,
+      "auth_required": true
+    },
+    {
+      "name": "investment-monitoring-service",
+      "path": "/investment-monitoring",
+      "url": "http://investment-monitoring-service:8290",
+      "port": 8290,
+      "auth_required": true
+    },
+    {
+      "name": "investment-portfolio-service",
+      "path": "/investment-portfolio",
+      "url": "http://investment-portfolio-service:8265",
+      "port": 8265,
+      "auth_required": true
+    },
+    {
+      "name": "investment-property-service",
+      "path": "/investment-property",
+      "url": "http://investment-property-service:8145",
+      "port": 8145,
+      "auth_required": true
+    },
+    {
+      "name": "invoicing-service",
+      "path": "/invoicing",
+      "url": "http://invoicing-service:8434",
+      "port": 8434,
+      "auth_required": true
+    },
+    {
+      "name": "issued-share-capital-service",
+      "path": "/issued-share-capital",
+      "url": "http://issued-share-capital-service:8435",
+      "port": 8435,
+      "auth_required": true
+    },
+    {
+      "name": "it-audit-service",
+      "path": "/it-audit",
+      "url": "http://it-audit-service:8318",
+      "port": 8318,
+      "auth_required": true
+    },
+    {
+      "name": "job-costing-service",
+      "path": "/job-costing",
+      "url": "http://job-costing-service:8341",
+      "port": 8341,
+      "auth_required": true
+    },
+    {
+      "name": "journal-entries-service",
+      "path": "/journal-entries",
+      "url": "http://journal-entries-service:8331",
+      "port": 8331,
+      "auth_required": true
+    },
+    {
+      "name": "kpi-tracking-service",
+      "path": "/kpi-tracking",
+      "url": "http://kpi-tracking-service:8278",
+      "port": 8278,
+      "auth_required": true
+    },
+    {
+      "name": "labour-cost-variance-service",
+      "path": "/labour-cost-variance",
+      "url": "http://labour-cost-variance-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "labour-efficiency-variance-service",
+      "path": "/labour-efficiency-variance",
+      "url": "http://labour-efficiency-variance-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "labour-rate-variance-service",
+      "path": "/labour-rate-variance",
+      "url": "http://labour-rate-variance-service:8436",
+      "port": 8436,
+      "auth_required": true
+    },
+    {
+      "name": "lease-management-service",
+      "path": "/lease-management",
+      "url": "http://lease-management-service:8353",
+      "port": 8353,
+      "auth_required": true
+    },
+    {
+      "name": "lease-termination-service",
+      "path": "/lease-termination",
+      "url": "http://lease-termination-service:8224",
+      "port": 8224,
+      "auth_required": true
+    },
+    {
+      "name": "lifecycle-costing-service",
+      "path": "/lifecycle-costing",
+      "url": "http://lifecycle-costing-service:8182",
+      "port": 8182,
+      "auth_required": true
+    },
+    {
+      "name": "limiting-factor-service",
+      "path": "/limiting-factor",
+      "url": "http://limiting-factor-service:8437",
+      "port": 8437,
+      "auth_required": true
+    },
+    {
+      "name": "liquidity-forecast-service",
+      "path": "/liquidity-forecast",
+      "url": "http://liquidity-forecast-service:8260",
+      "port": 8260,
+      "auth_required": true
+    },
+    {
+      "name": "liquidity-management-service",
+      "path": "/liquidity-management",
+      "url": "http://liquidity-management-service:8239",
+      "port": 8239,
+      "auth_required": true
+    },
+    {
+      "name": "liquidity-risk-service",
+      "path": "/liquidity-risk",
+      "url": "http://liquidity-risk-service:8164",
+      "port": 8164,
+      "auth_required": true
+    },
+    {
+      "name": "make-or-buy-decision-service",
+      "path": "/make-or-buy-decision",
+      "url": "http://make-or-buy-decision-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "management-accounts-service",
+      "path": "/management-accounts",
+      "url": "http://management-accounts-service:8281",
+      "port": 8281,
+      "auth_required": true
+    },
+    {
+      "name": "management-dashboard-service",
+      "path": "/management-dashboard",
+      "url": "http://management-dashboard-service:8271",
+      "port": 8271,
+      "auth_required": true
+    },
+    {
+      "name": "management-reporting-service",
+      "path": "/management-reporting",
+      "url": "http://management-reporting-service:8269",
+      "port": 8269,
+      "auth_required": true
+    },
+    {
+      "name": "margin-safety-service",
+      "path": "/margin-safety",
+      "url": "http://margin-safety-service:8438",
+      "port": 8438,
+      "auth_required": true
+    },
+    {
+      "name": "marginal-costing-service",
+      "path": "/marginal-costing",
+      "url": "http://marginal-costing-service:8439",
+      "port": 8439,
+      "auth_required": true
+    },
+    {
+      "name": "market-risk-service",
+      "path": "/market-risk",
+      "url": "http://market-risk-service:8165",
+      "port": 8165,
+      "auth_required": true
+    },
+    {
+      "name": "master-budget-service",
+      "path": "/master-budget",
+      "url": "http://master-budget-service:8172",
+      "port": 8172,
+      "auth_required": true
+    },
+    {
+      "name": "material-cost-variance-service",
+      "path": "/material-cost-variance",
+      "url": "http://material-cost-variance-service:8440",
+      "port": 8440,
+      "auth_required": true
+    },
+    {
+      "name": "material-price-variance-service",
+      "path": "/material-price-variance",
+      "url": "http://material-price-variance-service:8441",
+      "port": 8441,
+      "auth_required": true
+    },
+    {
+      "name": "material-usage-variance-service",
+      "path": "/material-usage-variance",
+      "url": "http://material-usage-variance-service:8442",
+      "port": 8442,
+      "auth_required": true
+    },
+    {
+      "name": "merger-valuation-service",
+      "path": "/merger-valuation",
+      "url": "http://merger-valuation-service:8241",
+      "port": 8241,
+      "auth_required": true
+    },
+    {
+      "name": "message-bus-service",
+      "path": "/message-bus",
+      "url": "http://message-bus-service:8097",
+      "port": 8097,
+      "auth_required": true
+    },
+    {
+      "name": "mfa-auth-service",
+      "path": "/mfa-auth",
+      "url": "http://mfa-auth-service:8007",
+      "port": 8007,
+      "auth_required": true
+    },
+    {
+      "name": "multi-cloud-service",
+      "path": "/multi-cloud",
+      "url": "http://multi-cloud-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "multi-currency-service",
+      "path": "/multi-currency",
+      "url": "http://multi-currency-service:8349",
+      "port": 8349,
+      "auth_required": true
+    },
+    {
+      "name": "multi-tenant-service",
+      "path": "/multi-tenant",
+      "url": "http://multi-tenant-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "multimodal-pipeline-service",
+      "path": "/multimodal-pipeline",
+      "url": "http://multimodal-pipeline-service:8443",
+      "port": 8443,
+      "auth_required": true
+    },
+    {
+      "name": "mva-service",
+      "path": "/mva",
+      "url": "http://mva-service:8213",
+      "port": 8213,
+      "auth_required": true
+    },
+    {
+      "name": "net-present-value-service",
+      "path": "/net-present-value",
+      "url": "http://net-present-value-service:8444",
+      "port": 8444,
+      "auth_required": true
+    },
+    {
+      "name": "net-realizable-value-service",
+      "path": "/net-realizable-value",
+      "url": "http://net-realizable-value-service:8445",
+      "port": 8445,
+      "auth_required": true
+    },
+    {
+      "name": "notifications-service",
+      "path": "/notifications",
+      "url": "http://notifications-service:8091",
+      "port": 8091,
+      "auth_required": true
+    },
+    {
+      "name": "npo-service",
+      "path": "/npo",
+      "url": "http://npo-service:8446",
+      "port": 8446,
+      "auth_required": true
+    },
+    {
+      "name": "observability-service",
+      "path": "/observability",
+      "url": "http://observability-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "offline-sync-service",
+      "path": "/offline-sync",
+      "url": "http://offline-sync-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "operational-audit-service",
+      "path": "/operational-audit",
+      "url": "http://operational-audit-service:8319",
+      "port": 8319,
+      "auth_required": true
+    },
+    {
+      "name": "operational-risk-service",
+      "path": "/operational-risk",
+      "url": "http://operational-risk-service:8166",
+      "port": 8166,
+      "auth_required": true
+    },
+    {
+      "name": "options-pricing-service",
+      "path": "/options-pricing",
+      "url": "http://options-pricing-service:8248",
+      "port": 8248,
+      "auth_required": true
+    },
+    {
+      "name": "order-acceptance-service",
+      "path": "/order-acceptance",
+      "url": "http://order-acceptance-service:8447",
+      "port": 8447,
+      "auth_required": true
+    },
+    {
+      "name": "ordinary-shares-service",
+      "path": "/ordinary-shares",
+      "url": "http://ordinary-shares-service:8448",
+      "port": 8448,
+      "auth_required": true
+    },
+    {
+      "name": "org-authorization-engine",
+      "path": "/org-authorization-engine",
+      "url": "http://org-authorization-engine:8008",
+      "port": 8008,
+      "auth_required": true
+    },
+    {
+      "name": "over-under-absorption-service",
+      "path": "/over-under-absorption",
+      "url": "http://over-under-absorption-service:8449",
+      "port": 8449,
+      "auth_required": true
+    },
+    {
+      "name": "overhead-absorption-rate-service",
+      "path": "/overhead-absorption-rate",
+      "url": "http://overhead-absorption-rate-service:8450",
+      "port": 8450,
+      "auth_required": true
+    },
+    {
+      "name": "overhead-apportionment-service",
+      "path": "/overhead-apportionment",
+      "url": "http://overhead-apportionment-service:8451",
+      "port": 8451,
+      "auth_required": true
+    },
+    {
+      "name": "partnership-accounting-service",
+      "path": "/partnership-accounting",
+      "url": "http://partnership-accounting-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "partnership-agreement-service",
+      "path": "/partnership-agreement",
+      "url": "http://partnership-agreement-service:8452",
+      "port": 8452,
+      "auth_required": true
+    },
+    {
+      "name": "partnership-changes-service",
+      "path": "/partnership-changes",
+      "url": "http://partnership-changes-service:8453",
+      "port": 8453,
+      "auth_required": true
+    },
+    {
+      "name": "partnership-dissolution-service",
+      "path": "/partnership-dissolution",
+      "url": "http://partnership-dissolution-service:8454",
+      "port": 8454,
+      "auth_required": true
+    },
+    {
+      "name": "partnership-revaluation-service",
+      "path": "/partnership-revaluation",
+      "url": "http://partnership-revaluation-service:8455",
+      "port": 8455,
+      "auth_required": true
+    },
+    {
+      "name": "partnership-sale-service",
+      "path": "/partnership-sale",
+      "url": "http://partnership-sale-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "payback-period-service",
+      "path": "/payback-period",
+      "url": "http://payback-period-service:8456",
+      "port": 8456,
+      "auth_required": true
+    },
+    {
+      "name": "payment-gateway-service",
+      "path": "/payment-gateway",
+      "url": "http://payment-gateway-service:8098",
+      "port": 8098,
+      "auth_required": true
+    },
+    {
+      "name": "payment-optimization-service",
+      "path": "/payment-optimization",
+      "url": "http://payment-optimization-service:8261",
+      "port": 8261,
+      "auth_required": true
+    },
+    {
+      "name": "payroll-accounting-service",
+      "path": "/payroll-accounting",
+      "url": "http://payroll-accounting-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "payroll-service",
+      "path": "/payroll",
+      "url": "http://payroll-service:8354",
+      "port": 8354,
+      "auth_required": true
+    },
+    {
+      "name": "pension-accounting-service",
+      "path": "/pension-accounting",
+      "url": "http://pension-accounting-service:8368",
+      "port": 8368,
+      "auth_required": true
+    },
+    {
+      "name": "performance-benchmarking-service",
+      "path": "/performance-benchmarking",
+      "url": "http://performance-benchmarking-service:8280",
+      "port": 8280,
+      "auth_required": true
+    },
+    {
+      "name": "personal-finance-service",
+      "path": "/personal-finance",
+      "url": "http://personal-finance-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "petty-cash-service",
+      "path": "/petty-cash",
+      "url": "http://petty-cash-service:8097",
+      "port": 8097,
+      "auth_required": true
+    },
+    {
+      "name": "plugin-extension-service",
+      "path": "/plugin-extension",
+      "url": "http://plugin-extension-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "policy-engine-service",
+      "path": "/policy-engine",
+      "url": "http://policy-engine-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "portfolio-optimization-service",
+      "path": "/portfolio-optimization",
+      "url": "http://portfolio-optimization-service:8234",
+      "port": 8234,
+      "auth_required": true
+    },
+    {
+      "name": "pos-integration-service",
+      "path": "/pos-integration",
+      "url": "http://pos-integration-service:8095",
+      "port": 8095,
+      "auth_required": true
+    },
+    {
+      "name": "post-merger-service",
+      "path": "/post-merger",
+      "url": "http://post-merger-service:8244",
+      "port": 8244,
+      "auth_required": true
+    },
+    {
+      "name": "preference-shares-service",
+      "path": "/preference-shares",
+      "url": "http://preference-shares-service:8457",
+      "port": 8457,
+      "auth_required": true
+    },
+    {
+      "name": "present-value-service",
+      "path": "/present-value",
+      "url": "http://present-value-service:8458",
+      "port": 8458,
+      "auth_required": true
+    },
+    {
+      "name": "prime-cost-service",
+      "path": "/prime-cost",
+      "url": "http://prime-cost-service:8459",
+      "port": 8459,
+      "auth_required": true
+    },
+    {
+      "name": "privacy-admin-dashboard-service",
+      "path": "/privacy-admin-dashboard",
+      "url": "http://privacy-admin-dashboard-service:8003",
+      "port": 8003,
+      "auth_required": true
+    },
+    {
+      "name": "process-costing-service",
+      "path": "/process-costing",
+      "url": "http://process-costing-service:8342",
+      "port": 8342,
+      "auth_required": true
+    },
+    {
+      "name": "product-costing-service",
+      "path": "/product-costing",
+      "url": "http://product-costing-service:8340",
+      "port": 8340,
+      "auth_required": true
+    },
+    {
+      "name": "profit-loss-account-service",
+      "path": "/profit-loss-account",
+      "url": "http://profit-loss-account-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "profit-service",
+      "path": "/profit",
+      "url": "http://profit-service:8460",
+      "port": 8460,
+      "auth_required": true
+    },
+    {
+      "name": "profitability-index-service",
+      "path": "/profitability-index",
+      "url": "http://profitability-index-service:8217",
+      "port": 8217,
+      "auth_required": true
+    },
+    {
+      "name": "project-accounting-service",
+      "path": "/project-accounting",
+      "url": "http://project-accounting-service:8352",
+      "port": 8352,
+      "auth_required": true
+    },
+    {
+      "name": "project-appraisal-service",
+      "path": "/project-appraisal",
+      "url": "http://project-appraisal-service:8288",
+      "port": 8288,
+      "auth_required": true
+    },
+    {
+      "name": "provision-bad-debts-service",
+      "path": "/provision-bad-debts",
+      "url": "http://provision-bad-debts-service:8461",
+      "port": 8461,
+      "auth_required": true
+    },
+    {
+      "name": "provision-doubtful-debts-service",
+      "path": "/provision-doubtful-debts",
+      "url": "http://provision-doubtful-debts-service:8462",
+      "port": 8462,
+      "auth_required": true
+    },
+    {
+      "name": "provisions-contingencies-service",
+      "path": "/provisions-contingencies",
+      "url": "http://provisions-contingencies-service:8205",
+      "port": 8205,
+      "auth_required": true
+    },
+    {
+      "name": "purchases-ledger-control-service",
+      "path": "/purchases-ledger-control",
+      "url": "http://purchases-ledger-control-service:8463",
+      "port": 8463,
+      "auth_required": true
+    },
+    {
+      "name": "r-and-d-tax-service",
+      "path": "/r-and-d-tax",
+      "url": "http://r-and-d-tax-service:8301",
+      "port": 8301,
+      "auth_required": true
+    },
+    {
+      "name": "ratio-analysis-service",
+      "path": "/ratio-analysis",
+      "url": "http://ratio-analysis-service:8348",
+      "port": 8348,
+      "auth_required": true
+    },
+    {
+      "name": "realtime-calculation-engine",
+      "path": "/realtime-calculation-engine",
+      "url": "http://realtime-calculation-engine:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "regulatory-compliance-service",
+      "path": "/regulatory-compliance",
+      "url": "http://regulatory-compliance-service:8285",
+      "port": 8285,
+      "auth_required": true
+    },
+    {
+      "name": "regulatory-ratio-service",
+      "path": "/regulatory-ratio",
+      "url": "http://regulatory-ratio-service:8229",
+      "port": 8229,
+      "auth_required": true
+    },
+    {
+      "name": "regulatory-reporting-service",
+      "path": "/regulatory-reporting",
+      "url": "http://regulatory-reporting-service:8351",
+      "port": 8351,
+      "auth_required": true
+    },
+    {
+      "name": "related-party-service",
+      "path": "/related-party",
+      "url": "http://related-party-service:8204",
+      "port": 8204,
+      "auth_required": true
+    },
+    {
+      "name": "report-automation-service",
+      "path": "/report-automation",
+      "url": "http://report-automation-service:8272",
+      "port": 8272,
+      "auth_required": true
+    },
+    {
+      "name": "report-distribution-service",
+      "path": "/report-distribution",
+      "url": "http://report-distribution-service:8273",
+      "port": 8273,
+      "auth_required": true
+    },
+    {
+      "name": "reporting-service",
+      "path": "/reporting",
+      "url": "http://reporting-service:8361",
+      "port": 8361,
+      "auth_required": true
+    },
+    {
+      "name": "retained-profits-service",
+      "path": "/retained-profits",
+      "url": "http://retained-profits-service:8464",
+      "port": 8464,
+      "auth_required": true
+    },
+    {
+      "name": "revaluation-model-service",
+      "path": "/revaluation-model",
+      "url": "http://revaluation-model-service:8144",
+      "port": 8144,
+      "auth_required": true
+    },
+    {
+      "name": "revaluation-reserve-service",
+      "path": "/revaluation-reserve",
+      "url": "http://revaluation-reserve-service:8465",
+      "port": 8465,
+      "auth_required": true
+    },
+    {
+      "name": "revenue-recognition-service",
+      "path": "/revenue-recognition",
+      "url": "http://revenue-recognition-service:8337",
+      "port": 8337,
+      "auth_required": true
+    },
+    {
+      "name": "right-issues-service",
+      "path": "/right-issues",
+      "url": "http://right-issues-service:8466",
+      "port": 8466,
+      "auth_required": true
+    },
+    {
+      "name": "risk-assessment-service",
+      "path": "/risk-assessment",
+      "url": "http://risk-assessment-service:8309",
+      "port": 8309,
+      "auth_required": true
+    },
+    {
+      "name": "risk-mitigation-service",
+      "path": "/risk-mitigation",
+      "url": "http://risk-mitigation-service:8311",
+      "port": 8311,
+      "auth_required": true
+    },
+    {
+      "name": "risk-reporting-service",
+      "path": "/risk-reporting",
+      "url": "http://risk-reporting-service:8310",
+      "port": 8310,
+      "auth_required": true
+    },
+    {
+      "name": "risk-return-analysis-service",
+      "path": "/risk-return-analysis",
+      "url": "http://risk-return-analysis-service:8236",
+      "port": 8236,
+      "auth_required": true
+    },
+    {
+      "name": "rolling-forecast-service",
+      "path": "/rolling-forecast",
+      "url": "http://rolling-forecast-service:8173",
+      "port": 8173,
+      "auth_required": true
+    },
+    {
+      "name": "sales-ledger-control-service",
+      "path": "/sales-ledger-control",
+      "url": "http://sales-ledger-control-service:8467",
+      "port": 8467,
+      "auth_required": true
+    },
+    {
+      "name": "sales-price-variance-service",
+      "path": "/sales-price-variance",
+      "url": "http://sales-price-variance-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "sales-volume-variance-service",
+      "path": "/sales-volume-variance",
+      "url": "http://sales-volume-variance-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "scenario-analysis-service",
+      "path": "/scenario-analysis",
+      "url": "http://scenario-analysis-service:8307",
+      "port": 8307,
+      "auth_required": true
+    },
+    {
+      "name": "scenario-budget-service",
+      "path": "/scenario-budget",
+      "url": "http://scenario-budget-service:8175",
+      "port": 8175,
+      "auth_required": true
+    },
+    {
+      "name": "scenario-modeling-service",
+      "path": "/scenario-modeling",
+      "url": "http://scenario-modeling-service:8468",
+      "port": 8468,
+      "auth_required": true
+    },
+    {
+      "name": "segment-reporting-service",
+      "path": "/segment-reporting",
+      "url": "http://segment-reporting-service:8374",
+      "port": 8374,
+      "auth_required": true
+    },
+    {
+      "name": "selling-price-reduction-service",
+      "path": "/selling-price-reduction",
+      "url": "http://selling-price-reduction-service:8469",
+      "port": 8469,
+      "auth_required": true
+    },
+    {
+      "name": "sensitivity-analysis-service",
+      "path": "/sensitivity-analysis",
+      "url": "http://sensitivity-analysis-service:8308",
+      "port": 8308,
+      "auth_required": true
+    },
+    {
+      "name": "share-options-service",
+      "path": "/share-options",
+      "url": "http://share-options-service:8223",
+      "port": 8223,
+      "auth_required": true
+    },
+    {
+      "name": "share-premium-service",
+      "path": "/share-premium",
+      "url": "http://share-premium-service:8470",
+      "port": 8470,
+      "auth_required": true
+    },
+    {
+      "name": "share-redemption-service",
+      "path": "/share-redemption",
+      "url": "http://share-redemption-service:8471",
+      "port": 8471,
+      "auth_required": true
+    },
+    {
+      "name": "sovereign-treasury-service",
+      "path": "/sovereign-treasury",
+      "url": "http://sovereign-treasury-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "sox-compliance-service",
+      "path": "/sox-compliance",
+      "url": "http://sox-compliance-service:8286",
+      "port": 8286,
+      "auth_required": true
+    },
+    {
+      "name": "standard-cost-service",
+      "path": "/standard-cost",
+      "url": "http://standard-cost-service:8472",
+      "port": 8472,
+      "auth_required": true
+    },
+    {
+      "name": "statutory-filing-service",
+      "path": "/statutory-filing",
+      "url": "http://statutory-filing-service:8227",
+      "port": 8227,
+      "auth_required": true
+    },
+    {
+      "name": "subscription-plans-service",
+      "path": "/subscription-plans",
+      "url": "http://subscription-plans-service:8001",
+      "port": 8001,
+      "auth_required": true
+    },
+    {
+      "name": "substantive-testing-service",
+      "path": "/substantive-testing",
+      "url": "http://substantive-testing-service:8198",
+      "port": 8198,
+      "auth_required": true
+    },
+    {
+      "name": "supply-chain-service",
+      "path": "/supply-chain",
+      "url": "http://supply-chain-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "suspense-error-service",
+      "path": "/suspense-error",
+      "url": "http://suspense-error-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "sustainable-growth-service",
+      "path": "/sustainable-growth",
+      "url": "http://sustainable-growth-service:8215",
+      "port": 8215,
+      "auth_required": true
+    },
+    {
+      "name": "swap-valuation-service",
+      "path": "/swap-valuation",
+      "url": "http://swap-valuation-service:8249",
+      "port": 8249,
+      "auth_required": true
+    },
+    {
+      "name": "synergy-analysis-service",
+      "path": "/synergy-analysis",
+      "url": "http://synergy-analysis-service:8243",
+      "port": 8243,
+      "auth_required": true
+    },
+    {
+      "name": "target-costing-service",
+      "path": "/target-costing",
+      "url": "http://target-costing-service:8183",
+      "port": 8183,
+      "auth_required": true
+    },
+    {
+      "name": "tax-accounting-service",
+      "path": "/tax-accounting",
+      "url": "http://tax-accounting-service:8473",
+      "port": 8473,
+      "auth_required": true
+    },
+    {
+      "name": "tax-audit-service",
+      "path": "/tax-audit",
+      "url": "http://tax-audit-service:8300",
+      "port": 8300,
+      "auth_required": true
+    },
+    {
+      "name": "tax-calculation-service",
+      "path": "/tax-calculation",
+      "url": "http://tax-calculation-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "tax-compliance-service",
+      "path": "/tax-compliance",
+      "url": "http://tax-compliance-service:8293",
+      "port": 8293,
+      "auth_required": true
+    },
+    {
+      "name": "tax-planning-service",
+      "path": "/tax-planning",
+      "url": "http://tax-planning-service:8292",
+      "port": 8292,
+      "auth_required": true
+    },
+    {
+      "name": "tax-provision-service",
+      "path": "/tax-provision",
+      "url": "http://tax-provision-service:8299",
+      "port": 8299,
+      "auth_required": true
+    },
+    {
+      "name": "tax-return-preparation-service",
+      "path": "/tax-return-preparation",
+      "url": "http://tax-return-preparation-service:8228",
+      "port": 8228,
+      "auth_required": true
+    },
+    {
+      "name": "tax-risk-service",
+      "path": "/tax-risk",
+      "url": "http://tax-risk-service:8296",
+      "port": 8296,
+      "auth_required": true
+    },
+    {
+      "name": "tax-service",
+      "path": "/tax",
+      "url": "http://tax-service:8346",
+      "port": 8346,
+      "auth_required": true
+    },
+    {
+      "name": "throughput-accounting-service",
+      "path": "/throughput-accounting",
+      "url": "http://throughput-accounting-service:8184",
+      "port": 8184,
+      "auth_required": true
+    },
+    {
+      "name": "time-value-of-money-service",
+      "path": "/time-value-of-money",
+      "url": "http://time-value-of-money-service:8474",
+      "port": 8474,
+      "auth_required": true
+    },
+    {
+      "name": "times-interest-earned-service",
+      "path": "/times-interest-earned",
+      "url": "http://times-interest-earned-service:8218",
+      "port": 8218,
+      "auth_required": true
+    },
+    {
+      "name": "total-production-cost-service",
+      "path": "/total-production-cost",
+      "url": "http://total-production-cost-service:8475",
+      "port": 8475,
+      "auth_required": true
+    },
+    {
+      "name": "trade-finance-service",
+      "path": "/trade-finance",
+      "url": "http://trade-finance-service:8191",
+      "port": 8191,
+      "auth_required": true
+    },
+    {
+      "name": "trading-account-service",
+      "path": "/trading-account",
+      "url": "http://trading-account-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "transfer-pricing-service",
+      "path": "/transfer-pricing",
+      "url": "http://transfer-pricing-service:8294",
+      "port": 8294,
+      "auth_required": true
+    },
+    {
+      "name": "treasury-analytics-service",
+      "path": "/treasury-analytics",
+      "url": "http://treasury-analytics-service:8326",
+      "port": 8326,
+      "auth_required": true
+    },
+    {
+      "name": "treasury-cash-service",
+      "path": "/treasury-cash",
+      "url": "http://treasury-cash-service:8345",
+      "port": 8345,
+      "auth_required": true
+    },
+    {
+      "name": "treasury-compliance-service",
+      "path": "/treasury-compliance",
+      "url": "http://treasury-compliance-service:8325",
+      "port": 8325,
+      "auth_required": true
+    },
+    {
+      "name": "treasury-management-service",
+      "path": "/treasury-management",
+      "url": "http://treasury-management-service:8322",
+      "port": 8322,
+      "auth_required": true
+    },
+    {
+      "name": "treasury-operations-service",
+      "path": "/treasury-operations",
+      "url": "http://treasury-operations-service:8257",
+      "port": 8257,
+      "auth_required": true
+    },
+    {
+      "name": "treasury-policy-service",
+      "path": "/treasury-policy",
+      "url": "http://treasury-policy-service:8263",
+      "port": 8263,
+      "auth_required": true
+    },
+    {
+      "name": "treasury-reporting-service",
+      "path": "/treasury-reporting",
+      "url": "http://treasury-reporting-service:8262",
+      "port": 8262,
+      "auth_required": true
+    },
+    {
+      "name": "treasury-risk-service",
+      "path": "/treasury-risk",
+      "url": "http://treasury-risk-service:8259",
+      "port": 8259,
+      "auth_required": true
+    },
+    {
+      "name": "trial-balance-service",
+      "path": "/trial-balance",
+      "url": "http://trial-balance-service:8476",
+      "port": 8476,
+      "auth_required": true
+    },
+    {
+      "name": "variable-cost-service",
+      "path": "/variable-cost",
+      "url": "http://variable-cost-service:8477",
+      "port": 8477,
+      "auth_required": true
+    },
+    {
+      "name": "variance-service",
+      "path": "/variance",
+      "url": "http://variance-service:8478",
+      "port": 8478,
+      "auth_required": true
+    },
+    {
+      "name": "vat-reporting-service",
+      "path": "/vat-reporting",
+      "url": "http://vat-reporting-service:8295",
+      "port": 8295,
+      "auth_required": true
+    },
+    {
+      "name": "webhook-service",
+      "path": "/webhook",
+      "url": "http://webhook-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "websocket-service",
+      "path": "/websocket",
+      "url": "http://websocket-service:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "workflow-service",
+      "path": "/workflow",
+      "url": "http://workflow-service:8479",
+      "port": 8479,
+      "auth_required": true
+    },
+    {
+      "name": "working-capital-finance-service",
+      "path": "/working-capital-finance",
+      "url": "http://working-capital-finance-service:8190",
+      "port": 8190,
+      "auth_required": true
+    },
+    {
+      "name": "working-capital-optimization-service",
+      "path": "/working-capital-optimization",
+      "url": "http://working-capital-optimization-service:8168",
+      "port": 8168,
+      "auth_required": true
+    },
+    {
+      "name": "working-capital-service",
+      "path": "/working-capital",
+      "url": "http://working-capital-service:8237",
+      "port": 8237,
+      "auth_required": true
+    },
+    {
+      "name": "xbrl-reporting-service",
+      "path": "/xbrl-reporting",
+      "url": "http://xbrl-reporting-service:8274",
+      "port": 8274,
+      "auth_required": true
+    },
+    {
+      "name": "zero-based-budget-service",
+      "path": "/zero-based-budget",
+      "url": "http://zero-based-budget-service:8176",
+      "port": 8176,
+      "auth_required": true
+    },
+    {
+      "name": "zero-based-budgeting-service",
+      "path": "/zero-based-budgeting",
+      "url": "http://zero-based-budgeting-service:8306",
+      "port": 8306,
+      "auth_required": true
+    },
+    {
+      "name": "zero-trust-data-service",
+      "path": "/zero-trust-data",
+      "url": "http://zero-trust-data-service:8002",
+      "port": 8002,
+      "auth_required": true
+    }
+  ]
+}

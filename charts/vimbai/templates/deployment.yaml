@@ -1,0 +1,89 @@
+{{- range $service, $config := .Values.services }}
+{{- if $config.enabled | default true }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $service }}
+  namespace: {{ $.Values.global.namespace }}
+  labels:
+    app: {{ $service }}
+    tier: backend
+    {{- include "vimbai.labels" $ | nindent 4 }}
+spec:
+  replicas: {{ $config.replicas | default $.Values.coreServices.replicas }}
+  selector:
+    matchLabels:
+      app: {{ $service }}
+  template:
+    metadata:
+      labels:
+        app: {{ $service }}
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ $config.port }}"
+    spec:
+      securityContext:
+        {{- toYaml $.Values.security.podSecurityContext | nindent 8 }}
+      containers:
+      - name: {{ $service }}
+        image: {{ $.Values.global.imageRegistry }}/{{ $.Values.global.imageRepository }}/{{ $service }}:latest
+        imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+        ports:
+        - containerPort: {{ $config.port }}
+          name: http
+        env:
+        - name: NEO4J_URI
+          valueFrom:
+            configMapKeyRef:
+              name: vimbai-config
+              key: NEO4J_URI
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: NEO4J_PASSWORD
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: JWT_SECRET
+        - name: RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: vimbai-config
+              key: RABBITMQ_HOST
+        resources:
+          {{- if $config.premium | default false }}
+          {{- include "vimbai.resources.premium" $ | nindent 10 }}
+          {{- else }}
+          {{- include "vimbai.resources.core" $ | nindent 10 }}
+          {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /
+            port: {{ $config.port }}
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: {{ $config.port }}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $service }}
+  namespace: {{ $.Values.global.namespace }}
+spec:
+  selector:
+    app: {{ $service }}
+  ports:
+  - name: http
+    port: {{ $config.port }}
+    targetPort: {{ $config.port }}
+{{- end }}
+{{- end }}

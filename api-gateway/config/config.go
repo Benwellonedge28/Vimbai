@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"log"
 	"os"
 	"strconv"
@@ -103,6 +104,11 @@ func LoadConfig() *Config {
 		{Path: "/fraud-detection", TargetURL: cfg.FraudDetectionServiceURL, AuthRequired: true},
 	}
 
+	// Merge dynamic routes from services.json if available
+	dynamicRoutes := LoadRoutesFromFile("config/services.json")
+	if len(dynamicRoutes) > 0 {
+		cfg.Routes = append(cfg.Routes, dynamicRoutes...)
+	}
 	return cfg
 }
 
@@ -154,4 +160,45 @@ func sanitizeEnvKey(key string) string {
 	result = strings.ReplaceAll(result, "/", "_")
 	result = strings.ToUpper(result)
 	return result
+}
+// LoadRoutesFromFile loads additional routes from a services.json configuration file.
+// This allows dynamic service registration without recompiling the gateway.
+// The file should be located at config/services.json relative to the gateway binary.
+func LoadRoutesFromFile(filePath string) []Route {
+    data, err := os.ReadFile(filePath)
+    if err != nil {
+        log.Printf("Warning: could not read services.json at %s: %v", filePath, err)
+        return nil
+    }
+
+    type serviceDef struct {
+        Name         string `json:"name"`
+        Path         string `json:"path"`
+        URL          string `json:"url"`
+        Port         int    `json:"port"`
+        AuthRequired bool   `json:"auth_required"`
+    }
+
+    var config struct {
+        Services []serviceDef `json:"services"`
+    }
+
+    if err := json.Unmarshal(data, &config); err != nil {
+        log.Printf("Error parsing services.json: %v", err)
+        return nil
+    }
+
+    routes := make([]Route, 0, len(config.Services))
+    for _, svc := range config.Services {
+        routes = append(routes, Route{
+            Path:               svc.Path,
+            TargetURL:          svc.URL,
+            AuthRequired:       svc.AuthRequired,
+            RateLimitPerSecond: 0,
+            RateLimitBurst:      0,
+        })
+    }
+
+    log.Printf("Loaded %d routes from services.json", len(routes))
+    return routes
 }

@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: neo4j-backup
+  namespace: vimbai
+spec:
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: neo4j-backup
+            image: neo4j:5-community
+            command:
+            - /bin/sh
+            - -c
+            - |
+              neo4j-admin database backup neo4j --to-path=/backups/$(date +%Y%m%d_%H%M%S)
+              find /backups -maxdepth 1 -type d -mtime +30 -exec rm -rf {} +
+            volumeMounts:
+            - name: neo4j-backup
+              mountPath: /backups
+          volumes:
+          - name: neo4j-backup
+            persistentVolumeClaim:
+              claimName: neo4j-backup-pvc

@@ -1,0 +1,51 @@
+# Vimbai Pod Disruption Budgets
+# Ensures minimum availability during voluntary disruptions
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: core-services-pdb
+  namespace: vimbai
+spec:
+  minAvailable: 2
+  selector:
+    matchExpressions:
+    - key: tier
+      operator: In
+      values:
+      - backend
+    matchLabels:
+      app.kubernetes.io/part-of: vimbai
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: vimbai
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: identity-service-pdb
+  namespace: vimbai
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: identity-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: accounting-service-pdb
+  namespace: vimbai
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: accounting-service

@@ -84,6 +84,7 @@ All endpoints require JWT Bearer token authentication.
     return app.openapi_schema
 
 app = FastAPI(
+    root_path="/api/v1",
     title="Vimbai Accounting Service",
     description="Manages Chart of Accounts, Journal Entries, Ledgers, Trial Balance, and Financial Statements.",
     version="0.1.0",
