@@ -1,0 +1,28 @@
+global:
+  namespace: vimbai-dev
+
+apiGateway:
+  replicas: 1
+
+coreServices:
+  identity:
+    replicas: 1
+  accounting:
+    replicas: 1
+  finance:
+    replicas: 1
+  fraudDetection:
+    replicas: 1
+
+productionServices:
+  replicas: 1
+
+autoscaling:
+  enabled: false
+
+ingress:
+  host: dev-api.vimbai.com
+
+secrets:
+  jwtSecret: "dev-secret-key"
+  neo4jAuth: "neo4j/dev-password"

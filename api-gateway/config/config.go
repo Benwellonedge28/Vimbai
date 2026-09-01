@@ -48,6 +48,11 @@ type Config struct {
 }
 
 // LoadConfig loads configuration from environment variables
+// 
+// Production services (330+) are loaded dynamically from config/services.json
+// via LoadRoutesFromFile(). The statically-defined routes below are for the
+// core services that have fixed URLs. New services are automatically proxied
+// based on their entry in services.json.
 func LoadConfig() *Config {
 	portStr := os.Getenv("PORT")
 	port, err := strconv.Atoi(portStr)

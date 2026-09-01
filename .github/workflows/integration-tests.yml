@@ -23,16 +23,24 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-asyncio httpx fastapi pydantic structlog uvicorn
+          pip install pytest pytest-asyncio httpx fastapi pydantic structlog uvicorn pytest-cov coverage
 
-      - name: Run integration test suite
+      - name: Run integration test suite with coverage
         run: |
           PYTHONPATH=. python -m pytest tests/ -v --tb=short -q \
+            --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing \
             --ignore=tests/test_accounting_service.py \
             --ignore=tests/test_alerts_service.py \
             --ignore=tests/test_api_gateway.py \
             --ignore=tests/test_banking_service.py \
             --ignore=tests/test_notifications_service.py
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+        continue-on-error: true
 
       - name: Upload test results
         if: always()

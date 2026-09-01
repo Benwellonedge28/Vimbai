@@ -1,0 +1,41 @@
+global:
+  namespace: vimbai-prod
+
+apiGateway:
+  replicas: 3
+
+coreServices:
+  identity:
+    replicas: 3
+  accounting:
+    replicas: 3
+  finance:
+    replicas: 3
+  fraudDetection:
+    replicas: 3
+
+productionServices:
+  replicas: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 15
+  targetCPUUtilization: 65
+
+ingress:
+  host: api.vimbai.com
+  tls:
+    enabled: true
+    secretName: vimbai-tls
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+networkPolicy:
+  enabled: true
+
+secrets:
+  jwtSecret: "CHANGE-ME-USE-EXTERNAL-SECRET-MANAGER"
+  neo4jAuth: "CHANGE-ME-USE-EXTERNAL-SECRET-MANAGER"

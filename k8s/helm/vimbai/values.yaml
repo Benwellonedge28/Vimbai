@@ -1,0 +1,95 @@
+# Default values for Vimbai platform
+# Override per-environment (dev/staging/prod)
+
+global:
+  imageRegistry: ghcr.io/benwellonedge28/vimbai
+  imagePullPolicy: IfNotPresent
+  namespace: vimbai
+
+# Infrastructure
+neo4j:
+  image: neo4j:5.20-community
+  storage: 20Gi
+  auth: "neo4j/dev-password"
+
+redis:
+  image: redis:7-alpine
+  storage: 5Gi
+
+# API Gateway
+apiGateway:
+  replicas: 2
+  port: 8081
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 256Mi
+      cpu: 500m
+
+# Core services
+coreServices:
+  identity:
+    port: 8080
+    replicas: 2
+  accounting:
+    port: 8000
+    replicas: 2
+  finance:
+    port: 8001
+    replicas: 2
+  multimodal:
+    port: 8002
+    replicas: 1
+  bankingIntegration:
+    port: 8003
+    replicas: 1
+  supplyChain:
+    port: 8004
+    replicas: 1
+  fraudDetection:
+    port: 8005
+    replicas: 2
+
+# Production microservices
+productionServices:
+  enabled: true
+  replicas: 2
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 50m
+    limits:
+      memory: 256Mi
+      cpu: 250m
+
+# Auto-scaling
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilization: 70
+
+# Ingress
+ingress:
+  enabled: true
+  className: nginx
+  host: api.vimbai.com
+  tls:
+    enabled: true
+    secretName: vimbai-tls
+
+# PodDisruptionBudgets
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# NetworkPolicies
+networkPolicy:
+  enabled: true
+
+# Secrets
+secrets:
+  jwtSecret: "change-me-in-production"
+  neo4jAuth: "neo4j/dev-password"

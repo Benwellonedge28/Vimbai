@@ -282,6 +282,11 @@ func main() {
 
 		e.Any(route.Path+"*", handler.Handle)
 		log.Printf("Proxying requests from %s to %s (Auth: %t, CB/Retry: %t)\n", route.Path, route.TargetURL, route.AuthRequired, route.AuthRequired)
+
+		// Also register under /v1/ prefix for API versioning
+		v1Path := "/v1" + route.Path
+		e.Any(v1Path+"*", handler.Handle)
+		log.Printf("Proxying requests from %s to %s (Auth: %t, CB/Retry: %t)\n", v1Path, route.TargetURL, route.AuthRequired, route.AuthRequired)
 	}
 
 	log.Printf("Starting Vimbai API Gateway on port %d\n", cfg.Port)

@@ -1,0 +1,30 @@
+global:
+  namespace: vimbai-staging
+
+apiGateway:
+  replicas: 2
+
+coreServices:
+  identity:
+    replicas: 2
+  accounting:
+    replicas: 2
+  finance:
+    replicas: 2
+  fraudDetection:
+    replicas: 2
+
+productionServices:
+  replicas: 2
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+
+ingress:
+  host: staging-api.vimbai.com
+
+secrets:
+  jwtSecret: "staging-secret-key-change-me"
+  neo4jAuth: "neo4j/staging-password"

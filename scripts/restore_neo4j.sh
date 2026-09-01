@@ -1,23 +1,37 @@
 #!/bin/bash
-# Vimbai Neo4j Database Restore Script
+# Vimbai Neo4j Restore Script
+# Usage: ./scripts/restore_neo4j.sh <backup-file.tar.gz>
 set -euo pipefail
-BACKUP_FILE="$1"
-NEO4J_CONTAINER="${NEO4J_CONTAINER:-neo4j}"
-if [ -z "$BACKUP_FILE" ]; then echo "Usage: $0 <backup_file.tar.gz>"; exit 1; fi
-if [ ! -f "$BACKUP_FILE" ]; then echo "ERROR: Backup file not found: $BACKUP_FILE"; exit 1; fi
-echo "WARNING: This will replace the current Neo4j database!"
-read -p "Are you sure? (yes/no): " confirm
-if [ "$confirm" != "yes" ]; then echo "Restore cancelled"; exit 0; fi
+
+BACKUP_FILE="${1:?Usage: $0 <backup-file.tar.gz>}"
+
+if [ ! -f "${BACKUP_FILE}" ]; then
+    echo "Error: Backup file not found: ${BACKUP_FILE}"
+    exit 1
+fi
+
 TEMP_DIR=$(mktemp -d)
-echo "Extracting backup to ${TEMP_DIR}..."
-tar -xzf "$BACKUP_FILE" -C "$TEMP_DIR"
-echo "Stopping Neo4j..."
-docker exec "$NEO4J_CONTAINER" neo4j stop 2>/dev/null || true
-docker cp "${TEMP_DIR}/." "${NEO4J_CONTAINER}:/tmp/restore/"
-echo "Restoring database..."
-docker exec "$NEO4J_CONTAINER" neo4j-admin database restore neo4j --from-path=/tmp/restore --overwrite-destination=true 2>&1
-docker exec "${NEO4J_CONTAINER}" bash -c "rm -rf /tmp/restore" 2>/dev/null || true
-rm -rf "$TEMP_DIR"
-echo "Starting Neo4j..."
-docker exec "$NEO4J_CONTAINER" neo4j start
-echo "Restore completed successfully"
+echo "Extracting backup to ${TEMP_DIR}"
+tar -xzf "${BACKUP_FILE}" -C "${TEMP_DIR}"
+
+DUMP_DIR=$(find "${TEMP_DIR}" -type d | head -2 | tail -1)
+
+if command -v neo4j-admin &>/dev/null; then
+    echo "Using neo4j-admin to restore"
+    neo4j-admin database load vimbai --from-path="${DUMP_DIR}"
+    echo "Restore complete"
+elif command -v cypher-shell &>/dev/null; then
+    CYPHER_FILE=$(find "${TEMP_DIR}" -name "*.cypher" | head -1)
+    if [ -n "${CYPHER_FILE}" ]; then
+        echo "Using cypher-shell to restore"
+        cypher-shell -a "${NEO4J_URI:-bolt://localhost:7687}" \
+            -u "${NEO4J_USER:-neo4j}" -p "${NEO4J_PASSWORD:-dev-password}" \
+            --file "${CYPHER_FILE}"
+        echo "Restore complete"
+    else
+        echo "Error: No .cypher file found in backup"
+        exit 1
+    fi
+fi
+
+echo "Restore complete from ${BACKUP_FILE}"
