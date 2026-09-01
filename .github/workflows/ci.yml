@@ -362,7 +362,7 @@ jobs:
               echo "Testing $dir..."
               cd "$dir"
               pip install -q -r requirements.txt 2>/dev/null || true
-              pytest -v --tb=short 2>/dev/null || echo "No tests found in $dir"
+              pytest -v --tb=short || echo "No tests found in $dir"
               cd ..
             fi
           done
@@ -411,7 +411,7 @@ jobs:
 
       - name: Run Go tests
         working-directory: api-gateway
-        run: go test -v -race ./... 2>/dev/null || echo "No tests found"
+        run: go test -v -race ./... || echo "No Go tests found"
 
       - name: Run Go vet
         working-directory: api-gateway
