@@ -3,7 +3,7 @@
 # API Documentation
 fastapi==0.110.0
 uvicorn[standard]==0.28.0  # Standard includes websockets for docs
-pydantic==2.6.4
+pydantic==2.13.5
 python-dotenv==1.0.1
 
 # Database
