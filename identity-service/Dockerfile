@@ -7,12 +7,14 @@ WORKDIR /app
 # Create non-root user (Alpine uses -S for system, not -r)
 RUN addgroup -S appuser && adduser -S -G appuser -H appuser
 
-# Copy go.mod and download dependencies
+# Copy go.mod first for better layer caching
 COPY go.mod ./
-RUN go mod tidy
 
-# Copy the rest of the application source code
+# Copy source code (needed for go mod tidy to see imports)
 COPY . .
+
+# Generate go.sum and download dependencies
+RUN go mod tidy && go mod download
 
 # Build the application
 RUN go build -o /vimbai-identity-service ./main.go
