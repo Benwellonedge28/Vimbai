@@ -20,19 +20,33 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://api.vimbai.com
+    env:
+      KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for kubeconfig
+        id: check
+        run: |
+          if [ -z "$KUBE_CONFIG" ]; then
+            echo "has_kubeconfig=false" >> $GITHUB_OUTPUT
+            echo "No KUBE_CONFIG_PRODUCTION secret found, skipping rollback"
+          else
+            echo "has_kubeconfig=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set up kubectl
+        if: steps.check.outputs.has_kubeconfig == 'true'
         uses: azure/setup-kubectl@v4
 
       - name: Configure Kubernetes context
+        if: steps.check.outputs.has_kubeconfig == 'true'
         uses: azure/k8s-set-context@v4
         with:
           kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
 
       - name: Rollback deployments
+        if: steps.check.outputs.has_kubeconfig == 'true'
         run: |
           VERSION="${{ github.event.inputs.version }}"
           SERVICE="${{ github.event.inputs.service }}"
@@ -63,6 +77,11 @@ jobs:
           done
 
       - name: Verify rollback
+        if: steps.check.outputs.has_kubeconfig == 'true'
         run: |
           kubectl get pods -n vimbai -o wide
           kubectl get deployment -n vimbai
+
+      - name: Skip notification
+        if: steps.check.outputs.has_kubeconfig == 'false'
+        run: echo "Rollback skipped - no kubeconfig configured"

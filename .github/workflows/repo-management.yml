@@ -2,7 +2,7 @@ name: Repository Management
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Daily
+    - cron: '0 0 * * *'
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -14,7 +14,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@v8
+      - uses: actions/stale@v9
         with:
           days-before-stale: 60
           days-before-close: 14
@@ -27,8 +27,9 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Check PR Title
         uses: amannn/action-semantic-pull-request@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true

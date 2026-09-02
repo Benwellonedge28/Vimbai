@@ -3,6 +3,7 @@ Financial Distress Prediction Service
 Port: 8169
 Altman Z-score, working capital to total assets ratio, distress prediction
 """
+
 from typing import Any, Dict, Optional
 
 import httpx
@@ -12,6 +13,7 @@ from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="Financial Distress Prediction Service", version="1.0.0")
+
 
 class CompanyData(BaseModel):
     company_id: str
@@ -28,9 +30,11 @@ class CompanyData(BaseModel):
     current_assets: float
     current_liabilities: float
 
+
 class DistressPredictionRequest(BaseModel):
     company: CompanyData
     model: str = "altman"  # "altman", "springate", "fulmer"
+
 
 class DistressPredictionResponse(BaseModel):
     company_id: str
@@ -45,6 +49,7 @@ class DistressPredictionResponse(BaseModel):
     years_to_distress: float
     recommendation: str
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -55,9 +60,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "financial-distress-prediction", "version": "1.0.0"}
+
 
 @app.post("/predict", response_model=DistressPredictionResponse)
 async def predict_financial_distress(request: DistressPredictionRequest):
@@ -118,9 +125,11 @@ async def predict_financial_distress(request: DistressPredictionRequest):
         zone=zone,
         probability_distress=prob_distress,
         years_to_distress=years,
-        recommendation=recommendation
+        recommendation=recommendation,
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8169)

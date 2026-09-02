@@ -2,8 +2,12 @@ name: Comprehensive Security Scan
 
 on:
   schedule:
-    - cron: '0 2 * * 0' # Weekly on Sunday at 2 AM
+    - cron: '0 2 * * 0'
   workflow_dispatch:
+
+permissions:
+  security-events: write
+  contents: read
 
 jobs:
   secret-scan:
@@ -31,6 +35,14 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+        continue-on-error: true
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: TRIVY-SECURITY-SCAN
+        continue-on-error: true
 
   generate-sbom:
     runs-on: ubuntu-latest

@@ -2,9 +2,9 @@ name: Platform Integration Tests
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: ["main", "develop"]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: ["main", "develop"]
   schedule:
     - cron: '0 0 * * *'
 
@@ -27,7 +27,7 @@ jobs:
 
       - name: Run integration test suite with coverage
         run: |
-          PYTHONPATH=. python -m pytest tests/ -v --tb=short -q \
+          PYTHONPATH=. python -m pytest tests/ -v --tb=short \
             --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing \
             --ignore=tests/test_accounting_service.py \
             --ignore=tests/test_alerts_service.py \
@@ -49,18 +49,5 @@ jobs:
           name: integration-test-results
           path: |
             tests/
-            **/pytest-results.xml
+            coverage.xml
           retention-days: 14
-
-      - name: Test summary
-        if: always()
-        run: |
-          echo "## Integration Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          PYTHONPATH=. python -m pytest tests/ -v --tb=no -q \
-            --ignore=tests/test_accounting_service.py \
-            --ignore=tests/test_alerts_service.py \
-            --ignore=tests/test_api_gateway.py \
-            --ignore=tests/test_banking_service.py \
-            --ignore=tests/test_notifications_service.py \
-            2>&1 | tail -20 >> $GITHUB_STEP_SUMMARY

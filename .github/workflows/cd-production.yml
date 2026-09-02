@@ -2,7 +2,7 @@ name: Deploy to Production
 
 on:
   push:
-    tags: [ 'v*.*.*' ]
+    tags: ['v*.*.*']
   workflow_dispatch:
 
 env:
@@ -75,19 +75,33 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://api.vimbai.com
+    env:
+      KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for kubeconfig
+        id: check
+        run: |
+          if [ -z "$KUBE_CONFIG" ]; then
+            echo "has_kubeconfig=false" >> $GITHUB_OUTPUT
+            echo "No KUBE_CONFIG_PRODUCTION secret found, skipping deployment"
+          else
+            echo "has_kubeconfig=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set up kubectl
+        if: steps.check.outputs.has_kubeconfig == 'true'
         uses: azure/setup-kubectl@v4
 
       - name: Configure Kubernetes context
+        if: steps.check.outputs.has_kubeconfig == 'true'
         uses: azure/k8s-set-context@v4
         with:
           kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
 
       - name: Deploy to Production Cluster
+        if: steps.check.outputs.has_kubeconfig == 'true'
         run: |
           kubectl apply -f k8s/namespace.yaml
           kubectl apply -k k8s/
@@ -99,7 +113,12 @@ jobs:
           kubectl rollout status deployment -n vimbai accounting-service --timeout=300s
 
       - name: Verify deployment health
+        if: steps.check.outputs.has_kubeconfig == 'true'
         run: |
           kubectl get pods -n vimbai -o wide
           kubectl get services -n vimbai
           kubectl get ingress -n vimbai
+
+      - name: Skip notification
+        if: steps.check.outputs.has_kubeconfig == 'false'
+        run: echo "Deployment skipped - no kubeconfig configured"

@@ -2,7 +2,7 @@ name: Publish Docker Images
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
     inputs:
       service:
@@ -27,17 +27,22 @@ jobs:
       - name: Detect changed services
         id: detect
         run: |
-          if [ "${{ github.event.inputs.service }}" != "" ]; then
+          if [ -n "${{ github.event.inputs.service }}" ]; then
             echo "services=[\"${{ github.event.inputs.service }}\"]" >> $GITHUB_OUTPUT
           else
-            CHANGED=$(git diff --name-only HEAD^ HEAD | grep -oP '^[a-z][a-z0-9-]+/' | sed 's/\///' | sort -u)
-            SERVICES=$(echo "$CHANGED" | jq -R . | jq -s .)
-            echo "services=$SERVICES" >> $GITHUB_OUTPUT
+            CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -oP '^[a-z][a-z0-9-]+/' | sed 's/\///' | sort -u || true)
+            if [ -z "$CHANGED" ]; then
+              echo "services=[]" >> $GITHUB_OUTPUT
+            else
+              SERVICES=$(echo "$CHANGED" | jq -R . | jq -s .)
+              echo "services=$SERVICES" >> $GITHUB_OUTPUT
+            fi
           fi
 
   build-and-push:
     name: Build and Push
     needs: detect-changed
+    if: needs.detect-changed.outputs.services != '[]'
     runs-on: ubuntu-latest
     permissions:
       contents: read

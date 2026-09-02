@@ -43,7 +43,7 @@ def ensure_migrations_table(session):
         return
     with session.session() as s:
         s.run("""
-            CREATE CONSTRAINT IF NOT EXISTS FOR (m:_Migration) 
+            CREATE CONSTRAINT IF NOT EXISTS FOR (m:_Migration)
             REQUIRE m.version IS UNIQUE
         """)
 

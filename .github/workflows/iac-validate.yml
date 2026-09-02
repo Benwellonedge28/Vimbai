@@ -5,32 +5,38 @@ on:
     paths:
       - 'infrastructure/**'
       - 'charts/**'
+      - 'k8s/**'
   pull_request:
     paths:
       - 'infrastructure/**'
       - 'charts/**'
+      - 'k8s/**'
 
 jobs:
   validate-terraform:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
-      - name: Terraform Format
-        run: terraform fmt -check -recursive infrastructure/ || true
-      - name: Terraform Validate
+      - name: Terraform Format Check
         run: |
-          echo "Validating Terraform configuration..."
-          # cd infrastructure && terraform init -backend=false && terraform validate
+          if [ -d "infrastructure" ]; then
+            terraform fmt -check -recursive infrastructure/ || true
+          else
+            echo "No infrastructure/ directory found, skipping Terraform validation"
+          fi
 
   validate-helm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Helm
-        uses: azure/setup-helm@v3
+        uses: azure/setup-helm@v4
       - name: Helm Lint
         run: |
-          echo "Linting Helm charts..."
-          # helm lint charts/vimbai
+          if [ -d "k8s/helm" ]; then
+            helm lint k8s/helm/vimbai || helm lint k8s/helm || true
+          else
+            echo "No Helm chart found, skipping"
+          fi

@@ -3,6 +3,10 @@ name: Build All Service Images
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - '**/Dockerfile'
+      - '**/requirements.txt'
+      - 'docker-compose.yml'
   workflow_dispatch:
     inputs:
       batch:
