@@ -1,67 +1,85 @@
 """
-Tax Planning Service
-Port: 8292
-Strategic tax planning
+Vimbai Tax Planning Service
+Tax strategy optimization, scenario modeling, and savings identification.
+Port: 8376
 """
-import httpx
+import os, uuid
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI
 
-logger = structlog.get_logger()
-app = FastAPI(title="Tax Planning Service", version="1.0.0")
+SERVICE_NAME = "tax-planning-service"
+PORT = int(os.getenv("PORT", "8376"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
+logger = structlog.get_logger(SERVICE_NAME)
+app = FastAPI(title="Vimbai Tax Planning Service", version="2.0.0", docs_url="/docs")
+try:
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    pass
 
-class TaxPlanningRequest(BaseModel):
-    company_id: str
-    taxable_income: float
-    tax_rate: float
-    deductions_available: float
-    jurisdictions: List[str]
+class TaxStrategy(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str; description: str; strategy_type: str  # deduction, credit, timing, structure, treaty
+    estimated_savings: float; implementation_cost: float = 0
+    risk_level: str = "low"; timeframe: str = "short-term"
 
-class TaxPlanningResponse(BaseModel):
-    company_id: str
-    tax_summary: Dict[str, Any]
-    planning_options: List[Dict[str, Any]]
-    recommendations: List[str]
+class PlanningRequest(BaseModel):
+    company_id: str; fiscal_year: int
+    current_taxable_income: float; current_tax: float
+    strategies: List[TaxStrategy] = []
+
+class PlanningResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str; fiscal_year: int
+    current_tax: float; projected_tax: float; total_savings: float
+    net_benefit: float; strategies: List[Dict]
+    recommended_strategies: List[str] = []
+
+_strategies: Dict[str, List[TaxStrategy]] = {}
 
 @app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "tax-planning", "version": "1.0.0"}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/plan", response_model=TaxPlanningResponse)
-async def plan_taxes(request: TaxPlanningRequest):
-    logger.info("Planning taxes", company=request.company_id)
+@app.post("/strategies", response_model=TaxStrategy)
+async def create_strategy(strategy: TaxStrategy):
+    _strategies.setdefault(strategy.id, []).append(strategy)
+    return strategy
 
-    gross_tax = request.taxable_income * request.tax_rate
-    after_deductions = (request.taxable_income - request.deductions_available) * request.tax_rate
-    tax_savings = gross_tax - after_deductions
+@app.post("/plan", response_model=PlanningResult)
+async def create_plan(req: PlanningRequest):
+    total_savings = sum(s.estimated_savings for s in req.strategies)
+    total_cost = sum(s.implementation_cost for s in req.strategies)
+    net_benefit = total_savings - total_cost
+    projected_tax = max(req.current_tax - total_savings, 0)
     
-    planning_options = [
-        {"option": "Accelerate Deductions", "savings": round(tax_savings * 0.3, 2)},
-        {"option": "Defer Income", "savings": round(tax_savings * 0.2, 2)},
-        {"option": "Entity Restructuring", "savings": round(tax_savings * 0.25, 2)}
-    ]
+    strategy_details = []
+    recommended = []
+    for s in req.strategies:
+        roi = (s.estimated_savings - s.implementation_cost) / s.implementation_cost if s.implementation_cost else float('inf')
+        strategy_details.append({
+            "id": s.id, "name": s.name, "type": s.strategy_type,
+            "estimated_savings": s.estimated_savings,
+            "implementation_cost": s.implementation_cost,
+            "net_benefit": round(s.estimated_savings - s.implementation_cost, 2),
+            "risk_level": s.risk_level, "timeframe": s.timeframe,
+            "roi": round(roi, 2) if roi != float('inf') else None
+        })
+        if roi > 1 and s.risk_level in ("low", "medium"):
+            recommended.append(s.name)
     
-    tax_summary = {
-        "taxable_income": request.taxable_income,
-        "gross_tax": round(gross_tax, 2),
-        "deductions": request.deductions_available,
-        "net_tax": round(after_deductions, 2),
-        "effective_rate": round(request.tax_rate * 100, 2)
-    }
-    
-    recommendations = []
-    if tax_savings > 100000:
-        recommendations.append("Significant tax planning opportunity - implement strategies")
-    
-    return TaxPlanningResponse(
-        company_id=request.company_id,
-        tax_summary=tax_summary,
-        planning_options=planning_options,
-        recommendations=recommendations
+    return PlanningResult(
+        company_id=req.company_id, fiscal_year=req.fiscal_year,
+        current_tax=round(req.current_tax, 2),
+        projected_tax=round(projected_tax, 2),
+        total_savings=round(total_savings, 2),
+        net_benefit=round(net_benefit, 2),
+        strategies=strategy_details, recommended_strategies=recommended
     )
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8292)
+    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

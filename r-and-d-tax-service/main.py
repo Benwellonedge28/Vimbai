@@ -1,59 +1,73 @@
-"""Vimbai R&D Tax Service - Research and development tax incentives. Port: 8357"""
+"""
+Vimbai R&D Tax Credit Service
+R&D tax credit calculation, qualifying expenditure tracking, and claim preparation.
+Port: 8377
+"""
 import os, uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List
-from collections import defaultdict
+from typing import Dict, List
 import structlog
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from fastapi import FastAPI
 
 SERVICE_NAME = "r-and-d-tax-service"
-PORT = int(os.getenv("PORT", "8357"))
-structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()], wrapper_class=structlog.stdlib.BoundLogger, logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True)
+PORT = int(os.getenv("PORT", "8377"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
 logger = structlog.get_logger(SERVICE_NAME)
-app = FastAPI(title="Vimbai R&D Tax Service", version="2.0.0", docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app = FastAPI(title="Vimbai R&D Tax Credit Service", version="2.0.0", docs_url="/docs")
 try:
-    from shared.tracing import setup_tracing; TRACER = setup_tracing(service_name="r-and-d-tax-service", instrument_app=app)
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
-    TRACER = None
+    pass
 
-class RDProject(BaseModel):
+class RDExpenditure(BaseModel):
+    category: str  # wages, supplies, contract_research, overhead
+    description: str; amount: float; qualifies: bool = True
+
+class RDClaimRequest(BaseModel):
+    company_id: str; fiscal_year: int
+    expenditures: List[RDExpenditure]
+    credit_rate: float = 0.15  # 15% R&D credit rate
+    alternative_rate: float = 0.20  # alternative simplified credit
+
+class RDClaimResult(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    project_name: str
-    description: str = ""
-    start_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    end_date: Optional[datetime] = None
-    qualified_expenses: float = 0
-    deduction_rate: float = 100.0  # 100% deduction for R&D
-    tax_savings: float = 0
-    corporate_rate: float = 25.0
-    status: str = "active"
-
-_projects: Dict[str, List[RDProject]] = defaultdict(list)
+    company_id: str; fiscal_year: int
+    total_expenditure: float; qualifying_expenditure: float
+    non_qualifying: float; credit_regular: float; credit_alternative: float
+    recommended_method: str; expenditure_breakdown: Dict[str, float] = {}
 
 @app.get("/")
-async def health(): return {"status": "healthy", "service": SERVICE_NAME}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/projects", response_model=RDProject)
-async def create_project(project: RDProject):
-    project.tax_savings = project.qualified_expenses * (project.deduction_rate / 100) * (project.corporate_rate / 100)
-    _projects[project.company_id].append(project)
-    logger.info("rd_project_created", company_id=project.company_id, name=project.project_name, savings=project.tax_savings)
-    return project
-
-@app.get("/projects/{company_id}")
-async def get_projects(company_id: str):
-    return {"company_id": company_id, "projects": _projects.get(company_id, []), "total": len(_projects.get(company_id, []))}
-
-@app.get("/savings/{company_id}")
-async def total_savings(company_id: str):
-    projects = _projects.get(company_id, [])
-    total_expenses = sum(p.qualified_expenses for p in projects)
-    total_savings = sum(p.tax_savings for p in projects)
-    return {"company_id": company_id, "total_projects": len(projects), "total_qualified_expenses": total_expenses, "total_tax_savings": total_savings}
+@app.post("/calculate", response_model=RDClaimResult)
+async def calculate_credit(req: RDClaimRequest):
+    total = sum(e.amount for e in req.expenditures)
+    qualifying = sum(e.amount for e in req.expenditures if e.qualifies)
+    non_qualifying = total - qualifying
+    
+    credit_reg = qualifying * req.credit_rate
+    credit_alt = qualifying * req.alternative_rate
+    
+    breakdown = {}
+    for e in req.expenditures:
+        if e.qualifies:
+            breakdown[e.category] = breakdown.get(e.category, 0) + e.amount
+    
+    recommended = "regular" if credit_reg > credit_alt else "alternative_simplified"
+    
+    return RDClaimResult(
+        company_id=req.company_id, fiscal_year=req.fiscal_year,
+        total_expenditure=round(total, 2),
+        qualifying_expenditure=round(qualifying, 2),
+        non_qualifying=round(non_qualifying, 2),
+        credit_regular=round(credit_reg, 2),
+        credit_alternative=round(credit_alt, 2),
+        recommended_method=recommended,
+        expenditure_breakdown={k: round(v, 2) for k, v in breakdown.items()}
+    )
 
 if __name__ == "__main__":
     import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

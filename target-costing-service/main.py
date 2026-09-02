@@ -1,68 +1,74 @@
 """
-Target Costing Service
-Port: 8183
-Market-based target costing, allowed cost calculation
+Vimbai Target Costing Service
+Target cost determination, cost reduction gap analysis, and value engineering.
+Port: 8382
 """
-import httpx
+import os, uuid
+from typing import Dict, List
 import structlog
-from typing import Any, Dict
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI
 
-logger = structlog.get_logger()
-app = FastAPI(title="Target Costing Service", version="1.0.0")
+SERVICE_NAME = "target-costing-service"
+PORT = int(os.getenv("PORT", "8382"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
+logger = structlog.get_logger(SERVICE_NAME)
+app = FastAPI(title="Vimbai Target Costing Service", version="2.0.0", docs_url="/docs")
+try:
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    pass
 
-class TargetCostingRequest(BaseModel):
-    company_id: str
-    product_name: str
-    market_price: float
-    target_profit_margin: float
-    current_estimated_cost: float
-
-class TargetCostingResponse(BaseModel):
-    company_id: str
-    product_name: str
-    market_price: float
-    target_profit: float
-    allowed_cost: float
+class TargetCostRequest(BaseModel):
+    company_id: str; product_name: str
+    target_selling_price: float; desired_profit_margin_pct: float
     current_cost: float
-    cost_reduction_needed: float
-    reduction_percentage: float
+    component_costs: Dict[str, float] = {}
 
-async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{service_url}{endpoint}"
-            response = await client.post(url, json=data) if data else await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception as e:
-        logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
-        return {}
+class TargetCostResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str; product_name: str
+    target_selling_price: float; desired_margin: float; target_profit: float
+    target_cost: float; current_cost: float; cost_reduction_needed: float
+    cost_reduction_pct: float; feasible: bool
+    component_analysis: List[Dict] = []
 
 @app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "target-costing", "version": "1.0.0"}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/calculate", response_model=TargetCostingResponse)
-async def calculate_target_cost(request: TargetCostingRequest):
-    logger.info("Calculating target cost", company=request.company_id, product=request.product_name)
-
-    target_profit = request.market_price * (request.target_profit_margin / 100)
-    allowed_cost = request.market_price - target_profit
-    reduction_needed = request.current_estimated_cost - allowed_cost
-    reduction_pct = (reduction_needed / request.current_estimated_cost) * 100 if request.current_estimated_cost else 0
-
-    return TargetCostingResponse(
-        company_id=request.company_id,
-        product_name=request.product_name,
-        market_price=request.market_price,
+@app.post("/calculate", response_model=TargetCostResult)
+async def calculate_target_cost(req: TargetCostRequest):
+    target_profit = req.target_selling_price * (req.desired_profit_margin_pct / 100)
+    target_cost = req.target_selling_price - target_profit
+    cost_reduction = req.current_cost - target_cost
+    cost_reduction_pct = (cost_reduction / req.current_cost * 100) if req.current_cost else 0
+    feasible = cost_reduction <= req.current_cost * 0.3  # 30% reduction is max feasible
+    
+    components = []
+    total_component = sum(req.component_costs.values())
+    for name, cost in req.component_costs.items():
+        proportion = cost / total_component if total_component else 0
+        reduction_needed = cost * (cost_reduction_pct / 100)
+        components.append({
+            "component": name, "current_cost": round(cost, 2),
+            "proportion_of_total": round(proportion * 100, 1),
+            "suggested_reduction": round(reduction_needed, 2),
+            "target_cost": round(cost - reduction_needed, 2)
+        })
+    
+    return TargetCostResult(
+        company_id=req.company_id, product_name=req.product_name,
+        target_selling_price=round(req.target_selling_price, 2),
+        desired_margin=round(req.desired_profit_margin_pct, 2),
         target_profit=round(target_profit, 2),
-        allowed_cost=round(allowed_cost, 2),
-        current_cost=request.current_estimated_cost,
-        cost_reduction_needed=round(max(0, reduction_needed), 2),
-        reduction_percentage=round(reduction_pct, 2)
+        target_cost=round(target_cost, 2),
+        current_cost=round(req.current_cost, 2),
+        cost_reduction_needed=round(cost_reduction, 2),
+        cost_reduction_pct=round(cost_reduction_pct, 2),
+        feasible=feasible, component_analysis=components
     )
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8183)
+    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

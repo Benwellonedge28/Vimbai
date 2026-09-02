@@ -1,67 +1,83 @@
-"""Vimbai Group Tax Service - Group/consolidated tax management. Port: 8356"""
+"""
+Vimbai Group Tax Service
+Group tax consolidation, intercompany elimination, and group-level tax planning.
+Port: 8378
+"""
 import os, uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List
-from collections import defaultdict
+from typing import Dict, List, Optional
 import structlog
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from fastapi import FastAPI
 
 SERVICE_NAME = "group-tax-service"
-PORT = int(os.getenv("PORT", "8356"))
-structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()], wrapper_class=structlog.stdlib.BoundLogger, logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True)
+PORT = int(os.getenv("PORT", "8378"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
 logger = structlog.get_logger(SERVICE_NAME)
 app = FastAPI(title="Vimbai Group Tax Service", version="2.0.0", docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 try:
-    from shared.tracing import setup_tracing; TRACER = setup_tracing(service_name="group-tax-service", instrument_app=app)
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
-    TRACER = None
+    pass
 
 class SubsidiaryTax(BaseModel):
-    subsidiary_id: str
-    subsidiary_name: str
-    taxable_income: float
-    tax_rate: float = 25.0
-    tax_liability: float = 0
+    entity_id: str; entity_name: str; jurisdiction: str
+    pre_tax_income: float; tax_paid: float; tax_rate: float
+    loss_carryforward: float = 0
 
-class GroupTaxCalculation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    group_id: str
-    tax_year: int
-    subsidiaries: List[SubsidiaryTax] = []
-    consolidated_income: float = 0
-    group_tax_rate: float = 25.0
-    total_tax_liability: float = 0
+class GroupTaxRequest(BaseModel):
+    group_id: str; fiscal_year: int
+    subsidiaries: List[SubsidiaryTax]
+    group_tax_rate: float = 0.25
     intercompany_eliminations: float = 0
-    computed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-_calcs: Dict[str, List[GroupTaxCalculation]] = defaultdict(list)
+class GroupTaxResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    group_id: str; fiscal_year: int
+    consolidated_income: float; consolidated_tax: float
+    total_tax_already_paid: float; net_group_tax: float
+    tax_savings_from_consolidation: float
+    subsidiary_summary: List[Dict] = []
 
 @app.get("/")
-async def health(): return {"status": "healthy", "service": SERVICE_NAME}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/compute", response_model=GroupTaxCalculation)
-async def compute_group_tax(calc: GroupTaxCalculation):
-    for sub in calc.subsidiaries:
-        sub.tax_liability = sub.taxable_income * (sub.tax_rate / 100)
-    calc.consolidated_income = sum(s.taxable_income for s in calc.subsidiaries) - calc.intercompany_eliminations
-    calc.total_tax_liability = max(0, calc.consolidated_income) * (calc.group_tax_rate / 100)
-    _calcs[calc.group_id].append(calc)
-    logger.info("group_tax_computed", group_id=calc.group_id, year=calc.tax_year, liability=calc.total_tax_liability)
-    return calc
-
-@app.get("/calculations/{group_id}")
-async def get_calculations(group_id: str):
-    return {"group_id": group_id, "calculations": _calcs.get(group_id, []), "total": len(_calcs.get(group_id, []))}
-
-@app.get("/breakdown/{group_id}")
-async def tax_breakdown(group_id: str):
-    calcs = _calcs.get(group_id, [])
-    if not calcs: raise HTTPException(status_code=404, detail="No calculations found")
-    latest = calcs[-1]
-    return {"group_id": group_id, "subsidiary_breakdown": [{"name": s.subsidiary_name, "income": s.taxable_income, "rate": s.tax_rate, "liability": s.tax_liability} for s in latest.subsidiaries], "total_consolidated": latest.consolidated_income, "total_liability": latest.total_tax_liability}
+@app.post("/consolidate", response_model=GroupTaxResult)
+async def consolidate_group_tax(req: GroupTaxRequest):
+    total_income = sum(s.pre_tax_income for s in req.subsidiaries) - req.intercompany_eliminations
+    total_tax_paid = sum(s.tax_paid for s in req.subsidiaries)
+    
+    # Offsetting losses within the group
+    profitable = [s for s in req.subsidiaries if s.pre_tax_income > 0]
+    loss_making = [s for s in req.subsidiaries if s.pre_tax_income <= 0]
+    
+    total_losses = sum(abs(s.pre_tax_income) for s in loss_making)
+    consolidated_income = max(total_income, 0)
+    consolidated_tax = consolidated_income * req.group_tax_rate
+    
+    # What they would have paid without consolidation
+    standalone_tax = sum(max(s.pre_tax_income, 0) * s.tax_rate for s in req.subsidiaries)
+    savings = standalone_tax - consolidated_tax - sum(max(s.pre_tax_income, 0) * s.tax_rate - s.tax_paid for s in req.subsidiaries if s.pre_tax_income > 0)
+    savings = max(savings, 0)
+    
+    summary = [{
+        "entity_id": s.entity_id, "name": s.entity_name,
+        "jurisdiction": s.jurisdiction, "income": s.pre_tax_income,
+        "tax_paid": s.tax_paid, "rate": s.tax_rate,
+        "loss_carryforward": s.loss_carryforward
+    } for s in req.subsidiaries]
+    
+    return GroupTaxResult(
+        group_id=req.group_id, fiscal_year=req.fiscal_year,
+        consolidated_income=round(consolidated_income, 2),
+        consolidated_tax=round(consolidated_tax, 2),
+        total_tax_already_paid=round(total_tax_paid, 2),
+        net_group_tax=round(max(consolidated_tax - total_tax_paid, 0), 2),
+        tax_savings_from_consolidation=round(savings, 2),
+        subsidiary_summary=summary
+    )
 
 if __name__ == "__main__":
     import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

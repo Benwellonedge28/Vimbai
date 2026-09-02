@@ -1,68 +1,95 @@
 """
-Throughput Accounting Service
-Port: 8184
-Theory of constraints, throughput, inventory, operating expense analysis
+Vimbai Throughput Accounting Service
+Theory of Constraints-based throughput accounting and product mix optimization.
+Port: 8383
 """
-import httpx
+import os, uuid
+from typing import Dict, List
 import structlog
-from typing import Any, Dict
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI
 
-logger = structlog.get_logger()
-app = FastAPI(title="Throughput Accounting Service", version="1.0.0")
+SERVICE_NAME = "throughput-accounting-service"
+PORT = int(os.getenv("PORT", "8383"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
+logger = structlog.get_logger(SERVICE_NAME)
+app = FastAPI(title="Vimbai Throughput Accounting Service", version="2.0.0", docs_url="/docs")
+try:
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    pass
+
+class Product(BaseModel):
+    name: str; selling_price: float; material_cost: float
+    time_on_constraint: float  # minutes on bottleneck resource
+    demand: int = 0
 
 class ThroughputRequest(BaseModel):
-    company_id: str
-    revenue: float
-    direct_material_cost: float
-    operating_expenses: float
-    throughput_per_hour: float
-    constraint_hours_available: int
+    company_id: str; operating_expenses: float
+    products: List[Product]; available_constraint_minutes: int = 480
 
-class ThroughputResponse(BaseModel):
+class ThroughputResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     company_id: str
-    throughput: float
-    total_inventory: float
-    total_operating_expense: float
-    throughput_accounting_ratio: float
-    roi: float
-    productivity: float
-
-async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{service_url}{endpoint}"
-            response = await client.post(url, json=data) if data else await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception as e:
-        logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
-        return {}
+    total_throughput: float; operating_expenses: float; net_profit: float
+    roi: float; product_ranking: List[Dict]
+    optimal_mix: List[Dict]
+    constraint_utilization: float
 
 @app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "throughput-accounting", "version": "1.0.0"}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/calculate", response_model=ThroughputResponse)
-async def calculate_throughput(request: ThroughputRequest):
-    logger.info("Calculating throughput", company=request.company_id)
-
-    throughput = request.revenue - request.direct_material_cost
-    inventory = request.direct_material_cost
-    tddr = throughput / request.operating_expenses if request.operating_expenses else 0
-    roi = (throughput - request.operating_expenses) / inventory if inventory else 0
-    productivity = request.throughput_per_hour * request.constraint_hours_available
-
-    return ThroughputResponse(
-        company_id=request.company_id,
-        throughput=round(throughput, 2),
-        total_inventory=round(inventory, 2),
-        total_operating_expense=request.operating_expenses,
-        throughput_accounting_ratio=round(tddr, 2),
+@app.post("/analyze", response_model=ThroughputResult)
+async def analyze_throughput(req: ThroughputRequest):
+    products = []
+    for p in req.products:
+        throughput_per_unit = p.selling_price - p.material_cost
+        throughput_per_minute = throughput_per_unit / p.time_on_constraint if p.time_on_constraint > 0 else 0
+        products.append({
+            "name": p.name, "throughput_per_unit": round(throughput_per_unit, 2),
+            "throughput_per_minute": round(throughput_per_minute, 2),
+            "demand": p.demand, "time_on_constraint": p.time_on_constraint,
+            "total_throughput_possible": round(throughput_per_unit * p.demand, 2)
+        })
+    
+    products.sort(key=lambda x: x["throughput_per_minute"], reverse=True)
+    
+    remaining_minutes = req.available_constraint_minutes
+    optimal_mix = []
+    total_throughput = 0
+    
+    for p in products:
+        minutes_needed = p["demand"] * p["time_on_constraint"]
+        if remaining_minutes >= minutes_needed:
+            produce = p["demand"]
+            remaining_minutes -= minutes_needed
+        else:
+            produce = int(remaining_minutes / p["time_on_constraint"]) if p["time_on_constraint"] > 0 else 0
+            remaining_minutes = 0
+        tpu = p["throughput_per_unit"]
+        contribution = tpu * produce
+        total_throughput += contribution
+        optimal_mix.append({
+            "product": p["name"], "produce": produce,
+            "demand": p["demand"], "throughput_contribution": round(contribution, 2)
+        })
+    
+    net_profit = total_throughput - req.operating_expenses
+    roi = (net_profit / req.operating_expenses * 100) if req.operating_expenses else 0
+    utilization = (req.available_constraint_minutes - remaining_minutes) / req.available_constraint_minutes * 100 if req.available_constraint_minutes else 0
+    
+    return ThroughputResult(
+        company_id=req.company_id,
+        total_throughput=round(total_throughput, 2),
+        operating_expenses=round(req.operating_expenses, 2),
+        net_profit=round(net_profit, 2),
         roi=round(roi, 2),
-        productivity=round(productivity, 2)
+        product_ranking=[{"name": p["name"], "tpm": p["throughput_per_minute"]} for p in products],
+        optimal_mix=optimal_mix,
+        constraint_utilization=round(utilization, 1)
     )
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8184)
+    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

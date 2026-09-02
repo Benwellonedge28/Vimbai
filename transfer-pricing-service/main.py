@@ -1,64 +1,96 @@
 """
-Transfer Pricing Service
-Port: 8294
-Intercompany pricing analysis
+Vimbai Transfer Pricing Service
+OECD-aligned transfer pricing analysis with comparable pricing and documentation.
+Port: 8379
 """
-import httpx
+import os, uuid
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
+from enum import Enum
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI
 
-logger = structlog.get_logger()
-app = FastAPI(title="Transfer Pricing Service", version="1.0.0")
+SERVICE_NAME = "transfer-pricing-service"
+PORT = int(os.getenv("PORT", "8379"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
+logger = structlog.get_logger(SERVICE_NAME)
+app = FastAPI(title="Vimbai Transfer Pricing Service", version="2.0.0", docs_url="/docs")
+try:
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    pass
 
-class TransferPricingRequest(BaseModel):
-    company_id: str
-    intercompany_transactions: List[Dict[str, Any]]
-    arm_length_benchmark: Dict[str, float]
+class PricingMethod(str, Enum):
+    CUP = "comparable_uncontrolled_price"; RESALE = "resale_price"
+    COST_PLUS = "cost_plus"; TNMM = "transactional_net_margin"; PROFIT_SPLIT = "profit_split"
 
-class TransferPricingResponse(BaseModel):
-    company_id: str
-    tp_analysis: List[Dict[str, Any]]
-    risk_assessment: Dict[str, Any]
-    recommendations: List[str]
+class IntercompanyTransaction(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str; product_service: str
+    selling_entity: str; buying_entity: str
+    transaction_value: float; cost_of_goods: float = 0
+    arm_length_range_min: float = 0; arm_length_range_max: float = 0
+    method: PricingMethod = PricingMethod.CUP
+
+class TPAnalysisRequest(BaseModel):
+    company_id: str; transactions: List[IntercompanyTransaction]
+    benchmark_data: List[Dict] = []
+
+class TPAnalysisResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str; analysis_date: str
+    compliant_transactions: int; non_compliant_transactions: int
+    total_adjustment_needed: float
+    transactions: List[Dict]
+    documentation_required: List[str] = []
 
 @app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "transfer-pricing", "version": "1.0.0"}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/analyze", response_model=TransferPricingResponse)
-async def analyze_transfer_pricing(request: TransferPricingRequest):
-    logger.info("Analyzing transfer pricing", company=request.company_id)
-
-    tp_analysis = []
-    for tx in request.intercompany_transactions:
-        benchmark = request.arm_length_benchmark.get(tx.get("transaction_type", "default"), 0.5)
-        deviation = abs(tx.get("margin", 0) - benchmark) / benchmark if benchmark else 0
+@app.post("/analyze", response_model=TPAnalysisResult)
+async def analyze_transfer_pricing(req: TPAnalysisRequest):
+    compliant = 0; non_compliant = 0; total_adjustment = 0
+    tx_results = []
+    
+    for tx in req.transactions:
+        is_compliant = tx.arm_length_range_min <= tx.transaction_value <= tx.arm_length_range_max
+        if is_compliant:
+            compliant += 1
+            adjustment = 0
+        else:
+            non_compliant += 1
+            if tx.transaction_value < tx.arm_length_range_min:
+                adjustment = tx.arm_length_range_min - tx.transaction_value
+            else:
+                adjustment = tx.arm_length_range_max - tx.transaction_value
+            total_adjustment += abs(adjustment)
         
-        tp_analysis.append({
-            "transaction_id": tx.get("id", "Unknown"),
-            "type": tx.get("transaction_type", "Unknown"),
-            "amount": tx.get("amount", 0),
-            "margin": tx.get("margin", 0),
-            "benchmark": benchmark,
-            "deviation_pct": round(deviation * 100, 2),
-            "compliant": deviation < 0.1
+        tx_results.append({
+            "id": tx.id, "product_service": tx.product_service,
+            "selling_entity": tx.selling_entity, "buying_entity": tx.buying_entity,
+            "transaction_value": tx.transaction_value,
+            "arm_length_range": [tx.arm_length_range_min, tx.arm_length_range_max],
+            "method": tx.method.value, "compliant": is_compliant,
+            "adjustment_needed": round(adjustment, 2)
         })
     
-    non_compliant = sum(1 for t in tp_analysis if not t["compliant"])
-    risk_assessment = {
-        "total_transactions": len(tp_analysis),
-        "non_compliant": non_compliant,
-        "risk_level": "High" if non_compliant > 5 else "Medium" if non_compliant > 2 else "Low"
-    }
-    
-    recommendations = []
-    if non_compliant > 0:
-        recommendations.append(f"{non_compliant} transactions deviate from arm's length - review pricing")
-    
-    return TransferPricingResponse(company_id=request.company_id, tp_analysis=tp_analysis, risk_assessment=risk_assessment, recommendations=recommendations)
+    return TPAnalysisResult(
+        company_id=req.company_id,
+        analysis_date=datetime.now(timezone.utc).isoformat(),
+        compliant_transactions=compliant,
+        non_compliant_transactions=non_compliant,
+        total_adjustment_needed=round(total_adjustment, 2),
+        transactions=tx_results,
+        documentation_required=[
+            "Master File (OECD)",
+            "Local File for each jurisdiction",
+            "Country-by-Country report (if revenue threshold met)",
+            "Benchmarking study supporting selected method"
+        ]
+    )
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8294)
+    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)
