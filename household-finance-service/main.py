@@ -1,75 +1,96 @@
-"""Vimbai Household Finance Service - Personal/household financial management. Port: 8368"""
+"""
+Vimbai Household Finance Service
+Personal/household budget management with income/expense tracking and net worth calculation.
+Port: 8403
+"""
 import os, uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-from collections import defaultdict
+from typing import Dict, List, Optional
+from enum import Enum
 import structlog
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from fastapi import FastAPI
 
 SERVICE_NAME = "household-finance-service"
-PORT = int(os.getenv("PORT", "8368"))
-structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()], wrapper_class=structlog.stdlib.BoundLogger, logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True)
+PORT = int(os.getenv("PORT", "8403"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
 logger = structlog.get_logger(SERVICE_NAME)
 app = FastAPI(title="Vimbai Household Finance Service", version="2.0.0", docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 try:
-    from shared.tracing import setup_tracing; TRACER = setup_tracing(service_name="household-finance-service", instrument_app=app)
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
-    TRACER = None
+    pass
 
-class HouseholdMember(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    role: str = "member"  # head, spouse, child, dependent
-    income: float = 0
+class ExpenseCategory(str, Enum):
+    HOUSING = "housing"; FOOD = "food"; TRANSPORT = "transport"
+    EDUCATION = "education"; HEALTHCARE = "healthcare"; UTILITIES = "utilities"
+    ENTERTAINMENT = "entertainment"; SAVINGS = "savings"; OTHER = "other"
 
 class HouseholdExpense(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    category: str
-    amount: float
-    frequency: str = "monthly"  # weekly, monthly, annual, one_time
-    description: str = ""
+    category: ExpenseCategory; description: str; amount: float; frequency: str = "monthly"
 
-class HouseholdBudget(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    household_name: str
-    members: List[HouseholdMember] = []
+class HouseholdIncome(BaseModel):
+    source: str; amount: float; frequency: str = "monthly"
+
+class Asset(BaseModel):
+    name: str; value: float; type: str = "cash"  # cash, investment, property, vehicle
+
+class Liability(BaseModel):
+    name: str; amount: float; type: str = "loan"  # loan, mortgage, credit_card
+
+class HouseholdRequest(BaseModel):
+    household_id: str; period: str
+    incomes: List[HouseholdIncome] = []
     expenses: List[HouseholdExpense] = []
-    total_income: float = 0
-    total_expenses: float = 0
-    savings: float = 0
-    savings_rate: float = 0
+    assets: List[Asset] = []
+    liabilities: List[Liability] = []
 
-_budgets: Dict[str, HouseholdBudget] = {}
+class HouseholdResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    household_id: str; period: str
+    total_income: float; total_expenses: float; surplus_deficit: float
+    savings_rate: float; net_worth: float
+    expense_by_category: Dict[str, float] = {}
+    budget_health: str
 
 @app.get("/")
-async def health(): return {"status": "healthy", "service": SERVICE_NAME}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/budgets", response_model=HouseholdBudget)
-async def create_budget(budget: HouseholdBudget):
-    budget.total_income = sum(m.income for m in budget.members)
-    budget.total_expenses = sum(e.amount for e in budget.expenses)
-    budget.savings = budget.total_income - budget.total_expenses
-    budget.savings_rate = (budget.savings / max(1, budget.total_income)) * 100
-    _budgets[budget.id] = budget
-    return budget
-
-@app.get("/budgets/{budget_id}")
-async def get_budget(budget_id: str):
-    if budget_id not in _budgets: raise HTTPException(status_code=404, detail="Budget not found")
-    return _budgets[budget_id]
-
-@app.put("/budgets/{budget_id}/expenses")
-async def add_expense(budget_id: str, expense: HouseholdExpense):
-    if budget_id not in _budgets: raise HTTPException(status_code=404, detail="Budget not found")
-    budget = _budgets[budget_id]
-    budget.expenses.append(expense)
-    budget.total_expenses = sum(e.amount for e in budget.expenses)
-    budget.savings = budget.total_income - budget.total_expenses
-    budget.savings_rate = (budget.savings / max(1, budget.total_income)) * 100
-    return {"budget_id": budget_id, "savings": budget.savings, "savings_rate": budget.savings_rate}
+@app.post("/analyze", response_model=HouseholdResult)
+async def analyze_household(req: HouseholdRequest):
+    income = sum(i.amount for i in req.incomes)
+    expenses = sum(e.amount for e in req.expenses)
+    surplus = income - expenses
+    savings_rate = (surplus / income * 100) if income else 0
+    
+    by_cat = {}
+    for e in req.expenses:
+        by_cat[e.category.value] = by_cat.get(e.category.value, 0) + e.amount
+    
+    assets_total = sum(a.value for a in req.assets)
+    liabilities_total = sum(l.amount for l in req.liabilities)
+    net_worth = assets_total - liabilities_total
+    
+    if savings_rate >= 20:
+        health = "excellent"
+    elif savings_rate >= 10:
+        health = "good"
+    elif savings_rate >= 0:
+        health = "fair"
+    else:
+        health = "poor"
+    
+    return HouseholdResult(
+        household_id=req.household_id, period=req.period,
+        total_income=round(income, 2), total_expenses=round(expenses, 2),
+        surplus_deficit=round(surplus, 2),
+        savings_rate=round(savings_rate, 1),
+        net_worth=round(net_worth, 2),
+        expense_by_category={k: round(v, 2) for k, v in by_cat.items()},
+        budget_health=health
+    )
 
 if __name__ == "__main__":
     import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

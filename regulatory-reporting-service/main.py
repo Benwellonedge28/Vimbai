@@ -1,76 +1,87 @@
 """
-Regulatory Reporting Service
-Port: 8351
-Regulatory filing and compliance reporting
+Vimbai Regulatory Reporting Service
+Automated regulatory report generation for central bank and securities authority filings.
+Port: 8407
 """
-import httpx
+import os, uuid
+from datetime import datetime, timezone
+from typing import Dict, List
+from enum import Enum
 import structlog
-from typing import Any, Dict, List, Optional
-from datetime import datetime, date
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI
 
-logger = structlog.get_logger()
-app = FastAPI(title="Regulatory Reporting Service", version="1.0.0")
+SERVICE_NAME = "regulatory-reporting-service"
+PORT = int(os.getenv("PORT", "8407"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
+logger = structlog.get_logger(SERVICE_NAME)
+app = FastAPI(title="Vimbai Regulatory Reporting Service", version="2.0.0", docs_url="/docs")
+try:
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    pass
 
-class RegulatoryFilingRequest(BaseModel):
-    company_id: str
-    regulator: str
-    filing_type: str
-    period: str
-    data: Dict[str, Any]
+class ReportType(str, Enum):
+    PRUDENTIAL = "prudential"; LIQUIDITY = "liquidity"; CAPITAL_ADEQUACY = "capital_adequacy"
+    LARGE_EXPOSURES = "large_exposures"; RELATED_PARTY = "related_party"
+    AML = "aml"; FX_EXPOSURE = "fx_exposure"
 
-class RegulatoryFilingResponse(BaseModel):
-    filing_id: str
-    regulator: str
-    filing_type: str
-    status: str
-    submitted_at: datetime
-    confirmation_number: str
-    next_due_date: date
+class ReportRequest(BaseModel):
+    company_id: str; report_type: ReportType
+    period: str; jurisdiction: str = "ZW"
+    data: Dict[str, float] = {}
 
-class XBRLRequest(BaseModel):
-    company_id: str
-    taxonomy: str
-    facts: Dict[str, Any]
-
-class XBRLResponse(BaseModel):
-    document_id: str
-    taxonomy_version: str
-    validated: bool
-    errors: List[str]
-    document_url: str
+class ReportResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str; report_type: str; period: str; jurisdiction: str
+    status: str; filing_reference: str
+    summary: Dict[str, float]
+    validation_checks: List[Dict] = []
+    submission_deadline: str
 
 @app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "regulatory-reporting", "version": "1.0.0"}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/filing", response_model=RegulatoryFilingResponse)
-async def submit_filing(request: RegulatoryFilingRequest):
-    logger.info("Submitting regulatory filing", company=request.company_id, regulator=request.regulator)
+@app.post("/generate", response_model=ReportResult)
+async def generate_report(req: ReportRequest):
+    filing_ref = f"REG-{req.jurisdiction}-{req.report_type.value.upper()}-{req.period.replace('-', '')}"
     
-    return RegulatoryFilingResponse(
-        filing_id=f"FILING-{datetime.now().strftime('%Y%m%d%H%M')}",
-        regulator=request.regulator,
-        filing_type=request.filing_type,
-        status="submitted",
-        submitted_at=datetime.now(),
-        confirmation_number=f"CONF-{hash(request.company_id) % 100000}",
-        next_due_date=date(2024, 12, 31)
-    )
-
-@app.post("/xbrl", response_model=XBRLResponse)
-async def generate_xbrl(request: XBRLRequest):
-    logger.info("Generating XBRL", company=request.company_id, taxonomy=request.taxonomy)
+    validation = []
+    all_pass = True
     
-    return XBRLResponse(
-        document_id=f"XBRL-{datetime.now().strftime('%Y%m%d')}",
-        taxonomy_version=request.taxonomy,
-        validated=True,
-        errors=[],
-        document_url=f"https://example.com/xbrl/{request.company_id}.xml"
+    if req.report_type == ReportType.PRUDENTIAL:
+        car = req.data.get("capital_ratio", 0)
+        validation.append({"check": "Capital Adequacy Ratio >= 12%", "value": car, "pass": car >= 12})
+        if car < 12: all_pass = False
+    
+    elif req.report_type == ReportType.LIQUIDITY:
+        lcr = req.data.get("liquidity_ratio", 0)
+        validation.append({"check": "Liquidity Coverage Ratio >= 100%", "value": lcr, "pass": lcr >= 100})
+        if lcr < 100: all_pass = False
+    
+    elif req.report_type == ReportType.LARGE_EXPOSURES:
+        max_exp = req.data.get("largest_exposure_pct", 0)
+        validation.append({"check": "Single exposure <= 25% of capital", "value": max_exp, "pass": max_exp <= 25})
+        if max_exp > 25: all_pass = False
+    
+    validation.append({"check": "Data completeness", "value": len(req.data), "pass": len(req.data) > 0})
+    if not req.data: all_pass = False
+    
+    status = "ready_for_submission" if all_pass else "validation_failed"
+    
+    from datetime import timedelta
+    deadline = (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")
+    
+    return ReportResult(
+        company_id=req.company_id, report_type=req.report_type.value,
+        period=req.period, jurisdiction=req.jurisdiction,
+        status=status, filing_reference=filing_ref,
+        summary={k: round(v, 2) for k, v in req.data.items()},
+        validation_checks=validation,
+        submission_deadline=deadline
     )
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8351)
+    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

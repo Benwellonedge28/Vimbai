@@ -1,76 +1,82 @@
 """
-Market Risk Service
-Port: 8165
-Value at Risk (VaR), stress testing, sensitivity analysis
+Vimbai Market Risk Service
+Value at Risk (VaR), stress testing, and market exposure analysis.
+Port: 8406
 """
-import httpx
+import os, uuid, math
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 import structlog
-from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from fastapi import FastAPI
 
-logger = structlog.get_logger()
-app = FastAPI(title="Market Risk Service", version="1.0.0")
+SERVICE_NAME = "market-risk-service"
+PORT = int(os.getenv("PORT", "8406"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
+logger = structlog.get_logger(SERVICE_NAME)
+app = FastAPI(title="Vimbai Market Risk Service", version="2.0.0", docs_url="/docs")
+try:
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    pass
 
 class Position(BaseModel):
-    position_id: str
-    asset_class: str
-    notional: float
-    market_value: float
-    volatility: float
+    instrument: str; exposure: float; volatility: float = 0.15
+    correlation: float = 1.0
 
-class MarketRiskRequest(BaseModel):
-    company_id: str
+class VaRRequest(BaseModel):
+    company_id: str; portfolio_name: str
     positions: List[Position]
-    confidence_level: float = Field(default=0.99, ge=0.9, le=0.999)
-    holding_period_days: int = 10
+    confidence_level: float = 0.95
+    holding_period_days: int = 1
 
-class MarketRiskResponse(BaseModel):
-    company_id: str
-    var_absolute: float
-    var_percentage: float
+class VaRResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str; portfolio_name: str
+    total_exposure: float; portfolio_volatility: float
+    var_95: float; var_99: float
     expected_shortfall: float
-    stressed_var: float
-    risk_decomposition: Dict[str, float]
-
-async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{service_url}{endpoint}"
-            response = await client.post(url, json=data) if data else await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception as e:
-        logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
-        return {}
+    stress_loss_2sd: float; stress_loss_3sd: float
+    risk_level: str
 
 @app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "market-risk", "version": "1.0.0"}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/calculate", response_model=MarketRiskResponse)
-async def calculate_market_risk(request: MarketRiskRequest):
-    logger.info("Calculating market risk", company=request.company_id, positions=len(request.positions))
-
-    total_value = sum(p.market_value for p in request.positions)
-    z_score = 2.33 if request.confidence_level == 0.99 else 1.65
-
-    var = total_value * max(p.volatility for p in request.positions) * z_score * (request.holding_period_days ** 0.5) / 100
-    expected_shortfall = var * 1.2
-    stressed_var = var * 1.5
-
-    decomposition = {}
-    for p in request.positions:
-        decomposition[p.asset_class] = var * (p.market_value / total_value)
-
-    return MarketRiskResponse(
-        company_id=request.company_id,
-        var_absolute=var,
-        var_percentage=var / total_value * 100 if total_value > 0 else 0,
-        expected_shortfall=expected_shortfall,
-        stressed_var=stressed_var,
-        risk_decomposition=decomposition
+@app.post("/var", response_model=VaRResult)
+async def calculate_var(req: VaRRequest):
+    total = sum(p.exposure for p in req.positions)
+    
+    # Simple portfolio volatility (assuming diversification benefit)
+    weighted_vol = sum(p.exposure * p.volatility for p in req.positions) / total if total else 0
+    portfolio_vol = weighted_vol * 0.85  # diversification approximation
+    
+    z_95 = 1.645; z_99 = 2.326
+    var_95 = total * portfolio_vol * z_95 * math.sqrt(req.holding_period_days)
+    var_99 = total * portfolio_vol * z_99 * math.sqrt(req.holding_period_days)
+    es = total * portfolio_vol * 2.063 * math.sqrt(req.holding_period_days)  # ES at 95%
+    
+    stress_2sd = total * portfolio_vol * 2
+    stress_3sd = total * portfolio_vol * 3
+    
+    if var_95 / total > 0.20:
+        risk = "high"
+    elif var_95 / total > 0.10:
+        risk = "medium"
+    else:
+        risk = "low"
+    
+    return VaRResult(
+        company_id=req.company_id, portfolio_name=req.portfolio_name,
+        total_exposure=round(total, 2),
+        portfolio_volatility=round(portfolio_vol, 4),
+        var_95=round(var_95, 2), var_99=round(var_99, 2),
+        expected_shortfall=round(es, 2),
+        stress_loss_2sd=round(stress_2sd, 2),
+        stress_loss_3sd=round(stress_3sd, 2),
+        risk_level=risk
     )
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8165)
+    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

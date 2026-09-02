@@ -1,73 +1,119 @@
-"""Vimbai Corporate Tax Service - Calculate and manage corporate tax obligations. Port: 8355"""
+"""
+Vimbai Corporate Tax Service
+Corporate income tax calculation with adjustments, credits, and installment planning.
+Port: 8399
+"""
 import os, uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List
-from collections import defaultdict
+from typing import Dict, List
 import structlog
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from fastapi import FastAPI
 
 SERVICE_NAME = "corporate-tax-service"
-PORT = int(os.getenv("PORT", "8355"))
-structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()], wrapper_class=structlog.stdlib.BoundLogger, logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True)
+PORT = int(os.getenv("PORT", "8399"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
 logger = structlog.get_logger(SERVICE_NAME)
 app = FastAPI(title="Vimbai Corporate Tax Service", version="2.0.0", docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 try:
-    from shared.tracing import setup_tracing; TRACER = setup_tracing(service_name="corporate-tax-service", instrument_app=app)
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
-    TRACER = None
+    pass
 
-class TaxComputation(BaseModel):
+class TaxAdjustment(BaseModel):
+    description: str; amount: float; type: str = "addition"  # addition, deduction
+
+class TaxCredit(BaseModel):
+    description: str; amount: float; carryforward_years: int = 0
+
+class CorporateTaxRequest(BaseModel):
+    company_id: str; fiscal_year: int
+    accounting_profit: float; statutory_rate: float = 0.25
+    adjustments: List[TaxAdjustment] = []
+    credits: List[TaxCredit] = []
+    estimated_payments: float = 0
+
+class CorporateTaxResult(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    tax_year: int
-    revenue: float
-    deductible_expenses: float = 0
-    capital_allowances: float = 0
-    taxable_income: float = 0
-    tax_rate: float = 25.0  # Zimbabwe corporate tax rate
-    tax_owed: float = 0
-    quarterly_estimates: List[float] = []
-    credits: float = 0
-    net_tax_liability: float = 0
-    computed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-_computations: Dict[str, List[TaxComputation]] = defaultdict(list)
-
-def compute_tax(comp: TaxComputation) -> TaxComputation:
-    comp.taxable_income = max(0, comp.revenue - comp.deductible_expenses - comp.capital_allowances)
-    comp.tax_owed = comp.taxable_income * (comp.tax_rate / 100)
-    comp.net_tax_liability = max(0, comp.tax_owed - comp.credits)
-    if comp.quarterly_estimates and len(comp.quarterly_estimates) == 4:
-        comp.quarterly_estimates = [comp.net_tax_liability / 4] * 4
-    return comp
+    company_id: str; fiscal_year: int
+    accounting_profit: float; taxable_income: float
+    tax_before_credits: float; total_credits: float
+    net_tax_liability: float; effective_rate: float
+    estimated_payments: float; balance_due: float
+    installment_schedule: List[Dict] = []
 
 @app.get("/")
-async def health(): return {"status": "healthy", "service": SERVICE_NAME}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/compute", response_model=TaxComputation)
-async def compute_corporate_tax(comp: TaxComputation):
-    comp = compute_tax(comp)
-    _computations[comp.company_id].append(comp)
-    logger.info("tax_computed", company_id=comp.company_id, year=comp.tax_year, liability=comp.net_tax_liability)
-    return comp
+@app.post("/calculate", response_model=CorporateTaxResult)
+async def calculate_tax(req: CorporateTaxRequest):
+    taxable = req.accounting_profit
+    for adj in req.adjustments:
+        if adj.type == "addition":
+            taxable += adj.amount
+        else:
+            taxable -= adj.amount
+    taxable = max(taxable, 0)
+    
+    tax_before = taxable * req.statutory_rate
+    total_credits = sum(c.amount for c in req.credits)
+    net_tax = max(tax_before - total_credits, 0)
+    effective = net_tax / req.accounting_profit if req.accounting_profit else 0
+    balance = max(net_tax - req.estimated_payments, 0)
+    
+    installments = []
+    for q in range(1, 5):
+        q_payment = net_tax / 4
+        installments.append({
+            "quarter": q, "due_date": f"{req.fiscal_year}-{q*3:02d}-15",
+            "amount": round(q_payment, 2)
+        })
+    
+    return CorporateTaxResult(
+        company_id=req.company_id, fiscal_year=req.fiscal_year,
+        accounting_profit=round(req.accounting_profit, 2),
+        taxable_income=round(taxable, 2),
+        tax_before_credits=round(tax_before, 2),
+        total_credits=round(total_credits, 2),
+        net_tax_liability=round(net_tax, 2),
+        effective_rate=round(effective, 4),
+        estimated_payments=round(req.estimated_payments, 2),
+        balance_due=round(balance, 2),
+        installment_schedule=installments
+    )
 
-@app.get("/computations/{company_id}")
-async def get_computations(company_id: str):
-    return {"company_id": company_id, "computations": _computations.get(company_id, []), "total": len(_computations.get(company_id, []))}
+# Backward-compatible /compute endpoint
+class ComputeTaxReq(BaseModel):
+    company_id: str; tax_year: int
+    revenue: float; deductible_expenses: float
+    capital_allowances: float = 0; tax_rate: float = 25.0; credits: float = 0
 
-@app.get("/latest/{company_id}")
-async def get_latest(company_id: str):
-    comps = _computations.get(company_id, [])
-    if not comps: raise HTTPException(status_code=404, detail="No tax computations found")
-    return comps[-1]
+@app.post("/compute")
+async def compute_tax(req: ComputeTaxReq):
+    taxable = max(req.revenue - req.deductible_expenses - req.capital_allowances, 0)
+    tax_owed = taxable * (req.tax_rate / 100)
+    net = max(tax_owed - req.credits, 0)
+    return {
+        "taxable_income": round(taxable, 2),
+        "tax_owed": round(tax_owed, 2),
+        "net_tax_liability": round(net, 2),
+        "effective_rate": round(net / req.revenue * 100, 2) if req.revenue else 0
+    }
 
 @app.post("/provision/{company_id}")
-async def calculate_provisional_tax(company_id: str, tax_year: int, annual_estimate: float, tax_rate: float = 25.0):
-    quarterly = annual_estimate * (tax_rate / 100) / 4
-    return {"company_id": company_id, "tax_year": tax_year, "annual_estimate": annual_estimate, "quarterly_payment": quarterly, "total_annual_provision": quarterly * 4, "due_dates": ["31 March", "30 June", "30 September", "31 December"]}
+async def provisional_tax(company_id: str, tax_year: int, annual_estimate: float, tax_rate: float = 25.0):
+    annual_tax = annual_estimate * (tax_rate / 100)
+    quarterly = annual_tax / 4
+    from datetime import datetime
+    due_dates = [f"{tax_year}-{m}-15" for m in (3, 6, 9, 12)]
+    return {
+        "company_id": company_id,
+        "annual_tax_estimate": round(annual_tax, 2),
+        "quarterly_payment": round(quarterly, 2),
+        "due_dates": due_dates
+    }
 
 if __name__ == "__main__":
     import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

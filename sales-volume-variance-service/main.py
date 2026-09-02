@@ -1,7 +1,7 @@
 """
 Vimbai Sales Volume Variance Service
-Analyzes volume variances broken into mix and quantity components.
-Port: 8342
+Sales volume and mix variance analysis with contribution margin approach.
+Port: 8401
 """
 import os, uuid
 from typing import Dict, List
@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from fastapi import FastAPI
 
 SERVICE_NAME = "sales-volume-variance-service"
-PORT = int(os.getenv("PORT", "8342"))
+PORT = int(os.getenv("PORT", "8401"))
 structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
 logger = structlog.get_logger(SERVICE_NAME)
 app = FastAPI(title="Vimbai Sales Volume Variance Service", version="2.0.0", docs_url="/docs")
@@ -19,55 +19,64 @@ try:
 except ImportError:
     pass
 
-class VolumeItem(BaseModel):
-    product_name: str; budgeted_volume: float; actual_volume: float
-    budgeted_price: float; standard_mix_pct: float = 0
+class ProductVolume(BaseModel):
+    product: str; budgeted_volume: int; actual_volume: int
+    budgeted_price: float; budgeted_cost: float
 
-class VolumeRequest(BaseModel):
-    company_id: str; period: str; items: List[VolumeItem]
+class VolumeVarianceRequest(BaseModel):
+    company_id: str; period: str; products: List[ProductVolume]
+    total_budgeted_volume: int = 0
 
-class VolumeResult(BaseModel):
+class VolumeVarianceResult(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     company_id: str; period: str
-    total_volume_variance: float; total_mix_variance: float; total_quantity_variance: float
-    items: List[Dict] = []
+    volume_variance: float; mix_variance: float; yield_variance: float
+    total_variance: float
+    product_details: List[Dict] = []
 
 @app.get("/")
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/analyze", response_model=VolumeResult)
-async def analyze_volume_variance(req: VolumeRequest):
-    total_budget_vol = sum(i.budgeted_volume for i in req.items)
-    total_actual_vol = sum(i.actual_volume for i in req.items)
-    volume_ratio = total_actual_vol / total_budget_vol if total_budget_vol else 0
+@app.post("/calculate", response_model=VolumeVarianceResult)
+async def calculate_volume_variance(req: VolumeVarianceRequest):
+    total_budget = sum(p.budgeted_volume for p in req.products)
+    total_actual = sum(p.actual_volume for p in req.products)
     
-    total_vol_var = 0; total_mix = 0; total_qty = 0
-    items_result = []
+    budgeted_cm_total = sum((p.budgeted_price - p.budgeted_cost) * p.budgeted_volume for p in req.products)
+    actual_cm_at_budget = sum((p.budgeted_price - p.budgeted_cost) * p.actual_volume for p in req.products)
     
-    for item in req.items:
-        revised_budget = item.budgeted_volume * volume_ratio
-        vol_variance = (item.actual_volume - item.budgeted_volume) * item.budgeted_price
-        mix_variance = (item.actual_volume - revised_budget) * item.budgeted_price
-        qty_variance = (revised_budget - item.budgeted_volume) * item.budgeted_price
-        
-        total_vol_var += vol_variance; total_mix += mix_variance; total_qty += qty_variance
-        items_result.append({
-            "product": item.product_name,
-            "volume_variance": round(vol_variance, 2),
-            "mix_variance": round(mix_variance, 2),
-            "quantity_variance": round(qty_variance, 2),
-            "budgeted_volume": item.budgeted_volume, "actual_volume": item.actual_volume,
-            "revised_budget_volume": round(revised_budget, 2)
+    volume_var = (total_actual - total_budget) * (budgeted_cm_total / total_budget) if total_budget else 0
+    
+    # Mix variance
+    mix_var = 0
+    for p in req.products:
+        budget_cm = p.budgeted_price - p.budgeted_cost
+        expected_at_actual = total_actual * (p.budgeted_volume / total_budget) if total_budget else 0
+        mix_var += (p.actual_volume - expected_at_actual) * budget_cm
+    
+    yield_var = volume_var - mix_var
+    total = volume_var
+    
+    details = []
+    for p in req.products:
+        cm = p.budgeted_price - p.budgeted_cost
+        vol_diff = p.actual_volume - p.budgeted_volume
+        details.append({
+            "product": p.product, "budgeted_volume": p.budgeted_volume,
+            "actual_volume": p.actual_volume, "volume_diff": vol_diff,
+            "contribution_margin": round(cm, 2),
+            "product_variance": round(vol_diff * cm, 2)
         })
     
-    return VolumeResult(
+    return VolumeVarianceResult(
         company_id=req.company_id, period=req.period,
-        total_volume_variance=round(total_vol_var, 2),
-        total_mix_variance=round(total_mix, 2),
-        total_quantity_variance=round(total_qty, 2),
-        items=items_result
+        volume_variance=round(volume_var, 2),
+        mix_variance=round(mix_var, 2),
+        yield_variance=round(yield_var, 2),
+        total_variance=round(total, 2),
+        product_details=details
     )
 
 if __name__ == "__main__":
