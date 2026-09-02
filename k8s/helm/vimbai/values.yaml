@@ -103,3 +103,353 @@ observability:
 secrets:
   jwtSecret: "change-me-in-production"
   neo4jAuth: "neo4j/dev-password"
+
+newServices:
+  - name: "activity-based-budget"
+    port: 8177
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "authorized-share-capital"
+    port: 8017
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "banking-integration"
+    port: 8386
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "benefits-admin"
+    port: 8360
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "cash-management"
+    port: 8264
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "data-warehou"
+    port: 8362
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "disposal-group"
+    port: 8226
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "distributed-workflow-orchestration"
+    port: 8046
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "encrypted-backup"
+    port: 8006
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "etl"
+    port: 8363
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "family-community-group"
+    port: 8005
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "fixed-assets-regist"
+    port: 8355
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "ifrs-reporting"
+    port: 8268
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "intangible-asset"
+    port: 8358
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "intercompany"
+    port: 8350
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "investment-monitoring"
+    port: 8290
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "lease-termination"
+    port: 8224
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "lifecycle-costing"
+    port: 8182
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "org-authorization-engine"
+    port: 8008
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "performance-benchmarking"
+    port: 8280
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "privacy-admin-dashboard"
+    port: 8003
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "report-automation"
+    port: 8272
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "report-distribution"
+    port: 8273
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "rolling-forecast"
+    port: 8173
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "sox-complian"
+    port: 8286
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "treasury-policy"
+    port: 8263
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "treasury-reporting"
+    port: 8262
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "treasury-risk"
+    port: 8259
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+  - name: "zero-trust-data"
+    port: 8002
+    replicas: 2
+    maxReplicas: 6
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+

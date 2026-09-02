@@ -1,0 +1,2499 @@
+# Kubernetes Manifests for 31 New Vimbai Services
+# Generated from api-gateway/config/services.json
+# Each service gets a Deployment (2 replicas) + ClusterIP Service
+
+---
+# activity-based-budget-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activity-based-budget
+  namespace: vimbai
+  labels:
+    app: activity-based-budget
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: activity-based-budget
+  template:
+    metadata:
+      labels:
+        app: activity-based-budget
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8177"
+    spec:
+      containers:
+      - name: activity-based-budget
+        image: vimbai/activity-based-budget-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8177
+          name: http
+        env:
+        - name: PORT
+          value: "8177"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8177
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8177
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: activity-based-budget
+  namespace: vimbai
+  labels:
+    app: activity-based-budget
+spec:
+  selector:
+    app: activity-based-budget
+  ports:
+  - name: http
+    port: 8177
+    targetPort: 8177
+---
+# authorized-share-capital-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authorized-share-capital
+  namespace: vimbai
+  labels:
+    app: authorized-share-capital
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: authorized-share-capital
+  template:
+    metadata:
+      labels:
+        app: authorized-share-capital
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8017"
+    spec:
+      containers:
+      - name: authorized-share-capital
+        image: vimbai/authorized-share-capital-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8017
+          name: http
+        env:
+        - name: PORT
+          value: "8017"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8017
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8017
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authorized-share-capital
+  namespace: vimbai
+  labels:
+    app: authorized-share-capital
+spec:
+  selector:
+    app: authorized-share-capital
+  ports:
+  - name: http
+    port: 8017
+    targetPort: 8017
+---
+# banking-integration-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: banking-integration
+  namespace: vimbai
+  labels:
+    app: banking-integration
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: banking-integration
+  template:
+    metadata:
+      labels:
+        app: banking-integration
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8386"
+    spec:
+      containers:
+      - name: banking-integration
+        image: vimbai/banking-integration-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8386
+          name: http
+        env:
+        - name: PORT
+          value: "8386"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8386
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8386
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: banking-integration
+  namespace: vimbai
+  labels:
+    app: banking-integration
+spec:
+  selector:
+    app: banking-integration
+  ports:
+  - name: http
+    port: 8386
+    targetPort: 8386
+---
+# benefits-admin-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: benefits-admin
+  namespace: vimbai
+  labels:
+    app: benefits-admin
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: benefits-admin
+  template:
+    metadata:
+      labels:
+        app: benefits-admin
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8360"
+    spec:
+      containers:
+      - name: benefits-admin
+        image: vimbai/benefits-admin-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8360
+          name: http
+        env:
+        - name: PORT
+          value: "8360"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8360
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8360
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: benefits-admin
+  namespace: vimbai
+  labels:
+    app: benefits-admin
+spec:
+  selector:
+    app: benefits-admin
+  ports:
+  - name: http
+    port: 8360
+    targetPort: 8360
+---
+# cash-management-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cash-management
+  namespace: vimbai
+  labels:
+    app: cash-management
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cash-management
+  template:
+    metadata:
+      labels:
+        app: cash-management
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8264"
+    spec:
+      containers:
+      - name: cash-management
+        image: vimbai/cash-management-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8264
+          name: http
+        env:
+        - name: PORT
+          value: "8264"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8264
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8264
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cash-management
+  namespace: vimbai
+  labels:
+    app: cash-management
+spec:
+  selector:
+    app: cash-management
+  ports:
+  - name: http
+    port: 8264
+    targetPort: 8264
+---
+# data-warehouse-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-warehou
+  namespace: vimbai
+  labels:
+    app: data-warehou
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: data-warehou
+  template:
+    metadata:
+      labels:
+        app: data-warehou
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8362"
+    spec:
+      containers:
+      - name: data-warehou
+        image: vimbai/data-warehouse-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8362
+          name: http
+        env:
+        - name: PORT
+          value: "8362"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8362
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8362
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-warehou
+  namespace: vimbai
+  labels:
+    app: data-warehou
+spec:
+  selector:
+    app: data-warehou
+  ports:
+  - name: http
+    port: 8362
+    targetPort: 8362
+---
+# disposal-group-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: disposal-group
+  namespace: vimbai
+  labels:
+    app: disposal-group
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: disposal-group
+  template:
+    metadata:
+      labels:
+        app: disposal-group
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8226"
+    spec:
+      containers:
+      - name: disposal-group
+        image: vimbai/disposal-group-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8226
+          name: http
+        env:
+        - name: PORT
+          value: "8226"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8226
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8226
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: disposal-group
+  namespace: vimbai
+  labels:
+    app: disposal-group
+spec:
+  selector:
+    app: disposal-group
+  ports:
+  - name: http
+    port: 8226
+    targetPort: 8226
+---
+# distributed-workflow-orchestration-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: distributed-workflow-orchestration
+  namespace: vimbai
+  labels:
+    app: distributed-workflow-orchestration
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: distributed-workflow-orchestration
+  template:
+    metadata:
+      labels:
+        app: distributed-workflow-orchestration
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8046"
+    spec:
+      containers:
+      - name: distributed-workflow-orchestration
+        image: vimbai/distributed-workflow-orchestration-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8046
+          name: http
+        env:
+        - name: PORT
+          value: "8046"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8046
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8046
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: distributed-workflow-orchestration
+  namespace: vimbai
+  labels:
+    app: distributed-workflow-orchestration
+spec:
+  selector:
+    app: distributed-workflow-orchestration
+  ports:
+  - name: http
+    port: 8046
+    targetPort: 8046
+---
+# encrypted-backup-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: encrypted-backup
+  namespace: vimbai
+  labels:
+    app: encrypted-backup
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: encrypted-backup
+  template:
+    metadata:
+      labels:
+        app: encrypted-backup
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8006"
+    spec:
+      containers:
+      - name: encrypted-backup
+        image: vimbai/encrypted-backup-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8006
+          name: http
+        env:
+        - name: PORT
+          value: "8006"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8006
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8006
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: encrypted-backup
+  namespace: vimbai
+  labels:
+    app: encrypted-backup
+spec:
+  selector:
+    app: encrypted-backup
+  ports:
+  - name: http
+    port: 8006
+    targetPort: 8006
+---
+# etl-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etl
+  namespace: vimbai
+  labels:
+    app: etl
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: etl
+  template:
+    metadata:
+      labels:
+        app: etl
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8363"
+    spec:
+      containers:
+      - name: etl
+        image: vimbai/etl-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8363
+          name: http
+        env:
+        - name: PORT
+          value: "8363"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8363
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8363
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: etl
+  namespace: vimbai
+  labels:
+    app: etl
+spec:
+  selector:
+    app: etl
+  ports:
+  - name: http
+    port: 8363
+    targetPort: 8363
+---
+# family-community-group-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: family-community-group
+  namespace: vimbai
+  labels:
+    app: family-community-group
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: family-community-group
+  template:
+    metadata:
+      labels:
+        app: family-community-group
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8005"
+    spec:
+      containers:
+      - name: family-community-group
+        image: vimbai/family-community-group-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8005
+          name: http
+        env:
+        - name: PORT
+          value: "8005"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8005
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8005
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: family-community-group
+  namespace: vimbai
+  labels:
+    app: family-community-group
+spec:
+  selector:
+    app: family-community-group
+  ports:
+  - name: http
+    port: 8005
+    targetPort: 8005
+---
+# fixed-assets-register-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fixed-assets-regist
+  namespace: vimbai
+  labels:
+    app: fixed-assets-regist
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fixed-assets-regist
+  template:
+    metadata:
+      labels:
+        app: fixed-assets-regist
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8355"
+    spec:
+      containers:
+      - name: fixed-assets-regist
+        image: vimbai/fixed-assets-register-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8355
+          name: http
+        env:
+        - name: PORT
+          value: "8355"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8355
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8355
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fixed-assets-regist
+  namespace: vimbai
+  labels:
+    app: fixed-assets-regist
+spec:
+  selector:
+    app: fixed-assets-regist
+  ports:
+  - name: http
+    port: 8355
+    targetPort: 8355
+---
+# ifrs-reporting-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ifrs-reporting
+  namespace: vimbai
+  labels:
+    app: ifrs-reporting
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ifrs-reporting
+  template:
+    metadata:
+      labels:
+        app: ifrs-reporting
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8268"
+    spec:
+      containers:
+      - name: ifrs-reporting
+        image: vimbai/ifrs-reporting-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8268
+          name: http
+        env:
+        - name: PORT
+          value: "8268"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8268
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8268
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ifrs-reporting
+  namespace: vimbai
+  labels:
+    app: ifrs-reporting
+spec:
+  selector:
+    app: ifrs-reporting
+  ports:
+  - name: http
+    port: 8268
+    targetPort: 8268
+---
+# intangible-assets-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intangible-asset
+  namespace: vimbai
+  labels:
+    app: intangible-asset
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: intangible-asset
+  template:
+    metadata:
+      labels:
+        app: intangible-asset
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8358"
+    spec:
+      containers:
+      - name: intangible-asset
+        image: vimbai/intangible-assets-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8358
+          name: http
+        env:
+        - name: PORT
+          value: "8358"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8358
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8358
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: intangible-asset
+  namespace: vimbai
+  labels:
+    app: intangible-asset
+spec:
+  selector:
+    app: intangible-asset
+  ports:
+  - name: http
+    port: 8358
+    targetPort: 8358
+---
+# intercompany-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intercompany
+  namespace: vimbai
+  labels:
+    app: intercompany
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: intercompany
+  template:
+    metadata:
+      labels:
+        app: intercompany
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8350"
+    spec:
+      containers:
+      - name: intercompany
+        image: vimbai/intercompany-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8350
+          name: http
+        env:
+        - name: PORT
+          value: "8350"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8350
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8350
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: intercompany
+  namespace: vimbai
+  labels:
+    app: intercompany
+spec:
+  selector:
+    app: intercompany
+  ports:
+  - name: http
+    port: 8350
+    targetPort: 8350
+---
+# investment-monitoring-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: investment-monitoring
+  namespace: vimbai
+  labels:
+    app: investment-monitoring
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: investment-monitoring
+  template:
+    metadata:
+      labels:
+        app: investment-monitoring
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8290"
+    spec:
+      containers:
+      - name: investment-monitoring
+        image: vimbai/investment-monitoring-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8290
+          name: http
+        env:
+        - name: PORT
+          value: "8290"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8290
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8290
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: investment-monitoring
+  namespace: vimbai
+  labels:
+    app: investment-monitoring
+spec:
+  selector:
+    app: investment-monitoring
+  ports:
+  - name: http
+    port: 8290
+    targetPort: 8290
+---
+# lease-termination-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lease-termination
+  namespace: vimbai
+  labels:
+    app: lease-termination
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: lease-termination
+  template:
+    metadata:
+      labels:
+        app: lease-termination
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8224"
+    spec:
+      containers:
+      - name: lease-termination
+        image: vimbai/lease-termination-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8224
+          name: http
+        env:
+        - name: PORT
+          value: "8224"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8224
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8224
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lease-termination
+  namespace: vimbai
+  labels:
+    app: lease-termination
+spec:
+  selector:
+    app: lease-termination
+  ports:
+  - name: http
+    port: 8224
+    targetPort: 8224
+---
+# lifecycle-costing-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lifecycle-costing
+  namespace: vimbai
+  labels:
+    app: lifecycle-costing
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: lifecycle-costing
+  template:
+    metadata:
+      labels:
+        app: lifecycle-costing
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8182"
+    spec:
+      containers:
+      - name: lifecycle-costing
+        image: vimbai/lifecycle-costing-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8182
+          name: http
+        env:
+        - name: PORT
+          value: "8182"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8182
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8182
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lifecycle-costing
+  namespace: vimbai
+  labels:
+    app: lifecycle-costing
+spec:
+  selector:
+    app: lifecycle-costing
+  ports:
+  - name: http
+    port: 8182
+    targetPort: 8182
+---
+# org-authorization-engine Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: org-authorization-engine
+  namespace: vimbai
+  labels:
+    app: org-authorization-engine
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: org-authorization-engine
+  template:
+    metadata:
+      labels:
+        app: org-authorization-engine
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8008"
+    spec:
+      containers:
+      - name: org-authorization-engine
+        image: vimbai/org-authorization-engine:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8008
+          name: http
+        env:
+        - name: PORT
+          value: "8008"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8008
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8008
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: org-authorization-engine
+  namespace: vimbai
+  labels:
+    app: org-authorization-engine
+spec:
+  selector:
+    app: org-authorization-engine
+  ports:
+  - name: http
+    port: 8008
+    targetPort: 8008
+---
+# performance-benchmarking-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: performance-benchmarking
+  namespace: vimbai
+  labels:
+    app: performance-benchmarking
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: performance-benchmarking
+  template:
+    metadata:
+      labels:
+        app: performance-benchmarking
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8280"
+    spec:
+      containers:
+      - name: performance-benchmarking
+        image: vimbai/performance-benchmarking-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8280
+          name: http
+        env:
+        - name: PORT
+          value: "8280"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8280
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8280
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: performance-benchmarking
+  namespace: vimbai
+  labels:
+    app: performance-benchmarking
+spec:
+  selector:
+    app: performance-benchmarking
+  ports:
+  - name: http
+    port: 8280
+    targetPort: 8280
+---
+# privacy-admin-dashboard-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: privacy-admin-dashboard
+  namespace: vimbai
+  labels:
+    app: privacy-admin-dashboard
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: privacy-admin-dashboard
+  template:
+    metadata:
+      labels:
+        app: privacy-admin-dashboard
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8003"
+    spec:
+      containers:
+      - name: privacy-admin-dashboard
+        image: vimbai/privacy-admin-dashboard-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8003
+          name: http
+        env:
+        - name: PORT
+          value: "8003"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: privacy-admin-dashboard
+  namespace: vimbai
+  labels:
+    app: privacy-admin-dashboard
+spec:
+  selector:
+    app: privacy-admin-dashboard
+  ports:
+  - name: http
+    port: 8003
+    targetPort: 8003
+---
+# report-automation-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-automation
+  namespace: vimbai
+  labels:
+    app: report-automation
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: report-automation
+  template:
+    metadata:
+      labels:
+        app: report-automation
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8272"
+    spec:
+      containers:
+      - name: report-automation
+        image: vimbai/report-automation-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8272
+          name: http
+        env:
+        - name: PORT
+          value: "8272"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8272
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8272
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-automation
+  namespace: vimbai
+  labels:
+    app: report-automation
+spec:
+  selector:
+    app: report-automation
+  ports:
+  - name: http
+    port: 8272
+    targetPort: 8272
+---
+# report-distribution-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-distribution
+  namespace: vimbai
+  labels:
+    app: report-distribution
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: report-distribution
+  template:
+    metadata:
+      labels:
+        app: report-distribution
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8273"
+    spec:
+      containers:
+      - name: report-distribution
+        image: vimbai/report-distribution-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8273
+          name: http
+        env:
+        - name: PORT
+          value: "8273"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8273
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8273
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-distribution
+  namespace: vimbai
+  labels:
+    app: report-distribution
+spec:
+  selector:
+    app: report-distribution
+  ports:
+  - name: http
+    port: 8273
+    targetPort: 8273
+---
+# rolling-forecast-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rolling-forecast
+  namespace: vimbai
+  labels:
+    app: rolling-forecast
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rolling-forecast
+  template:
+    metadata:
+      labels:
+        app: rolling-forecast
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8173"
+    spec:
+      containers:
+      - name: rolling-forecast
+        image: vimbai/rolling-forecast-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8173
+          name: http
+        env:
+        - name: PORT
+          value: "8173"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8173
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8173
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rolling-forecast
+  namespace: vimbai
+  labels:
+    app: rolling-forecast
+spec:
+  selector:
+    app: rolling-forecast
+  ports:
+  - name: http
+    port: 8173
+    targetPort: 8173
+---
+# sox-compliance-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sox-complian
+  namespace: vimbai
+  labels:
+    app: sox-complian
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sox-complian
+  template:
+    metadata:
+      labels:
+        app: sox-complian
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8286"
+    spec:
+      containers:
+      - name: sox-complian
+        image: vimbai/sox-compliance-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8286
+          name: http
+        env:
+        - name: PORT
+          value: "8286"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8286
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8286
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sox-complian
+  namespace: vimbai
+  labels:
+    app: sox-complian
+spec:
+  selector:
+    app: sox-complian
+  ports:
+  - name: http
+    port: 8286
+    targetPort: 8286
+---
+# treasury-policy-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: treasury-policy
+  namespace: vimbai
+  labels:
+    app: treasury-policy
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: treasury-policy
+  template:
+    metadata:
+      labels:
+        app: treasury-policy
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8263"
+    spec:
+      containers:
+      - name: treasury-policy
+        image: vimbai/treasury-policy-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8263
+          name: http
+        env:
+        - name: PORT
+          value: "8263"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8263
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8263
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: treasury-policy
+  namespace: vimbai
+  labels:
+    app: treasury-policy
+spec:
+  selector:
+    app: treasury-policy
+  ports:
+  - name: http
+    port: 8263
+    targetPort: 8263
+---
+# treasury-reporting-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: treasury-reporting
+  namespace: vimbai
+  labels:
+    app: treasury-reporting
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: treasury-reporting
+  template:
+    metadata:
+      labels:
+        app: treasury-reporting
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8262"
+    spec:
+      containers:
+      - name: treasury-reporting
+        image: vimbai/treasury-reporting-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8262
+          name: http
+        env:
+        - name: PORT
+          value: "8262"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8262
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8262
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: treasury-reporting
+  namespace: vimbai
+  labels:
+    app: treasury-reporting
+spec:
+  selector:
+    app: treasury-reporting
+  ports:
+  - name: http
+    port: 8262
+    targetPort: 8262
+---
+# treasury-risk-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: treasury-risk
+  namespace: vimbai
+  labels:
+    app: treasury-risk
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: treasury-risk
+  template:
+    metadata:
+      labels:
+        app: treasury-risk
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8259"
+    spec:
+      containers:
+      - name: treasury-risk
+        image: vimbai/treasury-risk-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8259
+          name: http
+        env:
+        - name: PORT
+          value: "8259"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8259
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8259
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: treasury-risk
+  namespace: vimbai
+  labels:
+    app: treasury-risk
+spec:
+  selector:
+    app: treasury-risk
+  ports:
+  - name: http
+    port: 8259
+    targetPort: 8259
+---
+# zero-trust-data-service Kubernetes Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zero-trust-data
+  namespace: vimbai
+  labels:
+    app: zero-trust-data
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: zero-trust-data
+  template:
+    metadata:
+      labels:
+        app: zero-trust-data
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8002"
+    spec:
+      containers:
+      - name: zero-trust-data
+        image: vimbai/zero-trust-data-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8002
+          name: http
+        env:
+        - name: PORT
+          value: "8002"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://neo4j:7687"
+        - name: NEO4J_USER
+          value: "neo4j"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zero-trust-data
+  namespace: vimbai
+  labels:
+    app: zero-trust-data
+spec:
+  selector:
+    app: zero-trust-data
+  ports:
+  - name: http
+    port: 8002
+    targetPort: 8002
+---

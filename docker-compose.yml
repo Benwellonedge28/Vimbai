@@ -45,7 +45,7 @@ services:
       - ACCOUNTING_SERVICE_URL=http://accounting_service:8000
       - FINANCE_SERVICE_URL=http://finance_service:8001
       - MULTIMODAL_SERVICE_URL=http://multimodal_pipeline_service:8002
-      - BANKING_INTEGRATION_SERVICE_URL=http://banking_integration_service:8003
+      - BANKING_INTEGRATION_SERVICE_URL=http://banking_integration_service:8386
       - SUPPLY_CHAIN_SERVICE_URL=http://supply_chain_service:8004
       - FRAUD_DETECTION_SERVICE_URL=http://fraud_detection_service:8005
     restart: unless-stopped
@@ -120,7 +120,7 @@ services:
       context: ./banking-integration-service
       dockerfile: Dockerfile
     ports:
-      - "8003:8003"
+      - "8386:8386"
     environment:
       - JWT_SECRET=${JWT_SECRET:-dev-secret}
     restart: unless-stopped
@@ -737,7 +737,7 @@ services:
       context: ./banking-integration-service
       dockerfile: Dockerfile
     ports:
-      - "8003:8003"
+      - "8386:8386"
     environment:
       - JWT_SECRET=${JWT_SECRET:-dev-secret}
       - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}

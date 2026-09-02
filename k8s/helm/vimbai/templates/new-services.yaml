@@ -1,0 +1,113 @@
+{{- range .Values.newServices }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.namespace | default "vimbai" }}
+  labels:
+    app: {{ .name }}
+    tier: backend
+    service-group: new-services
+spec:
+  replicas: {{ .replicas | default 2 }}
+  selector:
+    matchLabels:
+      app: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+        tier: backend
+        service-group: new-services
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .port }}"
+    spec:
+      containers:
+      - name: {{ .name }}
+        image: "{{ $.Values.imageRegistry | default "vimbai" }}/{{ .name }}:{{ $.Values.imageTag | default "latest" }}"
+        imagePullPolicy: {{ $.Values.imagePullPolicy | default "Always" }}
+        ports:
+        - containerPort: {{ .port }}
+          name: http
+        env:
+        - name: PORT
+          value: "{{ .port }}"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: jwt-secret
+        - name: NEO4J_URI
+          value: "bolt://{{ $.Values.neo4j.host | default "neo4j" }}:7687"
+        - name: NEO4J_USER
+          value: "{{ $.Values.neo4j.user | default "neo4j" }}"
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: neo4j-password
+        - name: REDIS_URL
+          value: "redis://{{ $.Values.redis.host | default "redis" }}:6379"
+        resources:
+          requests:
+            memory: "{{ .resources.requests.memory | default "256Mi" }}"
+            cpu: "{{ .resources.requests.cpu | default "250m" }}"
+          limits:
+            memory: "{{ .resources.limits.memory | default "512Mi" }}"
+            cpu: "{{ .resources.limits.cpu | default "500m" }}"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: {{ .port }}
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: {{ .port }}
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.namespace | default "vimbai" }}
+  labels:
+    app: {{ .name }}
+spec:
+  selector:
+    app: {{ .name }}
+  ports:
+  - name: http
+    port: {{ .port }}
+    targetPort: {{ .port }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Values.namespace | default "vimbai" }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .name }}
+  minReplicas: {{ .replicas | default 2 }}
+  maxReplicas: {{ .maxReplicas | default 6 }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+{{- end }}

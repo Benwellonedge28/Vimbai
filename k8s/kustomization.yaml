@@ -9,6 +9,8 @@ resources:
 - identity-service.yaml
 - accounting-service.yaml
 - new-services.yaml
+- new-services-v2.yaml
+- new-services-hpa.yaml
 - all-services.yaml
 - ingress.yaml
 - pod-disruption-budgets.yaml
