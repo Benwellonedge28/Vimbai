@@ -1,0 +1,118 @@
+name: Registry Cleanup
+
+on:
+  schedule:
+    # Run every Sunday at 02:00 UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      keep_last:
+        description: 'Number of recent versions to keep per service'
+        required: false
+        default: '10'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  cleanup:
+    name: Prune Old Container Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get all service directories
+        id: services
+        run: |
+          SERVICES=$(find . -name "Dockerfile" -not -path "./.git/*" -exec dirname {} \; | sed 's|^\./||' | sort -u)
+          echo "services<<EOF" >> $GITHUB_OUTPUT
+          echo "$SERVICES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          COUNT=$(echo "$SERVICES" | wc -l)
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+
+      - name: Prune old images via GitHub Packages API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEEP_LAST: ${{ github.event.inputs.keep_last || '10' }}
+        run: |
+          set -e
+          OWNER="${{ github.repository_owner }}"
+          TOTAL_PRUNED=0
+
+          for SERVICE in ${{ steps.services.outputs.services }}; do
+            echo "Processing $SERVICE..."
+
+            # List all package versions for this service
+            RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/orgs/$OWNER/packages/container/${SERVICE}/versions?per_page=100" 2>/dev/null || \
+              curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/users/$OWNER/packages/container/${SERVICE}/versions?per_page=100" 2>/dev/null)
+
+            # Check if we got versions
+            VERSION_COUNT=$(echo "$RESPONSE" | jq 'length' 2>/dev/null || echo "0")
+
+            if [ "$VERSION_COUNT" = "0" ] || [ "$VERSION_COUNT" = "null" ]; then
+              echo "  No versions found (or package not yet published), skipping"
+              continue
+            fi
+
+            echo "  Found $VERSION_COUNT versions, keeping latest $KEEP_LAST"
+
+            if [ "$VERSION_COUNT" -le "$KEEP_LAST" ]; then
+              echo "  Under threshold, no cleanup needed"
+              continue
+            fi
+
+            # Get versions to delete (skip first KEEP_LAST, which are newest)
+            TO_DELETE=$(echo "$RESPONSE" | jq -r ".[$KEEP_LAST:] | .[].id" 2>/dev/null)
+
+            if [ -z "$TO_DELETE" ]; then
+              echo "  Nothing to delete"
+              continue
+            fi
+
+            DELETED=0
+            for VERSION_ID in $TO_DELETE; do
+              # Skip if version ID is empty
+              [ -z "$VERSION_ID" ] && continue
+
+              # Try org endpoint first, fall back to user endpoint
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                -X DELETE \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/orgs/$OWNER/packages/container/${SERVICE}/versions/$VERSION_ID" 2>/dev/null)
+
+              if [ "$HTTP_CODE" = "404" ]; then
+                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+                  -X DELETE \
+                  -H "Authorization: Bearer $GH_TOKEN" \
+                  -H "Accept: application/vnd.github+json" \
+                  "https://api.github.com/users/$OWNER/packages/container/${SERVICE}/versions/$VERSION_ID" 2>/dev/null)
+              fi
+
+              if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
+                DELETED=$((DELETED + 1))
+              else
+                echo "  Warning: failed to delete version $VERSION_ID (HTTP $HTTP_CODE)"
+              fi
+            done
+
+            echo "  Deleted $DELETED old versions"
+            TOTAL_PRUNED=$((TOTAL_PRUNED + DELETED))
+          done
+
+          echo "::notice::Registry cleanup complete. Pruned $TOTAL_PRUNED image versions across ${{ steps.services.outputs.count }} services."
+
+      - name: Summary
+        run: |
+          echo "Registry cleanup complete."
+          echo "Services scanned: ${{ steps.services.outputs.count }}"
+          echo "Keep last: ${{ github.event.inputs.keep_last || '10' }} versions per service"
