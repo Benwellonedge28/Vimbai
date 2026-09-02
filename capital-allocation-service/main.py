@@ -1,73 +1,94 @@
 """
-Capital Allocation Service
-Port: 8289
-Optimal capital distribution
+Vimbai Capital Allocation Service
+Capital budgeting, project ranking, and resource allocation optimization.
+Port: 8394
 """
-import httpx
+import os, uuid, math
+from typing import Dict, List
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI
 
-logger = structlog.get_logger()
-app = FastAPI(title="Capital Allocation Service", version="1.0.0")
+SERVICE_NAME = "capital-allocation-service"
+PORT = int(os.getenv("PORT", "8394"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
+logger = structlog.get_logger(SERVICE_NAME)
+app = FastAPI(title="Vimbai Capital Allocation Service", version="2.0.0", docs_url="/docs")
+try:
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    pass
 
-class AllocationOpportunity(BaseModel):
-    opportunity_id: str
-    name: str
-    required_capital: float
-    expected_return: float
-    priority: str
+class Project(BaseModel):
+    name: str; initial_investment: float
+    annual_cash_flows: List[float]; discount_rate: float = 0.10
+    strategic_value: int = 5  # 1-10
 
-class CapitalAllocationRequest(BaseModel):
-    company_id: str
-    total_capital: float
-    opportunities: List[AllocationOpportunity]
-    constraints: Dict[str, float]
+class AllocationRequest(BaseModel):
+    company_id: str; capital_budget: float
+    projects: List[Project]
 
-class CapitalAllocationResponse(BaseModel):
-    company_id: str
-    allocation_summary: Dict[str, Any]
-    allocations: List[Dict[str, Any]]
-    remaining_capital: float
+class AllocationResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str; capital_budget: float
+    selected_projects: List[Dict]
+    rejected_projects: List[Dict]
+    total_investment: float; total_npv: float
+    utilization_pct: float; ranking_method: str
 
 @app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "capital-allocation", "version": "1.0.0"}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/allocate", response_model=CapitalAllocationResponse)
-async def allocate_capital(request: CapitalAllocationRequest):
-    logger.info("Allocating capital", company=request.company_id)
+def _calc_npv(initial, cashflows, rate):
+    npv = -initial
+    for i, cf in enumerate(cashflows):
+        npv += cf / (1 + rate) ** (i + 1)
+    return npv
 
-    sorted_opps = sorted(request.opportunities, key=lambda x: (-x.priority.count("High"), -x.expected_return))
+def _calc_irr(initial, cashflows):
+    for r in [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50]:
+        npv = _calc_npv(initial, cashflows, r)
+        if npv <= 0:
+            return r
+    return 0.50
+
+@app.post("/allocate", response_model=AllocationResult)
+async def allocate_capital(req: AllocationRequest):
+    scored = []
+    for p in req.projects:
+        npv = _calc_npv(p.initial_investment, p.annual_cash_flows, p.discount_rate)
+        irr = _calc_irr(p.initial_investment, p.annual_cash_flows)
+        profitability_index = (npv + p.initial_investment) / p.initial_investment if p.initial_investment else 0
+        score = npv * 0.6 + p.strategic_value * 10000 * 0.4
+        scored.append({
+            "name": p.name, "initial_investment": p.initial_investment,
+            "npv": round(npv, 2), "irr": round(irr * 100, 1),
+            "profitability_index": round(profitability_index, 3),
+            "strategic_value": p.strategic_value, "score": round(score, 2)
+        })
     
-    allocations = []
-    remaining = request.total_capital
+    scored.sort(key=lambda x: x["score"], reverse=True)
     
-    for opp in sorted_opps:
-        if remaining >= opp.required_capital:
-            allocations.append({
-                "opportunity_id": opp.opportunity_id,
-                "name": opp.name,
-                "allocated": opp.required_capital,
-                "expected_return": round(opp.expected_return * 100, 2),
-                "priority": opp.priority
-            })
-            remaining -= opp.required_capital
+    selected = []; rejected = []; invested = 0
+    for p in scored:
+        if invested + p["initial_investment"] <= req.capital_budget:
+            selected.append(p)
+            invested += p["initial_investment"]
+        else:
+            rejected.append(p)
     
-    allocation_summary = {
-        "total_capital": request.total_capital,
-        "allocated": request.total_capital - remaining,
-        "allocations_count": len(allocations)
-    }
+    total_npv = sum(p["npv"] for p in selected)
+    utilization = invested / req.capital_budget * 100 if req.capital_budget else 0
     
-    return CapitalAllocationResponse(
-        company_id=request.company_id,
-        allocation_summary=allocation_summary,
-        allocations=allocations,
-        remaining_capital=round(remaining, 2)
+    return AllocationResult(
+        company_id=req.company_id, capital_budget=round(req.capital_budget, 2),
+        selected_projects=selected, rejected_projects=rejected,
+        total_investment=round(invested, 2), total_npv=round(total_npv, 2),
+        utilization_pct=round(utilization, 1),
+        ranking_method="NPV_weighted_with_strategic_value"
     )
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8289)
+    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

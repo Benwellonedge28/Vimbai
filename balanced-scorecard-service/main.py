@@ -1,71 +1,94 @@
 """
-Balanced Scorecard Service
-Port: 8279
-Balanced scorecard implementation
+Vimbai Balanced Scorecard Service
+Kaplan-Norton balanced scorecard with four perspectives and strategic alignment.
+Port: 8390
 """
-import httpx
+import os, uuid
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI
-from datetime import datetime
 
-logger = structlog.get_logger()
-app = FastAPI(title="Balanced Scorecard Service", version="1.0.0")
+SERVICE_NAME = "balanced-scorecard-service"
+PORT = int(os.getenv("PORT", "8390"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
+logger = structlog.get_logger(SERVICE_NAME)
+app = FastAPI(title="Vimbai Balanced Scorecard Service", version="2.0.0", docs_url="/docs")
+try:
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    pass
 
-class ScorecardMetric(BaseModel):
-    perspective: str
-    metric_name: str
-    value: float
-    target: float
-    weight: float
+class KPI(BaseModel):
+    name: str; perspective: str  # financial, customer, internal, learning_growth
+    target: float; actual: float; weight: float = 1.0
+    unit: str = "number"
 
-class BalancedScorecardRequest(BaseModel):
-    company_id: str
-    metrics: List[ScorecardMetric]
+class ScorecardRequest(BaseModel):
+    company_id: str; period: str; kpis: List[KPI]
 
-class BalancedScorecardResponse(BaseModel):
-    company_id: str
-    assessment_date: str
-    perspective_scores: Dict[str, Any]
+class ScorecardResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str; period: str
+    financial_score: float; customer_score: float
+    internal_score: float; learning_score: float
     overall_score: float
-    recommendations: List[str]
+    perspectives: Dict[str, Dict] = {}
+    action_items: List[str] = []
 
 @app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "balanced-scorecard", "version": "1.0.0"}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/assess", response_model=BalancedScorecardResponse)
-async def assess_scorecard(request: BalancedScorecardRequest):
-    logger.info("Assessing balanced scorecard", company=request.company_id)
-
-    perspectives = ["Financial", "Customer", "Internal Process", "Learning & Growth"]
-    perspective_scores = {}
+@app.post("/score", response_model=ScorecardResult)
+async def calculate_scorecard(req: ScorecardRequest):
+    perspectives = {
+        "financial": {"kpis": [], "score": 0, "weight_total": 0},
+        "customer": {"kpis": [], "score": 0, "weight_total": 0},
+        "internal": {"kpis": [], "score": 0, "weight_total": 0},
+        "learning_growth": {"kpis": [], "score": 0, "weight_total": 0},
+    }
     
-    for persp in perspectives:
-        persp_metrics = [m for m in request.metrics if m.perspective == persp]
-        if persp_metrics:
-            total_weight = sum(m.weight for m in persp_metrics)
-            weighted_score = sum((m.value / m.target * 100) * m.weight for m in persp_metrics) / total_weight if total_weight else 0
-            perspective_scores[persp] = {
-                "score": round(weighted_score, 2),
-                "metrics_count": len(persp_metrics)
-            }
+    action_items = []
     
-    overall_score = sum(ps["score"] for ps in perspective_scores.values()) / len(perspective_scores) if perspective_scores else 0
+    for kpi in req.kpis:
+        p = perspectives.get(kpi.perspective, perspectives["financial"])
+        achievement = min(kpi.actual / kpi.target, 1.0) * 100 if kpi.target > 0 else 100
+        weighted_score = achievement * kpi.weight
+        p["kpis"].append({
+            "name": kpi.name, "target": kpi.target, "actual": kpi.actual,
+            "achievement_pct": round(achievement, 1), "weight": kpi.weight
+        })
+        p["score"] += weighted_score
+        p["weight_total"] += kpi.weight
+        
+        if achievement < 80:
+            action_items.append(f"{kpi.name}: Below target ({achievement:.0f}%) - review strategy")
     
-    recommendations = []
-    if overall_score < 80:
-        recommendations.append("Overall scorecard below target - focus on weakest perspective")
+    for key in perspectives:
+        wt = perspectives[key]["weight_total"]
+        perspectives[key]["score"] = round(perspectives[key]["score"] / wt * 100, 1) if wt else 0
     
-    return BalancedScorecardResponse(
-        company_id=request.company_id,
-        assessment_date=datetime.now().isoformat(),
-        perspective_scores=perspective_scores,
-        overall_score=round(overall_score, 2),
-        recommendations=recommendations
+    fin = perspectives["financial"]["score"]
+    cust = perspectives["customer"]["score"]
+    internal = perspectives["internal"]["score"]
+    learning = perspectives["learning_growth"]["score"]
+    overall = round((fin + cust + internal + learning) / 4, 1)
+    
+    if overall < 70:
+        action_items.insert(0, "Overall performance below 70% - strategic realignment needed")
+    elif overall >= 90:
+        action_items.insert(0, "Excellent performance across all perspectives")
+    
+    return ScorecardResult(
+        company_id=req.company_id, period=req.period,
+        financial_score=fin, customer_score=cust,
+        internal_score=internal, learning_score=learning,
+        overall_score=overall, perspectives={k: {kk: vv for kk, vv in v.items() if kk != "weight_total"} for k, v in perspectives.items()},
+        action_items=action_items or ["All KPIs on track"]
     )
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8279)
+    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)

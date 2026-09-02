@@ -1,71 +1,84 @@
 """
-Bank Fee Analysis Service
-Port: 8189
-Bank fee optimization, service charge analysis
+Vimbai Bank Fee Analysis Service
+Bank charge tracking, fee benchmarking, and optimization recommendations.
+Port: 8391
 """
-import httpx
+import os, uuid
+from datetime import datetime, timezone
+from typing import Dict, List
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI
 
-logger = structlog.get_logger()
-app = FastAPI(title="Bank Fee Analysis Service", version="1.0.0")
+SERVICE_NAME = "bank-fee-analysis-service"
+PORT = int(os.getenv("PORT", "8391"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
+logger = structlog.get_logger(SERVICE_NAME)
+app = FastAPI(title="Vimbai Bank Fee Analysis Service", version="2.0.0", docs_url="/docs")
+try:
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    pass
 
-class BankFee(BaseModel):
-    fee_id: str
-    fee_type: str
-    amount: float
-    frequency: str
+class BankCharge(BaseModel):
+    date: str; description: str; amount: float; category: str
+    # transaction, maintenance, overdraft, wire, foreign_exchange, other
 
-class BankFeeAnalysisRequest(BaseModel):
-    company_id: str
-    fees: List[BankFee]
-    total_banking_volume: float
+class FeeAnalysisRequest(BaseModel):
+    company_id: str; period: str; bank_name: str
+    charges: List[BankCharge]
+    transaction_volume: int = 0
+    avg_balance: float = 0
 
-class BankFeeAnalysisResponse(BaseModel):
-    company_id: str
-    total_fees: float
-    fee_per_transaction: float
-    fees_as_percentage_volume: float
-    recommendations: List[str]
-
-async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{service_url}{endpoint}"
-            response = await client.post(url, json=data) if data else await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception as e:
-        logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
-        return {}
+class FeeAnalysisResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str; period: str; bank_name: str
+    total_fees: float; fee_by_category: Dict[str, float]
+    fee_per_transaction: float; fee_ratio_to_balance: float
+    highest_charges: List[Dict]
+    recommendations: List[str] = []
 
 @app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "bank-fee-analysis", "version": "1.0.0"}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/analyze", response_model=BankFeeAnalysisResponse)
-async def analyze_bank_fees(request: BankFeeAnalysisRequest):
-    logger.info("Analyzing bank fees", company=request.company_id)
-
-    total_fees = sum(f.amount for f in request.fees)
-    fee_pct = (total_fees / request.total_banking_volume) * 100 if request.total_banking_volume else 0
-
+@app.post("/analyze", response_model=FeeAnalysisResult)
+async def analyze_fees(req: FeeAnalysisRequest):
+    total = sum(c.amount for c in req.charges)
+    by_category = {}
+    for c in req.charges:
+        by_category[c.category] = by_category.get(c.category, 0) + c.amount
+    
+    per_txn = total / req.transaction_volume if req.transaction_volume else 0
+    ratio = total / req.avg_balance * 100 if req.avg_balance else 0
+    
+    sorted_charges = sorted(req.charges, key=lambda c: c.amount, reverse=True)[:5]
+    highest = [{"date": c.date, "description": c.description, "amount": round(c.amount, 2), "category": c.category} for c in sorted_charges]
+    
     recommendations = []
-    if fee_pct > 0.5:
-        recommendations.append("Consider renegotiating banking terms")
-        recommendations.append("Request fee benchmarking from other banks")
-    else:
-        recommendations.append("Banking costs are within acceptable range")
-
-    return BankFeeAnalysisResponse(
-        company_id=request.company_id,
-        total_fees=round(total_fees, 2),
-        fee_per_transaction=round(total_fees / 1000, 2),
-        fees_as_percentage_volume=round(fee_pct, 2),
+    if by_category.get("overdraft", 0) > total * 0.2:
+        recommendations.append("Overdraft fees are significant - consider arranging an overdraft facility")
+    if by_category.get("foreign_exchange", 0) > total * 0.15:
+        recommendations.append("High FX charges - negotiate better rates or use multi-currency accounts")
+    if by_category.get("maintenance", 0) > total * 0.1:
+        recommendations.append("Review account maintenance fees - negotiate waivers based on balance levels")
+    if per_txn > 2:
+        recommendations.append(f"Fee per transaction ({per_txn:.2f}) is high - consider bulk processing")
+    if ratio > 0.5:
+        recommendations.append(f"Annual fee-to-balance ratio ({ratio:.1f}%) is high - switch to lower-cost banking")
+    if not recommendations:
+        recommendations.append("Bank fees are within acceptable ranges")
+    
+    return FeeAnalysisResult(
+        company_id=req.company_id, period=req.period, bank_name=req.bank_name,
+        total_fees=round(total, 2),
+        fee_by_category={k: round(v, 2) for k, v in by_category.items()},
+        fee_per_transaction=round(per_txn, 2),
+        fee_ratio_to_balance=round(ratio, 2),
+        highest_charges=highest,
         recommendations=recommendations
     )
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8189)
+    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)
