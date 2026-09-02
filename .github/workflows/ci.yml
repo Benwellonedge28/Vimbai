@@ -12,7 +12,7 @@ env:
   GO_VERSION: '1.22'
   NODE_VERSION: '20'
   DOCKER_REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository }}
+  IMAGE_PREFIX: benwellonedge28/vimbai
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -117,6 +117,7 @@ jobs:
         with:
           category: "/language:python,javascript,typescript"
           upload: always
+        continue-on-error: true
 
   # ============================================================
   # Python Services - Unit Tests
