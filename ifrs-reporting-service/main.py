@@ -1,95 +1,172 @@
 """
-IFRS Reporting Service
-Port: 8268
-IFRS-compliant financial reporting
+Vimbai IFRS Reporting Service
+Generates IFRS-compliant financial statements and disclosure notes.
 """
 
-from datetime import datetime
-from typing import Any, Dict, List
+import os
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-import httpx
 import structlog
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-logger = structlog.get_logger()
-app = FastAPI(title="IFRS Reporting Service", version="1.0.0")
+SERVICE_NAME = "ifrs-reporting-service"
+SERVICE_VERSION = "1.0.0"
+PORT = int(os.getenv("PORT", "8430"))
+
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+logger = structlog.get_logger(SERVICE_NAME)
+
+app = FastAPI(title="Vimbai IFRS Reporting Service", version=SERVICE_VERSION, docs_url="/docs")
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
+
+try:
+    from shared.tracing import setup_tracing
+
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    TRACER = None
 
 
-class IFRSReportingRequest(BaseModel):
-    company_id: str
-    ifrs_standards: List[str]
-    financial_data: Dict[str, Any]
-    adjustments: Dict[str, Any]
+class IFRSReport(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    report_type: str  # balance_sheet, income_statement, cash_flow, equity_changes, notes
+    ifrs_standard: str  # IAS1, IFRS16, IFRS15, IFRS9, IAS36, etc.
+    period: str  # YYYY-MM or YYYY
+    reporting_date: datetime
+    data: Dict[str, Any] = {}
+    disclosures: List[Dict[str, Any]] = []
+    status: str = "draft"  # draft, reviewed, approved, published
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    approved_by: str = ""
 
 
-class IFRSReportingResponse(BaseModel):
-    company_id: str
-    report_date: str
-    ifrs_statements: Dict[str, Any]
-    ifrs_metrics: Dict[str, float]
-    compliance_check: Dict[str, Any]
-    recommendations: List[str]
+class DisclosureNote(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    report_id: str
+    note_number: int
+    title: str
+    content: str = ""
+    ifrs_reference: str = ""
+
+
+reports: List[IFRSReport] = []
+notes: List[DisclosureNote] = []
 
 
 @app.get("/")
+@app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "ifrs-reporting", "version": "1.0.0"}
+    return {"status": "healthy", "service": SERVICE_NAME, "version": SERVICE_VERSION}
 
 
-@app.post("/generate", response_model=IFRSReportingResponse)
-async def generate_ifrs_report(request: IFRSReportingRequest):
-    logger.info("Generating IFRS report", company=request.company_id)
+@app.post("/reports", response_model=IFRSReport)
+async def create_report(
+    report_type: str,
+    ifrs_standard: str,
+    period: str,
+    reporting_date: datetime,
+    data: Dict[str, Any] = {},
+):
+    """Create an IFRS report."""
+    valid_types = ["balance_sheet", "income_statement", "cash_flow", "equity_changes", "notes"]
+    if report_type not in valid_types:
+        raise HTTPException(status_code=400, detail=f"Invalid report type. Must be one of {valid_types}")
 
-    ifrs_statements = {
-        "statement_of_financial_position": {
-            "assets": request.financial_data.get("ifrs_assets", {}),
-            "liabilities": request.financial_data.get("ifrs_liabilities", {}),
-            "equity": request.financial_data.get("ifrs_equity", {}),
-        },
-        "statement_of_profit_or_loss": {
-            "revenue": request.financial_data.get("ifrs_revenue", 0),
-            "operating_profit": request.financial_data.get("ifrs_ebit", 0),
-            "profit_after_tax": request.financial_data.get("ifrs_net_income", 0),
-        },
-        "ifrs_16_adjustments": request.adjustments.get("ifrs_16", {}),
-        "ifrs_9_adjustments": request.adjustments.get("ifrs_9", {}),
-        "ifrs_15_adjustments": request.adjustments.get("ifrs_15", {}),
-    }
-
-    ifrs_metrics = {
-        "basic_eps": round(
-            request.financial_data.get("ifrs_net_income", 0) / request.financial_data.get("shares", 1), 4
-        ),
-        "diluted_eps": round(
-            request.financial_data.get("ifrs_net_income", 0) / request.financial_data.get("diluted_shares", 1), 4
-        ),
-        "tangible_assets": round(
-            request.financial_data.get("ifrs_assets", {}).get("total", 0)
-            - request.financial_data.get("ifrs_intangibles", 0),
-            2,
-        ),
-    }
-
-    compliance_check = {"standards_applied": request.ifrs_standards, "compliance_rate": 95.0, "issues": []}
-
-    recommendations = []
-    if "IFRS 16" not in request.ifrs_standards:
-        recommendations.append("Ensure IFRS 16 lease accounting is applied")
-    if ifrs_metrics["diluted_eps"] < ifrs_metrics["basic_eps"] * 0.95:
-        recommendations.append("Dilution effect significant - disclose potential impact")
-
-    return IFRSReportingResponse(
-        company_id=request.company_id,
-        report_date=datetime.now().isoformat(),
-        ifrs_statements=ifrs_statements,
-        ifrs_metrics=ifrs_metrics,
-        compliance_check=compliance_check,
-        recommendations=recommendations,
+    report = IFRSReport(
+        report_type=report_type,
+        ifrs_standard=ifrs_standard,
+        period=period,
+        reporting_date=reporting_date,
+        data=data,
     )
+    reports.append(report)
+    logger.info("IFRS report created", report_id=report.id, type=report_type, standard=ifrs_standard)
+    return report
+
+
+@app.get("/reports", response_model=List[IFRSReport])
+async def list_reports(
+    report_type: Optional[str] = None, ifrs_standard: Optional[str] = None, status: Optional[str] = None
+):
+    """List IFRS reports."""
+    result = reports
+    if report_type:
+        result = [r for r in result if r.report_type == report_type]
+    if ifrs_standard:
+        result = [r for r in result if r.ifrs_standard == ifrs_standard]
+    if status:
+        result = [r for r in result if r.status == status]
+    return result
+
+
+@app.get("/reports/{report_id}", response_model=IFRSReport)
+async def get_report(report_id: str):
+    """Get a specific IFRS report."""
+    report = next((r for r in reports if r.id == report_id), None)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return report
+
+
+@app.post("/reports/{report_id}/notes", response_model=DisclosureNote)
+async def add_note(report_id: str, note_number: int, title: str, content: str = "", ifrs_reference: str = ""):
+    """Add a disclosure note to an IFRS report."""
+    report = next((r for r in reports if r.id == report_id), None)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    note = DisclosureNote(
+        report_id=report_id,
+        note_number=note_number,
+        title=title,
+        content=content,
+        ifrs_reference=ifrs_reference,
+    )
+    notes.append(note)
+    report.disclosures.append({"note_number": note_number, "title": title})
+    logger.info("Disclosure note added", report_id=report_id, note_number=note_number)
+    return note
+
+
+@app.get("/reports/{report_id}/notes", response_model=List[DisclosureNote])
+async def list_notes(report_id: str):
+    """List disclosure notes for a report."""
+    return [n for n in notes if n.report_id == report_id]
+
+
+@app.put("/reports/{report_id}/approve")
+async def approve_report(report_id: str, approved_by: str):
+    """Approve and publish an IFRS report."""
+    report = next((r for r in reports if r.id == report_id), None)
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if report.status not in ("draft", "reviewed"):
+        raise HTTPException(status_code=400, detail=f"Report cannot be approved from {report.status} state")
+
+    report.status = "approved"
+    report.approved_by = approved_by
+    logger.info("IFRS report approved", report_id=report_id)
+    return {"report_id": report_id, "status": "approved", "approved_by": approved_by}
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8268)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

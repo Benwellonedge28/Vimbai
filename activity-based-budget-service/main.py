@@ -1,93 +1,166 @@
 """
-Activity-Based Budget Service
-Port: 8177
-Budgeting based on activity cost pools and cost drivers
+Vimbai Activity-Based Budget Service
+Creates budgets based on activity drivers and cost pools.
 """
 
-from typing import Any, Dict, List
+import os
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-import httpx
 import structlog
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-logger = structlog.get_logger()
-app = FastAPI(title="Activity-Based Budget Service", version="1.0.0")
+SERVICE_NAME = "activity-based-budget-service"
+SERVICE_VERSION = "1.0.0"
+PORT = int(os.getenv("PORT", "8426"))
+
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+logger = structlog.get_logger(SERVICE_NAME)
+
+app = FastAPI(title="Vimbai Activity-Based Budget Service", version=SERVICE_VERSION, docs_url="/docs")
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
+
+try:
+    from shared.tracing import setup_tracing
+
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    TRACER = None
 
 
-class ActivityPool(BaseModel):
+class Activity(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: str = ""
+    cost_pool: str
+    driver: str  # e.g. machine_hours, labor_hours, transactions, setups
+    driver_rate: float = 0.0
+
+
+class BudgetLineItem(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     activity_id: str
-    activity_name: str
-    cost_pool: float
-    cost_driver: str
-    driver_volume: int
-    rate_per_driver: float
+    period: str  # YYYY-MM
+    expected_driver_volume: float
+    budgeted_cost: float = 0.0
+    notes: str = ""
 
 
-class ActivityBudgetRequest(BaseModel):
-    company_id: str
-    budget_year: str
-    activities: List[ActivityPool]
+class ActivityBudget(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    fiscal_year: str
+    period: str  # YYYY-MM or full year
+    line_items: List[BudgetLineItem] = []
+    total_budget: float = 0.0
+    status: str = "draft"  # draft, approved, actual
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-class ActivityBudgetResponse(BaseModel):
-    company_id: str
-    budget_year: str
-    activity_budgets: List[Dict[str, Any]]
-    total_cost_pool: float
-    cost_per_unit: float
-
-
-async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{service_url}{endpoint}"
-            response = await client.post(url, json=data) if data else await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception as e:
-        logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
-        return {}
+activities: List[Activity] = []
+budgets: List[ActivityBudget] = []
 
 
 @app.get("/")
+@app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "activity-based-budget", "version": "1.0.0"}
+    return {"status": "healthy", "service": SERVICE_NAME, "version": SERVICE_VERSION}
 
 
-@app.post("/prepare", response_model=ActivityBudgetResponse)
-async def prepare_activity_budget(request: ActivityBudgetRequest):
-    logger.info("Preparing activity-based budget", company=request.company_id)
+@app.post("/activities", response_model=Activity)
+async def create_activity(
+    name: str, description: str = "", cost_pool: str = "", driver: str = "", driver_rate: float = 0.0
+):
+    """Define an activity with its cost driver."""
+    activity = Activity(name=name, description=description, cost_pool=cost_pool, driver=driver, driver_rate=driver_rate)
+    activities.append(activity)
+    logger.info("Activity defined", activity_id=activity.id, name=name)
+    return activity
 
-    activity_budgets = []
-    total_cost = 0
 
-    for activity in request.activities:
-        rate = activity.cost_pool / activity.driver_volume if activity.driver_volume else 0
-        total_cost += activity.cost_pool
+@app.get("/activities", response_model=List[Activity])
+async def list_activities():
+    """List all activities."""
+    return activities
 
-        activity_budgets.append(
-            {
-                "activity_id": activity.activity_id,
-                "activity_name": activity.activity_name,
-                "cost_pool": activity.cost_pool,
-                "driver_volume": activity.driver_volume,
-                "rate_per_driver": round(rate, 2),
-                "cost_driver": activity.cost_driver,
-            }
+
+@app.post("/budgets", response_model=ActivityBudget)
+async def create_budget(name: str, fiscal_year: str, period: str, line_items: List[Dict[str, Any]] = []):
+    """Create an activity-based budget."""
+    items = []
+    for li in line_items:
+        activity = next((a for a in activities if a.id == li.get("activity_id")), None)
+        if not activity:
+            raise HTTPException(status_code=404, detail=f"Activity {li.get('activity_id')} not found")
+
+        volume = li.get("expected_driver_volume", 0)
+        budgeted_cost = volume * activity.driver_rate
+        item = BudgetLineItem(
+            activity_id=li["activity_id"],
+            period=period,
+            expected_driver_volume=volume,
+            budgeted_cost=budgeted_cost,
+            notes=li.get("notes", ""),
         )
+        items.append(item)
 
-    return ActivityBudgetResponse(
-        company_id=request.company_id,
-        budget_year=request.budget_year,
-        activity_budgets=activity_budgets,
-        total_cost_pool=total_cost,
-        cost_per_unit=(
-            round(total_cost / sum(a.driver_volume for a in request.activities), 2) if request.activities else 0
-        ),
+    total = sum(i.budgeted_cost for i in items)
+    budget = ActivityBudget(
+        name=name,
+        fiscal_year=fiscal_year,
+        period=period,
+        line_items=items,
+        total_budget=total,
     )
+    budgets.append(budget)
+    logger.info("Activity-based budget created", budget_id=budget.id, total=total)
+    return budget
+
+
+@app.get("/budgets", response_model=List[ActivityBudget])
+async def list_budgets(status: Optional[str] = None):
+    """List activity-based budgets."""
+    if status:
+        return [b for b in budgets if b.status == status]
+    return budgets
+
+
+@app.get("/budgets/{budget_id}", response_model=ActivityBudget)
+async def get_budget(budget_id: str):
+    """Get a specific budget."""
+    budget = next((b for b in budgets if b.id == budget_id), None)
+    if not budget:
+        raise HTTPException(status_code=404, detail="Budget not found")
+    return budget
+
+
+@app.put("/budgets/{budget_id}/approve")
+async def approve_budget(budget_id: str):
+    """Approve a budget."""
+    budget = next((b for b in budgets if b.id == budget_id), None)
+    if not budget:
+        raise HTTPException(status_code=404, detail="Budget not found")
+    budget.status = "approved"
+    return {"budget_id": budget_id, "status": "approved"}
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8177)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

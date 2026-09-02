@@ -1,93 +1,206 @@
 """
-Performance Benchmarking Service
-Port: 8280
-Industry benchmarking analysis
+Vimbai Performance Benchmarking Service
+Benchmarks organizational KPIs against industry standards and peer comparisons.
 """
 
-from typing import Any, Dict, List
+import os
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-import httpx
 import structlog
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-logger = structlog.get_logger()
-app = FastAPI(title="Performance Benchmarking Service", version="1.0.0")
+SERVICE_NAME = "performance-benchmarking-service"
+SERVICE_VERSION = "1.0.0"
+PORT = int(os.getenv("PORT", "8428"))
+
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+logger = structlog.get_logger(SERVICE_NAME)
+
+app = FastAPI(title="Vimbai Performance Benchmarking Service", version=SERVICE_VERSION, docs_url="/docs")
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
+
+try:
+    from shared.tracing import setup_tracing
+
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    TRACER = None
 
 
 class BenchmarkMetric(BaseModel):
-    metric_name: str
-    company_value: float
-    industry_average: float
-    industry_best: float
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    category: str  # financial, operational, customer, growth
+    unit: str = ""  # percentage, ratio, days, currency
+    industry_median: float = 0.0
+    industry_top_quartile: float = 0.0
+    industry_bottom_quartile: float = 0.0
+    description: str = ""
 
 
-class PerformanceBenchmarkingRequest(BaseModel):
-    company_id: str
-    industry: str
-    metrics: List[BenchmarkMetric]
+class BenchmarkResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    metric_id: str
+    organization_value: float
+    industry_median: float
+    percentile_rank: float  # 0-100
+    rating: str = ""  # below_average, average, above_average, top_quartile
+    period: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-class PerformanceBenchmarkingResponse(BaseModel):
-    company_id: str
-    industry: str
-    benchmark_results: List[Dict[str, Any]]
-    competitive_position: str
-    recommendations: List[str]
+class PeerComparison(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    metric_id: str
+    organization_name: str
+    value: float
+    period: str
+
+
+metrics: List[BenchmarkMetric] = []
+results: List[BenchmarkResult] = []
+peer_data: List[PeerComparison] = []
 
 
 @app.get("/")
+@app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "performance-benchmarking", "version": "1.0.0"}
+    return {"status": "healthy", "service": SERVICE_NAME, "version": SERVICE_VERSION}
 
 
-@app.post("/benchmark", response_model=PerformanceBenchmarkingResponse)
-async def benchmark_performance(request: PerformanceBenchmarkingRequest):
-    logger.info("Benchmarking performance", company=request.company_id, industry=request.industry)
+@app.post("/metrics", response_model=BenchmarkMetric)
+async def create_metric(
+    name: str,
+    category: str,
+    unit: str = "",
+    industry_median: float = 0.0,
+    industry_top_quartile: float = 0.0,
+    industry_bottom_quartile: float = 0.0,
+    description: str = "",
+):
+    """Define a benchmark metric."""
+    valid_cats = ["financial", "operational", "customer", "growth"]
+    if category not in valid_cats:
+        raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of {valid_cats}")
 
-    benchmark_results = []
-    above_avg = 0
+    metric = BenchmarkMetric(
+        name=name,
+        category=category,
+        unit=unit,
+        industry_median=industry_median,
+        industry_top_quartile=industry_top_quartile,
+        industry_bottom_quartile=industry_bottom_quartile,
+        description=description,
+    )
+    metrics.append(metric)
+    logger.info("Benchmark metric created", metric_id=metric.id, name=name)
+    return metric
 
-    for m in request.metrics:
-        vs_avg = ((m.company_value - m.industry_average) / m.industry_average * 100) if m.industry_average else 0
-        vs_best = ((m.company_value - m.industry_best) / m.industry_best * 100) if m.industry_best else 0
 
-        if m.company_value > m.industry_average:
-            above_avg += 1
+@app.get("/metrics", response_model=List[BenchmarkMetric])
+async def list_metrics(category: Optional[str] = None):
+    """List benchmark metrics."""
+    if category:
+        return [m for m in metrics if m.category == category]
+    return metrics
 
-        benchmark_results.append(
-            {
-                "metric": m.metric_name,
-                "company": round(m.company_value, 2),
-                "industry_avg": round(m.industry_average, 2),
-                "industry_best": round(m.industry_best, 2),
-                "vs_average_pct": round(vs_avg, 2),
-                "vs_best_pct": round(vs_best, 2),
-                "position": "Above Average" if vs_avg > 0 else "Below Average",
-            }
+
+@app.post("/benchmark", response_model=BenchmarkResult)
+async def benchmark(org_value: float, metric_id: str, period: str):
+    """Benchmark an organization's value against industry standards."""
+    metric = next((m for m in metrics if m.id == metric_id), None)
+    if not metric:
+        raise HTTPException(status_code=404, detail="Metric not found")
+
+    # Calculate percentile rank (simplified)
+    if org_value >= metric.industry_top_quartile:
+        percentile = 75.0 + ((org_value - metric.industry_top_quartile) / max(metric.industry_top_quartile, 1)) * 25
+        rating = "top_quartile"
+    elif org_value >= metric.industry_median:
+        percentile = (
+            50.0
+            + ((org_value - metric.industry_median) / max(metric.industry_top_quartile - metric.industry_median, 1))
+            * 25
         )
+        rating = "above_average"
+    elif org_value >= metric.industry_bottom_quartile:
+        percentile = (
+            25.0
+            + (
+                (org_value - metric.industry_bottom_quartile)
+                / max(metric.industry_median - metric.industry_bottom_quartile, 1)
+            )
+            * 25
+        )
+        rating = "average"
+    else:
+        percentile = max(
+            0, ((org_value - metric.industry_bottom_quartile) / max(abs(metric.industry_bottom_quartile), 1)) * 25
+        )
+        rating = "below_average"
 
-    position_pct = above_avg / len(request.metrics) * 100 if request.metrics else 0
-    competitive_position = (
-        "Leader"
-        if position_pct > 75
-        else "Above Average" if position_pct > 50 else "Below Average" if position_pct > 25 else "Laggard"
+    result = BenchmarkResult(
+        metric_id=metric_id,
+        organization_value=org_value,
+        industry_median=metric.industry_median,
+        percentile_rank=round(percentile, 2),
+        rating=rating,
+        period=period,
     )
+    results.append(result)
+    logger.info("Benchmark completed", metric_id=metric_id, rating=rating, percentile=percentile)
+    return result
 
-    recommendations = []
-    if position_pct < 50:
-        recommendations.append("Performance below industry average - prioritize improvement initiatives")
 
-    return PerformanceBenchmarkingResponse(
-        company_id=request.company_id,
-        industry=request.industry,
-        benchmark_results=benchmark_results,
-        competitive_position=competitive_position,
-        recommendations=recommendations,
+@app.get("/results", response_model=List[BenchmarkResult])
+async def list_results(metric_id: Optional[str] = None, limit: int = 50):
+    """List benchmark results."""
+    result_list = results
+    if metric_id:
+        result_list = [r for r in result_list if r.metric_id == metric_id]
+    return result_list[-limit:]
+
+
+@app.post("/peer-comparisons")
+async def add_peer_comparison(metric_id: str, organization_name: str, value: float, period: str):
+    """Add peer comparison data for a metric."""
+    peer = PeerComparison(
+        metric_id=metric_id,
+        organization_name=organization_name,
+        value=value,
+        period=period,
     )
+    peer_data.append(peer)
+    return peer
+
+
+@app.get("/peer-comparisons/{metric_id}", response_model=List[PeerComparison])
+async def get_peer_comparisons(metric_id: str, period: Optional[str] = None):
+    """Get peer comparison data for a metric."""
+    result = [p for p in peer_data if p.metric_id == metric_id]
+    if period:
+        result = [p for p in result if p.period == period]
+    return result
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8280)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

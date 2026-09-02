@@ -1,88 +1,196 @@
 """
-Investment Monitoring Service
-Port: 8290
-Investment portfolio monitoring
+Vimbai Investment Monitoring Service
+Tracks investment portfolios, performance metrics, and market valuations.
 """
 
-from datetime import datetime
-from typing import Any, Dict, List
+import os
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-import httpx
 import structlog
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-logger = structlog.get_logger()
-app = FastAPI(title="Investment Monitoring Service", version="1.0.0")
+SERVICE_NAME = "investment-monitoring-service"
+SERVICE_VERSION = "1.0.0"
+PORT = int(os.getenv("PORT", "8419"))
+
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+logger = structlog.get_logger(SERVICE_NAME)
+
+app = FastAPI(title="Vimbai Investment Monitoring Service", version=SERVICE_VERSION, docs_url="/docs")
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
+
+try:
+    from shared.tracing import setup_tracing
+
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    TRACER = None
 
 
-class Investment(BaseModel):
-    investment_id: str
+class InvestmentHolding(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    portfolio_id: str
+    instrument_name: str
+    instrument_type: str  # equity, bond, etf, commodity, cash
+    quantity: float
+    purchase_price: float
+    current_price: float
+    currency: str = "USD"
+    sector: str = ""
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class Portfolio(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
-    cost: float
-    current_value: float
-    target_return: float
+    description: str = ""
+    target_return: float = 0.0
+    risk_tolerance: str = "moderate"  # conservative, moderate, aggressive
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-class InvestmentMonitoringRequest(BaseModel):
-    company_id: str
-    investments: List[Investment]
-    monitoring_date: str
+class PerformanceMetric(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    portfolio_id: str
+    metric_date: datetime
+    total_value: float
+    total_cost: float
+    unrealized_gain: float
+    unrealized_gain_pct: float
+    daily_return: float = 0.0
+    cumulative_return: float = 0.0
 
 
-class InvestmentMonitoringResponse(BaseModel):
-    company_id: str
-    monitoring_date: str
-    portfolio_summary: Dict[str, Any]
-    underperformers: List[Dict[str, Any]]
-    alerts: List[str]
+portfolios: List[Portfolio] = []
+holdings: List[InvestmentHolding] = []
+performance: List[PerformanceMetric] = []
 
 
 @app.get("/")
+@app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "investment-monitoring", "version": "1.0.0"}
+    return {"status": "healthy", "service": SERVICE_NAME, "version": SERVICE_VERSION}
 
 
-@app.post("/monitor", response_model=InvestmentMonitoringResponse)
-async def monitor_investments(request: InvestmentMonitoringRequest):
-    logger.info("Monitoring investments", company=request.company_id)
-
-    total_cost = sum(i.cost for i in request.investments)
-    total_value = sum(i.current_value for i in request.investments)
-
-    underperformers = []
-    for inv in request.investments:
-        return_pct = (inv.current_value - inv.cost) / inv.cost * 100 if inv.cost else 0
-        if return_pct < inv.target_return * 0.8:
-            underperformers.append(
-                {
-                    "investment_id": inv.investment_id,
-                    "name": inv.name,
-                    "return_pct": round(return_pct, 2),
-                    "target_return": round(inv.target_return * 100, 2),
-                }
-            )
-
-    portfolio_summary = {
-        "total_investments": len(request.investments),
-        "total_cost": round(total_cost, 2),
-        "current_value": round(total_value, 2),
-        "total_gain": round(total_value - total_cost, 2),
-        "return_pct": round((total_value - total_cost) / total_cost * 100, 2) if total_cost else 0,
-    }
-
-    alerts = [f"{u['name']} underperforming target" for u in underperformers]
-
-    return InvestmentMonitoringResponse(
-        company_id=request.company_id,
-        monitoring_date=request.monitoring_date,
-        portfolio_summary=portfolio_summary,
-        underperformers=underperformers,
-        alerts=alerts,
+@app.post("/portfolios", response_model=Portfolio)
+async def create_portfolio(
+    name: str, description: str = "", target_return: float = 0.0, risk_tolerance: str = "moderate"
+):
+    """Create an investment portfolio."""
+    portfolio = Portfolio(
+        name=name, description=description, target_return=target_return, risk_tolerance=risk_tolerance
     )
+    portfolios.append(portfolio)
+    logger.info("Portfolio created", portfolio_id=portfolio.id, name=name)
+    return portfolio
+
+
+@app.get("/portfolios", response_model=List[Portfolio])
+async def list_portfolios():
+    """List all portfolios."""
+    return portfolios
+
+
+@app.post("/portfolios/{portfolio_id}/holdings", response_model=InvestmentHolding)
+async def add_holding(
+    portfolio_id: str,
+    instrument_name: str,
+    instrument_type: str,
+    quantity: float,
+    purchase_price: float,
+    current_price: float,
+    currency: str = "USD",
+    sector: str = "",
+):
+    """Add a holding to a portfolio."""
+    portfolio = next((p for p in portfolios if p.id == portfolio_id), None)
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+
+    holding = InvestmentHolding(
+        portfolio_id=portfolio_id,
+        instrument_name=instrument_name,
+        instrument_type=instrument_type,
+        quantity=quantity,
+        purchase_price=purchase_price,
+        current_price=current_price,
+        currency=currency,
+        sector=sector,
+    )
+    holdings.append(holding)
+    logger.info("Holding added", portfolio_id=portfolio_id, instrument=instrument_name)
+    return holding
+
+
+@app.get("/portfolios/{portfolio_id}/holdings", response_model=List[InvestmentHolding])
+async def list_holdings(portfolio_id: str):
+    """List holdings in a portfolio."""
+    return [h for h in holdings if h.portfolio_id == portfolio_id]
+
+
+@app.post("/portfolios/{portfolio_id}/performance", response_model=PerformanceMetric)
+async def record_performance(portfolio_id: str):
+    """Calculate and record portfolio performance metrics."""
+    portfolio_holdings = [h for h in holdings if h.portfolio_id == portfolio_id]
+    if not portfolio_holdings:
+        raise HTTPException(status_code=404, detail="No holdings found for portfolio")
+
+    total_value = sum(h.current_price * h.quantity for h in portfolio_holdings)
+    total_cost = sum(h.purchase_price * h.quantity for h in portfolio_holdings)
+    unrealized_gain = total_value - total_cost
+    unrealized_gain_pct = (unrealized_gain / total_cost * 100) if total_cost > 0 else 0.0
+
+    metric = PerformanceMetric(
+        portfolio_id=portfolio_id,
+        metric_date=datetime.now(timezone.utc),
+        total_value=total_value,
+        total_cost=total_cost,
+        unrealized_gain=unrealized_gain,
+        unrealized_gain_pct=unrealized_gain_pct,
+    )
+    performance.append(metric)
+    logger.info("Performance recorded", portfolio_id=portfolio_id, total_value=total_value)
+    return metric
+
+
+@app.get("/portfolios/{portfolio_id}/performance", response_model=List[PerformanceMetric])
+async def list_performance(portfolio_id: str, limit: int = 30):
+    """List performance metrics for a portfolio."""
+    result = [p for p in performance if p.portfolio_id == portfolio_id]
+    return result[-limit:]
+
+
+@app.post("/holdings/{holding_id}/update-price")
+async def update_price(holding_id: str, new_price: float):
+    """Update the current price of a holding."""
+    holding = next((h for h in holdings if h.id == holding_id), None)
+    if not holding:
+        raise HTTPException(status_code=404, detail="Holding not found")
+
+    holding.current_price = new_price
+    holding.updated_at = datetime.now(timezone.utc)
+    logger.info("Price updated", holding_id=holding_id, new_price=new_price)
+    return {"holding_id": holding_id, "new_price": new_price}
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8290)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
