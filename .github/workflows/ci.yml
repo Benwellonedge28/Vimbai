@@ -3,8 +3,36 @@ name: Vimbai Production CI/CD Pipeline
 on:
   push:
     branches: [main, develop]
+    paths:
+      - '**/*.py'
+      - '**/*.go'
+      - '**/*.js'
+      - '**/*.ts'
+      - '**/*.tsx'
+      - '**/requirements.txt'
+      - '**/go.mod'
+      - '**/package.json'
+      - '**/Dockerfile'
+      - 'api-gateway/**'
+      - 'shared/**'
+      - 'frontend/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - '**/*.py'
+      - '**/*.go'
+      - '**/*.js'
+      - '**/*.ts'
+      - '**/*.tsx'
+      - '**/requirements.txt'
+      - '**/go.mod'
+      - '**/package.json'
+      - '**/Dockerfile'
+      - 'api-gateway/**'
+      - 'shared/**'
+      - 'frontend/**'
+      - '.github/workflows/ci.yml'
   workflow_dispatch:
 
 env:
@@ -16,7 +44,7 @@ env:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read

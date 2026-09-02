@@ -3,8 +3,18 @@ name: Core Service Tests
 on:
   push:
     branches: [main, develop]
+    paths:
+      - '**/*.py'
+      - '**/requirements.txt'
+      - '**/Dockerfile'
+      - 'tests/**'
   pull_request:
     branches: [main, develop]
+    paths:
+      - '**/*.py'
+      - '**/requirements.txt'
+      - '**/Dockerfile'
+      - 'tests/**'
 
 jobs:
   test-core-services:

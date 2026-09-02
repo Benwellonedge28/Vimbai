@@ -3,8 +3,26 @@ name: Vimbai Core CI
 on:
   push:
     branches: ["main", "develop"]
+    paths:
+      - '**/*.py'
+      - '**/*.go'
+      - '**/requirements.txt'
+      - '**/go.mod'
+      - '**/go.sum'
+      - '**/Dockerfile'
+      - 'api-gateway/**'
+      - 'shared/**'
   pull_request:
     branches: ["main", "develop"]
+    paths:
+      - '**/*.py'
+      - '**/*.go'
+      - '**/requirements.txt'
+      - '**/go.mod'
+      - '**/go.sum'
+      - '**/Dockerfile'
+      - 'api-gateway/**'
+      - 'shared/**'
 
 jobs:
   detect-changes:
