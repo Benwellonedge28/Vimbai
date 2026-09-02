@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "performance-benchmarking-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8428"))
+PORT = int(os.getenv("PORT", "8280"))
 
 structlog.configure(
     processors=[

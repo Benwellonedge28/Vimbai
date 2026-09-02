@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "rolling-forecast-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8433"))
+PORT = int(os.getenv("PORT", "8173"))
 
 structlog.configure(
     processors=[

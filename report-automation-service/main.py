@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "report-automation-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8438"))
+PORT = int(os.getenv("PORT", "8272"))
 
 structlog.configure(
     processors=[

@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "distributed-workflow-orchestration-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8415"))
+PORT = int(os.getenv("PORT", "8046"))
 
 structlog.configure(
     processors=[

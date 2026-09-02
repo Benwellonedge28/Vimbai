@@ -9,13 +9,13 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 SERVICE_NAME = "org-authorization-engine"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8414"))
+PORT = int(os.getenv("PORT", "8008"))
 
 structlog.configure(
     processors=[
@@ -88,7 +88,7 @@ async def health_check():
 
 
 @app.post("/roles", response_model=Role)
-async def create_role(name: str, description: str = "", permissions: List[str] = []):
+async def create_role(name: str, description: str = "", permissions: List[str] = Query(default=[])):
     """Create a new role."""
     role = Role(name=name, description=description, permissions=permissions)
     roles.append(role)

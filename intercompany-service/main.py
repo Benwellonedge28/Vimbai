@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "intercompany-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8435"))
+PORT = int(os.getenv("PORT", "8350"))
 
 structlog.configure(
     processors=[

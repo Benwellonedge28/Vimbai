@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "fixed-assets-register-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8431"))
+PORT = int(os.getenv("PORT", "8355"))
 
 structlog.configure(
     processors=[

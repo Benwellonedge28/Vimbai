@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "data-warehouse-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8417"))
+PORT = int(os.getenv("PORT", "8362"))
 
 structlog.configure(
     processors=[

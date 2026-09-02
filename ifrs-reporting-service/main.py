@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "ifrs-reporting-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8430"))
+PORT = int(os.getenv("PORT", "8268"))
 
 structlog.configure(
     processors=[

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "privacy-admin-dashboard-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8410"))
+PORT = int(os.getenv("PORT", "8003"))
 
 structlog.configure(
     processors=[

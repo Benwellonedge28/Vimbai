@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "cash-management-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8429"))
+PORT = int(os.getenv("PORT", "8264"))
 
 structlog.configure(
     processors=[

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "treasury-reporting-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8423"))
+PORT = int(os.getenv("PORT", "8262"))
 
 structlog.configure(
     processors=[

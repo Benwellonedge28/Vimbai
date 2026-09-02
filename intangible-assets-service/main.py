@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "intangible-assets-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8420"))
+PORT = int(os.getenv("PORT", "8358"))
 
 structlog.configure(
     processors=[

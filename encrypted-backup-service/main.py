@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "encrypted-backup-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8412"))
+PORT = int(os.getenv("PORT", "8006"))
 
 structlog.configure(
     processors=[

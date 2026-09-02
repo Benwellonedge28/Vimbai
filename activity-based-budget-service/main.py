@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 SERVICE_NAME = "activity-based-budget-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8426"))
+PORT = int(os.getenv("PORT", "8177"))
 
 structlog.configure(
     processors=[
