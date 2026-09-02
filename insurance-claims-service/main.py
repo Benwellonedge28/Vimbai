@@ -1,74 +1,88 @@
 """
-Insurance Claims Service
-Port: 8367
-Insurance claim tracking and accounting
+Vimbai Insurance Claims Service
+Claims processing, coverage validation, settlement calculation, and claims tracking.
+Port: 8371
 """
-import httpx
+import os, uuid
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
+from enum import Enum
 import structlog
-from typing import Any, Dict, List, Optional
-from datetime import datetime, date
-from pydantic import BaseModel
-from fastapi import FastAPI
+from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException
 
-logger = structlog.get_logger()
-app = FastAPI(title="Insurance Claims Service", version="1.0.0")
+SERVICE_NAME = "insurance-claims-service"
+PORT = int(os.getenv("PORT", "8371"))
+structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
+logger = structlog.get_logger(SERVICE_NAME)
+app = FastAPI(title="Vimbai Insurance Claims Service", version="2.0.0", docs_url="/docs")
+try:
+    from shared.tracing import setup_tracing; setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    pass
 
-class ClaimRequest(BaseModel):
-    company_id: str
-    policy_number: str
-    claim_amount: float
-    claim_type: str
-    incident_date: date
+class ClaimStatus(str, Enum):
+    FILED = "filed"; UNDER_REVIEW = "under_review"; APPROVED = "approved"; DENIED = "denied"; PAID = "paid"
 
-class ClaimResponse(BaseModel):
-    claim_id: str
-    status: str
-    approved_amount: float
-    deductible: float
-    payout_amount: float
+class InsuranceClaim(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    company_id: str; policy_number: str; claim_type: str  # property, liability, auto, health, business_interruption
+    incident_date: str; claim_date: str = Field(default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    claim_amount: float; deductible: float = 0
+    description: str = ""; supporting_docs: List[str] = []
+    coverage_limit: float = 0
+    status: ClaimStatus = ClaimStatus.FILED
 
-class ReserveRequest(BaseModel):
-    company_id: str
-    claim_id: str
-    reserve_amount: float
-    reserve_type: str
+class ClaimResult(BaseModel):
+    claim_id: str; company_id: str; status: ClaimStatus
+    covered_amount: float; deductible_applied: float; settlement_amount: float
+    coverage_ratio: float; notes: str = ""
 
-class ReserveResponse(BaseModel):
-    claim_id: str
-    total_reserve: float
-    paid_to_date: float
-    remaining_reserve: float
+_claims: Dict[str, List[InsuranceClaim]] = {}
 
 @app.get("/")
-async def health_check():
-    return {"status": "healthy", "service": "insurance-claims", "version": "1.0.0"}
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
-@app.post("/submit", response_model=ClaimResponse)
-async def submit_claim(request: ClaimRequest):
-    logger.info("Submitting claim", company=request.company_id, policy=request.policy_number)
-    
-    deductible = 1000.0
-    approved = request.claim_amount - deductible
-    
-    return ClaimResponse(
-        claim_id=f"CLM-{datetime.now().strftime('%Y%m%d%H%M')}",
-        status="approved",
-        approved_amount=round(approved, 2),
-        deductible=deductible,
-        payout_amount=round(approved, 2)
-    )
+@app.post("/file", response_model=InsuranceClaim)
+async def file_claim(claim: InsuranceClaim):
+    _claims.setdefault(claim.company_id, []).append(claim)
+    logger.info("Claim filed", claim_id=claim.id, company=claim.company_id)
+    return claim
 
-@app.post("/reserve", response_model=ReserveResponse)
-async def set_reserve(request: ReserveRequest):
-    logger.info("Setting reserve", claim=request.claim_id)
+@app.get("/claims", response_model=List[InsuranceClaim])
+async def list_claims(company_id: str, status: str = ""):
+    claims = _claims.get(company_id, [])
+    if status:
+        claims = [c for c in claims if c.status.value == status]
+    return claims
+
+@app.post("/claims/{claim_id}/process", response_model=ClaimResult)
+async def process_claim(company_id: str, claim_id: str):
+    claims = _claims.get(company_id, [])
+    claim = next((c for c in claims if c.id == claim_id), None)
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
     
-    return ReserveResponse(
-        claim_id=request.claim_id,
-        total_reserve=request.reserve_amount,
-        paid_to_date=0.0,
-        remaining_reserve=request.reserve_amount
+    claim.status = ClaimStatus.UNDER_REVIEW
+    
+    covered = claim.claim_amount
+    if claim.coverage_limit > 0:
+        covered = min(covered, claim.coverage_limit)
+    covered -= claim.deductible
+    covered = max(covered, 0)
+    
+    coverage_ratio = covered / claim.claim_amount if claim.claim_amount else 0
+    
+    claim.status = ClaimStatus.APPROVED if covered > 0 else ClaimStatus.DENIED
+    
+    return ClaimResult(
+        claim_id=claim.id, company_id=company_id, status=claim.status,
+        covered_amount=round(covered, 2), deductible_applied=claim.deductible,
+        settlement_amount=round(covered, 2), coverage_ratio=round(coverage_ratio, 4),
+        notes=f"Coverage limit: {claim.coverage_limit}, Deductible: {claim.deductible}"
     )
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8367)
+    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)
