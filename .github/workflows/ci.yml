@@ -49,7 +49,6 @@ concurrency:
 permissions:
   contents: read
   packages: write
-  security-events: write
   actions: read
 
 jobs:
@@ -127,7 +126,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.actor != 'dependabot[bot]'
     permissions:
-      security-events: write
       actions: read
       contents: read
     steps:
