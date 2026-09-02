@@ -9,7 +9,7 @@ RUN addgroup -S appuser && adduser -S -G appuser -H appuser
 
 # Copy go.mod and download dependencies
 COPY go.mod ./
-RUN go mod download || true
+RUN go mod tidy
 
 # Copy the rest of the application source code
 COPY . .
