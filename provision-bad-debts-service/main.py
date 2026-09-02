@@ -22,15 +22,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Provision for Bad Debts Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class ProvisionMethod(str, Enum):
@@ -110,10 +118,16 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 async def call_audit_service(action: str, resource_type: str, resource_id: str, details: Dict[str, Any]):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(f"{AUDIT_SERVICE_URL}/audit", json={
-                "action": action, "resource_type": resource_type, "resource_id": resource_id,
-                "details": details, "timestamp": datetime.utcnow().isoformat()
-            })
+            await client.post(
+                f"{AUDIT_SERVICE_URL}/audit",
+                json={
+                    "action": action,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "details": details,
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            )
     except Exception as e:
         logger.error("audit_error", error=str(e))
 
@@ -125,7 +139,11 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Provision for bad and doubtful debts management"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "description": "Provision for bad and doubtful debts management",
+    }
 
 
 @app.post("/policies", response_model=ProvisionPolicy, status_code=status.HTTP_201_CREATED)
@@ -148,12 +166,18 @@ async def list_policies(is_active: Optional[bool] = None):
 
 
 @app.post("/debtors/add")
-async def add_debtor(debtor_id: str, debtor_name: str, invoice_number: str, original_amount: float, invoice_date: datetime):
+async def add_debtor(
+    debtor_id: str, debtor_name: str, invoice_number: str, original_amount: float, invoice_date: datetime
+):
     """Add a debtor for tracking."""
     entry = ProvisionEntry(
-        debtor_id=debtor_id, debtor_name=debtor_name, invoice_number=invoice_number,
-        original_amount=original_amount, outstanding_amount=original_amount,
-        days_outstanding=0, status=DebtorStatus.CURRENT
+        debtor_id=debtor_id,
+        debtor_name=debtor_name,
+        invoice_number=invoice_number,
+        original_amount=original_amount,
+        outstanding_amount=original_amount,
+        days_outstanding=0,
+        status=DebtorStatus.CURRENT,
     )
     debtor_records.append(entry)
     await call_audit_service("CREATE", "debtor", debtor_id, {"name": debtor_name})
@@ -167,9 +191,7 @@ async def calculate_provision(period_end: datetime, policy_id: Optional[str] = N
 
     # Default aging-based percentages
     if not policy:
-        policy_rules = {
-            "0": 0, "30": 1, "60": 5, "90": 10, "180": 50, "365": 100
-        }
+        policy_rules = {"0": 0, "30": 1, "60": 5, "90": 10, "180": 50, "365": 100}
     else:
         policy_rules = policy.policy_rules
 
@@ -215,7 +237,7 @@ async def calculate_provision(period_end: datetime, policy_id: Optional[str] = N
             "overdue_90": sum(e.outstanding_amount for e in entries if e.status == DebtorStatus.OVERDUE_90),
             "overdue_180": sum(e.outstanding_amount for e in entries if e.status == DebtorStatus.OVERDUE_180),
             "bad": sum(e.outstanding_amount for e in entries if e.status == DebtorStatus.BAD),
-        }
+        },
     }
 
 
@@ -230,8 +252,18 @@ async def create_provision_journal(period_end: datetime, total_debtors: float, p
         "date": period_end,
         "description": f"Provision for doubtful debts as at {period_end.date()}",
         "entries": [
-            {"account_code": "6300", "description": "Bad Debts Expense", "debit": provision_adjustment if provision_adjustment > 0 else 0, "credit": 0},
-            {"account_code": "1310", "description": "Provision for Doubtful Debts", "debit": 0, "credit": provision_adjustment if provision_adjustment > 0 else abs(provision_adjustment)},
+            {
+                "account_code": "6300",
+                "description": "Bad Debts Expense",
+                "debit": provision_adjustment if provision_adjustment > 0 else 0,
+                "credit": 0,
+            },
+            {
+                "account_code": "1310",
+                "description": "Provision for Doubtful Debts",
+                "debit": 0,
+                "credit": provision_adjustment if provision_adjustment > 0 else abs(provision_adjustment),
+            },
         ],
         "reference": f"PROV-{period_end.strftime('%Y%m')}",
     }
@@ -239,10 +271,14 @@ async def create_provision_journal(period_end: datetime, total_debtors: float, p
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
 
     journal = ProvisionJournal(
-        period_end=period_end, total_debtors=total_debtors,
-        provision_opening=provision_opening, provision_required=provision_required,
-        provision_adjustment=provision_adjustment, provision_closing=provision_required,
-        entries=calc["entries"], journal_entry_id=result.get("id")
+        period_end=period_end,
+        total_debtors=total_debtors,
+        provision_opening=provision_opening,
+        provision_required=provision_required,
+        provision_adjustment=provision_adjustment,
+        provision_closing=provision_required,
+        entries=calc["entries"],
+        journal_entry_id=result.get("id"),
     )
     provision_journals.append(journal)
 
@@ -258,4 +294,5 @@ async def get_provision_history(limit: int = 12):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

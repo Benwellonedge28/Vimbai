@@ -300,9 +300,7 @@ tax_reports: List[TaxReport] = []
 # ============================================================================
 
 
-async def call_accounting_service(
-    method: str, endpoint: str, data: Optional[Dict] = None
-) -> Dict[str, Any]:
+async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     """Call the main accounting service."""
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -322,9 +320,7 @@ async def call_accounting_service(
         return {}
 
 
-async def call_audit_service(
-    action: str, resource_type: str, resource_id: str, details: Dict[str, Any]
-) -> None:
+async def call_audit_service(action: str, resource_type: str, resource_id: str, details: Dict[str, Any]) -> None:
     """Log actions to the audit service."""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -347,16 +343,10 @@ async def call_audit_service(
 # ============================================================================
 
 
-def get_applicable_rate(
-    tax_type: TaxType, jurisdiction: str, transaction_type: TransactionType
-) -> Optional[TaxRate]:
+def get_applicable_rate(tax_type: TaxType, jurisdiction: str, transaction_type: TransactionType) -> Optional[TaxRate]:
     """Get the applicable tax rate for a transaction."""
     for rate in tax_rates.values():
-        if (
-            rate.tax_type == tax_type
-            and rate.jurisdiction == jurisdiction
-            and rate.is_active
-        ):
+        if rate.tax_type == tax_type and rate.jurisdiction == jurisdiction and rate.is_active:
             if rate.effective_from <= datetime.utcnow():
                 if rate.effective_to is None or rate.effective_to >= datetime.utcnow():
                     return rate
@@ -422,7 +412,9 @@ async def create_tax_rate(data: TaxRate):
     data.id = rate_id
     tax_rates[rate_id] = data
 
-    await call_audit_service("CREATE", "tax_rate", rate_id, {"rate": data.rate_percentage, "jurisdiction": data.jurisdiction})
+    await call_audit_service(
+        "CREATE", "tax_rate", rate_id, {"rate": data.rate_percentage, "jurisdiction": data.jurisdiction}
+    )
     logger.info("tax_rate_created", rate_id=rate_id, rate=data.rate_percentage)
     return data
 
@@ -480,7 +472,9 @@ async def create_tax_registration(data: TaxRegistration):
     data.id = reg_id
     tax_registrations[reg_id] = data
 
-    await call_audit_service("CREATE", "tax_registration", reg_id, {"tax_type": data.tax_type, "jurisdiction": data.jurisdiction})
+    await call_audit_service(
+        "CREATE", "tax_registration", reg_id, {"tax_type": data.tax_type, "jurisdiction": data.jurisdiction}
+    )
     return data
 
 
@@ -508,8 +502,12 @@ async def list_tax_registrations(
 
 @app.post("/calculate", response_model=TaxTransaction)
 async def calculate_tax(
-    transaction_date: datetime, transaction_type: TransactionType, tax_type: TaxType,
-    jurisdiction: str, gross_amount: float, is_net: bool = False,
+    transaction_date: datetime,
+    transaction_type: TransactionType,
+    tax_type: TaxType,
+    jurisdiction: str,
+    gross_amount: float,
+    is_net: bool = False,
 ):
     """Calculate tax on a transaction."""
     rate = get_applicable_rate(tax_type, jurisdiction, transaction_type)
@@ -554,7 +552,12 @@ async def calculate_tax(
             "entries": [
                 {"account_code": "1100", "description": "Accounts Receivable", "debit": gross_total, "credit": 0},
                 {"account_code": "4000", "description": "Sales Revenue", "debit": 0, "credit": net_amount},
-                {"account_code": "2200", "description": f"VAT Payable - {jurisdiction}", "debit": 0, "credit": tax_amount},
+                {
+                    "account_code": "2200",
+                    "description": f"VAT Payable - {jurisdiction}",
+                    "debit": 0,
+                    "credit": tax_amount,
+                },
             ],
             "reference": f"TAX-{transaction.id[:8]}",
         }
@@ -564,7 +567,12 @@ async def calculate_tax(
             "description": f"VAT recoverable on purchase: {jurisdiction}",
             "entries": [
                 {"account_code": "1500", "description": "Purchases", "debit": net_amount, "credit": 0},
-                {"account_code": "1300", "description": f"VAT Receivable - {jurisdiction}", "debit": tax_amount, "credit": 0},
+                {
+                    "account_code": "1300",
+                    "description": f"VAT Receivable - {jurisdiction}",
+                    "debit": tax_amount,
+                    "credit": 0,
+                },
                 {"account_code": "2100", "description": "Accounts Payable", "debit": 0, "credit": gross_total},
             ],
             "reference": f"TAX-{transaction.id[:8]}",
@@ -572,9 +580,12 @@ async def calculate_tax(
 
     await call_accounting_service("POST", "/journal-entries", journal_entry)
 
-    await call_audit_service("CALCULATE", "tax_transaction", transaction.id, {
-        "tax_type": tax_type, "amount": tax_amount, "jurisdiction": jurisdiction
-    })
+    await call_audit_service(
+        "CALCULATE",
+        "tax_transaction",
+        transaction.id,
+        {"tax_type": tax_type, "amount": tax_amount, "jurisdiction": jurisdiction},
+    )
 
     return transaction
 
@@ -610,7 +621,8 @@ async def create_tax_return(data: TaxReturn):
 
     # Calculate from transactions
     period_transactions = [
-        t for t in tax_transactions
+        t
+        for t in tax_transactions
         if t.tax_type == data.tax_type
         and t.jurisdiction == data.jurisdiction
         and data.period_start <= t.transaction_date <= data.period_end
@@ -630,17 +642,26 @@ async def create_tax_return(data: TaxReturn):
 
     tax_returns.append(data)
 
-    await call_audit_service("CREATE", "tax_return", tax_return_id, {
-        "tax_type": data.tax_type, "period": f"{data.period_start} to {data.period_end}", "net_tax_due": data.net_tax_due
-    })
+    await call_audit_service(
+        "CREATE",
+        "tax_return",
+        tax_return_id,
+        {
+            "tax_type": data.tax_type,
+            "period": f"{data.period_start} to {data.period_end}",
+            "net_tax_due": data.net_tax_due,
+        },
+    )
 
     return data
 
 
 @app.get("/tax-returns")
 async def list_tax_returns(
-    tax_type: Optional[TaxType] = None, jurisdiction: Optional[str] = None,
-    status: Optional[str] = None, period_start: Optional[datetime] = None,
+    tax_type: Optional[TaxType] = None,
+    jurisdiction: Optional[str] = None,
+    status: Optional[str] = None,
+    period_start: Optional[datetime] = None,
 ):
     """List tax returns."""
     result = list(tax_returns)
@@ -683,7 +704,12 @@ async def pay_tax_return(return_id: str):
             "date": datetime.utcnow(),
             "description": f"Tax payment: {tax_return.tax_type.value} - {tax_return.jurisdiction}",
             "entries": [
-                {"account_code": "2200", "description": "VAT/Tax Payable", "debit": tax_return.net_tax_due, "credit": 0},
+                {
+                    "account_code": "2200",
+                    "description": "VAT/Tax Payable",
+                    "debit": tax_return.net_tax_due,
+                    "credit": 0,
+                },
                 {"account_code": "1000", "description": "Bank/Cash", "debit": 0, "credit": tax_return.net_tax_due},
             ],
             "reference": f"TAX-PAY-{return_id[:8]}",
@@ -717,8 +743,18 @@ async def record_withholding_tax(data: WithholdingTaxEntry):
         "date": data.payment_date,
         "description": f"Withholding tax on payment to {data.recipient_name}",
         "entries": [
-            {"account_code": "5100", "description": "Expense/Service", "debit": data.gross_amount - data.withholding_amount, "credit": 0},
-            {"account_code": "2200", "description": "Withholding Tax Payable", "debit": 0, "credit": data.withholding_amount},
+            {
+                "account_code": "5100",
+                "description": "Expense/Service",
+                "debit": data.gross_amount - data.withholding_amount,
+                "credit": 0,
+            },
+            {
+                "account_code": "2200",
+                "description": "Withholding Tax Payable",
+                "debit": 0,
+                "credit": data.withholding_amount,
+            },
             {"account_code": "1000", "description": "Bank", "debit": 0, "credit": data.net_amount_paid},
         ],
         "reference": f"WHT-{entry_id[:8]}",
@@ -731,8 +767,10 @@ async def record_withholding_tax(data: WithholdingTaxEntry):
 
 @app.get("/withholding-tax")
 async def list_withholding_entries(
-    recipient_id: Optional[str] = None, start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None, is_reconciled: Optional[bool] = None,
+    recipient_id: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    is_reconciled: Optional[bool] = None,
 ):
     """List withholding tax entries."""
     result = list(withholding_entries)
@@ -757,11 +795,15 @@ async def list_withholding_entries(
 
 @app.post("/reports/tax-summary", response_model=TaxReport)
 async def generate_tax_summary_report(
-    tax_type: TaxType, jurisdiction: str, period_start: datetime, period_end: datetime,
+    tax_type: TaxType,
+    jurisdiction: str,
+    period_start: datetime,
+    period_end: datetime,
 ):
     """Generate a tax summary report."""
     transactions = [
-        t for t in tax_transactions
+        t
+        for t in tax_transactions
         if t.tax_type == tax_type
         and t.jurisdiction == jurisdiction
         and period_start <= t.transaction_date <= period_end
@@ -788,8 +830,13 @@ async def generate_tax_summary_report(
             "net_tax_position": sum(t.tax_amount for t in sales) - sum(t.tax_amount for t in purchases),
         },
         details=[
-            {"transaction_id": t.id, "date": t.transaction_date.isoformat(), "type": t.transaction_type.value,
-             "gross": t.gross_amount, "tax": t.tax_amount}
+            {
+                "transaction_id": t.id,
+                "date": t.transaction_date.isoformat(),
+                "type": t.transaction_type.value,
+                "gross": t.gross_amount,
+                "tax": t.tax_amount,
+            }
             for t in transactions
         ],
         total_tax=sum(t.tax_amount for t in transactions),
@@ -803,7 +850,8 @@ async def generate_tax_summary_report(
 async def get_vat_by_jurisdiction(period_start: datetime, period_end: datetime):
     """Get VAT breakdown by jurisdiction."""
     transactions = [
-        t for t in tax_transactions
+        t
+        for t in tax_transactions
         if t.tax_type in [TaxType.VAT, TaxType.GST]
         and period_start <= t.transaction_date <= period_end
         and not t.is_reversed
@@ -851,9 +899,24 @@ async def calculate_deferred_tax(period_end: datetime, tax_rate: float, temporar
         "date": period_end,
         "description": "Deferred tax provision",
         "entries": [
-            {"account_code": "1400", "description": "Deferred Tax Asset", "debit": deferred_tax.deferred_tax_asset, "credit": 0},
-            {"account_code": "2500", "description": "Deferred Tax Liability", "debit": 0, "credit": deferred_tax.deferred_tax_liability},
-            {"account_code": "8000", "description": "Tax Expense", "debit": 0, "credit": deferred_tax.deferred_tax_liability},
+            {
+                "account_code": "1400",
+                "description": "Deferred Tax Asset",
+                "debit": deferred_tax.deferred_tax_asset,
+                "credit": 0,
+            },
+            {
+                "account_code": "2500",
+                "description": "Deferred Tax Liability",
+                "debit": 0,
+                "credit": deferred_tax.deferred_tax_liability,
+            },
+            {
+                "account_code": "8000",
+                "description": "Tax Expense",
+                "debit": 0,
+                "credit": deferred_tax.deferred_tax_liability,
+            },
         ],
         "reference": f"DT-{deferred_tax.id[:8]}",
     }
@@ -861,9 +924,12 @@ async def calculate_deferred_tax(period_end: datetime, tax_rate: float, temporar
     deferred_tax.journal_entry_id = result.get("id")
 
     deferred_taxes.append(deferred_tax)
-    await call_audit_service("CALCULATE", "deferred_tax", deferred_tax.id, {
-        "asset": deferred_tax.deferred_tax_asset, "liability": deferred_tax.deferred_tax_liability
-    })
+    await call_audit_service(
+        "CALCULATE",
+        "deferred_tax",
+        deferred_tax.id,
+        {"asset": deferred_tax.deferred_tax_asset, "liability": deferred_tax.deferred_tax_liability},
+    )
 
     return deferred_tax
 
@@ -875,7 +941,9 @@ async def calculate_deferred_tax(period_end: datetime, tax_rate: float, temporar
 
 @app.get("/liability-schedule")
 async def get_tax_liability_schedule(
-    tax_type: Optional[TaxType] = None, jurisdiction: Optional[str] = None, status: Optional[str] = None,
+    tax_type: Optional[TaxType] = None,
+    jurisdiction: Optional[str] = None,
+    status: Optional[str] = None,
 ):
     """Get tax liability schedule."""
     returns = [r for r in tax_returns if r.status in ["draft", "filed"]]
@@ -903,5 +971,6 @@ async def get_tax_liability_schedule(
 
 if __name__ == "__main__":
     import uvicorn
+
     logger.info("starting_tax_accounting_service", port=PORT)
     uvicorn.run(app, host="0.0.0.0", port=PORT)

@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Prime Cost Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class DirectCostItem(BaseModel):
@@ -84,14 +92,10 @@ async def root():
 
 @app.post("/direct-costs/add")
 async def add_direct_cost_item(
-    item_name: str, item_type: str, amount: float,
-    units: float = 1, product_id: Optional[str] = None
+    item_name: str, item_type: str, amount: float, units: float = 1, product_id: Optional[str] = None
 ):
     """Add a direct cost item."""
-    item = DirectCostItem(
-        item_name=item_name, item_type=item_type, amount=amount,
-        units=units, product_id=product_id
-    )
+    item = DirectCostItem(item_name=item_name, item_type=item_type, amount=amount, units=units, product_id=product_id)
     item.cost_per_unit = amount / units if units > 0 else 0
     direct_cost_items.append(item)
     return item
@@ -99,16 +103,15 @@ async def add_direct_cost_item(
 
 @app.post("/calculate")
 async def calculate_prime_cost(
-    product_id: str, period: str,
-    direct_materials: float, direct_labor: float,
-    direct_expenses: float = 0
+    product_id: str, period: str, direct_materials: float, direct_labor: float, direct_expenses: float = 0
 ):
     """Calculate prime cost for a product."""
     calculation = PrimeCostCalculation(
-        product_id=product_id, period=period,
+        product_id=product_id,
+        period=period,
         direct_materials=direct_materials,
         direct_labor=direct_labor,
-        direct_expenses=direct_expenses
+        direct_expenses=direct_expenses,
     )
 
     # Calculate Prime Cost
@@ -119,7 +122,7 @@ async def calculate_prime_cost(
         "direct_materials": direct_materials,
         "direct_labor": direct_labor,
         "direct_expenses": direct_expenses,
-        "prime_cost": calculation.prime_cost
+        "prime_cost": calculation.prime_cost,
     }
 
     prime_cost_calculations.append(calculation)
@@ -127,9 +130,7 @@ async def calculate_prime_cost(
 
 
 @app.post("/calculate-with-items")
-async def calculate_prime_cost_from_items(
-    product_id: str, period: str
-):
+async def calculate_prime_cost_from_items(product_id: str, period: str):
     """Calculate prime cost from direct cost items."""
     items = [i for i in direct_cost_items if i.product_id == product_id]
 
@@ -138,17 +139,18 @@ async def calculate_prime_cost_from_items(
     direct_expenses = sum(i.amount for i in items if i.item_type == "direct_expense")
 
     calculation = PrimeCostCalculation(
-        product_id=product_id, period=period,
+        product_id=product_id,
+        period=period,
         direct_materials=direct_materials,
         direct_labor=direct_labor,
-        direct_expenses=direct_expenses
+        direct_expenses=direct_expenses,
     )
     calculation.prime_cost = direct_materials + direct_labor + direct_expenses
     calculation.cost_breakdown = {
         "direct_materials": direct_materials,
         "direct_labor": direct_labor,
         "direct_expenses": direct_expenses,
-        "prime_cost": calculation.prime_cost
+        "prime_cost": calculation.prime_cost,
     }
 
     prime_cost_calculations.append(calculation)
@@ -175,4 +177,5 @@ async def list_direct_cost_items(product_id: Optional[str] = None):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

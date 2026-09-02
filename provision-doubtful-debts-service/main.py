@@ -22,15 +22,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Provision for Doubtful Debts Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class ProvisionType(str, Enum):
@@ -93,10 +101,16 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 async def call_audit_service(action: str, resource_type: str, resource_id: str, details: Dict[str, Any]):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(f"{AUDIT_SERVICE_URL}/audit", json={
-                "action": action, "resource_type": resource_type, "resource_id": resource_id,
-                "details": details, "timestamp": datetime.utcnow().isoformat()
-            })
+            await client.post(
+                f"{AUDIT_SERVICE_URL}/audit",
+                json={
+                    "action": action,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "details": details,
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            )
     except Exception:
         pass
 
@@ -108,19 +122,34 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Provision for doubtful debts management"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "description": "Provision for doubtful debts management",
+    }
 
 
 @app.post("/debtors/add")
 async def add_debtor(
-    debtor_id: str, debtor_name: str, invoice_number: str, invoice_date: datetime,
-    due_date: datetime, amount: float, risk_assessment: str = "medium"
+    debtor_id: str,
+    debtor_name: str,
+    invoice_number: str,
+    invoice_date: datetime,
+    due_date: datetime,
+    amount: float,
+    risk_assessment: str = "medium",
 ):
     """Add a debtor for doubtful debt provision tracking."""
     entry = DoubtfulDebtEntry(
-        debtor_id=debtor_id, debtor_name=debtor_name, invoice_number=invoice_number,
-        invoice_date=invoice_date, due_date=due_date, amount=amount, outstanding=amount,
-        risk_assessment=risk_assessment, provision_percent=risk_policies.get(risk_assessment, 5),
+        debtor_id=debtor_id,
+        debtor_name=debtor_name,
+        invoice_number=invoice_number,
+        invoice_date=invoice_date,
+        due_date=due_date,
+        amount=amount,
+        outstanding=amount,
+        risk_assessment=risk_assessment,
+        provision_percent=risk_policies.get(risk_assessment, 5),
     )
     entry.provision_amount = entry.outstanding * (entry.provision_percent / 100)
     doubtful_debt_entries.append(entry)
@@ -176,15 +205,23 @@ async def calculate_provision(period_end: datetime, provision_type: ProvisionTyp
         "total_outstanding": sum(e.outstanding for e in entries),
         "total_provision_required": total_provision,
         "entries": [
-            {"debtor_id": e.debtor_id, "name": e.debtor_name, "outstanding": e.outstanding,
-             "risk": e.risk_assessment, "provision_percent": e.provision_percent, "provision_amount": e.provision_amount}
+            {
+                "debtor_id": e.debtor_id,
+                "name": e.debtor_name,
+                "outstanding": e.outstanding,
+                "risk": e.risk_assessment,
+                "provision_percent": e.provision_percent,
+                "provision_amount": e.provision_amount,
+            }
             for e in entries
-        ]
+        ],
     }
 
 
 @app.post("/provision/create")
-async def create_provision(period_end: datetime, provision_opening: float = 0, provision_type: ProvisionType = ProvisionType.SPECIFIC):
+async def create_provision(
+    period_end: datetime, provision_opening: float = 0, provision_type: ProvisionType = ProvisionType.SPECIFIC
+):
     """Create provision journal entry."""
     calc = await calculate_provision(period_end, provision_type)
     provision_required = calc["total_provision_required"]
@@ -194,8 +231,18 @@ async def create_provision(period_end: datetime, provision_opening: float = 0, p
         "date": period_end,
         "description": f"Provision for doubtful debts - {period_end.date()}",
         "entries": [
-            {"account_code": "6300", "description": "Bad Debts Expense", "debit": abs(provision_adjustment) if provision_adjustment > 0 else 0, "credit": 0},
-            {"account_code": "1310", "description": "Provision for Doubtful Debts", "debit": 0, "credit": abs(provision_adjustment) if provision_adjustment > 0 else provision_adjustment},
+            {
+                "account_code": "6300",
+                "description": "Bad Debts Expense",
+                "debit": abs(provision_adjustment) if provision_adjustment > 0 else 0,
+                "credit": 0,
+            },
+            {
+                "account_code": "1310",
+                "description": "Provision for Doubtful Debts",
+                "debit": 0,
+                "credit": abs(provision_adjustment) if provision_adjustment > 0 else provision_adjustment,
+            },
         ],
         "reference": f"DDBT-PROV-{period_end.strftime('%Y%m')}",
     }
@@ -203,10 +250,15 @@ async def create_provision(period_end: datetime, provision_opening: float = 0, p
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
 
     provision = DoubtfulDebtProvision(
-        period_end=period_end, provision_type=provision_type,
-        total_debtors=calc["total_debtors"], provision_required=provision_required,
-        provision_opening=provision_opening, provision_adjustment=provision_adjustment,
-        provision_closing=provision_required, entries=calc["entries"], journal_entry_id=result.get("id")
+        period_end=period_end,
+        provision_type=provision_type,
+        total_debtors=calc["total_debtors"],
+        provision_required=provision_required,
+        provision_opening=provision_opening,
+        provision_adjustment=provision_adjustment,
+        provision_closing=provision_required,
+        entries=calc["entries"],
+        journal_entry_id=result.get("id"),
     )
     provision_records.append(provision)
 
@@ -231,4 +283,5 @@ async def list_debtors(risk_assessment: Optional[str] = None):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

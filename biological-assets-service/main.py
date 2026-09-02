@@ -3,15 +3,18 @@ Biological Assets Service
 Port: 8146
 Tracks agricultural assets at fair value less costs to sell
 """
-import httpx
-import structlog
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+
+import httpx
+import structlog
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="Biological Assets Service", version="1.0.0")
+
 
 # Pydantic Models
 class BiologicalAsset(BaseModel):
@@ -27,6 +30,7 @@ class BiologicalAsset(BaseModel):
     acquisition_date: Optional[str] = None
     initial_cost: Optional[float] = None
 
+
 class TransformationEntry(BaseModel):
     entry_date: str
     increase_type: str  # "growth", "birth", "purchase", "weight_gain"
@@ -34,6 +38,7 @@ class TransformationEntry(BaseModel):
     fair_value_change: float
     costs_incurred: float
     description: str
+
 
 class HarvestEntry(BaseModel):
     harvest_date: str
@@ -43,6 +48,7 @@ class HarvestEntry(BaseModel):
     carrying_amount_at_harvest: float
     gain_loss_on_harvest: float
 
+
 class BiologicalAssetRequest(BaseModel):
     company_id: str
     reporting_date: str
@@ -50,6 +56,7 @@ class BiologicalAssetRequest(BaseModel):
     transformations: List[TransformationEntry]
     harvests: List[HarvestEntry]
     include_disclosure: bool = True
+
 
 class AssetFairValueMeasurement(BaseModel):
     asset_id: str
@@ -64,6 +71,7 @@ class AssetFairValueMeasurement(BaseModel):
     fair_value_per_unit: float
     total_fair_value: float
 
+
 class GainLossBreakdown(BaseModel):
     asset_id: str
     physical_change: float
@@ -72,6 +80,7 @@ class GainLossBreakdown(BaseModel):
     total_gain_loss: float
     recognized_in_PnL: float
     recognized_in_OCl: float
+
 
 class BiologicalAssetsResponse(BaseModel):
     company_id: str
@@ -84,6 +93,7 @@ class BiologicalAssetsResponse(BaseModel):
     harvested_amount: float
     agricultural_produce_amount: float
     costs_to_sell_total: float
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     """Call another internal Vimbai service."""
@@ -99,9 +109,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "biological-assets", "version": "1.0.0"}
+
 
 @app.post("/measure", response_model=BiologicalAssetsResponse)
 async def measure_biological_assets(request: BiologicalAssetRequest):
@@ -120,7 +132,7 @@ async def measure_biological_assets(request: BiologicalAssetRequest):
         ("bearer_biological", "mature"): 5000.0,
         ("bearer_biological", "immature"): 2500.0,
         ("consumable_biological", "mature"): 800.0,
-        ("consumable_biological", "immature"): 400.0
+        ("consumable_biological", "immature"): 400.0,
     }
 
     for asset in request.assets:
@@ -134,19 +146,21 @@ async def measure_biological_assets(request: BiologicalAssetRequest):
 
         total_fair_value += total_fv
 
-        fair_value_measurements.append(AssetFairValueMeasurement(
-            asset_id=asset.asset_id,
-            asset_name=asset.asset_name,
-            category=asset.asset_category,
-            quantity=asset.quantity,
-            unit=asset.unit,
-            age=asset.age_years,
-            maturity=asset.maturity_status,
-            market_price_per_unit=market_price,
-            estimated_costs_to_sell=market_price * costs_to_sold_pct * asset.quantity,
-            fair_value_per_unit=fair_value_per_unit,
-            total_fair_value=total_fv
-        ))
+        fair_value_measurements.append(
+            AssetFairValueMeasurement(
+                asset_id=asset.asset_id,
+                asset_name=asset.asset_name,
+                category=asset.asset_category,
+                quantity=asset.quantity,
+                unit=asset.unit,
+                age=asset.age_years,
+                maturity=asset.maturity_status,
+                market_price_per_unit=market_price,
+                estimated_costs_to_sell=market_price * costs_to_sell_pct * asset.quantity,
+                fair_value_per_unit=fair_value_per_unit,
+                total_fair_value=total_fv,
+            )
+        )
 
     # Gain/loss breakdown
     gain_loss_breakdown = []
@@ -157,15 +171,17 @@ async def measure_biological_assets(request: BiologicalAssetRequest):
         price_change = trans.fair_value_change - physical_change
         total_gl = trans.fair_value_change
 
-        gain_loss_breakdown.append(GainLossBreakdown(
-            asset_id="TBD",
-            physical_change=physical_change,
-            price_change=price_change,
-            cost_change=-trans.costs_incurred,
-            total_gain_loss=total_gl,
-            recognized_in_PnL=total_gl if trans.increase_type in ["harvest", "sale"] else 0,
-            recognized_in_OCl=total_gl if trans.increase_type not in ["harvest", "sale"] else 0
-        ))
+        gain_loss_breakdown.append(
+            GainLossBreakdown(
+                asset_id="TBD",
+                physical_change=physical_change,
+                price_change=price_change,
+                cost_change=-trans.costs_incurred,
+                total_gain_loss=total_gl,
+                recognized_in_PnL=total_gl if trans.increase_type in ["harvest", "sale"] else 0,
+                recognized_in_OCl=total_gl if trans.increase_type not in ["harvest", "sale"] else 0,
+            )
+        )
         total_gain += total_gl
 
     # Harvest totals
@@ -182,17 +198,16 @@ async def measure_biological_assets(request: BiologicalAssetRequest):
         biological_asset_change=total_gain,
         harvested_amount=total_harvest_value,
         agricultural_produce_amount=total_harvest_value,
-        costs_to_sell_total=total_costs_to_sell
+        costs_to_sell_total=total_costs_to_sell,
     )
 
     logger.info("Biological assets measured", total_fair_value=total_fair_value)
     return response
 
+
 @app.post("/fair-value-level1")
 async def measure_level1_fair_value(
-    asset_quantity: float,
-    quoted_price_per_unit: float,
-    costs_to_sell_percentage: float
+    asset_quantity: float, quoted_price_per_unit: float, costs_to_sell_percentage: float
 ):
     """Measure fair value at Level 1 (quoted price)."""
     costs_to_sell = asset_quantity * quoted_price_per_unit * costs_to_sell_percentage
@@ -205,15 +220,13 @@ async def measure_level1_fair_value(
         "quoted_price_per_unit": quoted_price_per_unit,
         "costs_to_sell": costs_to_sell,
         "fair_value": fair_value,
-        "fair_value_per_unit": quoted_price_per_unit * (1 - costs_to_sell_percentage)
+        "fair_value_per_unit": quoted_price_per_unit * (1 - costs_to_sell_percentage),
     }
+
 
 @app.post("/fair-value-level2")
 async def measure_level2_fair_value(
-    asset_quantity: float,
-    market_price_similar: float,
-    adjustment_factor: float,
-    costs_to_sell_percentage: float
+    asset_quantity: float, market_price_similar: float, adjustment_factor: float, costs_to_sell_percentage: float
 ):
     """Measure fair value at Level 2 (market-comparable)."""
     adjusted_price = market_price_similar * adjustment_factor
@@ -228,15 +241,13 @@ async def measure_level2_fair_value(
         "adjustment_factor": adjustment_factor,
         "adjusted_price": adjusted_price,
         "costs_to_sell": costs_to_sell,
-        "fair_value": fair_value
+        "fair_value": fair_value,
     }
+
 
 @app.post("/fair-value-level3")
 async def measure_level3_fair_value(
-    present_value_fcfe: float,
-    terminal_value: float,
-    costs_to_sell: float,
-    discount_rate: float
+    present_value_fcfe: float, terminal_value: float, costs_to_sell: float, discount_rate: float
 ):
     """Measure fair value at Level 3 (DCF model)."""
     total_value = present_value_fcfe + terminal_value
@@ -250,16 +261,12 @@ async def measure_level3_fair_value(
         "costs_to_sell": costs_to_sell,
         "fair_value": fair_value,
         "discount_rate": discount_rate,
-        "key_unobservable_inputs": ["cash flow projections", "terminal growth rate", "discount rate"]
+        "key_unobservable_inputs": ["cash flow projections", "terminal growth rate", "discount rate"],
     }
 
+
 @app.post("/consumable-bearer-distinction")
-async def classify_asset(
-    purpose: str,
-    reproduction_purpose: str,
-    harvesting_intent: str,
-    historical_use: str
-):
+async def classify_asset(purpose: str, reproduction_purpose: str, harvesting_intent: str, historical_use: str):
     """Classify biological asset as consumable or bearer."""
     if purpose == "sale" or harvesting_intent == "harvest" or historical_use == "harvest":
         classification = "consumable"
@@ -271,8 +278,13 @@ async def classify_asset(
     return {
         "classification": classification,
         "description": description,
-        "accounting_treatment": "Recognized at fair value less costs to sell" if classification == "consumable" else "Bearer biological assets also at fair value less costs to sell"
+        "accounting_treatment": (
+            "Recognized at fair value less costs to sell"
+            if classification == "consumable"
+            else "Bearer biological assets also at fair value less costs to sell"
+        ),
     }
+
 
 @app.post("/disclosure-template")
 async def prepare_disclosure(assets: List[BiologicalAsset], reporting_date: str):
@@ -294,16 +306,18 @@ async def prepare_disclosure(assets: List[BiologicalAsset], reporting_date: str)
             "Quantitative disclosures by location",
             "Gains/losses on fair value changes",
             "New assets acquired/developed",
-            "Assets sold or harvested"
+            "Assets sold or harvested",
         ],
         "assets_by_category": by_category,
         "assets_by_location": by_location,
         "fair_value_hierarchy_required": True,
         "level_1_assets": 0,
         "level_2_assets": 0,
-        "level_3_assets": len(assets)
+        "level_3_assets": len(assets),
     }
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8146)

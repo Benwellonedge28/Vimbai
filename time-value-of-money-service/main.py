@@ -3,9 +3,9 @@ Vimbai Time Value of Money Service
 Handles all time value of money calculations.
 """
 
+import math
 import os
 import uuid
-import math
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -19,15 +19,23 @@ SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8105"))
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Time Value of Money Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 @app.get("/health")
@@ -62,7 +70,7 @@ async def calculate_future_value(principal: float, rate: float, years: int, comp
         "years": years,
         "compounding": compounding,
         "future_value": round(fv, 2),
-        "interest_earned": round(fv - principal, 2)
+        "interest_earned": round(fv - principal, 2),
     }
 
 
@@ -70,12 +78,7 @@ async def calculate_future_value(principal: float, rate: float, years: int, comp
 async def calculate_pv_time_value(future_value: float, rate: float, years: int):
     """Calculate present value."""
     pv = future_value / math.pow(1 + rate, years)
-    return {
-        "future_value": future_value,
-        "rate": rate,
-        "years": years,
-        "present_value": round(pv, 2)
-    }
+    return {"future_value": future_value, "rate": rate, "years": years, "present_value": round(pv, 2)}
 
 
 @app.post("/compound-interest")
@@ -88,7 +91,7 @@ async def calculate_compound_interest(principal: float, rate: float, years: int)
         "rate": rate,
         "years": years,
         "total_amount": round(amount, 2),
-        "compound_interest": round(interest, 2)
+        "compound_interest": round(interest, 2),
     }
 
 
@@ -102,7 +105,7 @@ async def calculate_simple_interest(principal: float, rate: float, years: int):
         "rate": rate,
         "years": years,
         "simple_interest": round(interest, 2),
-        "total_amount": round(amount, 2)
+        "total_amount": round(amount, 2),
     }
 
 
@@ -114,7 +117,7 @@ async def calculate_effective_annual_rate(nominal_rate: float, compounding_per_y
         "nominal_rate": nominal_rate,
         "compounding_per_year": compounding_per_year,
         "effective_annual_rate": round(ear, 6),
-        "effective_rate_percent": f"{ear * 100:.2f}%"
+        "effective_rate_percent": f"{ear * 100:.2f}%",
     }
 
 
@@ -125,12 +128,7 @@ async def calculate_pv_annuity(payment: float, rate: float, years: int):
         pv = payment * years
     else:
         pv = payment * (1 - 1 / math.pow(1 + rate, years)) / rate
-    return {
-        "payment": payment,
-        "rate": rate,
-        "years": years,
-        "present_value_annuity": round(pv, 2)
-    }
+    return {"payment": payment, "rate": rate, "years": years, "present_value_annuity": round(pv, 2)}
 
 
 @app.post("/fv-annuity")
@@ -140,12 +138,7 @@ async def calculate_fv_annuity(payment: float, rate: float, years: int):
         fv = payment * years
     else:
         fv = payment * (math.pow(1 + rate, years) - 1) / rate
-    return {
-        "payment": payment,
-        "rate": rate,
-        "years": years,
-        "future_value_annuity": round(fv, 2)
-    }
+    return {"payment": payment, "rate": rate, "years": years, "future_value_annuity": round(fv, 2)}
 
 
 @app.post("/loan-repayment")
@@ -161,10 +154,11 @@ async def calculate_loan_repayment(principal: float, rate: float, years: int):
         "years": years,
         "annual_repayment": round(repayment, 2),
         "total_paid": round(repayment * years, 2),
-        "total_interest": round(repayment * years - principal, 2)
+        "total_interest": round(repayment * years - principal, 2),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

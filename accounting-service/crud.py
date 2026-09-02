@@ -1,52 +1,89 @@
-from neo4j import AsyncSession
-from typing import Optional, List, Dict, Any, Tuple
-from accounting_service.models import (
-    AccountCreate, AccountUpdate, AccountInDB,
-    JournalEntryCreate, JournalEntryUpdate, JournalEntryInDB, JournalLineBase,
-    LedgerReport, LedgerEntry, TrialBalanceReport, TrialBalanceAccount,
-    IncomeStatement, BalanceSheet, FinancialStatementLine,
-    TransactionForFraudCheck, FraudDetectionResult,
-    PurchaseOrderInDB, PurchaseOrderItemBase,
-    VendorBillCreate, VendorBillInDB,
-    # New Special Journals
-    SalesJournalEntryCreate, SalesJournalEntryInDB,
-    PurchasesJournalEntryCreate, PurchasesJournalEntryInDB,
-    CashReceiptsJournalEntryCreate, CashReceiptsJournalEntryInDB,
-    CashDisbursementsJournalEntryCreate, CashDisbursementsJournalEntryInDB,
-    SalesReturnsJournalEntryCreate, SalesReturnsJournalEntryInDB,
-    PurchasesReturnsJournalEntryCreate, PurchasesReturnsJournalEntryInDB,
-    # Subsidiary Ledgers
-    AccountsReceivableLedgerReport, AccountsReceivableLedgerEntry,
-    AccountsPayableLedgerReport, AccountsPayableLedgerEntry,
-    FixedAssetsLedgerReport, FixedAssetLedgerEntry,
-    InventoryLedgerReport, InventoryLedgerEntry,
-    # Petty Cash
-    PettyCashFundCreate, PettyCashFundInDB, PettyCashEntryCreate, PettyCashEntryInDB,
-    # Bank Reconciliation
-    BankReconciliationStatement, BankReconciliationEntry,
-    # Incomplete Records / Single Entry System
-    StatementOfAffairsInDB, StatementOfAffairsAssetBase, StatementOfAffairsLiabilityBase,
-    CapitalCalculationInDB, CapitalCalculationEntryInDB, CapitalCalculationEntryCreate,
-    ControlAccountInDB, ControlAccountEntryInDB, ControlAccountEntryCreate,
-    ReceiptsPaymentsAccountInDB, ReceiptsPaymentsEntryInDB, ReceiptsPaymentsEntryCreate,
-    SingleEntryConversionInDB, SingleEntryConversionCreate,
-    ProfitEstimationInDB, ProfitEstimationCreate,
-    # Audit Trail
-    AuditEventInDB, AuditTrailResponse,
-    # Dimensional Accounting
-    ProjectDimensionCreate, ProjectDimensionInDB,
-    FundDimensionCreate, FundDimensionInDB,
-    DepartmentDimensionCreate, DepartmentDimensionInDB,
-    LocationDimensionCreate, LocationDimensionInDB
-)
-from datetime import datetime, timedelta, timezone
-import uuid
-from decimal import Decimal
-import httpx
 import os
-from accounting_service.exceptions import ValidationError, NotFoundError, ConflictError
+import uuid
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from typing import Any, Dict, List, Optional, Tuple
+
+import httpx
+from accounting_service.exceptions import ConflictError, NotFoundError, ValidationError
+from accounting_service.models import (  # New Special Journals; Subsidiary Ledgers; Petty Cash; Bank Reconciliation; Incomplete Records / Single Entry System; Audit Trail; Dimensional Accounting
+    AccountCreate,
+    AccountInDB,
+    AccountsPayableLedgerEntry,
+    AccountsPayableLedgerReport,
+    AccountsReceivableLedgerEntry,
+    AccountsReceivableLedgerReport,
+    AccountUpdate,
+    AuditEventInDB,
+    AuditTrailResponse,
+    BalanceSheet,
+    BankReconciliationEntry,
+    BankReconciliationStatement,
+    CapitalCalculationEntryCreate,
+    CapitalCalculationEntryInDB,
+    CapitalCalculationInDB,
+    CashDisbursementsJournalEntryCreate,
+    CashDisbursementsJournalEntryInDB,
+    CashReceiptsJournalEntryCreate,
+    CashReceiptsJournalEntryInDB,
+    ControlAccountEntryCreate,
+    ControlAccountEntryInDB,
+    ControlAccountInDB,
+    DepartmentDimensionCreate,
+    DepartmentDimensionInDB,
+    FinancialStatementLine,
+    FixedAssetLedgerEntry,
+    FixedAssetsLedgerReport,
+    FraudDetectionResult,
+    FundDimensionCreate,
+    FundDimensionInDB,
+    IncomeStatement,
+    InventoryLedgerEntry,
+    InventoryLedgerReport,
+    JournalEntryCreate,
+    JournalEntryInDB,
+    JournalEntryUpdate,
+    JournalLineBase,
+    LedgerEntry,
+    LedgerReport,
+    LocationDimensionCreate,
+    LocationDimensionInDB,
+    PettyCashEntryCreate,
+    PettyCashEntryInDB,
+    PettyCashFundCreate,
+    PettyCashFundInDB,
+    ProfitEstimationCreate,
+    ProfitEstimationInDB,
+    ProjectDimensionCreate,
+    ProjectDimensionInDB,
+    PurchaseOrderInDB,
+    PurchaseOrderItemBase,
+    PurchasesJournalEntryCreate,
+    PurchasesJournalEntryInDB,
+    PurchasesReturnsJournalEntryCreate,
+    PurchasesReturnsJournalEntryInDB,
+    ReceiptsPaymentsAccountInDB,
+    ReceiptsPaymentsEntryCreate,
+    ReceiptsPaymentsEntryInDB,
+    SalesJournalEntryCreate,
+    SalesJournalEntryInDB,
+    SalesReturnsJournalEntryCreate,
+    SalesReturnsJournalEntryInDB,
+    SingleEntryConversionCreate,
+    SingleEntryConversionInDB,
+    StatementOfAffairsAssetBase,
+    StatementOfAffairsInDB,
+    StatementOfAffairsLiabilityBase,
+    TransactionForFraudCheck,
+    TrialBalanceAccount,
+    TrialBalanceReport,
+    VendorBillCreate,
+    VendorBillInDB,
+)
+from neo4j import AsyncSession
 
 API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
+
 
 # --- Account CRUD ---
 async def create_account(session: AsyncSession, user_id: str, account_data: AccountCreate) -> AccountInDB:
@@ -57,7 +94,10 @@ async def create_account(session: AsyncSession, user_id: str, account_data: Acco
     # Check for existing account number for this user
     existing_account = await get_account(session, user_id, account_data.account_number)
     if existing_account:
-        raise ConflictError(detail=f"Account number {account_data.account_number} already exists for this user.", code="ACCOUNT_NUMBER_EXISTS")
+        raise ConflictError(
+            detail=f"Account number {account_data.account_number} already exists for this user.",
+            code="ACCOUNT_NUMBER_EXISTS",
+        )
 
     # Create Account node
     query = """
@@ -99,6 +139,7 @@ async def create_account(session: AsyncSession, user_id: str, account_data: Acco
         updated_at=datetime.fromisoformat(account_node["updated_at"].iso_format()),
     )
 
+
 async def get_account(session: AsyncSession, user_id: str, account_number: str) -> Optional[AccountInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_ACCOUNT]->(a:Account {account_number: $account_number})
@@ -123,6 +164,7 @@ async def get_account(session: AsyncSession, user_id: str, account_number: str) 
         )
     return None
 
+
 async def get_all_accounts(session: AsyncSession, user_id: str) -> List[AccountInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_ACCOUNT]->(a:Account)
@@ -133,24 +175,29 @@ async def get_all_accounts(session: AsyncSession, user_id: str) -> List[AccountI
     accounts = []
     async for record in result:
         account_node = record["a"]
-        accounts.append(AccountInDB(
-            id=account_node["id"],
-            user_id=user_id,
-            name=account_node["name"],
-            account_number=account_node["account_number"],
-            account_type=account_node["account_type"],
-            normal_balance=account_node["normal_balance"],
-            description=account_node["description"],
-            parent_account_number=account_node["parent_account_number"],
-            created_at=datetime.fromisoformat(account_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(account_node["updated_at"].iso_format()),
-        ))
+        accounts.append(
+            AccountInDB(
+                id=account_node["id"],
+                user_id=user_id,
+                name=account_node["name"],
+                account_number=account_node["account_number"],
+                account_type=account_node["account_type"],
+                normal_balance=account_node["normal_balance"],
+                description=account_node["description"],
+                parent_account_number=account_node["parent_account_number"],
+                created_at=datetime.fromisoformat(account_node["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(account_node["updated_at"].iso_format()),
+            )
+        )
     return accounts
 
-async def update_account(session: AsyncSession, user_id: str, account_number: str, account_data: AccountUpdate) -> Optional[AccountInDB]:
+
+async def update_account(
+    session: AsyncSession, user_id: str, account_number: str, account_data: AccountUpdate
+) -> Optional[AccountInDB]:
     update_fields = account_data.model_dump(exclude_unset=True)
     if not update_fields:
-        return await get_account(session, user_id, account_number) # No fields to update
+        return await get_account(session, user_id, account_number)  # No fields to update
 
     update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -162,7 +209,7 @@ async def update_account(session: AsyncSession, user_id: str, account_number: st
     SET {set_query_part}
     RETURN a
     """
-    
+
     params = {"user_id": user_id, "account_number": account_number, **update_fields}
     result = await session.run(query, params)
     record = await result.single()
@@ -170,6 +217,7 @@ async def update_account(session: AsyncSession, user_id: str, account_number: st
     if record:
         return await get_account(session, user_id, account_number)
     return None
+
 
 async def delete_account(session: AsyncSession, user_id: str, account_number: str) -> bool:
     # Check if any journal lines are linked to this account
@@ -179,7 +227,9 @@ async def delete_account(session: AsyncSession, user_id: str, account_number: st
     """
     check_result = await session.run(check_query, user_id=user_id, account_number=account_number)
     if await check_result.single():
-        raise ConflictError(detail="Account is linked to existing journal entries and cannot be deleted.", code="ACCOUNT_LINKED")
+        raise ConflictError(
+            detail="Account is linked to existing journal entries and cannot be deleted.", code="ACCOUNT_LINKED"
+        )
 
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_ACCOUNT]->(a:Account {account_number: $account_number})
@@ -188,15 +238,22 @@ async def delete_account(session: AsyncSession, user_id: str, account_number: st
     result = await session.run(query, user_id=user_id, account_number=account_number)
     return result.consume().counters.nodes_deleted > 0
 
-async def get_account_balance(session: AsyncSession, user_id: str, account_number: str, as_of_date: Optional[datetime] = None) -> Decimal:
+
+async def get_account_balance(
+    session: AsyncSession, user_id: str, account_number: str, as_of_date: Optional[datetime] = None
+) -> Decimal:
     # Ensure account exists
     account = await get_account(session, user_id, account_number)
     if not account:
         raise NotFoundError(detail=f"Account {account_number} not found for user.", code="ACCOUNT_NOT_FOUND")
 
-    date_filter = """
+    date_filter = (
+        """
     AND je.entry_date <= datetime($as_of_date)
-    """ if as_of_date else ""
+    """
+        if as_of_date
+        else ""
+    )
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account {{account_number: $account_number}})
@@ -204,18 +261,22 @@ async def get_account_balance(session: AsyncSession, user_id: str, account_numbe
     RETURN SUM(jl.debit) AS total_debits, SUM(jl.credit) AS total_credits
     """
     params = {"user_id": user_id, "account_number": account_number}
-    if as_of_date: params["as_of_date"] = as_of_date.isoformat()
+    if as_of_date:
+        params["as_of_date"] = as_of_date.isoformat()
 
     result = await session.run(query, params)
     record = await result.single()
-    total_debits = Decimal(str(record["total_debits"])) if record and record["total_debits"] else Decimal('0.00')
-    total_credits = Decimal(str(record["total_credits"])) if record and record["total_credits"] else Decimal('0.00')
+    total_debits = Decimal(str(record["total_debits"])) if record and record["total_debits"] else Decimal("0.00")
+    total_credits = Decimal(str(record["total_credits"])) if record and record["total_credits"] else Decimal("0.00")
 
     balance = total_debits - total_credits if account.normal_balance == "debit" else total_credits - total_debits
     return balance
 
+
 # --- NEW: Function to get account activity for a period --- (Added for Budget Variance Report)
-async def get_account_period_activity(session: AsyncSession, user_id: str, account_number: str, start_date: datetime, end_date: datetime) -> Tuple[Decimal, Decimal]:
+async def get_account_period_activity(
+    session: AsyncSession, user_id: str, account_number: str, start_date: datetime, end_date: datetime
+) -> Tuple[Decimal, Decimal]:
     """
     Calculates total debits and credits for a specific account within a given date range.
     """
@@ -233,20 +294,22 @@ async def get_account_period_activity(session: AsyncSession, user_id: str, accou
         "user_id": user_id,
         "account_number": account_number,
         "start_date": start_date.isoformat(),
-        "end_date": end_date.isoformat()
+        "end_date": end_date.isoformat(),
     }
 
     result = await session.run(query, params)
     record = await result.single()
 
-    total_debits = Decimal(str(record["total_debits"])) if record and record["total_debits"] else Decimal('0.00')
-    total_credits = Decimal(str(record["total_credits"])) if record and record["total_credits"] else Decimal('0.00')
+    total_debits = Decimal(str(record["total_debits"])) if record and record["total_debits"] else Decimal("0.00")
+    total_credits = Decimal(str(record["total_credits"])) if record and record["total_credits"] else Decimal("0.00")
 
     return total_debits, total_credits
 
 
 # --- Journal Entry CRUD ---
-async def create_journal_entry(session: AsyncSession, user_id: str, journal_entry_data: JournalEntryCreate, jwt_token: str) -> JournalEntryInDB:
+async def create_journal_entry(
+    session: AsyncSession, user_id: str, journal_entry_data: JournalEntryCreate, jwt_token: str
+) -> JournalEntryInDB:
     entry_neo4j_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
     updated_at = datetime.now(timezone.utc)
@@ -255,19 +318,45 @@ async def create_journal_entry(session: AsyncSession, user_id: str, journal_entr
     for line in journal_entry_data.lines:
         account = await get_account(session, user_id, line.account_number)
         if not account:
-            raise ValidationError(detail=f"Account number {line.account_number} not found or does not belong to user.", code="ACCOUNT_NOT_FOUND_FOR_JE")
+            raise ValidationError(
+                detail=f"Account number {line.account_number} not found or does not belong to user.",
+                code="ACCOUNT_NOT_FOUND_FOR_JE",
+            )
         # Optional: Validate normal balance consistency (e.g., debiting a credit-normal revenue account)
         # For now, we assume this is handled by the caller or downstream review.
 
     # Check for existing reference number for entries from specific source modules
-    if journal_entry_data.reference_number and journal_entry_data.source_module in ["Banking", "Invoicing", "Multimodal", "SupplyChain"]:
-        existing_je = await get_journal_entry_by_reference(session, user_id, journal_entry_data.reference_number, journal_entry_data.source_module)
+    if journal_entry_data.reference_number and journal_entry_data.source_module in [
+        "Banking",
+        "Invoicing",
+        "Multimodal",
+        "SupplyChain",
+    ]:
+        existing_je = await get_journal_entry_by_reference(
+            session, user_id, journal_entry_data.reference_number, journal_entry_data.source_module
+        )
         if existing_je:
-            raise ConflictError(detail=f"Journal Entry with reference {journal_entry_data.reference_number} already exists for source {journal_entry_data.source_module}.", code="JE_REFERENCE_NUMBER_EXISTS")
+            raise ConflictError(
+                detail=f"Journal Entry with reference {journal_entry_data.reference_number} already exists for source {journal_entry_data.source_module}.",
+                code="JE_REFERENCE_NUMBER_EXISTS",
+            )
 
     # --- NEW: Call Fraud Detection Service ---
     fraud_result = await _send_journal_entry_for_fraud_analysis(user_id, journal_entry_data, jwt_token)
-    
+
+    params = {
+        "user_id": user_id,
+        "id": entry_neo4j_id,
+        "entry_date": journal_entry_data.entry_date.isoformat(),
+        "description": journal_entry_data.description,
+        "reference_number": journal_entry_data.reference_number,
+        "source_module": journal_entry_data.source_module,
+        "status": journal_entry_data.status,
+        "fraud_flag": fraud_result.get("flag", False),
+        "fraud_score": fraud_result.get("score", 0.0),
+        "created_at": created_at.isoformat(),
+        "updated_at": updated_at.isoformat(),
+    }
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (je:JournalEntry {
@@ -305,7 +394,7 @@ async def create_journal_entry(session: AsyncSession, user_id: str, journal_entr
         params[f"line_{i}_debit"] = float(line.debit)
         params[f"line_{i}_credit"] = float(line.credit)
         params[f"line_{i}_description"] = line.description
-    
+
     query += " RETURN je"
 
     params = {
@@ -320,13 +409,13 @@ async def create_journal_entry(session: AsyncSession, user_id: str, journal_entr
         "fraud_score": fraud_result.fraud_score,
         "created_at": created_at.isoformat(),
         "updated_at": updated_at.isoformat(),
-        **{f"line_{i}_id": str(uuid.uuid4()) for i in range(len(journal_entry_data.lines))}, # Initialize unique IDs
+        **{f"line_{i}_id": str(uuid.uuid4()) for i in range(len(journal_entry_data.lines))},  # Initialize unique IDs
         **{f"line_{i}_account_number": line.account_number for i, line in enumerate(journal_entry_data.lines)},
         **{f"line_{i}_debit": float(line.debit) for i, line in enumerate(journal_entry_data.lines)},
         **{f"line_{i}_credit": float(line.credit) for i, line in enumerate(journal_entry_data.lines)},
         **{f"line_{i}_description": line.description for i, line in enumerate(journal_entry_data.lines)},
     }
-    
+
     result = await session.run(query, params)
     record = await result.single()
     je_node = record["je"]
@@ -342,12 +431,13 @@ async def create_journal_entry(session: AsyncSession, user_id: str, journal_entr
         reference_number=je_node["reference_number"],
         source_module=je_node["source_module"],
         status=je_node["status"],
-        lines=journal_entry_data.lines, # This is a placeholder; actual lines need to be retrieved from DB
+        lines=journal_entry_data.lines,  # This is a placeholder; actual lines need to be retrieved from DB
         fraud_flag=je_node["fraud_flag"],
         fraud_score=je_node["fraud_score"],
         created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
         updated_at=datetime.fromisoformat(je_node["updated_at"].iso_format()),
     )
+
 
 async def get_journal_entry(session: AsyncSession, user_id: str, entry_id: str) -> Optional[JournalEntryInDB]:
     query = """
@@ -361,16 +451,18 @@ async def get_journal_entry(session: AsyncSession, user_id: str, entry_id: str) 
     if record:
         je_node = record["je"]
         lines_data = record["lines_data"]
-        
+
         journal_lines = []
         for line_item in lines_data:
             if line_item["line"] and line_item["account"]:
-                journal_lines.append(JournalLineBase(
-                    account_number=line_item["account"]["account_number"],
-                    debit=Decimal(str(line_item["line"]["debit"])),
-                    credit=Decimal(str(line_item["line"]["credit"])),
-                    description=line_item["line"]["description"]
-                ))
+                journal_lines.append(
+                    JournalLineBase(
+                        account_number=line_item["account"]["account_number"],
+                        debit=Decimal(str(line_item["line"]["debit"])),
+                        credit=Decimal(str(line_item["line"]["credit"])),
+                        description=line_item["line"]["description"],
+                    )
+                )
 
         return JournalEntryInDB(
             id=je_node["id"],
@@ -388,7 +480,10 @@ async def get_journal_entry(session: AsyncSession, user_id: str, entry_id: str) 
         )
     return None
 
-async def get_journal_entry_by_reference(session: AsyncSession, user_id: str, reference_number: str, source_module: str) -> Optional[JournalEntryInDB]:
+
+async def get_journal_entry_by_reference(
+    session: AsyncSession, user_id: str, reference_number: str, source_module: str
+) -> Optional[JournalEntryInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry {reference_number: $reference_number, source_module: $source_module})
     RETURN je
@@ -406,7 +501,7 @@ async def get_journal_entry_by_reference(session: AsyncSession, user_id: str, re
             reference_number=je_node["reference_number"],
             source_module=je_node["source_module"],
             status=je_node["status"],
-            lines=[], # Lines are not eagerly loaded by this simple query
+            lines=[],  # Lines are not eagerly loaded by this simple query
             fraud_flag=je_node["fraud_flag"],
             fraud_score=je_node["fraud_score"],
             created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
@@ -414,7 +509,10 @@ async def get_journal_entry_by_reference(session: AsyncSession, user_id: str, re
         )
     return None
 
-async def get_all_journal_entries(session: AsyncSession, user_id: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> List[JournalEntryInDB]:
+
+async def get_all_journal_entries(
+    session: AsyncSession, user_id: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None
+) -> List[JournalEntryInDB]:
     date_filter = ""
     params = {"user_id": user_id}
     if start_date:
@@ -449,29 +547,33 @@ async def get_all_journal_entries(session: AsyncSession, user_id: str, start_dat
                 reference_number=je_node["reference_number"],
                 source_module=je_node["source_module"],
                 status=je_node["status"],
-                lines=[], # Will populate below
+                lines=[],  # Will populate below
                 fraud_flag=je_node["fraud_flag"],
                 fraud_score=je_node["fraud_score"],
                 created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
                 updated_at=datetime.fromisoformat(je_node["updated_at"].iso_format()),
             )
-        
+
         for line_item in lines_data:
             if line_item["line"] and line_item["account"]:
-                journal_entries_map[entry_id].lines.append(JournalLineBase(
-                    account_number=line_item["account"]["account_number"],
-                    debit=Decimal(str(line_item["line"]["debit"])),
-                    credit=Decimal(str(line_item["line"]["credit"])),
-                    description=line_item["line"]["description"]
-                ))
-    
+                journal_entries_map[entry_id].lines.append(
+                    JournalLineBase(
+                        account_number=line_item["account"]["account_number"],
+                        debit=Decimal(str(line_item["line"]["debit"])),
+                        credit=Decimal(str(line_item["line"]["credit"])),
+                        description=line_item["line"]["description"],
+                    )
+                )
+
     return list(journal_entries_map.values())
 
 
-async def update_journal_entry(session: AsyncSession, user_id: str, entry_id: str, journal_entry_data: JournalEntryUpdate) -> Optional[JournalEntryInDB]:
+async def update_journal_entry(
+    session: AsyncSession, user_id: str, entry_id: str, journal_entry_data: JournalEntryUpdate
+) -> Optional[JournalEntryInDB]:
     update_fields = journal_entry_data.model_dump(exclude_unset=True)
     if not update_fields:
-        return await get_journal_entry(session, user_id, entry_id) # No fields to update
+        return await get_journal_entry(session, user_id, entry_id)  # No fields to update
 
     update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     if "entry_date" in update_fields:
@@ -485,7 +587,7 @@ async def update_journal_entry(session: AsyncSession, user_id: str, entry_id: st
     SET {set_query_part}
     RETURN je
     """
-    
+
     params = {"user_id": user_id, "entry_id": entry_id, **update_fields}
     result = await session.run(query, params)
     record = await result.single()
@@ -493,6 +595,7 @@ async def update_journal_entry(session: AsyncSession, user_id: str, entry_id: st
     if record:
         return await get_journal_entry(session, user_id, entry_id)
     return None
+
 
 async def delete_journal_entry(session: AsyncSession, user_id: str, entry_id: str) -> bool:
     query = """
@@ -503,56 +606,81 @@ async def delete_journal_entry(session: AsyncSession, user_id: str, entry_id: st
     result = await session.run(query, user_id=user_id, entry_id=entry_id)
     return result.consume().counters.nodes_deleted > 0
 
+
 # --- Fraud Detection Integration ---
-async def _send_journal_entry_for_fraud_analysis(user_id: str, journal_entry_data: JournalEntryCreate, jwt_token: str) -> FraudDetectionResult:
+async def _send_journal_entry_for_fraud_analysis(
+    user_id: str, journal_entry_data: JournalEntryCreate, jwt_token: str
+) -> FraudDetectionResult:
     """
     Internal function to send journal entry data to the Fraud Detection Service for analysis.
     """
     fraud_service_url = f"{API_GATEWAY_URL}/fraud-detection/analyze"
-    
+
     # Prepare a simplified TransactionForFraudCheck model from JournalEntryCreate
     # This requires making some assumptions or having more detailed info in JE.
     # For now, we take the first line as representative for transaction amount/type.
     # In a real scenario, this would be more complex, potentially involving multiple transactions.
     if not journal_entry_data.lines:
-        return FraudDetectionResult(transaction_id="N/A", fraud_score=0.0, fraud_flag="safe", reason="No lines in entry.")
+        return FraudDetectionResult(
+            transaction_id="N/A", fraud_score=0.0, fraud_flag="safe", reason="No lines in entry."
+        )
 
     first_line = journal_entry_data.lines[0]
     transaction_amount = first_line.debit if first_line.debit > 0 else first_line.credit
     transaction_type = "debit" if first_line.debit > 0 else "credit"
-    
+
     # Placeholder for sender/recipient accounts - needs actual logic to determine from JE context
-    sender_account_id = journal_entry_data.lines[0].account_number if journal_entry_data.lines[0].debit > 0 else "unknown"
-    recipient_account_id = journal_entry_data.lines[0].account_number if journal_entry_data.lines[0].credit > 0 else "unknown"
+    sender_account_id = (
+        journal_entry_data.lines[0].account_number if journal_entry_data.lines[0].debit > 0 else "unknown"
+    )
+    recipient_account_id = (
+        journal_entry_data.lines[0].account_number if journal_entry_data.lines[0].credit > 0 else "unknown"
+    )
 
     transaction_for_fraud_check = TransactionForFraudCheck(
-        transaction_id=str(uuid.uuid4()), # Generate a new ID for the fraud check transaction
+        transaction_id=str(uuid.uuid4()),  # Generate a new ID for the fraud check transaction
         amount=transaction_amount,
-        currency=journal_entry_data.currency if hasattr(journal_entry_data, 'currency') else "USD", # Assuming currency in JE
-        sender_account_id=sender_account_id, # Simplified
-        recipient_account_id=recipient_account_id, # Simplified
+        currency=(
+            journal_entry_data.currency if hasattr(journal_entry_data, "currency") else "USD"
+        ),  # Assuming currency in JE
+        sender_account_id=sender_account_id,  # Simplified
+        recipient_account_id=recipient_account_id,  # Simplified
         transaction_type=transaction_type,
         timestamp=journal_entry_data.entry_date,
-        location_data={"ip_address": "127.0.0.1"}, # Placeholder
-        device_info={"user_agent": "Vimbai-AccountingService"}, # Placeholder
+        location_data={"ip_address": "127.0.0.1"},  # Placeholder
+        device_info={"user_agent": "Vimbai-AccountingService"},  # Placeholder
     )
 
     headers = {"Authorization": f"Bearer {jwt_token}", "Content-Type": "application/json"}
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(fraud_service_url, json=transaction_for_fraud_check.model_dump_json(), headers=headers)
+            response = await client.post(
+                fraud_service_url, json=transaction_for_fraud_check.model_dump_json(), headers=headers
+            )
             response.raise_for_status()
             return FraudDetectionResult(**response.json())
     except httpx.HTTPStatusError as e:
         print(f"Fraud Detection Service failed: {e.response.status_code} - {e.response.text}")
-        return FraudDetectionResult(transaction_id=transaction_for_fraud_check.transaction_id, fraud_score=0.0, fraud_flag="safe", reason=f"Service error: {e.response.status_code}")
+        return FraudDetectionResult(
+            transaction_id=transaction_for_fraud_check.transaction_id,
+            fraud_score=0.0,
+            fraud_flag="safe",
+            reason=f"Service error: {e.response.status_code}",
+        )
     except httpx.RequestError as e:
         print(f"Fraud Detection Service network error: {e}")
-        return FraudDetectionResult(transaction_id=transaction_for_fraud_check.transaction_id, fraud_score=0.0, fraud_flag="safe", reason=f"Network error: {e}")
+        return FraudDetectionResult(
+            transaction_id=transaction_for_fraud_check.transaction_id,
+            fraud_score=0.0,
+            fraud_flag="safe",
+            reason=f"Network error: {e}",
+        )
 
 
 # --- Vendor Bill CRUD ---
-async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_data: VendorBillCreate, jwt_token: str) -> VendorBillInDB:
+async def create_vendor_bill(
+    session: AsyncSession, user_id: str, vendor_bill_data: VendorBillCreate, jwt_token: str
+) -> VendorBillInDB:
     bill_neo4j_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
     updated_at = datetime.now(timezone.utc)
@@ -575,7 +703,7 @@ async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_da
     })
     CREATE (u)-[:OWNS_VENDOR_BILL]->(vb)
     """
-    
+
     params = vendor_bill_data.model_dump()
     params["id"] = bill_neo4j_id
     params["user_id"] = user_id
@@ -600,12 +728,22 @@ async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_da
     # Create corresponding Journal Entry
     # This assumes appropriate accounts exist (Accounts Payable, Expense Account)
     # The actual account numbers would need to be passed or derived
-    accounts_payable_account_number = "2000" # Example
-    expense_account_number = "6000" # Example
+    accounts_payable_account_number = "2000"  # Example
+    expense_account_number = "6000"  # Example
 
     journal_lines = [
-        JournalLineBase(account_number=expense_account_number, debit=vendor_bill_data.total_amount, credit=Decimal('0.00'), description=f"Vendor Bill {vendor_bill_data.bill_number}"),
-        JournalLineBase(account_number=accounts_payable_account_number, debit=Decimal('0.00'), credit=vendor_bill_data.total_amount, description=f"Vendor Bill {vendor_bill_data.bill_number}")
+        JournalLineBase(
+            account_number=expense_account_number,
+            debit=vendor_bill_data.total_amount,
+            credit=Decimal("0.00"),
+            description=f"Vendor Bill {vendor_bill_data.bill_number}",
+        ),
+        JournalLineBase(
+            account_number=accounts_payable_account_number,
+            debit=Decimal("0.00"),
+            credit=vendor_bill_data.total_amount,
+            description=f"Vendor Bill {vendor_bill_data.bill_number}",
+        ),
     ]
     journal_entry_data = JournalEntryCreate(
         entry_date=datetime.now(timezone.utc),
@@ -613,10 +751,10 @@ async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_da
         reference_number=vendor_bill_data.bill_number,
         source_module="VendorBilling",
         lines=journal_lines,
-        status="posted"
+        status="posted",
     )
-    
-    created_je = await create_journal_entry(session, user_id, journal_entry_data, jwt_token) # Pass jwt_token
+
+    created_je = await create_journal_entry(session, user_id, journal_entry_data, jwt_token)  # Pass jwt_token
 
     query += """
     MATCH (vb_match:VendorBill {id: $id}), (je_match:JournalEntry {id: $journal_entry_id})
@@ -645,15 +783,24 @@ async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_da
         created_at=datetime.fromisoformat(vb_node["created_at"].iso_format()),
         updated_at=datetime.fromisoformat(vb_node["updated_at"].iso_format()),
     )
-    
+
+
 # --- Ledger Report ---
-async def get_ledger_report(session: AsyncSession, user_id: str, account_number: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> LedgerReport:
+async def get_ledger_report(
+    session: AsyncSession,
+    user_id: str,
+    account_number: str,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+) -> LedgerReport:
     account = await get_account(session, user_id, account_number)
     if not account:
         raise NotFoundError(detail=f"Account {account_number} not found for user.", code="ACCOUNT_NOT_FOUND")
 
     # Get initial balance before start_date
-    initial_balance = await get_account_balance(session, user_id, account_number, as_of_date=(start_date - timedelta(microseconds=1) if start_date else None))
+    initial_balance = await get_account_balance(
+        session, user_id, account_number, as_of_date=(start_date - timedelta(microseconds=1) if start_date else None)
+    )
 
     date_filter = ""
     params = {"user_id": user_id, "account_number": account_number}
@@ -683,9 +830,9 @@ async def get_ledger_report(session: AsyncSession, user_id: str, account_number:
 
         if account.normal_balance == "debit":
             current_balance += debit - credit
-        else: # normal_balance == "credit"
+        else:  # normal_balance == "credit"
             current_balance += credit - debit
-        
+
         entries.append(
             LedgerEntry(
                 entry_id=je_node["id"],
@@ -694,11 +841,15 @@ async def get_ledger_report(session: AsyncSession, user_id: str, account_number:
                 debit=debit,
                 credit=credit,
                 balance=current_balance,
-                source_module=je_node["source_module"]
+                source_module=je_node["source_module"],
             )
         )
-    
-    end_balance = await get_account_balance(session, user_id, account_number, as_of_date=end_date) if end_date else current_balance
+
+    end_balance = (
+        await get_account_balance(session, user_id, account_number, as_of_date=end_date)
+        if end_date
+        else current_balance
+    )
 
     return LedgerReport(
         account_number=account_number,
@@ -706,34 +857,37 @@ async def get_ledger_report(session: AsyncSession, user_id: str, account_number:
         normal_balance=account.normal_balance,
         start_balance=initial_balance,
         entries=entries,
-        end_balance=end_balance
+        end_balance=end_balance,
     )
 
+
 # --- Trial Balance Report ---
-async def get_trial_balance_report(session: AsyncSession, user_id: str, as_of_date: Optional[datetime] = None) -> TrialBalanceReport:
+async def get_trial_balance_report(
+    session: AsyncSession, user_id: str, as_of_date: Optional[datetime] = None
+) -> TrialBalanceReport:
     all_accounts = await get_all_accounts(session, user_id)
-    
+
     trial_balance_accounts = []
-    total_debits = Decimal('0.00')
-    total_credits = Decimal('0.00')
+    total_debits = Decimal("0.00")
+    total_credits = Decimal("0.00")
 
     for account in all_accounts:
         current_balance = await get_account_balance(session, user_id, account.account_number, as_of_date)
-        
-        tb_account_debit = Decimal('0.00')
-        tb_account_credit = Decimal('0.00')
+
+        tb_account_debit = Decimal("0.00")
+        tb_account_credit = Decimal("0.00")
 
         if account.normal_balance == "debit":
             if current_balance >= 0:
                 tb_account_debit = current_balance
             else:
-                tb_account_credit = abs(current_balance) # Negative debit balance is a credit
-        else: # normal_balance == "credit"
+                tb_account_credit = abs(current_balance)  # Negative debit balance is a credit
+        else:  # normal_balance == "credit"
             if current_balance >= 0:
                 tb_account_credit = current_balance
             else:
-                tb_account_debit = abs(current_balance) # Negative credit balance is a debit
-        
+                tb_account_debit = abs(current_balance)  # Negative credit balance is a debit
+
         total_debits += tb_account_debit
         total_credits += tb_account_credit
 
@@ -743,59 +897,63 @@ async def get_trial_balance_report(session: AsyncSession, user_id: str, as_of_da
                 account_name=account.name,
                 account_type=account.account_type,
                 debit=tb_account_debit,
-                credit=tb_account_credit
+                credit=tb_account_credit,
             )
         )
-    
-    is_balanced = (total_debits == total_credits)
+
+    is_balanced = total_debits == total_credits
 
     return TrialBalanceReport(
         report_date=as_of_date if as_of_date else datetime.now(timezone.utc),
         accounts=trial_balance_accounts,
         total_debits=total_debits,
         total_credits=total_credits,
-        is_balanced=is_balanced
+        is_balanced=is_balanced,
     )
 
+
 # --- Income Statement Report ---
-async def get_income_statement(session: AsyncSession, user_id: str, start_date: datetime, end_date: datetime) -> IncomeStatement:
+async def get_income_statement(
+    session: AsyncSession, user_id: str, start_date: datetime, end_date: datetime
+) -> IncomeStatement:
     # Revenue accounts (credit normal) and Expense accounts (debit normal)
     revenue_accounts = await get_all_accounts_by_type(session, user_id, "revenue")
     expense_accounts = await get_all_accounts_by_type(session, user_id, "expense")
 
     revenues: List[FinancialStatementLine] = []
     expenses: List[FinancialStatementLine] = []
-    total_revenue = Decimal('0.00')
-    total_expense = Decimal('0.00')
+    total_revenue = Decimal("0.00")
+    total_expense = Decimal("0.00")
 
     # Calculate revenues
     for account in revenue_accounts:
         # For income statement, we need the *activity* during the period, not cumulative balance.
         # Revenue increases with credits.
-        debits, credits = await get_account_period_activity(session, user_id, account.account_number, start_date, end_date)
+        debits, credits = await get_account_period_activity(
+            session, user_id, account.account_number, start_date, end_date
+        )
         net_credits = credits - debits
         if net_credits > 0:
             revenues.append(FinancialStatementLine(category=account.name, amount=net_credits))
             total_revenue += net_credits
-    
+
     # Calculate expenses
     for account in expense_accounts:
         # Expense increases with debits.
-        debits, credits = await get_account_period_activity(session, user_id, account.account_number, start_date, end_date)
+        debits, credits = await get_account_period_activity(
+            session, user_id, account.account_number, start_date, end_date
+        )
         net_debits = debits - credits
         if net_debits > 0:
             expenses.append(FinancialStatementLine(category=account.name, amount=net_debits))
             total_expense += net_debits
-    
+
     net_income = total_revenue - total_expense
 
     return IncomeStatement(
-        start_date=start_date,
-        end_date=end_date,
-        revenues=revenues,
-        expenses=expenses,
-        net_income=net_income
+        start_date=start_date, end_date=end_date, revenues=revenues, expenses=expenses, net_income=net_income
     )
+
 
 async def get_all_accounts_by_type(session: AsyncSession, user_id: str, account_type: str) -> List[AccountInDB]:
     query = """
@@ -807,18 +965,20 @@ async def get_all_accounts_by_type(session: AsyncSession, user_id: str, account_
     accounts = []
     async for record in result:
         account_node = record["a"]
-        accounts.append(AccountInDB(
-            id=account_node["id"],
-            user_id=user_id,
-            name=account_node["name"],
-            account_number=account_node["account_number"],
-            account_type=account_node["account_type"],
-            normal_balance=account_node["normal_balance"],
-            description=account_node["description"],
-            parent_account_number=account_node["parent_account_number"],
-            created_at=datetime.fromisoformat(account_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(account_node["updated_at"].iso_format()),
-        ))
+        accounts.append(
+            AccountInDB(
+                id=account_node["id"],
+                user_id=user_id,
+                name=account_node["name"],
+                account_number=account_node["account_number"],
+                account_type=account_node["account_type"],
+                normal_balance=account_node["normal_balance"],
+                description=account_node["description"],
+                parent_account_number=account_node["parent_account_number"],
+                created_at=datetime.fromisoformat(account_node["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(account_node["updated_at"].iso_format()),
+            )
+        )
     return accounts
 
 
@@ -832,15 +992,15 @@ async def get_balance_sheet(session: AsyncSession, user_id: str, as_of_date: dat
     liabilities: List[FinancialStatementLine] = []
     equity: List[FinancialStatementLine] = []
 
-    total_assets = Decimal('0.00')
-    total_liabilities = Decimal('0.00')
-    total_equity = Decimal('0.00')
+    total_assets = Decimal("0.00")
+    total_liabilities = Decimal("0.00")
+    total_equity = Decimal("0.00")
 
     for account in asset_accounts:
         balance = await get_account_balance(session, user_id, account.account_number, as_of_date)
         assets.append(FinancialStatementLine(category=account.name, amount=balance))
         total_assets += balance
-    
+
     for account in liability_accounts:
         balance = await get_account_balance(session, user_id, account.account_number, as_of_date)
         liabilities.append(FinancialStatementLine(category=account.name, amount=balance))
@@ -850,9 +1010,9 @@ async def get_balance_sheet(session: AsyncSession, user_id: str, as_of_date: dat
         balance = await get_account_balance(session, user_id, account.account_number, as_of_date)
         equity.append(FinancialStatementLine(category=account.name, amount=balance))
         total_equity += balance
-    
+
     total_liabilities_equity = total_liabilities + total_equity
-    
+
     return BalanceSheet(
         as_of_date=as_of_date,
         assets=assets,
@@ -861,11 +1021,14 @@ async def get_balance_sheet(session: AsyncSession, user_id: str, as_of_date: dat
         total_assets=total_assets,
         total_liabilities=total_liabilities,
         total_equity=total_equity,
-        total_liabilities_equity=total_liabilities_equity
+        total_liabilities_equity=total_liabilities_equity,
     )
 
+
 # --- Vendor Bill CRUD ---
-async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_data: VendorBillCreate, jwt_token: str) -> VendorBillInDB:
+async def create_vendor_bill(
+    session: AsyncSession, user_id: str, vendor_bill_data: VendorBillCreate, jwt_token: str
+) -> VendorBillInDB:
     bill_neo4j_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
     updated_at = datetime.now(timezone.utc)
@@ -888,7 +1051,7 @@ async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_da
     })
     CREATE (u)-[:OWNS_VENDOR_BILL]->(vb)
     """
-    
+
     params = vendor_bill_data.model_dump()
     params["id"] = bill_neo4j_id
     params["user_id"] = user_id
@@ -913,12 +1076,22 @@ async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_da
     # Create corresponding Journal Entry
     # This assumes appropriate accounts exist (Accounts Payable, Expense Account)
     # The actual account numbers would need to be passed or derived
-    accounts_payable_account_number = "2000" # Example
-    expense_account_number = "6000" # Example
+    accounts_payable_account_number = "2000"  # Example
+    expense_account_number = "6000"  # Example
 
     journal_lines = [
-        JournalLineBase(account_number=expense_account_number, debit=vendor_bill_data.total_amount, credit=Decimal('0.00'), description=f"Vendor Bill {vendor_bill_data.bill_number}"),
-        JournalLineBase(account_number=accounts_payable_account_number, debit=Decimal('0.00'), credit=vendor_bill_data.total_amount, description=f"Vendor Bill {vendor_bill_data.bill_number}")
+        JournalLineBase(
+            account_number=expense_account_number,
+            debit=vendor_bill_data.total_amount,
+            credit=Decimal("0.00"),
+            description=f"Vendor Bill {vendor_bill_data.bill_number}",
+        ),
+        JournalLineBase(
+            account_number=accounts_payable_account_number,
+            debit=Decimal("0.00"),
+            credit=vendor_bill_data.total_amount,
+            description=f"Vendor Bill {vendor_bill_data.bill_number}",
+        ),
     ]
     journal_entry_data = JournalEntryCreate(
         entry_date=datetime.now(timezone.utc),
@@ -926,10 +1099,10 @@ async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_da
         reference_number=vendor_bill_data.bill_number,
         source_module="VendorBilling",
         lines=journal_lines,
-        status="posted"
+        status="posted",
     )
-    
-    created_je = await create_journal_entry(session, user_id, journal_entry_data, jwt_token) # Pass jwt_token
+
+    created_je = await create_journal_entry(session, user_id, journal_entry_data, jwt_token)  # Pass jwt_token
 
     query += """
     MATCH (vb_match:VendorBill {id: $id}), (je_match:JournalEntry {id: $journal_entry_id})
@@ -958,7 +1131,8 @@ async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_da
         created_at=datetime.fromisoformat(vb_node["created_at"].iso_format()),
         updated_at=datetime.fromisoformat(vb_node["updated_at"].iso_format()),
     )
-    
+
+
 # --- Ledger Report (unchanged) ---
 # --- Trial Balance Report (unchanged) ---
 # --- Income Statement Report (unchanged) ---
@@ -969,7 +1143,10 @@ async def create_vendor_bill(session: AsyncSession, user_id: str, vendor_bill_da
 # SPECIAL JOURNALS CRUD (Books of Original Entry)
 # ============================================================
 
-async def create_sales_journal_entry(session: AsyncSession, user_id: str, entry: SalesJournalEntryCreate, jwt_token: str) -> SalesJournalEntryInDB:
+
+async def create_sales_journal_entry(
+    session: AsyncSession, user_id: str, entry: SalesJournalEntryCreate, jwt_token: str
+) -> SalesJournalEntryInDB:
     """Create Sales Journal Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -997,14 +1174,20 @@ async def create_sales_journal_entry(session: AsyncSession, user_id: str, entry:
     """
 
     params = {
-        "id": entry_id, "user_id": user_id,
-        "invoice_number": entry.invoice_number, "customer_id": entry.customer_id,
+        "id": entry_id,
+        "user_id": user_id,
+        "invoice_number": entry.invoice_number,
+        "customer_id": entry.customer_id,
         "invoice_date": entry.invoice_date.isoformat(),
         "due_date": entry.due_date.isoformat() if entry.due_date else None,
-        "total_amount": float(entry.total_amount), "tax_amount": float(entry.tax_amount),
-        "discount_amount": float(entry.discount_amount), "currency": entry.currency,
-        "status": entry.status, "notes": entry.notes,
-        "created_at": created_at.isoformat(), "updated_at": created_at.isoformat()
+        "total_amount": float(entry.total_amount),
+        "tax_amount": float(entry.tax_amount),
+        "discount_amount": float(entry.discount_amount),
+        "currency": entry.currency,
+        "status": entry.status,
+        "notes": entry.notes,
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat(),
     }
 
     # Auto-generate journal entry
@@ -1013,8 +1196,18 @@ async def create_sales_journal_entry(session: AsyncSession, user_id: str, entry:
     accounts_receivable_account = "1100"  # Accounts Receivable
 
     journal_lines = [
-        JournalLineBase(account_number=accounts_receivable_account, debit=net_amount, credit=Decimal('0.00'), description=f"Sales Invoice {entry.invoice_number}"),
-        JournalLineBase(account_number=sales_revenue_account, debit=Decimal('0.00'), credit=net_amount, description=f"Sales Invoice {entry.invoice_number}")
+        JournalLineBase(
+            account_number=accounts_receivable_account,
+            debit=net_amount,
+            credit=Decimal("0.00"),
+            description=f"Sales Invoice {entry.invoice_number}",
+        ),
+        JournalLineBase(
+            account_number=sales_revenue_account,
+            debit=Decimal("0.00"),
+            credit=net_amount,
+            description=f"Sales Invoice {entry.invoice_number}",
+        ),
     ]
 
     journal_entry_data = JournalEntryCreate(
@@ -1023,7 +1216,7 @@ async def create_sales_journal_entry(session: AsyncSession, user_id: str, entry:
         reference_number=entry.invoice_number,
         source_module="SalesJournal",
         lines=journal_lines,
-        status="posted"
+        status="posted",
     )
 
     created_je = await create_journal_entry(session, user_id, journal_entry_data, jwt_token)
@@ -1039,20 +1232,27 @@ async def create_sales_journal_entry(session: AsyncSession, user_id: str, entry:
     sj_node = record["sj"]
 
     return SalesJournalEntryInDB(
-        id=sj_node["id"], user_id=user_id,
-        invoice_number=sj_node["invoice_number"], customer_id=sj_node["customer_id"],
+        id=sj_node["id"],
+        user_id=user_id,
+        invoice_number=sj_node["invoice_number"],
+        customer_id=sj_node["customer_id"],
         invoice_date=datetime.fromisoformat(sj_node["invoice_date"].iso_format()),
         due_date=datetime.fromisoformat(sj_node["due_date"].iso_format()) if sj_node["due_date"] else None,
         total_amount=Decimal(str(sj_node["total_amount"])),
         tax_amount=Decimal(str(sj_node["tax_amount"])),
         discount_amount=Decimal(str(sj_node["discount_amount"])),
-        currency=sj_node["currency"], status=sj_node["status"], notes=sj_node["notes"],
+        currency=sj_node["currency"],
+        status=sj_node["status"],
+        notes=sj_node["notes"],
         journal_entry_id=created_je.id,
         created_at=datetime.fromisoformat(sj_node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(sj_node["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(sj_node["updated_at"].iso_format()),
     )
 
-async def get_sales_journal_entries(session: AsyncSession, user_id: str, start_date, end_date, customer_id, status) -> List[SalesJournalEntryInDB]:
+
+async def get_sales_journal_entries(
+    session: AsyncSession, user_id: str, start_date, end_date, customer_id, status
+) -> List[SalesJournalEntryInDB]:
     date_filter = ""
     params = {"user_id": user_id}
     if start_date:
@@ -1079,20 +1279,27 @@ async def get_sales_journal_entries(session: AsyncSession, user_id: str, start_d
     entries = []
     async for record in result:
         sj = record["sj"]
-        entries.append(SalesJournalEntryInDB(
-            id=sj["id"], user_id=user_id,
-            invoice_number=sj["invoice_number"], customer_id=sj["customer_id"],
-            invoice_date=datetime.fromisoformat(sj["invoice_date"].iso_format()),
-            due_date=datetime.fromisoformat(sj["due_date"].iso_format()) if sj["due_date"] else None,
-            total_amount=Decimal(str(sj["total_amount"])),
-            tax_amount=Decimal(str(sj["tax_amount"])),
-            discount_amount=Decimal(str(sj["discount_amount"])),
-            currency=sj["currency"], status=sj["status"], notes=sj["notes"],
-            journal_entry_id=record["journal_entry_id"],
-            created_at=datetime.fromisoformat(sj["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(sj["updated_at"].iso_format())
-        ))
+        entries.append(
+            SalesJournalEntryInDB(
+                id=sj["id"],
+                user_id=user_id,
+                invoice_number=sj["invoice_number"],
+                customer_id=sj["customer_id"],
+                invoice_date=datetime.fromisoformat(sj["invoice_date"].iso_format()),
+                due_date=datetime.fromisoformat(sj["due_date"].iso_format()) if sj["due_date"] else None,
+                total_amount=Decimal(str(sj["total_amount"])),
+                tax_amount=Decimal(str(sj["tax_amount"])),
+                discount_amount=Decimal(str(sj["discount_amount"])),
+                currency=sj["currency"],
+                status=sj["status"],
+                notes=sj["notes"],
+                journal_entry_id=record["journal_entry_id"],
+                created_at=datetime.fromisoformat(sj["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(sj["updated_at"].iso_format()),
+            )
+        )
     return entries
+
 
 async def get_sales_journal_entry(session: AsyncSession, user_id: str, entry_id: str) -> SalesJournalEntryInDB:
     query = """
@@ -1106,20 +1313,27 @@ async def get_sales_journal_entry(session: AsyncSession, user_id: str, entry_id:
         raise NotFoundError(detail="Sales journal entry not found")
     sj = record["sj"]
     return SalesJournalEntryInDB(
-        id=sj["id"], user_id=user_id,
-        invoice_number=sj["invoice_number"], customer_id=sj["customer_id"],
+        id=sj["id"],
+        user_id=user_id,
+        invoice_number=sj["invoice_number"],
+        customer_id=sj["customer_id"],
         invoice_date=datetime.fromisoformat(sj["invoice_date"].iso_format()),
         due_date=datetime.fromisoformat(sj["due_date"].iso_format()) if sj["due_date"] else None,
         total_amount=Decimal(str(sj["total_amount"])),
         tax_amount=Decimal(str(sj["tax_amount"])),
         discount_amount=Decimal(str(sj["discount_amount"])),
-        currency=sj["currency"], status=sj["status"], notes=sj["notes"],
+        currency=sj["currency"],
+        status=sj["status"],
+        notes=sj["notes"],
         journal_entry_id=record["journal_entry_id"],
         created_at=datetime.fromisoformat(sj["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(sj["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(sj["updated_at"].iso_format()),
     )
 
-async def create_purchases_journal_entry(session: AsyncSession, user_id: str, entry: PurchasesJournalEntryCreate, jwt_token: str) -> PurchasesJournalEntryInDB:
+
+async def create_purchases_journal_entry(
+    session: AsyncSession, user_id: str, entry: PurchasesJournalEntryCreate, jwt_token: str
+) -> PurchasesJournalEntryInDB:
     """Create Purchases Journal Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -1146,14 +1360,20 @@ async def create_purchases_journal_entry(session: AsyncSession, user_id: str, en
     """
 
     params = {
-        "id": entry_id, "user_id": user_id,
-        "purchase_order_number": entry.purchase_order_number, "vendor_id": entry.vendor_id,
+        "id": entry_id,
+        "user_id": user_id,
+        "purchase_order_number": entry.purchase_order_number,
+        "vendor_id": entry.vendor_id,
         "purchase_date": entry.purchase_date.isoformat(),
         "due_date": entry.due_date.isoformat() if entry.due_date else None,
-        "total_amount": float(entry.total_amount), "tax_amount": float(entry.tax_amount),
-        "discount_amount": float(entry.discount_amount), "currency": entry.currency,
-        "status": entry.status, "notes": entry.notes,
-        "created_at": created_at.isoformat(), "updated_at": created_at.isoformat()
+        "total_amount": float(entry.total_amount),
+        "tax_amount": float(entry.tax_amount),
+        "discount_amount": float(entry.discount_amount),
+        "currency": entry.currency,
+        "status": entry.status,
+        "notes": entry.notes,
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat(),
     }
 
     # Auto-generate journal entry
@@ -1162,8 +1382,18 @@ async def create_purchases_journal_entry(session: AsyncSession, user_id: str, en
     accounts_payable_account = "2000"  # Accounts Payable
 
     journal_lines = [
-        JournalLineBase(account_number=inventory_account, debit=net_amount, credit=Decimal('0.00'), description=f"Purchase {entry.purchase_order_number}"),
-        JournalLineBase(account_number=accounts_payable_account, debit=Decimal('0.00'), credit=net_amount, description=f"Purchase {entry.purchase_order_number}")
+        JournalLineBase(
+            account_number=inventory_account,
+            debit=net_amount,
+            credit=Decimal("0.00"),
+            description=f"Purchase {entry.purchase_order_number}",
+        ),
+        JournalLineBase(
+            account_number=accounts_payable_account,
+            debit=Decimal("0.00"),
+            credit=net_amount,
+            description=f"Purchase {entry.purchase_order_number}",
+        ),
     ]
 
     journal_entry_data = JournalEntryCreate(
@@ -1172,7 +1402,7 @@ async def create_purchases_journal_entry(session: AsyncSession, user_id: str, en
         reference_number=entry.purchase_order_number,
         source_module="PurchasesJournal",
         lines=journal_lines,
-        status="posted"
+        status="posted",
     )
 
     created_je = await create_journal_entry(session, user_id, journal_entry_data, jwt_token)
@@ -1188,20 +1418,27 @@ async def create_purchases_journal_entry(session: AsyncSession, user_id: str, en
     pj_node = record["pj"]
 
     return PurchasesJournalEntryInDB(
-        id=pj_node["id"], user_id=user_id,
-        purchase_order_number=pj_node["purchase_order_number"], vendor_id=pj_node["vendor_id"],
+        id=pj_node["id"],
+        user_id=user_id,
+        purchase_order_number=pj_node["purchase_order_number"],
+        vendor_id=pj_node["vendor_id"],
         purchase_date=datetime.fromisoformat(pj_node["purchase_date"].iso_format()),
         due_date=datetime.fromisoformat(pj_node["due_date"].iso_format()) if pj_node["due_date"] else None,
         total_amount=Decimal(str(pj_node["total_amount"])),
         tax_amount=Decimal(str(pj_node["tax_amount"])),
         discount_amount=Decimal(str(pj_node["discount_amount"])),
-        currency=pj_node["currency"], status=pj_node["status"], notes=pj_node["notes"],
+        currency=pj_node["currency"],
+        status=pj_node["status"],
+        notes=pj_node["notes"],
         journal_entry_id=created_je.id,
         created_at=datetime.fromisoformat(pj_node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(pj_node["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(pj_node["updated_at"].iso_format()),
     )
 
-async def get_purchases_journal_entries(session: AsyncSession, user_id: str, start_date, end_date, vendor_id, status) -> List[PurchasesJournalEntryInDB]:
+
+async def get_purchases_journal_entries(
+    session: AsyncSession, user_id: str, start_date, end_date, vendor_id, status
+) -> List[PurchasesJournalEntryInDB]:
     date_filter = ""
     params = {"user_id": user_id}
     if start_date:
@@ -1228,22 +1465,31 @@ async def get_purchases_journal_entries(session: AsyncSession, user_id: str, sta
     entries = []
     async for record in result:
         pj = record["pj"]
-        entries.append(PurchasesJournalEntryInDB(
-            id=pj["id"], user_id=user_id,
-            purchase_order_number=pj["purchase_order_number"], vendor_id=pj["vendor_id"],
-            purchase_date=datetime.fromisoformat(pj["purchase_date"].iso_format()),
-            due_date=datetime.fromisoformat(pj["due_date"].iso_format()) if pj["due_date"] else None,
-            total_amount=Decimal(str(pj["total_amount"])),
-            tax_amount=Decimal(str(pj["tax_amount"])),
-            discount_amount=Decimal(str(pj["discount_amount"])),
-            currency=pj["currency"], status=pj["status"], notes=pj["notes"],
-            journal_entry_id=record["journal_entry_id"],
-            created_at=datetime.fromisoformat(pj["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(pj["updated_at"].iso_format())
-        ))
+        entries.append(
+            PurchasesJournalEntryInDB(
+                id=pj["id"],
+                user_id=user_id,
+                purchase_order_number=pj["purchase_order_number"],
+                vendor_id=pj["vendor_id"],
+                purchase_date=datetime.fromisoformat(pj["purchase_date"].iso_format()),
+                due_date=datetime.fromisoformat(pj["due_date"].iso_format()) if pj["due_date"] else None,
+                total_amount=Decimal(str(pj["total_amount"])),
+                tax_amount=Decimal(str(pj["tax_amount"])),
+                discount_amount=Decimal(str(pj["discount_amount"])),
+                currency=pj["currency"],
+                status=pj["status"],
+                notes=pj["notes"],
+                journal_entry_id=record["journal_entry_id"],
+                created_at=datetime.fromisoformat(pj["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(pj["updated_at"].iso_format()),
+            )
+        )
     return entries
 
-async def create_cash_receipts_entry(session: AsyncSession, user_id: str, entry: CashReceiptsJournalEntryCreate, jwt_token: str) -> CashReceiptsJournalEntryInDB:
+
+async def create_cash_receipts_entry(
+    session: AsyncSession, user_id: str, entry: CashReceiptsJournalEntryCreate, jwt_token: str
+) -> CashReceiptsJournalEntryInDB:
     """Create Cash Receipts Journal Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -1270,13 +1516,20 @@ async def create_cash_receipts_entry(session: AsyncSession, user_id: str, entry:
     """
 
     params = {
-        "id": entry_id, "user_id": user_id,
-        "receipt_number": entry.receipt_number, "customer_id": entry.customer_id,
+        "id": entry_id,
+        "user_id": user_id,
+        "receipt_number": entry.receipt_number,
+        "customer_id": entry.customer_id,
         "receipt_date": entry.receipt_date.isoformat(),
-        "amount": float(entry.amount), "payment_method": entry.payment_method,
-        "reference_number": entry.reference_number, "bank_account": entry.bank_account,
-        "description": entry.description, "source_type": entry.source_type, "status": entry.status,
-        "created_at": created_at.isoformat(), "updated_at": created_at.isoformat()
+        "amount": float(entry.amount),
+        "payment_method": entry.payment_method,
+        "reference_number": entry.reference_number,
+        "bank_account": entry.bank_account,
+        "description": entry.description,
+        "source_type": entry.source_type,
+        "status": entry.status,
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat(),
     }
 
     # Auto-generate journal entry
@@ -1284,8 +1537,12 @@ async def create_cash_receipts_entry(session: AsyncSession, user_id: str, entry:
     revenue_account = "4000" if entry.source_type == "cash_sale" else "4100"
 
     journal_lines = [
-        JournalLineBase(account_number=cash_account, debit=entry.amount, credit=Decimal('0.00'), description=entry.description),
-        JournalLineBase(account_number=revenue_account, debit=Decimal('0.00'), credit=entry.amount, description=entry.description)
+        JournalLineBase(
+            account_number=cash_account, debit=entry.amount, credit=Decimal("0.00"), description=entry.description
+        ),
+        JournalLineBase(
+            account_number=revenue_account, debit=Decimal("0.00"), credit=entry.amount, description=entry.description
+        ),
     ]
 
     journal_entry_data = JournalEntryCreate(
@@ -1294,7 +1551,7 @@ async def create_cash_receipts_entry(session: AsyncSession, user_id: str, entry:
         reference_number=entry.receipt_number,
         source_module="CashReceiptsJournal",
         lines=journal_lines,
-        status="posted"
+        status="posted",
     )
 
     created_je = await create_journal_entry(session, user_id, journal_entry_data, jwt_token)
@@ -1310,19 +1567,27 @@ async def create_cash_receipts_entry(session: AsyncSession, user_id: str, entry:
     cr_node = record["cr"]
 
     return CashReceiptsJournalEntryInDB(
-        id=cr_node["id"], user_id=user_id,
-        receipt_number=cr_node["receipt_number"], customer_id=cr_node["customer_id"],
+        id=cr_node["id"],
+        user_id=user_id,
+        receipt_number=cr_node["receipt_number"],
+        customer_id=cr_node["customer_id"],
         receipt_date=datetime.fromisoformat(cr_node["receipt_date"].iso_format()),
         amount=Decimal(str(cr_node["amount"])),
-        payment_method=cr_node["payment_method"], reference_number=cr_node["reference_number"],
-        bank_account=cr_node["bank_account"], description=cr_node["description"],
-        source_type=cr_node["source_type"], status=cr_node["status"],
+        payment_method=cr_node["payment_method"],
+        reference_number=cr_node["reference_number"],
+        bank_account=cr_node["bank_account"],
+        description=cr_node["description"],
+        source_type=cr_node["source_type"],
+        status=cr_node["status"],
         journal_entry_id=created_je.id,
         created_at=datetime.fromisoformat(cr_node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(cr_node["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(cr_node["updated_at"].iso_format()),
     )
 
-async def get_cash_receipts_entries(session: AsyncSession, user_id: str, start_date, end_date) -> List[CashReceiptsJournalEntryInDB]:
+
+async def get_cash_receipts_entries(
+    session: AsyncSession, user_id: str, start_date, end_date
+) -> List[CashReceiptsJournalEntryInDB]:
     date_filter = ""
     params = {"user_id": user_id}
     if start_date:
@@ -1343,21 +1608,31 @@ async def get_cash_receipts_entries(session: AsyncSession, user_id: str, start_d
     entries = []
     async for record in result:
         cr = record["cr"]
-        entries.append(CashReceiptsJournalEntryInDB(
-            id=cr["id"], user_id=user_id,
-            receipt_number=cr["receipt_number"], customer_id=cr["customer_id"],
-            receipt_date=datetime.fromisoformat(cr["receipt_date"].iso_format()),
-            amount=Decimal(str(cr["amount"])),
-            payment_method=cr["payment_method"], reference_number=cr["reference_number"],
-            bank_account=cr["bank_account"], description=cr["description"],
-            source_type=cr["source_type"], status=cr["status"],
-            journal_entry_id=record["journal_entry_id"],
-            created_at=datetime.fromisoformat(cr["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(cr["updated_at"].iso_format())
-        ))
+        entries.append(
+            CashReceiptsJournalEntryInDB(
+                id=cr["id"],
+                user_id=user_id,
+                receipt_number=cr["receipt_number"],
+                customer_id=cr["customer_id"],
+                receipt_date=datetime.fromisoformat(cr["receipt_date"].iso_format()),
+                amount=Decimal(str(cr["amount"])),
+                payment_method=cr["payment_method"],
+                reference_number=cr["reference_number"],
+                bank_account=cr["bank_account"],
+                description=cr["description"],
+                source_type=cr["source_type"],
+                status=cr["status"],
+                journal_entry_id=record["journal_entry_id"],
+                created_at=datetime.fromisoformat(cr["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(cr["updated_at"].iso_format()),
+            )
+        )
     return entries
 
-async def create_cash_disbursements_entry(session: AsyncSession, user_id: str, entry: CashDisbursementsJournalEntryCreate, jwt_token: str) -> CashDisbursementsJournalEntryInDB:
+
+async def create_cash_disbursements_entry(
+    session: AsyncSession, user_id: str, entry: CashDisbursementsJournalEntryCreate, jwt_token: str
+) -> CashDisbursementsJournalEntryInDB:
     """Create Cash Disbursements Journal Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -1386,14 +1661,22 @@ async def create_cash_disbursements_entry(session: AsyncSession, user_id: str, e
     """
 
     params = {
-        "id": entry_id, "user_id": user_id,
-        "payment_number": entry.payment_number, "vendor_id": entry.vendor_id,
-        "employee_id": entry.employee_id, "payment_date": entry.payment_date.isoformat(),
-        "amount": float(entry.amount), "payment_method": entry.payment_method,
-        "reference_number": entry.reference_number, "bank_account": entry.bank_account,
-        "description": entry.description, "expense_account": entry.expense_account,
-        "source_type": entry.source_type, "status": entry.status,
-        "created_at": created_at.isoformat(), "updated_at": created_at.isoformat()
+        "id": entry_id,
+        "user_id": user_id,
+        "payment_number": entry.payment_number,
+        "vendor_id": entry.vendor_id,
+        "employee_id": entry.employee_id,
+        "payment_date": entry.payment_date.isoformat(),
+        "amount": float(entry.amount),
+        "payment_method": entry.payment_method,
+        "reference_number": entry.reference_number,
+        "bank_account": entry.bank_account,
+        "description": entry.description,
+        "expense_account": entry.expense_account,
+        "source_type": entry.source_type,
+        "status": entry.status,
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat(),
     }
 
     # Auto-generate journal entry
@@ -1401,8 +1684,12 @@ async def create_cash_disbursements_entry(session: AsyncSession, user_id: str, e
     expense_account = entry.expense_account
 
     journal_lines = [
-        JournalLineBase(account_number=expense_account, debit=entry.amount, credit=Decimal('0.00'), description=entry.description),
-        JournalLineBase(account_number=cash_account, debit=Decimal('0.00'), credit=entry.amount, description=entry.description)
+        JournalLineBase(
+            account_number=expense_account, debit=entry.amount, credit=Decimal("0.00"), description=entry.description
+        ),
+        JournalLineBase(
+            account_number=cash_account, debit=Decimal("0.00"), credit=entry.amount, description=entry.description
+        ),
     ]
 
     journal_entry_data = JournalEntryCreate(
@@ -1411,7 +1698,7 @@ async def create_cash_disbursements_entry(session: AsyncSession, user_id: str, e
         reference_number=entry.payment_number,
         source_module="CashDisbursementsJournal",
         lines=journal_lines,
-        status="posted"
+        status="posted",
     )
 
     created_je = await create_journal_entry(session, user_id, journal_entry_data, jwt_token)
@@ -1427,19 +1714,29 @@ async def create_cash_disbursements_entry(session: AsyncSession, user_id: str, e
     cd_node = record["cd"]
 
     return CashDisbursementsJournalEntryInDB(
-        id=cd_node["id"], user_id=user_id,
-        payment_number=cd_node["payment_number"], vendor_id=cd_node["vendor_id"],
-        employee_id=cd_node["employee_id"], payment_date=datetime.fromisoformat(cd_node["payment_date"].iso_format()),
+        id=cd_node["id"],
+        user_id=user_id,
+        payment_number=cd_node["payment_number"],
+        vendor_id=cd_node["vendor_id"],
+        employee_id=cd_node["employee_id"],
+        payment_date=datetime.fromisoformat(cd_node["payment_date"].iso_format()),
         amount=Decimal(str(cd_node["amount"])),
-        payment_method=cd_node["payment_method"], reference_number=cd_node["reference_number"],
-        bank_account=cd_node["bank_account"], description=cd_node["description"],
-        expense_account=cd_node["expense_account"], source_type=cd_node["source_type"], status=cd_node["status"],
+        payment_method=cd_node["payment_method"],
+        reference_number=cd_node["reference_number"],
+        bank_account=cd_node["bank_account"],
+        description=cd_node["description"],
+        expense_account=cd_node["expense_account"],
+        source_type=cd_node["source_type"],
+        status=cd_node["status"],
         journal_entry_id=created_je.id,
         created_at=datetime.fromisoformat(cd_node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(cd_node["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(cd_node["updated_at"].iso_format()),
     )
 
-async def get_cash_disbursements_entries(session: AsyncSession, user_id: str, start_date, end_date) -> List[CashDisbursementsJournalEntryInDB]:
+
+async def get_cash_disbursements_entries(
+    session: AsyncSession, user_id: str, start_date, end_date
+) -> List[CashDisbursementsJournalEntryInDB]:
     date_filter = ""
     params = {"user_id": user_id}
     if start_date:
@@ -1460,21 +1757,33 @@ async def get_cash_disbursements_entries(session: AsyncSession, user_id: str, st
     entries = []
     async for record in result:
         cd = record["cd"]
-        entries.append(CashDisbursementsJournalEntryInDB(
-            id=cd["id"], user_id=user_id,
-            payment_number=cd["payment_number"], vendor_id=cd["vendor_id"],
-            employee_id=cd["employee_id"], payment_date=datetime.fromisoformat(cd["payment_date"].iso_format()),
-            amount=Decimal(str(cd["amount"])),
-            payment_method=cd["payment_method"], reference_number=cd["reference_number"],
-            bank_account=cd["bank_account"], description=cd["description"],
-            expense_account=cd["expense_account"], source_type=cd["source_type"], status=cd["status"],
-            journal_entry_id=record["journal_entry_id"],
-            created_at=datetime.fromisoformat(cd["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(cd["updated_at"].iso_format())
-        ))
+        entries.append(
+            CashDisbursementsJournalEntryInDB(
+                id=cd["id"],
+                user_id=user_id,
+                payment_number=cd["payment_number"],
+                vendor_id=cd["vendor_id"],
+                employee_id=cd["employee_id"],
+                payment_date=datetime.fromisoformat(cd["payment_date"].iso_format()),
+                amount=Decimal(str(cd["amount"])),
+                payment_method=cd["payment_method"],
+                reference_number=cd["reference_number"],
+                bank_account=cd["bank_account"],
+                description=cd["description"],
+                expense_account=cd["expense_account"],
+                source_type=cd["source_type"],
+                status=cd["status"],
+                journal_entry_id=record["journal_entry_id"],
+                created_at=datetime.fromisoformat(cd["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(cd["updated_at"].iso_format()),
+            )
+        )
     return entries
 
-async def create_sales_return_entry(session: AsyncSession, user_id: str, entry: SalesReturnsJournalEntryCreate, jwt_token: str) -> SalesReturnsJournalEntryInDB:
+
+async def create_sales_return_entry(
+    session: AsyncSession, user_id: str, entry: SalesReturnsJournalEntryCreate, jwt_token: str
+) -> SalesReturnsJournalEntryInDB:
     """Create Sales Returns Journal Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -1500,12 +1809,19 @@ async def create_sales_return_entry(session: AsyncSession, user_id: str, entry: 
     """
 
     params = {
-        "id": entry_id, "user_id": user_id,
-        "return_number": entry.return_number, "original_invoice_number": entry.original_invoice_number,
-        "customer_id": entry.customer_id, "return_date": entry.return_date.isoformat(),
-        "total_amount": float(entry.total_amount), "tax_amount": float(entry.tax_amount),
-        "reason": entry.reason, "status": entry.status, "notes": entry.notes,
-        "created_at": created_at.isoformat(), "updated_at": created_at.isoformat()
+        "id": entry_id,
+        "user_id": user_id,
+        "return_number": entry.return_number,
+        "original_invoice_number": entry.original_invoice_number,
+        "customer_id": entry.customer_id,
+        "return_date": entry.return_date.isoformat(),
+        "total_amount": float(entry.total_amount),
+        "tax_amount": float(entry.tax_amount),
+        "reason": entry.reason,
+        "status": entry.status,
+        "notes": entry.notes,
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat(),
     }
 
     # Auto-generate journal entry (reverse the original sale)
@@ -1514,8 +1830,18 @@ async def create_sales_return_entry(session: AsyncSession, user_id: str, entry: 
     accounts_receivable_account = "1100"  # Accounts Receivable
 
     journal_lines = [
-        JournalLineBase(account_number=sales_returns_account, debit=net_amount, credit=Decimal('0.00'), description=f"Sales Return {entry.return_number}"),
-        JournalLineBase(account_number=accounts_receivable_account, debit=Decimal('0.00'), credit=net_amount, description=f"Sales Return {entry.return_number}")
+        JournalLineBase(
+            account_number=sales_returns_account,
+            debit=net_amount,
+            credit=Decimal("0.00"),
+            description=f"Sales Return {entry.return_number}",
+        ),
+        JournalLineBase(
+            account_number=accounts_receivable_account,
+            debit=Decimal("0.00"),
+            credit=net_amount,
+            description=f"Sales Return {entry.return_number}",
+        ),
     ]
 
     journal_entry_data = JournalEntryCreate(
@@ -1524,7 +1850,7 @@ async def create_sales_return_entry(session: AsyncSession, user_id: str, entry: 
         reference_number=entry.return_number,
         source_module="SalesReturnsJournal",
         lines=journal_lines,
-        status="posted"
+        status="posted",
     )
 
     created_je = await create_journal_entry(session, user_id, journal_entry_data, jwt_token)
@@ -1540,18 +1866,26 @@ async def create_sales_return_entry(session: AsyncSession, user_id: str, entry: 
     sr_node = record["sr"]
 
     return SalesReturnsJournalEntryInDB(
-        id=sr_node["id"], user_id=user_id,
-        return_number=sr_node["return_number"], original_invoice_number=sr_node["original_invoice_number"],
-        customer_id=sr_node["customer_id"], return_date=datetime.fromisoformat(sr_node["return_date"].iso_format()),
+        id=sr_node["id"],
+        user_id=user_id,
+        return_number=sr_node["return_number"],
+        original_invoice_number=sr_node["original_invoice_number"],
+        customer_id=sr_node["customer_id"],
+        return_date=datetime.fromisoformat(sr_node["return_date"].iso_format()),
         total_amount=Decimal(str(sr_node["total_amount"])),
         tax_amount=Decimal(str(sr_node["tax_amount"])),
-        reason=sr_node["reason"], status=sr_node["status"], notes=sr_node["notes"],
+        reason=sr_node["reason"],
+        status=sr_node["status"],
+        notes=sr_node["notes"],
         journal_entry_id=created_je.id,
         created_at=datetime.fromisoformat(sr_node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(sr_node["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(sr_node["updated_at"].iso_format()),
     )
 
-async def create_purchases_return_entry(session: AsyncSession, user_id: str, entry: PurchasesReturnsJournalEntryCreate, jwt_token: str) -> PurchasesReturnsJournalEntryInDB:
+
+async def create_purchases_return_entry(
+    session: AsyncSession, user_id: str, entry: PurchasesReturnsJournalEntryCreate, jwt_token: str
+) -> PurchasesReturnsJournalEntryInDB:
     """Create Purchases Returns Journal Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -1577,12 +1911,19 @@ async def create_purchases_return_entry(session: AsyncSession, user_id: str, ent
     """
 
     params = {
-        "id": entry_id, "user_id": user_id,
-        "return_number": entry.return_number, "original_po_number": entry.original_po_number,
-        "vendor_id": entry.vendor_id, "return_date": entry.return_date.isoformat(),
-        "total_amount": float(entry.total_amount), "tax_amount": float(entry.tax_amount),
-        "reason": entry.reason, "status": entry.status, "notes": entry.notes,
-        "created_at": created_at.isoformat(), "updated_at": created_at.isoformat()
+        "id": entry_id,
+        "user_id": user_id,
+        "return_number": entry.return_number,
+        "original_po_number": entry.original_po_number,
+        "vendor_id": entry.vendor_id,
+        "return_date": entry.return_date.isoformat(),
+        "total_amount": float(entry.total_amount),
+        "tax_amount": float(entry.tax_amount),
+        "reason": entry.reason,
+        "status": entry.status,
+        "notes": entry.notes,
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat(),
     }
 
     # Auto-generate journal entry (reverse the original purchase)
@@ -1591,8 +1932,18 @@ async def create_purchases_return_entry(session: AsyncSession, user_id: str, ent
     accounts_payable_account = "2000"  # Accounts Payable
 
     journal_lines = [
-        JournalLineBase(account_number=accounts_payable_account, debit=net_amount, credit=Decimal('0.00'), description=f"Purchases Return {entry.return_number}"),
-        JournalLineBase(account_number=purchases_returns_account, debit=Decimal('0.00'), credit=net_amount, description=f"Purchases Return {entry.return_number}")
+        JournalLineBase(
+            account_number=accounts_payable_account,
+            debit=net_amount,
+            credit=Decimal("0.00"),
+            description=f"Purchases Return {entry.return_number}",
+        ),
+        JournalLineBase(
+            account_number=purchases_returns_account,
+            debit=Decimal("0.00"),
+            credit=net_amount,
+            description=f"Purchases Return {entry.return_number}",
+        ),
     ]
 
     journal_entry_data = JournalEntryCreate(
@@ -1601,7 +1952,7 @@ async def create_purchases_return_entry(session: AsyncSession, user_id: str, ent
         reference_number=entry.return_number,
         source_module="PurchasesReturnsJournal",
         lines=journal_lines,
-        status="posted"
+        status="posted",
     )
 
     created_je = await create_journal_entry(session, user_id, journal_entry_data, jwt_token)
@@ -1617,15 +1968,20 @@ async def create_purchases_return_entry(session: AsyncSession, user_id: str, ent
     pr_node = record["pr"]
 
     return PurchasesReturnsJournalEntryInDB(
-        id=pr_node["id"], user_id=user_id,
-        return_number=pr_node["return_number"], original_po_number=pr_node["original_po_number"],
-        vendor_id=pr_node["vendor_id"], return_date=datetime.fromisoformat(pr_node["return_date"].iso_format()),
+        id=pr_node["id"],
+        user_id=user_id,
+        return_number=pr_node["return_number"],
+        original_po_number=pr_node["original_po_number"],
+        vendor_id=pr_node["vendor_id"],
+        return_date=datetime.fromisoformat(pr_node["return_date"].iso_format()),
         total_amount=Decimal(str(pr_node["total_amount"])),
         tax_amount=Decimal(str(pr_node["tax_amount"])),
-        reason=pr_node["reason"], status=pr_node["status"], notes=pr_node["notes"],
+        reason=pr_node["reason"],
+        status=pr_node["status"],
+        notes=pr_node["notes"],
         journal_entry_id=created_je.id,
         created_at=datetime.fromisoformat(pr_node["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(pr_node["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(pr_node["updated_at"].iso_format()),
     )
 
 
@@ -1633,7 +1989,10 @@ async def create_purchases_return_entry(session: AsyncSession, user_id: str, ent
 # SUBSIDIARY LEDGERS CRUD
 # ============================================================
 
-async def get_ar_ledger_report(session: AsyncSession, user_id: str, as_of_date, customer_id) -> AccountsReceivableLedgerReport:
+
+async def get_ar_ledger_report(
+    session: AsyncSession, user_id: str, as_of_date, customer_id
+) -> AccountsReceivableLedgerReport:
     """Get Accounts Receivable Subsidiary Ledger"""
     date_filter = ""
     params = {"user_id": user_id}
@@ -1652,9 +2011,9 @@ async def get_ar_ledger_report(session: AsyncSession, user_id: str, as_of_date, 
     """
     result = await session.run(query, params)
     entries = []
-    total_invoice = Decimal('0.00')
-    total_balance = Decimal('0.00')
-    total_paid = Decimal('0.00')
+    total_invoice = Decimal("0.00")
+    total_balance = Decimal("0.00")
+    total_paid = Decimal("0.00")
     overdue_count = 0
 
     async for record in result:
@@ -1668,18 +2027,20 @@ async def get_ar_ledger_report(session: AsyncSession, user_id: str, as_of_date, 
         if status == "overdue":
             overdue_count += 1
 
-        entries.append(AccountsReceivableLedgerEntry(
-            customer_id=sj["customer_id"],
-            customer_name=f"Customer {sj['customer_id'][:8]}",  # Placeholder
-            invoice_number=sj["invoice_number"],
-            invoice_date=invoice_date,
-            due_date=datetime.fromisoformat(sj["due_date"].iso_format()) if sj["due_date"] else invoice_date,
-            invoice_amount=total_amount,
-            balance_due=balance_due,
-            amount_paid=Decimal('0.00'),
-            status=status,
-            days_outstanding=days_outstanding
-        ))
+        entries.append(
+            AccountsReceivableLedgerEntry(
+                customer_id=sj["customer_id"],
+                customer_name=f"Customer {sj['customer_id'][:8]}",  # Placeholder
+                invoice_number=sj["invoice_number"],
+                invoice_date=invoice_date,
+                due_date=datetime.fromisoformat(sj["due_date"].iso_format()) if sj["due_date"] else invoice_date,
+                invoice_amount=total_amount,
+                balance_due=balance_due,
+                amount_paid=Decimal("0.00"),
+                status=status,
+                days_outstanding=days_outstanding,
+            )
+        )
         total_invoice += total_amount
         total_balance += balance_due
 
@@ -1690,10 +2051,13 @@ async def get_ar_ledger_report(session: AsyncSession, user_id: str, as_of_date, 
         total_balance_due=total_balance,
         total_amount_paid=total_paid,
         customer_count=len(set(e.customer_id for e in entries)),
-        overdue_count=overdue_count
+        overdue_count=overdue_count,
     )
 
-async def get_ap_ledger_report(session: AsyncSession, user_id: str, as_of_date, vendor_id) -> AccountsPayableLedgerReport:
+
+async def get_ap_ledger_report(
+    session: AsyncSession, user_id: str, as_of_date, vendor_id
+) -> AccountsPayableLedgerReport:
     """Get Accounts Payable Subsidiary Ledger"""
     date_filter = ""
     params = {"user_id": user_id}
@@ -1712,9 +2076,9 @@ async def get_ap_ledger_report(session: AsyncSession, user_id: str, as_of_date, 
     """
     result = await session.run(query, params)
     entries = []
-    total_bill = Decimal('0.00')
-    total_balance = Decimal('0.00')
-    total_paid = Decimal('0.00')
+    total_bill = Decimal("0.00")
+    total_balance = Decimal("0.00")
+    total_paid = Decimal("0.00")
     overdue_count = 0
 
     async for record in result:
@@ -1728,18 +2092,20 @@ async def get_ap_ledger_report(session: AsyncSession, user_id: str, as_of_date, 
         if status == "overdue":
             overdue_count += 1
 
-        entries.append(AccountsPayableLedgerEntry(
-            vendor_id=pj["vendor_id"],
-            vendor_name=f"Vendor {pj['vendor_id'][:8]}",
-            bill_number=pj["purchase_order_number"],
-            bill_date=bill_date,
-            due_date=datetime.fromisoformat(pj["due_date"].iso_format()) if pj["due_date"] else bill_date,
-            bill_amount=total_amount,
-            balance_due=balance_due,
-            amount_paid=Decimal('0.00'),
-            status=status,
-            days_outstanding=days_outstanding
-        ))
+        entries.append(
+            AccountsPayableLedgerEntry(
+                vendor_id=pj["vendor_id"],
+                vendor_name=f"Vendor {pj['vendor_id'][:8]}",
+                bill_number=pj["purchase_order_number"],
+                bill_date=bill_date,
+                due_date=datetime.fromisoformat(pj["due_date"].iso_format()) if pj["due_date"] else bill_date,
+                bill_amount=total_amount,
+                balance_due=balance_due,
+                amount_paid=Decimal("0.00"),
+                status=status,
+                days_outstanding=days_outstanding,
+            )
+        )
         total_bill += total_amount
         total_balance += balance_due
 
@@ -1750,8 +2116,9 @@ async def get_ap_ledger_report(session: AsyncSession, user_id: str, as_of_date, 
         total_balance_due=total_balance,
         total_amount_paid=total_paid,
         vendor_count=len(set(e.vendor_id for e in entries)),
-        overdue_count=overdue_count
+        overdue_count=overdue_count,
     )
+
 
 async def get_fixed_assets_ledger(session: AsyncSession, user_id: str, as_of_date, status) -> FixedAssetsLedgerReport:
     """Get Fixed Assets Subsidiary Ledger"""
@@ -1759,11 +2126,12 @@ async def get_fixed_assets_ledger(session: AsyncSession, user_id: str, as_of_dat
     return FixedAssetsLedgerReport(
         as_of_date=as_of_date if as_of_date else datetime.now(timezone.utc),
         entries=[],
-        total_purchase_cost=Decimal('0.00'),
-        total_accumulated_depreciation=Decimal('0.00'),
-        total_net_book_value=Decimal('0.00'),
-        asset_count=0
+        total_purchase_cost=Decimal("0.00"),
+        total_accumulated_depreciation=Decimal("0.00"),
+        total_net_book_value=Decimal("0.00"),
+        asset_count=0,
     )
+
 
 async def get_inventory_ledger(session: AsyncSession, user_id: str, as_of_date, category) -> InventoryLedgerReport:
     """Get Inventory Subsidiary Ledger"""
@@ -1771,18 +2139,19 @@ async def get_inventory_ledger(session: AsyncSession, user_id: str, as_of_date, 
     return InventoryLedgerReport(
         as_of_date=as_of_date if as_of_date else datetime.now(timezone.utc),
         entries=[],
-        total_opening_value=Decimal('0.00'),
-        total_stock_in_value=Decimal('0.00'),
-        total_stock_out_value=Decimal('0.00'),
-        total_closing_value=Decimal('0.00'),
+        total_opening_value=Decimal("0.00"),
+        total_stock_in_value=Decimal("0.00"),
+        total_stock_out_value=Decimal("0.00"),
+        total_closing_value=Decimal("0.00"),
         item_count=0,
-        low_stock_count=0
+        low_stock_count=0,
     )
 
 
 # ============================================================
 # PETTY CASH CRUD
 # ============================================================
+
 
 async def create_petty_cash_fund(session: AsyncSession, user_id: str, fund: PettyCashFundCreate) -> PettyCashFundInDB:
     """Create Petty Cash Fund"""
@@ -1806,25 +2175,34 @@ async def create_petty_cash_fund(session: AsyncSession, user_id: str, fund: Pett
     RETURN pcf
     """
     params = {
-        "id": fund_id, "user_id": user_id,
-        "fund_name": fund.fund_name, "fund_number": fund.fund_number,
-        "imprest_amount": float(fund.imprest_amount), "current_balance": float(fund.current_balance),
-        "custodian": fund.custodian, "location": fund.location,
-        "created_at": created_at.isoformat(), "updated_at": created_at.isoformat()
+        "id": fund_id,
+        "user_id": user_id,
+        "fund_name": fund.fund_name,
+        "fund_number": fund.fund_number,
+        "imprest_amount": float(fund.imprest_amount),
+        "current_balance": float(fund.current_balance),
+        "custodian": fund.custodian,
+        "location": fund.location,
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
     pcf = record["pcf"]
 
     return PettyCashFundInDB(
-        id=pcf["id"], user_id=user_id,
-        fund_name=pcf["fund_name"], fund_number=pcf["fund_number"],
+        id=pcf["id"],
+        user_id=user_id,
+        fund_name=pcf["fund_name"],
+        fund_number=pcf["fund_number"],
         imprest_amount=Decimal(str(pcf["imprest_amount"])),
         current_balance=Decimal(str(pcf["current_balance"])),
-        custodian=pcf["custodian"], location=pcf["location"],
+        custodian=pcf["custodian"],
+        location=pcf["location"],
         created_at=datetime.fromisoformat(pcf["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(pcf["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(pcf["updated_at"].iso_format()),
     )
+
 
 async def get_petty_cash_funds(session: AsyncSession, user_id: str) -> List[PettyCashFundInDB]:
     """Get all Petty Cash Funds"""
@@ -1837,18 +2215,26 @@ async def get_petty_cash_funds(session: AsyncSession, user_id: str) -> List[Pett
     funds = []
     async for record in result:
         pcf = record["pcf"]
-        funds.append(PettyCashFundInDB(
-            id=pcf["id"], user_id=user_id,
-            fund_name=pcf["fund_name"], fund_number=pcf["fund_number"],
-            imprest_amount=Decimal(str(pcf["imprest_amount"])),
-            current_balance=Decimal(str(pcf["current_balance"])),
-            custodian=pcf["custodian"], location=pcf["location"],
-            created_at=datetime.fromisoformat(pcf["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(pcf["updated_at"].iso_format())
-        ))
+        funds.append(
+            PettyCashFundInDB(
+                id=pcf["id"],
+                user_id=user_id,
+                fund_name=pcf["fund_name"],
+                fund_number=pcf["fund_number"],
+                imprest_amount=Decimal(str(pcf["imprest_amount"])),
+                current_balance=Decimal(str(pcf["current_balance"])),
+                custodian=pcf["custodian"],
+                location=pcf["location"],
+                created_at=datetime.fromisoformat(pcf["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(pcf["updated_at"].iso_format()),
+            )
+        )
     return funds
 
-async def create_petty_cash_entry(session: AsyncSession, user_id: str, entry: PettyCashEntryCreate, jwt_token: str) -> PettyCashEntryInDB:
+
+async def create_petty_cash_entry(
+    session: AsyncSession, user_id: str, entry: PettyCashEntryCreate, jwt_token: str
+) -> PettyCashEntryInDB:
     """Create Petty Cash Entry and auto-generate journal entry"""
     entry_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -1873,26 +2259,46 @@ async def create_petty_cash_entry(session: AsyncSession, user_id: str, entry: Pe
     RETURN pce, pcf
     """
     params = {
-        "id": entry_id, "user_id": user_id,
+        "id": entry_id,
+        "user_id": user_id,
         "petty_cash_fund_id": entry.petty_cash_fund_id,
-        "voucher_number": entry.voucher_number, "voucher_date": entry.voucher_date.isoformat(),
-        "payee": entry.payee, "amount": float(entry.amount),
-        "category": entry.category, "description": entry.description,
-        "receipt_number": entry.receipt_number, "approved_by": entry.approved_by,
-        "created_at": created_at.isoformat(), "updated_at": created_at.isoformat()
+        "voucher_number": entry.voucher_number,
+        "voucher_date": entry.voucher_date.isoformat(),
+        "payee": entry.payee,
+        "amount": float(entry.amount),
+        "category": entry.category,
+        "description": entry.description,
+        "receipt_number": entry.receipt_number,
+        "approved_by": entry.approved_by,
+        "created_at": created_at.isoformat(),
+        "updated_at": created_at.isoformat(),
     }
 
     # Auto-generate journal entry
     petty_cash_account = "1001"  # Petty Cash
     expense_mapping = {
-        'office_supplies': '6100', 'postage': '6200', 'transportation': '6300',
-        'meals': '6400', 'tips': '6500', 'miscellaneous': '6600'
+        "office_supplies": "6100",
+        "postage": "6200",
+        "transportation": "6300",
+        "meals": "6400",
+        "tips": "6500",
+        "miscellaneous": "6600",
     }
-    expense_account = expense_mapping.get(entry.category, '6600')
+    expense_account = expense_mapping.get(entry.category, "6600")
 
     journal_lines = [
-        JournalLineBase(account_number=expense_account, debit=entry.amount, credit=Decimal('0.00'), description=f"Petty Cash: {entry.voucher_number}"),
-        JournalLineBase(account_number=petty_cash_account, debit=Decimal('0.00'), credit=entry.amount, description=f"Petty Cash: {entry.voucher_number}")
+        JournalLineBase(
+            account_number=expense_account,
+            debit=entry.amount,
+            credit=Decimal("0.00"),
+            description=f"Petty Cash: {entry.voucher_number}",
+        ),
+        JournalLineBase(
+            account_number=petty_cash_account,
+            debit=Decimal("0.00"),
+            credit=entry.amount,
+            description=f"Petty Cash: {entry.voucher_number}",
+        ),
     ]
 
     journal_entry_data = JournalEntryCreate(
@@ -1901,7 +2307,7 @@ async def create_petty_cash_entry(session: AsyncSession, user_id: str, entry: Pe
         reference_number=entry.voucher_number,
         source_module="PettyCash",
         lines=journal_lines,
-        status="posted"
+        status="posted",
     )
 
     created_je = await create_journal_entry(session, user_id, journal_entry_data, jwt_token)
@@ -1917,18 +2323,26 @@ async def create_petty_cash_entry(session: AsyncSession, user_id: str, entry: Pe
     pce = record["pce"]
 
     return PettyCashEntryInDB(
-        id=pce["id"], user_id=user_id, petty_cash_fund_id=entry.petty_cash_fund_id,
+        id=pce["id"],
+        user_id=user_id,
+        petty_cash_fund_id=entry.petty_cash_fund_id,
         voucher_number=pce["voucher_number"],
         voucher_date=datetime.fromisoformat(pce["voucher_date"].iso_format()),
-        payee=pce["payee"], amount=Decimal(str(pce["amount"])),
-        category=pce["category"], description=pce["description"],
-        receipt_number=pce["receipt_number"], approved_by=pce["approved_by"],
+        payee=pce["payee"],
+        amount=Decimal(str(pce["amount"])),
+        category=pce["category"],
+        description=pce["description"],
+        receipt_number=pce["receipt_number"],
+        approved_by=pce["approved_by"],
         journal_entry_id=created_je.id,
         created_at=datetime.fromisoformat(pce["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(pce["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(pce["updated_at"].iso_format()),
     )
 
-async def get_petty_cash_entries(session: AsyncSession, user_id: str, fund_id, start_date, end_date) -> List[PettyCashEntryInDB]:
+
+async def get_petty_cash_entries(
+    session: AsyncSession, user_id: str, fund_id, start_date, end_date
+) -> List[PettyCashEntryInDB]:
     """Get Petty Cash Entries"""
     date_filter = ""
     params = {"user_id": user_id}
@@ -1953,18 +2367,24 @@ async def get_petty_cash_entries(session: AsyncSession, user_id: str, fund_id, s
     entries = []
     async for record in result:
         pce = record["pce"]
-        entries.append(PettyCashEntryInDB(
-            id=pce["id"], user_id=user_id,
-            petty_cash_fund_id=record["petty_cash_fund_id"],
-            voucher_number=pce["voucher_number"],
-            voucher_date=datetime.fromisoformat(pce["voucher_date"].iso_format()),
-            payee=pce["payee"], amount=Decimal(str(pce["amount"])),
-            category=pce["category"], description=pce["description"],
-            receipt_number=pce["receipt_number"], approved_by=pce["approved_by"],
-            journal_entry_id=record["journal_entry_id"],
-            created_at=datetime.fromisoformat(pce["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(pce["updated_at"].iso_format())
-        ))
+        entries.append(
+            PettyCashEntryInDB(
+                id=pce["id"],
+                user_id=user_id,
+                petty_cash_fund_id=record["petty_cash_fund_id"],
+                voucher_number=pce["voucher_number"],
+                voucher_date=datetime.fromisoformat(pce["voucher_date"].iso_format()),
+                payee=pce["payee"],
+                amount=Decimal(str(pce["amount"])),
+                category=pce["category"],
+                description=pce["description"],
+                receipt_number=pce["receipt_number"],
+                approved_by=pce["approved_by"],
+                journal_entry_id=record["journal_entry_id"],
+                created_at=datetime.fromisoformat(pce["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(pce["updated_at"].iso_format()),
+            )
+        )
     return entries
 
 
@@ -1972,7 +2392,15 @@ async def get_petty_cash_entries(session: AsyncSession, user_id: str, fund_id, s
 # BANK RECONCILIATION CRUD
 # ============================================================
 
-async def create_bank_reconciliation(session: AsyncSession, user_id: str, bank_account: str, statement_date: datetime, statement_balance: Decimal, jwt_token: str) -> BankReconciliationStatement:
+
+async def create_bank_reconciliation(
+    session: AsyncSession,
+    user_id: str,
+    bank_account: str,
+    statement_date: datetime,
+    statement_balance: Decimal,
+    jwt_token: str,
+) -> BankReconciliationStatement:
     """Create Bank Reconciliation Statement"""
     recon_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -1984,12 +2412,14 @@ async def create_bank_reconciliation(session: AsyncSession, user_id: str, bank_a
     RETURN je, jl
     ORDER BY je.entry_date ASC
     """
-    result = await session.run(query, user_id=user_id, bank_account=bank_account, statement_date=statement_date.isoformat())
+    result = await session.run(
+        query, user_id=user_id, bank_account=bank_account, statement_date=statement_date.isoformat()
+    )
 
     bank_entries = []
     journal_entries = []
-    total_debits = Decimal('0.00')
-    total_credits = Decimal('0.00')
+    total_debits = Decimal("0.00")
+    total_credits = Decimal("0.00")
 
     async for record in result:
         je = record["je"]
@@ -2007,7 +2437,7 @@ async def create_bank_reconciliation(session: AsyncSession, user_id: str, bank_a
             reference=je["reference_number"],
             matched=True,
             match_type="journal_entry",
-            matched_entry_id=je["id"]
+            matched_entry_id=je["id"],
         )
         journal_entries.append(entry)
         total_debits += debit
@@ -2018,11 +2448,13 @@ async def create_bank_reconciliation(session: AsyncSession, user_id: str, bank_a
     # Calculate adjustments
     deposits_in_transit = []
     outstanding_checks = []
-    bank_charges = Decimal('0.00')
-    interest_earned = Decimal('0.00')
-    insufficient_funds = Decimal('0.00')
+    bank_charges = Decimal("0.00")
+    interest_earned = Decimal("0.00")
+    insufficient_funds = Decimal("0.00")
 
-    adjusted_bank = statement_balance - sum(e.credit for e in deposits_in_transit) + sum(e.debit for e in outstanding_checks)
+    adjusted_bank = (
+        statement_balance - sum(e.credit for e in deposits_in_transit) + sum(e.debit for e in outstanding_checks)
+    )
     adjusted_book = book_balance - bank_charges + interest_earned - insufficient_funds
     difference = adjusted_bank - adjusted_book
 
@@ -2042,9 +2474,9 @@ async def create_bank_reconciliation(session: AsyncSession, user_id: str, bank_a
         difference=difference,
         bank_entries=bank_entries,
         journal_entries=journal_entries,
-        is_reconciled=difference == Decimal('0.00'),
+        is_reconciled=difference == Decimal("0.00"),
         reconciled_date=None,
-        reconciled_by=None
+        reconciled_by=None,
     )
 
     # Store in Neo4j
@@ -2066,18 +2498,26 @@ async def create_bank_reconciliation(session: AsyncSession, user_id: str, bank_a
     RETURN br
     """
     store_params = {
-        "id": recon_id, "user_id": user_id,
-        "bank_account": bank_account, "statement_date": statement_date.isoformat(),
-        "statement_balance": float(statement_balance), "book_balance": float(book_balance),
-        "adjusted_bank_balance": float(adjusted_bank), "adjusted_book_balance": float(adjusted_book),
-        "difference": float(difference), "is_reconciled": difference == Decimal('0.00'),
-        "created_at": created_at.isoformat()
+        "id": recon_id,
+        "user_id": user_id,
+        "bank_account": bank_account,
+        "statement_date": statement_date.isoformat(),
+        "statement_balance": float(statement_balance),
+        "book_balance": float(book_balance),
+        "adjusted_bank_balance": float(adjusted_bank),
+        "adjusted_book_balance": float(adjusted_book),
+        "difference": float(difference),
+        "is_reconciled": difference == Decimal("0.00"),
+        "created_at": created_at.isoformat(),
     }
     await session.run(store_query, store_params)
 
     return reconciliation
 
-async def get_bank_reconciliations(session: AsyncSession, user_id: str, bank_account, start_date, end_date) -> List[BankReconciliationStatement]:
+
+async def get_bank_reconciliations(
+    session: AsyncSession, user_id: str, bank_account, start_date, end_date
+) -> List[BankReconciliationStatement]:
     """Get Bank Reconciliations"""
     date_filter = ""
     params = {"user_id": user_id}
@@ -2101,29 +2541,34 @@ async def get_bank_reconciliations(session: AsyncSession, user_id: str, bank_acc
     reconciliations = []
     async for record in result:
         br = record["br"]
-        reconciliations.append(BankReconciliationStatement(
-            bank_account_number=br["bank_account_number"],
-            bank_name=f"Bank Account {br['bank_account_number']}",
-            statement_date=datetime.fromisoformat(br["statement_date"].iso_format()),
-            statement_balance=Decimal(str(br["statement_balance"])),
-            book_balance=Decimal(str(br["book_balance"])),
-            deposits_in_transit=[],
-            outstanding_checks=[],
-            bank_charges=Decimal('0.00'),
-            interest_earned=Decimal('0.00'),
-            insufficient_funds=Decimal('0.00'),
-            adjusted_bank_balance=Decimal(str(br["adjusted_bank_balance"])),
-            adjusted_book_balance=Decimal(str(br["adjusted_book_balance"])),
-            difference=Decimal(str(br["difference"])),
-            bank_entries=[],
-            journal_entries=[],
-            is_reconciled=br["is_reconciled"],
-            reconciled_date=None,
-            reconciled_by=None
-        ))
+        reconciliations.append(
+            BankReconciliationStatement(
+                bank_account_number=br["bank_account_number"],
+                bank_name=f"Bank Account {br['bank_account_number']}",
+                statement_date=datetime.fromisoformat(br["statement_date"].iso_format()),
+                statement_balance=Decimal(str(br["statement_balance"])),
+                book_balance=Decimal(str(br["book_balance"])),
+                deposits_in_transit=[],
+                outstanding_checks=[],
+                bank_charges=Decimal("0.00"),
+                interest_earned=Decimal("0.00"),
+                insufficient_funds=Decimal("0.00"),
+                adjusted_bank_balance=Decimal(str(br["adjusted_bank_balance"])),
+                adjusted_book_balance=Decimal(str(br["adjusted_book_balance"])),
+                difference=Decimal(str(br["difference"])),
+                bank_entries=[],
+                journal_entries=[],
+                is_reconciled=br["is_reconciled"],
+                reconciled_date=None,
+                reconciled_by=None,
+            )
+        )
     return reconciliations
 
-async def get_latest_bank_reconciliation(session: AsyncSession, user_id: str, bank_account: str) -> BankReconciliationStatement:
+
+async def get_latest_bank_reconciliation(
+    session: AsyncSession, user_id: str, bank_account: str
+) -> BankReconciliationStatement:
     """Get Latest Bank Reconciliation for an account"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_BANK_RECONCILIATION]->(br:BankReconciliation {bank_account_number: $bank_account})
@@ -2144,9 +2589,9 @@ async def get_latest_bank_reconciliation(session: AsyncSession, user_id: str, ba
         book_balance=Decimal(str(br["book_balance"])),
         deposits_in_transit=[],
         outstanding_checks=[],
-        bank_charges=Decimal('0.00'),
-        interest_earned=Decimal('0.00'),
-        insufficient_funds=Decimal('0.00'),
+        bank_charges=Decimal("0.00"),
+        interest_earned=Decimal("0.00"),
+        insufficient_funds=Decimal("0.00"),
         adjusted_bank_balance=Decimal(str(br["adjusted_bank_balance"])),
         adjusted_book_balance=Decimal(str(br["adjusted_book_balance"])),
         difference=Decimal(str(br["difference"])),
@@ -2154,7 +2599,7 @@ async def get_latest_bank_reconciliation(session: AsyncSession, user_id: str, ba
         journal_entries=[],
         is_reconciled=br["is_reconciled"],
         reconciled_date=None,
-        reconciled_by=None
+        reconciled_by=None,
     )
 
 
@@ -2164,7 +2609,15 @@ async def get_latest_bank_reconciliation(session: AsyncSession, user_id: str, ba
 
 # --- Statement of Affairs CRUD ---
 
-async def create_statement_of_affairs(session: AsyncSession, user_id: str, as_of_date: datetime, assets: List[StatementOfAffairsAssetBase], liabilities: List[StatementOfAffairsLiabilityBase], prepared_by: Optional[str] = None) -> StatementOfAffairsInDB:
+
+async def create_statement_of_affairs(
+    session: AsyncSession,
+    user_id: str,
+    as_of_date: datetime,
+    assets: List[StatementOfAffairsAssetBase],
+    liabilities: List[StatementOfAffairsLiabilityBase],
+    prepared_by: Optional[str] = None,
+) -> StatementOfAffairsInDB:
     """Create Statement of Affairs - shows assets, liabilities and capital at a point in time"""
     statement_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -2193,19 +2646,33 @@ async def create_statement_of_affairs(session: AsyncSession, user_id: str, as_of
     RETURN soa
     """
     params = {
-        "id": statement_id, "user_id": user_id, "as_of_date": as_of_date.isoformat(),
-        "prepared_by": prepared_by, "prepared_date": prepared_date.isoformat(),
-        "total_assets": float(total_assets), "total_liabilities": float(total_liabilities),
-        "capital": float(capital), "notes": None, "created_at": created_at.isoformat()
+        "id": statement_id,
+        "user_id": user_id,
+        "as_of_date": as_of_date.isoformat(),
+        "prepared_by": prepared_by,
+        "prepared_date": prepared_date.isoformat(),
+        "total_assets": float(total_assets),
+        "total_liabilities": float(total_liabilities),
+        "capital": float(capital),
+        "notes": None,
+        "created_at": created_at.isoformat(),
     }
     await session.run(query, params)
 
     return StatementOfAffairsInDB(
-        id=statement_id, user_id=user_id, as_of_date=as_of_date.date(),
-        prepared_by=prepared_by, prepared_date=prepared_date,
-        total_assets=total_assets, total_liabilities=total_liabilities, capital=capital,
-        assets=assets, liabilities=liabilities, notes=None
+        id=statement_id,
+        user_id=user_id,
+        as_of_date=as_of_date.date(),
+        prepared_by=prepared_by,
+        prepared_date=prepared_date,
+        total_assets=total_assets,
+        total_liabilities=total_liabilities,
+        capital=capital,
+        assets=assets,
+        liabilities=liabilities,
+        notes=None,
     )
+
 
 async def get_statement_of_affairs(session: AsyncSession, user_id: str, as_of_date: datetime) -> StatementOfAffairsInDB:
     """Get Statement of Affairs as of a specific date"""
@@ -2220,15 +2687,19 @@ async def get_statement_of_affairs(session: AsyncSession, user_id: str, as_of_da
         raise NotFoundError(detail=f"No Statement of Affairs found for date {as_of_date}")
     soa = record["soa"]
     return StatementOfAffairsInDB(
-        id=soa["id"], user_id=user_id,
+        id=soa["id"],
+        user_id=user_id,
         as_of_date=datetime.fromisoformat(soa["as_of_date"].iso_format()).date(),
         prepared_by=soa["prepared_by"],
         prepared_date=datetime.fromisoformat(soa["prepared_date"].iso_format()),
         total_assets=Decimal(str(soa["total_assets"])),
         total_liabilities=Decimal(str(soa["total_liabilities"])),
         capital=Decimal(str(soa["capital"])),
-        assets=[], liabilities=[], notes=soa["notes"]
+        assets=[],
+        liabilities=[],
+        notes=soa["notes"],
     )
+
 
 async def get_all_statements_of_affairs(session: AsyncSession, user_id: str) -> List[StatementOfAffairsInDB]:
     """Get all Statements of Affairs for a user"""
@@ -2241,29 +2712,37 @@ async def get_all_statements_of_affairs(session: AsyncSession, user_id: str) -> 
     statements = []
     async for record in result:
         soa = record["soa"]
-        statements.append(StatementOfAffairsInDB(
-            id=soa["id"], user_id=user_id,
-            as_of_date=datetime.fromisoformat(soa["as_of_date"].iso_format()).date(),
-            prepared_by=soa["prepared_by"],
-            prepared_date=datetime.fromisoformat(soa["prepared_date"].iso_format()),
-            total_assets=Decimal(str(soa["total_assets"])),
-            total_liabilities=Decimal(str(soa["total_liabilities"])),
-            capital=Decimal(str(soa["capital"])),
-            assets=[], liabilities=[], notes=soa["notes"]
-        ))
+        statements.append(
+            StatementOfAffairsInDB(
+                id=soa["id"],
+                user_id=user_id,
+                as_of_date=datetime.fromisoformat(soa["as_of_date"].iso_format()).date(),
+                prepared_by=soa["prepared_by"],
+                prepared_date=datetime.fromisoformat(soa["prepared_date"].iso_format()),
+                total_assets=Decimal(str(soa["total_assets"])),
+                total_liabilities=Decimal(str(soa["total_liabilities"])),
+                capital=Decimal(str(soa["capital"])),
+                assets=[],
+                liabilities=[],
+                notes=soa["notes"],
+            )
+        )
     return statements
 
 
 # --- Capital Calculation CRUD ---
 
-async def create_capital_calculation(session: AsyncSession, user_id: str, calc: CapitalCalculationInDB) -> CapitalCalculationInDB:
+
+async def create_capital_calculation(
+    session: AsyncSession, user_id: str, calc: CapitalCalculationInDB
+) -> CapitalCalculationInDB:
     """Create Capital Calculation - tracks capital changes over a period"""
     calc_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
 
     # Calculate totals from entries
-    total_additional_capital = Decimal('0.00')
-    total_withdrawals = Decimal('0.00')
+    total_additional_capital = Decimal("0.00")
+    total_withdrawals = Decimal("0.00")
     for entry in calc.entries:
         if entry.entry_type == "additional_capital":
             total_additional_capital += entry.amount
@@ -2306,7 +2785,8 @@ async def create_capital_calculation(session: AsyncSession, user_id: str, calc: 
     RETURN cc
     """
     params = {
-        "id": calc_id, "user_id": user_id,
+        "id": calc_id,
+        "user_id": user_id,
         "as_of_date": calc.as_of_date.isoformat(),
         "period_start": calc.period_start.isoformat(),
         "period_end": calc.period_end.isoformat(),
@@ -2319,7 +2799,7 @@ async def create_capital_calculation(session: AsyncSession, user_id: str, calc: 
         "profit_or_loss": profit_or_loss,
         "prepared_by": calc.prepared_by,
         "notes": calc.notes,
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     await session.run(query, params)
 
@@ -2342,33 +2822,47 @@ async def create_capital_calculation(session: AsyncSession, user_id: str, calc: 
         RETURN e
         """
         entry_params = {
-            "calc_id": calc_id, "entry_id": entry_id,
+            "calc_id": calc_id,
+            "entry_id": entry_id,
             "entry_date": entry.entry_date.isoformat(),
             "entry_type": entry.entry_type,
             "amount": float(entry.amount),
             "description": entry.description,
             "reference_number": entry.reference_number,
-            "created_at": created_at.isoformat()
+            "created_at": created_at.isoformat(),
         }
         await session.run(entry_query, entry_params)
-        entries_in_db.append(CapitalCalculationEntryInDB(
-            id=entry_id, capital_calculation_id=calc_id,
-            entry_date=entry.entry_date, entry_type=entry.entry_type,
-            amount=entry.amount, description=entry.description,
-            reference_number=entry.reference_number,
-            created_at=created_at
-        ))
+        entries_in_db.append(
+            CapitalCalculationEntryInDB(
+                id=entry_id,
+                capital_calculation_id=calc_id,
+                entry_date=entry.entry_date,
+                entry_type=entry.entry_type,
+                amount=entry.amount,
+                description=entry.description,
+                reference_number=entry.reference_number,
+                created_at=created_at,
+            )
+        )
 
     return CapitalCalculationInDB(
-        id=calc_id, user_id=user_id,
+        id=calc_id,
+        user_id=user_id,
         as_of_date=calc.as_of_date,
-        period_start=calc.period_start, period_end=calc.period_end,
-        opening_capital=calc.opening_capital, closing_capital=closing_capital,
-        total_additional_capital=total_additional_capital, total_withdrawals=total_withdrawals,
-        net_profit=calc.net_profit, net_loss=calc.net_loss, profit_or_loss=profit_or_loss,
+        period_start=calc.period_start,
+        period_end=calc.period_end,
+        opening_capital=calc.opening_capital,
+        closing_capital=closing_capital,
+        total_additional_capital=total_additional_capital,
+        total_withdrawals=total_withdrawals,
+        net_profit=calc.net_profit,
+        net_loss=calc.net_loss,
+        profit_or_loss=profit_or_loss,
         prepared_by=calc.prepared_by,
-        entries=entries_in_db, notes=calc.notes
+        entries=entries_in_db,
+        notes=calc.notes,
     )
+
 
 async def get_capital_calculation(session: AsyncSession, user_id: str, calc_id: str) -> CapitalCalculationInDB:
     """Get Capital Calculation by ID"""
@@ -2386,16 +2880,22 @@ async def get_capital_calculation(session: AsyncSession, user_id: str, calc_id: 
     entries = []
     for e in record["entries"]:
         if e:
-            entries.append(CapitalCalculationEntryInDB(
-                id=e["id"], capital_calculation_id=calc_id,
-                entry_date=datetime.fromisoformat(e["entry_date"].iso_format()).date(),
-                entry_type=e["entry_type"], amount=Decimal(str(e["amount"])),
-                description=e["description"], reference_number=e["reference_number"],
-                created_at=datetime.fromisoformat(e["created_at"].iso_format())
-            ))
+            entries.append(
+                CapitalCalculationEntryInDB(
+                    id=e["id"],
+                    capital_calculation_id=calc_id,
+                    entry_date=datetime.fromisoformat(e["entry_date"].iso_format()).date(),
+                    entry_type=e["entry_type"],
+                    amount=Decimal(str(e["amount"])),
+                    description=e["description"],
+                    reference_number=e["reference_number"],
+                    created_at=datetime.fromisoformat(e["created_at"].iso_format()),
+                )
+            )
 
     return CapitalCalculationInDB(
-        id=cc["id"], user_id=user_id,
+        id=cc["id"],
+        user_id=user_id,
         as_of_date=datetime.fromisoformat(cc["as_of_date"].iso_format()).date(),
         period_start=datetime.fromisoformat(cc["period_start"].iso_format()).date(),
         period_end=datetime.fromisoformat(cc["period_end"].iso_format()).date(),
@@ -2407,8 +2907,10 @@ async def get_capital_calculation(session: AsyncSession, user_id: str, calc_id: 
         net_loss=Decimal(str(cc["net_loss"])),
         profit_or_loss=cc["profit_or_loss"],
         prepared_by=cc["prepared_by"],
-        entries=entries, notes=cc["notes"]
+        entries=entries,
+        notes=cc["notes"],
     )
+
 
 async def get_all_capital_calculations(session: AsyncSession, user_id: str) -> List[CapitalCalculationInDB]:
     """Get all Capital Calculations"""
@@ -2421,34 +2923,41 @@ async def get_all_capital_calculations(session: AsyncSession, user_id: str) -> L
     calcs = []
     async for record in result:
         cc = record["cc"]
-        calcs.append(CapitalCalculationInDB(
-            id=cc["id"], user_id=user_id,
-            as_of_date=datetime.fromisoformat(cc["as_of_date"].iso_format()).date(),
-            period_start=datetime.fromisoformat(cc["period_start"].iso_format()).date(),
-            period_end=datetime.fromisoformat(cc["period_end"].iso_format()).date(),
-            opening_capital=Decimal(str(cc["opening_capital"])),
-            closing_capital=Decimal(str(cc["closing_capital"])),
-            total_additional_capital=Decimal(str(cc["total_additional_capital"])),
-            total_withdrawals=Decimal(str(cc["total_withdrawals"])),
-            net_profit=Decimal(str(cc["net_profit"])),
-            net_loss=Decimal(str(cc["net_loss"])),
-            profit_or_loss=cc["profit_or_loss"],
-            prepared_by=cc["prepared_by"],
-            entries=[], notes=cc["notes"]
-        ))
+        calcs.append(
+            CapitalCalculationInDB(
+                id=cc["id"],
+                user_id=user_id,
+                as_of_date=datetime.fromisoformat(cc["as_of_date"].iso_format()).date(),
+                period_start=datetime.fromisoformat(cc["period_start"].iso_format()).date(),
+                period_end=datetime.fromisoformat(cc["period_end"].iso_format()).date(),
+                opening_capital=Decimal(str(cc["opening_capital"])),
+                closing_capital=Decimal(str(cc["closing_capital"])),
+                total_additional_capital=Decimal(str(cc["total_additional_capital"])),
+                total_withdrawals=Decimal(str(cc["total_withdrawals"])),
+                net_profit=Decimal(str(cc["net_profit"])),
+                net_loss=Decimal(str(cc["net_loss"])),
+                profit_or_loss=cc["profit_or_loss"],
+                prepared_by=cc["prepared_by"],
+                entries=[],
+                notes=cc["notes"],
+            )
+        )
     return calcs
 
 
 # --- Control Account CRUD (Debtors & Creditors) ---
 
-async def create_control_account(session: AsyncSession, user_id: str, account: ControlAccountInDB) -> ControlAccountInDB:
+
+async def create_control_account(
+    session: AsyncSession, user_id: str, account: ControlAccountInDB
+) -> ControlAccountInDB:
     """Create Control Account - tracks debtors or creditors balances"""
     account_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
 
     # Calculate totals and closing balance
-    total_debits = Decimal('0.00')
-    total_credits = Decimal('0.00')
+    total_debits = Decimal("0.00")
+    total_credits = Decimal("0.00")
     running_balance = account.opening_balance
 
     for entry in account.entries:
@@ -2491,7 +3000,8 @@ async def create_control_account(session: AsyncSession, user_id: str, account: C
     RETURN ca
     """
     params = {
-        "id": account_id, "user_id": user_id,
+        "id": account_id,
+        "user_id": user_id,
         "account_type": account.account_type,
         "account_name": account.account_name,
         "as_of_date": account.as_of_date.isoformat(),
@@ -2501,7 +3011,7 @@ async def create_control_account(session: AsyncSession, user_id: str, account: C
         "total_credits": float(total_credits),
         "prepared_by": account.prepared_by,
         "notes": account.notes,
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     await session.run(query, params)
 
@@ -2528,7 +3038,8 @@ async def create_control_account(session: AsyncSession, user_id: str, account: C
         CREATE (ca)-[:HAS_ENTRY]->(e)
         """
         entry_params = {
-            "account_id": account_id, "entry_id": entry_id,
+            "account_id": account_id,
+            "entry_id": entry_id,
             "entry_date": entry.entry_date.isoformat(),
             "entry_type": entry.entry_type,
             "amount": float(entry.amount),
@@ -2538,18 +3049,25 @@ async def create_control_account(session: AsyncSession, user_id: str, account: C
             "supplier_id": entry.supplier_id,
             "is_contra": entry.isContra,
             "running_balance": float(running),
-            "created_at": created_at.isoformat()
+            "created_at": created_at.isoformat(),
         }
         await session.run(entry_query, entry_params)
-        entries_in_db.append(ControlAccountEntryInDB(
-            id=entry_id, control_account_id=account_id,
-            entry_date=entry.entry_date, entry_type=entry.entry_type,
-            amount=entry.amount, description=entry.description,
-            reference_number=entry.reference_number,
-            customer_id=entry.customer_id, supplier_id=entry.supplier_id,
-            isContra=entry.isContra, running_balance=running,
-            created_at=created_at
-        ))
+        entries_in_db.append(
+            ControlAccountEntryInDB(
+                id=entry_id,
+                control_account_id=account_id,
+                entry_date=entry.entry_date,
+                entry_type=entry.entry_type,
+                amount=entry.amount,
+                description=entry.description,
+                reference_number=entry.reference_number,
+                customer_id=entry.customer_id,
+                supplier_id=entry.supplier_id,
+                isContra=entry.isContra,
+                running_balance=running,
+                created_at=created_at,
+            )
+        )
 
         # Update running balance
         if account.account_type == "debtors":
@@ -2564,17 +3082,24 @@ async def create_control_account(session: AsyncSession, user_id: str, account: C
                 running -= entry.amount
 
     return ControlAccountInDB(
-        id=account_id, user_id=user_id,
-        account_type=account.account_type, account_name=account.account_name,
+        id=account_id,
+        user_id=user_id,
+        account_type=account.account_type,
+        account_name=account.account_name,
         as_of_date=account.as_of_date,
         opening_balance=account.opening_balance,
-        total_debits=total_debits, total_credits=total_credits,
+        total_debits=total_debits,
+        total_credits=total_credits,
         closing_balance=closing_balance,
         prepared_by=account.prepared_by,
-        entries=entries_in_db, notes=account.notes
+        entries=entries_in_db,
+        notes=account.notes,
     )
 
-async def get_control_accounts(session: AsyncSession, user_id: str, account_type: Optional[str] = None) -> List[ControlAccountInDB]:
+
+async def get_control_accounts(
+    session: AsyncSession, user_id: str, account_type: Optional[str] = None
+) -> List[ControlAccountInDB]:
     """Get all Control Accounts, optionally filtered by type"""
     type_filter = "AND ca.account_type = $account_type" if account_type else ""
     query = f"""
@@ -2591,35 +3116,43 @@ async def get_control_accounts(session: AsyncSession, user_id: str, account_type
     accounts = []
     async for record in result:
         ca = record["ca"]
-        accounts.append(ControlAccountInDB(
-            id=ca["id"], user_id=user_id,
-            account_type=ca["account_type"], account_name=ca["account_name"],
-            as_of_date=datetime.fromisoformat(ca["as_of_date"].iso_format()).date(),
-            opening_balance=Decimal(str(ca["opening_balance"])),
-            total_debits=Decimal(str(ca["total_debits"])),
-            total_credits=Decimal(str(ca["total_credits"])),
-            closing_balance=Decimal(str(ca["closing_balance"])),
-            prepared_by=ca["prepared_by"],
-            entries=[], notes=ca["notes"]
-        ))
+        accounts.append(
+            ControlAccountInDB(
+                id=ca["id"],
+                user_id=user_id,
+                account_type=ca["account_type"],
+                account_name=ca["account_name"],
+                as_of_date=datetime.fromisoformat(ca["as_of_date"].iso_format()).date(),
+                opening_balance=Decimal(str(ca["opening_balance"])),
+                total_debits=Decimal(str(ca["total_debits"])),
+                total_credits=Decimal(str(ca["total_credits"])),
+                closing_balance=Decimal(str(ca["closing_balance"])),
+                prepared_by=ca["prepared_by"],
+                entries=[],
+                notes=ca["notes"],
+            )
+        )
     return accounts
 
 
 # --- Receipts and Payments Account CRUD ---
 
-async def create_receipts_payments_account(session: AsyncSession, user_id: str, rp: ReceiptsPaymentsAccountInDB) -> ReceiptsPaymentsAccountInDB:
+
+async def create_receipts_payments_account(
+    session: AsyncSession, user_id: str, rp: ReceiptsPaymentsAccountInDB
+) -> ReceiptsPaymentsAccountInDB:
     """Create Receipts and Payments Account - cash book summary for single entry"""
     rp_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
 
     # Calculate totals by category
-    total_receipts = Decimal('0.00')
-    total_payments = Decimal('0.00')
-    total_capital_receipts = Decimal('0.00')
-    total_revenue_receipts = Decimal('0.00')
-    total_asset_payments = Decimal('0.00')
-    total_liability_payments = Decimal('0.00')
-    total_revenue_payments = Decimal('0.00')
+    total_receipts = Decimal("0.00")
+    total_payments = Decimal("0.00")
+    total_capital_receipts = Decimal("0.00")
+    total_revenue_receipts = Decimal("0.00")
+    total_asset_payments = Decimal("0.00")
+    total_liability_payments = Decimal("0.00")
+    total_revenue_payments = Decimal("0.00")
 
     for entry in rp.entries:
         if entry.entry_type == "receipt":
@@ -2670,7 +3203,8 @@ async def create_receipts_payments_account(session: AsyncSession, user_id: str, 
     RETURN rap
     """
     params = {
-        "id": rp_id, "user_id": user_id,
+        "id": rp_id,
+        "user_id": user_id,
         "account_name": rp.account_name,
         "period_start": rp.period_start.isoformat(),
         "period_end": rp.period_end.isoformat(),
@@ -2688,7 +3222,7 @@ async def create_receipts_payments_account(session: AsyncSession, user_id: str, 
         "closing_total_balance": float(closing_total),
         "prepared_by": rp.prepared_by,
         "notes": rp.notes,
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     await session.run(query, params)
 
@@ -2713,7 +3247,8 @@ async def create_receipts_payments_account(session: AsyncSession, user_id: str, 
         CREATE (rap)-[:HAS_ENTRY]->(e)
         """
         entry_params = {
-            "rp_id": rp_id, "entry_id": entry_id,
+            "rp_id": rp_id,
+            "entry_id": entry_id,
             "entry_date": entry.entry_date.isoformat(),
             "entry_type": entry.entry_type,
             "category": entry.category,
@@ -2722,25 +3257,35 @@ async def create_receipts_payments_account(session: AsyncSession, user_id: str, 
             "description": entry.description,
             "reference_number": entry.reference_number,
             "is_contra": entry.isContra,
-            "created_at": created_at.isoformat()
+            "created_at": created_at.isoformat(),
         }
         await session.run(entry_query, entry_params)
-        entries_in_db.append(ReceiptsPaymentsEntryInDB(
-            id=entry_id, receipts_payments_id=rp_id,
-            entry_date=entry.entry_date, entry_type=entry.entry_type,
-            category=entry.category, account_name=entry.account_name,
-            amount=entry.amount, description=entry.description,
-            reference_number=entry.reference_number, isContra=entry.isContra,
-            created_at=created_at
-        ))
+        entries_in_db.append(
+            ReceiptsPaymentsEntryInDB(
+                id=entry_id,
+                receipts_payments_id=rp_id,
+                entry_date=entry.entry_date,
+                entry_type=entry.entry_type,
+                category=entry.category,
+                account_name=entry.account_name,
+                amount=entry.amount,
+                description=entry.description,
+                reference_number=entry.reference_number,
+                isContra=entry.isContra,
+                created_at=created_at,
+            )
+        )
 
     return ReceiptsPaymentsAccountInDB(
-        id=rp_id, user_id=user_id,
+        id=rp_id,
+        user_id=user_id,
         account_name=rp.account_name,
-        period_start=rp.period_start, period_end=rp.period_end,
+        period_start=rp.period_start,
+        period_end=rp.period_end,
         opening_cash_balance=rp.opening_cash_balance,
         opening_bank_balance=rp.opening_bank_balance,
-        total_receipts=total_receipts, total_payments=total_payments,
+        total_receipts=total_receipts,
+        total_payments=total_payments,
         total_capital_receipts=total_capital_receipts,
         total_revenue_receipts=total_revenue_receipts,
         total_asset_payments=total_asset_payments,
@@ -2749,8 +3294,10 @@ async def create_receipts_payments_account(session: AsyncSession, user_id: str, 
         closing_cash_balance=closing_cash,
         closing_bank_balance=closing_bank,
         closing_total_balance=closing_total,
-        entries=entries_in_db, notes=rp.notes
+        entries=entries_in_db,
+        notes=rp.notes,
     )
+
 
 async def get_receipts_payments_accounts(session: AsyncSession, user_id: str) -> List[ReceiptsPaymentsAccountInDB]:
     """Get all Receipts and Payments Accounts"""
@@ -2763,31 +3310,38 @@ async def get_receipts_payments_accounts(session: AsyncSession, user_id: str) ->
     accounts = []
     async for record in result:
         rap = record["rap"]
-        accounts.append(ReceiptsPaymentsAccountInDB(
-            id=rap["id"], user_id=user_id,
-            account_name=rap["account_name"],
-            period_start=datetime.fromisoformat(rap["period_start"].iso_format()).date(),
-            period_end=datetime.fromisoformat(rap["period_end"].iso_format()).date(),
-            opening_cash_balance=Decimal(str(rap["opening_cash_balance"])),
-            opening_bank_balance=Decimal(str(rap["opening_bank_balance"])),
-            total_receipts=Decimal(str(rap["total_receipts"])),
-            total_payments=Decimal(str(rap["total_payments"])),
-            total_capital_receipts=Decimal(str(rap["total_capital_receipts"])),
-            total_revenue_receipts=Decimal(str(rap["total_revenue_receipts"])),
-            total_asset_payments=Decimal(str(rap["total_asset_payments"])),
-            total_liability_payments=Decimal(str(rap["total_liability_payments"])),
-            total_revenue_payments=Decimal(str(rap["total_revenue_payments"])),
-            closing_cash_balance=Decimal(str(rap["closing_cash_balance"])),
-            closing_bank_balance=Decimal(str(rap["closing_bank_balance"])),
-            closing_total_balance=Decimal(str(rap["closing_total_balance"])),
-            entries=[], notes=rap["notes"]
-        ))
+        accounts.append(
+            ReceiptsPaymentsAccountInDB(
+                id=rap["id"],
+                user_id=user_id,
+                account_name=rap["account_name"],
+                period_start=datetime.fromisoformat(rap["period_start"].iso_format()).date(),
+                period_end=datetime.fromisoformat(rap["period_end"].iso_format()).date(),
+                opening_cash_balance=Decimal(str(rap["opening_cash_balance"])),
+                opening_bank_balance=Decimal(str(rap["opening_bank_balance"])),
+                total_receipts=Decimal(str(rap["total_receipts"])),
+                total_payments=Decimal(str(rap["total_payments"])),
+                total_capital_receipts=Decimal(str(rap["total_capital_receipts"])),
+                total_revenue_receipts=Decimal(str(rap["total_revenue_receipts"])),
+                total_asset_payments=Decimal(str(rap["total_asset_payments"])),
+                total_liability_payments=Decimal(str(rap["total_liability_payments"])),
+                total_revenue_payments=Decimal(str(rap["total_revenue_payments"])),
+                closing_cash_balance=Decimal(str(rap["closing_cash_balance"])),
+                closing_bank_balance=Decimal(str(rap["closing_bank_balance"])),
+                closing_total_balance=Decimal(str(rap["closing_total_balance"])),
+                entries=[],
+                notes=rap["notes"],
+            )
+        )
     return accounts
 
 
 # --- Single Entry Conversion CRUD ---
 
-async def create_single_entry_conversion(session: AsyncSession, user_id: str, conversion: SingleEntryConversionInDB, jwt_token: str) -> SingleEntryConversionInDB:
+
+async def create_single_entry_conversion(
+    session: AsyncSession, user_id: str, conversion: SingleEntryConversionInDB, jwt_token: str
+) -> SingleEntryConversionInDB:
     """Create Single Entry Conversion - converts single entry records to double entry"""
     conv_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -2799,14 +3353,14 @@ async def create_single_entry_conversion(session: AsyncSession, user_id: str, co
 
     if net_profit > 0:
         profit_or_loss = "profit"
-        net_loss = Decimal('0.00')
+        net_loss = Decimal("0.00")
     elif net_profit < 0:
         profit_or_loss = "loss"
         net_loss = abs(net_profit)
-        net_profit = Decimal('0.00')
+        net_profit = Decimal("0.00")
     else:
         profit_or_loss = "none"
-        net_loss = Decimal('0.00')
+        net_loss = Decimal("0.00")
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -2839,7 +3393,8 @@ async def create_single_entry_conversion(session: AsyncSession, user_id: str, co
     RETURN sec
     """
     params = {
-        "id": conv_id, "user_id": user_id,
+        "id": conv_id,
+        "user_id": user_id,
         "as_of_date": conversion.as_of_date.isoformat(),
         "source_type": conversion.source_type,
         "opening_capital": float(conversion.opening_capital),
@@ -2861,12 +3416,13 @@ async def create_single_entry_conversion(session: AsyncSession, user_id: str, co
         "conversion_status": conversion.conversion_status,
         "prepared_by": conversion.prepared_by,
         "notes": conversion.notes,
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     await session.run(query, params)
 
     return SingleEntryConversionInDB(
-        id=conv_id, user_id=user_id,
+        id=conv_id,
+        user_id=user_id,
         as_of_date=conversion.as_of_date,
         source_type=conversion.source_type,
         opening_capital=conversion.opening_capital,
@@ -2879,15 +3435,17 @@ async def create_single_entry_conversion(session: AsyncSession, user_id: str, co
         closing_cash=conversion.closing_cash,
         drawings=conversion.drawings,
         additional_capital=conversion.additional_capital,
-        net_profit=net_profit, net_loss=net_loss,
+        net_profit=net_profit,
+        net_loss=net_loss,
         profit_or_loss=profit_or_loss,
         total_receipts=conversion.total_receipts,
         total_payments=conversion.total_payments,
         generated_journal_entries=conversion.generated_journal_entries,
         conversion_status=conversion.conversion_status,
         prepared_by=conversion.prepared_by,
-        notes=conversion.notes
+        notes=conversion.notes,
     )
+
 
 async def get_single_entry_conversions(session: AsyncSession, user_id: str) -> List[SingleEntryConversionInDB]:
     """Get all Single Entry Conversions"""
@@ -2900,36 +3458,42 @@ async def get_single_entry_conversions(session: AsyncSession, user_id: str) -> L
     conversions = []
     async for record in result:
         sec = record["sec"]
-        conversions.append(SingleEntryConversionInDB(
-            id=sec["id"], user_id=user_id,
-            as_of_date=datetime.fromisoformat(sec["as_of_date"].iso_format()).date(),
-            source_type=sec["source_type"],
-            opening_capital=Decimal(str(sec["opening_capital"])),
-            opening_debtors=Decimal(str(sec["opening_debtors"])),
-            opening_creditors=Decimal(str(sec["opening_creditors"])),
-            opening_cash=Decimal(str(sec["opening_cash"])),
-            closing_capital=Decimal(str(sec["closing_capital"])),
-            closing_debtors=Decimal(str(sec["closing_debtors"])),
-            closing_creditors=Decimal(str(sec["closing_creditors"])),
-            closing_cash=Decimal(str(sec["closing_cash"])),
-            drawings=Decimal(str(sec["drawings"])),
-            additional_capital=Decimal(str(sec["additional_capital"])),
-            net_profit=Decimal(str(sec["net_profit"])),
-            net_loss=Decimal(str(sec["net_loss"])),
-            profit_or_loss=sec["profit_or_loss"],
-            total_receipts=Decimal(str(sec["total_receipts"])),
-            total_payments=Decimal(str(sec["total_payments"])),
-            generated_journal_entries=sec["generated_journal_entries"],
-            conversion_status=sec["conversion_status"],
-            prepared_by=sec["prepared_by"],
-            notes=sec["notes"]
-        ))
+        conversions.append(
+            SingleEntryConversionInDB(
+                id=sec["id"],
+                user_id=user_id,
+                as_of_date=datetime.fromisoformat(sec["as_of_date"].iso_format()).date(),
+                source_type=sec["source_type"],
+                opening_capital=Decimal(str(sec["opening_capital"])),
+                opening_debtors=Decimal(str(sec["opening_debtors"])),
+                opening_creditors=Decimal(str(sec["opening_creditors"])),
+                opening_cash=Decimal(str(sec["opening_cash"])),
+                closing_capital=Decimal(str(sec["closing_capital"])),
+                closing_debtors=Decimal(str(sec["closing_debtors"])),
+                closing_creditors=Decimal(str(sec["closing_creditors"])),
+                closing_cash=Decimal(str(sec["closing_cash"])),
+                drawings=Decimal(str(sec["drawings"])),
+                additional_capital=Decimal(str(sec["additional_capital"])),
+                net_profit=Decimal(str(sec["net_profit"])),
+                net_loss=Decimal(str(sec["net_loss"])),
+                profit_or_loss=sec["profit_or_loss"],
+                total_receipts=Decimal(str(sec["total_receipts"])),
+                total_payments=Decimal(str(sec["total_payments"])),
+                generated_journal_entries=sec["generated_journal_entries"],
+                conversion_status=sec["conversion_status"],
+                prepared_by=sec["prepared_by"],
+                notes=sec["notes"],
+            )
+        )
     return conversions
 
 
 # --- Profit Estimation CRUD ---
 
-async def create_profit_estimation(session: AsyncSession, user_id: str, estimation: ProfitEstimationInDB) -> ProfitEstimationInDB:
+
+async def create_profit_estimation(
+    session: AsyncSession, user_id: str, estimation: ProfitEstimationInDB
+) -> ProfitEstimationInDB:
     """Create Profit Estimation - calculates profit/loss from capital changes"""
     est_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -2941,14 +3505,14 @@ async def create_profit_estimation(session: AsyncSession, user_id: str, estimati
 
     if net_profit > 0:
         profit_or_loss = "profit"
-        net_loss = Decimal('0.00')
+        net_loss = Decimal("0.00")
     elif net_profit < 0:
         profit_or_loss = "loss"
         net_loss = abs(net_profit)
-        net_profit = Decimal('0.00')
+        net_profit = Decimal("0.00")
     else:
         profit_or_loss = "none"
-        net_loss = Decimal('0.00')
+        net_loss = Decimal("0.00")
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -2973,7 +3537,8 @@ async def create_profit_estimation(session: AsyncSession, user_id: str, estimati
     RETURN pe
     """
     params = {
-        "id": est_id, "user_id": user_id,
+        "id": est_id,
+        "user_id": user_id,
         "as_of_date": estimation.as_of_date.isoformat(),
         "period_start": estimation.period_start.isoformat(),
         "period_end": estimation.period_end.isoformat(),
@@ -2987,12 +3552,13 @@ async def create_profit_estimation(session: AsyncSession, user_id: str, estimati
         "profit_or_loss": profit_or_loss,
         "prepared_by": estimation.prepared_by,
         "notes": estimation.notes,
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     await session.run(query, params)
 
     return ProfitEstimationInDB(
-        id=est_id, user_id=user_id,
+        id=est_id,
+        user_id=user_id,
         as_of_date=estimation.as_of_date,
         period_start=estimation.period_start,
         period_end=estimation.period_end,
@@ -3001,11 +3567,13 @@ async def create_profit_estimation(session: AsyncSession, user_id: str, estimati
         additional_capital=estimation.additional_capital,
         drawings=estimation.drawings,
         calculated_capital_increase=calculated_capital_increase,
-        net_profit=net_profit, net_loss=net_loss,
+        net_profit=net_profit,
+        net_loss=net_loss,
         profit_or_loss=profit_or_loss,
         prepared_by=estimation.prepared_by,
-        notes=estimation.notes
+        notes=estimation.notes,
     )
+
 
 async def get_profit_estimations(session: AsyncSession, user_id: str) -> List[ProfitEstimationInDB]:
     """Get all Profit Estimations"""
@@ -3018,22 +3586,25 @@ async def get_profit_estimations(session: AsyncSession, user_id: str) -> List[Pr
     estimations = []
     async for record in result:
         pe = record["pe"]
-        estimations.append(ProfitEstimationInDB(
-            id=pe["id"], user_id=user_id,
-            as_of_date=datetime.fromisoformat(pe["as_of_date"].iso_format()).date(),
-            period_start=datetime.fromisoformat(pe["period_start"].iso_format()).date(),
-            period_end=datetime.fromisoformat(pe["period_end"].iso_format()).date(),
-            opening_capital=Decimal(str(pe["opening_capital"])),
-            closing_capital=Decimal(str(pe["closing_capital"])),
-            additional_capital=Decimal(str(pe["additional_capital"])),
-            drawings=Decimal(str(pe["drawings"])),
-            calculated_capital_increase=Decimal(str(pe["calculated_capital_increase"])),
-            net_profit=Decimal(str(pe["net_profit"])),
-            net_loss=Decimal(str(pe["net_loss"])),
-            profit_or_loss=pe["profit_or_loss"],
-            prepared_by=pe["prepared_by"],
-            notes=pe["notes"]
-        ))
+        estimations.append(
+            ProfitEstimationInDB(
+                id=pe["id"],
+                user_id=user_id,
+                as_of_date=datetime.fromisoformat(pe["as_of_date"].iso_format()).date(),
+                period_start=datetime.fromisoformat(pe["period_start"].iso_format()).date(),
+                period_end=datetime.fromisoformat(pe["period_end"].iso_format()).date(),
+                opening_capital=Decimal(str(pe["opening_capital"])),
+                closing_capital=Decimal(str(pe["closing_capital"])),
+                additional_capital=Decimal(str(pe["additional_capital"])),
+                drawings=Decimal(str(pe["drawings"])),
+                calculated_capital_increase=Decimal(str(pe["calculated_capital_increase"])),
+                net_profit=Decimal(str(pe["net_profit"])),
+                net_loss=Decimal(str(pe["net_loss"])),
+                profit_or_loss=pe["profit_or_loss"],
+                prepared_by=pe["prepared_by"],
+                notes=pe["notes"],
+            )
+        )
     return estimations
 
 
@@ -3042,6 +3613,7 @@ async def get_profit_estimations(session: AsyncSession, user_id: str) -> List[Pr
 # Every change to financial data is recorded as an Audit_Event node
 # linked to the affected data and the User who made the change
 # ============================================================
+
 
 async def create_audit_event(
     session: AsyncSession,
@@ -3052,7 +3624,7 @@ async def create_audit_event(
     resource_id: str,
     action_details: Optional[Dict[str, Any]] = None,
     ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None
+    user_agent: Optional[str] = None,
 ) -> AuditEventInDB:
     """Create an immutable audit event - records a change to any financial data"""
     audit_id = str(uuid.uuid4())
@@ -3085,7 +3657,7 @@ async def create_audit_event(
         "action_details": str(action_details) if action_details else None,
         "ip_address": ip_address,
         "user_agent": user_agent,
-        "timestamp": timestamp.isoformat()
+        "timestamp": timestamp.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
@@ -3101,15 +3673,12 @@ async def create_audit_event(
         action_details=eval(ae["action_details"]) if ae["action_details"] else None,
         ip_address=ae["ip_address"],
         user_agent=ae["user_agent"],
-        timestamp=datetime.fromisoformat(ae["timestamp"].iso_format())
+        timestamp=datetime.fromisoformat(ae["timestamp"].iso_format()),
     )
 
 
 async def get_audit_trail(
-    session: AsyncSession,
-    resource_type: str,
-    resource_id: str,
-    limit: int = 100
+    session: AsyncSession, resource_type: str, resource_id: str, limit: int = 100
 ) -> AuditTrailResponse:
     """Get complete audit trail for a specific resource"""
     query = """
@@ -3124,32 +3693,28 @@ async def get_audit_trail(
     events = []
     async for record in result:
         ae = record["ae"]
-        events.append(AuditEventInDB(
-            id=ae["id"],
-            user_id=ae["user_id"],
-            user_email=record["user_email"],
-            event_type=ae["event_type"],
-            resource_type=ae["resource_type"],
-            resource_id=ae["resource_id"],
-            action_details=eval(ae["action_details"]) if ae["action_details"] else None,
-            ip_address=ae["ip_address"],
-            user_agent=ae["user_agent"],
-            timestamp=datetime.fromisoformat(ae["timestamp"].iso_format())
-        ))
+        events.append(
+            AuditEventInDB(
+                id=ae["id"],
+                user_id=ae["user_id"],
+                user_email=record["user_email"],
+                event_type=ae["event_type"],
+                resource_type=ae["resource_type"],
+                resource_id=ae["resource_id"],
+                action_details=eval(ae["action_details"]) if ae["action_details"] else None,
+                ip_address=ae["ip_address"],
+                user_agent=ae["user_agent"],
+                timestamp=datetime.fromisoformat(ae["timestamp"].iso_format()),
+            )
+        )
 
     return AuditTrailResponse(
-        resource_id=resource_id,
-        resource_type=resource_type,
-        events=events,
-        total_events=len(events)
+        resource_id=resource_id, resource_type=resource_type, events=events, total_events=len(events)
     )
 
 
 async def get_user_audit_history(
-    session: AsyncSession,
-    user_id: str,
-    event_type: Optional[str] = None,
-    limit: int = 100
+    session: AsyncSession, user_id: str, event_type: Optional[str] = None, limit: int = 100
 ) -> List[AuditEventInDB]:
     """Get audit history for a specific user"""
     type_filter = "AND ae.event_type = $event_type" if event_type else ""
@@ -3169,18 +3734,20 @@ async def get_user_audit_history(
     events = []
     async for record in result:
         ae = record["ae"]
-        events.append(AuditEventInDB(
-            id=ae["id"],
-            user_id=ae["user_id"],
-            user_email=ae["user_email"],
-            event_type=ae["event_type"],
-            resource_type=ae["resource_type"],
-            resource_id=ae["resource_id"],
-            action_details=eval(ae["action_details"]) if ae["action_details"] else None,
-            ip_address=ae["ip_address"],
-            user_agent=ae["user_agent"],
-            timestamp=datetime.fromisoformat(ae["timestamp"].iso_format())
-        ))
+        events.append(
+            AuditEventInDB(
+                id=ae["id"],
+                user_id=ae["user_id"],
+                user_email=ae["user_email"],
+                event_type=ae["event_type"],
+                resource_type=ae["resource_type"],
+                resource_id=ae["resource_id"],
+                action_details=eval(ae["action_details"]) if ae["action_details"] else None,
+                ip_address=ae["ip_address"],
+                user_agent=ae["user_agent"],
+                timestamp=datetime.fromisoformat(ae["timestamp"].iso_format()),
+            )
+        )
     return events
 
 
@@ -3191,7 +3758,10 @@ async def get_user_audit_history(
 
 # --- Project Dimension CRUD ---
 
-async def create_project_dimension(session: AsyncSession, user_id: str, project: ProjectDimensionCreate) -> ProjectDimensionInDB:
+
+async def create_project_dimension(
+    session: AsyncSession, user_id: str, project: ProjectDimensionCreate
+) -> ProjectDimensionInDB:
     """Create a Project dimension for tracking expenses/revenues by project"""
     project_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -3228,7 +3798,7 @@ async def create_project_dimension(session: AsyncSession, user_id: str, project:
         "description": project.description,
         "parent_project_id": project.parent_project_id,
         "created_at": created_at.isoformat(),
-        "updated_at": created_at.isoformat()
+        "updated_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
@@ -3247,7 +3817,7 @@ async def create_project_dimension(session: AsyncSession, user_id: str, project:
         description=p["description"],
         parent_project_id=p["parent_project_id"],
         created_at=datetime.fromisoformat(p["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(p["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(p["updated_at"].iso_format()),
     )
 
 
@@ -3268,25 +3838,28 @@ async def get_projects(session: AsyncSession, user_id: str, status: Optional[str
     projects = []
     async for record in result:
         p = record["p"]
-        projects.append(ProjectDimensionInDB(
-            id=p["id"],
-            user_id=user_id,
-            project_code=p["project_code"],
-            project_name=p["project_name"],
-            project_manager=p["project_manager"],
-            start_date=datetime.fromisoformat(p["start_date"].iso_format()).date() if p["start_date"] else None,
-            end_date=datetime.fromisoformat(p["end_date"].iso_format()).date() if p["end_date"] else None,
-            budget_allocated=Decimal(str(p["budget_allocated"])) if p["budget_allocated"] else None,
-            status=p["status"],
-            description=p["description"],
-            parent_project_id=p["parent_project_id"],
-            created_at=datetime.fromisoformat(p["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(p["updated_at"].iso_format())
-        ))
+        projects.append(
+            ProjectDimensionInDB(
+                id=p["id"],
+                user_id=user_id,
+                project_code=p["project_code"],
+                project_name=p["project_name"],
+                project_manager=p["project_manager"],
+                start_date=datetime.fromisoformat(p["start_date"].iso_format()).date() if p["start_date"] else None,
+                end_date=datetime.fromisoformat(p["end_date"].iso_format()).date() if p["end_date"] else None,
+                budget_allocated=Decimal(str(p["budget_allocated"])) if p["budget_allocated"] else None,
+                status=p["status"],
+                description=p["description"],
+                parent_project_id=p["parent_project_id"],
+                created_at=datetime.fromisoformat(p["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(p["updated_at"].iso_format()),
+            )
+        )
     return projects
 
 
 # --- Fund Dimension CRUD ---
+
 
 async def create_fund_dimension(session: AsyncSession, user_id: str, fund: FundDimensionCreate) -> FundDimensionInDB:
     """Create a Fund dimension for nonprofit/government fund accounting"""
@@ -3323,7 +3896,7 @@ async def create_fund_dimension(session: AsyncSession, user_id: str, fund: FundD
         "parent_fund_id": fund.parent_fund_id,
         "description": fund.description,
         "created_at": created_at.isoformat(),
-        "updated_at": created_at.isoformat()
+        "updated_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
@@ -3341,7 +3914,7 @@ async def create_fund_dimension(session: AsyncSession, user_id: str, fund: FundD
         parent_fund_id=f["parent_fund_id"],
         description=f["description"],
         created_at=datetime.fromisoformat(f["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(f["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(f["updated_at"].iso_format()),
     )
 
 
@@ -3362,26 +3935,31 @@ async def get_funds(session: AsyncSession, user_id: str, fund_type: Optional[str
     funds = []
     async for record in result:
         f = record["f"]
-        funds.append(FundDimensionInDB(
-            id=f["id"],
-            user_id=user_id,
-            fund_code=f["fund_code"],
-            fund_name=f["fund_name"],
-            fund_type=f["fund_type"],
-            restriction_level=f["restriction_level"],
-            balance=Decimal(str(f["balance"])),
-            budget_allocated=Decimal(str(f["budget_allocated"])) if f["budget_allocated"] else None,
-            parent_fund_id=f["parent_fund_id"],
-            description=f["description"],
-            created_at=datetime.fromisoformat(f["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(f["updated_at"].iso_format())
-        ))
+        funds.append(
+            FundDimensionInDB(
+                id=f["id"],
+                user_id=user_id,
+                fund_code=f["fund_code"],
+                fund_name=f["fund_name"],
+                fund_type=f["fund_type"],
+                restriction_level=f["restriction_level"],
+                balance=Decimal(str(f["balance"])),
+                budget_allocated=Decimal(str(f["budget_allocated"])) if f["budget_allocated"] else None,
+                parent_fund_id=f["parent_fund_id"],
+                description=f["description"],
+                created_at=datetime.fromisoformat(f["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(f["updated_at"].iso_format()),
+            )
+        )
     return funds
 
 
 # --- Department Dimension CRUD ---
 
-async def create_department_dimension(session: AsyncSession, user_id: str, dept: DepartmentDimensionCreate) -> DepartmentDimensionInDB:
+
+async def create_department_dimension(
+    session: AsyncSession, user_id: str, dept: DepartmentDimensionCreate
+) -> DepartmentDimensionInDB:
     """Create a Department dimension for tracking by organizational unit"""
     dept_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -3414,7 +3992,7 @@ async def create_department_dimension(session: AsyncSession, user_id: str, dept:
         "budget_allocated": float(dept.budget_allocated) if dept.budget_allocated else None,
         "description": dept.description,
         "created_at": created_at.isoformat(),
-        "updated_at": created_at.isoformat()
+        "updated_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
@@ -3431,7 +4009,7 @@ async def create_department_dimension(session: AsyncSession, user_id: str, dept:
         budget_allocated=Decimal(str(d["budget_allocated"])) if d["budget_allocated"] else None,
         description=d["description"],
         created_at=datetime.fromisoformat(d["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(d["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(d["updated_at"].iso_format()),
     )
 
 
@@ -3446,25 +4024,30 @@ async def get_departments(session: AsyncSession, user_id: str) -> List[Departmen
     departments = []
     async for record in result:
         d = record["d"]
-        departments.append(DepartmentDimensionInDB(
-            id=d["id"],
-            user_id=user_id,
-            department_code=d["department_code"],
-            department_name=d["department_name"],
-            head_name=d["head_name"],
-            cost_center_code=d["cost_center_code"],
-            parent_department_id=d["parent_department_id"],
-            budget_allocated=Decimal(str(d["budget_allocated"])) if d["budget_allocated"] else None,
-            description=d["description"],
-            created_at=datetime.fromisoformat(d["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(d["updated_at"].iso_format())
-        ))
+        departments.append(
+            DepartmentDimensionInDB(
+                id=d["id"],
+                user_id=user_id,
+                department_code=d["department_code"],
+                department_name=d["department_name"],
+                head_name=d["head_name"],
+                cost_center_code=d["cost_center_code"],
+                parent_department_id=d["parent_department_id"],
+                budget_allocated=Decimal(str(d["budget_allocated"])) if d["budget_allocated"] else None,
+                description=d["description"],
+                created_at=datetime.fromisoformat(d["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(d["updated_at"].iso_format()),
+            )
+        )
     return departments
 
 
 # --- Location Dimension CRUD ---
 
-async def create_location_dimension(session: AsyncSession, user_id: str, loc: LocationDimensionCreate) -> LocationDimensionInDB:
+
+async def create_location_dimension(
+    session: AsyncSession, user_id: str, loc: LocationDimensionCreate
+) -> LocationDimensionInDB:
     """Create a Location dimension for geographic/physical location tracking"""
     loc_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -3499,7 +4082,7 @@ async def create_location_dimension(session: AsyncSession, user_id: str, loc: Lo
         "postal_code": loc.postal_code,
         "region": loc.region,
         "created_at": created_at.isoformat(),
-        "updated_at": created_at.isoformat()
+        "updated_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
@@ -3517,11 +4100,13 @@ async def create_location_dimension(session: AsyncSession, user_id: str, loc: Lo
         postal_code=l["postal_code"],
         region=l["region"],
         created_at=datetime.fromisoformat(l["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(l["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(l["updated_at"].iso_format()),
     )
 
 
-async def get_locations(session: AsyncSession, user_id: str, region: Optional[str] = None) -> List[LocationDimensionInDB]:
+async def get_locations(
+    session: AsyncSession, user_id: str, region: Optional[str] = None
+) -> List[LocationDimensionInDB]:
     """Get all locations"""
     region_filter = "AND l.region = $region" if region else ""
     query = f"""
@@ -3538,30 +4123,30 @@ async def get_locations(session: AsyncSession, user_id: str, region: Optional[st
     locations = []
     async for record in result:
         l = record["l"]
-        locations.append(LocationDimensionInDB(
-            id=l["id"],
-            user_id=user_id,
-            location_code=l["location_code"],
-            location_name=l["location_name"],
-            address=l["address"],
-            city=l["city"],
-            state=l["state"],
-            country=l["country"],
-            postal_code=l["postal_code"],
-            region=l["region"],
-            created_at=datetime.fromisoformat(l["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(l["updated_at"].iso_format())
-        ))
+        locations.append(
+            LocationDimensionInDB(
+                id=l["id"],
+                user_id=user_id,
+                location_code=l["location_code"],
+                location_name=l["location_name"],
+                address=l["address"],
+                city=l["city"],
+                state=l["state"],
+                country=l["country"],
+                postal_code=l["postal_code"],
+                region=l["region"],
+                created_at=datetime.fromisoformat(l["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(l["updated_at"].iso_format()),
+            )
+        )
     return locations
 
 
 # --- Journal Entry Dimension Linkage ---
 
+
 async def link_journal_entry_to_dimension(
-    session: AsyncSession,
-    journal_entry_id: str,
-    dimension_type: str,
-    dimension_id: str
+    session: AsyncSession, journal_entry_id: str, dimension_type: str, dimension_id: str
 ) -> bool:
     """Link a journal entry to a dimension (project, fund, department, location)"""
     query = """
@@ -3585,6 +4170,8 @@ async def link_journal_entry_to_dimension(
     CREATE (je)-[:LINKED_TO]->(d)
     RETURN true as linked
     """
-    result = await session.run(query, journal_entry_id=journal_entry_id, dimension_type=dimension_type, dimension_id=dimension_id)
+    result = await session.run(
+        query, journal_entry_id=journal_entry_id, dimension_type=dimension_type, dimension_id=dimension_id
+    )
     record = await result.single()
     return record is not None and record.get("linked", False)

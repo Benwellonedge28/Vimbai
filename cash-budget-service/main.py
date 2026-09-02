@@ -3,14 +3,17 @@ Cash Budget Service
 Port: 8171
 Cash receipts and payments budget, financing requirements
 """
+
+from typing import Any, Dict, List, Optional
+
 import httpx
 import structlog
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
 from fastapi import FastAPI
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="Cash Budget Service", version="1.0.0")
+
 
 class CashBudgetItem(BaseModel):
     item_id: str
@@ -18,6 +21,7 @@ class CashBudgetItem(BaseModel):
     description: str
     amount: float
     timing: str
+
 
 class CashBudgetRequest(BaseModel):
     company_id: str
@@ -27,6 +31,7 @@ class CashBudgetRequest(BaseModel):
     expected_receipts: List[CashBudgetItem]
     expected_payments: List[CashBudgetItem]
 
+
 class CashBudgetPeriod(BaseModel):
     period: str
     opening_balance: float
@@ -35,6 +40,7 @@ class CashBudgetPeriod(BaseModel):
     closing_balance: float
     financing: float
     cumulative_cash: float
+
 
 class CashBudgetResponse(BaseModel):
     company_id: str
@@ -47,6 +53,7 @@ class CashBudgetResponse(BaseModel):
     peak_financing_required: float
     total_financing_cost: float
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -57,9 +64,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "cash-budget", "version": "1.0.0"}
+
 
 @app.post("/prepare", response_model=CashBudgetResponse)
 async def prepare_cash_budget(request: CashBudgetRequest):
@@ -90,15 +99,17 @@ async def prepare_cash_budget(request: CashBudgetRequest):
         total_receipts += receipts
         total_payments += payments
 
-        periods.append(CashBudgetPeriod(
-            period=f"Month {i}",
-            opening_balance=opening,
-            receipts=receipts,
-            payments=payments,
-            closing_balance=closing,
-            financing=financing,
-            cumulative_cash=cumulative
-        ))
+        periods.append(
+            CashBudgetPeriod(
+                period=f"Month {i}",
+                opening_balance=opening,
+                receipts=receipts,
+                payments=payments,
+                closing_balance=closing,
+                financing=financing,
+                cumulative_cash=cumulative,
+            )
+        )
 
         opening = closing
 
@@ -111,9 +122,11 @@ async def prepare_cash_budget(request: CashBudgetRequest):
         net_cash_flow=total_receipts - total_payments,
         minimum_cash_balance=request.minimum_cash_balance,
         peak_financing_required=peak_financing,
-        total_financing_cost=peak_financing * 0.05
+        total_financing_cost=peak_financing * 0.05,
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8171)

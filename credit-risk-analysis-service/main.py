@@ -3,15 +3,18 @@ Credit Risk Analysis Service
 Port: 8163
 Credit scoring, probability of default, loss given default, exposure at default
 """
-import httpx
-import structlog
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+
+import httpx
+import structlog
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="Credit Risk Analysis Service", version="1.0.0")
+
 
 # Pydantic Models
 class BorrowerFinancials(BaseModel):
@@ -26,6 +29,7 @@ class BorrowerFinancials(BaseModel):
     guarantee_value: float
     repayment_terms: str
 
+
 class FinancialRatios(BaseModel):
     borrower_id: str
     debt_to_equity: float
@@ -37,6 +41,7 @@ class FinancialRatios(BaseModel):
     operating_cash_flow: float
     free_cash_flow: float
 
+
 class QualitativeFactors(BaseModel):
     borrower_id: str
     industry_outlook: str  # "positive", "stable", "negative"
@@ -45,12 +50,14 @@ class QualitativeFactors(BaseModel):
     regulatory_environment: str
     competitive_advantage: str
 
+
 class CreditRiskRequest(BaseModel):
     borrower: BorrowerFinancials
     financials: FinancialRatios
     qualitative: QualitativeFactors
     credit_period_days: int = 365
     rating_model: str = "internal"  # "internal", "regulatory"
+
 
 class PDCalculation(BaseModel):
     borrower_id: str
@@ -60,6 +67,7 @@ class PDCalculation(BaseModel):
     shadow_rating: str
     rating_grade: str
     rating_agency_equivalent: str
+
 
 class LGDCalculation(BaseModel):
     borrower_id: str
@@ -71,6 +79,7 @@ class LGDCalculation(BaseModel):
     secured_exposure: float
     unsecured_exposure: float
 
+
 class EADCalculation(BaseModel):
     borrower_id: str
     current_drawdown: float
@@ -78,6 +87,7 @@ class EADCalculation(BaseModel):
     conversion_factor: float
     exposure_at_default: float
     potential_future_exposure: float
+
 
 class ExpectedLossCalculation(BaseModel):
     borrower_id: str
@@ -87,6 +97,7 @@ class ExpectedLossCalculation(BaseModel):
     expected_loss: float
     unexpected_loss: float
     economic_capital: float
+
 
 class CreditRiskResponse(BaseModel):
     borrower_id: str
@@ -100,6 +111,7 @@ class CreditRiskResponse(BaseModel):
     risk_adjusted_return: float
     recommendation: str
     covenants_required: List[str]
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     """Call another internal Vimbai service."""
@@ -115,9 +127,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "credit-risk-analysis", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=CreditRiskResponse)
 async def analyze_credit_risk(request: CreditRiskRequest):
@@ -224,12 +238,14 @@ async def analyze_credit_risk(request: CreditRiskRequest):
         lifetime_pd=lifetime_pd,
         shadow_rating=rating,
         rating_grade=grade,
-        rating_agency_equivalent=rating
+        rating_agency_equivalent=rating,
     )
 
     # LGD calculations
     total_security = request.borrower.collateral_value + request.borrower.guarantee_value
-    recovery_rate = min(0.9, total_security / request.borrower.total_exposure) if request.borrower.total_exposure > 0 else 0.1
+    recovery_rate = (
+        min(0.9, total_security / request.borrower.total_exposure) if request.borrower.total_exposure > 0 else 0.1
+    )
     lgd = 1 - recovery_rate
 
     secured_exposure = min(request.borrower.current_exposure, request.borrower.collateral_value)
@@ -243,7 +259,7 @@ async def analyze_credit_risk(request: CreditRiskRequest):
         recovery_rate=recovery_rate,
         loss_given_default=lgd,
         secured_exposure=secured_exposure,
-        unsecured_exposure=unsecured_exposure
+        unsecured_exposure=unsecured_exposure,
     )
 
     # EAD calculations
@@ -262,7 +278,7 @@ async def analyze_credit_risk(request: CreditRiskRequest):
         undrawn_committed=request.borrower.undrawn_committed,
         conversion_factor=conversion_factor,
         exposure_at_default=ead,
-        potential_future_exposure=request.borrower.undrawn_committed * 0.5
+        potential_future_exposure=request.borrower.undrawn_committed * 0.5,
     )
 
     # Expected Loss
@@ -277,7 +293,7 @@ async def analyze_credit_risk(request: CreditRiskRequest):
         exposure_at_default=ead,
         expected_loss=expected_loss,
         unexpected_loss=unexpected_loss,
-        economic_capital=economic_capital
+        economic_capital=economic_capital,
     )
 
     # Recommendation
@@ -301,25 +317,27 @@ async def analyze_credit_risk(request: CreditRiskRequest):
         ead_calculations=ead_calc,
         expected_loss_calculations=el_calc,
         total_expected_loss=expected_loss,
-        risk_adjusted_return=(request.borrower.current_exposure * 0.08 - expected_loss) / request.borrower.current_exposure * 100 if request.borrower.current_exposure > 0 else 0,
+        risk_adjusted_return=(
+            (request.borrower.current_exposure * 0.08 - expected_loss) / request.borrower.current_exposure * 100
+            if request.borrower.current_exposure > 0
+            else 0
+        ),
         recommendation=recommendation,
-        covenants_required=covenants
+        covenants_required=covenants,
     )
 
     logger.info("Credit risk analysis complete", borrower=request.borrower.borrower_name, rating=rating)
     return response
 
+
 @app.post("/pd-historical")
-async def calculate_pd_historical(
-    number_defaults: int,
-    total_observations: int,
-    confidence_level: float = 0.95
-):
+async def calculate_pd_historical(number_defaults: int, total_observations: int, confidence_level: float = 0.95):
     """Calculate historical probability of default."""
     historical_pd = number_defaults / total_observations if total_observations > 0 else 0
 
     # Confidence interval using binomial distribution approximation
     import math
+
     z = 1.96 if confidence_level == 0.95 else 2.58
     margin = z * math.sqrt(historical_pd * (1 - historical_pd) / total_observations) if total_observations > 0 else 0
 
@@ -330,14 +348,13 @@ async def calculate_pd_historical(
         "confidence_level": confidence_level,
         "lower_bound": max(0, historical_pd - margin),
         "upper_bound": min(1, historical_pd + margin),
-        "adjusted_pd_for_conservatism": historical_pd * 1.1
+        "adjusted_pd_for_conservatism": historical_pd * 1.1,
     }
+
 
 @app.post("/pd-transition-matrix")
 async def generate_transition_matrix(
-    current_rating: str,
-    years_holding: int,
-    transition_matrix: Dict[str, Dict[str, float]]
+    current_rating: str, years_holding: int, transition_matrix: Dict[str, Dict[str, float]]
 ):
     """Calculate probability of default using transition matrix."""
     import numpy as np
@@ -351,15 +368,18 @@ async def generate_transition_matrix(
 
     # Calculate cumulative transition (multi-period)
     # Simplified: raise to power of years
-    cumulative_default_prob = 1 - (1 - 0.001) ** years_holding if current_rating in ["AAA", "AA"] else 1 - (1 - 0.005) ** years_holding
+    cumulative_default_prob = (
+        1 - (1 - 0.001) ** years_holding if current_rating in ["AAA", "AA"] else 1 - (1 - 0.005) ** years_holding
+    )
 
     return {
         "current_rating": current_rating,
         "years_holding": years_holding,
         "cumulative_pd": cumulative_default_prob,
-        "annual_pd": 1 - (1 - cumulative_default_prob) ** (1/years_holding) if years_holding > 0 else 0,
-        "probability_still_investment_grade": cumulative_default_prob * 0.5
+        "annual_pd": 1 - (1 - cumulative_default_prob) ** (1 / years_holding) if years_holding > 0 else 0,
+        "probability_still_investment_grade": cumulative_default_prob * 0.5,
     }
+
 
 @app.post("/lgd-scenario")
 async def calculate_lgd_scenarios(
@@ -367,7 +387,7 @@ async def calculate_lgd_scenarios(
     total_exposure: float,
     recovery_optimistic: float,
     recovery_baseline: float,
-    recovery_pessimistic: float
+    recovery_pessimistic: float,
 ):
     """Calculate LGD under different scenarios."""
     exposure_covered = min(collateral_value, total_exposure)
@@ -377,7 +397,7 @@ async def calculate_lgd_scenarios(
     lgd_baseline = (exposure_uncovered * (1 - recovery_baseline)) / total_exposure
     lgd_pessimistic = (exposure_uncovered * (1 - recovery_pessimistic)) / total_exposure
 
-    expected_lgd = (lgd_optimistic * 0.25 + lgd_baseline * 0.5 + lgd_pessimistic * 0.25)
+    expected_lgd = lgd_optimistic * 0.25 + lgd_baseline * 0.5 + lgd_pessimistic * 0.25
 
     return {
         "collateral_coverage": exposure_covered / total_exposure if total_exposure > 0 else 0,
@@ -385,17 +405,12 @@ async def calculate_lgd_scenarios(
         "lgd_baseline": lgd_baseline,
         "lgd_pessimistic": lgd_pessimistic,
         "expected_lgd": expected_lgd,
-        "worst_case_loss": total_exposure * lgd_pessimistic
+        "worst_case_loss": total_exposure * lgd_pessimistic,
     }
 
+
 @app.post("/expected-credit-loss")
-async def calculate_ecl(
-    pd: float,
-    lgd: float,
-    ead: float,
-    discount_rate: float,
-    time_years: float
-):
+async def calculate_ecl(pd: float, lgd: float, ead: float, discount_rate: float, time_years: float):
     """Calculate expected credit loss with discounting."""
     undiscounted_ecl = pd * lgd * ead
     discounted_ecl = undiscounted_ecl / ((1 + discount_rate) ** time_years)
@@ -408,9 +423,11 @@ async def calculate_ecl(
         "discount_rate": discount_rate,
         "time_years": time_years,
         "discounted_ecl": discounted_ecl,
-        "ecl_as_percentage_of_ead": discounted_ecl / ead * 100 if ead > 0 else 0
+        "ecl_as_percentage_of_ead": discounted_ecl / ead * 100 if ead > 0 else 0,
     }
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8163)

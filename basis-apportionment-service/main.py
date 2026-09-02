@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Basis of Apportionment Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class ApportionmentBasis(str):
@@ -101,9 +109,7 @@ async def root():
 @app.post("/rules/create")
 async def create_apportionment_rule(cost_type: str, basis: str, description: str):
     """Create an apportionment rule."""
-    rule = ApportionmentRule(
-        cost_type=cost_type, basis=basis, description=description
-    )
+    rule = ApportionmentRule(cost_type=cost_type, basis=basis, description=description)
     apportionment_rules.append(rule)
     return rule
 
@@ -116,13 +122,12 @@ async def list_apportionment_rules():
 
 @app.post("/apportion/floor-area")
 async def apportion_by_floor_area(
-    cost_type: str, total_cost: float,
-    cost_centre_data: List[Dict[str, Any]]  # [{cost_centre_id, cost_centre_name, floor_area}]
+    cost_type: str,
+    total_cost: float,
+    cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, floor_area}]
 ):
     """Apportion costs by floor area."""
-    result = ApportionmentResult(
-        cost_type=cost_type, total_cost=total_cost, basis="floor_area"
-    )
+    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="floor_area")
 
     total_floor_area = sum(c.get("floor_area", 0) for c in cost_centre_data)
 
@@ -131,13 +136,15 @@ async def apportion_by_floor_area(
         if total_floor_area > 0:
             proportion = floor_area / total_floor_area
             apportioned_cost = total_cost * proportion
-            result.cost_centres.append({
-                "cost_centre_id": centre["cost_centre_id"],
-                "cost_centre_name": centre["cost_centre_name"],
-                "floor_area": floor_area,
-                "proportion": proportion,
-                "apportioned_cost": apportioned_cost
-            })
+            result.cost_centres.append(
+                {
+                    "cost_centre_id": centre["cost_centre_id"],
+                    "cost_centre_name": centre["cost_centre_name"],
+                    "floor_area": floor_area,
+                    "proportion": proportion,
+                    "apportioned_cost": apportioned_cost,
+                }
+            )
             result.total_apportioned += apportioned_cost
 
     result.unapportioned = total_cost - result.total_apportioned
@@ -147,13 +154,12 @@ async def apportion_by_floor_area(
 
 @app.post("/apportion/volume")
 async def apportion_by_volume(
-    cost_type: str, total_cost: float,
-    cost_centre_data: List[Dict[str, Any]]  # [{cost_centre_id, cost_centre_name, volume}]
+    cost_type: str,
+    total_cost: float,
+    cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, volume}]
 ):
     """Apportion costs by volume (space occupied)."""
-    result = ApportionmentResult(
-        cost_type=cost_type, total_cost=total_cost, basis="volume"
-    )
+    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="volume")
 
     total_volume = sum(c.get("volume", 0) for c in cost_centre_data)
 
@@ -162,13 +168,15 @@ async def apportion_by_volume(
         if total_volume > 0:
             proportion = volume / total_volume
             apportioned_cost = total_cost * proportion
-            result.cost_centres.append({
-                "cost_centre_id": centre["cost_centre_id"],
-                "cost_centre_name": centre["cost_centre_name"],
-                "volume": volume,
-                "proportion": proportion,
-                "apportioned_cost": apportioned_cost
-            })
+            result.cost_centres.append(
+                {
+                    "cost_centre_id": centre["cost_centre_id"],
+                    "cost_centre_name": centre["cost_centre_name"],
+                    "volume": volume,
+                    "proportion": proportion,
+                    "apportioned_cost": apportioned_cost,
+                }
+            )
             result.total_apportioned += apportioned_cost
 
     result.unapportioned = total_cost - result.total_apportioned
@@ -178,13 +186,12 @@ async def apportion_by_volume(
 
 @app.post("/apportion/cost")
 async def apportion_by_cost(
-    cost_type: str, total_cost: float,
-    cost_centre_data: List[Dict[str, Any]]  # [{cost_centre_id, cost_centre_name, asset_cost}]
+    cost_type: str,
+    total_cost: float,
+    cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, asset_cost}]
 ):
     """Apportion costs by cost/value of assets."""
-    result = ApportionmentResult(
-        cost_type=cost_type, total_cost=total_cost, basis="cost"
-    )
+    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="cost")
 
     total_asset_cost = sum(c.get("asset_cost", 0) for c in cost_centre_data)
 
@@ -193,13 +200,15 @@ async def apportion_by_cost(
         if total_asset_cost > 0:
             proportion = asset_cost / total_asset_cost
             apportioned_cost = total_cost * proportion
-            result.cost_centres.append({
-                "cost_centre_id": centre["cost_centre_id"],
-                "cost_centre_name": centre["cost_centre_name"],
-                "asset_cost": asset_cost,
-                "proportion": proportion,
-                "apportioned_cost": apportioned_cost
-            })
+            result.cost_centres.append(
+                {
+                    "cost_centre_id": centre["cost_centre_id"],
+                    "cost_centre_name": centre["cost_centre_name"],
+                    "asset_cost": asset_cost,
+                    "proportion": proportion,
+                    "apportioned_cost": apportioned_cost,
+                }
+            )
             result.total_apportioned += apportioned_cost
 
     result.unapportioned = total_cost - result.total_apportioned
@@ -209,13 +218,12 @@ async def apportion_by_cost(
 
 @app.post("/apportion/net-book-value")
 async def apportion_by_net_book_value(
-    cost_type: str, total_cost: float,
-    cost_centre_data: List[Dict[str, Any]]  # [{cost_centre_id, cost_centre_name, nbv}]
+    cost_type: str,
+    total_cost: float,
+    cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, nbv}]
 ):
     """Apportion costs by net book value of machinery."""
-    result = ApportionmentResult(
-        cost_type=cost_type, total_cost=total_cost, basis="net_book_value"
-    )
+    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="net_book_value")
 
     total_nbv = sum(c.get("net_book_value", 0) for c in cost_centre_data)
 
@@ -224,13 +232,15 @@ async def apportion_by_net_book_value(
         if total_nbv > 0:
             proportion = nbv / total_nbv
             apportioned_cost = total_cost * proportion
-            result.cost_centres.append({
-                "cost_centre_id": centre["cost_centre_id"],
-                "cost_centre_name": centre["cost_centre_name"],
-                "net_book_value": nbv,
-                "proportion": proportion,
-                "apportioned_cost": apportioned_cost
-            })
+            result.cost_centres.append(
+                {
+                    "cost_centre_id": centre["cost_centre_id"],
+                    "cost_centre_name": centre["cost_centre_name"],
+                    "net_book_value": nbv,
+                    "proportion": proportion,
+                    "apportioned_cost": apportioned_cost,
+                }
+            )
             result.total_apportioned += apportioned_cost
 
     result.unapportioned = total_cost - result.total_apportioned
@@ -240,13 +250,12 @@ async def apportion_by_net_book_value(
 
 @app.post("/apportion/replacement-value")
 async def apportion_by_replacement_value(
-    cost_type: str, total_cost: float,
-    cost_centre_data: List[Dict[str, Any]]  # [{cost_centre_id, cost_centre_name, replacement_value}]
+    cost_type: str,
+    total_cost: float,
+    cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, replacement_value}]
 ):
     """Apportion costs by replacement value of assets."""
-    result = ApportionmentResult(
-        cost_type=cost_type, total_cost=total_cost, basis="replacement_value"
-    )
+    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="replacement_value")
 
     total_replacement = sum(c.get("replacement_value", 0) for c in cost_centre_data)
 
@@ -255,13 +264,15 @@ async def apportion_by_replacement_value(
         if total_replacement > 0:
             proportion = replacement_value / total_replacement
             apportioned_cost = total_cost * proportion
-            result.cost_centres.append({
-                "cost_centre_id": centre["cost_centre_id"],
-                "cost_centre_name": centre["cost_centre_name"],
-                "replacement_value": replacement_value,
-                "proportion": proportion,
-                "apportioned_cost": apportioned_cost
-            })
+            result.cost_centres.append(
+                {
+                    "cost_centre_id": centre["cost_centre_id"],
+                    "cost_centre_name": centre["cost_centre_name"],
+                    "replacement_value": replacement_value,
+                    "proportion": proportion,
+                    "apportioned_cost": apportioned_cost,
+                }
+            )
             result.total_apportioned += apportioned_cost
 
     result.unapportioned = total_cost - result.total_apportioned
@@ -271,13 +282,12 @@ async def apportion_by_replacement_value(
 
 @app.post("/apportion/personnel")
 async def apportion_by_personnel(
-    cost_type: str, total_cost: float,
-    cost_centre_data: List[Dict[str, Any]]  # [{cost_centre_id, cost_centre_name, number_of_personnel}]
+    cost_type: str,
+    total_cost: float,
+    cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, number_of_personnel}]
 ):
     """Apportion costs by number of personnel."""
-    result = ApportionmentResult(
-        cost_type=cost_type, total_cost=total_cost, basis="number_of_personnel"
-    )
+    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="number_of_personnel")
 
     total_personnel = sum(c.get("number_of_personnel", 0) for c in cost_centre_data)
 
@@ -286,13 +296,15 @@ async def apportion_by_personnel(
         if total_personnel > 0:
             proportion = personnel / total_personnel
             apportioned_cost = total_cost * proportion
-            result.cost_centres.append({
-                "cost_centre_id": centre["cost_centre_id"],
-                "cost_centre_name": centre["cost_centre_name"],
-                "number_of_personnel": personnel,
-                "proportion": proportion,
-                "apportioned_cost": apportioned_cost
-            })
+            result.cost_centres.append(
+                {
+                    "cost_centre_id": centre["cost_centre_id"],
+                    "cost_centre_name": centre["cost_centre_name"],
+                    "number_of_personnel": personnel,
+                    "proportion": proportion,
+                    "apportioned_cost": apportioned_cost,
+                }
+            )
             result.total_apportioned += apportioned_cost
 
     result.unapportioned = total_cost - result.total_apportioned
@@ -302,13 +314,12 @@ async def apportion_by_personnel(
 
 @app.post("/apportion/requisitions")
 async def apportion_by_requisitions(
-    cost_type: str, total_cost: float,
-    cost_centre_data: List[Dict[str, Any]]  # [{cost_centre_id, cost_centre_name, number_of_requisitions}]
+    cost_type: str,
+    total_cost: float,
+    cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, number_of_requisitions}]
 ):
     """Apportion costs by number of requisitions."""
-    result = ApportionmentResult(
-        cost_type=cost_type, total_cost=total_cost, basis="number_of_requisitions"
-    )
+    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="number_of_requisitions")
 
     total_requisitions = sum(c.get("number_of_requisitions", 0) for c in cost_centre_data)
 
@@ -317,13 +328,15 @@ async def apportion_by_requisitions(
         if total_requisitions > 0:
             proportion = requisitions / total_requisitions
             apportioned_cost = total_cost * proportion
-            result.cost_centres.append({
-                "cost_centre_id": centre["cost_centre_id"],
-                "cost_centre_name": centre["cost_centre_name"],
-                "number_of_requisitions": requisitions,
-                "proportion": proportion,
-                "apportioned_cost": apportioned_cost
-            })
+            result.cost_centres.append(
+                {
+                    "cost_centre_id": centre["cost_centre_id"],
+                    "cost_centre_name": centre["cost_centre_name"],
+                    "number_of_requisitions": requisitions,
+                    "proportion": proportion,
+                    "apportioned_cost": apportioned_cost,
+                }
+            )
             result.total_apportioned += apportioned_cost
 
     result.unapportioned = total_cost - result.total_apportioned
@@ -342,4 +355,5 @@ async def list_apportionment_results(cost_type: Optional[str] = None):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

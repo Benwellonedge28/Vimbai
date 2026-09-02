@@ -5,13 +5,14 @@ Supports multiple petty cash funds, reimbursement workflows, and integration
 with main accounting system
 """
 
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone, timedelta
-from enum import Enum
 import uuid
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from pydantic import BaseModel, Field
 
 app = FastAPI(
     title="Vimbai Petty Cash Book Service",
@@ -22,6 +23,7 @@ app = FastAPI(
 # ============================================================================
 # Enums
 # ============================================================================
+
 
 class PettyCashStatus(str, Enum):
     ACTIVE = "active"
@@ -63,6 +65,7 @@ class ReimbursementStatus(str, Enum):
 # ============================================================================
 # Pydantic Models
 # ============================================================================
+
 
 class PettyCashFund(BaseModel):
     id: str
@@ -158,6 +161,7 @@ petty_cash_vouchers: Dict[str, PettyCashVoucher] = {}
 # API Endpoints
 # ============================================================================
 
+
 @app.get("/")
 async def health_check():
     """Health check endpoint"""
@@ -177,6 +181,7 @@ async def health_check():
 
 # --- Fund Management ---
 
+
 @app.post("/funds")
 async def create_petty_cash_fund(fund: PettyCashFund):
     """Create a new petty cash fund"""
@@ -189,10 +194,7 @@ async def create_petty_cash_fund(fund: PettyCashFund):
 
 
 @app.get("/funds")
-async def list_petty_cash_funds(
-    status: Optional[PettyCashStatus] = None,
-    custodian_id: Optional[str] = None
-):
+async def list_petty_cash_funds(status: Optional[PettyCashStatus] = None, custodian_id: Optional[str] = None):
     """List all petty cash funds"""
     results = list(petty_cash_funds.values())
 
@@ -239,11 +241,9 @@ async def close_petty_cash_fund(fund_id: str, closed_by: str):
 
 # --- Transaction Management ---
 
+
 @app.post("/transactions")
-async def create_petty_cash_transaction(
-    transaction: PettyCashTransaction,
-    request: Request = None
-):
+async def create_petty_cash_transaction(transaction: PettyCashTransaction, request: Request = None):
     """Create petty cash transaction"""
     transaction.id = str(uuid.uuid4())
     transaction.created_at = datetime.now(timezone.utc)
@@ -259,8 +259,7 @@ async def create_petty_cash_transaction(
     if transaction.transaction_type == TransactionType.PAYMENT:
         if current_balance - transaction.amount < fund.minimum_balance:
             raise HTTPException(
-                status_code=400,
-                detail=f"Insufficient balance. Minimum balance is {fund.minimum_balance}"
+                status_code=400, detail=f"Insufficient balance. Minimum balance is {fund.minimum_balance}"
             )
 
     petty_cash_transactions[transaction.id] = transaction
@@ -274,7 +273,7 @@ async def list_petty_cash_transactions(
     category: Optional[PaymentCategory] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    limit: int = 100
+    limit: int = 100,
 ):
     """List petty cash transactions"""
     results = list(petty_cash_transactions.values())
@@ -311,13 +310,11 @@ async def get_fund_balance(fund_id: str):
     transactions = [t for t in petty_cash_transactions.values() if t.fund_id == fund_id]
 
     total_receipts = sum(
-        t.amount for t in transactions
+        t.amount
+        for t in transactions
         if t.transaction_type in [TransactionType.RECEIPT, TransactionType.REPLENISHMENT, TransactionType.INITIAL_FUND]
     )
-    total_payments = sum(
-        t.amount for t in transactions
-        if t.transaction_type == TransactionType.PAYMENT
-    )
+    total_payments = sum(t.amount for t in transactions if t.transaction_type == TransactionType.PAYMENT)
 
     return {
         "fund_id": fund_id,
@@ -337,7 +334,11 @@ async def get_fund_summary(fund_id: str):
     transactions = [t for t in petty_cash_transactions.values() if t.fund_id == fund_id]
     balance_info = await get_fund_balance(fund_id)
 
-    receipts = [t for t in transactions if t.transaction_type in [TransactionType.RECEIPT, TransactionType.REPLENISHMENT, TransactionType.INITIAL_FUND]]
+    receipts = [
+        t
+        for t in transactions
+        if t.transaction_type in [TransactionType.RECEIPT, TransactionType.REPLENISHMENT, TransactionType.INITIAL_FUND]
+    ]
     payments = [t for t in transactions if t.transaction_type == TransactionType.PAYMENT]
 
     pending_vouchers = sum(1 for t in transactions if t.status == "pending" if hasattr(t, "status"))
@@ -367,6 +368,7 @@ async def get_fund_summary(fund_id: str):
 
 
 # --- Voucher Management ---
+
 
 @app.post("/vouchers")
 async def create_petty_cash_voucher(voucher: PettyCashVoucher):
@@ -403,7 +405,7 @@ async def list_petty_cash_vouchers(
     fund_id: Optional[str] = None,
     status: Optional[str] = None,
     start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None,
 ):
     """List petty cash vouchers"""
     results = list(petty_cash_vouchers.values())
@@ -436,6 +438,7 @@ async def approve_voucher(voucher_id: str, approved_by: str):
 
 # --- Replenishment ---
 
+
 @app.post("/replenishments")
 async def create_replenishment(replenishment: PettyCashReplenishment):
     """Create replenishment request"""
@@ -454,10 +457,7 @@ async def create_replenishment(replenishment: PettyCashReplenishment):
 
 
 @app.get("/replenishments")
-async def list_replenishments(
-    fund_id: Optional[str] = None,
-    status: Optional[ReimbursementStatus] = None
-):
+async def list_replenishments(fund_id: Optional[str] = None, status: Optional[ReimbursementStatus] = None):
     """List replenishment requests"""
     results = list(petty_cash_replenishments.values())
 
@@ -470,10 +470,7 @@ async def list_replenishments(
 
 
 @app.put("/replenishments/{replenishment_id}/approve")
-async def approve_replenishment(
-    replenishment_id: str,
-    approved_by: str
-):
+async def approve_replenishment(replenishment_id: str, approved_by: str):
     """Approve replenishment"""
     if replenishment_id not in petty_cash_replenishments:
         raise HTTPException(status_code=404, detail="Replenishment not found")
@@ -511,12 +508,9 @@ async def approve_replenishment(
 
 # --- Reports ---
 
+
 @app.get("/reports/fund-report/{fund_id}")
-async def get_fund_report(
-    fund_id: str,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None
-):
+async def get_fund_report(fund_id: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None):
     """Generate fund report"""
     if fund_id not in petty_cash_funds:
         raise HTTPException(status_code=404, detail="Fund not found")
@@ -555,16 +549,18 @@ async def get_cash_position():
         balance_info = await get_fund_balance(fund_id)
         current_balance = Decimal(balance_info["current_balance"])
 
-        funds_summary.append({
-            "fund_id": fund_id,
-            "fund_name": fund.fund_name,
-            "location": fund.location,
-            "custodian": fund.custodian_name,
-            "current_balance": str(current_balance),
-            "maximum_balance": str(fund.maximum_balance),
-            "utilization_percentage": float(current_balance / fund.maximum_balance * 100),
-            "status": fund.status.value,
-        })
+        funds_summary.append(
+            {
+                "fund_id": fund_id,
+                "fund_name": fund.fund_name,
+                "location": fund.location,
+                "custodian": fund.custodian_name,
+                "current_balance": str(current_balance),
+                "maximum_balance": str(fund.maximum_balance),
+                "utilization_percentage": float(current_balance / fund.maximum_balance * 100),
+                "status": fund.status.value,
+            }
+        )
 
     total_balance = sum(Decimal(f["current_balance"]) for f in funds_summary)
 
@@ -576,10 +572,7 @@ async def get_cash_position():
 
 
 @app.get("/reports/category-summary")
-async def get_category_summary(
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None
-):
+async def get_category_summary(start_date: Optional[datetime] = None, end_date: Optional[datetime] = None):
     """Get summary by payment category"""
     transactions = list(petty_cash_transactions.values())
 
@@ -606,4 +599,5 @@ async def get_category_summary(
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8097)

@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Share Premium Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class SharePremiumEntry(BaseModel):
@@ -100,8 +108,14 @@ async def root():
 
 @app.post("/entries/record")
 async def record_share_premium(
-    company_id: str, entry_type: str, shares_issued: int, nominal_value: float,
-    issue_price: float, share_class: str, reference_id: str, entry_date: Optional[datetime] = None
+    company_id: str,
+    entry_type: str,
+    shares_issued: int,
+    nominal_value: float,
+    issue_price: float,
+    share_class: str,
+    reference_id: str,
+    entry_date: Optional[datetime] = None,
 ):
     """Record share premium from share issuance."""
     if entry_date is None:
@@ -110,10 +124,15 @@ async def record_share_premium(
     premium_amount = (issue_price - nominal_value) * shares_issued
 
     entry = SharePremiumEntry(
-        company_id=company_id, entry_type=entry_type, shares_issued=shares_issued,
-        nominal_value=nominal_value, issue_price=issue_price,
-        premium_amount=premium_amount, share_class=share_class,
-        reference_id=reference_id, entry_date=entry_date
+        company_id=company_id,
+        entry_type=entry_type,
+        shares_issued=shares_issued,
+        nominal_value=nominal_value,
+        issue_price=issue_price,
+        premium_amount=premium_amount,
+        share_class=share_class,
+        reference_id=reference_id,
+        entry_date=entry_date,
     )
 
     journal_entry = {
@@ -121,10 +140,15 @@ async def record_share_premium(
         "description": f"Share premium from issue of {shares_issued} {share_class} shares",
         "entries": [
             {"account_code": "1000", "description": "Bank", "debit": shares_issued * issue_price, "credit": 0},
-            {"account_code": "3200", "description": "Share Capital", "debit": 0, "credit": shares_issued * nominal_value},
+            {
+                "account_code": "3200",
+                "description": "Share Capital",
+                "debit": 0,
+                "credit": shares_issued * nominal_value,
+            },
             {"account_code": "3210", "description": "Share Premium", "debit": 0, "credit": premium_amount},
         ],
-        "reference": f"SP-{entry.id[:8]}"
+        "reference": f"SP-{entry.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     entry.journal_entry_id = result.get("id")
@@ -135,16 +159,18 @@ async def record_share_premium(
 
 @app.post("/utilizations/record")
 async def utilize_premium(
-    company_id: str, amount: float, utilization_type: str, description: str,
-    utilization_date: Optional[datetime] = None
+    company_id: str, amount: float, utilization_type: str, description: str, utilization_date: Optional[datetime] = None
 ):
     """Utilize share premium account."""
     if utilization_date is None:
         utilization_date = datetime.utcnow()
 
     utilization = PremiumUtilization(
-        company_id=company_id, amount=amount, utilization_type=utilization_type,
-        description=description, utilization_date=utilization_date
+        company_id=company_id,
+        amount=amount,
+        utilization_type=utilization_type,
+        description=description,
+        utilization_date=utilization_date,
     )
 
     if utilization_type == "bonus_issue":
@@ -155,7 +181,7 @@ async def utilize_premium(
                 {"account_code": "3210", "description": "Share Premium", "debit": amount, "credit": 0},
                 {"account_code": "3200", "description": "Share Capital", "debit": 0, "credit": amount},
             ],
-            "reference": f"SP-UTIL-{utilization.id[:8]}"
+            "reference": f"SP-UTIL-{utilization.id[:8]}",
         }
     elif utilization_type == "write_off":
         journal_entry = {
@@ -165,7 +191,7 @@ async def utilize_premium(
                 {"account_code": "3210", "description": "Share Premium", "debit": amount, "credit": 0},
                 {"account_code": "3300", "description": "Retained Earnings", "debit": 0, "credit": amount},
             ],
-            "reference": f"SP-UTIL-{utilization.id[:8]}"
+            "reference": f"SP-UTIL-{utilization.id[:8]}",
         }
     elif utilization_type == "merger_expenses":
         journal_entry = {
@@ -175,7 +201,7 @@ async def utilize_premium(
                 {"account_code": "3210", "description": "Share Premium", "debit": amount, "credit": 0},
                 {"account_code": "4100", "description": "Administrative Expenses", "debit": 0, "credit": amount},
             ],
-            "reference": f"SP-UTIL-{utilization.id[:8]}"
+            "reference": f"SP-UTIL-{utilization.id[:8]}",
         }
     else:  # legal_costs
         journal_entry = {
@@ -185,7 +211,7 @@ async def utilize_premium(
                 {"account_code": "3210", "description": "Share Premium", "debit": amount, "credit": 0},
                 {"account_code": "4100", "description": "Legal Expenses", "debit": 0, "credit": amount},
             ],
-            "reference": f"SP-UTIL-{utilization.id[:8]}"
+            "reference": f"SP-UTIL-{utilization.id[:8]}",
         }
 
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
@@ -197,32 +223,44 @@ async def utilize_premium(
 
 @app.post("/adjustments/create")
 async def adjust_premium(
-    company_id: str, adjustment_type: str, original_amount: float,
-    adjustment_amount: float, description: str,
-    adjustment_date: Optional[datetime] = None
+    company_id: str,
+    adjustment_type: str,
+    original_amount: float,
+    adjustment_amount: float,
+    description: str,
+    adjustment_date: Optional[datetime] = None,
 ):
     """Adjust share premium (correction or reclassification)."""
     if adjustment_date is None:
         adjustment_date = datetime.utcnow()
 
     adjustment = PremiumAdjustment(
-        company_id=company_id, adjustment_type=adjustment_type,
-        original_amount=original_amount, adjustment_amount=adjustment_amount,
-        description=description, adjustment_date=adjustment_date
+        company_id=company_id,
+        adjustment_type=adjustment_type,
+        original_amount=original_amount,
+        adjustment_amount=adjustment_amount,
+        description=description,
+        adjustment_date=adjustment_date,
     )
 
     journal_entry = {
         "date": adjustment_date,
         "description": f"Share premium adjustment: {description}",
         "entries": [
-            {"account_code": "3210", "description": "Share Premium",
-             "debit": abs(adjustment_amount) if adjustment_amount < 0 else 0,
-             "credit": abs(adjustment_amount) if adjustment_amount > 0 else 0},
-            {"account_code": "3300", "description": "Retained Earnings",
-             "debit": abs(adjustment_amount) if adjustment_amount > 0 else 0,
-             "credit": abs(adjustment_amount) if adjustment_amount < 0 else 0},
+            {
+                "account_code": "3210",
+                "description": "Share Premium",
+                "debit": abs(adjustment_amount) if adjustment_amount < 0 else 0,
+                "credit": abs(adjustment_amount) if adjustment_amount > 0 else 0,
+            },
+            {
+                "account_code": "3300",
+                "description": "Retained Earnings",
+                "debit": abs(adjustment_amount) if adjustment_amount > 0 else 0,
+                "credit": abs(adjustment_amount) if adjustment_amount < 0 else 0,
+            },
         ],
-        "reference": f"SP-ADJ-{adjustment.id[:8]}"
+        "reference": f"SP-ADJ-{adjustment.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     adjustment.journal_entry_id = result.get("id")
@@ -265,10 +303,11 @@ async def get_premium_summary(company_id: str):
         "total_premium_received": total_received,
         "total_utilized": total_utilized,
         "total_adjusted": total_adjusted,
-        "current_balance": total_received - total_utilized + total_adjusted
+        "current_balance": total_received - total_utilized + total_adjusted,
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

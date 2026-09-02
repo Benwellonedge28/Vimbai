@@ -17,12 +17,12 @@ Usage:
     python api_examples.py
 """
 
-import requests
 import json
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional
 
+import requests
 
 # =============================================================================
 # CONFIGURATION
@@ -36,15 +36,13 @@ USERNAME = "demo_user"
 PASSWORD = "demo_password"
 
 # Global headers (to be updated after authentication)
-HEADERS = {
-    "Content-Type": "application/json",
-    "Accept": "application/json"
-}
+HEADERS = {"Content-Type": "application/json", "Accept": "application/json"}
 
 
 # =============================================================================
 # AUTHENTICATION EXAMPLES
 # =============================================================================
+
 
 def authenticate() -> Optional[str]:
     """
@@ -62,10 +60,7 @@ def authenticate() -> Optional[str]:
     # Login endpoint
     login_url = f"{BASE_URL}/auth/login"
 
-    credentials = {
-        "username": USERNAME,
-        "password": PASSWORD
-    }
+    credentials = {"username": USERNAME, "password": PASSWORD}
 
     try:
         response = requests.post(login_url, json=credentials, headers=HEADERS)
@@ -90,6 +85,7 @@ def authenticate() -> Optional[str]:
 # =============================================================================
 # CHART OF ACCOUNTS EXAMPLES
 # =============================================================================
+
 
 def create_account(account_number: str, account_name: str, account_type: str) -> Dict:
     """
@@ -117,7 +113,7 @@ def create_account(account_number: str, account_name: str, account_type: str) ->
         "description": f"Created via API at {datetime.now()}",
         "is_active": True,
         "is_control_account": False,
-        "parent_account_number": None
+        "parent_account_number": None,
     }
 
     response = requests.post(url, json=data, headers=HEADERS)
@@ -212,13 +208,9 @@ def update_account(account_number: str, updates: Dict) -> Dict:
 # JOURNAL ENTRIES EXAMPLES
 # =============================================================================
 
+
 def create_journal_entry(
-    entry_date: str,
-    description: str,
-    reference: str,
-    debit_account: str,
-    credit_account: str,
-    amount: Decimal
+    entry_date: str, description: str, reference: str, debit_account: str, credit_account: str, amount: Decimal
 ) -> Dict:
     """
     Create a double-entry journal entry.
@@ -256,15 +248,15 @@ def create_journal_entry(
                 "account_number": debit_account,
                 "debit_amount": str(amount),
                 "credit_amount": "0",
-                "description": f"Debit: {description}"
+                "description": f"Debit: {description}",
             },
             {
                 "account_number": credit_account,
                 "debit_amount": "0",
                 "credit_amount": str(amount),
-                "description": f"Credit: {description}"
-            }
-        ]
+                "description": f"Credit: {description}",
+            },
+        ],
     }
 
     response = requests.post(url, json=data, headers=HEADERS)
@@ -310,6 +302,7 @@ def get_journal_entries(start_date: str, end_date: str) -> List[Dict]:
 # =============================================================================
 # FINANCIAL REPORTS EXAMPLES
 # =============================================================================
+
 
 def get_trial_balance(as_of_date: Optional[str] = None) -> Dict:
     """
@@ -397,12 +390,8 @@ def get_balance_sheet(as_of_date: str) -> Dict:
 # NPO FUND ACCOUNTING EXAMPLES
 # =============================================================================
 
-def create_npo_fund(
-    fund_name: str,
-    fund_code: str,
-    fund_type: str,
-    description: str = ""
-) -> Dict:
+
+def create_npo_fund(fund_name: str, fund_code: str, fund_type: str, description: str = "") -> Dict:
     """
     Create a new NPO fund.
 
@@ -433,7 +422,7 @@ def create_npo_fund(
         "description": description,
         "current_balance": "0.00",
         "total_contributions": "0.00",
-        "total_disbursements": "0.00"
+        "total_disbursements": "0.00",
     }
 
     response = requests.post(url, json=data, headers=HEADERS)
@@ -448,11 +437,7 @@ def create_npo_fund(
 
 
 def create_donation(
-    donor_id: str,
-    amount: Decimal,
-    donation_type: str,
-    fund_id: str,
-    payment_method: str = "cash"
+    donor_id: str, amount: Decimal, donation_type: str, fund_id: str, payment_method: str = "cash"
 ) -> Dict:
     """
     Record a donation.
@@ -478,7 +463,7 @@ def create_donation(
         "designation": "general",
         "payment_method": payment_method,
         "fund_id": fund_id,
-        "receipt_number": f"RCP-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        "receipt_number": f"RCP-{datetime.now().strftime('%Y%m%d%H%M%S')}",
     }
 
     response = requests.post(url, json=data, headers=HEADERS)
@@ -494,14 +479,7 @@ def create_donation(
         return {}
 
 
-def create_grant(
-    grant_name: str,
-    grantor: str,
-    amount: Decimal,
-    start_date: str,
-    end_date: str,
-    fund_id: str
-) -> Dict:
+def create_grant(grant_name: str, grantor: str, amount: Decimal, start_date: str, end_date: str, fund_id: str) -> Dict:
     """
     Create a new grant.
 
@@ -527,7 +505,7 @@ def create_grant(
         "start_date": start_date,
         "end_date": end_date,
         "fund_id": fund_id,
-        "reporting_requirements": "Annual reports due"
+        "reporting_requirements": "Annual reports due",
     }
 
     response = requests.post(url, json=data, headers=HEADERS)
@@ -547,12 +525,9 @@ def create_grant(
 # SPECIAL JOURNALS EXAMPLES
 # =============================================================================
 
+
 def create_sales_journal_entry(
-    customer_id: str,
-    invoice_number: str,
-    invoice_date: str,
-    items: List[Dict],
-    payment_terms: str = "NET 30"
+    customer_id: str, invoice_number: str, invoice_date: str, items: List[Dict], payment_terms: str = "NET 30"
 ) -> Dict:
     """
     Create a sales journal entry.
@@ -576,7 +551,7 @@ def create_sales_journal_entry(
         "invoice_date": invoice_date,
         "due_date": (datetime.now() + timedelta(days=30)).isoformat(),
         "items": items,
-        "payment_terms": payment_terms
+        "payment_terms": payment_terms,
     }
 
     response = requests.post(url, json=data, headers=HEADERS)
@@ -591,11 +566,7 @@ def create_sales_journal_entry(
 
 
 def create_petty_cash_entry(
-    fund_id: str,
-    amount: Decimal,
-    category: str,
-    description: str,
-    received_from: str = ""
+    fund_id: str, amount: Decimal, category: str, description: str, received_from: str = ""
 ) -> Dict:
     """
     Create a petty cash entry.
@@ -622,7 +593,7 @@ def create_petty_cash_entry(
         "description": description,
         "voucher_number": f"PV-{datetime.now().strftime('%Y%m%d%H%M%S')}",
         "received_from": received_from,
-        "authorized_by": "Manager"
+        "authorized_by": "Manager",
     }
 
     response = requests.post(url, json=data, headers=HEADERS)
@@ -640,11 +611,8 @@ def create_petty_cash_entry(
 # BANK RECONCILIATION EXAMPLES
 # =============================================================================
 
-def create_bank_reconciliation(
-    bank_account: str,
-    statement_date: str,
-    statement_balance: Decimal
-) -> Dict:
+
+def create_bank_reconciliation(bank_account: str, statement_date: str, statement_balance: Decimal) -> Dict:
     """
     Create a bank reconciliation statement.
 
@@ -659,11 +627,7 @@ def create_bank_reconciliation(
     print(f"\n=== Creating Bank Reconciliation: {bank_account} ===")
 
     url = f"{BASE_URL}/bank-reconciliation/"
-    data = {
-        "bank_account": bank_account,
-        "statement_date": statement_date,
-        "statement_balance": str(statement_balance)
-    }
+    data = {"bank_account": bank_account, "statement_date": statement_date, "statement_balance": str(statement_balance)}
 
     response = requests.post(url, json=data, headers=HEADERS)
 
@@ -680,6 +644,7 @@ def create_bank_reconciliation(
 # =============================================================================
 # ERROR HANDLING EXAMPLES
 # =============================================================================
+
 
 def handle_api_errors(response: requests.Response) -> None:
     """
@@ -720,6 +685,7 @@ def validate_amount(amount: Decimal) -> bool:
 # BATCH OPERATIONS EXAMPLES
 # =============================================================================
 
+
 def batch_create_accounts(accounts: List[Dict]) -> List[Dict]:
     """
     Create multiple accounts in batch.
@@ -736,11 +702,7 @@ def batch_create_accounts(accounts: List[Dict]) -> List[Dict]:
     failed = []
 
     for account in accounts:
-        result = create_account(
-            account["account_number"],
-            account["account_name"],
-            account["account_type"]
-        )
+        result = create_account(account["account_number"], account["account_name"], account["account_type"])
         if result:
             created.append(result)
         else:
@@ -754,15 +716,16 @@ def batch_create_accounts(accounts: List[Dict]) -> List[Dict]:
 # COMPLETE WORKFLOW EXAMPLE
 # =============================================================================
 
+
 def example_complete_workflow():
     """
     Complete example: Create accounts, record transactions, generate reports.
 
     This demonstrates a typical workflow from setup to reporting.
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("COMPLETE WORKFLOW EXAMPLE")
-    print("="*60)
+    print("=" * 60)
 
     # Step 1: Authenticate
     token = authenticate()
@@ -799,7 +762,7 @@ def example_complete_workflow():
         reference="INV-001",
         debit_account="ACC-1002",
         credit_account="ACC-4001",
-        amount=Decimal("1000.00")
+        amount=Decimal("1000.00"),
     )
 
     # Record rent expense
@@ -809,16 +772,13 @@ def example_complete_workflow():
         reference="EXP-001",
         debit_account="ACC-5001",
         credit_account="ACC-1001",
-        amount=Decimal("500.00")
+        amount=Decimal("500.00"),
     )
 
     # Record donation
     if fund:
         create_donation(
-            donor_id="DON-001",
-            amount=Decimal("5000.00"),
-            donation_type="one_time",
-            fund_id=fund.get("id", "")
+            donor_id="DON-001", amount=Decimal("5000.00"), donation_type="one_time", fund_id=fund.get("id", "")
         )
 
     # Step 5: Generate Reports
@@ -826,14 +786,13 @@ def example_complete_workflow():
 
     get_trial_balance()
     get_income_statement(
-        start_date=(datetime.now() - timedelta(days=30)).date().isoformat(),
-        end_date=datetime.now().date().isoformat()
+        start_date=(datetime.now() - timedelta(days=30)).date().isoformat(), end_date=datetime.now().date().isoformat()
     )
     get_balance_sheet(datetime.now().date().isoformat())
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("WORKFLOW COMPLETE")
-    print("="*60)
+    print("=" * 60)
 
 
 # =============================================================================

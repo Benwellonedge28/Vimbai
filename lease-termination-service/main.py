@@ -3,14 +3,17 @@ Lease Termination Service
 Port: 8224
 Lease modification and termination accounting
 """
+
+from typing import Any, Dict
+
 import httpx
 import structlog
-from typing import Any, Dict
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Lease Termination Service", version="1.0.0")
+
 
 class LeaseTerminationRequest(BaseModel):
     company_id: str
@@ -23,6 +26,7 @@ class LeaseTerminationRequest(BaseModel):
     new_lease_payment: float
     remeasurement_required: bool
 
+
 class LeaseTerminationResponse(BaseModel):
     company_id: str
     lease_id: str
@@ -34,6 +38,7 @@ class LeaseTerminationResponse(BaseModel):
     accounting_treatment: str
     recommendations: list
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -44,9 +49,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "lease-termination", "version": "1.0.0"}
+
 
 @app.post("/calculate", response_model=LeaseTerminationResponse)
 async def calculate_lease_termination(request: LeaseTerminationRequest):
@@ -74,9 +81,11 @@ async def calculate_lease_termination(request: LeaseTerminationRequest):
         new_rou_asset=round(new_asset, 2),
         right_of_use_adjustment=round(request.rou_asset_book_value - derecognition, 2),
         accounting_treatment=treatment,
-        recommendations=["Document termination rationale", "Obtain lessor confirmation", "Update lease register"]
+        recommendations=["Document termination rationale", "Obtain lessor confirmation", "Update lease register"],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8224)

@@ -3,20 +3,24 @@ Tax Return Preparation Service
 Port: 8228
 Tax computation and return preparation
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Tax Return Preparation Service", version="1.0.0")
+
 
 class TaxComponent(BaseModel):
     component_name: str
     taxable_amount: float
     tax_rate: float
     tax_amount: float
+
 
 class TaxReturnRequest(BaseModel):
     company_id: str
@@ -26,6 +30,7 @@ class TaxReturnRequest(BaseModel):
     permanent_differences: List[Dict[str, Any]]
     temporary_differences: List[Dict[str, Any]]
     tax_credits: List[Dict[str, Any]]
+
 
 class TaxReturnResponse(BaseModel):
     company_id: str
@@ -40,6 +45,7 @@ class TaxReturnResponse(BaseModel):
     return_status: str
     recommendations: List[str]
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -50,9 +56,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "tax-return-preparation", "version": "1.0.0"}
+
 
 @app.post("/prepare", response_model=TaxReturnResponse)
 async def prepare_tax_return(request: TaxReturnRequest):
@@ -75,8 +83,13 @@ async def prepare_tax_return(request: TaxReturnRequest):
     effective_rate = net_tax / request.accounting_profit if request.accounting_profit else 0
 
     tax_components = [
-        TaxComponent(component_name="Corporate Income Tax", taxable_amount=taxable_income, tax_rate=tax_rate, tax_amount=total_tax),
-        TaxComponent(component_name="Tax Credits", taxable_amount=0, tax_rate=0, tax_amount=-tax_credits)
+        TaxComponent(
+            component_name="Corporate Income Tax",
+            taxable_amount=taxable_income,
+            tax_rate=tax_rate,
+            tax_amount=total_tax,
+        ),
+        TaxComponent(component_name="Tax Credits", taxable_amount=0, tax_rate=0, tax_amount=-tax_credits),
     ]
 
     return TaxReturnResponse(
@@ -90,9 +103,11 @@ async def prepare_tax_return(request: TaxReturnRequest):
         deferred_tax_liabilities=round(deferred_tax_liabilities, 2),
         tax_credits_applied=round(tax_credits, 2),
         return_status="ready_for_filing",
-        recommendations=["Review all tax positions", "Ensure documentation is complete", "File before deadline"]
+        recommendations=["Review all tax positions", "Ensure documentation is complete", "File before deadline"],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8228)

@@ -3,14 +3,17 @@ Rolling Forecast Service
 Port: 8173
 Rolling 12-month forecasts, continuous budgeting
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Rolling Forecast Service", version="1.0.0")
+
 
 class ForecastMonth(BaseModel):
     month: str
@@ -18,6 +21,7 @@ class ForecastMonth(BaseModel):
     expenses: float
     profit: float
     cash_flow: float
+
 
 class RollingForecastRequest(BaseModel):
     company_id: str
@@ -27,6 +31,7 @@ class RollingForecastRequest(BaseModel):
     growth_rate: float
     base_expenses: float
 
+
 class RollingForecastResponse(BaseModel):
     company_id: str
     forecast_start: str
@@ -35,6 +40,7 @@ class RollingForecastResponse(BaseModel):
     total_expenses: float
     total_profit: float
     average_monthly_revenue: float
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -46,9 +52,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "rolling-forecast", "version": "1.0.0"}
+
 
 @app.post("/forecast", response_model=RollingForecastResponse)
 async def create_rolling_forecast(request: RollingForecastRequest):
@@ -62,13 +70,15 @@ async def create_rolling_forecast(request: RollingForecastRequest):
         profit = revenue - expenses
         cash_flow = profit * 0.7
 
-        months_data.append(ForecastMonth(
-            month=f"Month {i+1}",
-            revenue=round(revenue, 2),
-            expenses=round(expenses, 2),
-            profit=round(profit, 2),
-            cash_flow=round(cash_flow, 2)
-        ))
+        months_data.append(
+            ForecastMonth(
+                month=f"Month {i+1}",
+                revenue=round(revenue, 2),
+                expenses=round(expenses, 2),
+                profit=round(profit, 2),
+                cash_flow=round(cash_flow, 2),
+            )
+        )
 
     return RollingForecastResponse(
         company_id=request.company_id,
@@ -77,9 +87,11 @@ async def create_rolling_forecast(request: RollingForecastRequest):
         total_revenue=sum(m.revenue for m in months_data),
         total_expenses=sum(m.expenses for m in months_data),
         total_profit=sum(m.profit for m in months_data),
-        average_monthly_revenue=sum(m.revenue for m in months_data) / len(months_data)
+        average_monthly_revenue=sum(m.revenue for m in months_data) / len(months_data),
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8173)

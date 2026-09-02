@@ -1,15 +1,24 @@
-from neo4j import AsyncSession
-from typing import Optional, List, Dict, Any
-from automation_engine_service.models import (
-    AutomationTaskDefinitionCreate, AutomationTaskDefinitionUpdate, AutomationTaskDefinitionInDB,
-    AutomationTaskInstanceCreate, AutomationTaskInstanceUpdate, AutomationTaskInstanceInDB,
-    AutomationLogCreate, AutomationLogInDB
-)
-from datetime import datetime
 import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from automation_engine_service.models import (
+    AutomationLogCreate,
+    AutomationLogInDB,
+    AutomationTaskDefinitionCreate,
+    AutomationTaskDefinitionInDB,
+    AutomationTaskDefinitionUpdate,
+    AutomationTaskInstanceCreate,
+    AutomationTaskInstanceInDB,
+    AutomationTaskInstanceUpdate,
+)
+from neo4j import AsyncSession
+
 
 # --- AutomationTaskDefinition CRUD ---
-async def create_automation_task_definition(session: AsyncSession, definition_data: AutomationTaskDefinitionCreate) -> AutomationTaskDefinitionInDB:
+async def create_automation_task_definition(
+    session: AsyncSession, definition_data: AutomationTaskDefinitionCreate
+) -> AutomationTaskDefinitionInDB:
     definition_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
     updated_at = datetime.now(timezone.utc)
@@ -62,14 +71,25 @@ async def create_automation_task_definition(session: AsyncSession, definition_da
         cron_schedule=atd_node["cron_schedule"],
         interval_seconds=atd_node["interval_seconds"],
         is_active=atd_node["is_active"],
-        last_executed_at=datetime.fromisoformat(atd_node["last_executed_at"].iso_format()) if atd_node.get("last_executed_at") else None,
-        next_execution_at=datetime.fromisoformat(atd_node["next_execution_at"].iso_format()) if atd_node.get("next_execution_at") else None,
+        last_executed_at=(
+            datetime.fromisoformat(atd_node["last_executed_at"].iso_format())
+            if atd_node.get("last_executed_at")
+            else None
+        ),
+        next_execution_at=(
+            datetime.fromisoformat(atd_node["next_execution_at"].iso_format())
+            if atd_node.get("next_execution_at")
+            else None
+        ),
         owner_user_id=atd_node["owner_user_id"],
         created_at=datetime.fromisoformat(atd_node["created_at"].iso_format()),
         updated_at=datetime.fromisoformat(atd_node["updated_at"].iso_format()),
     )
 
-async def get_automation_task_definition(session: AsyncSession, definition_id: str) -> Optional[AutomationTaskDefinitionInDB]:
+
+async def get_automation_task_definition(
+    session: AsyncSession, definition_id: str
+) -> Optional[AutomationTaskDefinitionInDB]:
     query = """
     MATCH (atd:AutomationTaskDefinition {id: $definition_id})
     RETURN atd
@@ -91,15 +111,26 @@ async def get_automation_task_definition(session: AsyncSession, definition_id: s
             cron_schedule=atd_node["cron_schedule"],
             interval_seconds=atd_node["interval_seconds"],
             is_active=atd_node["is_active"],
-            last_executed_at=datetime.fromisoformat(atd_node["last_executed_at"].iso_format()) if atd_node.get("last_executed_at") else None,
-            next_execution_at=datetime.fromisoformat(atd_node["next_execution_at"].iso_format()) if atd_node.get("next_execution_at") else None,
+            last_executed_at=(
+                datetime.fromisoformat(atd_node["last_executed_at"].iso_format())
+                if atd_node.get("last_executed_at")
+                else None
+            ),
+            next_execution_at=(
+                datetime.fromisoformat(atd_node["next_execution_at"].iso_format())
+                if atd_node.get("next_execution_at")
+                else None
+            ),
             owner_user_id=atd_node["owner_user_id"],
             created_at=datetime.fromisoformat(atd_node["created_at"].iso_format()),
             updated_at=datetime.fromisoformat(atd_node["updated_at"].iso_format()),
         )
     return None
 
-async def get_all_automation_task_definitions(session: AsyncSession, owner_user_id: Optional[str] = None) -> List[AutomationTaskDefinitionInDB]:
+
+async def get_all_automation_task_definitions(
+    session: AsyncSession, owner_user_id: Optional[str] = None
+) -> List[AutomationTaskDefinitionInDB]:
     query = """
     MATCH (atd:AutomationTaskDefinition)
     WHERE ($owner_user_id IS NULL OR atd.owner_user_id = $owner_user_id)
@@ -110,27 +141,40 @@ async def get_all_automation_task_definitions(session: AsyncSession, owner_user_
     definitions = []
     async for record in result:
         atd_node = record["atd"]
-        definitions.append(AutomationTaskDefinitionInDB(
-            id=atd_node["id"],
-            name=atd_node["name"],
-            description=atd_node["description"],
-            service_target=atd_node["service_target"],
-            endpoint_path=atd_node["endpoint_path"],
-            http_method=atd_node["http_method"],
-            payload_template=atd_node["payload_template"],
-            schedule_type=atd_node["schedule_type"],
-            cron_schedule=atd_node["cron_schedule"],
-            interval_seconds=atd_node["interval_seconds"],
-            is_active=atd_node["is_active"],
-            last_executed_at=datetime.fromisoformat(atd_node["last_executed_at"].iso_format()) if atd_node.get("last_executed_at") else None,
-            next_execution_at=datetime.fromisoformat(atd_node["next_execution_at"].iso_format()) if atd_node.get("next_execution_at") else None,
-            owner_user_id=atd_node["owner_user_id"],
-            created_at=datetime.fromisoformat(atd_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(atd_node["updated_at"].iso_format()),
-        ))
+        definitions.append(
+            AutomationTaskDefinitionInDB(
+                id=atd_node["id"],
+                name=atd_node["name"],
+                description=atd_node["description"],
+                service_target=atd_node["service_target"],
+                endpoint_path=atd_node["endpoint_path"],
+                http_method=atd_node["http_method"],
+                payload_template=atd_node["payload_template"],
+                schedule_type=atd_node["schedule_type"],
+                cron_schedule=atd_node["cron_schedule"],
+                interval_seconds=atd_node["interval_seconds"],
+                is_active=atd_node["is_active"],
+                last_executed_at=(
+                    datetime.fromisoformat(atd_node["last_executed_at"].iso_format())
+                    if atd_node.get("last_executed_at")
+                    else None
+                ),
+                next_execution_at=(
+                    datetime.fromisoformat(atd_node["next_execution_at"].iso_format())
+                    if atd_node.get("next_execution_at")
+                    else None
+                ),
+                owner_user_id=atd_node["owner_user_id"],
+                created_at=datetime.fromisoformat(atd_node["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(atd_node["updated_at"].iso_format()),
+            )
+        )
     return definitions
 
-async def update_automation_task_definition(session: AsyncSession, definition_id: str, definition_data: AutomationTaskDefinitionUpdate) -> Optional[AutomationTaskDefinitionInDB]:
+
+async def update_automation_task_definition(
+    session: AsyncSession, definition_id: str, definition_data: AutomationTaskDefinitionUpdate
+) -> Optional[AutomationTaskDefinitionInDB]:
     update_fields = definition_data.model_dump(exclude_unset=True)
     if not update_fields:
         return await get_automation_task_definition(session, definition_id)
@@ -157,6 +201,7 @@ async def update_automation_task_definition(session: AsyncSession, definition_id
         return await get_automation_task_definition(session, definition_id)
     return None
 
+
 async def delete_automation_task_definition(session: AsyncSession, definition_id: str) -> bool:
     query = """
     MATCH (atd:AutomationTaskDefinition {id: $definition_id})
@@ -165,8 +210,11 @@ async def delete_automation_task_definition(session: AsyncSession, definition_id
     result = await session.run(query, definition_id=definition_id)
     return result.consume().counters.nodes_deleted > 0
 
+
 # --- AutomationTaskInstance CRUD ---
-async def create_automation_task_instance(session: AsyncSession, instance_data: AutomationTaskInstanceCreate) -> AutomationTaskInstanceInDB:
+async def create_automation_task_instance(
+    session: AsyncSession, instance_data: AutomationTaskInstanceCreate
+) -> AutomationTaskInstanceInDB:
     instance_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
     updated_at = datetime.now(timezone.utc)
@@ -213,6 +261,7 @@ async def create_automation_task_instance(session: AsyncSession, instance_data: 
         updated_at=datetime.fromisoformat(ati_node["updated_at"].iso_format()),
     )
 
+
 async def get_automation_task_instance(session: AsyncSession, instance_id: str) -> Optional[AutomationTaskInstanceInDB]:
     query = """
     MATCH (ati:AutomationTaskInstance {id: $instance_id})
@@ -237,7 +286,10 @@ async def get_automation_task_instance(session: AsyncSession, instance_id: str) 
         )
     return None
 
-async def get_all_automation_task_instances_for_definition(session: AsyncSession, definition_id: str) -> List[AutomationTaskInstanceInDB]:
+
+async def get_all_automation_task_instances_for_definition(
+    session: AsyncSession, definition_id: str
+) -> List[AutomationTaskInstanceInDB]:
     query = """
     MATCH (atd:AutomationTaskDefinition {id: $definition_id})<-[:INSTANTIATES]-(ati:AutomationTaskInstance)
     RETURN ati
@@ -247,22 +299,28 @@ async def get_all_automation_task_instances_for_definition(session: AsyncSession
     instances = []
     async for record in result:
         ati_node = record["ati"]
-        instances.append(AutomationTaskInstanceInDB(
-            id=ati_node["id"],
-            task_definition_id=ati_node["task_definition_id"],
-            status=ati_node["status"],
-            start_time=datetime.fromisoformat(ati_node["start_time"].iso_format()),
-            end_time=datetime.fromisoformat(ati_node["end_time"].iso_format()) if ati_node.get("end_time") else None,
-            output=ati_node["output"],
-            error_message=ati_node["error_message"],
-            triggered_by=ati_node["triggered_by"],
-            created_at=datetime.fromisoformat(ati_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(ati_node["updated_at"].iso_format()),
-        ))
+        instances.append(
+            AutomationTaskInstanceInDB(
+                id=ati_node["id"],
+                task_definition_id=ati_node["task_definition_id"],
+                status=ati_node["status"],
+                start_time=datetime.fromisoformat(ati_node["start_time"].iso_format()),
+                end_time=(
+                    datetime.fromisoformat(ati_node["end_time"].iso_format()) if ati_node.get("end_time") else None
+                ),
+                output=ati_node["output"],
+                error_message=ati_node["error_message"],
+                triggered_by=ati_node["triggered_by"],
+                created_at=datetime.fromisoformat(ati_node["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(ati_node["updated_at"].iso_format()),
+            )
+        )
     return instances
 
 
-async def update_automation_task_instance(session: AsyncSession, instance_id: str, instance_data: AutomationTaskInstanceUpdate) -> Optional[AutomationTaskInstanceInDB]:
+async def update_automation_task_instance(
+    session: AsyncSession, instance_id: str, instance_data: AutomationTaskInstanceUpdate
+) -> Optional[AutomationTaskInstanceInDB]:
     update_fields = instance_data.model_dump(exclude_unset=True)
     if not update_fields:
         return await get_automation_task_instance(session, instance_id)
@@ -286,6 +344,7 @@ async def update_automation_task_instance(session: AsyncSession, instance_id: st
     if record:
         return await get_automation_task_instance(session, instance_id)
     return None
+
 
 # --- AutomationLog CRUD ---
 async def create_automation_log(session: AsyncSession, log_data: AutomationLogCreate) -> AutomationLogInDB:
@@ -321,6 +380,7 @@ async def create_automation_log(session: AsyncSession, log_data: AutomationLogCr
         timestamp=datetime.fromisoformat(al_node["timestamp"].iso_format()),
     )
 
+
 async def get_automation_logs_for_instance(session: AsyncSession, instance_id: str) -> List[AutomationLogInDB]:
     query = """
     MATCH (ati:AutomationTaskInstance {id: $instance_id})-[:HAS_LOG]->(al:AutomationLog)
@@ -331,13 +391,14 @@ async def get_automation_logs_for_instance(session: AsyncSession, instance_id: s
     logs = []
     async for record in result:
         al_node = record["al"]
-        logs.append(AutomationLogInDB(
-            id=al_node["id"],
-            instance_id=al_node["instance_id"],
-            log_level=al_node["log_level"],
-            message=al_node["message"],
-            details=al_node["details"],
-            timestamp=datetime.fromisoformat(al_node["timestamp"].iso_format()),
-        ))
+        logs.append(
+            AutomationLogInDB(
+                id=al_node["id"],
+                instance_id=al_node["instance_id"],
+                log_level=al_node["log_level"],
+                message=al_node["message"],
+                details=al_node["details"],
+                timestamp=datetime.fromisoformat(al_node["timestamp"].iso_format()),
+            )
+        )
     return logs
-

@@ -1,23 +1,26 @@
+import os
+
 """
 Vimbai Identity Service
 Comprehensive Authentication, Authorization (RBAC), and Session Management
 Implements OAuth2/OIDC, JWT, MFA, and Capability-Based Security
 """
 
-from fastapi import FastAPI, HTTPException, Depends, status, Request, Form
-from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone, timedelta
-from enum import Enum
-import uuid
 import hashlib
 import secrets
+import uuid
+from datetime import datetime, timedelta, timezone
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
 import jwt
-from passlib.context import CryptContext
-from dotenv import load_dotenv
 import structlog
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
+from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from passlib.context import CryptContext
+from pydantic import BaseModel, EmailStr, Field
 
 load_dotenv()
 logger = structlog.get_logger()
@@ -31,11 +34,13 @@ app = FastAPI(
 
 # Distributed tracing
 try:
-    from shared.tracing import setup_tracing, get_tracer
+    from shared.tracing import get_tracer, setup_tracing
+
     TRACER = setup_tracing(service_name="identity-service", instrument_app=app)
 except ImportError:
     TRACER = None
     import logging
+
     logging.getLogger(__name__).warning("OpenTelemetry not installed - tracing disabled")
 
 # ============================================================================
@@ -52,21 +57,25 @@ MFA_CODE_EXPIRE_MINUTES = 5
 # Enums
 # ============================================================================
 
+
 class UserStatus(str, Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
     PENDING_VERIFICATION = "pending_verification"
 
+
 class MFAMethod(str, Enum):
     TOTP = "totp"  # Time-based One-Time Password
     SMS = "sms"
     EMAIL = "email"
 
+
 class TokenType(str, Enum):
     ACCESS = "access"
     REFRESH = "refresh"
     MFA = "mfa"
+
 
 class Capability(str, Enum):
     # Accounting Capabilities
@@ -97,9 +106,11 @@ class Capability(str, Enum):
     INTEGRATION_CONFIG = "integration:config"
     INTEGRATION_DELETE = "integration:delete"
 
+
 # ============================================================================
 # Pydantic Models
 # ============================================================================
+
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -109,10 +120,12 @@ class UserBase(BaseModel):
     phone: Optional[str] = None
     is_active: bool = True
 
+
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
     role_ids: List[str] = []
     organization_id: Optional[str] = None
+
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
@@ -121,6 +134,7 @@ class UserUpdate(BaseModel):
     phone: Optional[str] = None
     is_active: Optional[bool] = None
     role_ids: Optional[List[str]] = None
+
 
 class User(UserBase):
     id: str
@@ -135,16 +149,20 @@ class User(UserBase):
     updated_at: datetime
     last_login: Optional[datetime] = None
 
+
 class UserInDB(User):
     password_hash: str
+
 
 class RoleBase(BaseModel):
     name: str
     description: Optional[str] = None
 
+
 class RoleCreate(RoleBase):
     permissions: List[str] = []
     is_system: bool = False
+
 
 class Role(RoleBase):
     id: str
@@ -153,24 +171,29 @@ class Role(RoleBase):
     created_at: datetime
     updated_at: datetime
 
+
 class OrganizationBase(BaseModel):
     name: str
     description: Optional[str] = None
     settings: Dict[str, Any] = {}
 
+
 class OrganizationCreate(OrganizationBase):
     admin_email: EmailStr
+
 
 class Organization(OrganizationBase):
     id: str
     created_at: datetime
     updated_at: datetime
 
+
 class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int = ACCESS_TOKEN_EXPIRE_MINUTES * 60
+
 
 class TokenPayload(BaseModel):
     sub: str  # user_id
@@ -181,26 +204,32 @@ class TokenPayload(BaseModel):
     role: str = ""
     organization_id: Optional[str] = None
 
+
 class MFASetup(BaseModel):
     method: MFAMethod
     secret: Optional[str] = None
     phone: Optional[str] = None
+
 
 class MFAVerify(BaseModel):
     code: str = Field(..., min_length=6, max_length=8)
     method: MFAMethod
     temp_token: Optional[str] = None
 
+
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8)
 
+
 class PasswordReset(BaseModel):
     email: EmailStr
+
 
 class PasswordResetConfirm(BaseModel):
     reset_token: str
     new_password: str = Field(..., min_length=8)
+
 
 class AuditLogEntry(BaseModel):
     id: str
@@ -212,6 +241,7 @@ class AuditLogEntry(BaseModel):
     user_agent: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
     timestamp: datetime
+
 
 # ============================================================================
 # In-Memory Storage
@@ -234,13 +264,16 @@ refresh_tokens: Dict[str, Dict[str, Any]] = {}
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt"""
     return pwd_context.hash(password)
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
     return pwd_context.verify(plain_password, hashed_password)
+
 
 def create_access_token(user: User, expires_delta: Optional[timedelta] = None) -> str:
     """Create a JWT access token"""
@@ -257,34 +290,28 @@ def create_access_token(user: User, expires_delta: Optional[timedelta] = None) -
         "iat": datetime.now(timezone.utc),
         "permissions": permissions,
         "role": user.role_ids[0] if user.role_ids else "user",
-        "organization_id": user.organization_id
+        "organization_id": user.organization_id,
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
 
 def create_refresh_token(user: User) -> str:
     """Create a JWT refresh token"""
     token = secrets.token_urlsafe(64)
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
-    refresh_tokens[token] = {
-        "user_id": user.id,
-        "exp": expire,
-        "created_at": datetime.now(timezone.utc)
-    }
+    refresh_tokens[token] = {"user_id": user.id, "exp": expire, "created_at": datetime.now(timezone.utc)}
     return token
+
 
 def create_mfa_code(user_id: str, method: MFAMethod) -> str:
     """Generate and store MFA code"""
-    code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+    code = "".join([str(secrets.randbelow(10)) for _ in range(6)])
     expire = datetime.now(timezone.utc) + timedelta(minutes=MFA_CODE_EXPIRE_MINUTES)
 
-    mfa_codes[code] = {
-        "user_id": user_id,
-        "method": method,
-        "exp": expire,
-        "attempts": 0
-    }
+    mfa_codes[code] = {"user_id": user_id, "method": method, "exp": expire, "attempts": 0}
     return code
+
 
 def verify_mfa_code(code: str, user_id: str) -> bool:
     """Verify MFA code"""
@@ -302,6 +329,7 @@ def verify_mfa_code(code: str, user_id: str) -> bool:
     del mfa_codes[code]
     return True
 
+
 def get_user_permissions(user: User) -> List[str]:
     """Get all permissions for a user based on their roles"""
     permissions = set()
@@ -312,8 +340,15 @@ def get_user_permissions(user: User) -> List[str]:
 
     return list(permissions)
 
-def create_audit_log(user_id: str, action: str, resource_type: str = None,
-                     resource_id: str = None, request: Request = None, details: Dict = None):
+
+def create_audit_log(
+    user_id: str,
+    action: str,
+    resource_type: str = None,
+    resource_id: str = None,
+    request: Request = None,
+    details: Dict = None,
+):
     """Create an immutable audit log entry"""
     log_entry = AuditLogEntry(
         id=str(uuid.uuid4()),
@@ -324,7 +359,7 @@ def create_audit_log(user_id: str, action: str, resource_type: str = None,
         ip_address=request.client.host if request else None,
         user_agent=request.headers.get("user-agent") if request else None,
         details=details,
-        timestamp=datetime.now(timezone.utc)
+        timestamp=datetime.now(timezone.utc),
     )
     audit_logs.append(log_entry)
 
@@ -334,15 +369,18 @@ def create_audit_log(user_id: str, action: str, resource_type: str = None,
 
     return log_entry
 
+
 def generate_password_reset_token() -> tuple[str, str]:
     """Generate password reset token (token, hashed_token)"""
     raw_token = secrets.token_urlsafe(64)
     hashed_token = hashlib.sha256(raw_token.encode()).hexdigest()
     return raw_token, hashed_token
 
+
 # ============================================================================
 # Default Roles Setup
 # ============================================================================
+
 
 def setup_default_roles():
     """Initialize default system roles"""
@@ -354,55 +392,64 @@ def setup_default_roles():
             "name": "Administrator",
             "description": "Full system access",
             "permissions": [p.value for p in Capability],
-            "is_system": True
+            "is_system": True,
         },
         {
             "id": "accountant",
             "name": "Accountant",
             "description": "Accounting operations access",
             "permissions": [
-                Capability.ACCOUNT_VIEW.value, Capability.ACCOUNT_CREATE.value,
-                Capability.ACCOUNT_EDIT.value, Capability.JOURNAL_VIEW.value,
-                Capability.JOURNAL_CREATE.value, Capability.JOURNAL_POST.value,
-                Capability.REPORT_VIEW.value, Capability.REPORT_CREATE.value,
-                Capability.REPORT_EXPORT.value
+                Capability.ACCOUNT_VIEW.value,
+                Capability.ACCOUNT_CREATE.value,
+                Capability.ACCOUNT_EDIT.value,
+                Capability.JOURNAL_VIEW.value,
+                Capability.JOURNAL_CREATE.value,
+                Capability.JOURNAL_POST.value,
+                Capability.REPORT_VIEW.value,
+                Capability.REPORT_CREATE.value,
+                Capability.REPORT_EXPORT.value,
             ],
-            "is_system": True
+            "is_system": True,
         },
         {
             "id": "finance_manager",
             "name": "Finance Manager",
             "description": "Financial management access",
             "permissions": [
-                Capability.ACCOUNT_VIEW.value, Capability.ACCOUNT_CREATE.value,
-                Capability.ACCOUNT_EDIT.value, Capability.JOURNAL_VIEW.value,
-                Capability.JOURNAL_CREATE.value, Capability.JOURNAL_POST.value,
-                Capability.BUDGET_VIEW.value, Capability.BUDGET_CREATE.value,
-                Capability.BUDGET_APPROVE.value, Capability.REPORT_VIEW.value,
-                Capability.REPORT_CREATE.value, Capability.REPORT_EXPORT.value
+                Capability.ACCOUNT_VIEW.value,
+                Capability.ACCOUNT_CREATE.value,
+                Capability.ACCOUNT_EDIT.value,
+                Capability.JOURNAL_VIEW.value,
+                Capability.JOURNAL_CREATE.value,
+                Capability.JOURNAL_POST.value,
+                Capability.BUDGET_VIEW.value,
+                Capability.BUDGET_CREATE.value,
+                Capability.BUDGET_APPROVE.value,
+                Capability.REPORT_VIEW.value,
+                Capability.REPORT_CREATE.value,
+                Capability.REPORT_EXPORT.value,
             ],
-            "is_system": True
+            "is_system": True,
         },
         {
             "id": "viewer",
             "name": "Viewer",
             "description": "Read-only access",
             "permissions": [
-                Capability.ACCOUNT_VIEW.value, Capability.JOURNAL_VIEW.value,
-                Capability.REPORT_VIEW.value, Capability.REPORT_EXPORT.value
+                Capability.ACCOUNT_VIEW.value,
+                Capability.JOURNAL_VIEW.value,
+                Capability.REPORT_VIEW.value,
+                Capability.REPORT_EXPORT.value,
             ],
-            "is_system": True
+            "is_system": True,
         },
         {
             "id": "user",
             "name": "User",
             "description": "Basic user access",
-            "permissions": [
-                Capability.ACCOUNT_VIEW.value, Capability.JOURNAL_VIEW.value,
-                Capability.REPORT_VIEW.value
-            ],
-            "is_system": True
-        }
+            "permissions": [Capability.ACCOUNT_VIEW.value, Capability.JOURNAL_VIEW.value, Capability.REPORT_VIEW.value],
+            "is_system": True,
+        },
     ]
 
     now = datetime.now(timezone.utc)
@@ -414,9 +461,10 @@ def setup_default_roles():
             permissions=role_data["permissions"],
             is_system=role_data["is_system"],
             created_at=now,
-            updated_at=now
+            updated_at=now,
         )
         roles[role.id] = role
+
 
 # Initialize default roles
 setup_default_roles()
@@ -424,6 +472,7 @@ setup_default_roles()
 # ============================================================================
 # API Endpoints
 # ============================================================================
+
 
 @app.get("/")
 async def health_check():
@@ -433,10 +482,12 @@ async def health_check():
         "version": "1.0.0",
         "total_users": len(users),
         "total_roles": len(roles),
-        "total_organizations": len(organizations)
+        "total_organizations": len(organizations),
     }
 
+
 # --- User Management ---
+
 
 @app.post("/users/register", status_code=status.HTTP_201_CREATED)
 async def register_user(user_data: UserCreate, request: Request):
@@ -471,7 +522,7 @@ async def register_user(user_data: UserCreate, request: Request):
         mfa_enabled=False,
         password_hash=hash_password(user_data.password),
         created_at=now,
-        updated_at=now
+        updated_at=now,
     )
 
     users[user_id] = user
@@ -481,6 +532,7 @@ async def register_user(user_data: UserCreate, request: Request):
     create_audit_log(user_id, "user.registered", "User", user_id, request)
 
     return {"id": user_id, "email": user.email, "username": user.username}
+
 
 @app.post("/users/login")
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
@@ -492,23 +544,20 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     user = users[user_id]
 
     if user.status != UserStatus.ACTIVE:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is not active"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is not active")
 
     if not verify_password(form_data.password, user.password_hash):
         create_audit_log(user_id, "login.failed", "User", user_id, request, {"reason": "invalid_password"})
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     # Check if MFA is enabled
@@ -518,7 +567,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         return {
             "mfa_required": True,
             "method": user.mfa_method.value,
-            "temp_token": create_access_token(user, expires_delta=timedelta(minutes=5))
+            "temp_token": create_access_token(user, expires_delta=timedelta(minutes=5)),
         }
 
     # Create session
@@ -527,7 +576,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         "user_id": user_id,
         "created_at": datetime.now(timezone.utc),
         "last_activity": datetime.now(timezone.utc),
-        "ip_address": request.client.host
+        "ip_address": request.client.host,
     }
 
     # Update last login
@@ -539,8 +588,9 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     return Token(
         access_token=create_access_token(user),
         refresh_token=create_refresh_token(user),
-        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
+
 
 @app.post("/users/login/verify-mfa")
 async def verify_mfa(mfa_data: MFAVerify, request: Request):
@@ -563,7 +613,7 @@ async def verify_mfa(mfa_data: MFAVerify, request: Request):
         "user_id": user_id,
         "created_at": datetime.now(timezone.utc),
         "last_activity": datetime.now(timezone.utc),
-        "ip_address": request.client.host
+        "ip_address": request.client.host,
     }
 
     user.last_login = datetime.now(timezone.utc)
@@ -574,8 +624,9 @@ async def verify_mfa(mfa_data: MFAVerify, request: Request):
     return Token(
         access_token=create_access_token(user),
         refresh_token=create_refresh_token(user),
-        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
+
 
 @app.get("/users/me")
 async def get_current_user(request: Request, authorization: str = None):
@@ -607,8 +658,9 @@ async def get_current_user(request: Request, authorization: str = None):
         "permissions": get_user_permissions(user),
         "organization_id": user.organization_id,
         "mfa_enabled": user.mfa_enabled,
-        "last_login": user.last_login
+        "last_login": user.last_login,
     }
+
 
 @app.get("/users/{user_id}")
 async def get_user(user_id: str, authorization: str = Depends(lambda x: x)):
@@ -627,11 +679,14 @@ async def get_user(user_id: str, authorization: str = Depends(lambda x: x)):
         "role_ids": user.role_ids,
         "mfa_enabled": user.mfa_enabled,
         "created_at": user.created_at,
-        "last_login": user.last_login
+        "last_login": user.last_login,
     }
 
+
 @app.put("/users/{user_id}")
-async def update_user(user_id: str, update_data: UserUpdate, request: Request, authorization: str = Depends(lambda x: x)):
+async def update_user(
+    user_id: str, update_data: UserUpdate, request: Request, authorization: str = Depends(lambda x: x)
+):
     """Update user details"""
     if user_id not in users:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -662,12 +717,17 @@ async def update_user(user_id: str, update_data: UserUpdate, request: Request, a
 
     user.updated_at = datetime.now(timezone.utc)
 
-    create_audit_log(user_id, "user.updated", "User", user_id, request, {"updated_fields": update_data.model_dump(exclude_none=True)})
+    create_audit_log(
+        user_id, "user.updated", "User", user_id, request, {"updated_fields": update_data.model_dump(exclude_none=True)}
+    )
 
     return {"ok": True, "updated_at": user.updated_at}
 
+
 @app.post("/users/{user_id}/change-password")
-async def change_password(user_id: str, passwords: PasswordChange, request: Request, authorization: str = Depends(lambda x: x)):
+async def change_password(
+    user_id: str, passwords: PasswordChange, request: Request, authorization: str = Depends(lambda x: x)
+):
     """Change user password"""
     if user_id not in users:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -675,7 +735,9 @@ async def change_password(user_id: str, passwords: PasswordChange, request: Requ
     user = users[user_id]
 
     if not verify_password(passwords.current_password, user.password_hash):
-        create_audit_log(user_id, "password.change.failed", "User", user_id, request, {"reason": "invalid_current_password"})
+        create_audit_log(
+            user_id, "password.change.failed", "User", user_id, request, {"reason": "invalid_current_password"}
+        )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
 
     user.password_hash = hash_password(passwords.new_password)
@@ -690,7 +752,9 @@ async def change_password(user_id: str, passwords: PasswordChange, request: Requ
 
     return {"ok": True, "message": "Password changed successfully"}
 
+
 # --- MFA Management ---
+
 
 @app.post("/users/{user_id}/mfa/setup")
 async def setup_mfa(user_id: str, mfa_setup: MFASetup, request: Request):
@@ -714,8 +778,9 @@ async def setup_mfa(user_id: str, mfa_setup: MFASetup, request: Request):
         "mfa_method": mfa_setup.method.value,
         "secret": secret,
         "code_sent": True,
-        "message": f"MFA code sent via {mfa_setup.method.value}"
+        "message": f"MFA code sent via {mfa_setup.method.value}",
     }
+
 
 @app.post("/users/{user_id}/mfa/verify")
 async def verify_mfa_setup(user_id: str, mfa_verify: MFAVerify, request: Request):
@@ -736,6 +801,7 @@ async def verify_mfa_setup(user_id: str, mfa_verify: MFAVerify, request: Request
 
     return {"ok": True, "message": "MFA enabled successfully"}
 
+
 @app.post("/users/{user_id}/mfa/disable")
 async def disable_mfa(user_id: str, code: str = Form(...), request: Request = None):
     """Disable MFA for user"""
@@ -755,12 +821,15 @@ async def disable_mfa(user_id: str, code: str = Form(...), request: Request = No
 
     return {"ok": True, "message": "MFA disabled successfully"}
 
+
 # --- Role Management ---
+
 
 @app.get("/roles")
 async def list_roles():
     """List all available roles"""
     return {"total": len(roles), "roles": list(roles.values())}
+
 
 @app.post("/roles", status_code=status.HTTP_201_CREATED)
 async def create_role(role_data: RoleCreate, request: Request = None):
@@ -775,7 +844,7 @@ async def create_role(role_data: RoleCreate, request: Request = None):
         permissions=role_data.permissions,
         is_system=role_data.is_system,
         created_at=now,
-        updated_at=now
+        updated_at=now,
     )
 
     roles[role_id] = role
@@ -784,12 +853,14 @@ async def create_role(role_data: RoleCreate, request: Request = None):
 
     return role
 
+
 @app.get("/roles/{role_id}")
 async def get_role(role_id: str):
     """Get role by ID"""
     if role_id not in roles:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
     return roles[role_id]
+
 
 @app.put("/roles/{role_id}")
 async def update_role(role_id: str, update_data: RoleCreate, request: Request = None):
@@ -810,7 +881,9 @@ async def update_role(role_id: str, update_data: RoleCreate, request: Request = 
 
     return role
 
+
 # --- Organization Management ---
+
 
 @app.post("/organizations", status_code=status.HTTP_201_CREATED)
 async def create_organization(org_data: OrganizationCreate, request: Request = None):
@@ -824,7 +897,7 @@ async def create_organization(org_data: OrganizationCreate, request: Request = N
         description=org_data.description,
         settings=org_data.settings,
         created_at=now,
-        updated_at=now
+        updated_at=now,
     )
 
     organizations[org_id] = org
@@ -833,6 +906,7 @@ async def create_organization(org_data: OrganizationCreate, request: Request = N
 
     return org
 
+
 @app.get("/organizations/{org_id}")
 async def get_organization(org_id: str):
     """Get organization by ID"""
@@ -840,7 +914,9 @@ async def get_organization(org_id: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
     return organizations[org_id]
 
+
 # --- Token Refresh ---
+
 
 @app.post("/token/refresh")
 async def refresh_token(refresh_token: str = Form(...)):
@@ -866,10 +942,9 @@ async def refresh_token(refresh_token: str = Form(...)):
     del refresh_tokens[refresh_token]
 
     return Token(
-        access_token=new_access_token,
-        refresh_token=new_refresh_token,
-        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        access_token=new_access_token, refresh_token=new_refresh_token, expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
+
 
 @app.post("/token/revoke")
 async def revoke_token(refresh_token: str = Form(...)):
@@ -878,7 +953,9 @@ async def revoke_token(refresh_token: str = Form(...)):
         del refresh_tokens[refresh_token]
     return {"ok": True}
 
+
 # --- Password Reset ---
+
 
 @app.post("/password/reset")
 async def request_password_reset(reset_data: PasswordReset, request: Request = None):
@@ -892,7 +969,7 @@ async def request_password_reset(reset_data: PasswordReset, request: Request = N
         password_reset_tokens[hashed_token] = {
             "user_id": user_id,
             "created_at": datetime.now(timezone.utc),
-            "exp": datetime.now(timezone.utc) + timedelta(hours=24)
+            "exp": datetime.now(timezone.utc) + timedelta(hours=24),
         }
 
         # In production, send email with reset link containing raw_token
@@ -901,6 +978,7 @@ async def request_password_reset(reset_data: PasswordReset, request: Request = N
 
     # Always return success to prevent email enumeration
     return {"message": "If the email exists, a password reset link has been sent"}
+
 
 @app.post("/password/reset/confirm")
 async def confirm_password_reset(confirm_data: PasswordResetConfirm, request: Request = None):
@@ -935,7 +1013,9 @@ async def confirm_password_reset(confirm_data: PasswordResetConfirm, request: Re
 
     return {"ok": True, "message": "Password reset successfully"}
 
+
 # --- Audit Logs ---
+
 
 @app.get("/audit-logs")
 async def list_audit_logs(
@@ -945,7 +1025,7 @@ async def list_audit_logs(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     limit: int = 100,
-    offset: int = 0
+    offset: int = 0,
 ):
     """List audit log entries"""
     results = audit_logs
@@ -963,16 +1043,19 @@ async def list_audit_logs(
 
     results.sort(key=lambda x: x.timestamp, reverse=True)
     total = len(results)
-    results = results[offset:offset + limit]
+    results = results[offset : offset + limit]
 
     return {"total": total, "logs": results}
 
+
 # --- Session Management ---
+
 
 @app.get("/sessions")
 async def list_sessions(authorization: str = Depends(lambda x: x)):
     """List active sessions for current user"""
     return {"total": len(sessions), "sessions": list(sessions.values())}
+
 
 @app.delete("/sessions/{session_id}")
 async def revoke_session(session_id: str, request: Request = None):
@@ -982,20 +1065,19 @@ async def revoke_session(session_id: str, request: Request = None):
         return {"ok": True}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
 
+
 # --- Capabilities Reference ---
+
 
 @app.get("/capabilities")
 async def list_capabilities():
     """List all available capabilities"""
-    return {
-        "capabilities": [
-            {"name": c.value, "description": c.name.replace("_", " ").title()}
-            for c in Capability
-        ]
-    }
+    return {"capabilities": [{"name": c.value, "description": c.name.replace("_", " ").title()} for c in Capability]}
 
 
 if __name__ == "__main__":
-    import uvicorn
     import os
+
+    import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8080)

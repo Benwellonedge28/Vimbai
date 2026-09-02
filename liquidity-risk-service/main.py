@@ -3,15 +3,18 @@ Liquidity Risk Service
 Port: 8164
 Liquidity coverage ratio, net stable funding ratio, cash flow matching
 """
-import httpx
-import structlog
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+
+import httpx
+import structlog
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="Liquidity Risk Service", version="1.0.0")
+
 
 class LiquidityAsset(BaseModel):
     asset_id: str
@@ -20,6 +23,7 @@ class LiquidityAsset(BaseModel):
     haircut: float = 0.0
     maturity_bucket: str
 
+
 class Liability(BaseModel):
     liability_id: str
     liability_type: str
@@ -27,12 +31,14 @@ class Liability(BaseModel):
     outflow_rate: float
     maturity_bucket: str
 
+
 class LiquidityAnalysisRequest(BaseModel):
     company_id: str
     reporting_date: str
     liquid_assets: List[LiquidityAsset]
     liabilities: List[Liability]
     cash_flows: Dict[str, List[float]]
+
 
 class LiquidityAnalysisResponse(BaseModel):
     company_id: str
@@ -44,6 +50,7 @@ class LiquidityAnalysisResponse(BaseModel):
     survival_horizon_days: int
     liquidity_risk_rating: str
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -54,9 +61,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "liquidity-risk", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=LiquidityAnalysisResponse)
 async def analyze_liquidity(request: LiquidityAnalysisRequest):
@@ -66,7 +75,9 @@ async def analyze_liquidity(request: LiquidityAnalysisRequest):
     total_outflows = sum(l.value * l.outflow_rate for l in request.liabilities)
     net_inflows = sum(l.value for l in request.liabilities) * 0.1
 
-    lcr = (liquid_assets / (total_outflows - net_inflows * 0.75)) * 100 if total_outflows > net_inflows else float('inf')
+    lcr = (
+        (liquid_assets / (total_outflows - net_inflows * 0.75)) * 100 if total_outflows > net_inflows else float("inf")
+    )
     lcr_ratio = min(500, lcr)
 
     asf = sum(l.value for l in request.liabilities) * 0.95
@@ -85,9 +96,11 @@ async def analyze_liquidity(request: LiquidityAnalysisRequest):
         net_cash_position=liquid_assets - total_outflows,
         maturity_mismatch={"30_day": -50000, "90_day": -200000, "1_year": -100000},
         survival_horizon_days=survival,
-        liquidity_risk_rating=rating
+        liquidity_risk_rating=rating,
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8164)

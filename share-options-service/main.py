@@ -3,14 +3,17 @@ Share Options Service
 Port: 8223
 Share-based payment accounting under IFRS 2
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Share Options Service", version="1.0.0")
+
 
 class OptionGrant(BaseModel):
     grant_id: str
@@ -21,11 +24,13 @@ class OptionGrant(BaseModel):
     total_compensation_cost: float
     vesting_probability: float
 
+
 class ShareOptionsRequest(BaseModel):
     company_id: str
     period: str
     option_grants: List[Dict[str, Any]]
     share_price: float
+
 
 class ShareOptionsResponse(BaseModel):
     company_id: str
@@ -37,6 +42,7 @@ class ShareOptionsResponse(BaseModel):
     dilutive_effect: int
     recommendations: list
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -47,9 +53,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "share-options", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=ShareOptionsResponse)
 async def analyze_share_options(request: ShareOptionsRequest):
@@ -80,15 +88,17 @@ async def analyze_share_options(request: ShareOptionsRequest):
             if request.share_price > grant.get("exercise_price", 0):
                 dilutive += num_options
 
-        option_grants.append(OptionGrant(
-            grant_id=grant.get("id", ""),
-            number_of_options=num_options,
-            fair_value_per_option=fair_value,
-            vesting_period=vesting_period,
-            exercise_price=grant.get("exercise_price", 0),
-            total_compensation_cost=round(total_grant_cost, 2),
-            vesting_probability=vesting_prob
-        ))
+        option_grants.append(
+            OptionGrant(
+                grant_id=grant.get("id", ""),
+                number_of_options=num_options,
+                fair_value_per_option=fair_value,
+                vesting_period=vesting_period,
+                exercise_price=grant.get("exercise_price", 0),
+                total_compensation_cost=round(total_grant_cost, 2),
+                vesting_probability=vesting_prob,
+            )
+        )
 
     return ShareOptionsResponse(
         company_id=request.company_id,
@@ -98,9 +108,15 @@ async def analyze_share_options(request: ShareOptionsRequest):
         equity_settled_expense=round(equity_expense, 2),
         cash_settled_expense=round(cash_expense, 2),
         dilutive_effect=dilutive,
-        recommendations=["Ensure fair value calculations are documented", "Review vesting conditions", "Update option pricing model assumptions"]
+        recommendations=[
+            "Ensure fair value calculations are documented",
+            "Review vesting conditions",
+            "Update option pricing model assumptions",
+        ],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8223)

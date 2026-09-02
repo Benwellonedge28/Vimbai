@@ -3,14 +3,17 @@ Activity-Based Budget Service
 Port: 8177
 Budgeting based on activity cost pools and cost drivers
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Activity-Based Budget Service", version="1.0.0")
+
 
 class ActivityPool(BaseModel):
     activity_id: str
@@ -20,10 +23,12 @@ class ActivityPool(BaseModel):
     driver_volume: int
     rate_per_driver: float
 
+
 class ActivityBudgetRequest(BaseModel):
     company_id: str
     budget_year: str
     activities: List[ActivityPool]
+
 
 class ActivityBudgetResponse(BaseModel):
     company_id: str
@@ -31,6 +36,7 @@ class ActivityBudgetResponse(BaseModel):
     activity_budgets: List[Dict[str, Any]]
     total_cost_pool: float
     cost_per_unit: float
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -42,9 +48,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "activity-based-budget", "version": "1.0.0"}
+
 
 @app.post("/prepare", response_model=ActivityBudgetResponse)
 async def prepare_activity_budget(request: ActivityBudgetRequest):
@@ -57,23 +65,29 @@ async def prepare_activity_budget(request: ActivityBudgetRequest):
         rate = activity.cost_pool / activity.driver_volume if activity.driver_volume else 0
         total_cost += activity.cost_pool
 
-        activity_budgets.append({
-            "activity_id": activity.activity_id,
-            "activity_name": activity.activity_name,
-            "cost_pool": activity.cost_pool,
-            "driver_volume": activity.driver_volume,
-            "rate_per_driver": round(rate, 2),
-            "cost_driver": activity.cost_driver
-        })
+        activity_budgets.append(
+            {
+                "activity_id": activity.activity_id,
+                "activity_name": activity.activity_name,
+                "cost_pool": activity.cost_pool,
+                "driver_volume": activity.driver_volume,
+                "rate_per_driver": round(rate, 2),
+                "cost_driver": activity.cost_driver,
+            }
+        )
 
     return ActivityBudgetResponse(
         company_id=request.company_id,
         budget_year=request.budget_year,
         activity_budgets=activity_budgets,
         total_cost_pool=total_cost,
-        cost_per_unit=round(total_cost / sum(a.driver_volume for a in request.activities), 2) if request.activities else 0
+        cost_per_unit=(
+            round(total_cost / sum(a.driver_volume for a in request.activities), 2) if request.activities else 0
+        ),
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8177)

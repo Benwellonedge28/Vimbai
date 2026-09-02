@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Bad Debts Recovery Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class RecoveryStatus(str):
@@ -87,10 +95,16 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 async def call_audit_service(action: str, resource_type: str, resource_id: str, details: Dict[str, Any]):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(f"{AUDIT_SERVICE_URL}/audit", json={
-                "action": action, "resource_type": resource_type, "resource_id": resource_id,
-                "details": details, "timestamp": datetime.utcnow().isoformat()
-            })
+            await client.post(
+                f"{AUDIT_SERVICE_URL}/audit",
+                json={
+                    "action": action,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "details": details,
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            )
     except Exception as e:
         logger.error("audit_error", error=str(e))
 
@@ -107,13 +121,20 @@ async def root():
 
 @app.post("/bad-debts/register")
 async def register_bad_debt(
-    debt_id: str, debtor_name: str, original_amount: float, written_off_amount: float,
-    written_off_date: datetime, notes: Optional[str] = None
+    debt_id: str,
+    debtor_name: str,
+    original_amount: float,
+    written_off_amount: float,
+    written_off_date: datetime,
+    notes: Optional[str] = None,
 ):
     """Register a bad debt for recovery tracking."""
     entry = RecoveryEntry(
-        original_debt_id=debt_id, debtor_name=debtor_name, original_amount=original_amount,
-        written_off_amount=written_off_amount, notes=notes
+        original_debt_id=debt_id,
+        debtor_name=debtor_name,
+        original_amount=original_amount,
+        written_off_amount=written_off_amount,
+        notes=notes,
     )
     bad_debts_records.append(entry)
     await call_audit_service("CREATE", "bad_debt", debt_id, {"amount": written_off_amount})
@@ -122,8 +143,11 @@ async def register_bad_debt(
 
 @app.post("/bad-debts/{debt_id}/recover")
 async def record_recovery(
-    debt_id: str, amount: float, recovery_date: Optional[datetime] = None,
-    payment_method: Optional[str] = None, reference: Optional[str] = None
+    debt_id: str,
+    amount: float,
+    recovery_date: Optional[datetime] = None,
+    payment_method: Optional[str] = None,
+    reference: Optional[str] = None,
 ):
     """Record recovery of a bad debt."""
     entry = next((e for e in bad_debts_records if e.original_debt_id == debt_id), None)
@@ -141,7 +165,12 @@ async def record_recovery(
         "description": f"Recovery of bad debt from {entry.debtor_name}",
         "entries": [
             {"account_code": "1000", "description": "Cash/Bank", "debit": amount, "credit": 0},
-            {"account_code": "1310", "description": "Provision for Doubtful Debts", "debit": amount if entry.recovered_amount == 0 else 0, "credit": 0},
+            {
+                "account_code": "1310",
+                "description": "Provision for Doubtful Debts",
+                "debit": amount if entry.recovered_amount == 0 else 0,
+                "credit": 0,
+            },
             {"account_code": "6400", "description": "Bad Debts Recovered", "debit": 0, "credit": amount},
         ],
         "reference": f"BAD-DBT-REC-{debt_id[:8]}",
@@ -150,8 +179,11 @@ async def record_recovery(
 
     # Record the recovery
     recovery = RecoveryJournal(
-        recovery_id=debt_id, amount=amount, date=recovery_date,
-        description=f"Recovery from {entry.debtor_name}", journal_entry_id=result.get("id")
+        recovery_id=debt_id,
+        amount=amount,
+        date=recovery_date,
+        description=f"Recovery from {entry.debtor_name}",
+        journal_entry_id=result.get("id"),
     )
     recovery_journals.append(recovery)
 
@@ -165,7 +197,9 @@ async def record_recovery(
     else:
         entry.status = RecoveryStatus.PARTIAL
 
-    await call_audit_service("RECOVER", "bad_debt", debt_id, {"amount": amount, "total_recovered": entry.recovered_amount})
+    await call_audit_service(
+        "RECOVER", "bad_debt", debt_id, {"amount": amount, "total_recovered": entry.recovered_amount}
+    )
     return {"entry": entry, "recovery": recovery}
 
 
@@ -193,7 +227,9 @@ async def get_recovery_summary():
     total_bad_debts = len(bad_debts_records)
     total_written_off = sum(e.written_off_amount for e in bad_debts_records)
     total_recovered = sum(e.recovered_amount for e in bad_debts_records)
-    pending = sum(e.written_off_amount - e.recovered_amount for e in bad_debts_records if e.status != RecoveryStatus.COMPLETED)
+    pending = sum(
+        e.written_off_amount - e.recovered_amount for e in bad_debts_records if e.status != RecoveryStatus.COMPLETED
+    )
 
     return {
         "total_bad_debts": total_bad_debts,
@@ -205,10 +241,11 @@ async def get_recovery_summary():
             "pending": len([e for e in bad_debts_records if e.status == RecoveryStatus.PENDING]),
             "partial": len([e for e in bad_debts_records if e.status == RecoveryStatus.PARTIAL]),
             "completed": len([e for e in bad_debts_records if e.status == RecoveryStatus.COMPLETED]),
-        }
+        },
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

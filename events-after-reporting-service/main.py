@@ -3,14 +3,17 @@ Events After Reporting Service
 Port: 8206
 Post-balance sheet events under IAS 10
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Events After Reporting Service", version="1.0.0")
+
 
 class EventItem(BaseModel):
     event_id: str
@@ -20,6 +23,7 @@ class EventItem(BaseModel):
     adjusting: bool
     financial_impact: float
 
+
 class EventsAfterReportingRequest(BaseModel):
     company_id: str
     audit_id: str
@@ -28,6 +32,7 @@ class EventsAfterReportingRequest(BaseModel):
     authorization_date: str
     events: List[Dict[str, Any]]
     litigation_updates: List[Dict[str, Any]]
+
 
 class EventsAfterReportingResponse(BaseModel):
     company_id: str
@@ -42,6 +47,7 @@ class EventsAfterReportingResponse(BaseModel):
     disclosure_required: bool
     recommendations: List[str]
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -52,9 +58,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "events-after-reporting", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=EventsAfterReportingResponse)
 async def analyze_events_after_reporting(request: EventsAfterReportingRequest):
@@ -79,14 +87,16 @@ async def analyze_events_after_reporting(request: EventsAfterReportingRequest):
                 significant_non_adjusting.append(event.get("description", ""))
 
     for lit in request.litigation_updates:
-        events_identified.append(EventItem(
-            event_id=lit.get("id", ""),
-            event_date=lit.get("settlement_date", ""),
-            description=f"Litigation settlement: {lit.get('description', '')}",
-            event_type="legal",
-            adjusting=lit.get("adjusting", False),
-            financial_impact=lit.get("amount", 0.0)
-        ))
+        events_identified.append(
+            EventItem(
+                event_id=lit.get("id", ""),
+                event_date=lit.get("settlement_date", ""),
+                description=f"Litigation settlement: {lit.get('description', '')}",
+                event_type="legal",
+                adjusting=lit.get("adjusting", False),
+                financial_impact=lit.get("amount", 0.0),
+            )
+        )
 
     disclosure_required = adjusting_count > 0 or non_adjusting_count > 0
 
@@ -99,16 +109,20 @@ async def analyze_events_after_reporting(request: EventsAfterReportingRequest):
         non_adjusting_events=non_adjusting_count,
         events_identified=events_identified,
         total_adjusting_impact=round(adjusting_impact, 2),
-        significant_non_adjusting=significant_non_adjusting if significant_non_adjusting else ["No significant non-adjusting events"],
+        significant_non_adjusting=(
+            significant_non_adjusting if significant_non_adjusting else ["No significant non-adjusting events"]
+        ),
         disclosure_required=disclosure_required,
         recommendations=[
             "Adjust financial statements for adjusting events",
             "Disclose significant non-adjusting events in notes",
             "Update going concern assessment if applicable",
-            "Review subsequent events up to report authorization date"
-        ]
+            "Review subsequent events up to report authorization date",
+        ],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8206)

@@ -4,9 +4,9 @@ Calculates IRR where NPV = 0.
 IRR is the discount rate that makes NPV = 0.
 """
 
+import math
 import os
 import uuid
-import math
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -20,18 +20,28 @@ SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8117"))
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Internal Rate of Return Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
-def calculate_npv_at_rate(initial_investment: float, cash_flows: List[float], rate: float, residual: float = 0) -> float:
+def calculate_npv_at_rate(
+    initial_investment: float, cash_flows: List[float], rate: float, residual: float = 0
+) -> float:
     """Helper to calculate NPV at a given rate."""
     pv = sum(cf / math.pow(1 + rate, i + 1) for i, cf in enumerate(cash_flows))
     if residual > 0:
@@ -55,7 +65,7 @@ async def calculate_irr(
     cash_flows: List[float],
     residual_value: Optional[float] = 0,
     max_iterations: int = 100,
-    tolerance: float = 0.0001
+    tolerance: float = 0.0001,
 ):
     """
     Calculate Internal Rate of Return using Newton-Raphson method.
@@ -109,7 +119,7 @@ async def calculate_irr(
         "irr_percentage": round(irr, 2),
         "irr_decimal": round(rate, 6),
         "npv_at_irr": round(final_npv, 2),
-        "formula": "IRR is the rate where NPV = 0"
+        "formula": "IRR is the rate where NPV = 0",
     }
 
 
@@ -121,7 +131,7 @@ async def calculate_irr_bisection(
     low_rate: float = 0.0,
     high_rate: float = 1.0,
     iterations: int = 50,
-    tolerance: float = 0.0001
+    tolerance: float = 0.0001,
 ):
     """Calculate IRR using bisection method."""
     for _ in range(iterations):
@@ -143,14 +153,12 @@ async def calculate_irr_bisection(
     return {
         "initial_investment": initial_investment,
         "irr_percentage": round(irr, 2),
-        "npv_at_calculated_irr": round(npv_mid, 2)
+        "npv_at_calculated_irr": round(npv_mid, 2),
     }
 
 
 @app.post("/compare")
-async def compare_irr_projects(
-    projects: List[dict]
-):
+async def compare_irr_projects(projects: List[dict]):
     """Compare IRR of multiple projects."""
     results = []
 
@@ -191,24 +199,17 @@ async def compare_irr_projects(
     valid = [r for r in results if "error" not in r]
     valid.sort(key=lambda x: x["irr_percentage"], reverse=True)
 
-    return {
-        "project_comparison": valid,
-        "recommended_project": valid[0]["name"] if valid else None
-    }
+    return {"project_comparison": valid, "recommended_project": valid[0]["name"] if valid else None}
 
 
 @app.post("/decision")
 async def irr_decision(irr: float, required_rate: float):
     """Make investment decision based on IRR vs required rate."""
     decision = "Accept" if irr > required_rate else "Reject" if irr < required_rate else "Indifferent"
-    return {
-        "irr": irr,
-        "required_rate": required_rate,
-        "decision": decision,
-        "difference": irr - required_rate
-    }
+    return {"irr": irr, "required_rate": required_rate, "decision": decision, "difference": irr - required_rate}
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

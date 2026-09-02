@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Selling Price Reduction Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class PriceReductionAnalysis(BaseModel):
@@ -82,18 +90,22 @@ async def root():
 
 @app.post("/analyze")
 async def analyze_price_reduction(
-    product_id: str, product_name: str,
-    current_price: float, proposed_price: float,
+    product_id: str,
+    product_name: str,
+    current_price: float,
+    proposed_price: float,
     variable_cost_per_unit: float,
     current_expected_sales: float,
     new_expected_sales: Optional[float] = None,
-    target_contribution: Optional[float] = None
+    target_contribution: Optional[float] = None,
 ):
     """Analyze selling price reduction decision."""
     analysis = PriceReductionAnalysis(
-        product_id=product_id, product_name=product_name,
-        current_price=current_price, proposed_price=proposed_price,
-        current_expected_sales=current_expected_sales
+        product_id=product_id,
+        product_name=product_name,
+        current_price=current_price,
+        proposed_price=proposed_price,
+        current_expected_sales=current_expected_sales,
     )
 
     # Calculate price reduction
@@ -126,8 +138,10 @@ async def analyze_price_reduction(
     if abs(analysis.contribution_change_per_unit) > 0:
         # How much extra volume needed to maintain same total contribution
         analysis.break_even_volume_increase = (
-            analysis.current_total_contribution / analysis.new_contribution_per_unit - current_expected_sales
-        ) if analysis.new_contribution_per_unit > 0 else float('inf')
+            (analysis.current_total_contribution / analysis.new_contribution_per_unit - current_expected_sales)
+            if analysis.new_contribution_per_unit > 0
+            else float("inf")
+        )
 
     # Make recommendation
     if analysis.contribution_difference > 0:
@@ -146,9 +160,11 @@ async def analyze_price_reduction(
 
 @app.post("/discount-analysis")
 async def analyze_discount_levels(
-    product_name: str, list_price: float, variable_cost_per_unit: float,
+    product_name: str,
+    list_price: float,
+    variable_cost_per_unit: float,
     expected_sales_at_list: float,
-    discounts: List[float]  # List of discount percentages to test
+    discounts: List[float],  # List of discount percentages to test
 ):
     """Analyze different discount levels."""
     results = []
@@ -166,15 +182,17 @@ async def analyze_discount_levels(
         original_contribution = (list_price - variable_cost_per_unit) * expected_sales_at_list
         contribution_diff = total_contribution - original_contribution
 
-        results.append({
-            "discount_percentage": discount_pct,
-            "selling_price": selling_price,
-            "contribution_per_unit": contribution_per_unit,
-            "estimated_sales_volume": estimated_sales,
-            "total_contribution": total_contribution,
-            "contribution_vs_original": contribution_diff,
-            "recommended": contribution_diff > 0
-        })
+        results.append(
+            {
+                "discount_percentage": discount_pct,
+                "selling_price": selling_price,
+                "contribution_per_unit": contribution_per_unit,
+                "estimated_sales_volume": estimated_sales,
+                "total_contribution": total_contribution,
+                "contribution_vs_original": contribution_diff,
+                "recommended": contribution_diff > 0,
+            }
+        )
 
     return {"product_name": product_name, "discount_analysis": results}
 
@@ -190,4 +208,5 @@ async def list_analyses(product_id: Optional[str] = None):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

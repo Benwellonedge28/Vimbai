@@ -22,15 +22,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Control Account Reconciliation Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class ControlAccountType(str, Enum):
@@ -87,10 +95,16 @@ reconciliation_reports: List[ReconciliationReport] = []
 async def call_audit_service(action: str, resource_type: str, resource_id: str, details: Dict[str, Any]):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(f"{AUDIT_SERVICE_URL}/audit", json={
-                "action": action, "resource_type": resource_type, "resource_id": resource_id,
-                "details": details, "timestamp": datetime.utcnow().isoformat()
-            })
+            await client.post(
+                f"{AUDIT_SERVICE_URL}/audit",
+                json={
+                    "action": action,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "details": details,
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            )
     except Exception:
         pass
 
@@ -102,7 +116,11 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Control account reconciliation and error handling"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "description": "Control account reconciliation and error handling",
+    }
 
 
 @app.post("/errors/report")
@@ -144,16 +162,22 @@ async def resolve_error(error_id: str, resolution: str, resolved_by: str):
 
 
 @app.post("/reconcile/{account_type}")
-async def reconcile_control_account(account_type: ControlAccountType, as_of_date: datetime, control_balance: float, ledger_total: float):
+async def reconcile_control_account(
+    account_type: ControlAccountType, as_of_date: datetime, control_balance: float, ledger_total: float
+):
     """Perform reconciliation for a control account."""
     difference = control_balance - ledger_total
     errors = [e for e in reconciliation_errors if e.control_account_type == account_type and e.status == "pending"]
 
     report = ReconciliationReport(
-        as_of_date=as_of_date, control_account_type=account_type,
-        control_balance=control_balance, ledger_total=ledger_total,
-        difference=difference, error_count=len(errors), errors=errors,
-        status="reconciled" if abs(difference) < 0.01 else "unreconciled"
+        as_of_date=as_of_date,
+        control_account_type=account_type,
+        control_balance=control_balance,
+        ledger_total=ledger_total,
+        difference=difference,
+        error_count=len(errors),
+        errors=errors,
+        status="reconciled" if abs(difference) < 0.01 else "unreconciled",
     )
     reconciliation_reports.append(report)
 
@@ -175,13 +199,11 @@ async def get_reconciliation_summary():
         "pending_errors": len([e for e in reconciliation_errors if e.status == "pending"]),
         "resolved_errors": len([e for e in reconciliation_errors if e.status == "resolved"]),
         "total_variance": sum(e.variance for e in reconciliation_errors if e.status == "pending"),
-        "by_type": {
-            et.value: len([e for e in reconciliation_errors if e.error_type == et])
-            for et in ErrorType
-        }
+        "by_type": {et.value: len([e for e in reconciliation_errors if e.error_type == et]) for et in ErrorType},
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

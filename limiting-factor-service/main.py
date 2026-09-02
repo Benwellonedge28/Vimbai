@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Limiting Factor Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class LimitingFactorType(str):
@@ -95,13 +103,17 @@ async def root():
 
 @app.post("/analyze")
 async def analyze_limiting_factor(
-    limiting_factor: str, factor_type: str, total_available: float,
-    products: List[Dict[str, Any]]  # [{product_id, product_name, demand, contribution_per_unit, factor_per_unit}]
+    limiting_factor: str,
+    factor_type: str,
+    total_available: float,
+    products: List[Dict[str, Any]],  # [{product_id, product_name, demand, contribution_per_unit, factor_per_unit}]
 ):
     """Analyze optimal production with limiting factor."""
     analysis = LimitingFactorAnalysis(
-        analysis_date=datetime.utcnow(), limiting_factor=limiting_factor,
-        factor_type=factor_type, total_available=total_available
+        analysis_date=datetime.utcnow(),
+        limiting_factor=limiting_factor,
+        factor_type=factor_type,
+        total_available=total_available,
     )
 
     # Calculate contribution per factor unit for each product
@@ -111,13 +123,11 @@ async def analyze_limiting_factor(
             product_name=prod["product_name"],
             demand=prod["demand"],
             contribution_per_unit=prod["contribution_per_unit"],
-            factor_per_unit=prod["factor_per_unit"]
+            factor_per_unit=prod["factor_per_unit"],
         )
 
         if prod["factor_per_unit"] > 0:
-            product.contribution_per_factor_unit = (
-                prod["contribution_per_unit"] / prod["factor_per_unit"]
-            )
+            product.contribution_per_factor_unit = prod["contribution_per_unit"] / prod["factor_per_unit"]
 
         analysis.products.append(product)
 
@@ -158,7 +168,7 @@ async def analyze_limiting_factor(
 
 @app.post("/compare-products")
 async def compare_products_for_factor(
-    products: List[Dict[str, Any]]  # [{product_id, product_name, contribution_per_unit, factor_per_unit}]
+    products: List[Dict[str, Any]],  # [{product_id, product_name, contribution_per_unit, factor_per_unit}]
 ):
     """Compare products to determine ranking."""
     comparisons = []
@@ -168,13 +178,15 @@ async def compare_products_for_factor(
         if prod["factor_per_unit"] > 0:
             contribution_per_factor = prod["contribution_per_unit"] / prod["factor_per_unit"]
 
-        comparisons.append({
-            "product_id": prod["product_id"],
-            "product_name": prod["product_name"],
-            "contribution_per_unit": prod["contribution_per_unit"],
-            "factor_per_unit": prod["factor_per_unit"],
-            "contribution_per_factor_unit": contribution_per_factor
-        })
+        comparisons.append(
+            {
+                "product_id": prod["product_id"],
+                "product_name": prod["product_name"],
+                "contribution_per_unit": prod["contribution_per_unit"],
+                "factor_per_unit": prod["factor_per_unit"],
+                "contribution_per_factor_unit": contribution_per_factor,
+            }
+        )
 
     # Sort by contribution per factor unit
     comparisons.sort(key=lambda x: x["contribution_per_factor_unit"], reverse=True)
@@ -206,4 +218,5 @@ async def get_analysis(analysis_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

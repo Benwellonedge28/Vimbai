@@ -3,27 +3,36 @@ PDF and Excel Export Service for Vimbai Reporting
 Provides comprehensive export functionality for financial reports
 """
 
+import asyncio
+import csv
 import io
 import json
-import csv
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Union
 from decimal import Decimal
-import asyncio
+from typing import Any, Dict, List, Optional, Union
 
 # For PDF generation
 try:
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4, letter, landscape
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch, cm
-    from reportlab.platypus import (
-        SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
-        Image, PageBreak, TableOfContents, PageTemplate, BaseDocTemplate
-    )
-    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT, TA_JUSTIFY
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
+    from reportlab.lib.pagesizes import A4, landscape, letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import cm, inch
     from reportlab.pdfgen import canvas
+    from reportlab.platypus import (
+        BaseDocTemplate,
+        Image,
+        PageBreak,
+        PageTemplate,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableOfContents,
+        TableStyle,
+    )
     from reportlab.platypus.flowables import HRFlowable
+
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
@@ -31,10 +40,11 @@ except ImportError:
 # For Excel generation
 try:
     import openpyxl
-    from openpyxl.styles import Font, PatternFill, Border, Side, Alignment, Protection
-    from openpyxl.utils import get_column_letter
-    from openpyxl.chart import BarChart, PieChart, LineChart, Reference
+    from openpyxl.chart import BarChart, LineChart, PieChart, Reference
     from openpyxl.chart.label import DataLabelList
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Protection, Side
+    from openpyxl.utils import get_column_letter
+
     OPENPYXL_AVAILABLE = True
 except ImportError:
     OPENPYXL_AVAILABLE = False
@@ -42,6 +52,7 @@ except ImportError:
 # For additional formatting
 try:
     from PIL import Image as PILImage
+
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
@@ -68,7 +79,7 @@ class ExportService:
         columns: Optional[List[str]] = None,
         include_summary: bool = True,
         page_size: str = "A4",
-        orientation: str = "portrait"
+        orientation: str = "portrait",
     ) -> bytes:
         """
         Export data to a PDF document
@@ -101,10 +112,10 @@ class ExportService:
         doc = SimpleDocTemplate(
             buffer,
             pagesize=page_format,
-            rightMargin=0.75*inch,
-            leftMargin=0.75*inch,
-            topMargin=0.75*inch,
-            bottomMargin=0.75*inch
+            rightMargin=0.75 * inch,
+            leftMargin=0.75 * inch,
+            topMargin=0.75 * inch,
+            bottomMargin=0.75 * inch,
         )
 
         # Build document content
@@ -137,53 +148,39 @@ class ExportService:
 
         # Company name
         company_style = ParagraphStyle(
-            'CompanyName',
-            parent=styles['Heading1'],
+            "CompanyName",
+            parent=styles["Heading1"],
             fontSize=18,
-            textColor=colors.HexColor('#1a365d'),
+            textColor=colors.HexColor("#1a365d"),
             alignment=TA_CENTER,
-            spaceAfter=6
+            spaceAfter=6,
         )
         elements.append(Paragraph(self.company_name, company_style))
 
         # Report title
         title_style = ParagraphStyle(
-            'ReportTitle',
-            parent=styles['Heading2'],
+            "ReportTitle",
+            parent=styles["Heading2"],
             fontSize=14,
-            textColor=colors.HexColor('#2d3748'),
+            textColor=colors.HexColor("#2d3748"),
             alignment=TA_CENTER,
-            spaceAfter=4
+            spaceAfter=4,
         )
         elements.append(Paragraph(title, title_style))
 
         # Report type and date
         subtitle_style = ParagraphStyle(
-            'Subtitle',
-            parent=styles['Normal'],
-            fontSize=10,
-            textColor=colors.gray,
-            alignment=TA_CENTER,
-            spaceAfter=20
+            "Subtitle", parent=styles["Normal"], fontSize=10, textColor=colors.gray, alignment=TA_CENTER, spaceAfter=20
         )
         date_str = datetime.now().strftime("%B %d, %Y")
         elements.append(Paragraph(f"{report_type} | Generated: {date_str}", subtitle_style))
 
         # Horizontal line
-        elements.append(HRFlowable(
-            width="100%",
-            thickness=1,
-            color=colors.HexColor('#3182ce'),
-            spaceAfter=20
-        ))
+        elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#3182ce"), spaceAfter=20))
 
         return elements
 
-    def _create_pdf_table(
-        self,
-        data: List[Dict[str, Any]],
-        columns: List[str]
-    ) -> List:
+    def _create_pdf_table(self, data: List[Dict[str, Any]], columns: List[str]) -> List:
         """Create PDF table from data"""
         elements = []
         styles = getSampleStyleSheet()
@@ -217,50 +214,44 @@ class ExportService:
         table = Table(table_data, colWidths=[col_width] * col_count)
 
         # Apply styling
-        table.setStyle(TableStyle([
-            # Header styling
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3182ce')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('TOPPADDING', (0, 0), (-1, 0), 12),
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-
-            # Data rows styling
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
-            ('TOPPADDING', (0, 1), (-1, -1), 8),
-
-            # Alternating row colors
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
-
-            # Grid
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
-
-            # Row striping
-            *[('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f7fafc'))
-              for i in range(2, len(table_data), 2)],
-        ]))
+        table.setStyle(
+            TableStyle(
+                [
+                    # Header styling
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#3182ce")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, 0), 10),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                    ("TOPPADDING", (0, 0), (-1, 0), 12),
+                    ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                    # Data rows styling
+                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 1), (-1, -1), 9),
+                    ("BOTTOMPADDING", (0, 1), (-1, -1), 8),
+                    ("TOPPADDING", (0, 1), (-1, -1), 8),
+                    # Alternating row colors
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("ALIGN", (0, 1), (-1, -1), "LEFT"),
+                    # Grid
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                    # Row striping
+                    *[
+                        ("BACKGROUND", (0, i), (-1, i), colors.HexColor("#f7fafc"))
+                        for i in range(2, len(table_data), 2)
+                    ],
+                ]
+            )
+        )
 
         elements.append(table)
 
         # Add note if data was truncated
         if len(data) > max_rows:
             note_style = ParagraphStyle(
-                'Note',
-                parent=styles['Normal'],
-                fontSize=8,
-                textColor=colors.gray,
-                alignment=TA_CENTER,
-                spaceBefore=10
+                "Note", parent=styles["Normal"], fontSize=8, textColor=colors.gray, alignment=TA_CENTER, spaceBefore=10
             )
-            elements.append(Paragraph(
-                f"Showing {max_rows} of {len(data)} records",
-                note_style
-            ))
+            elements.append(Paragraph(f"Showing {max_rows} of {len(data)} records", note_style))
 
         return elements
 
@@ -270,20 +261,11 @@ class ExportService:
         styles = getSampleStyleSheet()
 
         elements.append(Spacer(1, 30))
-        elements.append(HRFlowable(
-            width="100%",
-            thickness=0.5,
-            color=colors.HexColor('#e2e8f0'),
-            spaceAfter=15
-        ))
+        elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e2e8f0"), spaceAfter=15))
 
         # Summary title
         summary_style = ParagraphStyle(
-            'SummaryTitle',
-            parent=styles['Heading3'],
-            fontSize=12,
-            textColor=colors.HexColor('#2d3748'),
-            spaceAfter=10
+            "SummaryTitle", parent=styles["Heading3"], fontSize=12, textColor=colors.HexColor("#2d3748"), spaceAfter=10
         )
         elements.append(Paragraph("Summary Statistics", summary_style))
 
@@ -312,16 +294,20 @@ class ExportService:
                 summary_data.append([f"{formatted_name} - Maximum", self._format_number(max_val)])
                 summary_data.append([f"{formatted_name} - Minimum", self._format_number(min_val)])
 
-        summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
-        summary_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#edf2f7')),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
-            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-        ]))
+        summary_table = Table(summary_data, colWidths=[3 * inch, 2 * inch])
+        summary_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#edf2f7")),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+                    ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+                ]
+            )
+        )
 
         elements.append(summary_table)
 
@@ -330,42 +316,30 @@ class ExportService:
     def _add_page_footer(self, canvas, doc):
         """Add footer with page numbers"""
         canvas.saveState()
-        canvas.setFont('Helvetica', 8)
+        canvas.setFont("Helvetica", 8)
         canvas.setFillColor(colors.gray)
 
         # Page number
         page_num = canvas.getPageNumber()
         text = f"Page {page_num}"
-        canvas.drawRightString(
-            doc.pagesize[0] - 0.75*inch,
-            0.5*inch,
-            text
-        )
+        canvas.drawRightString(doc.pagesize[0] - 0.75 * inch, 0.5 * inch, text)
 
         # Generation timestamp
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
-        canvas.drawString(
-            0.75*inch,
-            0.5*inch,
-            f"Generated: {timestamp}"
-        )
+        canvas.drawString(0.75 * inch, 0.5 * inch, f"Generated: {timestamp}")
 
         # Confidential watermark
-        canvas.setFillColor(colors.HexColor('#e2e8f0'))
-        canvas.setFont('Helvetica', 7)
-        canvas.drawCentredString(
-            doc.pagesize[0] / 2,
-            0.3*inch,
-            f"{self.company_name} - Confidential"
-        )
+        canvas.setFillColor(colors.HexColor("#e2e8f0"))
+        canvas.setFont("Helvetica", 7)
+        canvas.drawCentredString(doc.pagesize[0] / 2, 0.3 * inch, f"{self.company_name} - Confidential")
 
         canvas.restoreState()
 
     def _format_header_name(self, name: str) -> str:
         """Format column header name for display"""
         # Convert snake_case to Title Case
-        words = name.replace('_', ' ').split()
-        return ' '.join(word.capitalize() for word in words)
+        words = name.replace("_", " ").split()
+        return " ".join(word.capitalize() for word in words)
 
     def _format_number(self, value: Union[int, float, Decimal]) -> str:
         """Format number for display"""
@@ -380,7 +354,7 @@ class ExportService:
         sheet_name: str = "Report",
         columns: Optional[List[str]] = None,
         include_charts: bool = True,
-        include_summary: bool = True
+        include_summary: bool = True,
     ) -> bytes:
         """
         Export data to an Excel workbook
@@ -426,10 +400,10 @@ class ExportService:
 
                 # Format numbers
                 if isinstance(value, (int, float)):
-                    cell.number_format = '#,##0.00'
+                    cell.number_format = "#,##0.00"
                 elif isinstance(value, Decimal):
                     cell.value = float(value)
-                    cell.number_format = '#,##0.00'
+                    cell.number_format = "#,##0.00"
 
                 cell.value = value if value is not None else ""
 
@@ -471,42 +445,36 @@ class ExportService:
         title_sheet = workbook.create_sheet("Cover", 0)
 
         # Title
-        title_sheet.merge_cells('A1:F1')
-        title_cell = title_sheet['A1']
+        title_sheet.merge_cells("A1:F1")
+        title_cell = title_sheet["A1"]
         title_cell.value = self.company_name
         title_cell.font = Font(bold=True, size=24, color="1a365d")
         title_cell.alignment = Alignment(horizontal="center", vertical="center")
         title_sheet.row_dimensions[1].height = 40
 
         # Report title
-        title_sheet.merge_cells('A3:F3')
-        subtitle_cell = title_sheet['A3']
+        title_sheet.merge_cells("A3:F3")
+        subtitle_cell = title_sheet["A3"]
         subtitle_cell.value = title
         subtitle_cell.font = Font(bold=True, size=18, color="2d3748")
         subtitle_cell.alignment = Alignment(horizontal="center", vertical="center")
 
         # Report info
-        title_sheet['A5'] = "Report Generated:"
-        title_sheet['B5'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        title_sheet['A6'] = "Total Records:"
-        title_sheet['B6'] = row_count
+        title_sheet["A5"] = "Report Generated:"
+        title_sheet["B5"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        title_sheet["A6"] = "Total Records:"
+        title_sheet["B6"] = row_count
 
         # Styling for info
         for row in [5, 6]:
-            title_sheet[f'A{row}'].font = Font(bold=True)
-            title_sheet[f'B{row}'].font = Font(size=12)
+            title_sheet[f"A{row}"].font = Font(bold=True)
+            title_sheet[f"B{row}"].font = Font(size=12)
 
         # Column widths
-        title_sheet.column_dimensions['A'].width = 20
-        title_sheet.column_dimensions['B'].width = 30
+        title_sheet.column_dimensions["A"].width = 20
+        title_sheet.column_dimensions["B"].width = 30
 
-    def _add_excel_charts(
-        self,
-        workbook,
-        data_sheet,
-        data: List[Dict[str, Any]],
-        columns: List[str]
-    ):
+    def _add_excel_charts(self, workbook, data_sheet, data: List[Dict[str, Any]], columns: List[str]):
         """Add charts to the Excel sheet"""
         # Find numeric columns for charts
         numeric_cols = []
@@ -547,7 +515,9 @@ class ExportService:
             chart2.type = "bar"
             chart2.title = "Comparison of Numeric Values"
 
-            data_ref = Reference(data_sheet, min_col=2, min_row=1, max_col=min(len(numeric_cols) + 1, 5), max_row=min(11, len(data) + 1))
+            data_ref = Reference(
+                data_sheet, min_col=2, min_row=1, max_col=min(len(numeric_cols) + 1, 5), max_row=min(11, len(data) + 1)
+            )
             cats = Reference(data_sheet, min_col=1, min_row=2, max_row=min(11, len(data) + 1))
 
             chart2.add_data(data_ref, titles_from_data=True)
@@ -555,18 +525,14 @@ class ExportService:
 
             chart_sheet.add_chart(chart2, "K1")
 
-    def _add_excel_summary_sheet(
-        self,
-        workbook,
-        data: List[Dict[str, Any]]
-    ):
+    def _add_excel_summary_sheet(self, workbook, data: List[Dict[str, Any]]):
         """Add a summary statistics sheet"""
         summary_sheet = workbook.create_sheet("Summary")
 
         # Title
-        summary_sheet['A1'] = "Summary Statistics"
-        summary_sheet['A1'].font = Font(bold=True, size=14)
-        summary_sheet.merge_cells('A1:C1')
+        summary_sheet["A1"] = "Summary Statistics"
+        summary_sheet["A1"].font = Font(bold=True, size=14)
+        summary_sheet.merge_cells("A1:C1")
 
         # Find numeric columns
         numeric_cols = []
@@ -576,46 +542,43 @@ class ExportService:
                     numeric_cols.append(key)
 
         row = 3
-        summary_sheet[f'A{row}'] = "Metric"
-        summary_sheet[f'B{row}'] = "Value"
-        summary_sheet[f'A{row}'].font = Font(bold=True)
-        summary_sheet[f'B{row}'].font = Font(bold=True)
+        summary_sheet[f"A{row}"] = "Metric"
+        summary_sheet[f"B{row}"] = "Value"
+        summary_sheet[f"A{row}"].font = Font(bold=True)
+        summary_sheet[f"B{row}"].font = Font(bold=True)
 
         row += 1
-        summary_sheet[f'A{row}'] = "Total Records"
-        summary_sheet[f'B{row}'] = len(data)
+        summary_sheet[f"A{row}"] = "Total Records"
+        summary_sheet[f"B{row}"] = len(data)
 
         for col in numeric_cols[:5]:
             values = [row.get(col, 0) for row in data if isinstance(row.get(col), (int, float, Decimal))]
             if values:
                 row += 1
-                summary_sheet[f'A{row}'] = f"{self._format_header_name(col)} - Total"
-                summary_sheet[f'B{row}'] = sum(values)
-                summary_sheet[f'B{row}'].number_format = '#,##0.00'
+                summary_sheet[f"A{row}"] = f"{self._format_header_name(col)} - Total"
+                summary_sheet[f"B{row}"] = sum(values)
+                summary_sheet[f"B{row}"].number_format = "#,##0.00"
 
                 row += 1
-                summary_sheet[f'A{row}'] = f"{self._format_header_name(col)} - Average"
-                summary_sheet[f'B{row}'] = sum(values) / len(values)
-                summary_sheet[f'B{row}'].number_format = '#,##0.00'
+                summary_sheet[f"A{row}"] = f"{self._format_header_name(col)} - Average"
+                summary_sheet[f"B{row}"] = sum(values) / len(values)
+                summary_sheet[f"B{row}"].number_format = "#,##0.00"
 
                 row += 1
-                summary_sheet[f'A{row}'] = f"{self._format_header_name(col)} - Max"
-                summary_sheet[f'B{row}'] = max(values)
-                summary_sheet[f'B{row}'].number_format = '#,##0.00'
+                summary_sheet[f"A{row}"] = f"{self._format_header_name(col)} - Max"
+                summary_sheet[f"B{row}"] = max(values)
+                summary_sheet[f"B{row}"].number_format = "#,##0.00"
 
                 row += 1
-                summary_sheet[f'A{row}'] = f"{self._format_header_name(col)} - Min"
-                summary_sheet[f'B{row}'] = min(values)
-                summary_sheet[f'B{row}'].number_format = '#,##0.00'
+                summary_sheet[f"A{row}"] = f"{self._format_header_name(col)} - Min"
+                summary_sheet[f"B{row}"] = min(values)
+                summary_sheet[f"B{row}"].number_format = "#,##0.00"
 
-        summary_sheet.column_dimensions['A'].width = 30
-        summary_sheet.column_dimensions['B'].width = 20
+        summary_sheet.column_dimensions["A"].width = 30
+        summary_sheet.column_dimensions["B"].width = 20
 
     async def export_to_csv(
-        self,
-        data: List[Dict[str, Any]],
-        columns: Optional[List[str]] = None,
-        delimiter: str = ','
+        self, data: List[Dict[str, Any]], columns: Optional[List[str]] = None, delimiter: str = ","
     ) -> str:
         """
         Export data to CSV format
@@ -639,17 +602,13 @@ class ExportService:
 
         # Write data rows
         for row in data:
-            filtered_row = {k: row.get(k, '') for k in columns}
+            filtered_row = {k: row.get(k, "") for k in columns}
             writer.writerow(filtered_row)
 
         return output.getvalue()
 
     async def export_financial_statement(
-        self,
-        statement_type: str,
-        data: Dict[str, Any],
-        date_range: str,
-        format: str = "pdf"
+        self, statement_type: str, data: Dict[str, Any], date_range: str, format: str = "pdf"
     ) -> Union[bytes, str]:
         """
         Export a formal financial statement (Income Statement, Balance Sheet, Cash Flow)
@@ -668,92 +627,94 @@ class ExportService:
 
         if statement_type.lower() == "income statement":
             # Revenue section
-            for item in data.get('revenue', []):
-                export_data.append({
-                    'Category': 'Revenue',
-                    'Item': item.get('name', ''),
-                    'Amount': item.get('amount', 0),
-                    'YTD': item.get('ytd', 0)
-                })
+            for item in data.get("revenue", []):
+                export_data.append(
+                    {
+                        "Category": "Revenue",
+                        "Item": item.get("name", ""),
+                        "Amount": item.get("amount", 0),
+                        "YTD": item.get("ytd", 0),
+                    }
+                )
             # Expenses section
-            for item in data.get('expenses', []):
-                export_data.append({
-                    'Category': 'Expenses',
-                    'Item': item.get('name', ''),
-                    'Amount': item.get('amount', 0),
-                    'YTD': item.get('ytd', 0)
-                })
+            for item in data.get("expenses", []):
+                export_data.append(
+                    {
+                        "Category": "Expenses",
+                        "Item": item.get("name", ""),
+                        "Amount": item.get("amount", 0),
+                        "YTD": item.get("ytd", 0),
+                    }
+                )
             # Net Income
-            export_data.append({
-                'Category': 'Summary',
-                'Item': 'Net Income',
-                'Amount': data.get('net_income', 0),
-                'YTD': data.get('net_income_ytd', 0)
-            })
+            export_data.append(
+                {
+                    "Category": "Summary",
+                    "Item": "Net Income",
+                    "Amount": data.get("net_income", 0),
+                    "YTD": data.get("net_income_ytd", 0),
+                }
+            )
 
         elif statement_type.lower() == "balance sheet":
             # Assets
-            for item in data.get('assets', []):
-                export_data.append({
-                    'Category': 'Assets',
-                    'Item': item.get('name', ''),
-                    'Current': item.get('current', 0),
-                    'Non-Current': item.get('non_current', 0),
-                    'Total': item.get('total', 0)
-                })
+            for item in data.get("assets", []):
+                export_data.append(
+                    {
+                        "Category": "Assets",
+                        "Item": item.get("name", ""),
+                        "Current": item.get("current", 0),
+                        "Non-Current": item.get("non_current", 0),
+                        "Total": item.get("total", 0),
+                    }
+                )
             # Liabilities
-            for item in data.get('liabilities', []):
-                export_data.append({
-                    'Category': 'Liabilities',
-                    'Item': item.get('name', ''),
-                    'Current': item.get('current', 0),
-                    'Non-Current': item.get('non_current', 0),
-                    'Total': item.get('total', 0)
-                })
+            for item in data.get("liabilities", []):
+                export_data.append(
+                    {
+                        "Category": "Liabilities",
+                        "Item": item.get("name", ""),
+                        "Current": item.get("current", 0),
+                        "Non-Current": item.get("non_current", 0),
+                        "Total": item.get("total", 0),
+                    }
+                )
             # Equity
-            for item in data.get('equity', []):
-                export_data.append({
-                    'Category': 'Equity',
-                    'Item': item.get('name', ''),
-                    'Amount': item.get('amount', 0)
-                })
+            for item in data.get("equity", []):
+                export_data.append(
+                    {"Category": "Equity", "Item": item.get("name", ""), "Amount": item.get("amount", 0)}
+                )
 
         elif statement_type.lower() == "cash flow":
             # Operating activities
-            for item in data.get('operating', []):
-                export_data.append({
-                    'Category': 'Operating Activities',
-                    'Item': item.get('name', ''),
-                    'Amount': item.get('amount', 0)
-                })
+            for item in data.get("operating", []):
+                export_data.append(
+                    {"Category": "Operating Activities", "Item": item.get("name", ""), "Amount": item.get("amount", 0)}
+                )
             # Investing activities
-            for item in data.get('investing', []):
-                export_data.append({
-                    'Category': 'Investing Activities',
-                    'Item': item.get('name', ''),
-                    'Amount': item.get('amount', 0)
-                })
+            for item in data.get("investing", []):
+                export_data.append(
+                    {"Category": "Investing Activities", "Item": item.get("name", ""), "Amount": item.get("amount", 0)}
+                )
             # Financing activities
-            for item in data.get('financing', []):
-                export_data.append({
-                    'Category': 'Financing Activities',
-                    'Item': item.get('name', ''),
-                    'Amount': item.get('amount', 0)
-                })
+            for item in data.get("financing", []):
+                export_data.append(
+                    {"Category": "Financing Activities", "Item": item.get("name", ""), "Amount": item.get("amount", 0)}
+                )
 
         # Export based on format
-        if format.lower() == 'pdf':
+        if format.lower() == "pdf":
             return await self.export_to_pdf(
                 export_data,
                 title=f"{statement_type.replace('_', ' ').title()}",
                 report_type=f"Period: {date_range}",
-                include_summary=False
+                include_summary=False,
             )
-        elif format.lower() == 'excel':
+        elif format.lower() == "excel":
             return await self.export_to_excel(
                 export_data,
                 title=f"{statement_type.replace('_', ' ').title()}",
-                sheet_name=statement_type[:31].replace('_', ' ')  # Excel sheet name limit
+                sheet_name=statement_type[:31].replace("_", " "),  # Excel sheet name limit
             )
         else:
             return await self.export_to_csv(export_data)

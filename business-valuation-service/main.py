@@ -3,15 +3,18 @@ Business Valuation Service
 Port: 8155
 DCF valuation, comparable company analysis, dividend discount model
 """
-import httpx
-import structlog
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+
+import httpx
+import structlog
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="Business Valuation Service", version="1.0.0")
+
 
 # Pydantic Models
 class CompanyFinancials(BaseModel):
@@ -31,6 +34,7 @@ class CompanyFinancials(BaseModel):
     beta: float = 1.0
     dividend_per_share: float = 0.0
 
+
 class DCFInputs(BaseModel):
     projection_years: int = Field(default=5, ge=3, le=10)
     base_revenue: float
@@ -43,6 +47,7 @@ class DCFInputs(BaseModel):
     terminal_growth_rate: float
     net_debt: float
 
+
 class ComparableCompany(BaseModel):
     company_name: str
     ticker: str
@@ -53,6 +58,7 @@ class ComparableCompany(BaseModel):
     net_income: float
     shares_outstanding: int
 
+
 class ValuationRequest(BaseModel):
     company: CompanyFinancials
     include_dcf: bool = True
@@ -60,6 +66,7 @@ class ValuationRequest(BaseModel):
     include_ddm: bool = True
     dcf_inputs: Optional[DCFInputs] = None
     comparables: List[ComparableCompany] = []
+
 
 class DCFResult(BaseModel):
     present_value_of_projections: float
@@ -72,6 +79,7 @@ class DCFResult(BaseModel):
     implied_ebitda_multiple: float
     implied_pe_ratio: float
 
+
 class ComparableResult(BaseModel):
     method: str
     multiples: Dict[str, float]
@@ -79,11 +87,13 @@ class ComparableResult(BaseModel):
     value_per_share: float
     premium_discount_to_comps: float
 
+
 class DDMResult(BaseModel):
     value_per_share: float
     dividend_growth_rate: float
     required_return: float
     valuation_vs_market: float
+
 
 class ValuationResponse(BaseModel):
     company_id: str
@@ -95,6 +105,7 @@ class ValuationResponse(BaseModel):
     value_range_low: float
     value_range_high: float
     recommendation: str
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     """Call another internal Vimbai service."""
@@ -110,9 +121,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "business-valuation", "version": "1.0.0"}
+
 
 @app.post("/value", response_model=ValuationResponse)
 async def value_company(request: ValuationRequest):
@@ -162,8 +175,10 @@ async def value_company(request: ValuationRequest):
             less_net_debt=dcf.net_debt,
             equity_value=equity_value,
             value_per_share=value_per_share,
-            implied_ebitda_multiple=ev / (request.base_revenue * dcf.ebitda_margin) if request.base_revenue * dcf.ebitda_margin > 0 else 0,
-            implied_pe_ratio=equity_value / request.company.net_income if request.company.net_income > 0 else 0
+            implied_ebitda_multiple=(
+                ev / (request.base_revenue * dcf.ebitda_margin) if request.base_revenue * dcf.ebitda_margin > 0 else 0
+            ),
+            implied_pe_ratio=equity_value / request.company.net_income if request.company.net_income > 0 else 0,
         )
 
     # Comparable Company Analysis
@@ -191,7 +206,7 @@ async def value_company(request: ValuationRequest):
             multiples={"EV/EBITDA": avg_ev_ebitda, "P/E": avg_pe},
             adjusted_equity_value=adjusted_equity,
             value_per_share=comp_value_per_share,
-            premium_discount_to_comps=0.0
+            premium_discount_to_comps=0.0,
         )
 
     # Dividend Discount Model
@@ -208,7 +223,7 @@ async def value_company(request: ValuationRequest):
             value_per_share=ddm_value,
             dividend_growth_rate=growth_rate,
             required_return=required_return,
-            valuation_vs_market=(ddm_value - price) / price * 100
+            valuation_vs_market=(ddm_value - price) / price * 100,
         )
 
     # Weighted average
@@ -228,7 +243,11 @@ async def value_company(request: ValuationRequest):
     low_value = min(values) * 0.85
     high_value = max(values) * 1.15
 
-    recommendation = "BUY" if weighted_value > request.company.share_price * 1.1 else "HOLD" if weighted_value > request.company.share_price * 0.9 else "SELL"
+    recommendation = (
+        "BUY"
+        if weighted_value > request.company.share_price * 1.1
+        else "HOLD" if weighted_value > request.company.share_price * 0.9 else "SELL"
+    )
 
     response = ValuationResponse(
         company_id=request.company.company_id,
@@ -239,11 +258,12 @@ async def value_company(request: ValuationRequest):
         weighted_average_value=weighted_value * request.company.shares_outstanding,
         value_range_low=low_value * request.company.shares_outstanding,
         value_range_high=high_value * request.company.shares_outstanding,
-        recommendation=recommendation
+        recommendation=recommendation,
     )
 
     logger.info("Valuation complete", company=request.company.company_name, value=weighted_value)
     return response
+
 
 @app.post("/wacc")
 async def calculate_wacc(
@@ -252,7 +272,7 @@ async def calculate_wacc(
     cost_of_equity: float,
     cost_of_debt: float,
     tax_rate: float,
-    debt_premium: float = 0.02
+    debt_premium: float = 0.02,
 ):
     """Calculate Weighted Average Cost of Capital."""
     total_capital = market_cap + total_debt
@@ -271,8 +291,9 @@ async def calculate_wacc(
         "cost_of_equity": cost_of_equity,
         "cost_of_debt": cost_of_debt,
         "after_tax_cost_of_debt": after_tax_cost_debt,
-        "wacc": wacc
+        "wacc": wacc,
     }
+
 
 @app.post("/capm")
 async def calculate_capm(
@@ -280,7 +301,7 @@ async def calculate_capm(
     market_return: float,
     beta: float,
     size_premium: float = 0.0,
-    company_specific_premium: float = 0.0
+    company_specific_premium: float = 0.0,
 ):
     """Calculate cost of equity using CAPM."""
     market_risk_premium = market_return - risk_free_rate
@@ -293,15 +314,13 @@ async def calculate_capm(
         "market_risk_premium": market_risk_premium,
         "size_premium": size_premium,
         "company_specific_premium": company_specific_premium,
-        "cost_of_equity": cost_of_equity
+        "cost_of_equity": cost_of_equity,
     }
+
 
 @app.post("/precedent-transaction")
 async def calculate_precedent_valuation(
-    transaction_price: float,
-    target_ebitda: float,
-    target_revenue: float,
-    premium_paid: float
+    transaction_price: float, target_ebitda: float, target_revenue: float, premium_paid: float
 ):
     """Calculate valuation based on precedent transactions."""
     implied_ev_ebitda = transaction_price / target_ebitda if target_ebitda > 0 else 0
@@ -314,8 +333,9 @@ async def calculate_precedent_valuation(
         "implied_ev_ebitda": implied_ev_ebitda,
         "implied_ev_revenue": implied_ev_revenue,
         "premium_paid": premium_paid,
-        "control_premium": premium_paid
+        "control_premium": premium_paid,
     }
+
 
 @app.post("/book-value")
 async def calculate_book_value(
@@ -323,7 +343,7 @@ async def calculate_book_value(
     intangible_assets: float,
     total_liabilities: float,
     preferred_equity: float,
-    minority_interests: float
+    minority_interests: float,
 ):
     """Calculate book value of equity."""
     tangible_book_value = total_assets - intangible_assets - total_liabilities
@@ -336,9 +356,11 @@ async def calculate_book_value(
         "tangible_book_value": tangible_book_value,
         "book_value_of_equity": book_value,
         "preferred_equity": preferred_equity,
-        "minority_interests": minority_interests
+        "minority_interests": minority_interests,
     }
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8155)

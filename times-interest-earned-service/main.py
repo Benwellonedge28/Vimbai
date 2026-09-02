@@ -3,14 +3,17 @@ Times Interest Earned Service
 Port: 8218
 Interest coverage ratio analysis
 """
+
+from typing import Any, Dict
+
 import httpx
 import structlog
-from typing import Any, Dict
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Times Interest Earned Service", version="1.0.0")
+
 
 class CoverageMetrics(BaseModel):
     times_interest_earned: float
@@ -18,6 +21,7 @@ class CoverageMetrics(BaseModel):
     debt_service_coverage_ratio: float
     fixed_charge_coverage: float
     cash_flow_to_debt: float
+
 
 class TIERequest(BaseModel):
     company_id: str
@@ -29,6 +33,7 @@ class TIERequest(BaseModel):
     operating_cash_flow: float
     total_debt: float
 
+
 class TIEResponse(BaseModel):
     company_id: str
     period: str
@@ -37,6 +42,7 @@ class TIEResponse(BaseModel):
     risk_assessment: str
     covenant_compliance: Dict[str, bool]
     recommendations: list
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -48,9 +54,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "times-interest-earned", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=TIEResponse)
 async def analyze_times_interest_earned(request: TIERequest):
@@ -69,11 +77,7 @@ async def analyze_times_interest_earned(request: TIERequest):
     benchmark = 3.0
     risk = "low" if tie >= 4.0 else "medium" if tie >= 2.0 else "high"
 
-    covenant_compliance = {
-        "tie_covenant": tie >= 2.5,
-        "dsr_covenant": dsr >= 1.25,
-        "debt_to_cf": cf_to_debt >= 0.25
-    }
+    covenant_compliance = {"tie_covenant": tie >= 2.5, "dsr_covenant": dsr >= 1.25, "debt_to_cf": cf_to_debt >= 0.25}
 
     return TIEResponse(
         company_id=request.company_id,
@@ -83,7 +87,7 @@ async def analyze_times_interest_earned(request: TIERequest):
             interest_coverage_ratio=round(tie, 2),
             debt_service_coverage_ratio=round(dsr, 2),
             fixed_charge_coverage=round(fcc, 2),
-            cash_flow_to_debt=round(cf_to_debt, 4)
+            cash_flow_to_debt=round(cf_to_debt, 4),
         ),
         industry_benchmark=benchmark,
         risk_assessment=risk,
@@ -91,10 +95,12 @@ async def analyze_times_interest_earned(request: TIERequest):
         recommendations=[
             "Interest coverage is healthy" if risk == "low" else "Consider debt reduction strategies",
             "Monitor covenant compliance",
-            "Review refinancing options for lower interest costs"
-        ]
+            "Review refinancing options for lower interest costs",
+        ],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8218)

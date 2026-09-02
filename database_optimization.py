@@ -21,19 +21,20 @@ Usage:
     await optimizer.analyze_slow_queries()
 """
 
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
-from datetime import datetime
 import asyncio
-
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 # =============================================================================
 # DATA CLASSES
 # =============================================================================
 
+
 @dataclass
 class IndexDefinition:
     """Defines a Neo4j index with metadata."""
+
     label: str
     property: str
     index_type: str = "RANGE"  # RANGE, TEXT, POINT, FULLTEXT
@@ -43,6 +44,7 @@ class IndexDefinition:
 @dataclass
 class QueryStatistics:
     """Tracks query execution statistics."""
+
     query: str
     execution_time_ms: float
     hits: int
@@ -53,6 +55,7 @@ class QueryStatistics:
 @dataclass
 class IndexHealthReport:
     """Report on index health and recommendations."""
+
     indexes: List[Dict[str, Any]]
     recommendations: List[str]
     last_analyzed: datetime
@@ -64,282 +67,107 @@ class IndexHealthReport:
 
 # Account-related indexes for fast lookups
 ACCOUNT_INDEXES = [
+    IndexDefinition(label="Account", property="account_number", description="Primary lookup by account number"),
+    IndexDefinition(label="Account", property="account_name", description="Search by account name"),
     IndexDefinition(
-        label="Account",
-        property="account_number",
-        description="Primary lookup by account number"
+        label="Account", property="account_type", description="Filter by account type (Asset, Liability, etc.)"
     ),
-    IndexDefinition(
-        label="Account",
-        property="account_name",
-        description="Search by account name"
-    ),
-    IndexDefinition(
-        label="Account",
-        property="account_type",
-        description="Filter by account type (Asset, Liability, etc.)"
-    ),
-    IndexDefinition(
-        label="Account",
-        property="user_id",
-        description="User-scoped account queries"
-    ),
-    IndexDefinition(
-        label="Account",
-        property="created_at",
-        description="Temporal queries and reporting"
-    ),
+    IndexDefinition(label="Account", property="user_id", description="User-scoped account queries"),
+    IndexDefinition(label="Account", property="created_at", description="Temporal queries and reporting"),
 ]
 
 # Journal Entry indexes for transaction lookups
 JOURNAL_ENTRY_INDEXES = [
+    IndexDefinition(label="JournalEntry", property="entry_id", description="Primary lookup by entry ID"),
+    IndexDefinition(label="JournalEntry", property="user_id", description="User-scoped entry queries"),
     IndexDefinition(
-        label="JournalEntry",
-        property="entry_id",
-        description="Primary lookup by entry ID"
+        label="JournalEntry", property="entry_date", description="Date-range queries for financial reports"
     ),
     IndexDefinition(
-        label="JournalEntry",
-        property="user_id",
-        description="User-scoped entry queries"
+        label="JournalEntry", property="reference_number", description="Search by reference/document number"
     ),
     IndexDefinition(
-        label="JournalEntry",
-        property="entry_date",
-        description="Date-range queries for financial reports"
-    ),
-    IndexDefinition(
-        label="JournalEntry",
-        property="reference_number",
-        description="Search by reference/document number"
-    ),
-    IndexDefinition(
-        label="JournalEntry",
-        property="status",
-        description="Filter by entry status (draft, posted, etc.)"
+        label="JournalEntry", property="status", description="Filter by entry status (draft, posted, etc.)"
     ),
 ]
 
 # User and Organization indexes
 USER_ORG_INDEXES = [
-    IndexDefinition(
-        label="User",
-        property="user_id",
-        description="Primary user lookup"
-    ),
-    IndexDefinition(
-        label="User",
-        property="email",
-        description="Email-based authentication lookup"
-    ),
-    IndexDefinition(
-        label="User",
-        property="organization_id",
-        description="Organization membership queries"
-    ),
-    IndexDefinition(
-        label="Organization",
-        property="org_id",
-        description="Organization lookup"
-    ),
+    IndexDefinition(label="User", property="user_id", description="Primary user lookup"),
+    IndexDefinition(label="User", property="email", description="Email-based authentication lookup"),
+    IndexDefinition(label="User", property="organization_id", description="Organization membership queries"),
+    IndexDefinition(label="Organization", property="org_id", description="Organization lookup"),
 ]
 
 # Transaction indexes for banking integration
 TRANSACTION_INDEXES = [
-    IndexDefinition(
-        label="Transaction",
-        property="transaction_id",
-        description="Primary transaction lookup"
-    ),
-    IndexDefinition(
-        label="Transaction",
-        property="user_id",
-        description="User transaction history"
-    ),
-    IndexDefinition(
-        label="Transaction",
-        property="transaction_date",
-        description="Date-range transaction queries"
-    ),
-    IndexDefinition(
-        label="Transaction",
-        property="bank_account_id",
-        description="Bank account transaction filtering"
-    ),
-    IndexDefinition(
-        label="Transaction",
-        property="amount",
-        description="Amount-based filtering and reporting"
-    ),
-    IndexDefinition(
-        label="Transaction",
-        property="status",
-        description="Transaction status filtering"
-    ),
-    IndexDefinition(
-        label="Transaction",
-        property="external_reference",
-        description="External system reference lookup"
-    ),
+    IndexDefinition(label="Transaction", property="transaction_id", description="Primary transaction lookup"),
+    IndexDefinition(label="Transaction", property="user_id", description="User transaction history"),
+    IndexDefinition(label="Transaction", property="transaction_date", description="Date-range transaction queries"),
+    IndexDefinition(label="Transaction", property="bank_account_id", description="Bank account transaction filtering"),
+    IndexDefinition(label="Transaction", property="amount", description="Amount-based filtering and reporting"),
+    IndexDefinition(label="Transaction", property="status", description="Transaction status filtering"),
+    IndexDefinition(label="Transaction", property="external_reference", description="External system reference lookup"),
 ]
 
 # NPO Service indexes
 NPO_INDEXES = [
-    IndexDefinition(
-        label="NPOFund",
-        property="fund_id",
-        description="Primary fund lookup"
-    ),
-    IndexDefinition(
-        label="NPOFund",
-        property="fund_code",
-        description="Fund code search"
-    ),
-    IndexDefinition(
-        label="NPOFund",
-        property="fund_type",
-        description="Fund type filtering"
-    ),
-    IndexDefinition(
-        label="NPOFund",
-        property="user_id",
-        description="User-scoped fund queries"
-    ),
-    IndexDefinition(
-        label="Donor",
-        property="donor_id",
-        description="Primary donor lookup"
-    ),
-    IndexDefinition(
-        label="Donor",
-        property="email",
-        description="Donor email search"
-    ),
-    IndexDefinition(
-        label="Grant",
-        property="grant_id",
-        description="Primary grant lookup"
-    ),
-    IndexDefinition(
-        label="Grant",
-        property="status",
-        description="Grant status filtering"
-    ),
-    IndexDefinition(
-        label="Grant",
-        property="application_date",
-        description="Grant application date queries"
-    ),
+    IndexDefinition(label="NPOFund", property="fund_id", description="Primary fund lookup"),
+    IndexDefinition(label="NPOFund", property="fund_code", description="Fund code search"),
+    IndexDefinition(label="NPOFund", property="fund_type", description="Fund type filtering"),
+    IndexDefinition(label="NPOFund", property="user_id", description="User-scoped fund queries"),
+    IndexDefinition(label="Donor", property="donor_id", description="Primary donor lookup"),
+    IndexDefinition(label="Donor", property="email", description="Donor email search"),
+    IndexDefinition(label="Grant", property="grant_id", description="Primary grant lookup"),
+    IndexDefinition(label="Grant", property="status", description="Grant status filtering"),
+    IndexDefinition(label="Grant", property="application_date", description="Grant application date queries"),
 ]
 
 # Ledger and Reporting indexes
 LEDGER_REPORTING_INDEXES = [
-    IndexDefinition(
-        label="LedgerEntry",
-        property="entry_id",
-        description="Primary ledger entry lookup"
-    ),
-    IndexDefinition(
-        label="LedgerEntry",
-        property="account_number",
-        description="Account ledger queries"
-    ),
-    IndexDefinition(
-        label="LedgerEntry",
-        property="posting_date",
-        description="Date-based ledger queries"
-    ),
-    IndexDefinition(
-        label="LedgerEntry",
-        property="user_id",
-        description="User ledger access"
-    ),
-    IndexDefinition(
-        label="TrialBalance",
-        property="period_start",
-        description="Trial balance period queries"
-    ),
-    IndexDefinition(
-        label="TrialBalance",
-        property="user_id",
-        description="User trial balance access"
-    ),
+    IndexDefinition(label="LedgerEntry", property="entry_id", description="Primary ledger entry lookup"),
+    IndexDefinition(label="LedgerEntry", property="account_number", description="Account ledger queries"),
+    IndexDefinition(label="LedgerEntry", property="posting_date", description="Date-based ledger queries"),
+    IndexDefinition(label="LedgerEntry", property="user_id", description="User ledger access"),
+    IndexDefinition(label="TrialBalance", property="period_start", description="Trial balance period queries"),
+    IndexDefinition(label="TrialBalance", property="user_id", description="User trial balance access"),
 ]
 
 # Workflow and Automation indexes
 WORKFLOW_INDEXES = [
-    IndexDefinition(
-        label="WorkflowDefinition",
-        property="workflow_id",
-        description="Primary workflow lookup"
-    ),
-    IndexDefinition(
-        label="WorkflowDefinition",
-        property="user_id",
-        description="User workflow access"
-    ),
-    IndexDefinition(
-        label="WorkflowInstance",
-        property="instance_id",
-        description="Primary workflow instance lookup"
-    ),
-    IndexDefinition(
-        label="WorkflowInstance",
-        property="status",
-        description="Instance status filtering"
-    ),
-    IndexDefinition(
-        label="WorkflowInstance",
-        property="created_at",
-        description="Temporal instance queries"
-    ),
+    IndexDefinition(label="WorkflowDefinition", property="workflow_id", description="Primary workflow lookup"),
+    IndexDefinition(label="WorkflowDefinition", property="user_id", description="User workflow access"),
+    IndexDefinition(label="WorkflowInstance", property="instance_id", description="Primary workflow instance lookup"),
+    IndexDefinition(label="WorkflowInstance", property="status", description="Instance status filtering"),
+    IndexDefinition(label="WorkflowInstance", property="created_at", description="Temporal instance queries"),
 ]
 
 # Supplier and Customer indexes
 SUPPLIER_CUSTOMER_INDEXES = [
-    IndexDefinition(
-        label="Supplier",
-        property="supplier_id",
-        description="Primary supplier lookup"
-    ),
-    IndexDefinition(
-        label="Supplier",
-        property="name",
-        description="Supplier name search"
-    ),
-    IndexDefinition(
-        label="Customer",
-        property="customer_id",
-        description="Primary customer lookup"
-    ),
-    IndexDefinition(
-        label="Customer",
-        property="email",
-        description="Customer email search"
-    ),
-    IndexDefinition(
-        label="Customer",
-        property="name",
-        description="Customer name search"
-    ),
+    IndexDefinition(label="Supplier", property="supplier_id", description="Primary supplier lookup"),
+    IndexDefinition(label="Supplier", property="name", description="Supplier name search"),
+    IndexDefinition(label="Customer", property="customer_id", description="Primary customer lookup"),
+    IndexDefinition(label="Customer", property="email", description="Customer email search"),
+    IndexDefinition(label="Customer", property="name", description="Customer name search"),
 ]
 
 # All indexes combined
 ALL_INDEXES = (
-    ACCOUNT_INDEXES +
-    JOURNAL_ENTRY_INDEXES +
-    USER_ORG_INDEXES +
-    TRANSACTION_INDEXES +
-    NPO_INDEXES +
-    LEDGER_REPORTING_INDEXES +
-    WORKFLOW_INDEXES +
-    SUPPLIER_CUSTOMER_INDEXES
+    ACCOUNT_INDEXES
+    + JOURNAL_ENTRY_INDEXES
+    + USER_ORG_INDEXES
+    + TRANSACTION_INDEXES
+    + NPO_INDEXES
+    + LEDGER_REPORTING_INDEXES
+    + WORKFLOW_INDEXES
+    + SUPPLIER_CUSTOMER_INDEXES
 )
 
 
 # =============================================================================
 # INDEX MANAGEMENT
 # =============================================================================
+
 
 class IndexManager:
     """
@@ -464,32 +292,26 @@ class IndexManager:
             name = idx.get("name", "")
             existing_props.add(name)
 
-        defined_props = {
-            f"{idx.label}_{idx.property}_index"
-            for idx in ALL_INDEXES
-        }
+        defined_props = {f"{idx.label}_{idx.property}_index" for idx in ALL_INDEXES}
 
         missing = defined_props - existing_props
         recommendations = []
 
         if missing:
-            recommendations.append(
-                f"Missing {len(missing)} indexes. Run create_all_indexes() to add them."
-            )
+            recommendations.append(f"Missing {len(missing)} indexes. Run create_all_indexes() to add them.")
 
         recommendations.append("Consider using composite indexes for frequently queried property combinations")
         recommendations.append("Monitor query execution plans for full scans and optimize accordingly")
 
         return IndexHealthReport(
-            indexes=existing_indexes,
-            recommendations=recommendations,
-            last_analyzed=datetime.now(timezone.utc)
+            indexes=existing_indexes, recommendations=recommendations, last_analyzed=datetime.now(timezone.utc)
         )
 
 
 # =============================================================================
 # QUERY OPTIMIZATION
 # =============================================================================
+
 
 class QueryOptimizer:
     """
@@ -530,7 +352,7 @@ class QueryOptimizer:
                 query=query[:200],  # Truncate for storage
                 execution_time_ms=execution_time,
                 hits=len(records),
-                timestamp=datetime.now(timezone.utc)
+                timestamp=datetime.now(timezone.utc),
             )
             self.query_stats.append(stats)
 
@@ -555,11 +377,7 @@ class QueryOptimizer:
         Returns:
             List of slow QueryStatistics
         """
-        sorted_stats = sorted(
-            self.query_stats,
-            key=lambda x: x.execution_time_ms,
-            reverse=True
-        )
+        sorted_stats = sorted(self.query_stats, key=lambda x: x.execution_time_ms, reverse=True)
         return sorted_stats[:limit]
 
     async def get_average_execution_time(self) -> float:
@@ -591,22 +409,22 @@ class QueryOptimizer:
         return {
             "total_queries": len(self.query_stats),
             "average_execution_time_ms": avg_time,
-            "slow_queries_count": len([q for q in self.query_stats if q.execution_time_ms > self.slow_query_threshold_ms]),
-            "top_5_slowest_queries": [
-                {"query": q.query, "time_ms": q.execution_time_ms}
-                for q in slow_queries
-            ],
+            "slow_queries_count": len(
+                [q for q in self.query_stats if q.execution_time_ms > self.slow_query_threshold_ms]
+            ),
+            "top_5_slowest_queries": [{"query": q.query, "time_ms": q.execution_time_ms} for q in slow_queries],
             "recommendations": [
                 "Consider adding indexes for slow query patterns",
                 "Use parameterization to enable query caching",
-                "Review relationship patterns for optimization"
-            ]
+                "Review relationship patterns for optimization",
+            ],
         }
 
 
 # =============================================================================
 # QUERY TEMPLATES (Pre-optimized Cypher queries)
 # =============================================================================
+
 
 class QueryTemplates:
     """
@@ -635,11 +453,7 @@ class QueryTemplates:
 
     # Journal Entry queries
     @staticmethod
-    def get_journal_entries_date_range(
-        user_id: str,
-        start_date: str,
-        end_date: str
-    ) -> str:
+    def get_journal_entries_date_range(user_id: str, start_date: str, end_date: str) -> str:
         """Optimized: Uses index on entry_date and user_id"""
         return """
         MATCH (je:JournalEntry)
@@ -652,10 +466,7 @@ class QueryTemplates:
 
     @staticmethod
     def get_account_ledger_entries(
-        account_number: str,
-        user_id: str,
-        start_date: str = None,
-        end_date: str = None
+        account_number: str, user_id: str, start_date: str = None, end_date: str = None
     ) -> str:
         """Optimized: Uses index on account_number and posting_date"""
         base_query = """
@@ -672,11 +483,7 @@ class QueryTemplates:
 
     # Transaction queries (Banking)
     @staticmethod
-    def get_bank_transactions(
-        bank_account_id: str,
-        start_date: str = None,
-        end_date: str = None
-    ) -> str:
+    def get_bank_transactions(bank_account_id: str, start_date: str = None, end_date: str = None) -> str:
         """Optimized: Uses index on bank_account_id and transaction_date"""
         base_query = """
         MATCH (t:Transaction {bank_account_id: $bank_account_id})
@@ -721,6 +528,7 @@ class QueryTemplates:
 # =============================================================================
 # UTILITY FUNCTIONS
 # =============================================================================
+
 
 async def initialize_database_indexes(driver):
     """

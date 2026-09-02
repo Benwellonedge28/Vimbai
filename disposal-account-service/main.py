@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Disposal Account Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class DisposalReason(str):
@@ -76,10 +84,16 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 async def call_audit_service(action: str, resource_type: str, resource_id: str, details: Dict[str, Any]):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(f"{AUDIT_SERVICE_URL}/audit", json={
-                "action": action, "resource_type": resource_type, "resource_id": resource_id,
-                "details": details, "timestamp": datetime.utcnow().isoformat()
-            })
+            await client.post(
+                f"{AUDIT_SERVICE_URL}/audit",
+                json={
+                    "action": action,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "details": details,
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            )
     except Exception:
         pass
 
@@ -96,8 +110,14 @@ async def root():
 
 @app.post("/disposal/calculate")
 async def calculate_disposal(
-    asset_id: str, asset_name: str, asset_code: str, original_cost: float,
-    accumulated_depreciation: float, disposal_proceeds: float, disposal_date: datetime, reason: DisposalReason
+    asset_id: str,
+    asset_name: str,
+    asset_code: str,
+    original_cost: float,
+    accumulated_depreciation: float,
+    disposal_proceeds: float,
+    disposal_date: datetime,
+    reason: DisposalReason,
 ):
     """Calculate profit/loss on disposal."""
     net_book_value = original_cost - accumulated_depreciation
@@ -111,10 +131,17 @@ async def calculate_disposal(
         loss = net_book_value - disposal_proceeds
 
     entry = DisposalEntry(
-        asset_id=asset_id, asset_name=asset_name, asset_code=asset_code,
-        disposal_date=disposal_date, reason=reason, original_cost=original_cost,
-        accumulated_depreciation=accumulated_depreciation, net_book_value=net_book_value,
-        disposal_proceeds=disposal_proceeds, profit_on_disposal=profit, loss_on_disposal=loss
+        asset_id=asset_id,
+        asset_name=asset_name,
+        asset_code=asset_code,
+        disposal_date=disposal_date,
+        reason=reason,
+        original_cost=original_cost,
+        accumulated_depreciation=accumulated_depreciation,
+        net_book_value=net_book_value,
+        disposal_proceeds=disposal_proceeds,
+        profit_on_disposal=profit,
+        loss_on_disposal=loss,
     )
 
     await call_audit_service("CALCULATE", "disposal", asset_id, {"profit": profit, "loss": loss})
@@ -126,19 +153,48 @@ async def post_disposal(entry: DisposalEntry):
     """Post disposal journal entry."""
     entries = [
         {"account_code": "1000", "description": "Cash/Bank", "debit": entry.disposal_proceeds, "credit": 0},
-        {"account_code": "1520", "description": "Accumulated Depreciation", "debit": entry.accumulated_depreciation, "credit": 0},
+        {
+            "account_code": "1520",
+            "description": "Accumulated Depreciation",
+            "debit": entry.accumulated_depreciation,
+            "credit": 0,
+        },
     ]
 
     if entry.profit_on_disposal > 0:
-        entries.extend([
-            {"account_code": "1500", "description": f"Asset Cost - {entry.asset_name}", "debit": 0, "credit": entry.original_cost},
-            {"account_code": "7100", "description": "Profit on Disposal", "debit": 0, "credit": entry.profit_on_disposal},
-        ])
+        entries.extend(
+            [
+                {
+                    "account_code": "1500",
+                    "description": f"Asset Cost - {entry.asset_name}",
+                    "debit": 0,
+                    "credit": entry.original_cost,
+                },
+                {
+                    "account_code": "7100",
+                    "description": "Profit on Disposal",
+                    "debit": 0,
+                    "credit": entry.profit_on_disposal,
+                },
+            ]
+        )
     else:
-        entries.extend([
-            {"account_code": "1500", "description": f"Asset Cost - {entry.asset_name}", "debit": 0, "credit": entry.original_cost},
-            {"account_code": "7200", "description": "Loss on Disposal", "debit": entry.loss_on_disposal, "credit": 0},
-        ])
+        entries.extend(
+            [
+                {
+                    "account_code": "1500",
+                    "description": f"Asset Cost - {entry.asset_name}",
+                    "debit": 0,
+                    "credit": entry.original_cost,
+                },
+                {
+                    "account_code": "7200",
+                    "description": "Loss on Disposal",
+                    "debit": entry.loss_on_disposal,
+                    "credit": 0,
+                },
+            ]
+        )
 
     journal_entry = {
         "date": entry.disposal_date,
@@ -168,4 +224,5 @@ async def get_disposal_summary():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

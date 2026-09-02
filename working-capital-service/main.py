@@ -3,14 +3,17 @@ Working Capital Service
 Port: 8237
 Working capital analysis and optimization
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Working Capital Service", version="1.0.0")
+
 
 class WorkingCapitalMetrics(BaseModel):
     current_ratio: float
@@ -19,6 +22,7 @@ class WorkingCapitalMetrics(BaseModel):
     working_capital: float
     nwc: float
     operating_cycle_days: float
+
 
 class WorkingCapitalRequest(BaseModel):
     company_id: str
@@ -32,6 +36,7 @@ class WorkingCapitalRequest(BaseModel):
     cost_of_goods_sold: float
     revenue: float
 
+
 class WorkingCapitalResponse(BaseModel):
     company_id: str
     metrics: WorkingCapitalMetrics
@@ -42,9 +47,11 @@ class WorkingCapitalResponse(BaseModel):
     inventory_turnover: float
     recommendations: List[str]
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "working-capital", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=WorkingCapitalResponse)
 async def analyze_working_capital(request: WorkingCapitalRequest):
@@ -53,7 +60,9 @@ async def analyze_working_capital(request: WorkingCapitalRequest):
     working_capital = request.current_assets - request.current_liabilities
     nwc = working_capital - request.cash
     current_ratio = request.current_assets / request.current_liabilities if request.current_liabilities else 0
-    quick_ratio = (request.current_assets - request.inventory) / request.current_liabilities if request.current_liabilities else 0
+    quick_ratio = (
+        (request.current_assets - request.inventory) / request.current_liabilities if request.current_liabilities else 0
+    )
     cash_ratio = request.cash / request.current_liabilities if request.current_liabilities else 0
 
     inv_turnover = request.cost_of_goods_sold / request.inventory if request.inventory else 0
@@ -74,7 +83,7 @@ async def analyze_working_capital(request: WorkingCapitalRequest):
         cash_ratio=round(cash_ratio, 4),
         working_capital=round(working_capital, 2),
         nwc=round(nwc, 2),
-        operating_cycle_days=round(operating_cycle, 2)
+        operating_cycle_days=round(operating_cycle, 2),
     )
 
     recommendations = []
@@ -93,9 +102,11 @@ async def analyze_working_capital(request: WorkingCapitalRequest):
         receivables_turnover=round(rec_turnover, 4),
         payables_turnover=round(pay_turnover, 4),
         inventory_turnover=round(inv_turnover, 4),
-        recommendations=recommendations
+        recommendations=recommendations,
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8237)

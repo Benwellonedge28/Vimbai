@@ -12,44 +12,84 @@ Comprehensive CRUD operations for NPO accounting including:
 - Performance and Impact Measurement
 """
 
-from neo4j import AsyncSession
-from typing import Optional, List, Dict, Any
-from npo_service.models import (
-    FundCreate, FundInDB, FundTransactionCreate, FundTransactionInDB,
-    FundRestrictionCreate, FundRestrictionInDB,
-    NetAssetsInDB, NetAssetsChangeBase,
-    DonationCreate, DonationInDB,
-    GrantCreate, GrantInDB, GrantDrawdownBase,
-    MembershipFeeCreate,
-    InKindContributionCreate,
-    FundraisingEventBase, InvestmentIncomeBase,
-    NPOAssetCreate, NPOAssetInDB, DepreciationEntryBase, EndowmentAssetBase,
-    LiabilityBase, DeferredRevenueBase, AccruedExpenseBase,
-    StatementOfFinancialPositionInDB, StatementOfActivitiesInDB,
-    StatementOfCashFlowsInDB, StatementOfChangesInNetAssetsInDB,
-    BudgetCreate, BudgetInDB, BudgetLineCreate, BudgetLineInDB,
-    CostAllocationBase, CostCenterBase,
-    ProjectCreate, ProjectInDB, ProgramCreate, ProgramInDB,
-    DonorCreate, DonorInDB, DonorStewardshipBase,
-    InternalControlCreate, InternalControlInDB,
-    AuditReportCreate, AuditReportInDB, ComplianceCheckBase, RegulatoryFilingBase,
-    ProgramMetricCreate, ImpactMeasurementCreate, SROIAnalysisBase,
-    VolunteerRecordCreate, VolunteerRecordInDB,
-    DonorReportBase, BeneficiaryAccountabilityBase, SustainabilityReportBase,
-    FundType, GrantStatus, ProjectStatus, BudgetStatus, AssetStatus
-)
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-import uuid
-import httpx
 import os
-from npo_service.exceptions import NotFoundError, ConflictError, ValidationError, RestrictionViolationError
+import uuid
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+
+import httpx
+from neo4j import AsyncSession
+from npo_service.exceptions import ConflictError, NotFoundError, RestrictionViolationError, ValidationError
+from npo_service.models import (
+    AccruedExpenseBase,
+    AssetStatus,
+    AuditReportCreate,
+    AuditReportInDB,
+    BeneficiaryAccountabilityBase,
+    BudgetCreate,
+    BudgetInDB,
+    BudgetLineCreate,
+    BudgetLineInDB,
+    BudgetStatus,
+    ComplianceCheckBase,
+    CostAllocationBase,
+    CostCenterBase,
+    DeferredRevenueBase,
+    DepreciationEntryBase,
+    DonationCreate,
+    DonationInDB,
+    DonorCreate,
+    DonorInDB,
+    DonorReportBase,
+    DonorStewardshipBase,
+    EndowmentAssetBase,
+    FundCreate,
+    FundInDB,
+    FundraisingEventBase,
+    FundRestrictionCreate,
+    FundRestrictionInDB,
+    FundTransactionCreate,
+    FundTransactionInDB,
+    FundType,
+    GrantCreate,
+    GrantDrawdownBase,
+    GrantInDB,
+    GrantStatus,
+    ImpactMeasurementCreate,
+    InKindContributionCreate,
+    InternalControlCreate,
+    InternalControlInDB,
+    InvestmentIncomeBase,
+    LiabilityBase,
+    MembershipFeeCreate,
+    NetAssetsChangeBase,
+    NetAssetsInDB,
+    NPOAssetCreate,
+    NPOAssetInDB,
+    ProgramCreate,
+    ProgramInDB,
+    ProgramMetricCreate,
+    ProjectCreate,
+    ProjectInDB,
+    ProjectStatus,
+    RegulatoryFilingBase,
+    SROIAnalysisBase,
+    StatementOfActivitiesInDB,
+    StatementOfCashFlowsInDB,
+    StatementOfChangesInNetAssetsInDB,
+    StatementOfFinancialPositionInDB,
+    SustainabilityReportBase,
+    VolunteerRecordCreate,
+    VolunteerRecordInDB,
+)
 
 API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
 
 # =============================================================================
 # FUND ACCOUNTING CRUD (1-15)
 # =============================================================================
+
 
 async def create_fund(session: AsyncSession, user_id: str, fund: FundCreate) -> FundInDB:
     """Create a new NPO fund"""
@@ -85,7 +125,8 @@ async def create_fund(session: AsyncSession, user_id: str, fund: FundCreate) -> 
     RETURN f
     """
     params = {
-        "id": fund_id, "user_id": user_id,
+        "id": fund_id,
+        "user_id": user_id,
         "fund_code": fund.fund_code,
         "fund_name": fund.fund_name,
         "fund_type": fund.fund_type.value,
@@ -99,7 +140,7 @@ async def create_fund(session: AsyncSession, user_id: str, fund: FundCreate) -> 
         "status": "active",
         "created_date": fund.created_date.isoformat() if fund.created_date else None,
         "created_at": created_at.isoformat(),
-        "updated_at": updated_at.isoformat()
+        "updated_at": updated_at.isoformat(),
     }
 
     result = await session.run(query, params)
@@ -107,18 +148,24 @@ async def create_fund(session: AsyncSession, user_id: str, fund: FundCreate) -> 
     f = record["f"]
 
     return FundInDB(
-        id=f["id"], user_id=user_id,
-        fund_code=f["fund_code"], fund_name=f["fund_name"],
+        id=f["id"],
+        user_id=user_id,
+        fund_code=f["fund_code"],
+        fund_name=f["fund_name"],
         fund_type=FundType(f["fund_type"]),
-        description=f["description"], purpose=f["purpose"],
+        description=f["description"],
+        purpose=f["purpose"],
         current_balance=Decimal(str(f["current_balance"])),
         total_contributions=Decimal(str(f["total_contributions"])),
         total_disbursements=Decimal(str(f["total_disbursements"])),
-        currency=f["currency"], parent_fund_id=f["parent_fund_id"],
-        status=f["status"], created_date=f.get("created_date"),
+        currency=f["currency"],
+        parent_fund_id=f["parent_fund_id"],
+        status=f["status"],
+        created_date=f.get("created_date"),
         created_at=datetime.fromisoformat(f["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(f["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(f["updated_at"].iso_format()),
     )
+
 
 async def get_fund(session: AsyncSession, user_id: str, fund_id: str) -> FundInDB:
     """Get fund by ID"""
@@ -132,18 +179,24 @@ async def get_fund(session: AsyncSession, user_id: str, fund_id: str) -> FundInD
         raise NotFoundError(detail=f"Fund {fund_id} not found", code="FUND_NOT_FOUND")
     f = record["f"]
     return FundInDB(
-        id=f["id"], user_id=user_id,
-        fund_code=f["fund_code"], fund_name=f["fund_name"],
+        id=f["id"],
+        user_id=user_id,
+        fund_code=f["fund_code"],
+        fund_name=f["fund_name"],
         fund_type=FundType(f["fund_type"]),
-        description=f["description"], purpose=f["purpose"],
+        description=f["description"],
+        purpose=f["purpose"],
         current_balance=Decimal(str(f["current_balance"])),
         total_contributions=Decimal(str(f["total_contributions"])),
         total_disbursements=Decimal(str(f["total_disbursements"])),
-        currency=f["currency"], parent_fund_id=f["parent_fund_id"],
-        status=f["status"], created_date=f.get("created_date"),
+        currency=f["currency"],
+        parent_fund_id=f["parent_fund_id"],
+        status=f["status"],
+        created_date=f.get("created_date"),
         created_at=datetime.fromisoformat(f["created_at"].iso_format()),
-        updated_at=datetime.fromisoformat(f["updated_at"].iso_format())
+        updated_at=datetime.fromisoformat(f["updated_at"].iso_format()),
     )
+
 
 async def get_fund_by_code(session: AsyncSession, user_id: str, fund_code: str) -> Optional[FundInDB]:
     """Get fund by fund code"""
@@ -157,21 +210,27 @@ async def get_fund_by_code(session: AsyncSession, user_id: str, fund_code: str) 
         if record:
             f = record["f"]
             return FundInDB(
-                id=f["id"], user_id=user_id,
-                fund_code=f["fund_code"], fund_name=f["fund_name"],
+                id=f["id"],
+                user_id=user_id,
+                fund_code=f["fund_code"],
+                fund_name=f["fund_name"],
                 fund_type=FundType(f["fund_type"]),
-                description=f["description"], purpose=f["purpose"],
+                description=f["description"],
+                purpose=f["purpose"],
                 current_balance=Decimal(str(f["current_balance"])),
                 total_contributions=Decimal(str(f["total_contributions"])),
                 total_disbursements=Decimal(str(f["total_disbursements"])),
-                currency=f["currency"], parent_fund_id=f["parent_fund_id"],
-                status=f["status"], created_date=f.get("created_date"),
+                currency=f["currency"],
+                parent_fund_id=f["parent_fund_id"],
+                status=f["status"],
+                created_date=f.get("created_date"),
                 created_at=datetime.fromisoformat(f["created_at"].iso_format()),
-                updated_at=datetime.fromisoformat(f["updated_at"].iso_format())
+                updated_at=datetime.fromisoformat(f["updated_at"].iso_format()),
             )
     except Exception:
         pass
     return None
+
 
 async def get_all_funds(session: AsyncSession, user_id: str, fund_type: Optional[str] = None) -> List[FundInDB]:
     """Get all funds, optionally filtered by type"""
@@ -190,20 +249,28 @@ async def get_all_funds(session: AsyncSession, user_id: str, fund_type: Optional
     funds = []
     async for record in result:
         f = record["f"]
-        funds.append(FundInDB(
-            id=f["id"], user_id=user_id,
-            fund_code=f["fund_code"], fund_name=f["fund_name"],
-            fund_type=FundType(f["fund_type"]),
-            description=f["description"], purpose=f["purpose"],
-            current_balance=Decimal(str(f["current_balance"])),
-            total_contributions=Decimal(str(f["total_contributions"])),
-            total_disbursements=Decimal(str(f["total_disbursements"])),
-            currency=f["currency"], parent_fund_id=f["parent_fund_id"],
-            status=f["status"], created_date=f.get("created_date"),
-            created_at=datetime.fromisoformat(f["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(f["updated_at"].iso_format())
-        ))
+        funds.append(
+            FundInDB(
+                id=f["id"],
+                user_id=user_id,
+                fund_code=f["fund_code"],
+                fund_name=f["fund_name"],
+                fund_type=FundType(f["fund_type"]),
+                description=f["description"],
+                purpose=f["purpose"],
+                current_balance=Decimal(str(f["current_balance"])),
+                total_contributions=Decimal(str(f["total_contributions"])),
+                total_disbursements=Decimal(str(f["total_disbursements"])),
+                currency=f["currency"],
+                parent_fund_id=f["parent_fund_id"],
+                status=f["status"],
+                created_date=f.get("created_date"),
+                created_at=datetime.fromisoformat(f["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(f["updated_at"].iso_format()),
+            )
+        )
     return funds
+
 
 async def update_fund_balance(session: AsyncSession, fund_id: str, amount: Decimal, is_contribution: bool):
     """Update fund balance after transaction"""
@@ -224,7 +291,9 @@ async def update_fund_balance(session: AsyncSession, fund_id: str, amount: Decim
     await session.run(query, fund_id=fund_id, amount=float(amount), updated_at=datetime.now(timezone.utc).isoformat())
 
 
-async def create_fund_transaction(session: AsyncSession, user_id: str, fund_id: str, transaction: FundTransactionCreate) -> FundTransactionInDB:
+async def create_fund_transaction(
+    session: AsyncSession, user_id: str, fund_id: str, transaction: FundTransactionCreate
+) -> FundTransactionInDB:
     """Create fund transaction with balance update"""
     tx_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -244,8 +313,7 @@ async def create_fund_transaction(session: AsyncSession, user_id: str, fund_id: 
     if fund.fund_type in [FundType.PERMANENTLY_RESTRICTED, FundType.ENDOWMENT]:
         if transaction.transaction_type not in ["investment", "appreciation"]:
             raise RestrictionViolationError(
-                detail=f"Cannot make disbursement from {fund.fund_type.value} fund",
-                code="FUND_RESTRICTION_VIOLATION"
+                detail=f"Cannot make disbursement from {fund.fund_type.value} fund", code="FUND_RESTRICTION_VIOLATION"
             )
 
     # Create transaction
@@ -271,7 +339,9 @@ async def create_fund_transaction(session: AsyncSession, user_id: str, fund_id: 
     RETURN tx, f
     """
     params = {
-        "id": tx_id, "user_id": user_id, "fund_id": fund_id,
+        "id": tx_id,
+        "user_id": user_id,
+        "fund_id": fund_id,
         "transaction_date": transaction.transaction_date.isoformat(),
         "transaction_type": transaction.transaction_type,
         "amount": float(transaction.amount),
@@ -283,7 +353,7 @@ async def create_fund_transaction(session: AsyncSession, user_id: str, fund_id: 
         "donor_id": transaction.donor_id,
         "created_by": transaction.created_by,
         "balance_after": float(new_balance),
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
 
     result = await session.run(query, params)
@@ -294,7 +364,8 @@ async def create_fund_transaction(session: AsyncSession, user_id: str, fund_id: 
     await update_fund_balance(session, fund_id, transaction.amount, is_contribution)
 
     return FundTransactionInDB(
-        id=tx["id"], fund_id=fund_id,
+        id=tx["id"],
+        fund_id=fund_id,
         transaction_date=datetime.fromisoformat(tx["transaction_date"].iso_format()).date(),
         transaction_type=tx["transaction_type"],
         amount=Decimal(str(tx["amount"])),
@@ -306,11 +377,13 @@ async def create_fund_transaction(session: AsyncSession, user_id: str, fund_id: 
         donor_id=tx["donor_id"],
         created_by=tx["created_by"],
         balance_after=Decimal(str(tx["balance_after"])),
-        created_at=datetime.fromisoformat(tx["created_at"].iso_format())
+        created_at=datetime.fromisoformat(tx["created_at"].iso_format()),
     )
 
 
-async def get_fund_transactions(session: AsyncSession, user_id: str, fund_id: str, start_date=None, end_date=None) -> List[FundTransactionInDB]:
+async def get_fund_transactions(
+    session: AsyncSession, user_id: str, fund_id: str, start_date=None, end_date=None
+) -> List[FundTransactionInDB]:
     """Get transactions for a fund"""
     date_filter = ""
     params = {"user_id": user_id, "fund_id": fund_id}
@@ -331,25 +404,30 @@ async def get_fund_transactions(session: AsyncSession, user_id: str, fund_id: st
     transactions = []
     async for record in result:
         tx = record["tx"]
-        transactions.append(FundTransactionInDB(
-            id=tx["id"], fund_id=fund_id,
-            transaction_date=datetime.fromisoformat(tx["transaction_date"].iso_format()).date(),
-            transaction_type=tx["transaction_type"],
-            amount=Decimal(str(tx["amount"])),
-            description=tx["description"],
-            reference_number=tx["reference_number"],
-            category=tx["category"],
-            project_id=tx.get("project_id"),
-            grant_id=tx.get("grant_id"),
-            donor_id=tx.get("donor_id"),
-            created_by=tx.get("created_by"),
-            balance_after=Decimal(str(tx["balance_after"])),
-            created_at=datetime.fromisoformat(tx["created_at"].iso_format())
-        ))
+        transactions.append(
+            FundTransactionInDB(
+                id=tx["id"],
+                fund_id=fund_id,
+                transaction_date=datetime.fromisoformat(tx["transaction_date"].iso_format()).date(),
+                transaction_type=tx["transaction_type"],
+                amount=Decimal(str(tx["amount"])),
+                description=tx["description"],
+                reference_number=tx["reference_number"],
+                category=tx["category"],
+                project_id=tx.get("project_id"),
+                grant_id=tx.get("grant_id"),
+                donor_id=tx.get("donor_id"),
+                created_by=tx.get("created_by"),
+                balance_after=Decimal(str(tx["balance_after"])),
+                created_at=datetime.fromisoformat(tx["created_at"].iso_format()),
+            )
+        )
     return transactions
 
 
-async def create_fund_restriction(session: AsyncSession, user_id: str, fund_id: str, restriction: FundRestrictionCreate) -> FundRestrictionInDB:
+async def create_fund_restriction(
+    session: AsyncSession, user_id: str, fund_id: str, restriction: FundRestrictionCreate
+) -> FundRestrictionInDB:
     """Create fund restriction"""
     restriction_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -371,28 +449,31 @@ async def create_fund_restriction(session: AsyncSession, user_id: str, fund_id: 
     RETURN r
     """
     params = {
-        "id": restriction_id, "user_id": user_id, "fund_id": fund_id,
+        "id": restriction_id,
+        "user_id": user_id,
+        "fund_id": fund_id,
         "restriction_type": restriction.restriction_type,
         "description": restriction.description,
         "start_date": restriction.start_date.isoformat() if restriction.start_date else None,
         "end_date": restriction.end_date.isoformat() if restriction.end_date else None,
         "is_permanent": restriction.is_permanent,
         "terms_conditions": restriction.terms_conditions,
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
     r = record["r"]
 
     return FundRestrictionInDB(
-        id=r["id"], fund_id=fund_id,
+        id=r["id"],
+        fund_id=fund_id,
         restriction_type=r["restriction_type"],
         description=r["description"],
         start_date=datetime.fromisoformat(r["start_date"].iso_format()).date() if r.get("start_date") else None,
         end_date=datetime.fromisoformat(r["end_date"].iso_format()).date() if r.get("end_date") else None,
         is_permanent=r["is_permanent"],
         terms_conditions=r.get("terms_conditions"),
-        created_at=datetime.fromisoformat(r["created_at"].iso_format())
+        created_at=datetime.fromisoformat(r["created_at"].iso_format()),
     )
 
 
@@ -400,7 +481,10 @@ async def create_fund_restriction(session: AsyncSession, user_id: str, fund_id: 
 # NET ASSETS CRUD
 # =============================================================================
 
-async def create_net_assets(session: AsyncSession, user_id: str, as_of_date: date, period_start: date, period_end: date) -> NetAssetsInDB:
+
+async def create_net_assets(
+    session: AsyncSession, user_id: str, as_of_date: date, period_start: date, period_end: date
+) -> NetAssetsInDB:
     """Create net assets record"""
     assets_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -413,9 +497,9 @@ async def create_net_assets(session: AsyncSession, user_id: str, as_of_date: dat
     """
     result = await session.run(query, user_id=user_id)
 
-    net_assets_without = Decimal('0.00')
-    net_assets_with = Decimal('0.00')
-    total_balance = Decimal('0.00')
+    net_assets_without = Decimal("0.00")
+    net_assets_with = Decimal("0.00")
+    total_balance = Decimal("0.00")
 
     async for record in result:
         f = record["f"]
@@ -428,7 +512,7 @@ async def create_net_assets(session: AsyncSession, user_id: str, as_of_date: dat
             net_assets_with += balance
 
     beginning = total_balance  # Simplified
-    change = Decimal('0.00')
+    change = Decimal("0.00")
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -454,27 +538,31 @@ async def create_net_assets(session: AsyncSession, user_id: str, as_of_date: dat
     RETURN na
     """
     params = {
-        "id": assets_id, "user_id": user_id,
+        "id": assets_id,
+        "user_id": user_id,
         "as_of_date": as_of_date.isoformat(),
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
         "without": float(net_assets_without),
         "with": float(net_assets_with),
-        "permanent": 0.0, "temporary": 0.0,
-        "endowment": 0.0, "board": 0.0,
+        "permanent": 0.0,
+        "temporary": 0.0,
+        "endowment": 0.0,
+        "board": 0.0,
         "total": float(total_balance),
         "surplus": total_balance if total_balance > 0 else 0.0,
         "deficit": abs(total_balance) if total_balance < 0 else 0.0,
         "beginning": float(beginning),
         "change": float(change),
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
     na = record["na"]
 
     return NetAssetsInDB(
-        id=na["id"], user_id=user_id,
+        id=na["id"],
+        user_id=user_id,
         as_of_date=datetime.fromisoformat(na["as_of_date"].iso_format()).date(),
         period_start=datetime.fromisoformat(na["period_start"].iso_format()).date(),
         period_end=datetime.fromisoformat(na["period_end"].iso_format()).date(),
@@ -489,7 +577,7 @@ async def create_net_assets(session: AsyncSession, user_id: str, as_of_date: dat
         accumulated_deficit=Decimal(str(na["accumulated_deficit"])),
         beginning_net_assets=Decimal(str(na["beginning_net_assets"])),
         net_assets_change=Decimal(str(na["net_assets_change"])),
-        created_at=datetime.fromisoformat(na["created_at"].iso_format())
+        created_at=datetime.fromisoformat(na["created_at"].iso_format()),
     )
 
 
@@ -506,7 +594,8 @@ async def get_net_assets(session: AsyncSession, user_id: str, as_of_date: date) 
         raise NotFoundError(detail=f"No net assets found for date {as_of_date}")
     na = record["na"]
     return NetAssetsInDB(
-        id=na["id"], user_id=user_id,
+        id=na["id"],
+        user_id=user_id,
         as_of_date=datetime.fromisoformat(na["as_of_date"].iso_format()).date(),
         period_start=datetime.fromisoformat(na["period_start"].iso_format()).date(),
         period_end=datetime.fromisoformat(na["period_end"].iso_format()).date(),
@@ -517,13 +606,14 @@ async def get_net_assets(session: AsyncSession, user_id: str, as_of_date: date) 
         accumulated_deficit=Decimal(str(na["accumulated_deficit"])),
         beginning_net_assets=Decimal(str(na["beginning_net_assets"])),
         net_assets_change=Decimal(str(na["net_assets_change"])),
-        created_at=datetime.fromisoformat(na["created_at"].iso_format())
+        created_at=datetime.fromisoformat(na["created_at"].iso_format()),
     )
 
 
 # =============================================================================
 # REVENUE CRUD (Donations, Grants, Memberships)
 # =============================================================================
+
 
 async def create_donation(session: AsyncSession, user_id: str, donation: DonationCreate) -> DonationInDB:
     """Create donation and update fund balance"""
@@ -541,9 +631,11 @@ async def create_donation(session: AsyncSession, user_id: str, donation: Donatio
         else:
             # Create general fund if doesn't exist
             fund_create = FundCreate(
-                fund_code="GEN-001", fund_name="General Fund",
-                fund_type=FundType.GENERAL, purpose="Unrestricted operating funds",
-                initial_balance=Decimal('0.00')
+                fund_code="GEN-001",
+                fund_name="General Fund",
+                fund_type=FundType.GENERAL,
+                purpose="Unrestricted operating funds",
+                initial_balance=Decimal("0.00"),
             )
             new_fund = await create_fund(session, user_id, fund_create)
             target_fund_id = new_fund.id
@@ -570,7 +662,8 @@ async def create_donation(session: AsyncSession, user_id: str, donation: Donatio
     RETURN d
     """
     params = {
-        "id": donation_id, "user_id": user_id,
+        "id": donation_id,
+        "user_id": user_id,
         "donation_date": donation.donation_date.isoformat(),
         "amount": float(donation.amount),
         "donor_id": donation.donor_id,
@@ -583,7 +676,7 @@ async def create_donation(session: AsyncSession, user_id: str, donation: Donatio
         "tax_deductible": donation.tax_deductible,
         "notes": donation.notes,
         "receipt_number": receipt_number,
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     await session.run(query, params)
 
@@ -594,12 +687,13 @@ async def create_donation(session: AsyncSession, user_id: str, donation: Donatio
             transaction_type="contribution",
             amount=donation.amount,
             description=f"Donation from {donation.donor_id} - {receipt_number}",
-            donor_id=donation.donor_id
+            donor_id=donation.donor_id,
         )
         await create_fund_transaction(session, user_id, target_fund_id, tx_create)
 
     return DonationInDB(
-        id=donation_id, user_id=user_id,
+        id=donation_id,
+        user_id=user_id,
         donation_date=donation.donation_date,
         amount=donation.amount,
         donor_id=donation.donor_id,
@@ -612,7 +706,7 @@ async def create_donation(session: AsyncSession, user_id: str, donation: Donatio
         tax_deductible=donation.tax_deductible,
         notes=donation.notes,
         receipt_number=receipt_number,
-        created_at=created_at
+        created_at=created_at,
     )
 
 
@@ -651,7 +745,9 @@ async def create_grant(session: AsyncSession, user_id: str, grant: GrantCreate) 
     RETURN g
     """
     params = {
-        "id": grant_id, "user_id": user_id, "fund_id": grant.fund_id,
+        "id": grant_id,
+        "user_id": user_id,
+        "fund_id": grant.fund_id,
         "grant_code": grant_code,
         "grant_name": grant.grant_name,
         "grantor_name": grant.grantor_name,
@@ -670,20 +766,25 @@ async def create_grant(session: AsyncSession, user_id: str, grant: GrantCreate) 
         "reporting_requirements": grant.reporting_requirements,
         "next_report_due": None,
         "performance_indicators": "{}",
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
     g = record["g"]
 
     return GrantInDB(
-        id=g["id"], user_id=user_id,
+        id=g["id"],
+        user_id=user_id,
         grant_name=g["grant_name"],
         grantor_name=g["grantor_name"],
         grant_type=g["grant_type"],
         status=GrantStatus(g["status"]),
-        application_date=datetime.fromisoformat(g["application_date"].iso_format()).date() if g.get("application_date") else None,
-        approval_date=datetime.fromisoformat(g["approval_date"].iso_format()).date() if g.get("approval_date") else None,
+        application_date=(
+            datetime.fromisoformat(g["application_date"].iso_format()).date() if g.get("application_date") else None
+        ),
+        approval_date=(
+            datetime.fromisoformat(g["approval_date"].iso_format()).date() if g.get("approval_date") else None
+        ),
         start_date=datetime.fromisoformat(g["start_date"].iso_format()).date() if g.get("start_date") else None,
         end_date=datetime.fromisoformat(g["end_date"].iso_format()).date() if g.get("end_date") else None,
         amount_awarded=Decimal(str(g["amount_awarded"])),
@@ -695,7 +796,7 @@ async def create_grant(session: AsyncSession, user_id: str, grant: GrantCreate) 
         reporting_requirements=g.get("reporting_requirements"),
         fund_id=grant.fund_id,
         grant_code=g["grant_code"],
-        created_at=datetime.fromisoformat(g["created_at"].iso_format())
+        created_at=datetime.fromisoformat(g["created_at"].iso_format()),
     )
 
 
@@ -716,33 +817,43 @@ async def get_grants(session: AsyncSession, user_id: str, status: Optional[Grant
     grants = []
     async for record in result:
         g = record["g"]
-        grants.append(GrantInDB(
-            id=g["id"], user_id=user_id,
-            grant_name=g["grant_name"],
-            grantor_name=g["grantor_name"],
-            grant_type=g["grant_type"],
-            status=GrantStatus(g["status"]),
-            application_date=datetime.fromisoformat(g["application_date"].iso_format()).date() if g.get("application_date") else None,
-            approval_date=datetime.fromisoformat(g["approval_date"].iso_format()).date() if g.get("approval_date") else None,
-            start_date=datetime.fromisoformat(g["start_date"].iso_format()).date() if g.get("start_date") else None,
-            end_date=datetime.fromisoformat(g["end_date"].iso_format()).date() if g.get("end_date") else None,
-            amount_awarded=Decimal(str(g["amount_awarded"])),
-            amount_received=Decimal(str(g["amount_received"])),
-            amount_spent=Decimal(str(g["amount_spent"])),
-            currency=g["currency"],
-            purpose=g["purpose"],
-            restrictions=g.get("restrictions"),
-            reporting_requirements=g.get("reporting_requirements"),
-            fund_id=record["fund_id"],
-            grant_code=g["grant_code"],
-            created_at=datetime.fromisoformat(g["created_at"].iso_format())
-        ))
+        grants.append(
+            GrantInDB(
+                id=g["id"],
+                user_id=user_id,
+                grant_name=g["grant_name"],
+                grantor_name=g["grantor_name"],
+                grant_type=g["grant_type"],
+                status=GrantStatus(g["status"]),
+                application_date=(
+                    datetime.fromisoformat(g["application_date"].iso_format()).date()
+                    if g.get("application_date")
+                    else None
+                ),
+                approval_date=(
+                    datetime.fromisoformat(g["approval_date"].iso_format()).date() if g.get("approval_date") else None
+                ),
+                start_date=datetime.fromisoformat(g["start_date"].iso_format()).date() if g.get("start_date") else None,
+                end_date=datetime.fromisoformat(g["end_date"].iso_format()).date() if g.get("end_date") else None,
+                amount_awarded=Decimal(str(g["amount_awarded"])),
+                amount_received=Decimal(str(g["amount_received"])),
+                amount_spent=Decimal(str(g["amount_spent"])),
+                currency=g["currency"],
+                purpose=g["purpose"],
+                restrictions=g.get("restrictions"),
+                reporting_requirements=g.get("reporting_requirements"),
+                fund_id=record["fund_id"],
+                grant_code=g["grant_code"],
+                created_at=datetime.fromisoformat(g["created_at"].iso_format()),
+            )
+        )
     return grants
 
 
 # =============================================================================
 # PROJECT AND PROGRAM CRUD
 # =============================================================================
+
 
 async def create_project(session: AsyncSession, user_id: str, project: ProjectCreate) -> ProjectInDB:
     """Create NPO project"""
@@ -776,7 +887,8 @@ async def create_project(session: AsyncSession, user_id: str, project: ProjectCr
     RETURN p
     """
     params = {
-        "id": project_id, "user_id": user_id,
+        "id": project_id,
+        "user_id": user_id,
         "project_name": project.project_name,
         "project_code": project.project_code,
         "description": project.description,
@@ -794,14 +906,15 @@ async def create_project(session: AsyncSession, user_id: str, project: ProjectCr
         "completion_percent": 0.0,
         "key_milestones": "[]",
         "risks": "[]",
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
     p = record["p"]
 
     return ProjectInDB(
-        id=p["id"], user_id=user_id,
+        id=p["id"],
+        user_id=user_id,
         project_name=p["project_name"],
         project_code=p["project_code"],
         description=p["description"],
@@ -817,11 +930,13 @@ async def create_project(session: AsyncSession, user_id: str, project: ProjectCr
         target_beneficiaries=p.get("target_beneficiaries"),
         actual_beneficiaries=p.get("actual_beneficiaries"),
         completion_percent=Decimal(str(p["completion_percent"])),
-        created_at=datetime.fromisoformat(p["created_at"].iso_format())
+        created_at=datetime.fromisoformat(p["created_at"].iso_format()),
     )
 
 
-async def get_projects(session: AsyncSession, user_id: str, status: Optional[ProjectStatus] = None) -> List[ProjectInDB]:
+async def get_projects(
+    session: AsyncSession, user_id: str, status: Optional[ProjectStatus] = None
+) -> List[ProjectInDB]:
     """Get all projects"""
     status_filter = "AND p.status = $status" if status else ""
     query = f"""
@@ -838,25 +953,28 @@ async def get_projects(session: AsyncSession, user_id: str, status: Optional[Pro
     projects = []
     async for record in result:
         p = record["p"]
-        projects.append(ProjectInDB(
-            id=p["id"], user_id=user_id,
-            project_name=p["project_name"],
-            project_code=p["project_code"],
-            description=p["description"],
-            status=ProjectStatus(p["status"]),
-            start_date=datetime.fromisoformat(p["start_date"].iso_format()).date() if p.get("start_date") else None,
-            end_date=datetime.fromisoformat(p["end_date"].iso_format()).date() if p.get("end_date") else None,
-            total_budget=Decimal(str(p["total_budget"])),
-            spent_amount=Decimal(str(p["spent_amount"])),
-            funding_source=p.get("funding_source"),
-            fund_id=p.get("fund_id"),
-            program_id=p.get("program_id"),
-            location=p.get("location"),
-            target_beneficiaries=p.get("target_beneficiaries"),
-            actual_beneficiaries=p.get("actual_beneficiaries"),
-            completion_percent=Decimal(str(p["completion_percent"])),
-            created_at=datetime.fromisoformat(p["created_at"].iso_format())
-        ))
+        projects.append(
+            ProjectInDB(
+                id=p["id"],
+                user_id=user_id,
+                project_name=p["project_name"],
+                project_code=p["project_code"],
+                description=p["description"],
+                status=ProjectStatus(p["status"]),
+                start_date=datetime.fromisoformat(p["start_date"].iso_format()).date() if p.get("start_date") else None,
+                end_date=datetime.fromisoformat(p["end_date"].iso_format()).date() if p.get("end_date") else None,
+                total_budget=Decimal(str(p["total_budget"])),
+                spent_amount=Decimal(str(p["spent_amount"])),
+                funding_source=p.get("funding_source"),
+                fund_id=p.get("fund_id"),
+                program_id=p.get("program_id"),
+                location=p.get("location"),
+                target_beneficiaries=p.get("target_beneficiaries"),
+                actual_beneficiaries=p.get("actual_beneficiaries"),
+                completion_percent=Decimal(str(p["completion_percent"])),
+                created_at=datetime.fromisoformat(p["created_at"].iso_format()),
+            )
+        )
     return projects
 
 
@@ -887,7 +1005,8 @@ async def create_program(session: AsyncSession, user_id: str, program: ProgramCr
     RETURN p
     """
     params = {
-        "id": program_id, "user_id": user_id,
+        "id": program_id,
+        "user_id": user_id,
         "program_name": program.program_name,
         "program_code": program.program_code,
         "description": program.description,
@@ -897,17 +1016,18 @@ async def create_program(session: AsyncSession, user_id: str, program: ProgramCr
         "director": program.director,
         "start_date": program.start_date.isoformat() if program.start_date else None,
         "status": program.status,
-        "program_type": program.program_type if hasattr(program, 'program_type') else "general",
+        "program_type": program.program_type if hasattr(program, "program_type") else "general",
         "beneficiaries_served": None,
         "outcomes_achieved": "[]",
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
     p = record["p"]
 
     return ProgramInDB(
-        id=p["id"], user_id=user_id,
+        id=p["id"],
+        user_id=user_id,
         program_name=p["program_name"],
         program_code=p["program_code"],
         description=p["description"],
@@ -920,7 +1040,7 @@ async def create_program(session: AsyncSession, user_id: str, program: ProgramCr
         program_type=p["program_type"],
         beneficiaries_served=p.get("beneficiaries_served"),
         outcomes_achieved=[],
-        created_at=datetime.fromisoformat(p["created_at"].iso_format())
+        created_at=datetime.fromisoformat(p["created_at"].iso_format()),
     )
 
 
@@ -935,28 +1055,32 @@ async def get_programs(session: AsyncSession, user_id: str) -> List[ProgramInDB]
     programs = []
     async for record in result:
         p = record["p"]
-        programs.append(ProgramInDB(
-            id=p["id"], user_id=user_id,
-            program_name=p["program_name"],
-            program_code=p["program_code"],
-            description=p["description"],
-            mission_alignment=p["mission_alignment"],
-            budget_amount=Decimal(str(p["budget_amount"])),
-            spent_amount=Decimal(str(p["spent_amount"])),
-            director=p.get("director"),
-            start_date=datetime.fromisoformat(p["start_date"].iso_format()).date() if p.get("start_date") else None,
-            status=p["status"],
-            program_type=p.get("program_type", "general"),
-            beneficiaries_served=p.get("beneficiaries_served"),
-            outcomes_achieved=[],
-            created_at=datetime.fromisoformat(p["created_at"].iso_format())
-        ))
+        programs.append(
+            ProgramInDB(
+                id=p["id"],
+                user_id=user_id,
+                program_name=p["program_name"],
+                program_code=p["program_code"],
+                description=p["description"],
+                mission_alignment=p["mission_alignment"],
+                budget_amount=Decimal(str(p["budget_amount"])),
+                spent_amount=Decimal(str(p["spent_amount"])),
+                director=p.get("director"),
+                start_date=datetime.fromisoformat(p["start_date"].iso_format()).date() if p.get("start_date") else None,
+                status=p["status"],
+                program_type=p.get("program_type", "general"),
+                beneficiaries_served=p.get("beneficiaries_served"),
+                outcomes_achieved=[],
+                created_at=datetime.fromisoformat(p["created_at"].iso_format()),
+            )
+        )
     return programs
 
 
 # =============================================================================
 # DONOR CRUD
 # =============================================================================
+
 
 async def create_donor(session: AsyncSession, user_id: str, donor: DonorCreate) -> DonorInDB:
     """Create donor"""
@@ -988,7 +1112,8 @@ async def create_donor(session: AsyncSession, user_id: str, donor: DonorCreate) 
     RETURN d
     """
     params = {
-        "id": donor_id, "user_id": user_id,
+        "id": donor_id,
+        "user_id": user_id,
         "donor_code": donor_code,
         "donor_name": donor.donor_name,
         "donor_type": donor.donor_type,
@@ -1003,26 +1128,33 @@ async def create_donor(session: AsyncSession, user_id: str, donor: DonorCreate) 
         "communication_preferences": "{}",
         "stewardship_tier": None,
         "preferred_fund": None,
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
     d = record["d"]
 
     return DonorInDB(
-        id=d["id"], user_id=user_id,
+        id=d["id"],
+        user_id=user_id,
         donor_name=d["donor_name"],
         donor_type=d["donor_type"],
         email=d.get("email"),
         phone=d.get("phone"),
         address=d.get("address"),
         tax_id=d.get("tax_id"),
-        first_donation_date=datetime.fromisoformat(d["first_donation_date"].iso_format()).date() if d.get("first_donation_date") else None,
-        last_donation_date=datetime.fromisoformat(d["last_donation_date"].iso_format()).date() if d.get("last_donation_date") else None,
+        first_donation_date=(
+            datetime.fromisoformat(d["first_donation_date"].iso_format()).date()
+            if d.get("first_donation_date")
+            else None
+        ),
+        last_donation_date=(
+            datetime.fromisoformat(d["last_donation_date"].iso_format()).date() if d.get("last_donation_date") else None
+        ),
         lifetime_donations=Decimal(str(d["lifetime_donations"])),
         notes=d.get("notes"),
         donor_code=d["donor_code"],
-        created_at=datetime.fromisoformat(d["created_at"].iso_format())
+        created_at=datetime.fromisoformat(d["created_at"].iso_format()),
     )
 
 
@@ -1037,27 +1169,39 @@ async def get_donors(session: AsyncSession, user_id: str) -> List[DonorInDB]:
     donors = []
     async for record in result:
         d = record["d"]
-        donors.append(DonorInDB(
-            id=d["id"], user_id=user_id,
-            donor_name=d["donor_name"],
-            donor_type=d["donor_type"],
-            email=d.get("email"),
-            phone=d.get("phone"),
-            address=d.get("address"),
-            tax_id=d.get("tax_id"),
-            first_donation_date=datetime.fromisoformat(d["first_donation_date"].iso_format()).date() if d.get("first_donation_date") else None,
-            last_donation_date=datetime.fromisoformat(d["last_donation_date"].iso_format()).date() if d.get("last_donation_date") else None,
-            lifetime_donations=Decimal(str(d["lifetime_donations"])),
-            notes=d.get("notes"),
-            donor_code=d["donor_code"],
-            created_at=datetime.fromisoformat(d["created_at"].iso_format())
-        ))
+        donors.append(
+            DonorInDB(
+                id=d["id"],
+                user_id=user_id,
+                donor_name=d["donor_name"],
+                donor_type=d["donor_type"],
+                email=d.get("email"),
+                phone=d.get("phone"),
+                address=d.get("address"),
+                tax_id=d.get("tax_id"),
+                first_donation_date=(
+                    datetime.fromisoformat(d["first_donation_date"].iso_format()).date()
+                    if d.get("first_donation_date")
+                    else None
+                ),
+                last_donation_date=(
+                    datetime.fromisoformat(d["last_donation_date"].iso_format()).date()
+                    if d.get("last_donation_date")
+                    else None
+                ),
+                lifetime_donations=Decimal(str(d["lifetime_donations"])),
+                notes=d.get("notes"),
+                donor_code=d["donor_code"],
+                created_at=datetime.fromisoformat(d["created_at"].iso_format()),
+            )
+        )
     return donors
 
 
 # =============================================================================
 # BUDGET CRUD
 # =============================================================================
+
 
 async def create_budget(session: AsyncSession, user_id: str, budget: BudgetCreate) -> BudgetInDB:
     """Create budget"""
@@ -1088,7 +1232,8 @@ async def create_budget(session: AsyncSession, user_id: str, budget: BudgetCreat
     RETURN b
     """
     params = {
-        "id": budget_id, "user_id": user_id,
+        "id": budget_id,
+        "user_id": user_id,
         "budget_code": budget_code,
         "budget_name": budget.budget_name,
         "fiscal_year": budget.fiscal_year,
@@ -1102,14 +1247,15 @@ async def create_budget(session: AsyncSession, user_id: str, budget: BudgetCreat
         "total_allocated": 0.0,
         "total_spent": 0.0,
         "remaining_balance": float(budget.total_budget),
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
     b = record["b"]
 
     return BudgetInDB(
-        id=b["id"], user_id=user_id,
+        id=b["id"],
+        user_id=user_id,
         budget_name=b["budget_name"],
         fiscal_year=b["fiscal_year"],
         period_start=datetime.fromisoformat(b["period_start"].iso_format()).date(),
@@ -1123,11 +1269,13 @@ async def create_budget(session: AsyncSession, user_id: str, budget: BudgetCreat
         total_allocated=Decimal(str(b["total_allocated"])),
         total_spent=Decimal(str(b["total_spent"])),
         remaining_balance=Decimal(str(b["remaining_balance"])),
-        created_at=datetime.fromisoformat(b["created_at"].iso_format())
+        created_at=datetime.fromisoformat(b["created_at"].iso_format()),
     )
 
 
-async def create_budget_line(session: AsyncSession, user_id: str, budget_id: str, line: BudgetLineCreate) -> BudgetLineInDB:
+async def create_budget_line(
+    session: AsyncSession, user_id: str, budget_id: str, line: BudgetLineCreate
+) -> BudgetLineInDB:
     """Create budget line item"""
     line_id = str(uuid.uuid4())
 
@@ -1142,7 +1290,7 @@ async def create_budget_line(session: AsyncSession, user_id: str, budget_id: str
     line_number = (record["line_count"] or 0) + 1
 
     variance = line.budgeted_amount - line.spent_amount
-    variance_percent = (variance / line.budgeted_amount * 100) if line.budgeted_amount != 0 else Decimal('0.00')
+    variance_percent = (variance / line.budgeted_amount * 100) if line.budgeted_amount != 0 else Decimal("0.00")
 
     query = """
     MATCH (u:User {id: $user_id}), (b:Budget {id: $budget_id})
@@ -1165,7 +1313,9 @@ async def create_budget_line(session: AsyncSession, user_id: str, budget_id: str
     RETURN l
     """
     params = {
-        "id": line_id, "user_id": user_id, "budget_id": budget_id,
+        "id": line_id,
+        "user_id": user_id,
+        "budget_id": budget_id,
         "line_number": line_number,
         "line_description": line.line_description,
         "category": line.category,
@@ -1176,7 +1326,7 @@ async def create_budget_line(session: AsyncSession, user_id: str, budget_id: str
         "variance_percent": float(variance_percent),
         "cost_allocation_method": line.cost_allocation_method,
         "notes": line.notes,
-        "is_over_budget": line.spent_amount > line.budgeted_amount
+        "is_over_budget": line.spent_amount > line.budgeted_amount,
     }
     result = await session.run(query, params)
     record = await result.single()
@@ -1188,10 +1338,13 @@ async def create_budget_line(session: AsyncSession, user_id: str, budget_id: str
     SET b.total_allocated = b.total_allocated + toFloat($allocated),
         b.remaining_balance = b.total_budget - (b.total_allocated + toFloat($spent))
     """
-    await session.run(update_query, budget_id=budget_id, allocated=float(line.allocated_amount), spent=float(line.spent_amount))
+    await session.run(
+        update_query, budget_id=budget_id, allocated=float(line.allocated_amount), spent=float(line.spent_amount)
+    )
 
     return BudgetLineInDB(
-        id=l["id"], budget_id=budget_id,
+        id=l["id"],
+        budget_id=budget_id,
         line_number=l["line_number"],
         line_description=l["line_description"],
         category=l["category"],
@@ -1200,7 +1353,7 @@ async def create_budget_line(session: AsyncSession, user_id: str, budget_id: str
         spent_amount=Decimal(str(l["spent_amount"])),
         variance=Decimal(str(l["variance"])),
         variance_percent=Decimal(str(l["variance_percent"])),
-        is_over_budget=l["is_over_budget"]
+        is_over_budget=l["is_over_budget"],
     )
 
 
@@ -1221,23 +1374,26 @@ async def get_budgets(session: AsyncSession, user_id: str, fiscal_year: Optional
     budgets = []
     async for record in result:
         b = record["b"]
-        budgets.append(BudgetInDB(
-            id=b["id"], user_id=user_id,
-            budget_name=b["budget_name"],
-            fiscal_year=b["fiscal_year"],
-            period_start=datetime.fromisoformat(b["period_start"].iso_format()).date(),
-            period_end=datetime.fromisoformat(b["period_end"].iso_format()).date(),
-            status=BudgetStatus(b["status"]),
-            total_budget=Decimal(str(b["total_budget"])),
-            fund_id=b.get("fund_id"),
-            project_id=b.get("project_id"),
-            program_id=b.get("program_id"),
-            budget_code=b["budget_code"],
-            total_allocated=Decimal(str(b["total_allocated"])),
-            total_spent=Decimal(str(b["total_spent"])),
-            remaining_balance=Decimal(str(b["remaining_balance"])),
-            created_at=datetime.fromisoformat(b["created_at"].iso_format())
-        ))
+        budgets.append(
+            BudgetInDB(
+                id=b["id"],
+                user_id=user_id,
+                budget_name=b["budget_name"],
+                fiscal_year=b["fiscal_year"],
+                period_start=datetime.fromisoformat(b["period_start"].iso_format()).date(),
+                period_end=datetime.fromisoformat(b["period_end"].iso_format()).date(),
+                status=BudgetStatus(b["status"]),
+                total_budget=Decimal(str(b["total_budget"])),
+                fund_id=b.get("fund_id"),
+                project_id=b.get("project_id"),
+                program_id=b.get("program_id"),
+                budget_code=b["budget_code"],
+                total_allocated=Decimal(str(b["total_allocated"])),
+                total_spent=Decimal(str(b["total_spent"])),
+                remaining_balance=Decimal(str(b["remaining_balance"])),
+                created_at=datetime.fromisoformat(b["created_at"].iso_format()),
+            )
+        )
     return budgets
 
 
@@ -1245,7 +1401,10 @@ async def get_budgets(session: AsyncSession, user_id: str, fiscal_year: Optional
 # COMPLIANCE CRUD
 # =============================================================================
 
-async def create_internal_control(session: AsyncSession, user_id: str, control: InternalControlCreate) -> InternalControlInDB:
+
+async def create_internal_control(
+    session: AsyncSession, user_id: str, control: InternalControlCreate
+) -> InternalControlInDB:
     """Create internal control"""
     control_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -1273,7 +1432,8 @@ async def create_internal_control(session: AsyncSession, user_id: str, control: 
     RETURN c
     """
     params = {
-        "id": control_id, "user_id": user_id,
+        "id": control_id,
+        "user_id": user_id,
         "control_name": control.control_name,
         "control_type": control.control_type,
         "category": control.category,
@@ -1287,14 +1447,15 @@ async def create_internal_control(session: AsyncSession, user_id: str, control: 
         "effectiveness_rating": control.effectiveness_rating,
         "deficiencies": control.deficiencies,
         "remediation_date": control.remediation_date.isoformat() if control.remediation_date else None,
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
     c = record["c"]
 
     return InternalControlInDB(
-        id=c["id"], user_id=user_id,
+        id=c["id"],
+        user_id=user_id,
         control_name=c["control_name"],
         control_type=c["control_type"],
         category=c["category"],
@@ -1302,13 +1463,17 @@ async def create_internal_control(session: AsyncSession, user_id: str, control: 
         implemented_date=datetime.fromisoformat(c["implemented_date"].iso_format()).date(),
         responsible_person=c["responsible_person"],
         frequency=c["frequency"],
-        last_reviewed=datetime.fromisoformat(c["last_reviewed"].iso_format()).date() if c.get("last_reviewed") else None,
+        last_reviewed=(
+            datetime.fromisoformat(c["last_reviewed"].iso_format()).date() if c.get("last_reviewed") else None
+        ),
         status=c["status"],
         notes=c.get("notes"),
         effectiveness_rating=c.get("effectiveness_rating"),
         deficiencies=c.get("deficiencies"),
-        remediation_date=datetime.fromisoformat(c["remediation_date"].iso_format()).date() if c.get("remediation_date") else None,
-        created_at=datetime.fromisoformat(c["created_at"].iso_format())
+        remediation_date=(
+            datetime.fromisoformat(c["remediation_date"].iso_format()).date() if c.get("remediation_date") else None
+        ),
+        created_at=datetime.fromisoformat(c["created_at"].iso_format()),
     )
 
 
@@ -1323,23 +1488,32 @@ async def get_internal_controls(session: AsyncSession, user_id: str) -> List[Int
     controls = []
     async for record in result:
         c = record["c"]
-        controls.append(InternalControlInDB(
-            id=c["id"], user_id=user_id,
-            control_name=c["control_name"],
-            control_type=c["control_type"],
-            category=c["category"],
-            description=c["description"],
-            implemented_date=datetime.fromisoformat(c["implemented_date"].iso_format()).date(),
-            responsible_person=c["responsible_person"],
-            frequency=c["frequency"],
-            last_reviewed=datetime.fromisoformat(c["last_reviewed"].iso_format()).date() if c.get("last_reviewed") else None,
-            status=c["status"],
-            notes=c.get("notes"),
-            effectiveness_rating=c.get("effectiveness_rating"),
-            deficiencies=c.get("deficiencies"),
-            remediation_date=datetime.fromisoformat(c["remediation_date"].iso_format()).date() if c.get("remediation_date") else None,
-            created_at=datetime.fromisoformat(c["created_at"].iso_format())
-        ))
+        controls.append(
+            InternalControlInDB(
+                id=c["id"],
+                user_id=user_id,
+                control_name=c["control_name"],
+                control_type=c["control_type"],
+                category=c["category"],
+                description=c["description"],
+                implemented_date=datetime.fromisoformat(c["implemented_date"].iso_format()).date(),
+                responsible_person=c["responsible_person"],
+                frequency=c["frequency"],
+                last_reviewed=(
+                    datetime.fromisoformat(c["last_reviewed"].iso_format()).date() if c.get("last_reviewed") else None
+                ),
+                status=c["status"],
+                notes=c.get("notes"),
+                effectiveness_rating=c.get("effectiveness_rating"),
+                deficiencies=c.get("deficiencies"),
+                remediation_date=(
+                    datetime.fromisoformat(c["remediation_date"].iso_format()).date()
+                    if c.get("remediation_date")
+                    else None
+                ),
+                created_at=datetime.fromisoformat(c["created_at"].iso_format()),
+            )
+        )
     return controls
 
 
@@ -1375,7 +1549,8 @@ async def create_audit_report(session: AsyncSession, user_id: str, audit: AuditR
     RETURN a
     """
     params = {
-        "id": audit_id, "user_id": user_id,
+        "id": audit_id,
+        "user_id": user_id,
         "report_number": report_number,
         "audit_type": audit.audit_type.value,
         "audit_name": audit.audit_name,
@@ -1392,14 +1567,15 @@ async def create_audit_report(session: AsyncSession, user_id: str, audit: AuditR
         "compliance_status": audit.compliance_status.value,
         "issues_count": len(audit.findings) if audit.findings else 0,
         "significant_findings": 0,
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
     a = record["a"]
 
     return AuditReportInDB(
-        id=a["id"], user_id=user_id,
+        id=a["id"],
+        user_id=user_id,
         audit_name=a["audit_name"],
         audit_type=a["audit_type"],
         audit_period_start=datetime.fromisoformat(a["audit_period_start"].iso_format()).date(),
@@ -1416,7 +1592,7 @@ async def create_audit_report(session: AsyncSession, user_id: str, audit: AuditR
         report_number=a["report_number"],
         issues_count=a["issues_count"],
         significant_findings=a["significant_findings"],
-        created_at=datetime.fromisoformat(a["created_at"].iso_format())
+        created_at=datetime.fromisoformat(a["created_at"].iso_format()),
     )
 
 
@@ -1431,26 +1607,29 @@ async def get_audit_reports(session: AsyncSession, user_id: str) -> List[AuditRe
     reports = []
     async for record in result:
         a = record["a"]
-        reports.append(AuditReportInDB(
-            id=a["id"], user_id=user_id,
-            audit_name=a["audit_name"],
-            audit_type=a["audit_type"],
-            audit_period_start=datetime.fromisoformat(a["audit_period_start"].iso_format()).date(),
-            audit_period_end=datetime.fromisoformat(a["audit_period_end"].iso_format()).date(),
-            auditor_name=a["auditor_name"],
-            auditor_firm=a.get("auditor_firm"),
-            start_date=datetime.fromisoformat(a["start_date"].iso_format()).date(),
-            end_date=datetime.fromisoformat(a["end_date"].iso_format()).date() if a.get("end_date") else None,
-            status=a["status"],
-            findings=[],
-            recommendations=[],
-            overall_opinion=a.get("overall_opinion"),
-            compliance_status=a["compliance_status"],
-            report_number=a["report_number"],
-            issues_count=a["issues_count"],
-            significant_findings=a["significant_findings"],
-            created_at=datetime.fromisoformat(a["created_at"].iso_format())
-        ))
+        reports.append(
+            AuditReportInDB(
+                id=a["id"],
+                user_id=user_id,
+                audit_name=a["audit_name"],
+                audit_type=a["audit_type"],
+                audit_period_start=datetime.fromisoformat(a["audit_period_start"].iso_format()).date(),
+                audit_period_end=datetime.fromisoformat(a["audit_period_end"].iso_format()).date(),
+                auditor_name=a["auditor_name"],
+                auditor_firm=a.get("auditor_firm"),
+                start_date=datetime.fromisoformat(a["start_date"].iso_format()).date(),
+                end_date=datetime.fromisoformat(a["end_date"].iso_format()).date() if a.get("end_date") else None,
+                status=a["status"],
+                findings=[],
+                recommendations=[],
+                overall_opinion=a.get("overall_opinion"),
+                compliance_status=a["compliance_status"],
+                report_number=a["report_number"],
+                issues_count=a["issues_count"],
+                significant_findings=a["significant_findings"],
+                created_at=datetime.fromisoformat(a["created_at"].iso_format()),
+            )
+        )
     return reports
 
 
@@ -1458,7 +1637,10 @@ async def get_audit_reports(session: AsyncSession, user_id: str) -> List[AuditRe
 # PERFORMANCE AND IMPACT CRUD
 # =============================================================================
 
-async def create_program_metric(session: AsyncSession, user_id: str, metric: ProgramMetricCreate) -> ProgramMetricCreate:
+
+async def create_program_metric(
+    session: AsyncSession, user_id: str, metric: ProgramMetricCreate
+) -> ProgramMetricCreate:
     """Create program metric"""
     metric_id = str(uuid.uuid4())
 
@@ -1483,7 +1665,9 @@ async def create_program_metric(session: AsyncSession, user_id: str, metric: Pro
     RETURN m
     """
     params = {
-        "id": metric_id, "user_id": user_id, "program_id": metric.program_id,
+        "id": metric_id,
+        "user_id": user_id,
+        "program_id": metric.program_id,
         "metric_name": metric.metric_name,
         "metric_type": metric.metric_type,
         "measurement_unit": metric.measurement_unit,
@@ -1492,18 +1676,24 @@ async def create_program_metric(session: AsyncSession, user_id: str, metric: Pro
         "variance": float(variance),
         "calculation_date": metric.calculation_date.isoformat(),
         "methodology": metric.methodology,
-        "notes": metric.notes
+        "notes": metric.notes,
     }
     await session.run(query, params)
     return metric
 
 
-async def create_impact_measurement(session: AsyncSession, user_id: str, measurement: ImpactMeasurementCreate) -> ImpactMeasurementCreate:
+async def create_impact_measurement(
+    session: AsyncSession, user_id: str, measurement: ImpactMeasurementCreate
+) -> ImpactMeasurementCreate:
     """Create impact measurement"""
     measurement_id = str(uuid.uuid4())
 
-    change_value = measurement.current_value - (measurement.baseline_value or Decimal('0.00'))
-    change_percent = (change_value / measurement.baseline_value * 100) if measurement.baseline_value and measurement.baseline_value != 0 else Decimal('0.00')
+    change_value = measurement.current_value - (measurement.baseline_value or Decimal("0.00"))
+    change_percent = (
+        (change_value / measurement.baseline_value * 100)
+        if measurement.baseline_value and measurement.baseline_value != 0
+        else Decimal("0.00")
+    )
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -1526,7 +1716,8 @@ async def create_impact_measurement(session: AsyncSession, user_id: str, measure
     RETURN m
     """
     params = {
-        "id": measurement_id, "user_id": user_id,
+        "id": measurement_id,
+        "user_id": user_id,
         "measurement_name": measurement.measurement_name,
         "program_id": measurement.program_id,
         "project_id": measurement.project_id,
@@ -1534,23 +1725,25 @@ async def create_impact_measurement(session: AsyncSession, user_id: str, measure
         "measurement_date": measurement.measurement_date.isoformat(),
         "beneficiaries_count": measurement.beneficiaries_count,
         "measurement_type": measurement.measurement_type,
-        "baseline_value": float(measurement.baseline_value or Decimal('0.00')),
+        "baseline_value": float(measurement.baseline_value or Decimal("0.00")),
         "current_value": float(measurement.current_value),
         "change_value": float(change_value),
         "change_percent": float(change_percent),
-        "methodology": measurement.methodology
+        "methodology": measurement.methodology,
     }
     await session.run(query, params)
     return measurement
 
 
-async def create_volunteer_record(session: AsyncSession, user_id: str, record: VolunteerRecordCreate) -> VolunteerRecordInDB:
+async def create_volunteer_record(
+    session: AsyncSession, user_id: str, record: VolunteerRecordCreate
+) -> VolunteerRecordInDB:
     """Create volunteer record"""
     record_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
 
     # Calculate value of service
-    hourly_rate = record.hourly_rate_value or Decimal('25.00')  # Default $25/hour
+    hourly_rate = record.hourly_rate_value or Decimal("25.00")  # Default $25/hour
     value_of_service = record.hours_contributed * hourly_rate
 
     query = """
@@ -1575,7 +1768,8 @@ async def create_volunteer_record(session: AsyncSession, user_id: str, record: V
     RETURN v
     """
     params = {
-        "id": record_id, "user_id": user_id,
+        "id": record_id,
+        "user_id": user_id,
         "volunteer_name": record.volunteer_name,
         "volunteer_id": record.volunteer_id,
         "activity_date": record.activity_date.isoformat(),
@@ -1586,15 +1780,16 @@ async def create_volunteer_record(session: AsyncSession, user_id: str, record: V
         "supervisor": record.supervisor,
         "description": record.description,
         "is_skilled": record.is_skilled,
-        "hourly_rate_value": float(record.hourly_rate_value or Decimal('25.00')),
+        "hourly_rate_value": float(record.hourly_rate_value or Decimal("25.00")),
         "value_of_service": float(value_of_service),
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record_db = result.single()["v"]
 
     return VolunteerRecordInDB(
-        id=record_db["id"], user_id=user_id,
+        id=record_db["id"],
+        user_id=user_id,
         volunteer_name=record_db["volunteer_name"],
         volunteer_id=record_db["volunteer_id"],
         activity_date=datetime.fromisoformat(record_db["activity_date"].iso_format()).date(),
@@ -1607,11 +1802,13 @@ async def create_volunteer_record(session: AsyncSession, user_id: str, record: V
         is_skilled=record_db["is_skilled"],
         hourly_rate_value=Decimal(str(record_db["hourly_rate_value"])),
         value_of_service=Decimal(str(record_db["value_of_service"])),
-        created_at=datetime.fromisoformat(record_db["created_at"].iso_format())
+        created_at=datetime.fromisoformat(record_db["created_at"].iso_format()),
     )
 
 
-async def get_volunteer_records(session: AsyncSession, user_id: str, start_date=None, end_date=None) -> List[VolunteerRecordInDB]:
+async def get_volunteer_records(
+    session: AsyncSession, user_id: str, start_date=None, end_date=None
+) -> List[VolunteerRecordInDB]:
     """Get volunteer records"""
     date_filter = ""
     params = {"user_id": user_id}
@@ -1632,22 +1829,25 @@ async def get_volunteer_records(session: AsyncSession, user_id: str, start_date=
     records = []
     async for record in result:
         v = record["v"]
-        records.append(VolunteerRecordInDB(
-            id=v["id"], user_id=user_id,
-            volunteer_name=v["volunteer_name"],
-            volunteer_id=v["volunteer_id"],
-            activity_date=datetime.fromisoformat(v["activity_date"].iso_format()).date(),
-            hours_contributed=Decimal(str(v["hours_contributed"])),
-            activity_type=v["activity_type"],
-            program_id=v.get("program_id"),
-            project_id=v.get("project_id"),
-            supervisor=v.get("supervisor"),
-            description=v.get("description"),
-            is_skilled=v["is_skilled"],
-            hourly_rate_value=Decimal(str(v["hourly_rate_value"])),
-            value_of_service=Decimal(str(v["value_of_service"])),
-            created_at=datetime.fromisoformat(v["created_at"].iso_format())
-        ))
+        records.append(
+            VolunteerRecordInDB(
+                id=v["id"],
+                user_id=user_id,
+                volunteer_name=v["volunteer_name"],
+                volunteer_id=v["volunteer_id"],
+                activity_date=datetime.fromisoformat(v["activity_date"].iso_format()).date(),
+                hours_contributed=Decimal(str(v["hours_contributed"])),
+                activity_type=v["activity_type"],
+                program_id=v.get("program_id"),
+                project_id=v.get("project_id"),
+                supervisor=v.get("supervisor"),
+                description=v.get("description"),
+                is_skilled=v["is_skilled"],
+                hourly_rate_value=Decimal(str(v["hourly_rate_value"])),
+                value_of_service=Decimal(str(v["value_of_service"])),
+                created_at=datetime.fromisoformat(v["created_at"].iso_format()),
+            )
+        )
     return records
 
 
@@ -1655,7 +1855,10 @@ async def get_volunteer_records(session: AsyncSession, user_id: str, start_date=
 # FINANCIAL STATEMENTS CRUD
 # =============================================================================
 
-async def create_statement_of_activities(session: AsyncSession, user_id: str, period_start: date, period_end: date) -> StatementOfActivitiesInDB:
+
+async def create_statement_of_activities(
+    session: AsyncSession, user_id: str, period_start: date, period_end: date
+) -> StatementOfActivitiesInDB:
     """Create Statement of Activities"""
     stmt_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -1666,9 +1869,13 @@ async def create_statement_of_activities(session: AsyncSession, user_id: str, pe
     WHERE d.donation_date >= date($period_start) AND d.donation_date <= date($period_end)
     RETURN sum(d.amount) as total_donations, count(d) as donation_count
     """
-    donations_result = await session.run(donations_query, user_id=user_id, period_start=period_start.isoformat(), period_end=period_end.isoformat())
+    donations_result = await session.run(
+        donations_query, user_id=user_id, period_start=period_start.isoformat(), period_end=period_end.isoformat()
+    )
     donations_record = await donations_result.single()
-    total_contributions = Decimal(str(donations_record["total_donations"] or 0)) if donations_record else Decimal('0.00')
+    total_contributions = (
+        Decimal(str(donations_record["total_donations"] or 0)) if donations_record else Decimal("0.00")
+    )
 
     # Get grants received
     grants_query = """
@@ -1678,7 +1885,7 @@ async def create_statement_of_activities(session: AsyncSession, user_id: str, pe
     """
     grants_result = await session.run(grants_query, user_id=user_id)
     grants_record = await grants_result.single()
-    grant_revenue = Decimal(str(grants_record["total_grants"] or 0)) if grants_record else Decimal('0.00')
+    grant_revenue = Decimal(str(grants_record["total_grants"] or 0)) if grants_record else Decimal("0.00")
 
     # Calculate expenses from fund transactions
     expense_query = """
@@ -1687,9 +1894,11 @@ async def create_statement_of_activities(session: AsyncSession, user_id: str, pe
     AND t.transaction_date >= date($period_start) AND t.transaction_date <= date($period_end)
     RETURN sum(t.amount) as total_expenses
     """
-    expense_result = await session.run(expense_query, user_id=user_id, period_start=period_start.isoformat(), period_end=period_end.isoformat())
+    expense_result = await session.run(
+        expense_query, user_id=user_id, period_start=period_start.isoformat(), period_end=period_end.isoformat()
+    )
     expense_record = await expense_result.single()
-    total_expenses = Decimal(str(expense_record["total_expenses"] or 0)) if expense_record else Decimal('0.00')
+    total_expenses = Decimal(str(expense_record["total_expenses"] or 0)) if expense_record else Decimal("0.00")
 
     # Calculate net assets
     net_assets_query = """
@@ -1700,7 +1909,7 @@ async def create_statement_of_activities(session: AsyncSession, user_id: str, pe
     """
     net_result = await session.run(net_assets_query, user_id=user_id)
     net_record = await net_result.single()
-    beginning_net = Decimal(str(net_record["total"] or 0)) if net_record else Decimal('0.00')
+    beginning_net = Decimal(str(net_record["total"] or 0)) if net_record else Decimal("0.00")
 
     change_in_net = total_contributions + grant_revenue - total_expenses
     ending_net = beginning_net + change_in_net
@@ -1734,34 +1943,36 @@ async def create_statement_of_activities(session: AsyncSession, user_id: str, pe
     RETURN s
     """
     params = {
-        "id": stmt_id, "user_id": user_id,
+        "id": stmt_id,
+        "user_id": user_id,
         "period_start": period_start.isoformat(),
         "period_end": period_end.isoformat(),
-        "without": float(total_contributions * Decimal('0.7')),  # Assume 70% unrestricted
-        "with": float(total_contributions * Decimal('0.3')),  # Assume 30% restricted
+        "without": float(total_contributions * Decimal("0.7")),  # Assume 70% unrestricted
+        "with": float(total_contributions * Decimal("0.3")),  # Assume 30% restricted
         "total_contrib": float(total_contributions),
-        "program_rev": float(grant_revenue * Decimal('0.8')),
+        "program_rev": float(grant_revenue * Decimal("0.8")),
         "membership": 0.0,
         "fundraising": 0.0,
         "investment": 0.0,
         "other": 0.0,
         "total_rev": float(total_contributions + grant_revenue),
-        "program_exp": float(total_expenses * Decimal('0.7')),
-        "admin_exp": float(total_expenses * Decimal('0.2')),
-        "fund_exp": float(total_expenses * Decimal('0.1')),
+        "program_exp": float(total_expenses * Decimal("0.7")),
+        "admin_exp": float(total_expenses * Decimal("0.2")),
+        "fund_exp": float(total_expenses * Decimal("0.1")),
         "total_exp": float(total_expenses),
         "change": float(change_in_net),
         "beginning": float(beginning_net),
         "ending": float(ending_net),
         "lines": "[]",
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
     s = record["s"]
 
     return StatementOfActivitiesInDB(
-        id=s["id"], user_id=user_id,
+        id=s["id"],
+        user_id=user_id,
         period_start=datetime.fromisoformat(s["period_start"].iso_format()).date(),
         period_end=datetime.fromisoformat(s["period_end"].iso_format()).date(),
         contributions_without_restrictions=Decimal(str(s["contributions_without_restrictions"])),
@@ -1781,11 +1992,13 @@ async def create_statement_of_activities(session: AsyncSession, user_id: str, pe
         net_assets_beginning=Decimal(str(s["net_assets_beginning"])),
         net_assets_ending=Decimal(str(s["net_assets_ending"])),
         lines=[],
-        created_at=datetime.fromisoformat(s["created_at"].iso_format())
+        created_at=datetime.fromisoformat(s["created_at"].iso_format()),
     )
 
 
-async def create_statement_of_financial_position(session: AsyncSession, user_id: str, as_of_date: date) -> StatementOfFinancialPositionInDB:
+async def create_statement_of_financial_position(
+    session: AsyncSession, user_id: str, as_of_date: date
+) -> StatementOfFinancialPositionInDB:
     """Create Statement of Financial Position"""
     stmt_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
@@ -1798,9 +2011,9 @@ async def create_statement_of_financial_position(session: AsyncSession, user_id:
     """
     result = await session.run(query, user_id=user_id)
     record = await result.single()
-    total_assets = Decimal(str(record["total_funds"] or 0)) if record else Decimal('0.00')
+    total_assets = Decimal(str(record["total_funds"] or 0)) if record else Decimal("0.00")
 
-    total_liabilities = Decimal('0.00')  # Simplified
+    total_liabilities = Decimal("0.00")  # Simplified
     total_net_assets = total_assets - total_liabilities
 
     query = """
@@ -1827,29 +2040,31 @@ async def create_statement_of_financial_position(session: AsyncSession, user_id:
     RETURN s
     """
     params = {
-        "id": stmt_id, "user_id": user_id,
+        "id": stmt_id,
+        "user_id": user_id,
         "as_of_date": as_of_date.isoformat(),
-        "current": float(total_assets * Decimal('0.4')),
-        "fixed": float(total_assets * Decimal('0.5')),
+        "current": float(total_assets * Decimal("0.4")),
+        "fixed": float(total_assets * Decimal("0.5")),
         "intangible": 0.0,
-        "endowment": float(total_assets * Decimal('0.1')),
+        "endowment": float(total_assets * Decimal("0.1")),
         "other": 0.0,
         "total_assets": float(total_assets),
         "current_liab": 0.0,
         "long_liab": 0.0,
         "total_liab": 0.0,
-        "without": float(total_net_assets * Decimal('0.6')),
-        "with": float(total_net_assets * Decimal('0.4')),
+        "without": float(total_net_assets * Decimal("0.6")),
+        "with": float(total_net_assets * Decimal("0.4")),
         "total_net": float(total_net_assets),
         "total": float(total_assets),
-        "created_at": created_at.isoformat()
+        "created_at": created_at.isoformat(),
     }
     result = await session.run(query, params)
     record = await result.single()
     s = record["s"]
 
     return StatementOfFinancialPositionInDB(
-        id=s["id"], user_id=user_id,
+        id=s["id"],
+        user_id=user_id,
         as_of_date=datetime.fromisoformat(s["as_of_date"].iso_format()).date(),
         current_assets=Decimal(str(s["current_assets"])),
         fixed_assets=Decimal(str(s["fixed_assets"])),
@@ -1864,24 +2079,29 @@ async def create_statement_of_financial_position(session: AsyncSession, user_id:
         net_assets_with_donor_restrictions=Decimal(str(s["net_assets_with_donor_restrictions"])),
         total_net_assets=Decimal(str(s["total_net_assets"])),
         total_liabilities_net_assets=Decimal(str(s["total_liabilities_net_assets"])),
-        created_at=datetime.fromisoformat(s["created_at"].iso_format())
+        created_at=datetime.fromisoformat(s["created_at"].iso_format()),
     )
 
 
-async def get_statement_of_activities(session: AsyncSession, user_id: str, period_start: date, period_end: date) -> Optional[StatementOfActivitiesInDB]:
+async def get_statement_of_activities(
+    session: AsyncSession, user_id: str, period_start: date, period_end: date
+) -> Optional[StatementOfActivitiesInDB]:
     """Get Statement of Activities for period"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_STATEMENT_OF_ACTIVITIES]->(s:StatementOfActivities)
     WHERE s.period_start = date($period_start) AND s.period_end = date($period_end)
     RETURN s
     """
-    result = await session.run(query, user_id=user_id, period_start=period_start.isoformat(), period_end=period_end.isoformat())
+    result = await session.run(
+        query, user_id=user_id, period_start=period_start.isoformat(), period_end=period_end.isoformat()
+    )
     record = await result.single()
     if not record:
         return None
     s = record["s"]
     return StatementOfActivitiesInDB(
-        id=s["id"], user_id=user_id,
+        id=s["id"],
+        user_id=user_id,
         period_start=datetime.fromisoformat(s["period_start"].iso_format()).date(),
         period_end=datetime.fromisoformat(s["period_end"].iso_format()).date(),
         contributions_without_restrictions=Decimal(str(s["contributions_without_restrictions"])),
@@ -1901,5 +2121,5 @@ async def get_statement_of_activities(session: AsyncSession, user_id: str, perio
         net_assets_beginning=Decimal(str(s["net_assets_beginning"])),
         net_assets_ending=Decimal(str(s["net_assets_ending"])),
         lines=[],
-        created_at=datetime.fromisoformat(s["created_at"].iso_format())
+        created_at=datetime.fromisoformat(s["created_at"].iso_format()),
     )

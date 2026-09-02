@@ -3,14 +3,17 @@ Cash Return on Invested Capital Service
 Port: 8214
 CROIC calculation and capital efficiency
 """
+
+from typing import Any, Dict
+
 import httpx
 import structlog
-from typing import Any, Dict
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="CROIC Service", version="1.0.0")
+
 
 class CROICMetrics(BaseModel):
     free_cash_flow: float
@@ -18,6 +21,7 @@ class CROICMetrics(BaseModel):
     cash_return_on_invested_capital: float
     croic_5_year_avg: float
     capital_efficiency_rating: str
+
 
 class CROICRequest(BaseModel):
     company_id: str
@@ -28,6 +32,7 @@ class CROICRequest(BaseModel):
     current_liabilities: float
     tax_rate: float
 
+
 class CROICResponse(BaseModel):
     company_id: str
     current_croic: CROICMetrics
@@ -35,6 +40,7 @@ class CROICResponse(BaseModel):
     industry_benchmark: float
     croic_vs_industry: str
     recommendations: list
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -46,9 +52,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "croic", "version": "1.0.0"}
+
 
 @app.post("/calculate", response_model=CROICResponse)
 async def calculate_croic(request: CROICRequest):
@@ -75,22 +83,28 @@ async def calculate_croic(request: CROICRequest):
             invested_capital=round(invested_capital, 2),
             cash_return_on_invested_capital=round(croic, 4),
             croic_5_year_avg=round(avg_5yr, 4),
-            capital_efficiency_rating=capital_efficiency
+            capital_efficiency_rating=capital_efficiency,
         ),
         historical_croic=historical,
         industry_benchmark=industry_avg,
         croic_vs_industry=vs_industry,
-        recommendations=[
-            "Maintain high CROIC through disciplined capital allocation",
-            "Reinvest in high-return projects",
-            "Return excess cash to shareholders if limited opportunities"
-        ] if capital_efficiency in ["excellent", "good"] else [
-            "Improve operational efficiency to boost FCF",
-            "Review capital structure",
-            "Divest underperforming assets"
-        ]
+        recommendations=(
+            [
+                "Maintain high CROIC through disciplined capital allocation",
+                "Reinvest in high-return projects",
+                "Return excess cash to shareholders if limited opportunities",
+            ]
+            if capital_efficiency in ["excellent", "good"]
+            else [
+                "Improve operational efficiency to boost FCF",
+                "Review capital structure",
+                "Divest underperforming assets",
+            ]
+        ),
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8214)

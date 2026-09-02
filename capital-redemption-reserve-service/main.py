@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Capital Redemption Reserve Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class RedemptionTransaction(BaseModel):
@@ -100,14 +108,23 @@ async def root():
 
 @app.post("/redemptions/record")
 async def record_redemption(
-    company_id: str, share_class: str, shares_redeemed: int, redemption_price: float,
-    nominal_value: float, redemption_date: datetime, source_account: str
+    company_id: str,
+    share_class: str,
+    shares_redeemed: int,
+    redemption_price: float,
+    nominal_value: float,
+    redemption_date: datetime,
+    source_account: str,
 ):
     """Record share redemption creating CRR."""
     transaction = RedemptionTransaction(
-        company_id=company_id, share_class=share_class, shares_redeemed=shares_redeemed,
-        redemption_price=redemption_price, nominal_value=nominal_value,
-        redemption_date=redemption_date, source_account=source_account
+        company_id=company_id,
+        share_class=share_class,
+        shares_redeemed=shares_redeemed,
+        redemption_price=redemption_price,
+        nominal_value=nominal_value,
+        redemption_date=redemption_date,
+        source_account=source_account,
     )
     transaction.total_proceeds = shares_redeemed * redemption_price
     transaction.redemption_reserve_amount = transaction.total_proceeds - (shares_redeemed * nominal_value)
@@ -118,11 +135,21 @@ async def record_redemption(
         "date": redemption_date,
         "description": f"Redemption of {shares_redeemed} {share_class} shares - CRR created",
         "entries": [
-            {"account_code": capital_account, "description": f"{share_class.title()} Share Capital", "debit": shares_redeemed * nominal_value, "credit": 0},
-            {"account_code": "3220", "description": "Capital Redemption Reserve", "debit": transaction.redemption_reserve_amount, "credit": 0},
+            {
+                "account_code": capital_account,
+                "description": f"{share_class.title()} Share Capital",
+                "debit": shares_redeemed * nominal_value,
+                "credit": 0,
+            },
+            {
+                "account_code": "3220",
+                "description": "Capital Redemption Reserve",
+                "debit": transaction.redemption_reserve_amount,
+                "credit": 0,
+            },
             {"account_code": "1000", "description": "Bank", "debit": 0, "credit": transaction.total_proceeds},
         ],
-        "reference": f"CRR-RED-{transaction.id[:8]}"
+        "reference": f"CRR-RED-{transaction.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     transaction.journal_entry_id = result.get("id")
@@ -133,16 +160,14 @@ async def record_redemption(
 
 @app.post("/creations/create")
 async def create_crr(
-    company_id: str, amount: float, source: str, description: str,
-    creation_date: Optional[datetime] = None
+    company_id: str, amount: float, source: str, description: str, creation_date: Optional[datetime] = None
 ):
     """Manually create CRR (e.g., from capital reduction)."""
     if creation_date is None:
         creation_date = datetime.utcnow()
 
     crr = CRRCreation(
-        company_id=company_id, amount=amount, source=source,
-        description=description, creation_date=creation_date
+        company_id=company_id, amount=amount, source=source, description=description, creation_date=creation_date
     )
 
     journal_entry = {
@@ -152,7 +177,7 @@ async def create_crr(
             {"account_code": "3300", "description": "Retained Earnings / P&L", "debit": amount, "credit": 0},
             {"account_code": "3220", "description": "Capital Redemption Reserve", "debit": 0, "credit": amount},
         ],
-        "reference": f"CRR-CREATE-{crr.id[:8]}"
+        "reference": f"CRR-CREATE-{crr.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     crr.journal_entry_id = result.get("id")
@@ -163,16 +188,18 @@ async def create_crr(
 
 @app.post("/utilizations/record")
 async def utilize_crr(
-    company_id: str, amount: float, utilization_type: str, description: str,
-    utilization_date: Optional[datetime] = None
+    company_id: str, amount: float, utilization_type: str, description: str, utilization_date: Optional[datetime] = None
 ):
     """Utilize CRR (e.g., for bonus issue)."""
     if utilization_date is None:
         utilization_date = datetime.utcnow()
 
     utilization = CRRUtilization(
-        company_id=company_id, amount=amount, utilization_type=utilization_type,
-        description=description, utilization_date=utilization_date
+        company_id=company_id,
+        amount=amount,
+        utilization_type=utilization_type,
+        description=description,
+        utilization_date=utilization_date,
     )
 
     if utilization_type == "bonus_issue":
@@ -183,7 +210,7 @@ async def utilize_crr(
                 {"account_code": "3220", "description": "Capital Redemption Reserve", "debit": amount, "credit": 0},
                 {"account_code": "3200", "description": "Share Capital", "debit": 0, "credit": amount},
             ],
-            "reference": f"CRR-UTIL-{utilization.id[:8]}"
+            "reference": f"CRR-UTIL-{utilization.id[:8]}",
         }
     elif utilization_type == "write_off":
         journal_entry = {
@@ -193,7 +220,7 @@ async def utilize_crr(
                 {"account_code": "3220", "description": "Capital Redemption Reserve", "debit": amount, "credit": 0},
                 {"account_code": "3300", "description": "Retained Earnings", "debit": 0, "credit": amount},
             ],
-            "reference": f"CRR-UTIL-{utilization.id[:8]}"
+            "reference": f"CRR-UTIL-{utilization.id[:8]}",
         }
     else:
         journal_entry = {
@@ -203,7 +230,7 @@ async def utilize_crr(
                 {"account_code": "3220", "description": "Capital Redemption Reserve", "debit": amount, "credit": 0},
                 {"account_code": "3310", "description": "General Reserve", "debit": 0, "credit": amount},
             ],
-            "reference": f"CRR-UTIL-{utilization.id[:8]}"
+            "reference": f"CRR-UTIL-{utilization.id[:8]}",
         }
 
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
@@ -247,7 +274,9 @@ async def get_crr_summary(company_id: str):
     company_creations = [c for c in crr_creations if c.company_id == company_id]
     company_utilizations = [u for u in crr_utilizations if u.company_id == company_id]
 
-    total_created = sum(r.redemption_reserve_amount for r in company_redemptions) + sum(c.amount for c in company_creations)
+    total_created = sum(r.redemption_reserve_amount for r in company_redemptions) + sum(
+        c.amount for c in company_creations
+    )
     total_utilized = sum(u.amount for u in company_utilizations)
 
     return {
@@ -255,10 +284,11 @@ async def get_crr_summary(company_id: str):
         "total_created": total_created,
         "total_utilized": total_utilized,
         "current_balance": total_created - total_utilized,
-        "transaction_count": len(company_redemptions) + len(company_creations) + len(company_utilizations)
+        "transaction_count": len(company_redemptions) + len(company_creations) + len(company_utilizations),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

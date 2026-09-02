@@ -3,15 +3,18 @@ Debt Covenants Service
 Port: 8240
 Debt covenant monitoring and compliance
 """
+
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 import httpx
 import structlog
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel
 from fastapi import FastAPI
-from datetime import datetime
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Debt Covenants Service", version="1.0.0")
+
 
 class CovenantMetric(BaseModel):
     name: str
@@ -22,11 +25,13 @@ class CovenantMetric(BaseModel):
     headroom: float
     headroom_percentage: float
 
+
 class Covenant(BaseModel):
     covenant_id: str
     covenant_type: str
     description: str
     metrics: List[CovenantMetric]
+
 
 class DebtCovenantRequest(BaseModel):
     company_id: str
@@ -41,6 +46,7 @@ class DebtCovenantRequest(BaseModel):
     net_income: float
     revenue: float
 
+
 class DebtCovenantResponse(BaseModel):
     company_id: str
     analysis_date: str
@@ -53,9 +59,11 @@ class DebtCovenantResponse(BaseModel):
     breach_risk: str
     recommendations: List[str]
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "debt-covenants", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=DebtCovenantResponse)
 async def analyze_debt_covenants(request: DebtCovenantRequest):
@@ -86,39 +94,58 @@ async def analyze_debt_covenants(request: DebtCovenantRequest):
         else:
             compliant = actual > threshold
             headroom = actual - threshold
-        
+
         headroom_pct = (headroom / threshold * 100) if threshold else 0
         return CovenantMetric(
-            name=name, actual_value=round(actual, 4), threshold=threshold,
-            operator=operator, compliant=compliant,
-            headroom=round(headroom, 4), headroom_percentage=round(headroom_pct, 2)
+            name=name,
+            actual_value=round(actual, 4),
+            threshold=threshold,
+            operator=operator,
+            compliant=compliant,
+            headroom=round(headroom, 4),
+            headroom_percentage=round(headroom_pct, 2),
         )
 
-    covenants.append(Covenant(
-        covenant_id="LEV-001", covenant_type="Leverage",
-        description="Debt to Equity ratio covenant",
-        metrics=[check_covenant("Debt/Equity", debt_to_equity, 2.0, "<=", "Leverage")]
-    ))
-    covenants.append(Covenant(
-        covenant_id="LEV-002", covenant_type="Leverage",
-        description="Debt to EBITDA ratio covenant",
-        metrics=[check_covenant("Debt/EBITDA", debt_to_ebitda, 4.0, "<=", "Leverage")]
-    ))
-    covenants.append(Covenant(
-        covenant_id="COV-001", covenant_type="Coverage",
-        description="Interest coverage ratio covenant",
-        metrics=[check_covenant("Interest Coverage", interest_coverage, 2.5, ">=", "Coverage")]
-    ))
-    covenants.append(Covenant(
-        covenant_id="LIQ-001", covenant_type="Liquidity",
-        description="Current ratio covenant",
-        metrics=[check_covenant("Current Ratio", current_ratio, 1.2, ">=", "Liquidity")]
-    ))
-    covenants.append(Covenant(
-        covenant_id="TNW-001", covenant_type="Net Worth",
-        description="Minimum tangible net worth",
-        metrics=[check_covenant("TNW/Total Assets", tangible_net_worth_ratio, 0.15, ">=", "Net Worth")]
-    ))
+    covenants.append(
+        Covenant(
+            covenant_id="LEV-001",
+            covenant_type="Leverage",
+            description="Debt to Equity ratio covenant",
+            metrics=[check_covenant("Debt/Equity", debt_to_equity, 2.0, "<=", "Leverage")],
+        )
+    )
+    covenants.append(
+        Covenant(
+            covenant_id="LEV-002",
+            covenant_type="Leverage",
+            description="Debt to EBITDA ratio covenant",
+            metrics=[check_covenant("Debt/EBITDA", debt_to_ebitda, 4.0, "<=", "Leverage")],
+        )
+    )
+    covenants.append(
+        Covenant(
+            covenant_id="COV-001",
+            covenant_type="Coverage",
+            description="Interest coverage ratio covenant",
+            metrics=[check_covenant("Interest Coverage", interest_coverage, 2.5, ">=", "Coverage")],
+        )
+    )
+    covenants.append(
+        Covenant(
+            covenant_id="LIQ-001",
+            covenant_type="Liquidity",
+            description="Current ratio covenant",
+            metrics=[check_covenant("Current Ratio", current_ratio, 1.2, ">=", "Liquidity")],
+        )
+    )
+    covenants.append(
+        Covenant(
+            covenant_id="TNW-001",
+            covenant_type="Net Worth",
+            description="Minimum tangible net worth",
+            metrics=[check_covenant("TNW/Total Assets", tangible_net_worth_ratio, 0.15, ">=", "Net Worth")],
+        )
+    )
 
     for c in covenants:
         for m in c.metrics:
@@ -128,7 +155,7 @@ async def analyze_debt_covenants(request: DebtCovenantRequest):
                 warning_count += 1
 
     breached = sum(1 for c in covenants for m in c.metrics if not m.compliant)
-    
+
     if breached > 0:
         breach_risk = "HIGH"
     elif warning_count > 2:
@@ -154,9 +181,11 @@ async def analyze_debt_covenants(request: DebtCovenantRequest):
         breached_count=breached,
         warning_count=warning_count,
         breach_risk=breach_risk,
-        recommendations=recommendations
+        recommendations=recommendations,
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8240)

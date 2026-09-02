@@ -18,15 +18,23 @@ SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8106"))
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Initial Investment Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class InvestmentDetail(BaseModel):
@@ -66,7 +74,7 @@ async def create_initial_investment(
     installation_cost: float = 0,
     working_capital: float = 0,
     other_costs: float = 0,
-    scrap_value: float = 0
+    scrap_value: float = 0,
 ):
     """Create initial investment calculation."""
     items = [
@@ -83,8 +91,11 @@ async def create_initial_investment(
     net_investment = total - scrap_value
 
     inv = InitialInvestment(
-        project_name=project_name, items=items,
-        total_investment=total, scrap_value=scrap_value, net_investment=net_investment
+        project_name=project_name,
+        items=items,
+        total_investment=total,
+        scrap_value=scrap_value,
+        net_investment=net_investment,
     )
     investments.append(inv)
     return inv
@@ -92,10 +103,7 @@ async def create_initial_investment(
 
 @app.post("/simple")
 async def simple_initial_investment(
-    asset_cost: float,
-    scrap_value: float = 0,
-    selling_of_old_asset: float = 0,
-    tax_on_sale: float = 0
+    asset_cost: float, scrap_value: float = 0, selling_of_old_asset: float = 0, tax_on_sale: float = 0
 ):
     """Simple initial investment calculation."""
     net_proceeds = selling_of_old_asset - tax_on_sale
@@ -107,16 +115,13 @@ async def simple_initial_investment(
         "selling_of_old_asset": selling_of_old_asset,
         "tax_on_sale": tax_on_sale,
         "net_proceeds_from_sale": net_proceeds,
-        "initial_cash_outlay": initial_outlay
+        "initial_cash_outlay": initial_outlay,
     }
 
 
 @app.post("/with-capital-allowance")
 async def investment_with_capital_allowance(
-    asset_cost: float,
-    scrap_value: float,
-    capital_allowance: float,
-    tax_rate: float
+    asset_cost: float, scrap_value: float, capital_allowance: float, tax_rate: float
 ):
     """Calculate investment with capital allowances."""
     tax_saving = capital_allowance * (tax_rate / 100)
@@ -128,7 +133,7 @@ async def investment_with_capital_allowance(
         "capital_allowance": capital_allowance,
         "tax_rate": tax_rate,
         "tax_saving": tax_saving,
-        "adjusted_investment_cost": adjusted_cost
+        "adjusted_investment_cost": adjusted_cost,
     }
 
 
@@ -149,4 +154,5 @@ async def get_investment(investment_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

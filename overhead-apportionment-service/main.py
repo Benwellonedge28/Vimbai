@@ -21,15 +21,24 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
+apportionment_overheads: List[Dict[str, Any]] = []
 app = FastAPI(title="Vimbai Overhead Apportionment Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class OverheadItem(BaseModel):
@@ -81,27 +90,20 @@ async def root():
 async def add_overhead_item(overhead_name: str, overhead_code: str, total_amount: float, basis: str):
     """Add an overhead item."""
     overhead = OverheadItem(
-        overhead_name=overhead_name, overhead_code=overhead_code,
-        total_amount=total_amount, basis=basis
+        overhead_name=overhead_name, overhead_code=overhead_code, total_amount=total_amount, basis=basis
     )
     overhead_items.append(overhead)
     return overhead
 
 
 @app.post("/apportion")
-async def apportion_overhead(
-    overhead_id: str, period: str,
-    cost_centre_data: List[Dict[str, Any]]
-):
+async def apportion_overhead(overhead_id: str, period: str, cost_centre_data: List[Dict[str, Any]]):
     """Apportion overhead to cost centres."""
     overhead = next((o for o in overhead_items if o.id == overhead_id), None)
     if not overhead:
         return {"error": "Overhead not found"}
 
-    result = ApportionedOverhead(
-        overhead_id=overhead_id, period=period,
-        total_overhead=overhead.total_amount
-    )
+    result = ApportionedOverhead(overhead_id=overhead_id, period=period, total_overhead=overhead.total_amount)
 
     basis_field = overhead.basis
     total_basis = sum(c.get(basis_field, 0) for c in cost_centre_data)
@@ -111,23 +113,23 @@ async def apportion_overhead(
         if total_basis > 0:
             proportion = basis_value / total_basis
             apportioned = overhead.total_amount * proportion
-            result.cost_centre_apportionments.append({
-                "cost_centre_id": centre["cost_centre_id"],
-                "cost_centre_name": centre["cost_centre_name"],
-                "basis_value": basis_value,
-                "basis": overhead.basis,
-                "proportion": proportion,
-                "apportioned_amount": apportioned
-            })
+            result.cost_centre_apportionments.append(
+                {
+                    "cost_centre_id": centre["cost_centre_id"],
+                    "cost_centre_name": centre["cost_centre_name"],
+                    "basis_value": basis_value,
+                    "basis": overhead.basis,
+                    "proportion": proportion,
+                    "apportioned_amount": apportioned,
+                }
+            )
 
     apportioned_overheads.append(result)
     return result
 
 
 @app.post("/batch-apportion")
-async def batch_apportion_overheads(
-    period: str, cost_centre_data: List[Dict[str, Any]]
-):
+async def batch_apportion_overheads(period: str, cost_centre_data: List[Dict[str, Any]]):
     """Apportion all overheads for a period."""
     results = []
 
@@ -145,10 +147,7 @@ async def list_overhead_items():
 
 
 @app.get("/apportionments")
-async def list_apportionments(
-    overhead_id: Optional[str] = None,
-    period: Optional[str] = None
-):
+async def list_apportionments(overhead_id: Optional[str] = None, period: Optional[str] = None):
     """List apportionment results."""
     result = apportioned_overheads
     if overhead_id:
@@ -172,18 +171,21 @@ async def get_cost_centre_overhead_summary(period: str):
                         "cost_centre_id": centre_id,
                         "cost_centre_name": centre["cost_centre_name"],
                         "total_overhead": 0,
-                        "breakdown": []
+                        "breakdown": [],
                     }
                 centre_totals[centre_id]["total_overhead"] += centre["apportioned_amount"]
-                centre_totals[centre_id]["breakdown"].append({
-                    "overhead_id": apportionment.overhead_id,
-                    "apportioned_amount": centre["apportioned_amount"],
-                    "basis": centre["basis"]
-                })
+                centre_totals[centre_id]["breakdown"].append(
+                    {
+                        "overhead_id": apportionment.overhead_id,
+                        "apportioned_amount": centre["apportioned_amount"],
+                        "basis": centre["basis"],
+                    }
+                )
 
     return {"period": period, "cost_centre_summary": list(centre_totals.values())}
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

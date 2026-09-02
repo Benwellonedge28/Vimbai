@@ -2,11 +2,12 @@
 Vimbai Distributed Tracing Infrastructure Tests
 Verifies that tracing configuration is properly set up across all services.
 """
-import pytest
+
 import os
 import re
 from pathlib import Path
 
+import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
 CORE_SERVICES = [
@@ -75,18 +76,18 @@ class TestServiceInstrumentation:
         """Verify tracing block is after FastAPI app creation, not inside it."""
         main_path = REPO_ROOT / service / "main.py"
         content = main_path.read_text()
-        
+
         # Find "Distributed tracing" comment
         tracing_idx = content.find("Distributed tracing")
         assert tracing_idx != -1, f"{service}: No tracing block found"
-        
+
         # Find "app = FastAPI("
         app_idx = content.find("app = FastAPI(")
         assert app_idx != -1
-        
+
         # Tracing must come after the FastAPI app definition
         assert tracing_idx > app_idx, f"{service}: Tracing block is before FastAPI definition"
-        
+
         # Find the closing ) of FastAPI and verify tracing is after it
         # Get everything from app = FastAPI( to the next standalone )
         app_section = content[app_idx:]
@@ -94,14 +95,14 @@ class TestServiceInstrumentation:
         paren_depth = 0
         close_idx = 0
         for i, ch in enumerate(app_section):
-            if ch == '(':
+            if ch == "(":
                 paren_depth += 1
-            elif ch == ')':
+            elif ch == ")":
                 paren_depth -= 1
                 if paren_depth == 0:
                     close_idx = app_idx + i
                     break
-        
+
         assert tracing_idx > close_idx, f"{service}: Tracing block is inside FastAPI() call"
 
 

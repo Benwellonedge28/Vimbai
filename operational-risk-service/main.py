@@ -3,14 +3,17 @@ Operational Risk Service
 Port: 8166
 Operational risk measurement, loss data analysis, key risk indicators
 """
+
+from typing import Any, Dict, List, Optional
+
 import httpx
 import structlog
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
 from fastapi import FastAPI
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="Operational Risk Service", version="1.0.0")
+
 
 class LossEvent(BaseModel):
     event_id: str
@@ -18,6 +21,7 @@ class LossEvent(BaseModel):
     loss_amount: float
     event_date: str
     business_line: str
+
 
 class KRI(BaseModel):
     indicator_id: str
@@ -27,12 +31,14 @@ class KRI(BaseModel):
     threshold_amber: float
     threshold_red: float
 
+
 class OperationalRiskRequest(BaseModel):
     company_id: str
     reporting_date: str
     loss_events: List[LossEvent]
     kris: List[KRI]
     business_line_revenues: Dict[str, float]
+
 
 class OperationalRiskResponse(BaseModel):
     company_id: str
@@ -45,6 +51,7 @@ class OperationalRiskResponse(BaseModel):
     kri_status: Dict[str, str]
     risk_rating: str
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -55,9 +62,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "operational-risk", "version": "1.0.0"}
+
 
 @app.post("/assess", response_model=OperationalRiskResponse)
 async def assess_operational_risk(request: OperationalRiskRequest):
@@ -68,6 +77,7 @@ async def assess_operational_risk(request: OperationalRiskRequest):
     max_loss = max((e.loss_amount for e in request.loss_events), default=0)
 
     import math
+
     var_99_9 = max_loss * 2.5
 
     beta_factor = 12.5
@@ -82,7 +92,11 @@ async def assess_operational_risk(request: OperationalRiskRequest):
         else:
             kri_status[kri.indicator_name] = "RED"
 
-    risk_rating = "LOW" if sum(1 for s in kri_status.values() if s == "RED") == 0 else "MEDIUM" if sum(1 for s in kri_status.values() if s == "RED") <= 2 else "HIGH"
+    risk_rating = (
+        "LOW"
+        if sum(1 for s in kri_status.values() if s == "RED") == 0
+        else "MEDIUM" if sum(1 for s in kri_status.values() if s == "RED") <= 2 else "HIGH"
+    )
 
     return OperationalRiskResponse(
         company_id=request.company_id,
@@ -93,9 +107,11 @@ async def assess_operational_risk(request: OperationalRiskRequest):
         var_99_9=var_99_9,
         regulatory_capital=regulatory_capital,
         kri_status=kri_status,
-        risk_rating=risk_rating
+        risk_rating=risk_rating,
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8166)

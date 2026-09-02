@@ -2,11 +2,13 @@
 Vimbai Shared Health Check Module
 Provides standardized health check endpoints for all services.
 """
+
 import os
 import time
-from typing import Optional, Dict, Any
 from datetime import datetime, timezone
-from fastapi import FastAPI, APIRouter
+from typing import Any, Dict, Optional
+
+from fastapi import APIRouter, FastAPI
 from pydantic import BaseModel
 
 
@@ -32,7 +34,7 @@ def create_health_router(service_name: str = "") -> APIRouter:
     """Create a health check router with /health and /health/ready endpoints."""
     router = APIRouter(tags=["health"])
     svc_name = service_name or os.getenv("SERVICE_NAME", "unknown")
-    
+
     @router.get("/health", response_model=HealthStatus)
     async def health():
         """Liveness probe - is the service running?"""
@@ -42,13 +44,13 @@ def create_health_router(service_name: str = "") -> APIRouter:
             timestamp=datetime.now(timezone.utc).isoformat(),
             uptime_seconds=time.time() - _start_time,
         )
-    
+
     @router.get("/health/ready", response_model=HealthStatus)
     async def readiness():
         """Readiness probe - is the service ready to accept traffic?"""
         checks = {}
         all_healthy = True
-        
+
         for name, check_fn in _health_checks.items():
             try:
                 result = check_fn()
@@ -57,14 +59,14 @@ def create_health_router(service_name: str = "") -> APIRouter:
                 else:
                     is_healthy = result
                     message = "OK" if is_healthy else "Failed"
-                
+
                 checks[name] = {"status": "healthy" if is_healthy else "unhealthy", "message": message}
                 if not is_healthy:
                     all_healthy = False
             except Exception as e:
                 checks[name] = {"status": "unhealthy", "message": str(e)}
                 all_healthy = False
-        
+
         return HealthStatus(
             status="healthy" if all_healthy else "degraded",
             service=svc_name,
@@ -72,7 +74,7 @@ def create_health_router(service_name: str = "") -> APIRouter:
             uptime_seconds=time.time() - _start_time,
             checks=checks,
         )
-    
+
     return router
 
 

@@ -3,14 +3,17 @@ Lifecycle Costing Service
 Port: 8182
 Product lifecycle costs from R&D to disposal
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Lifecycle Costing Service", version="1.0.0")
+
 
 class LifecycleCostRequest(BaseModel):
     company_id: str
@@ -25,6 +28,7 @@ class LifecycleCostRequest(BaseModel):
     expected_units: int
     product_life_years: int
 
+
 class LifecycleCostingResponse(BaseModel):
     company_id: str
     product_name: str
@@ -38,6 +42,7 @@ class LifecycleCostingResponse(BaseModel):
     cost_per_unit: float
     annual_cost: float
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -48,9 +53,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "lifecycle-costing", "version": "1.0.0"}
+
 
 @app.post("/calculate", response_model=LifecycleCostingResponse)
 async def calculate_lifecycle_cost(request: LifecycleCostRequest):
@@ -63,7 +70,9 @@ async def calculate_lifecycle_cost(request: LifecycleCostRequest):
     distribution_phase = request.distribution_costs * request.expected_units
     post_production = request.customer_service_costs + request.disposal_costs
 
-    total_lifecycle = rd_phase + design_phase + production_phase + marketing_phase + distribution_phase + post_production
+    total_lifecycle = (
+        rd_phase + design_phase + production_phase + marketing_phase + distribution_phase + post_production
+    )
     cost_per_unit = total_lifecycle / request.expected_units if request.expected_units else 0
     annual_cost = total_lifecycle / request.product_life_years if request.product_life_years else 0
 
@@ -78,9 +87,11 @@ async def calculate_lifecycle_cost(request: LifecycleCostRequest):
         post_production_phase=round(post_production, 2),
         total_lifecycle_cost=round(total_lifecycle, 2),
         cost_per_unit=round(cost_per_unit, 2),
-        annual_cost=round(annual_cost, 2)
+        annual_cost=round(annual_cost, 2),
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8182)

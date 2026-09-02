@@ -14,17 +14,18 @@ Features:
 - Trend extrapolation
 """
 
-from fastapi import FastAPI, Depends, HTTPException, status, Query
-from fastapi.responses import JSONResponse
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, validator
-from datetime import datetime, date
-from decimal import Decimal
-from enum import Enum
-import uuid
 import json
 import os
+import uuid
+from datetime import date, datetime
+from decimal import Decimal
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional
+
 from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, validator
 
 load_dotenv()
 
@@ -32,8 +33,10 @@ load_dotenv()
 # MODELS
 # =============================================================================
 
+
 class ScenarioType(str, Enum):
     """Types of scenario modeling"""
+
     BUDGET_FORECAST = "budget_forecast"
     REVENUE_PROJECTION = "revenue_projection"
     EXPENSE_SIMULATION = "expense_simulation"
@@ -42,8 +45,10 @@ class ScenarioType(str, Enum):
     GROWTH_RATE = "growth_rate"
     CUSTOM = "custom"
 
+
 class RuleConditionOperator(str, Enum):
     """Operators for rule conditions"""
+
     EQUALS = "equals"
     NOT_EQUALS = "not_equals"
     GREATER_THAN = "greater_than"
@@ -53,8 +58,10 @@ class RuleConditionOperator(str, Enum):
     CONTAINS = "contains"
     BETWEEN = "between"
 
+
 class RuleActionType(str, Enum):
     """Types of rule actions"""
+
     ADJUST_AMOUNT = "adjust_amount"
     SCALE_AMOUNT = "scale_amount"
     APPLY_PERCENTAGE = "apply_percentage"
@@ -62,22 +69,28 @@ class RuleActionType(str, Enum):
     FLAG_ALERT = "flag_alert"
     TRIGGER_WORKFLOW = "trigger_workflow"
 
+
 class RuleCondition(BaseModel):
     """Condition for rule evaluation"""
+
     field: str = Field(..., description="Field to evaluate")
     operator: RuleConditionOperator = Field(..., description="Comparison operator")
     value: Any = Field(..., description="Value to compare against")
     secondary_value: Optional[Any] = Field(None, description="Secondary value for BETWEEN operator")
 
+
 class RuleAction(BaseModel):
     """Action to execute when rule condition is met"""
+
     action_type: RuleActionType = Field(..., description="Type of action")
     target_field: str = Field(..., description="Field to modify")
     value: Any = Field(..., description="Action value or multiplier")
     description: Optional[str] = Field(None, description="Action description")
 
+
 class ModelingRule(BaseModel):
     """Rule for scenario modeling"""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Rule ID")
     name: str = Field(..., max_length=200, description="Rule name")
     description: Optional[str] = Field(None, description="Rule description")
@@ -88,14 +101,16 @@ class ModelingRule(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    @validator('conditions', 'actions')
+    @validator("conditions", "actions")
     def validate_not_empty(cls, v):
         if len(v) == 0:
             raise ValueError("Conditions and actions must have at least one item")
         return v
 
+
 class ScenarioVariable(BaseModel):
     """Variable for What-If analysis"""
+
     name: str = Field(..., max_length=100, description="Variable name")
     current_value: Decimal = Field(..., description="Current/base value")
     min_value: Optional[Decimal] = Field(None, description="Minimum allowed value")
@@ -104,8 +119,10 @@ class ScenarioVariable(BaseModel):
     unit: Optional[str] = Field(None, max_length=50, description="Unit of measurement")
     description: Optional[str] = Field(None, description="Variable description")
 
+
 class ScenarioCreate(BaseModel):
     """Create a new scenario"""
+
     name: str = Field(..., max_length=200, description="Scenario name")
     description: Optional[str] = Field(None, max_length=1000, description="Scenario description")
     scenario_type: ScenarioType = Field(..., description="Type of scenario")
@@ -115,8 +132,10 @@ class ScenarioCreate(BaseModel):
     rules: List[str] = Field(default_factory=list, description="Rule IDs to apply")
     assumptions: Optional[Dict[str, Any]] = Field(None, description="Additional assumptions")
 
+
 class ScenarioInDB(ScenarioCreate):
     """Scenario as stored in database"""
+
     id: str = Field(..., description="Scenario ID")
     user_id: str = Field(..., description="User who created the scenario")
     status: Literal["draft", "active", "completed", "archived"] = Field("draft", description="Scenario status")
@@ -127,14 +146,18 @@ class ScenarioInDB(ScenarioCreate):
     class Config:
         from_attributes = True
 
+
 class WhatIfAnalysisCreate(BaseModel):
     """What-If analysis request"""
+
     scenario_id: str = Field(..., description="Scenario to use")
     variable_changes: Dict[str, Decimal] = Field(..., description="Variable changes to apply")
     description: Optional[str] = Field(None, description="Analysis description")
 
+
 class WhatIfResult(BaseModel):
     """What-If analysis result"""
+
     analysis_id: str = Field(..., description="Analysis ID")
     scenario_id: str = Field(..., description="Scenario used")
     base_values: Dict[str, Decimal] = Field(..., description="Base variable values")
@@ -146,31 +169,38 @@ class WhatIfResult(BaseModel):
     affected_accounts: List[Dict[str, Any]] = Field(default_factory=list, description="Accounts affected")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
+
 class SensitivityAnalysisRequest(BaseModel):
     """Sensitivity analysis request"""
+
     scenario_id: str = Field(..., description="Scenario to use")
     variable_name: str = Field(..., description="Variable to analyze")
     min_change: Decimal = Field(..., description="Minimum change to apply")
     max_change: Decimal = Field(..., description="Maximum change to apply")
     steps: int = Field(10, ge=2, le=100, description="Number of steps")
 
+
 class SensitivityResult(BaseModel):
     """Sensitivity analysis result"""
+
     analysis_id: str = Field(..., description="Analysis ID")
     variable_name: str = Field(..., description="Variable analyzed")
     outcomes: List[Dict[str, Any]] = Field(..., description="Outcome for each step")
     most_sensitive_range: Dict[str, Any] = Field(..., description="Range of highest sensitivity")
     recommendations: List[str] = Field(..., description="Analysis recommendations")
 
+
 # =============================================================================
 # IN-MEMORY STORAGE (Production would use Neo4j)
 # =============================================================================
+
 
 class Storage:
     scenarios: Dict[str, ScenarioInDB] = {}
     rules: Dict[str, ModelingRule] = {}
     what_if_results: Dict[str, WhatIfResult] = {}
     sensitivity_results: Dict[str, SensitivityResult] = {}
+
 
 storage = Storage()
 
@@ -181,12 +211,13 @@ storage = Storage()
 app = FastAPI(
     title="Vimbai Scenario Modeling Service",
     description="Rule-based What-If analysis and financial forecasting",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
 
 def evaluate_condition(condition: RuleCondition, data: Dict[str, Any]) -> bool:
     """Evaluate a single rule condition"""
@@ -226,6 +257,7 @@ def evaluate_condition(condition: RuleCondition, data: Dict[str, Any]) -> bool:
 
     return False
 
+
 def apply_rule(rule: ModelingRule, data: Dict[str, Any]) -> Dict[str, Any]:
     """Apply a rule to data and return modified data"""
     # Check all conditions (AND logic)
@@ -245,12 +277,13 @@ def apply_rule(rule: ModelingRule, data: Dict[str, Any]) -> Dict[str, Any]:
             result[action.target_field] = float(current * Decimal(str(action.value)))
         elif action.action_type == RuleActionType.APPLY_PERCENTAGE:
             current = Decimal(str(result.get(action.target_field, 0)))
-            percentage = Decimal(str(action.value)) / Decimal('100')
-            result[action.target_field] = float(current * (Decimal('1') + percentage))
+            percentage = Decimal(str(action.value)) / Decimal("100")
+            result[action.target_field] = float(current * (Decimal("1") + percentage))
         elif action.action_type == RuleActionType.SET_VALUE:
             result[action.target_field] = action.value
 
     return result
+
 
 def calculate_outcome(scenario: ScenarioInDB, variables: Dict[str, Decimal]) -> Decimal:
     """Calculate the outcome based on scenario type and variables"""
@@ -260,9 +293,9 @@ def calculate_outcome(scenario: ScenarioInDB, variables: Dict[str, Decimal]) -> 
         return total
     elif scenario.scenario_type == ScenarioType.REVENUE_PROJECTION:
         base = Decimal(str(scenario.assumptions.get("base_revenue", 100000)) if scenario.assumptions else 100000)
-        growth = variables.get("growth_rate", Decimal('0.05'))
+        growth = variables.get("growth_rate", Decimal("0.05"))
         periods = (scenario.end_date - scenario.base_date).days / 30
-        return base * (Decimal('1') + growth) ** Decimal(str(periods))
+        return base * (Decimal("1") + growth) ** Decimal(str(periods))
     elif scenario.scenario_type == ScenarioType.EXPENSE_SIMULATION:
         return sum(v for k, v in variables.items() if "expense" in k.lower())
     elif scenario.scenario_type == ScenarioType.CASH_FLOW:
@@ -270,21 +303,20 @@ def calculate_outcome(scenario: ScenarioInDB, variables: Dict[str, Decimal]) -> 
         outflows = sum(v for k, v in variables.items() if "outflow" in k.lower())
         return inflows - outflows
     elif scenario.scenario_type == ScenarioType.PROFITABILITY:
-        revenue = variables.get("revenue", Decimal('0'))
-        costs = variables.get("costs", Decimal('0'))
+        revenue = variables.get("revenue", Decimal("0"))
+        costs = variables.get("costs", Decimal("0"))
         return revenue - costs
     else:
         return sum(variables.values())
+
 
 # =============================================================================
 # SCENARIO ENDPOINTS
 # =============================================================================
 
+
 @app.post("/scenarios/", response_model=ScenarioInDB, status_code=status.HTTP_201_CREATED)
-async def create_scenario(
-    scenario: ScenarioCreate,
-    user_id: str = Query(..., description="User ID")
-):
+async def create_scenario(scenario: ScenarioCreate, user_id: str = Query(..., description="User ID")):
     """Create a new scenario"""
     scenario_id = str(uuid.uuid4())
 
@@ -303,23 +335,21 @@ async def create_scenario(
         end_date=scenario.end_date,
         variables=scenario.variables,
         rules=scenario.rules,
-        assumptions=scenario.assumptions
+        assumptions=scenario.assumptions,
     )
 
     storage.scenarios[scenario_id] = scenario_data
     return scenario_data
 
+
 @app.get("/scenarios/", response_model=List[ScenarioInDB])
 async def list_scenarios(
     user_id: str = Query(..., description="User ID"),
     status: Optional[str] = Query(None, description="Filter by status"),
-    scenario_type: Optional[ScenarioType] = Query(None, description="Filter by type")
+    scenario_type: Optional[ScenarioType] = Query(None, description="Filter by type"),
 ):
     """List all scenarios for a user"""
-    results = [
-        s for s in storage.scenarios.values()
-        if s.user_id == user_id
-    ]
+    results = [s for s in storage.scenarios.values() if s.user_id == user_id]
 
     if status:
         results = [s for s in results if s.status == status]
@@ -327,6 +357,7 @@ async def list_scenarios(
         results = [s for s in results if s.scenario_type == scenario_type]
 
     return sorted(results, key=lambda x: x.created_at, reverse=True)
+
 
 @app.get("/scenarios/{scenario_id}", response_model=ScenarioInDB)
 async def get_scenario(scenario_id: str, user_id: str = Query(...)):
@@ -340,12 +371,9 @@ async def get_scenario(scenario_id: str, user_id: str = Query(...)):
 
     return scenario
 
+
 @app.put("/scenarios/{scenario_id}", response_model=ScenarioInDB)
-async def update_scenario(
-    scenario_id: str,
-    updates: Dict[str, Any],
-    user_id: str = Query(...)
-):
+async def update_scenario(scenario_id: str, updates: Dict[str, Any], user_id: str = Query(...)):
     """Update a scenario"""
     if scenario_id not in storage.scenarios:
         raise HTTPException(status_code=404, detail="Scenario not found")
@@ -356,11 +384,12 @@ async def update_scenario(
 
     # Apply updates
     for key, value in updates.items():
-        if hasattr(scenario, key) and key not in ['id', 'user_id', 'created_at']:
+        if hasattr(scenario, key) and key not in ["id", "user_id", "created_at"]:
             setattr(scenario, key, value)
 
     scenario.updated_at = datetime.utcnow()
     return scenario
+
 
 @app.delete("/scenarios/{scenario_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_scenario(scenario_id: str, user_id: str = Query(...)):
@@ -374,15 +403,18 @@ async def delete_scenario(scenario_id: str, user_id: str = Query(...)):
 
     del storage.scenarios[scenario_id]
 
+
 # =============================================================================
 # MODELING RULES ENDPOINTS
 # =============================================================================
+
 
 @app.post("/rules/", response_model=ModelingRule, status_code=status.HTTP_201_CREATED)
 async def create_rule(rule: ModelingRule):
     """Create a new modeling rule"""
     storage.rules[rule.id] = rule
     return rule
+
 
 @app.get("/rules/", response_model=List[ModelingRule])
 async def list_rules(enabled_only: bool = Query(False, description="Filter enabled only")):
@@ -391,12 +423,14 @@ async def list_rules(enabled_only: bool = Query(False, description="Filter enabl
         return [r for r in storage.rules.values() if r.enabled]
     return list(storage.rules.values())
 
+
 @app.get("/rules/{rule_id}", response_model=ModelingRule)
 async def get_rule(rule_id: str):
     """Get a rule by ID"""
     if rule_id not in storage.rules:
         raise HTTPException(status_code=404, detail="Rule not found")
     return storage.rules[rule_id]
+
 
 @app.put("/rules/{rule_id}", response_model=ModelingRule)
 async def update_rule(rule_id: str, updates: Dict[str, Any]):
@@ -406,11 +440,12 @@ async def update_rule(rule_id: str, updates: Dict[str, Any]):
 
     rule = storage.rules[rule_id]
     for key, value in updates.items():
-        if hasattr(rule, key) and key not in ['id', 'created_at']:
+        if hasattr(rule, key) and key not in ["id", "created_at"]:
             setattr(rule, key, value)
     rule.updated_at = datetime.utcnow()
 
     return rule
+
 
 @app.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_rule(rule_id: str):
@@ -419,9 +454,11 @@ async def delete_rule(rule_id: str):
         raise HTTPException(status_code=404, detail="Rule not found")
     del storage.rules[rule_id]
 
+
 # =============================================================================
 # WHAT-IF ANALYSIS ENDPOINTS
 # =============================================================================
+
 
 @app.post("/what-if/", response_model=WhatIfResult, status_code=status.HTTP_201_CREATED)
 async def run_what_if_analysis(analysis: WhatIfAnalysisCreate):
@@ -449,9 +486,9 @@ async def run_what_if_analysis(analysis: WhatIfAnalysisCreate):
 
     # Find affected accounts (simplified)
     affected_accounts = [
-        {"account": "Revenue", "variance": float(variance * Decimal('0.4'))},
-        {"account": "Expenses", "variance": float(variance * Decimal('0.3'))},
-        {"account": "Net Income", "variance": float(variance * Decimal('0.3'))}
+        {"account": "Revenue", "variance": float(variance * Decimal("0.4"))},
+        {"account": "Expenses", "variance": float(variance * Decimal("0.3"))},
+        {"account": "Net Income", "variance": float(variance * Decimal("0.3"))},
     ]
 
     result = WhatIfResult(
@@ -463,11 +500,12 @@ async def run_what_if_analysis(analysis: WhatIfAnalysisCreate):
         new_outcome=new_outcome,
         variance=variance,
         variance_percent=variance_percent,
-        affected_accounts=affected_accounts
+        affected_accounts=affected_accounts,
     )
 
     storage.what_if_results[result.analysis_id] = result
     return result
+
 
 @app.get("/what-if/{analysis_id}", response_model=WhatIfResult)
 async def get_what_if_result(analysis_id: str):
@@ -476,17 +514,17 @@ async def get_what_if_result(analysis_id: str):
         raise HTTPException(status_code=404, detail="Analysis not found")
     return storage.what_if_results[analysis_id]
 
+
 @app.get("/what-if/scenario/{scenario_id}", response_model=List[WhatIfResult])
 async def get_scenario_what_if_results(scenario_id: str):
     """Get all What-If analyses for a scenario"""
-    return [
-        r for r in storage.what_if_results.values()
-        if r.scenario_id == scenario_id
-    ]
+    return [r for r in storage.what_if_results.values() if r.scenario_id == scenario_id]
+
 
 # =============================================================================
 # SENSITIVITY ANALYSIS ENDPOINTS
 # =============================================================================
+
 
 @app.post("/sensitivity/", response_model=SensitivityResult, status_code=status.HTTP_201_CREATED)
 async def run_sensitivity_analysis(request: SensitivityAnalysisRequest):
@@ -513,11 +551,15 @@ async def run_sensitivity_analysis(request: SensitivityAnalysisRequest):
         test_values[request.variable_name] = variable.current_value + change_value
 
         outcome = calculate_outcome(scenario, test_values)
-        outcomes.append({
-            "change": float(change_value),
-            "outcome": float(outcome),
-            "change_percent": float(change_value / variable.current_value * 100) if variable.current_value != 0 else 0
-        })
+        outcomes.append(
+            {
+                "change": float(change_value),
+                "outcome": float(outcome),
+                "change_percent": (
+                    float(change_value / variable.current_value * 100) if variable.current_value != 0 else 0
+                ),
+            }
+        )
 
     # Find most sensitive range (largest outcome change per unit)
     max_sensitivity = 0
@@ -533,31 +575,37 @@ async def run_sensitivity_analysis(request: SensitivityAnalysisRequest):
             most_sensitive_range = {
                 "min_change": outcomes[i]["change"],
                 "max_change": outcomes[i + 1]["change"],
-                "outcome_impact": float(abs(delta_outcome))
+                "outcome_impact": float(abs(delta_outcome)),
             }
 
     # Generate recommendations
     recommendations = []
     for o in outcomes:
         if o["outcome"] > outcomes[0]["outcome"] * 1.1:
-            recommendations.append(f"Increase {request.variable_name} by {o['change_percent']:.1f}% yields {o['outcome']:.2f}")
+            recommendations.append(
+                f"Increase {request.variable_name} by {o['change_percent']:.1f}% yields {o['outcome']:.2f}"
+            )
         elif o["outcome"] < outcomes[0]["outcome"] * 0.9:
-            recommendations.append(f"Decrease {request.variable_name} by {abs(o['change_percent']):.1f}% yields {o['outcome']:.2f}")
+            recommendations.append(
+                f"Decrease {request.variable_name} by {abs(o['change_percent']):.1f}% yields {o['outcome']:.2f}"
+            )
 
     result = SensitivityResult(
         analysis_id=str(uuid.uuid4()),
         variable_name=request.variable_name,
         outcomes=outcomes,
         most_sensitive_range=most_sensitive_range,
-        recommendations=recommendations[:5]  # Top 5 recommendations
+        recommendations=recommendations[:5],  # Top 5 recommendations
     )
 
     storage.sensitivity_results[result.analysis_id] = result
     return result
 
+
 # =============================================================================
 # SCENARIO COMPARISON
 # =============================================================================
+
 
 @app.post("/compare/", response_model=Dict[str, Any])
 async def compare_scenarios(scenario_ids: List[str]):
@@ -576,14 +624,14 @@ async def compare_scenarios(scenario_ids: List[str]):
                 "type": s.scenario_type.value,
                 "base_date": s.base_date.isoformat(),
                 "end_date": s.end_date.isoformat(),
-                "variables": {v.name: float(v.current_value) for v in s.variables}
+                "variables": {v.name: float(v.current_value) for v in s.variables},
             }
             for s in scenarios
         ],
         "comparison_date": datetime.utcnow().isoformat(),
         "best_case": None,
         "worst_case": None,
-        "recommendations": []
+        "recommendations": [],
     }
 
     # Calculate outcomes for each scenario
@@ -602,19 +650,21 @@ async def compare_scenarios(scenario_ids: List[str]):
         comparison["best_case"] = {
             "scenario_id": best_id,
             "outcome": outcomes[best_id],
-            "name": next(s.name for s in scenarios if s.id == best_id)
+            "name": next(s.name for s in scenarios if s.id == best_id),
         }
         comparison["worst_case"] = {
             "scenario_id": worst_id,
             "outcome": outcomes[worst_id],
-            "name": next(s.name for s in scenarios if s.id == worst_id)
+            "name": next(s.name for s in scenarios if s.id == worst_id),
         }
 
     return comparison
 
+
 # =============================================================================
 # HEALTH CHECK
 # =============================================================================
+
 
 @app.get("/health")
 async def health_check():
@@ -624,8 +674,9 @@ async def health_check():
         "service": "scenario-modeling",
         "version": "1.0.0",
         "scenarios_count": len(storage.scenarios),
-        "rules_count": len(storage.rules)
+        "rules_count": len(storage.rules),
     }
+
 
 # =============================================================================
 # MAIN
@@ -633,5 +684,6 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+
     port = int(os.getenv("SCENARIO_MODELING_PORT", "8092"))
     uvicorn.run(app, host="0.0.0.0", port=port)

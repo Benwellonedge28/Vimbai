@@ -4,9 +4,9 @@ Calculates present value of future cash flows.
 PV = FV / (1 + r)^n
 """
 
+import math
 import os
 import uuid
-import math
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -20,15 +20,23 @@ SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8103"))
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Present Value Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class PresentValueResult(BaseModel):
@@ -60,10 +68,7 @@ async def calculate_present_value(future_value: float, rate: float, years: int):
     df = 1 / math.pow(1 + rate, years)
     pv = future_value * df
 
-    result = PresentValueResult(
-        future_value=future_value, rate=rate, years=years,
-        present_value=pv, discount_factor=df
-    )
+    result = PresentValueResult(future_value=future_value, rate=rate, years=years, present_value=pv, discount_factor=df)
     return result
 
 
@@ -80,15 +85,12 @@ async def calculate_present_value_percent(future_value: float, rate_percent: flo
         "rate_decimal": rate_decimal,
         "years": years,
         "discount_factor": round(df, 6),
-        "present_value": round(pv, 2)
+        "present_value": round(pv, 2),
     }
 
 
 @app.post("/cash-flows")
-async def calculate_pv_of_cash_flows(
-    cash_flows: List[float],
-    rate: float
-):
+async def calculate_pv_of_cash_flows(cash_flows: List[float], rate: float):
     """
     Calculate present value of a series of cash flows.
     PV = CF1/(1+r)^1 + CF2/(1+r)^2 + ... + CFn/(1+r)^n
@@ -99,28 +101,20 @@ async def calculate_pv_of_cash_flows(
     for i, cf in enumerate(cash_flows, 1):
         df = 1 / math.pow(1 + rate, i)
         pv_cf = cf * df
-        pv_list.append({
-            "year": i,
-            "cash_flow": cf,
-            "discount_factor": round(df, 6),
-            "present_value": round(pv_cf, 2)
-        })
+        pv_list.append({"year": i, "cash_flow": cf, "discount_factor": round(df, 6), "present_value": round(pv_cf, 2)})
         total_pv += pv_cf
 
     return {
         "cash_flows": cash_flows,
         "rate": rate,
         "present_values": pv_list,
-        "total_present_value": round(total_pv, 2)
+        "total_present_value": round(total_pv, 2),
     }
 
 
 @app.post("/cash-flows-with-initial")
 async def calculate_pv_with_initial_investment(
-    initial_investment: float,
-    cash_flows: List[float],
-    rate: float,
-    residual_value: Optional[float] = 0
+    initial_investment: float, cash_flows: List[float], rate: float, residual_value: Optional[float] = 0
 ):
     """Calculate NPV (PV of inflows - initial investment)."""
     pv_inflows = 0
@@ -138,7 +132,9 @@ async def calculate_pv_with_initial_investment(
         df = 1 / math.pow(1 + rate, len(cash_flows))
         pv_residual = residual_value * df
         pv_inflows += pv_residual
-        details.append({"year": len(cash_flows), "description": "Residual value", "present_value": round(pv_residual, 2)})
+        details.append(
+            {"year": len(cash_flows), "description": "Residual value", "present_value": round(pv_residual, 2)}
+        )
 
     npv = pv_inflows - initial_investment
 
@@ -149,7 +145,7 @@ async def calculate_pv_with_initial_investment(
         "present_value_details": details,
         "total_pv_inflows": round(pv_inflows, 2),
         "net_present_value": round(npv, 2),
-        "decision": "Accept" if npv > 0 else "Reject" if npv < 0 else "Indifferent"
+        "decision": "Accept" if npv > 0 else "Reject" if npv < 0 else "Indifferent",
     }
 
 
@@ -163,16 +159,12 @@ async def calculate_present_value_perpetuity(annual_cash_flow: float, rate: floa
         "annual_cash_flow": annual_cash_flow,
         "rate": rate,
         "present_value_perpetuity": round(pv, 2),
-        "formula": f"{annual_cash_flow} / {rate} = {pv}"
+        "formula": f"{annual_cash_flow} / {rate} = {pv}",
     }
 
 
 @app.post("/growing-perpetuity")
-async def calculate_pv_growing_perpetuity(
-    initial_cash_flow: float,
-    growth_rate: float,
-    discount_rate: float
-):
+async def calculate_pv_growing_perpetuity(initial_cash_flow: float, growth_rate: float, discount_rate: float):
     """Calculate PV of growing perpetuity."""
     if discount_rate <= growth_rate:
         return {"error": "Discount rate must be greater than growth rate"}
@@ -182,10 +174,11 @@ async def calculate_pv_growing_perpetuity(
         "initial_cash_flow": initial_cash_flow,
         "growth_rate": growth_rate,
         "discount_rate": discount_rate,
-        "present_value": round(pv, 2)
+        "present_value": round(pv, 2),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

@@ -1,7 +1,11 @@
 """Vimbai Realtime Calculation Engine - High-speed financial calculations. Port: 8371"""
-import os, time, math
+
+import math
+import os
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List
+
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,23 +13,39 @@ from pydantic import BaseModel
 
 SERVICE_NAME = "realtime-calculation-engine"
 PORT = int(os.getenv("PORT", "8371"))
-structlog.configure(processors=[structlog.stdlib.add_log_level, structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()], wrapper_class=structlog.stdlib.BoundLogger, logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True)
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
 logger = structlog.get_logger(SERVICE_NAME)
 app = FastAPI(title="Vimbai Realtime Calculation Engine", version="2.0.0", docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 try:
-    from shared.tracing import setup_tracing; TRACER = setup_tracing(service_name="realtime-calculation-engine", instrument_app=app)
+    from shared.tracing import setup_tracing
+
+    TRACER = setup_tracing(service_name="realtime-calculation-engine", instrument_app=app)
 except ImportError:
     TRACER = None
+
 
 class NPVRequest(BaseModel):
     initial_investment: float
     cash_flows: List[float]
     discount_rate: float
 
+
 class IRRRequest(BaseModel):
     initial_investment: float
     cash_flows: List[float]
+
 
 class DepreciationRequest(BaseModel):
     cost: float
@@ -33,8 +53,11 @@ class DepreciationRequest(BaseModel):
     useful_life: int
     method: str = "straight_line"  # straight_line, declining_balance, sum_of_years
 
+
 @app.get("/")
-async def health(): return {"status": "healthy", "service": SERVICE_NAME}
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME}
+
 
 @app.post("/npv")
 async def calculate_npv(req: NPVRequest):
@@ -42,6 +65,7 @@ async def calculate_npv(req: NPVRequest):
     for i, cf in enumerate(req.cash_flows, 1):
         npv += cf / ((1 + req.discount_rate / 100) ** i)
     return {"npv": round(npv, 2), "profitable": npv > 0, "rate": req.discount_rate}
+
 
 @app.post("/irr")
 async def calculate_irr(req: IRRRequest):
@@ -51,17 +75,23 @@ async def calculate_irr(req: IRRRequest):
     for _ in range(100):
         npv = sum(cf / ((1 + rate) ** i) for i, cf in enumerate(cash_flows))
         dnpv = sum(-i * cf / ((1 + rate) ** (i + 1)) for i, cf in enumerate(cash_flows))
-        if abs(dnpv) < 1e-10: break
+        if abs(dnpv) < 1e-10:
+            break
         rate -= npv / dnpv
-        if abs(npv) < 1e-6: break
+        if abs(npv) < 1e-6:
+            break
     return {"irr": round(rate * 100, 4), "npv_at_irr": round(npv, 6)}
+
 
 @app.post("/depreciation")
 async def calculate_depreciation(req: DepreciationRequest):
     depreciable = req.cost - req.salvage_value
     if req.method == "straight_line":
         annual = depreciable / req.useful_life
-        schedule = [{"year": y, "depreciation": annual, "accumulated": annual * y, "book_value": req.cost - annual * y} for y in range(1, req.useful_life + 1)]
+        schedule = [
+            {"year": y, "depreciation": annual, "accumulated": annual * y, "book_value": req.cost - annual * y}
+            for y in range(1, req.useful_life + 1)
+        ]
     elif req.method == "declining_balance":
         rate = 2 / req.useful_life  # double declining
         schedule = []
@@ -71,7 +101,9 @@ async def calculate_depreciation(req: DepreciationRequest):
             if book_value - dep < req.salvage_value:
                 dep = book_value - req.salvage_value
             book_value -= dep
-            schedule.append({"year": y, "depreciation": dep, "accumulated": req.cost - book_value, "book_value": book_value})
+            schedule.append(
+                {"year": y, "depreciation": dep, "accumulated": req.cost - book_value, "book_value": book_value}
+            )
     else:  # sum_of_years
         sod = req.useful_life * (req.useful_life + 1) / 2
         schedule = []
@@ -81,6 +113,7 @@ async def calculate_depreciation(req: DepreciationRequest):
             acc += dep
             schedule.append({"year": y, "depreciation": dep, "accumulated": acc, "book_value": req.cost - acc})
     return {"method": req.method, "total_depreciable": depreciable, "schedule": schedule}
+
 
 @app.post("/amortize")
 async def calculate_amortization(principal: float, annual_rate: float, years: int):
@@ -96,8 +129,24 @@ async def calculate_amortization(principal: float, annual_rate: float, years: in
         interest = balance * monthly_rate
         principal_paid = payment - interest
         balance -= principal_paid
-        schedule.append({"month": m, "payment": round(payment, 2), "interest": round(interest, 2), "principal": round(principal_paid, 2), "balance": round(max(0, balance), 2)})
-    return {"monthly_payment": round(payment, 2), "total_paid": round(payment * n, 2), "total_interest": round(payment * n - principal, 2), "schedule": schedule}
+        schedule.append(
+            {
+                "month": m,
+                "payment": round(payment, 2),
+                "interest": round(interest, 2),
+                "principal": round(principal_paid, 2),
+                "balance": round(max(0, balance), 2),
+            }
+        )
+    return {
+        "monthly_payment": round(payment, 2),
+        "total_paid": round(payment * n, 2),
+        "total_interest": round(payment * n - principal, 2),
+        "schedule": schedule,
+    }
+
 
 if __name__ == "__main__":
-    import uvicorn; uvicorn.run(app, host="0.0.0.0", port=PORT)
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

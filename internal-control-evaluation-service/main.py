@@ -3,14 +3,17 @@ Internal Control Evaluation Service
 Port: 8200
 Control testing and deficiency assessment
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Internal Control Evaluation Service", version="1.0.0")
+
 
 class ControlTestResult(BaseModel):
     control_id: str
@@ -20,12 +23,14 @@ class ControlTestResult(BaseModel):
     deficiency: str
     severity: str
 
+
 class ControlEvaluationRequest(BaseModel):
     audit_id: str
     company_id: str
     control_framework: str
     controls_to_test: List[Dict[str, Any]]
     testing_approach: str
+
 
 class ControlEvaluationResponse(BaseModel):
     audit_id: str
@@ -38,6 +43,7 @@ class ControlEvaluationResponse(BaseModel):
     overall_assessment: str
     remediation_recommendations: List[str]
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -48,9 +54,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "internal-control-evaluation", "version": "1.0.0"}
+
 
 @app.post("/evaluate", response_model=ControlEvaluationResponse)
 async def evaluate_internal_controls(request: ControlEvaluationRequest):
@@ -71,14 +79,16 @@ async def evaluate_internal_controls(request: ControlEvaluationRequest):
             severity = "significant_deficiency"
             significant_deficiencies += 1
 
-        test_results.append(ControlTestResult(
-            control_id=control.get("id", ""),
-            control_description=control.get("description", ""),
-            control_type=control.get("type", "preventive"),
-            testing_result="ineffective" if deficiency != "none" else "effective",
-            deficiency=deficiency,
-            severity=severity
-        ))
+        test_results.append(
+            ControlTestResult(
+                control_id=control.get("id", ""),
+                control_description=control.get("description", ""),
+                control_type=control.get("type", "preventive"),
+                testing_result="ineffective" if deficiency != "none" else "effective",
+                deficiency=deficiency,
+                severity=severity,
+            )
+        )
 
     effective_count = len([r for r in test_results if r.testing_result == "effective"])
 
@@ -90,14 +100,24 @@ async def evaluate_internal_controls(request: ControlEvaluationRequest):
         material_weaknesses=material_weaknesses,
         significant_deficiencies=significant_deficiencies,
         control_test_results=test_results,
-        overall_assessment="effective" if material_weaknesses == 0 and significant_deficiencies == 0 else "ineffective_with_deficiencies",
-        remediation_recommendations=[
-            "Implement segregation of duties for payment processing",
-            "Strengthen access controls to financial systems",
-            "Enhance management review procedures"
-        ] if material_weaknesses > 0 else ["Continue monitoring control effectiveness"]
+        overall_assessment=(
+            "effective"
+            if material_weaknesses == 0 and significant_deficiencies == 0
+            else "ineffective_with_deficiencies"
+        ),
+        remediation_recommendations=(
+            [
+                "Implement segregation of duties for payment processing",
+                "Strengthen access controls to financial systems",
+                "Enhance management review procedures",
+            ]
+            if material_weaknesses > 0
+            else ["Continue monitoring control effectiveness"]
+        ),
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8200)

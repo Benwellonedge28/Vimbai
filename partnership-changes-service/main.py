@@ -22,15 +22,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Partnership Changes Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class ChangeType(str, Enum):
@@ -102,29 +110,47 @@ async def root():
 
 @app.post("/changes/retirement")
 async def record_retirement(
-    partnership_id: str, partner_id: str, partner_name: str, effective_date: datetime,
-    capital_balance: float, current_account_balance: float, goodwill_amount: float = 0, payment_method: str = "cash"
+    partnership_id: str,
+    partner_id: str,
+    partner_name: str,
+    effective_date: datetime,
+    capital_balance: float,
+    current_account_balance: float,
+    goodwill_amount: float = 0,
+    payment_method: str = "cash",
 ):
     """Record partner retirement."""
     total_payable = capital_balance + current_account_balance + goodwill_amount
 
     change = PartnerChange(
-        partnership_id=partnership_id, change_type=ChangeType.RETIREMENT,
-        partner_id=partner_id, partner_name=partner_name, effective_date=effective_date,
-        capital_balance=capital_balance, current_account_balance=current_account_balance,
-        total_payable=total_payable, goodwill_amount=goodwill_amount, payment_method=payment_method
+        partnership_id=partnership_id,
+        change_type=ChangeType.RETIREMENT,
+        partner_id=partner_id,
+        partner_name=partner_name,
+        effective_date=effective_date,
+        capital_balance=capital_balance,
+        current_account_balance=current_account_balance,
+        total_payable=total_payable,
+        goodwill_amount=goodwill_amount,
+        payment_method=payment_method,
     )
     changes.append(change)
 
     # Journal entry
     journal_entry = {
-        "date": effective_date, "description": f"Retirement of partner: {partner_name}",
+        "date": effective_date,
+        "description": f"Retirement of partner: {partner_name}",
         "entries": [
             {"account_code": "3000", "description": "Partner Capital", "debit": capital_balance, "credit": 0},
-            {"account_code": "3100", "description": "Partner Current Account", "debit": current_account_balance, "credit": 0},
+            {
+                "account_code": "3100",
+                "description": "Partner Current Account",
+                "debit": current_account_balance,
+                "credit": 0,
+            },
             {"account_code": "1000", "description": "Cash/Bank", "debit": 0, "credit": total_payable},
         ],
-        "reference": f"RET-{partner_id[:8]}"
+        "reference": f"RET-{partner_id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     change.journal_entry_id = result.get("id")
@@ -141,27 +167,41 @@ async def record_admission(data: AdmissionDetails):
 
     # Capital contribution
     if data.capital_contribution > 0:
-        journal_entries.append({
-            "date": data.admission_date,
-            "description": f"Capital contribution by {data.new_partner_name}",
-            "entries": [
-                {"account_code": "1000", "description": "Cash/Bank", "debit": data.capital_contribution, "credit": 0},
-                {"account_code": "3000", "description": f"Partner Capital - {data.new_partner_name}", "debit": 0, "credit": data.capital_contribution},
-            ],
-            "reference": f"ADM-{data.new_partner_id[:8]}"
-        })
+        journal_entries.append(
+            {
+                "date": data.admission_date,
+                "description": f"Capital contribution by {data.new_partner_name}",
+                "entries": [
+                    {
+                        "account_code": "1000",
+                        "description": "Cash/Bank",
+                        "debit": data.capital_contribution,
+                        "credit": 0,
+                    },
+                    {
+                        "account_code": "3000",
+                        "description": f"Partner Capital - {data.new_partner_name}",
+                        "debit": 0,
+                        "credit": data.capital_contribution,
+                    },
+                ],
+                "reference": f"ADM-{data.new_partner_id[:8]}",
+            }
+        )
 
     # Goodwill premium
     if data.goodwill_paid > 0:
-        journal_entries.append({
-            "date": data.admission_date,
-            "description": "Goodwill premium",
-            "entries": [
-                {"account_code": "1000", "description": "Cash/Bank", "debit": data.goodwill_paid, "credit": 0},
-                {"account_code": "1500", "description": "Goodwill", "debit": 0, "credit": data.goodwill_paid},
-            ],
-            "reference": f"GW-{data.new_partner_id[:8]}"
-        })
+        journal_entries.append(
+            {
+                "date": data.admission_date,
+                "description": "Goodwill premium",
+                "entries": [
+                    {"account_code": "1000", "description": "Cash/Bank", "debit": data.goodwill_paid, "credit": 0},
+                    {"account_code": "1500", "description": "Goodwill", "debit": 0, "credit": data.goodwill_paid},
+                ],
+                "reference": f"GW-{data.new_partner_id[:8]}",
+            }
+        )
 
     for entry in journal_entries:
         result = await call_accounting_service("POST", "/journal-entries", entry)
@@ -173,17 +213,27 @@ async def record_admission(data: AdmissionDetails):
 
 @app.post("/changes/death")
 async def record_death(
-    partnership_id: str, partner_id: str, partner_name: str, effective_date: datetime,
-    capital_balance: float, current_account_balance: float, executor_name: str
+    partnership_id: str,
+    partner_id: str,
+    partner_name: str,
+    effective_date: datetime,
+    capital_balance: float,
+    current_account_balance: float,
+    executor_name: str,
 ):
     """Record partner death."""
     total_payable = capital_balance + current_account_balance
 
     change = PartnerChange(
-        partnership_id=partnership_id, change_type=ChangeType.DEATH,
-        partner_id=partner_id, partner_name=partner_name, effective_date=effective_date,
-        capital_balance=capital_balance, current_account_balance=current_account_balance,
-        total_payable=total_payable, notes=f"Payable to executor: {executor_name}"
+        partnership_id=partnership_id,
+        change_type=ChangeType.DEATH,
+        partner_id=partner_id,
+        partner_name=partner_name,
+        effective_date=effective_date,
+        capital_balance=capital_balance,
+        current_account_balance=current_account_balance,
+        total_payable=total_payable,
+        notes=f"Payable to executor: {executor_name}",
     )
     changes.append(change)
     return change
@@ -212,4 +262,5 @@ async def settle_change(change_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

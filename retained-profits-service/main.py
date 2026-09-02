@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Retained Profits Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class ProfitAppropriation(BaseModel):
@@ -104,15 +112,23 @@ async def root():
 
 @app.post("/appropriations/create")
 async def create_appropriation(
-    company_id: str, financial_year: str, period_start: datetime, period_end: datetime,
-    net_profit: float, opening_retained_earnings: float,
-    appropriations: Dict[str, float]  # e.g., {"dividends": 50000, "general_reserve": 20000}
+    company_id: str,
+    financial_year: str,
+    period_start: datetime,
+    period_end: datetime,
+    net_profit: float,
+    opening_retained_earnings: float,
+    appropriations: Dict[str, float],  # e.g., {"dividends": 50000, "general_reserve": 20000}
 ):
     """Create profit appropriation statement."""
     appropriation = ProfitAppropriation(
-        company_id=company_id, financial_year=financial_year, period_start=period_start,
-        period_end=period_end, net_profit=net_profit, appropriations=appropriations,
-        opening_retained_earnings=opening_retained_earnings
+        company_id=company_id,
+        financial_year=financial_year,
+        period_start=period_start,
+        period_end=period_end,
+        net_profit=net_profit,
+        appropriations=appropriations,
+        opening_retained_earnings=opening_retained_earnings,
     )
     appropriation.total_appropriations = sum(appropriations.values())
     appropriation.balance_carried_forward = net_profit - appropriation.total_appropriations
@@ -128,7 +144,7 @@ async def create_appropriation(
         "date": period_end,
         "description": f"Profit appropriation for {financial_year}",
         "entries": entries,
-        "reference": f"APPROP-{appropriation.id[:8]}"
+        "reference": f"APPROP-{appropriation.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     appropriation.journal_entry_id = result.get("id")
@@ -140,13 +156,15 @@ async def create_appropriation(
 
 @app.post("/interim-dividends/declare")
 async def declare_interim_dividend(
-    company_id: str, amount: float, per_share_amount: float, total_shares: int,
-    declaration_date: datetime
+    company_id: str, amount: float, per_share_amount: float, total_shares: int, declaration_date: datetime
 ):
     """Declare interim dividend."""
     dividend = InterimDividend(
-        company_id=company_id, amount=amount, per_share_amount=per_share_amount,
-        total_shares=total_shares, declaration_date=declaration_date
+        company_id=company_id,
+        amount=amount,
+        per_share_amount=per_share_amount,
+        total_shares=total_shares,
+        declaration_date=declaration_date,
     )
 
     journal_entry = {
@@ -156,7 +174,7 @@ async def declare_interim_dividend(
             {"account_code": "3300", "description": "Retained Earnings", "debit": amount, "credit": 0},
             {"account_code": "2310", "description": "Dividend Payable", "debit": 0, "credit": amount},
         ],
-        "reference": f"INTERIM-DIV-{dividend.id[:8]}"
+        "reference": f"INTERIM-DIV-{dividend.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     dividend.journal_entry_id = result.get("id")
@@ -179,7 +197,7 @@ async def pay_interim_dividend(dividend_id: str, payment_date: datetime):
             {"account_code": "2310", "description": "Dividend Payable", "debit": dividend.amount, "credit": 0},
             {"account_code": "1000", "description": "Bank", "debit": 0, "credit": dividend.amount},
         ],
-        "reference": f"INTERIM-DIV-PAY-{dividend_id[:8]}"
+        "reference": f"INTERIM-DIV-PAY-{dividend_id[:8]}",
     }
     await call_accounting_service("POST", "/journal-entries", journal_entry)
     dividend.payment_date = payment_date
@@ -190,16 +208,24 @@ async def pay_interim_dividend(dividend_id: str, payment_date: datetime):
 
 @app.post("/adjustments/create")
 async def create_prior_year_adjustment(
-    company_id: str, adjustment_type: str, description: str, amount: float,
-    affected_year: str, adjustment_date: Optional[datetime] = None
+    company_id: str,
+    adjustment_type: str,
+    description: str,
+    amount: float,
+    affected_year: str,
+    adjustment_date: Optional[datetime] = None,
 ):
     """Create prior year adjustment."""
     if adjustment_date is None:
         adjustment_date = datetime.utcnow()
 
     adjustment = PriorYearAdjustment(
-        company_id=company_id, adjustment_type=adjustment_type, description=description,
-        amount=amount, affected_year=affected_year, adjustment_date=adjustment_date
+        company_id=company_id,
+        adjustment_type=adjustment_type,
+        description=description,
+        amount=amount,
+        affected_year=affected_year,
+        adjustment_date=adjustment_date,
     )
 
     # Prior year adjustments affect opening retained earnings
@@ -207,10 +233,20 @@ async def create_prior_year_adjustment(
         "date": adjustment_date,
         "description": f"Prior year adjustment: {description}",
         "entries": [
-            {"account_code": "3300", "description": "Retained Earnings", "debit": amount if amount > 0 else 0, "credit": abs(amount) if amount < 0 else 0},
-            {"account_code": "1100", "description": "Trade Receivables", "debit": abs(amount) if amount < 0 else 0, "credit": amount if amount > 0 else 0},
+            {
+                "account_code": "3300",
+                "description": "Retained Earnings",
+                "debit": amount if amount > 0 else 0,
+                "credit": abs(amount) if amount < 0 else 0,
+            },
+            {
+                "account_code": "1100",
+                "description": "Trade Receivables",
+                "debit": abs(amount) if amount < 0 else 0,
+                "credit": amount if amount > 0 else 0,
+            },
         ],
-        "reference": f"PYA-{adjustment.id[:8]}"
+        "reference": f"PYA-{adjustment.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     adjustment.journal_entry_id = result.get("id")
@@ -262,10 +298,11 @@ async def get_retained_earnings_summary(company_id: str):
         "total_carried_forward": total_carried_forward,
         "total_prior_year_adjustments": total_adjustments,
         "net_retained_earnings": total_carried_forward + total_adjustments,
-        "last_appropriation": company_appropriations[-1] if company_appropriations else None
+        "last_appropriation": company_appropriations[-1] if company_appropriations else None,
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

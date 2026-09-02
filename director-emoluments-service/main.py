@@ -3,14 +3,17 @@ Director Emoluments Service
 Port: 8208
 Director compensation and benefits disclosure
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Director Emoluments Service", version="1.0.0")
+
 
 class DirectorEmoluments(BaseModel):
     director_id: str
@@ -23,6 +26,7 @@ class DirectorEmoluments(BaseModel):
     benefits: float
     total_emoluments: float
 
+
 class EmolumentsRequest(BaseModel):
     company_id: str
     period: str
@@ -30,6 +34,7 @@ class EmolumentsRequest(BaseModel):
     highest_paid_director: str
     employee_count: int
     total_staff_costs: float
+
 
 class EmolumentsResponse(BaseModel):
     company_id: str
@@ -43,6 +48,7 @@ class EmolumentsResponse(BaseModel):
     disclosure_compliant: bool
     recommendations: List[str]
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -53,9 +59,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "director-emoluments", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=EmolumentsResponse)
 async def analyze_director_emoluments(request: EmolumentsRequest):
@@ -80,17 +88,19 @@ async def analyze_director_emoluments(request: EmolumentsRequest):
             highest = total_dir
             highest_id = director.get("id", "")
 
-        director_list.append(DirectorEmoluments(
-            director_id=director.get("id", ""),
-            director_name=director.get("name", ""),
-            role=director.get("role", ""),
-            base_salary=base,
-            bonuses=bonus,
-            share_options_value=options,
-            pension_contributions=pension,
-            benefits=benefits,
-            total_emoluments=total_dir
-        ))
+        director_list.append(
+            DirectorEmoluments(
+                director_id=director.get("id", ""),
+                director_name=director.get("name", ""),
+                role=director.get("role", ""),
+                base_salary=base,
+                bonuses=bonus,
+                share_options_value=options,
+                pension_contributions=pension,
+                benefits=benefits,
+                total_emoluments=total_dir,
+            )
+        )
 
     avg_emoluments = total / len(request.directors) if request.directors else 0
     emoluments_ratio = total / request.total_staff_costs if request.total_staff_costs else 0
@@ -110,10 +120,12 @@ async def analyze_director_emoluments(request: EmolumentsRequest):
             "Ensure all director emoluments are fully disclosed",
             "Include equity-settled share-based payments at fair value",
             "Disclose performance criteria for bonus payments",
-            "Consider CEO pay ratio disclosure per regulatory requirements"
-        ]
+            "Consider CEO pay ratio disclosure per regulatory requirements",
+        ],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8208)

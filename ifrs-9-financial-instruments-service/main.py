@@ -3,15 +3,18 @@ IFRS 9 Financial Instruments Service
 Port: 8149
 Handles IFRS 9 classification, measurement, and impairment (ECL model)
 """
-import httpx
-import structlog
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+
+import httpx
+import structlog
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="IFRS 9 Financial Instruments Service", version="1.0.0")
+
 
 # Pydantic Models
 class FinancialAsset(BaseModel):
@@ -26,6 +29,7 @@ class FinancialAsset(BaseModel):
     credit_rating: str
     expected_credit_loss_stage: int = Field(ge=1, le=3)  # 1=Stage 1, 2=Stage 2, 3=Stage 3
 
+
 class ECLCalculation(BaseModel):
     asset_id: str
     probability_of_default: float
@@ -37,6 +41,7 @@ class ECLCalculation(BaseModel):
     stage_3_ecl: float
     impairment: float
 
+
 class IFRS9Request(BaseModel):
     company_id: str
     reporting_date: str
@@ -46,6 +51,7 @@ class IFRS9Request(BaseModel):
     base_lgd: float = 0.45
     include_macroeconomic: bool = True
 
+
 class ClassificationResult(BaseModel):
     asset_id: str
     business_model: str  # "hold_to_collect", "hold_to_collect_sell", "trading"
@@ -53,6 +59,7 @@ class ClassificationResult(BaseModel):
     classification: str
     measurement_basis: str
     reclassification_required: bool
+
 
 class MeasurementResult(BaseModel):
     asset_id: str
@@ -62,6 +69,7 @@ class MeasurementResult(BaseModel):
     impairment_charge: float
     carrying_amount_end: float
     fair_value_change: float
+
 
 class IFRS9Response(BaseModel):
     company_id: str
@@ -77,6 +85,7 @@ class IFRS9Response(BaseModel):
     stage_2_ECL: float
     stage_3_ECL: float
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     """Call another internal Vimbai service."""
     try:
@@ -91,9 +100,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "ifrs-9-financial-instruments", "version": "1.0.0"}
+
 
 @app.post("/classify", response_model=IFRS9Response)
 async def classify_and_measure(request: IFRS9Request):
@@ -115,14 +126,16 @@ async def classify_and_measure(request: IFRS9Request):
         sppi_result = "passed" if asset.asset_type != "derivative" else "failed"
         business_model = "hold_to_collect" if asset.category == "amortized_cost" else "hold_to_collect_sell"
 
-        classifications.append(ClassificationResult(
-            asset_id=asset.asset_id,
-            business_model=business_model,
-            sppi_test=sppi_result,
-            classification=asset.category,
-            measurement_basis=asset.category,
-            reclassification_required=False
-        ))
+        classifications.append(
+            ClassificationResult(
+                asset_id=asset.asset_id,
+                business_model=business_model,
+                sppi_test=sppi_result,
+                classification=asset.category,
+                measurement_basis=asset.category,
+                reclassification_required=False,
+            )
+        )
 
         # ECL Calculation
         base_pd = request.base_pdg
@@ -153,32 +166,36 @@ async def classify_and_measure(request: IFRS9Request):
 
         ead = asset.carrying_amount
 
-        ecl_calculations.append(ECLCalculation(
-            asset_id=asset.asset_id,
-            probability_of_default=pd,
-            loss_given_default=base_lgd,
-            exposure_at_default=ead,
-            lifetime_pd=lifetime_pd,
-            stage_1_ecl=e1,
-            stage_2_ecl=e2,
-            stage_3_ecl=e3,
-            impairment=max(e1, e2, e3)
-        ))
+        ecl_calculations.append(
+            ECLCalculation(
+                asset_id=asset.asset_id,
+                probability_of_default=pd,
+                loss_given_default=base_lgd,
+                exposure_at_default=ead,
+                lifetime_pd=lifetime_pd,
+                stage_1_ecl=e1,
+                stage_2_ecl=e2,
+                stage_3_ecl=e3,
+                impairment=max(e1, e2, e3),
+            )
+        )
 
         # Measurement
         interest_revenue = asset.carrying_amount * asset.effective_interest_rate
         carrying_after_impairment = asset.carrying_amount - max(e1, e2, e3)
         fair_value_change = asset.carrying_amount * 0.02  # Simulated
 
-        measurements.append(MeasurementResult(
-            asset_id=asset.asset_id,
-            initial_measurement=asset.carrying_amount,
-            effective_interest_rate=asset.effective_interest_rate,
-            interest_revenue=interest_revenue,
-            impairment_charge=max(e1, e2, e3),
-            carrying_amount_end=carrying_after_impairment,
-            fair_value_change=fair_value_change if asset.category != "amortized_cost" else 0.0
-        ))
+        measurements.append(
+            MeasurementResult(
+                asset_id=asset.asset_id,
+                initial_measurement=asset.carrying_amount,
+                effective_interest_rate=asset.effective_interest_rate,
+                interest_revenue=interest_revenue,
+                impairment_charge=max(e1, e2, e3),
+                carrying_amount_end=carrying_after_impairment,
+                fair_value_change=fair_value_change if asset.category != "amortized_cost" else 0.0,
+            )
+        )
 
         if asset.category == "amortized_cost":
             total_amortized += carrying_after_impairment
@@ -201,11 +218,12 @@ async def classify_and_measure(request: IFRS9Request):
         total_ECL=total_ecl,
         stage_1_ECL=stage_1_ecl,
         stage_2_ECL=stage_2_ecl,
-        stage_3_ECL=stage_3_ecl
+        stage_3_ECL=stage_3_ecl,
     )
 
     logger.info("IFRS 9 processing complete", total_ecl=total_ecl)
     return response
+
 
 @app.post("/sppi-test")
 async def perform_sppi_test(
@@ -213,7 +231,7 @@ async def perform_sppi_test(
     principal_amount: float,
     interest_type: str,  # "fixed", "variable", "contingent"
     contingency_feature: str,
-    not_ional_linked: bool
+    not_ional_linked: bool,
 ):
     """Perform Solely Payments of Principal and Interest test."""
     test_result = True
@@ -237,15 +255,16 @@ async def perform_sppi_test(
         "sppi_test_passed": test_result,
         "failed_criteria": failed_criteria,
         "classification_if_passed": "amortized_cost or FVOCI",
-        "classification_if_failed": "FVTPL"
+        "classification_if_failed": "FVTPL",
     }
+
 
 @app.post("/business-model")
 async def assess_business_model(
     holding_purpose: str,  # "collect_principal", "collect_and_sell", "trading"
     sales_frequency: str,  # "rare", "occasional", "frequent"
     sales_proceeds: float,
-    total_income: float
+    total_income: float,
 ):
     """Assess business model for financial assets."""
     if holding_purpose == "collect_principal":
@@ -267,8 +286,9 @@ async def assess_business_model(
         "sales_proceeds_ratio": sales_proceeds / total_income if total_income > 0 else 0,
         "business_model_assessed": model,
         "measurement_basis": measurement,
-        "reclassification_required": reclassification
+        "reclassification_required": reclassification,
     }
+
 
 @app.post("/ecl-general")
 async def calculate_ecl_general(
@@ -276,11 +296,16 @@ async def calculate_ecl_general(
     probability_of_default: float,
     loss_given_default: float,
     discount_rate: float,
-    time_to_default_years: float
+    time_to_default_years: float,
 ):
     """Calculate ECL using general three-stage model."""
     if discount_rate > 0:
-        discounted_ecl = exposure_at_default * probability_of_default * loss_given_default / ((1 + discount_rate) ** time_to_default_years)
+        discounted_ecl = (
+            exposure_at_default
+            * probability_of_default
+            * loss_given_default
+            / ((1 + discount_rate) ** time_to_default_years)
+        )
     else:
         discounted_ecl = exposure_at_default * probability_of_default * loss_given_default
 
@@ -291,14 +316,15 @@ async def calculate_ecl_general(
         "undiscounted_ecl": exposure_at_default * probability_of_default * loss_given_default,
         "discount_rate": discount_rate,
         "time_to_default_years": time_to_default_years,
-        "discounted_ecl": discounted_ecl
+        "discounted_ecl": discounted_ecl,
     }
+
 
 @app.post("/ecl-simplified")
 async def calculate_ecl_simplified(
     trade_receivables_ageing: Dict[str, float],  # "current", "30_days", "60_days", "90_days", "120_plus"
     historical_loss_rates: Dict[str, float],
-    forward_looking_adjustment: float
+    forward_looking_adjustment: float,
 ):
     """Calculate ECL using simplified approach for trade receivables."""
     total_ecl = 0.0
@@ -312,7 +338,7 @@ async def calculate_ecl_simplified(
             "amount": amount,
             "loss_rate": loss_rate,
             "forward_adjusted_rate": adjusted_rate,
-            "ecl": ecl
+            "ecl": ecl,
         }
         total_ecl += ecl
 
@@ -320,21 +346,28 @@ async def calculate_ecl_simplified(
         "age_breakdown": breakdown,
         "total_trade_receivables": sum(trade_receivables_ageing.values()),
         "total_ecl": total_ecl,
-        "ecl_coverage_ratio": total_ecl / sum(trade_receivables_ageing.values()) if sum(trade_receivables_ageing.values()) > 0 else 0
+        "ecl_coverage_ratio": (
+            total_ecl / sum(trade_receivables_ageing.values()) if sum(trade_receivables_ageing.values()) > 0 else 0
+        ),
     }
+
 
 @app.post("/hedge-effectiveness")
 async def assess_hedge_effectiveness(
     hedge_type: str,  # "fair_value", "cash_flow", "net_investment"
     hypothetical_derivative: float,
     actual_hedge_instrument: float,
-    regression_correlation: float
+    regression_correlation: float,
 ):
     """Assess hedge effectiveness under IFRS 9."""
     hedge_ratio = actual_hedge_instrument / hypothetical_derivative if hypothetical_derivative > 0 else 0
     effectiveness_score = regression_correlation
 
-    qualitative_assessment = "highly effective" if regression_correlation > 0.9 else "effective" if regression_correlation > 0.8 else "not effective"
+    qualitative_assessment = (
+        "highly effective"
+        if regression_correlation > 0.9
+        else "effective" if regression_correlation > 0.8 else "not effective"
+    )
 
     return {
         "hedge_type": hedge_type,
@@ -343,9 +376,11 @@ async def assess_hedge_effectiveness(
         "effectiveness_score": effectiveness_score,
         "qualitative_assessment": qualitative_assessment,
         "designated_as_hedge": regression_correlation > 0.8,
-        "rebalancing_required": 0.8 < regression_correlation <= 0.9
+        "rebalancing_required": 0.8 < regression_correlation <= 0.9,
     }
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8149)

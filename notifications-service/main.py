@@ -3,18 +3,19 @@ Vimbai Notification Service
 Handles notifications for workflows, approvals, and system events
 """
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, BackgroundTasks, Depends, status, Query
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Literal
-from datetime import datetime, timedelta
-from enum import Enum
 import asyncio
 import json
-import uuid
 import os
+import uuid
 from collections import defaultdict
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional
+
 from dotenv import load_dotenv
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -28,6 +29,7 @@ app = FastAPI(
 # Models
 # ============================================================================
 
+
 class NotificationType(str, Enum):
     APPROVAL_REQUIRED = "approval_required"
     APPROVAL_COMPLETED = "approval_completed"
@@ -39,11 +41,13 @@ class NotificationType(str, Enum):
     DEADLINE_REMINDER = "deadline_reminder"
     SYSTEM = "system"
 
+
 class NotificationPriority(str, Enum):
     URGENT = "urgent"
     HIGH = "high"
     NORMAL = "normal"
     LOW = "low"
+
 
 class NotificationChannel(str, Enum):
     IN_APP = "in_app"
@@ -51,6 +55,7 @@ class NotificationChannel(str, Enum):
     SMS = "sms"
     WEBHOOK = "webhook"
     PUSH = "push"
+
 
 class NotificationCreate(BaseModel):
     type: NotificationType
@@ -64,6 +69,7 @@ class NotificationCreate(BaseModel):
     scheduled_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
 
+
 class NotificationInDB(NotificationCreate):
     id: str
     sender: Optional[str] = None
@@ -71,6 +77,7 @@ class NotificationInDB(NotificationCreate):
     created_at: datetime
     sent_at: Optional[datetime] = None
     read_at: Optional[datetime] = None
+
 
 class NotificationPreferences(BaseModel):
     user_id: str
@@ -80,6 +87,7 @@ class NotificationPreferences(BaseModel):
     email_batch: bool = True
     email_batch_interval_minutes: int = 60
 
+
 class NotificationTemplate(BaseModel):
     name: str
     type: NotificationType
@@ -87,9 +95,11 @@ class NotificationTemplate(BaseModel):
     body_template: str
     variables: List[str] = []
 
+
 # ============================================================================
 # WebSocket Connection Manager
 # ============================================================================
+
 
 class NotificationManager:
     """Manages notification connections and delivery"""
@@ -107,10 +117,7 @@ class NotificationManager:
             # Send unread notifications on connect
             unread = [n for n in self.user_notifications.get(user_id, []) if n.status != "read"]
             if unread:
-                await websocket.send_json({
-                    "type": "unread_count",
-                    "count": len(unread)
-                })
+                await websocket.send_json({"type": "unread_count", "count": len(unread)})
 
     async def disconnect(self, websocket: WebSocket, user_id: str):
         async with self.lock:
@@ -128,10 +135,9 @@ class NotificationManager:
             self.user_notifications[user_id].append(notification)
 
         # Send via WebSocket if connected
-        await self._send_websocket(user_id, {
-            "type": "notification",
-            "notification": self._serialize_notification(notification)
-        })
+        await self._send_websocket(
+            user_id, {"type": "notification", "notification": self._serialize_notification(notification)}
+        )
 
         # Process additional channels
         for channel in notification.channels:
@@ -196,20 +202,18 @@ class NotificationManager:
             "metadata": notification.metadata,
             "action_url": notification.action_url,
             "created_at": notification.created_at.isoformat(),
-            "status": notification.status
+            "status": notification.status,
         }
 
     def get_user_notifications(
-        self,
-        user_id: str,
-        unread_only: bool = False,
-        limit: int = 50
+        self, user_id: str, unread_only: bool = False, limit: int = 50
     ) -> List[NotificationInDB]:
         """Get notifications for a user"""
         notifications = self.user_notifications.get(user_id, [])
         if unread_only:
             notifications = [n for n in notifications if n.status != "read"]
         return sorted(notifications, key=lambda x: x.created_at, reverse=True)[:limit]
+
 
 notification_manager = NotificationManager()
 
@@ -223,35 +227,35 @@ templates = {
         type=NotificationType.APPROVAL_REQUIRED,
         subject_template="Approval Required: {{title}}",
         body_template="You have a new approval request for '{{title}}' from {{sender}}. Please review and take action.",
-        variables=["title", "sender", "action_url"]
+        variables=["title", "sender", "action_url"],
     ),
     "approval_completed": NotificationTemplate(
         name="Approval Completed",
         type=NotificationType.APPROVAL_COMPLETED,
         subject_template="Approved: {{title}}",
         body_template="Your request '{{title}}' has been approved by {{approver}}.",
-        variables=["title", "approver"]
+        variables=["title", "approver"],
     ),
     "comment_added": NotificationTemplate(
         name="Comment Added",
         type=NotificationType.COMMENT_ADDED,
         subject_template="{{sender}} commented on {{title}}",
         body_template="{{sender}} added a comment: {{comment}}",
-        variables=["sender", "title", "comment"]
+        variables=["sender", "title", "comment"],
     ),
     "mention": NotificationTemplate(
         name="Mention",
         type=NotificationType.MENTION,
         subject_template="{{sender}} mentioned you",
         body_template="{{sender}} mentioned you in '{{title}}': {{comment}}",
-        variables=["sender", "title", "comment"]
+        variables=["sender", "title", "comment"],
     ),
     "deadline_reminder": NotificationTemplate(
         name="Deadline Reminder",
         type=NotificationType.DEADLINE_REMINDER,
         subject_template="Deadline Reminder: {{title}}",
         body_template="Reminder: '{{title}}' is due on {{deadline}}.",
-        variables=["title", "deadline"]
+        variables=["title", "deadline"],
     ),
 }
 
@@ -259,13 +263,16 @@ templates = {
 # API Endpoints
 # ============================================================================
 
+
 @app.on_event("startup")
 async def startup():
     print("Notifications service started")
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "notifications"}
+
 
 # --- WebSocket Endpoint ---
 @app.websocket("/ws/notifications/{user_id}")
@@ -296,12 +303,10 @@ async def websocket_notifications(websocket: WebSocket, user_id: str):
     except WebSocketDisconnect:
         await notification_manager.disconnect(websocket, user_id)
 
+
 # --- Send Notification ---
 @app.post("/notifications", response_model=NotificationInDB, status_code=status.HTTP_201_CREATED)
-async def create_notification(
-    notification: NotificationCreate,
-    sender: Optional[str] = None
-):
+async def create_notification(notification: NotificationCreate, sender: Optional[str] = None):
     """Create and send a notification"""
     notification_id = str(uuid.uuid4())
     now = datetime.utcnow()
@@ -320,7 +325,7 @@ async def create_notification(
         expires_at=notification.expires_at,
         sender=sender,
         status="pending",
-        created_at=now
+        created_at=now,
     )
 
     # Send to all recipients
@@ -332,12 +337,10 @@ async def create_notification(
 
     return db_notification
 
+
 # --- Send Batch Notifications ---
 @app.post("/notifications/batch", status_code=status.HTTP_201_CREATED)
-async def create_batch_notifications(
-    notifications: List[NotificationCreate],
-    sender: Optional[str] = None
-):
+async def create_batch_notifications(notifications: List[NotificationCreate], sender: Optional[str] = None):
     """Create and send multiple notifications"""
     results = []
     now = datetime.utcnow()
@@ -356,7 +359,7 @@ async def create_batch_notifications(
             action_url=notification.action_url,
             sender=sender,
             status="pending",
-            created_at=now
+            created_at=now,
         )
 
         for recipient in notification.recipients:
@@ -368,13 +371,10 @@ async def create_batch_notifications(
 
     return {"count": len(results), "notifications": results}
 
+
 # --- Get User Notifications ---
 @app.get("/notifications/{user_id}")
-async def get_user_notifications(
-    user_id: str,
-    unread_only: bool = Query(False),
-    limit: int = Query(50, ge=1, le=200)
-):
+async def get_user_notifications(user_id: str, unread_only: bool = Query(False), limit: int = Query(50, ge=1, le=200)):
     """Get notifications for a user"""
     notifications = notification_manager.get_user_notifications(user_id, unread_only, limit)
     unread_count = sum(1 for n in notification_manager.user_notifications.get(user_id, []) if n.status != "read")
@@ -382,8 +382,9 @@ async def get_user_notifications(
     return {
         "notifications": notifications,
         "unread_count": unread_count,
-        "total_count": len(notification_manager.user_notifications.get(user_id, []))
+        "total_count": len(notification_manager.user_notifications.get(user_id, [])),
     }
+
 
 # --- Mark as Read ---
 @app.put("/notifications/{notification_id}/read")
@@ -397,6 +398,7 @@ async def mark_notification_read(notification_id: str, user_id: str):
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
 
+
 @app.put("/notifications/{user_id}/read-all")
 async def mark_all_notifications_read(user_id: str):
     """Mark all notifications as read for a user"""
@@ -408,6 +410,7 @@ async def mark_all_notifications_read(user_id: str):
             count += 1
 
     return {"status": "success", "marked_count": count}
+
 
 # --- Delete Notification ---
 @app.delete("/notifications/{notification_id}")
@@ -421,6 +424,7 @@ async def delete_notification(notification_id: str, user_id: str):
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
 
+
 # --- Notification Preferences ---
 @app.put("/preferences/{user_id}")
 async def update_preferences(user_id: str, preferences: NotificationPreferences):
@@ -428,20 +432,19 @@ async def update_preferences(user_id: str, preferences: NotificationPreferences)
     # In production, store in database
     return {"status": "success", "preferences": preferences}
 
+
 @app.get("/preferences/{user_id}")
 async def get_preferences(user_id: str):
     """Get notification preferences for a user"""
-    return NotificationPreferences(
-        user_id=user_id,
-        email_batch=True,
-        email_batch_interval_minutes=60
-    )
+    return NotificationPreferences(user_id=user_id, email_batch=True, email_batch_interval_minutes=60)
+
 
 # --- Template Endpoints ---
 @app.get("/templates")
 async def list_templates():
     """List all notification templates"""
     return [{"name": k, "template": v} for k, v in templates.items()]
+
 
 @app.get("/templates/{template_name}")
 async def get_template(template_name: str):
@@ -450,12 +453,10 @@ async def get_template(template_name: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
     return templates[template_name]
 
+
 @app.post("/templates/{template_name}/send")
 async def send_from_template(
-    template_name: str,
-    recipients: List[str],
-    variables: Dict[str, str],
-    sender: Optional[str] = None
+    template_name: str, recipients: List[str], variables: Dict[str, str], sender: Optional[str] = None
 ):
     """Send notification using a template"""
     if template_name not in templates:
@@ -476,10 +477,11 @@ async def send_from_template(
         title=subject,
         message=body,
         recipients=recipients,
-        channels=[NotificationChannel.IN_APP, NotificationChannel.EMAIL]
+        channels=[NotificationChannel.IN_APP, NotificationChannel.EMAIL],
     )
 
     return await create_notification(notification, sender)
+
 
 # --- Workflow Notification Helpers ---
 @app.post("/workflow/{workflow_id}/notify")
@@ -487,14 +489,14 @@ async def notify_workflow_event(
     workflow_id: str,
     event_type: Literal["started", "completed", "failed", "cancelled"],
     participants: List[str],
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None,
 ):
     """Send workflow-related notifications"""
     event_messages = {
         "started": ("Workflow Started", f"Workflow {workflow_id} has been initiated."),
         "completed": ("Workflow Completed", f"Workflow {workflow_id} has been completed successfully."),
         "failed": ("Workflow Failed", f"Workflow {workflow_id} has failed."),
-        "cancelled": ("Workflow Cancelled", f"Workflow {workflow_id} has been cancelled.")
+        "cancelled": ("Workflow Cancelled", f"Workflow {workflow_id} has been cancelled."),
     }
 
     title, message = event_messages.get(event_type, ("Workflow Event", f"Workflow {workflow_id} update"))
@@ -506,10 +508,11 @@ async def notify_workflow_event(
         recipients=participants,
         channels=[NotificationChannel.IN_APP],
         metadata={"workflow_id": workflow_id, "event_type": event_type, **(metadata or {})},
-        action_url=f"/workflows/{workflow_id}"
+        action_url=f"/workflows/{workflow_id}",
     )
 
     return await create_notification(notification)
+
 
 # --- Approval Notification Helpers ---
 @app.post("/approval/{approval_id}/notify")
@@ -518,14 +521,22 @@ async def notify_approval_event(
     event_type: Literal["requested", "approved", "rejected", "commented"],
     requester: str,
     approvers: List[str],
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None,
 ):
     """Send approval-related notifications"""
     notification_map = {
         "requested": (NotificationType.APPROVAL_REQUIRED, "Approval Required", f"New approval request {approval_id}"),
-        "approved": (NotificationType.APPROVAL_COMPLETED, "Request Approved", f"Your request {approval_id} has been approved"),
-        "rejected": (NotificationType.APPROVAL_REJECTED, "Request Rejected", f"Your request {approval_id} has been rejected"),
-        "commented": (NotificationType.COMMENT_ADDED, "Comment Added", f"New comment on approval {approval_id}")
+        "approved": (
+            NotificationType.APPROVAL_COMPLETED,
+            "Request Approved",
+            f"Your request {approval_id} has been approved",
+        ),
+        "rejected": (
+            NotificationType.APPROVAL_REJECTED,
+            "Request Rejected",
+            f"Your request {approval_id} has been rejected",
+        ),
+        "commented": (NotificationType.COMMENT_ADDED, "Comment Added", f"New comment on approval {approval_id}"),
     }
 
     notif_type, title, message = notification_map.get(event_type, (NotificationType.SYSTEM, "Approval Update", ""))
@@ -538,10 +549,11 @@ async def notify_approval_event(
         recipients=approvers if event_type == "requested" else [requester],
         channels=[NotificationChannel.IN_APP, NotificationChannel.EMAIL],
         metadata={"approval_id": approval_id, "requester": requester, **(metadata or {})},
-        action_url=f"/approvals/{approval_id}"
+        action_url=f"/approvals/{approval_id}",
     )
 
     return await create_notification(notification)
+
 
 # --- Stats Endpoint ---
 @app.get("/stats")
@@ -549,18 +561,18 @@ async def get_notification_stats():
     """Get notification statistics"""
     total_notifications = sum(len(n) for n in notification_manager.user_notifications.values())
     unread_total = sum(
-        1 for notifs in notification_manager.user_notifications.values()
-        for n in notifs if n.status != "read"
+        1 for notifs in notification_manager.user_notifications.values() for n in notifs if n.status != "read"
     )
 
     return {
         "total_notifications": total_notifications,
         "unread_notifications": unread_total,
         "active_connections": sum(len(conns) for conns in notification_manager.active_connections.values()),
-        "users_with_notifications": len(notification_manager.user_notifications)
+        "users_with_notifications": len(notification_manager.user_notifications),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8091)

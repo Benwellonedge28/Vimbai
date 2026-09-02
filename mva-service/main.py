@@ -3,14 +3,17 @@ Market Value Added Service
 Port: 8213
 MVA calculation and market performance analysis
 """
+
+from typing import Any, Dict
+
 import httpx
 import structlog
-from typing import Any, Dict
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Market Value Added Service", version="1.0.0")
+
 
 class MVAMetrics(BaseModel):
     market_capitalization: float
@@ -19,6 +22,7 @@ class MVAMetrics(BaseModel):
     mva_ratio: float
     market_to_book_ratio: float
     q_ratio: float
+
 
 class MVARequest(BaseModel):
     company_id: str
@@ -30,6 +34,7 @@ class MVARequest(BaseModel):
     equity: float
     intangibles_book_value: float
 
+
 class MVAResponse(BaseModel):
     company_id: str
     period: str
@@ -38,6 +43,7 @@ class MVAResponse(BaseModel):
     premium_discount: str
     investment_signal: str
     recommendations: list
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -49,9 +55,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "mva", "version": "1.0.0"}
+
 
 @app.post("/calculate", response_model=MVAResponse)
 async def calculate_mva(request: MVARequest):
@@ -82,26 +90,32 @@ async def calculate_mva(request: MVARequest):
             market_value_added=round(mva, 2),
             mva_ratio=round(mva_ratio, 2),
             market_to_book_ratio=round(market_to_book, 2),
-            q_ratio=round(q_ratio, 2)
+            q_ratio=round(q_ratio, 2),
         ),
         shareholder_value_analysis={
             "value_created_for_shareholders": round(mva, 2),
             "return_on_market_value": round((mva / invested_capital) * 100, 2) if invested_capital else 0,
-            "intangible_value_recognized": round(market_cap - request.equity, 2)
+            "intangible_value_recognized": round(market_cap - request.equity, 2),
         },
         premium_discount=premium_discount,
         investment_signal=investment_signal,
-        recommendations=[
-            "Market values company at a premium - growth expectations high",
-            "Focus on sustaining intangible value creation",
-            "Communicate value drivers to market"
-        ] if premium_discount == "premium" else [
-            "Market perceives value destruction",
-            "Review strategic direction and operational efficiency",
-            "Consider restructuring to unlock shareholder value"
-        ]
+        recommendations=(
+            [
+                "Market values company at a premium - growth expectations high",
+                "Focus on sustaining intangible value creation",
+                "Communicate value drivers to market",
+            ]
+            if premium_discount == "premium"
+            else [
+                "Market perceives value destruction",
+                "Review strategic direction and operational efficiency",
+                "Consider restructuring to unlock shareholder value",
+            ]
+        ),
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8213)

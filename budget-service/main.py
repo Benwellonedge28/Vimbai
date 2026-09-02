@@ -57,6 +57,7 @@ app = FastAPI(
 # Pydantic Models
 # ============================================================================
 
+
 class BudgetPrepareRequest(BaseModel):
     company_id: str
     revenue: float
@@ -132,6 +133,7 @@ class RollingForecastRequest(BaseModel):
 # Routes — Health
 # ============================================================================
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": SERVICE_NAME, "version": SERVICE_VERSION}
@@ -145,6 +147,7 @@ async def health():
 # ============================================================================
 # Routes — Budget Preparation
 # ============================================================================
+
 
 @app.post("/prepare")
 async def prepare_budget(request: BudgetPrepareRequest):
@@ -177,15 +180,17 @@ async def create_budget(request: BudgetRequest):
         variance = actual_amt - budget_amt
         variance_pct = (variance / budget_amt * 100) if budget_amt else 0
 
-        items.append(BudgetItem(
-            account_id=acc.get("account_id", ""),
-            account_name=acc.get("account_name", ""),
-            category=acc.get("category", ""),
-            budgeted_amount=budget_amt,
-            actual_amount=actual_amt,
-            variance=round(variance, 2),
-            variance_percentage=round(variance_pct, 2),
-        ))
+        items.append(
+            BudgetItem(
+                account_id=acc.get("account_id", ""),
+                account_name=acc.get("account_name", ""),
+                category=acc.get("category", ""),
+                budgeted_amount=budget_amt,
+                actual_amount=actual_amt,
+                variance=round(variance, 2),
+                variance_percentage=round(variance_pct, 2),
+            )
+        )
         total_budget += budget_amt
         total_actual += actual_amt
 
@@ -210,6 +215,7 @@ async def create_budget(request: BudgetRequest):
 # Routes — Budget Monitoring
 # ============================================================================
 
+
 @app.post("/monitor")
 async def monitor_budget(request: BudgetMonitorRequest):
     """Monitor a single budget line: compute variance and percentage deviation."""
@@ -230,6 +236,7 @@ async def monitor_budget(request: BudgetMonitorRequest):
 # Routes — Variance Analysis
 # ============================================================================
 
+
 @app.post("/analyze")
 async def analyze_budget_variance(request: BudgetVarianceRequest):
     """Analyse item-level budget variances and flag significant deviations."""
@@ -244,25 +251,29 @@ async def analyze_budget_variance(request: BudgetVarianceRequest):
         variance = item.actual - item.budget
         variance_pct = (variance / item.budget * 100) if item.budget else 0
 
-        item_analysis.append({
-            "item_id": item.item_id,
-            "item_name": item.item_name,
-            "category": item.category,
-            "budget": round(item.budget, 2),
-            "actual": round(item.actual, 2),
-            "variance": round(variance, 2),
-            "variance_pct": round(variance_pct, 2),
-            "favorable": variance < 0,
-        })
+        item_analysis.append(
+            {
+                "item_id": item.item_id,
+                "item_name": item.item_name,
+                "category": item.category,
+                "budget": round(item.budget, 2),
+                "actual": round(item.actual, 2),
+                "variance": round(variance, 2),
+                "variance_pct": round(variance_pct, 2),
+                "favorable": variance < 0,
+            }
+        )
         total_budget += item.budget
         total_actual += item.actual
 
         if abs(variance_pct) > 10:
-            significant_variances.append({
-                "item": item.item_name,
-                "variance": round(variance, 2),
-                "variance_pct": round(variance_pct, 2),
-            })
+            significant_variances.append(
+                {
+                    "item": item.item_name,
+                    "variance": round(variance, 2),
+                    "variance_pct": round(variance_pct, 2),
+                }
+            )
 
     total_variance = total_actual - total_budget
     total_variance_pct = (total_variance / total_budget * 100) if total_budget else 0
@@ -305,14 +316,16 @@ async def detailed_variance_analysis(request: VarianceAnalysisRequest):
         variance_pct = (variance / budget_amt * 100) if budget_amt else 0
 
         if abs(variance_pct) > request.tolerance_percentage:
-            outside_tolerance.append({
-                "account_id": item.get("account_id"),
-                "description": item.get("description", ""),
-                "budget": budget_amt,
-                "actual": actual_amt,
-                "variance": round(variance, 2),
-                "variance_pct": round(variance_pct, 2),
-            })
+            outside_tolerance.append(
+                {
+                    "account_id": item.get("account_id"),
+                    "description": item.get("description", ""),
+                    "budget": budget_amt,
+                    "actual": actual_amt,
+                    "variance": round(variance, 2),
+                    "variance_pct": round(variance_pct, 2),
+                }
+            )
 
         if variance < 0:
             favorable += abs(variance)
@@ -342,10 +355,13 @@ async def detailed_variance_analysis(request: VarianceAnalysisRequest):
 # Routes — Forecasting
 # ============================================================================
 
+
 @app.post("/forecast")
 async def generate_forecast(request: ForecastRequest):
     """Generate a financial forecast using growth rates and seasonal factors."""
-    logger.info("Generating forecast", company=request.company_id, method=request.forecast_method, periods=request.periods)
+    logger.info(
+        "Generating forecast", company=request.company_id, method=request.forecast_method, periods=request.periods
+    )
 
     base_value = sum(h.get("value", 0) for h in request.historical_data)
     projections = []
@@ -354,15 +370,21 @@ async def generate_forecast(request: ForecastRequest):
         growth = request.growth_rates.get("default", 0.03)
         seasonal = request.seasonal_factors.get(f"Q{(i - 1) // 3 + 1}", 1.0)
         projected = base_value * ((1 + growth) ** i) * seasonal
-        projections.append({
-            "period": i,
-            "projected_value": round(projected, 2),
-            "growth_rate": growth,
-            "seasonal_factor": seasonal,
-        })
+        projections.append(
+            {
+                "period": i,
+                "projected_value": round(projected, 2),
+                "growth_rate": growth,
+                "seasonal_factor": seasonal,
+            }
+        )
 
     confidence_intervals = [
-        {"period": p["period"], "lower": round(p["projected_value"] * 0.9, 2), "upper": round(p["projected_value"] * 1.1, 2)}
+        {
+            "period": p["period"],
+            "lower": round(p["projected_value"] * 0.9, 2),
+            "upper": round(p["projected_value"] * 1.1, 2),
+        }
         for p in projections
     ]
 
@@ -383,19 +405,31 @@ async def generate_rolling_forecast(request: RollingForecastRequest):
 
     forward_projections = []
     for i in range(1, request.forward_periods + 1):
-        forward_projections.append({
-            "period": i,
-            "revenue": round(1_000_000 * (1.05 ** i), 2),
-            "expenses": round(700_000 * (1.03 ** i), 2),
-            "profit": round(300_000 * (1.07 ** i), 2),
-        })
+        forward_projections.append(
+            {
+                "period": i,
+                "revenue": round(1_000_000 * (1.05**i), 2),
+                "expenses": round(700_000 * (1.03**i), 2),
+                "profit": round(300_000 * (1.07**i), 2),
+            }
+        )
 
     optimistic = [
-        {"period": p["period"], "revenue": round(p["revenue"] * 1.1, 2), "expenses": round(p["expenses"] * 0.95, 2), "profit": round(p["revenue"] * 1.1 - p["expenses"] * 0.95, 2)}
+        {
+            "period": p["period"],
+            "revenue": round(p["revenue"] * 1.1, 2),
+            "expenses": round(p["expenses"] * 0.95, 2),
+            "profit": round(p["revenue"] * 1.1 - p["expenses"] * 0.95, 2),
+        }
         for p in forward_projections
     ]
     pessimistic = [
-        {"period": p["period"], "revenue": round(p["revenue"] * 0.9, 2), "expenses": round(p["expenses"] * 1.05, 2), "profit": round(p["revenue"] * 0.9 - p["expenses"] * 1.05, 2)}
+        {
+            "period": p["period"],
+            "revenue": round(p["revenue"] * 0.9, 2),
+            "expenses": round(p["expenses"] * 1.05, 2),
+            "profit": round(p["revenue"] * 0.9 - p["expenses"] * 1.05, 2),
+        }
         for p in forward_projections
     ]
 
@@ -415,4 +449,5 @@ async def generate_rolling_forecast(request: RollingForecastRequest):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Overhead Absorption Rate Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class OverheadAbsorptionRate(BaseModel):
@@ -86,15 +94,21 @@ async def root():
 
 @app.post("/calculate")
 async def calculate_oar(
-    cost_centre_name: str, cost_centre_id: str,
-    budgeted_overhead: float, budgeted_base_units: float,
-    overhead_type: str = "production", absorption_base: str = "machine_hours"
+    cost_centre_name: str,
+    cost_centre_id: str,
+    budgeted_overhead: float,
+    budgeted_base_units: float,
+    overhead_type: str = "production",
+    absorption_base: str = "machine_hours",
 ):
     """Calculate overhead absorption rate."""
     rate = OverheadAbsorptionRate(
-        cost_centre_name=cost_centre_name, cost_centre_id=cost_centre_id,
-        budgeted_overhead=budgeted_overhead, budgeted_base_units=budgeted_base_units,
-        overhead_type=overhead_type, absorption_base=absorption_base
+        cost_centre_name=cost_centre_name,
+        cost_centre_id=cost_centre_id,
+        budgeted_overhead=budgeted_overhead,
+        budgeted_base_units=budgeted_base_units,
+        overhead_type=overhead_type,
+        absorption_base=absorption_base,
     )
 
     # Calculate absorption rate
@@ -107,18 +121,18 @@ async def calculate_oar(
 
 
 @app.post("/machine-hours-rate")
-async def calculate_machine_hours_rate(
-    cost_centre_name: str, budgeted_overhead: float,
-    budgeted_machine_hours: float
-):
+async def calculate_machine_hours_rate(cost_centre_name: str, budgeted_overhead: float, budgeted_machine_hours: float):
     """Calculate OAR based on machine hours."""
     rate_per_mh = budgeted_overhead / budgeted_machine_hours if budgeted_machine_hours > 0 else 0
 
     analysis = OARAnalysis(
-        entity_name=cost_centre_name, cost_centre_name=cost_centre_name,
-        rate_type="departmental", absorption_base="machine_hours",
-        calculated_rate=rate_per_mh, base_units_used=budgeted_machine_hours,
-        overhead_absorbed=budgeted_overhead
+        entity_name=cost_centre_name,
+        cost_centre_name=cost_centre_name,
+        rate_type="departmental",
+        absorption_base="machine_hours",
+        calculated_rate=rate_per_mh,
+        base_units_used=budgeted_machine_hours,
+        overhead_absorbed=budgeted_overhead,
     )
     oar_analyses.append(analysis)
 
@@ -128,23 +142,25 @@ async def calculate_machine_hours_rate(
         "budgeted_overhead": budgeted_overhead,
         "budgeted_machine_hours": budgeted_machine_hours,
         "oar_per_machine_hour": rate_per_mh,
-        "formula": f"{budgeted_overhead} / {budgeted_machine_hours} = {rate_per_mh}"
+        "formula": f"{budgeted_overhead} / {budgeted_machine_hours} = {rate_per_mh}",
     }
 
 
 @app.post("/labour-hours-rate")
 async def calculate_labour_hours_rate(
-    cost_centre_name: str, budgeted_overhead: float,
-    budgeted_direct_labour_hours: float
+    cost_centre_name: str, budgeted_overhead: float, budgeted_direct_labour_hours: float
 ):
     """Calculate OAR based on direct labour hours."""
     rate_per_dlh = budgeted_overhead / budgeted_direct_labour_hours if budgeted_direct_labour_hours > 0 else 0
 
     analysis = OARAnalysis(
-        entity_name=cost_centre_name, cost_centre_name=cost_centre_name,
-        rate_type="departmental", absorption_base="direct_labour_hours",
-        calculated_rate=rate_per_dlh, base_units_used=budgeted_direct_labour_hours,
-        overhead_absorbed=budgeted_overhead
+        entity_name=cost_centre_name,
+        cost_centre_name=cost_centre_name,
+        rate_type="departmental",
+        absorption_base="direct_labour_hours",
+        calculated_rate=rate_per_dlh,
+        base_units_used=budgeted_direct_labour_hours,
+        overhead_absorbed=budgeted_overhead,
     )
     oar_analyses.append(analysis)
 
@@ -153,23 +169,25 @@ async def calculate_labour_hours_rate(
         "absorption_base": "direct_labour_hours",
         "budgeted_overhead": budgeted_overhead,
         "budgeted_direct_labour_hours": budgeted_direct_labour_hours,
-        "oar_per_direct_labour_hour": rate_per_dlh
+        "oar_per_direct_labour_hour": rate_per_dlh,
     }
 
 
 @app.post("/labour-cost-rate")
 async def calculate_labour_cost_rate(
-    cost_centre_name: str, budgeted_overhead: float,
-    budgeted_direct_labour_cost: float
+    cost_centre_name: str, budgeted_overhead: float, budgeted_direct_labour_cost: float
 ):
     """Calculate OAR based on direct labour cost (percentage)."""
     rate_percentage = (budgeted_overhead / budgeted_direct_labour_cost * 100) if budgeted_direct_labour_cost > 0 else 0
 
     analysis = OARAnalysis(
-        entity_name=cost_centre_name, cost_centre_name=cost_centre_name,
-        rate_type="departmental", absorption_base="direct_labour_cost",
-        calculated_rate=rate_percentage, base_units_used=budgeted_direct_labour_cost,
-        overhead_absorbed=budgeted_overhead
+        entity_name=cost_centre_name,
+        cost_centre_name=cost_centre_name,
+        rate_type="departmental",
+        absorption_base="direct_labour_cost",
+        calculated_rate=rate_percentage,
+        base_units_used=budgeted_direct_labour_cost,
+        overhead_absorbed=budgeted_overhead,
     )
     oar_analyses.append(analysis)
 
@@ -179,23 +197,23 @@ async def calculate_labour_cost_rate(
         "budgeted_overhead": budgeted_overhead,
         "budgeted_direct_labour_cost": budgeted_direct_labour_cost,
         "oar_percentage": rate_percentage,
-        "formula": f"({budgeted_overhead} / {budgeted_direct_labour_cost}) × 100 = {rate_percentage}%"
+        "formula": f"({budgeted_overhead} / {budgeted_direct_labour_cost}) × 100 = {rate_percentage}%",
     }
 
 
 @app.post("/material-cost-rate")
-async def calculate_material_cost_rate(
-    cost_centre_name: str, budgeted_overhead: float,
-    budgeted_material_cost: float
-):
+async def calculate_material_cost_rate(cost_centre_name: str, budgeted_overhead: float, budgeted_material_cost: float):
     """Calculate OAR based on material cost (percentage)."""
     rate_percentage = (budgeted_overhead / budgeted_material_cost * 100) if budgeted_material_cost > 0 else 0
 
     analysis = OARAnalysis(
-        entity_name=cost_centre_name, cost_centre_name=cost_centre_name,
-        rate_type="departmental", absorption_base="material_cost",
-        calculated_rate=rate_percentage, base_units_used=budgeted_material_cost,
-        overhead_absorbed=budgeted_overhead
+        entity_name=cost_centre_name,
+        cost_centre_name=cost_centre_name,
+        rate_type="departmental",
+        absorption_base="material_cost",
+        calculated_rate=rate_percentage,
+        base_units_used=budgeted_material_cost,
+        overhead_absorbed=budgeted_overhead,
     )
     oar_analyses.append(analysis)
 
@@ -204,23 +222,23 @@ async def calculate_material_cost_rate(
         "absorption_base": "material_cost",
         "budgeted_overhead": budgeted_overhead,
         "budgeted_material_cost": budgeted_material_cost,
-        "oar_percentage": rate_percentage
+        "oar_percentage": rate_percentage,
     }
 
 
 @app.post("/prime-cost-rate")
-async def calculate_prime_cost_rate(
-    cost_centre_name: str, budgeted_overhead: float,
-    budgeted_prime_cost: float
-):
+async def calculate_prime_cost_rate(cost_centre_name: str, budgeted_overhead: float, budgeted_prime_cost: float):
     """Calculate OAR based on prime cost (percentage)."""
     rate_percentage = (budgeted_overhead / budgeted_prime_cost * 100) if budgeted_prime_cost > 0 else 0
 
     analysis = OARAnalysis(
-        entity_name=cost_centre_name, cost_centre_name=cost_centre_name,
-        rate_type="departmental", absorption_base="prime_cost",
-        calculated_rate=rate_percentage, base_units_used=budgeted_prime_cost,
-        overhead_absorbed=budgeted_overhead
+        entity_name=cost_centre_name,
+        cost_centre_name=cost_centre_name,
+        rate_type="departmental",
+        absorption_base="prime_cost",
+        calculated_rate=rate_percentage,
+        base_units_used=budgeted_prime_cost,
+        overhead_absorbed=budgeted_overhead,
     )
     oar_analyses.append(analysis)
 
@@ -229,23 +247,23 @@ async def calculate_prime_cost_rate(
         "absorption_base": "prime_cost",
         "budgeted_overhead": budgeted_overhead,
         "budgeted_prime_cost": budgeted_prime_cost,
-        "oar_percentage": rate_percentage
+        "oar_percentage": rate_percentage,
     }
 
 
 @app.post("/unit-rate")
-async def calculate_unit_rate(
-    cost_centre_name: str, budgeted_overhead: float,
-    budgeted_units: float
-):
+async def calculate_unit_rate(cost_centre_name: str, budgeted_overhead: float, budgeted_units: float):
     """Calculate OAR based on units produced."""
     rate_per_unit = budgeted_overhead / budgeted_units if budgeted_units > 0 else 0
 
     analysis = OARAnalysis(
-        entity_name=cost_centre_name, cost_centre_name=cost_centre_name,
-        rate_type="departmental", absorption_base="units",
-        calculated_rate=rate_per_unit, base_units_used=budgeted_units,
-        overhead_absorbed=budgeted_overhead
+        entity_name=cost_centre_name,
+        cost_centre_name=cost_centre_name,
+        rate_type="departmental",
+        absorption_base="units",
+        calculated_rate=rate_per_unit,
+        base_units_used=budgeted_units,
+        overhead_absorbed=budgeted_overhead,
     )
     oar_analyses.append(analysis)
 
@@ -254,23 +272,25 @@ async def calculate_unit_rate(
         "absorption_base": "units",
         "budgeted_overhead": budgeted_overhead,
         "budgeted_units": budgeted_units,
-        "oar_per_unit": rate_per_unit
+        "oar_per_unit": rate_per_unit,
     }
 
 
 @app.post("/blanket-rate")
 async def calculate_blanket_rate(
-    entity_name: str, total_budgeted_overhead: float,
-    total_base_units: float, absorption_base: str
+    entity_name: str, total_budgeted_overhead: float, total_base_units: float, absorption_base: str
 ):
     """Calculate blanket OAR for entire factory."""
     blanket_rate = total_budgeted_overhead / total_base_units if total_base_units > 0 else 0
 
     analysis = OARAnalysis(
-        entity_name=entity_name, cost_centre_name="entire_factory",
-        rate_type="blanket", absorption_base=absorption_base,
-        calculated_rate=blanket_rate, base_units_used=total_base_units,
-        overhead_absorbed=total_budgeted_overhead
+        entity_name=entity_name,
+        cost_centre_name="entire_factory",
+        rate_type="blanket",
+        absorption_base=absorption_base,
+        calculated_rate=blanket_rate,
+        base_units_used=total_base_units,
+        overhead_absorbed=total_budgeted_overhead,
     )
     oar_analyses.append(analysis)
 
@@ -280,15 +300,12 @@ async def calculate_blanket_rate(
         "absorption_base": absorption_base,
         "total_budgeted_overhead": total_budgeted_overhead,
         "total_base_units": total_base_units,
-        "blanket_oar": blanket_rate
+        "blanket_oar": blanket_rate,
     }
 
 
 @app.post("/absorbed-overhead")
-async def calculate_absorbed_overhead(
-    cost_centre_name: str, actual_base_units: float,
-    absorption_rate: float
-):
+async def calculate_absorbed_overhead(cost_centre_name: str, actual_base_units: float, absorption_rate: float):
     """Calculate overhead absorbed based on actual activity."""
     absorbed = actual_base_units * absorption_rate
     return {
@@ -296,7 +313,7 @@ async def calculate_absorbed_overhead(
         "actual_base_units": actual_base_units,
         "absorption_rate": absorption_rate,
         "overhead_absorbed": absorbed,
-        "formula": f"{actual_base_units} × {absorption_rate} = {absorbed}"
+        "formula": f"{actual_base_units} × {absorption_rate} = {absorbed}",
     }
 
 
@@ -317,4 +334,5 @@ async def list_analyses():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

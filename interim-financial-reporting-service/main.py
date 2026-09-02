@@ -3,15 +3,18 @@ Interim Financial Reporting Service
 Port: 8141
 Generates quarterly/half-year financial statements with comparative figures
 """
-import httpx
-import structlog
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+
+import httpx
+import structlog
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="Interim Financial Reporting Service", version="1.0.0")
+
 
 # Pydantic Models
 class InterimPeriod(BaseModel):
@@ -20,6 +23,7 @@ class InterimPeriod(BaseModel):
     period_number: int = Field(ge=1, le=4)
     start_date: str
     end_date: str
+
 
 class InterimRevenue(BaseModel):
     revenue: float
@@ -34,6 +38,7 @@ class InterimRevenue(BaseModel):
     income_tax_expense: float
     profit_after_tax: float
 
+
 class InterimBalanceSheet(BaseModel):
     assets: Dict[str, float]
     liabilities: Dict[str, float]
@@ -41,6 +46,7 @@ class InterimBalanceSheet(BaseModel):
     total_assets: float
     total_liabilities: float
     total_equity: float
+
 
 class InterimStatementOfChangesInEquity(BaseModel):
     opening_balance: float
@@ -50,6 +56,7 @@ class InterimStatementOfChangesInEquity(BaseModel):
     share_issue: float
     closing_balance: float
 
+
 class InterimCashFlow(BaseModel):
     operating_activities: float
     investing_activities: float
@@ -58,11 +65,13 @@ class InterimCashFlow(BaseModel):
     opening_cash: float
     closing_cash: float
 
+
 class EarningsPerShare(BaseModel):
     basic_eps: float
     diluted_eps: float
     weighted_average_shares: int
     diluted_shares: int
+
 
 class InterimReportRequest(BaseModel):
     company_id: str
@@ -70,6 +79,7 @@ class InterimReportRequest(BaseModel):
     include_comparatives: bool = True
     include_segment_breakdown: bool = False
     accounting_standard: str = "IFRS"  # IFRS or US GAAP
+
 
 class InterimReportResponse(BaseModel):
     company_id: str
@@ -86,6 +96,7 @@ class InterimReportResponse(BaseModel):
     effective_tax_rate: float
     management_commentary: Dict[str, str]
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     """Call another internal Vimbai service."""
     try:
@@ -100,9 +111,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "interim-financial-reporting", "version": "1.0.0"}
+
 
 @app.post("/prepare", response_model=InterimReportResponse)
 async def prepare_interim_report(request: InterimReportRequest):
@@ -135,7 +148,7 @@ async def prepare_interim_report(request: InterimReportRequest):
         finance_costs=finance_costs,
         profit_before_tax=profit_before_tax,
         income_tax_expense=income_tax,
-        profit_after_tax=profit_after_tax
+        profit_after_tax=profit_after_tax,
     )
 
     # Year-to-date figures
@@ -162,7 +175,7 @@ async def prepare_interim_report(request: InterimReportRequest):
         finance_costs=ytd_finance,
         profit_before_tax=ytd_pbt,
         income_tax_expense=ytd_tax,
-        profit_after_tax=ytd_pat
+        profit_after_tax=ytd_pat,
     )
 
     # Comparative figures (prior year same period)
@@ -192,7 +205,7 @@ async def prepare_interim_report(request: InterimReportRequest):
             finance_costs=comp_fin,
             profit_before_tax=comp_pbt,
             income_tax_expense=comp_tax,
-            profit_after_tax=comp_pat
+            profit_after_tax=comp_pat,
         )
 
     # Balance sheet
@@ -207,7 +220,7 @@ async def prepare_interim_report(request: InterimReportRequest):
             "inventory": total_assets * 0.12,
             "trade_receivables": total_assets * 0.15,
             "cash_and_equivalents": total_assets * 0.10,
-            "other_current_assets": total_assets * 0.13
+            "other_current_assets": total_assets * 0.13,
         },
         liabilities={
             "long_term_borrowings": total_liabilities * 0.30,
@@ -215,17 +228,17 @@ async def prepare_interim_report(request: InterimReportRequest):
             "trade_payables": total_liabilities * 0.20,
             "short_term_borrowings": total_liabilities * 0.15,
             "current_tax": total_liabilities * 0.08,
-            "accruals": total_liabilities * 0.17
+            "accruals": total_liabilities * 0.17,
         },
         equity={
             "share_capital": total_equity * 0.20,
             "share_premium": total_equity * 0.15,
             "retained_earnings": total_equity * 0.50,
-            "other_reserves": total_equity * 0.15
+            "other_reserves": total_equity * 0.15,
         },
         total_assets=total_assets,
         total_liabilities=total_liabilities,
-        total_equity=total_equity
+        total_equity=total_equity,
     )
 
     # Changes in equity
@@ -235,7 +248,7 @@ async def prepare_interim_report(request: InterimReportRequest):
         other_comprehensive_income=50000.0,
         dividends_paid=-150000.0,
         share_issue=0.0,
-        closing_balance=total_equity
+        closing_balance=total_equity,
     )
 
     # Cash flow
@@ -245,7 +258,7 @@ async def prepare_interim_report(request: InterimReportRequest):
         financing_activities=-100000.0 * multiplier,
         net_cash_flow=200000.0,
         opening_cash=total_assets * 0.08,
-        closing_cash=total_assets * 0.10
+        closing_cash=total_assets * 0.10,
     )
 
     # EPS
@@ -258,14 +271,14 @@ async def prepare_interim_report(request: InterimReportRequest):
         basic_eps=basic_eps,
         diluted_eps=diluted_eps,
         weighted_average_shares=weighted_avg_shares,
-        diluted_shares=diluted_shares
+        diluted_shares=diluted_shares,
     )
 
     # Management commentary
     commentary = {
         "revenue_change": f"+{(revenue / (revenue / multiplier) - 1) * 100:.1f}%",
         "gross_margin": f"{gross_profit / revenue * 100:.1f}%",
-        "operating_margin": f"{operating_profit / revenue * 100:.1f}%"
+        "operating_margin": f"{operating_profit / revenue * 100:.1f}%",
     }
 
     response = InterimReportResponse(
@@ -281,15 +294,17 @@ async def prepare_interim_report(request: InterimReportRequest):
         earnings_per_share=earnings_per_share,
         year_to_date=ytd_revenue_data,
         effective_tax_rate=income_tax / profit_before_tax if profit_before_tax > 0 else 0,
-        management_commentary=commentary
+        management_commentary=commentary,
     )
 
     logger.info("Interim report prepared", company=request.company_id, revenue=revenue)
     return response
 
+
 def depreciation_calc(total_assets: float) -> float:
     """Calculate depreciation from total assets."""
     return total_assets * 0.35 * 0.1  # 10% depreciation rate on 35% of assets
+
 
 @app.post("/year-to-date")
 async def calculate_year_to_date(period: InterimPeriod):
@@ -302,8 +317,9 @@ async def calculate_year_to_date(period: InterimPeriod):
         "periods_included": period.period_number,
         "ytd_revenue": ytd_revenue,
         "ytd_profit": ytd_profit,
-        "ytd_cash_flow": ytd_profit * 0.8
+        "ytd_cash_flow": ytd_profit * 0.8,
     }
+
 
 @app.post("/effective-tax-rate")
 async def calculate_effective_tax_rate(period: InterimPeriod):
@@ -317,9 +333,11 @@ async def calculate_effective_tax_rate(period: InterimPeriod):
         "income_tax_expense": income_tax_expense,
         "effective_tax_rate": 0.25,
         "standard_tax_rate": 0.25,
-        "difference": 0.0
+        "difference": 0.0,
     }
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8141)

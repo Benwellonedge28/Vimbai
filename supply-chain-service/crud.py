@@ -1,20 +1,34 @@
-from neo4j import AsyncSession
-from typing import Optional, List, Dict, Any
-from supply_chain_service.models import (
-    CustomerCreate, CustomerUpdate, CustomerInDB,
-    SalesInvoiceCreate, SalesInvoiceUpdate, SalesInvoiceInDB, SalesInvoiceItemBase, # Renamed Invoice to SalesInvoice
-    SupplierCreate, SupplierUpdate, SupplierInDB, # NEW
-    InventoryItemCreate, InventoryItemUpdate, InventoryItemInDB, # NEW
-    PurchaseOrderCreate, PurchaseOrderUpdate, PurchaseOrderInDB, PurchaseOrderItemBase, # NEW
-)
-from datetime import datetime
-import uuid
-from decimal import Decimal
-import httpx
 import os
-from supply_chain_service.exceptions import ValidationError, NotFoundError, ConflictError
+import uuid
+from datetime import datetime, timezone
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+
+import httpx
+from neo4j import AsyncSession
+from supply_chain_service.exceptions import ConflictError, NotFoundError, ValidationError
+from supply_chain_service.models import InventoryItemInDB  # NEW
+from supply_chain_service.models import PurchaseOrderItemBase  # NEW
+from supply_chain_service.models import SalesInvoiceItemBase  # Renamed Invoice to SalesInvoice
+from supply_chain_service.models import SupplierInDB  # NEW
+from supply_chain_service.models import (
+    CustomerCreate,
+    CustomerInDB,
+    CustomerUpdate,
+    InventoryItemCreate,
+    InventoryItemUpdate,
+    PurchaseOrderCreate,
+    PurchaseOrderInDB,
+    PurchaseOrderUpdate,
+    SalesInvoiceCreate,
+    SalesInvoiceInDB,
+    SalesInvoiceUpdate,
+    SupplierCreate,
+    SupplierUpdate,
+)
 
 API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
+
 
 # --- Customer CRUD (unchanged from original invoicing service) ---
 async def create_customer(session: AsyncSession, user_id: str, customer_data: CustomerCreate) -> CustomerInDB:
@@ -28,9 +42,13 @@ async def create_customer(session: AsyncSession, user_id: str, customer_data: Cu
     WHERE c.name = $name OR c.email = $email
     RETURN c
     """
-    existing_customer_result = await session.run(existing_customer_query, user_id=user_id, name=customer_data.name, email=customer_data.email)
+    existing_customer_result = await session.run(
+        existing_customer_query, user_id=user_id, name=customer_data.name, email=customer_data.email
+    )
     if await existing_customer_result.single():
-        raise ConflictError(detail="Customer with this name or email already exists for this user.", code="CUSTOMER_EXISTS")
+        raise ConflictError(
+            detail="Customer with this name or email already exists for this user.", code="CUSTOMER_EXISTS"
+        )
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -69,6 +87,7 @@ async def create_customer(session: AsyncSession, user_id: str, customer_data: Cu
         updated_at=datetime.fromisoformat(customer_node["updated_at"].iso_format()),
     )
 
+
 async def get_customer(session: AsyncSession, user_id: str, customer_id: str) -> Optional[CustomerInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_CUSTOMER]->(c:Customer {id: $customer_id})
@@ -92,6 +111,7 @@ async def get_customer(session: AsyncSession, user_id: str, customer_id: str) ->
         )
     return None
 
+
 async def get_all_customers(session: AsyncSession, user_id: str) -> List[CustomerInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_CUSTOMER]->(c:Customer)
@@ -102,20 +122,25 @@ async def get_all_customers(session: AsyncSession, user_id: str) -> List[Custome
     customers = []
     async for record in result:
         customer_node = record["c"]
-        customers.append(CustomerInDB(
-            id=customer_node["id"],
-            user_id=user_id,
-            name=customer_node["name"],
-            email=customer_node["email"],
-            phone=customer_node["phone"],
-            address=customer_node["address"],
-            tax_id=customer_node["tax_id"],
-            created_at=datetime.fromisoformat(customer_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(customer_node["updated_at"].iso_format()),
-        ))
+        customers.append(
+            CustomerInDB(
+                id=customer_node["id"],
+                user_id=user_id,
+                name=customer_node["name"],
+                email=customer_node["email"],
+                phone=customer_node["phone"],
+                address=customer_node["address"],
+                tax_id=customer_node["tax_id"],
+                created_at=datetime.fromisoformat(customer_node["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(customer_node["updated_at"].iso_format()),
+            )
+        )
     return customers
 
-async def update_customer(session: AsyncSession, user_id: str, customer_id: str, customer_data: CustomerUpdate) -> Optional[CustomerInDB]:
+
+async def update_customer(
+    session: AsyncSession, user_id: str, customer_id: str, customer_data: CustomerUpdate
+) -> Optional[CustomerInDB]:
     update_fields = customer_data.model_dump(exclude_unset=True)
     if not update_fields:
         return await get_customer(session, user_id, customer_id)
@@ -130,7 +155,7 @@ async def update_customer(session: AsyncSession, user_id: str, customer_id: str,
     SET {set_query_part}
     RETURN c
     """
-    
+
     params = {"user_id": user_id, "customer_id": customer_id, **update_fields}
     result = await session.run(query, params)
     record = await result.single()
@@ -138,6 +163,7 @@ async def update_customer(session: AsyncSession, user_id: str, customer_id: str,
     if record:
         return await get_customer(session, user_id, customer_id)
     return None
+
 
 async def delete_customer(session: AsyncSession, user_id: str, customer_id: str) -> bool:
     query = """
@@ -147,8 +173,11 @@ async def delete_customer(session: AsyncSession, user_id: str, customer_id: str)
     result = await session.run(query, user_id=user_id, customer_id=customer_id)
     return result.consume().counters.nodes_deleted > 0
 
+
 # --- Sales Invoice CRUD (renamed from invoice_crud) ---
-async def create_sales_invoice(session: AsyncSession, user_id: str, invoice_data: SalesInvoiceCreate) -> SalesInvoiceInDB:
+async def create_sales_invoice(
+    session: AsyncSession, user_id: str, invoice_data: SalesInvoiceCreate
+) -> SalesInvoiceInDB:
     invoice_neo4j_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
     updated_at = datetime.now(timezone.utc)
@@ -211,12 +240,14 @@ async def create_sales_invoice(session: AsyncSession, user_id: str, invoice_data
 
         item_result = await session.run(item_query, item_params)
         item_node = (await item_result.single())["si"]
-        items_in_db.append(SalesInvoiceItemBase(
-            description=item_node["description"],
-            quantity=item_node["quantity"],
-            unit_price=Decimal(str(item_node["unit_price"])),
-            line_total=Decimal(str(item_node["line_total"]))
-        ))
+        items_in_db.append(
+            SalesInvoiceItemBase(
+                description=item_node["description"],
+                quantity=item_node["quantity"],
+                unit_price=Decimal(str(item_node["unit_price"])),
+                line_total=Decimal(str(item_node["line_total"])),
+            )
+        )
 
     return SalesInvoiceInDB(
         id=invoice_node["id"],
@@ -230,8 +261,9 @@ async def create_sales_invoice(session: AsyncSession, user_id: str, invoice_data
         notes=invoice_node["notes"],
         created_at=datetime.fromisoformat(invoice_node["created_at"].iso_format()),
         updated_at=datetime.fromisoformat(invoice_node["updated_at"].iso_format()),
-        items=items_in_db
+        items=items_in_db,
     )
+
 
 async def get_sales_invoice(session: AsyncSession, user_id: str, invoice_id: str) -> Optional[SalesInvoiceInDB]:
     query = """
@@ -245,17 +277,19 @@ async def get_sales_invoice(session: AsyncSession, user_id: str, invoice_id: str
     if record:
         invoice_node = record["i"]
         items_data = record["items_data"]
-        
+
         items_in_db = []
         for item_node in items_data:
-            if item_node: # COLLECT can return [None] if no items
-                items_in_db.append(SalesInvoiceItemBase(
-                    description=item_node["description"],
-                    quantity=item_node["quantity"],
-                    unit_price=Decimal(str(item_node["unit_price"])),
-                    line_total=Decimal(str(item_node["line_total"]))
-                ))
-        
+            if item_node:  # COLLECT can return [None] if no items
+                items_in_db.append(
+                    SalesInvoiceItemBase(
+                        description=item_node["description"],
+                        quantity=item_node["quantity"],
+                        unit_price=Decimal(str(item_node["unit_price"])),
+                        line_total=Decimal(str(item_node["line_total"])),
+                    )
+                )
+
         return SalesInvoiceInDB(
             id=invoice_node["id"],
             user_id=user_id,
@@ -268,9 +302,10 @@ async def get_sales_invoice(session: AsyncSession, user_id: str, invoice_id: str
             notes=invoice_node["notes"],
             created_at=datetime.fromisoformat(invoice_node["created_at"].iso_format()),
             updated_at=datetime.fromisoformat(invoice_node["updated_at"].iso_format()),
-            items=items_in_db
+            items=items_in_db,
         )
     return None
+
 
 async def get_all_sales_invoices(session: AsyncSession, user_id: str) -> List[SalesInvoiceInDB]:
     query = """
@@ -280,7 +315,7 @@ async def get_all_sales_invoices(session: AsyncSession, user_id: str) -> List[Sa
     ORDER BY i.invoice_date DESC
     """
     result = await session.run(query, user_id=user_id)
-    
+
     invoices_map: Dict[str, SalesInvoiceInDB] = {}
 
     async for record in result:
@@ -303,19 +338,24 @@ async def get_all_sales_invoices(session: AsyncSession, user_id: str) -> List[Sa
                 updated_at=datetime.fromisoformat(invoice_node["updated_at"].iso_format()),
                 items=[],
             )
-        
+
         for item_node in items_data:
             if item_node:
-                invoices_map[invoice_id].items.append(SalesInvoiceItemBase(
-                    description=item_node["description"],
-                    quantity=item_node["quantity"],
-                    unit_price=Decimal(str(item_node["unit_price"])),
-                    line_total=Decimal(str(item_node["line_total"]))
-                ))
-        
+                invoices_map[invoice_id].items.append(
+                    SalesInvoiceItemBase(
+                        description=item_node["description"],
+                        quantity=item_node["quantity"],
+                        unit_price=Decimal(str(item_node["unit_price"])),
+                        line_total=Decimal(str(item_node["line_total"])),
+                    )
+                )
+
     return list(invoices_map.values())
 
-async def update_sales_invoice(session: AsyncSession, user_id: str, invoice_id: str, invoice_data: SalesInvoiceUpdate) -> Optional[SalesInvoiceInDB]:
+
+async def update_sales_invoice(
+    session: AsyncSession, user_id: str, invoice_id: str, invoice_data: SalesInvoiceUpdate
+) -> Optional[SalesInvoiceInDB]:
     update_fields = invoice_data.model_dump(exclude_unset=True)
     if not update_fields:
         return await get_sales_invoice(session, user_id, invoice_id)
@@ -336,7 +376,7 @@ async def update_sales_invoice(session: AsyncSession, user_id: str, invoice_id: 
     SET {set_query_part}
     RETURN i
     """
-    
+
     params = {"user_id": user_id, "invoice_id": invoice_id, **update_fields}
     result = await session.run(query, params)
     record = await result.single()
@@ -344,6 +384,7 @@ async def update_sales_invoice(session: AsyncSession, user_id: str, invoice_id: 
     if record:
         return await get_sales_invoice(session, user_id, invoice_id)
     return None
+
 
 async def delete_sales_invoice(session: AsyncSession, user_id: str, invoice_id: str) -> bool:
     query = """
@@ -353,6 +394,7 @@ async def delete_sales_invoice(session: AsyncSession, user_id: str, invoice_id: 
     """
     result = await session.run(query, user_id=user_id, invoice_id=invoice_id)
     return result.consume().counters.nodes_deleted > 0
+
 
 # --- Supplier CRUD (NEW) ---
 async def create_supplier(session: AsyncSession, user_id: str, supplier_data: SupplierCreate) -> SupplierInDB:
@@ -366,9 +408,13 @@ async def create_supplier(session: AsyncSession, user_id: str, supplier_data: Su
     WHERE s.name = $name OR s.email = $email
     RETURN s
     """
-    existing_supplier_result = await session.run(existing_supplier_query, user_id=user_id, name=supplier_data.name, email=supplier_data.email)
+    existing_supplier_result = await session.run(
+        existing_supplier_query, user_id=user_id, name=supplier_data.name, email=supplier_data.email
+    )
     if await existing_supplier_result.single():
-        raise ConflictError(detail="Supplier with this name or email already exists for this user.", code="SUPPLIER_EXISTS")
+        raise ConflictError(
+            detail="Supplier with this name or email already exists for this user.", code="SUPPLIER_EXISTS"
+        )
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -409,6 +455,7 @@ async def create_supplier(session: AsyncSession, user_id: str, supplier_data: Su
         updated_at=datetime.fromisoformat(supplier_node["updated_at"].iso_format()),
     )
 
+
 async def get_supplier(session: AsyncSession, user_id: str, supplier_id: str) -> Optional[SupplierInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_SUPPLIER]->(s:Supplier {id: $supplier_id})
@@ -433,6 +480,7 @@ async def get_supplier(session: AsyncSession, user_id: str, supplier_id: str) ->
         )
     return None
 
+
 async def get_all_suppliers(session: AsyncSession, user_id: str) -> List[SupplierInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_SUPPLIER]->(s:Supplier)
@@ -443,21 +491,26 @@ async def get_all_suppliers(session: AsyncSession, user_id: str) -> List[Supplie
     suppliers = []
     async for record in result:
         supplier_node = record["s"]
-        suppliers.append(SupplierInDB(
-            id=supplier_node["id"],
-            user_id=user_id,
-            name=supplier_node["name"],
-            contact_person=supplier_node["contact_person"],
-            email=supplier_node["email"],
-            phone=supplier_node["phone"],
-            address=supplier_node["address"],
-            tax_id=supplier_node["tax_id"],
-            created_at=datetime.fromisoformat(supplier_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(supplier_node["updated_at"].iso_format()),
-        ))
+        suppliers.append(
+            SupplierInDB(
+                id=supplier_node["id"],
+                user_id=user_id,
+                name=supplier_node["name"],
+                contact_person=supplier_node["contact_person"],
+                email=supplier_node["email"],
+                phone=supplier_node["phone"],
+                address=supplier_node["address"],
+                tax_id=supplier_node["tax_id"],
+                created_at=datetime.fromisoformat(supplier_node["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(supplier_node["updated_at"].iso_format()),
+            )
+        )
     return suppliers
 
-async def update_supplier(session: AsyncSession, user_id: str, supplier_id: str, supplier_data: SupplierUpdate) -> Optional[SupplierInDB]:
+
+async def update_supplier(
+    session: AsyncSession, user_id: str, supplier_id: str, supplier_data: SupplierUpdate
+) -> Optional[SupplierInDB]:
     update_fields = supplier_data.model_dump(exclude_unset=True)
     if not update_fields:
         return await get_supplier(session, user_id, supplier_id)
@@ -472,7 +525,7 @@ async def update_supplier(session: AsyncSession, user_id: str, supplier_id: str,
     SET {set_query_part}
     RETURN s
     """
-    
+
     params = {"user_id": user_id, "supplier_id": supplier_id, **update_fields}
     result = await session.run(query, params)
     record = await result.single()
@@ -480,6 +533,7 @@ async def update_supplier(session: AsyncSession, user_id: str, supplier_id: str,
     if record:
         return await get_supplier(session, user_id, supplier_id)
     return None
+
 
 async def delete_supplier(session: AsyncSession, user_id: str, supplier_id: str) -> bool:
     query = """
@@ -489,8 +543,11 @@ async def delete_supplier(session: AsyncSession, user_id: str, supplier_id: str)
     result = await session.run(query, user_id=user_id, supplier_id=supplier_id)
     return result.consume().counters.nodes_deleted > 0
 
+
 # --- Inventory Item CRUD (NEW) ---
-async def create_inventory_item(session: AsyncSession, user_id: str, item_data: InventoryItemCreate) -> InventoryItemInDB:
+async def create_inventory_item(
+    session: AsyncSession, user_id: str, item_data: InventoryItemCreate
+) -> InventoryItemInDB:
     item_neo4j_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
     updated_at = datetime.now(timezone.utc)
@@ -499,7 +556,9 @@ async def create_inventory_item(session: AsyncSession, user_id: str, item_data: 
     if item_data.preferred_supplier_id:
         supplier = await get_supplier(session, user_id, item_data.preferred_supplier_id)
         if not supplier:
-            raise NotFoundError(detail="Preferred supplier not found or does not belong to user.", code="SUPPLIER_NOT_FOUND")
+            raise NotFoundError(
+                detail="Preferred supplier not found or does not belong to user.", code="SUPPLIER_NOT_FOUND"
+            )
 
     # Check for existing item with same SKU for this user
     existing_item_query = """
@@ -509,7 +568,9 @@ async def create_inventory_item(session: AsyncSession, user_id: str, item_data: 
     """
     existing_item_result = await session.run(existing_item_query, user_id=user_id, sku=item_data.sku)
     if await existing_item_result.single():
-        raise ConflictError(detail="Inventory item with this SKU already exists for this user.", code="INVENTORY_ITEM_EXISTS")
+        raise ConflictError(
+            detail="Inventory item with this SKU already exists for this user.", code="INVENTORY_ITEM_EXISTS"
+        )
 
     query = """
     MATCH (u:User {id: $user_id})
@@ -533,7 +594,7 @@ async def create_inventory_item(session: AsyncSession, user_id: str, item_data: 
     params["unit_cost"] = float(params["unit_cost"])
     params["created_at"] = created_at.isoformat()
     params["updated_at"] = updated_at.isoformat()
-    
+
     await session.run(query, params)
 
     if item_data.preferred_supplier_id:
@@ -544,7 +605,8 @@ async def create_inventory_item(session: AsyncSession, user_id: str, item_data: 
         """
         await session.run(link_query, item_id=item_neo4j_id, supplier_id=item_data.preferred_supplier_id)
 
-    return await get_inventory_item(session, user_id, item_neo4j_id) # Retrieve the full object with supplier_id
+    return await get_inventory_item(session, user_id, item_neo4j_id)  # Retrieve the full object with supplier_id
+
 
 async def get_inventory_item(session: AsyncSession, user_id: str, item_id: str) -> Optional[InventoryItemInDB]:
     query = """
@@ -573,6 +635,7 @@ async def get_inventory_item(session: AsyncSession, user_id: str, item_id: str) 
         )
     return None
 
+
 async def get_all_inventory_items(session: AsyncSession, user_id: str) -> List[InventoryItemInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_INVENTORY_ITEM]->(ii:InventoryItem)
@@ -584,25 +647,32 @@ async def get_all_inventory_items(session: AsyncSession, user_id: str) -> List[I
     items = []
     async for record in result:
         item_node = record["ii"]
-        items.append(InventoryItemInDB(
-            id=item_node["id"],
-            user_id=user_id,
-            name=item_node["name"],
-            sku=item_node["sku"],
-            description=item_node["description"],
-            unit_cost=Decimal(str(item_node["unit_cost"])),
-            unit_of_measure=item_node["unit_of_measure"],
-            current_stock=item_node["current_stock"],
-            reorder_point=item_node["reorder_point"],
-            preferred_supplier_id=record["preferred_supplier_id"],
-            created_at=datetime.fromisoformat(item_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(item_node["updated_at"].iso_format()),
-        ))
+        items.append(
+            InventoryItemInDB(
+                id=item_node["id"],
+                user_id=user_id,
+                name=item_node["name"],
+                sku=item_node["sku"],
+                description=item_node["description"],
+                unit_cost=Decimal(str(item_node["unit_cost"])),
+                unit_of_measure=item_node["unit_of_measure"],
+                current_stock=item_node["current_stock"],
+                reorder_point=item_node["reorder_point"],
+                preferred_supplier_id=record["preferred_supplier_id"],
+                created_at=datetime.fromisoformat(item_node["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(item_node["updated_at"].iso_format()),
+            )
+        )
     return items
 
-async def update_inventory_item(session: AsyncSession, user_id: str, item_id: str, item_data: InventoryItemUpdate) -> Optional[InventoryItemInDB]:
+
+async def update_inventory_item(
+    session: AsyncSession, user_id: str, item_id: str, item_data: InventoryItemUpdate
+) -> Optional[InventoryItemInDB]:
     update_fields = item_data.model_dump(exclude_unset=True, exclude={"preferred_supplier_id"})
-    if not update_fields and "preferred_supplier_id" not in item_data.model_fields_set: # Check if supplier_id was specifically set to None
+    if (
+        not update_fields and "preferred_supplier_id" not in item_data.model_fields_set
+    ):  # Check if supplier_id was specifically set to None
         return await get_inventory_item(session, user_id, item_id)
 
     update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -617,16 +687,16 @@ async def update_inventory_item(session: AsyncSession, user_id: str, item_id: st
     SET {set_query_part}
     RETURN ii
     """
-    
+
     params = {"user_id": user_id, "item_id": item_id, **update_fields}
     result = await session.run(query, params)
     record = await result.single()
 
     if not record:
         return None
-    
+
     # Handle preferred_supplier_id update
-    if "preferred_supplier_id" in item_data.model_fields_set: # If preferred_supplier_id was in the update payload
+    if "preferred_supplier_id" in item_data.model_fields_set:  # If preferred_supplier_id was in the update payload
         # First, remove any existing HAS_PREFERRED_SUPPLIER relationship
         remove_link_query = """
         MATCH (ii:InventoryItem {id: $item_id})-[r:HAS_PREFERRED_SUPPLIER]->(s:Supplier)
@@ -634,10 +704,12 @@ async def update_inventory_item(session: AsyncSession, user_id: str, item_id: st
         """
         await session.run(remove_link_query, item_id=item_id)
 
-        if item_data.preferred_supplier_id: # If a new supplier ID is provided
+        if item_data.preferred_supplier_id:  # If a new supplier ID is provided
             supplier = await get_supplier(session, user_id, item_data.preferred_supplier_id)
             if not supplier:
-                raise NotFoundError(detail="Preferred supplier not found or does not belong to user.", code="SUPPLIER_NOT_FOUND")
+                raise NotFoundError(
+                    detail="Preferred supplier not found or does not belong to user.", code="SUPPLIER_NOT_FOUND"
+                )
             link_query = """
             MATCH (ii:InventoryItem {id: $item_id})
             MATCH (s:Supplier {id: $supplier_id})
@@ -647,6 +719,7 @@ async def update_inventory_item(session: AsyncSession, user_id: str, item_id: st
 
     return await get_inventory_item(session, user_id, item_id)
 
+
 async def delete_inventory_item(session: AsyncSession, user_id: str, item_id: str) -> bool:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_INVENTORY_ITEM]->(ii:InventoryItem {id: $item_id})
@@ -654,6 +727,7 @@ async def delete_inventory_item(session: AsyncSession, user_id: str, item_id: st
     """
     result = await session.run(query, user_id=user_id, item_id=item_id)
     return result.consume().counters.nodes_deleted > 0
+
 
 # --- Purchase Order CRUD (NEW) ---
 async def create_purchase_order(session: AsyncSession, user_id: str, po_data: PurchaseOrderCreate) -> PurchaseOrderInDB:
@@ -670,7 +744,10 @@ async def create_purchase_order(session: AsyncSession, user_id: str, po_data: Pu
     for po_item in po_data.items:
         inventory_item = await get_inventory_item(session, user_id, po_item.inventory_item_id)
         if not inventory_item:
-            raise NotFoundError(detail=f"Inventory item {po_item.inventory_item_id} not found or does not belong to user.", code="INVENTORY_ITEM_NOT_FOUND")
+            raise NotFoundError(
+                detail=f"Inventory item {po_item.inventory_item_id} not found or does not belong to user.",
+                code="INVENTORY_ITEM_NOT_FOUND",
+            )
 
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_SUPPLIER]->(s:Supplier {id: $supplier_id})
@@ -727,27 +804,34 @@ async def create_purchase_order(session: AsyncSession, user_id: str, po_data: Pu
 
         item_result = await session.run(po_item_query, item_params)
         item_node = (await item_result.single())["poi"]
-        items_in_db.append(PurchaseOrderItemBase(
-            inventory_item_id=item_node["inventory_item_id"],
-            quantity=item_node["quantity"],
-            unit_price=Decimal(str(item_node["unit_price"])),
-            line_total=Decimal(str(item_node["line_total"]))
-        ))
+        items_in_db.append(
+            PurchaseOrderItemBase(
+                inventory_item_id=item_node["inventory_item_id"],
+                quantity=item_node["quantity"],
+                unit_price=Decimal(str(item_node["unit_price"])),
+                line_total=Decimal(str(item_node["line_total"])),
+            )
+        )
 
     return PurchaseOrderInDB(
         id=po_node["id"],
         user_id=user_id,
         supplier_id=po_node["supplier_id"],
         order_date=datetime.fromisoformat(po_node["order_date"].iso_format()),
-        expected_delivery_date=datetime.fromisoformat(po_node["expected_delivery_date"].iso_format()) if po_node["expected_delivery_date"] else None,
+        expected_delivery_date=(
+            datetime.fromisoformat(po_node["expected_delivery_date"].iso_format())
+            if po_node["expected_delivery_date"]
+            else None
+        ),
         total_amount=Decimal(str(po_node["total_amount"])),
         currency=po_node["currency"],
         status=po_node["status"],
         notes=po_node["notes"],
         created_at=datetime.fromisoformat(po_node["created_at"].iso_format()),
         updated_at=datetime.fromisoformat(po_node["updated_at"].iso_format()),
-        items=items_in_db
+        items=items_in_db,
     )
+
 
 async def get_purchase_order(session: AsyncSession, user_id: str, po_id: str) -> Optional[PurchaseOrderInDB]:
     query = """
@@ -766,32 +850,39 @@ async def get_purchase_order(session: AsyncSession, user_id: str, po_id: str) ->
     if record:
         po_node = record["po"]
         items_data = record["items_data"]
-        
+
         items_in_db = []
         for item_data in items_data:
             if item_data and item_data.get("inventory_item_id"):
-                items_in_db.append(PurchaseOrderItemBase(
-                    inventory_item_id=item_data["inventory_item_id"],
-                    quantity=item_data["quantity"],
-                    unit_price=Decimal(str(item_data["unit_price"])),
-                    line_total=Decimal(str(item_data["line_total"]))
-                ))
-        
+                items_in_db.append(
+                    PurchaseOrderItemBase(
+                        inventory_item_id=item_data["inventory_item_id"],
+                        quantity=item_data["quantity"],
+                        unit_price=Decimal(str(item_data["unit_price"])),
+                        line_total=Decimal(str(item_data["line_total"])),
+                    )
+                )
+
         return PurchaseOrderInDB(
             id=po_node["id"],
             user_id=user_id,
             supplier_id=record["supplier_id"],
             order_date=datetime.fromisoformat(po_node["order_date"].iso_format()),
-            expected_delivery_date=datetime.fromisoformat(po_node["expected_delivery_date"].iso_format()) if po_node["expected_delivery_date"] else None,
+            expected_delivery_date=(
+                datetime.fromisoformat(po_node["expected_delivery_date"].iso_format())
+                if po_node["expected_delivery_date"]
+                else None
+            ),
             total_amount=Decimal(str(po_node["total_amount"])),
             currency=po_node["currency"],
             status=po_node["status"],
             notes=po_node["notes"],
             created_at=datetime.fromisoformat(po_node["created_at"].iso_format()),
             updated_at=datetime.fromisoformat(po_node["updated_at"].iso_format()),
-            items=items_in_db
+            items=items_in_db,
         )
     return None
+
 
 async def get_all_purchase_orders(session: AsyncSession, user_id: str) -> List[PurchaseOrderInDB]:
     query = """
@@ -806,7 +897,7 @@ async def get_all_purchase_orders(session: AsyncSession, user_id: str) -> List[P
     ORDER BY po.order_date DESC
     """
     result = await session.run(query, user_id=user_id)
-    
+
     pos_map: Dict[str, PurchaseOrderInDB] = {}
 
     async for record in result:
@@ -820,7 +911,11 @@ async def get_all_purchase_orders(session: AsyncSession, user_id: str) -> List[P
                 user_id=user_id,
                 supplier_id=record["supplier_id"],
                 order_date=datetime.fromisoformat(po_node["order_date"].iso_format()),
-                expected_delivery_date=datetime.fromisoformat(po_node["expected_delivery_date"].iso_format()) if po_node["expected_delivery_date"] else None,
+                expected_delivery_date=(
+                    datetime.fromisoformat(po_node["expected_delivery_date"].iso_format())
+                    if po_node["expected_delivery_date"]
+                    else None
+                ),
                 total_amount=Decimal(str(po_node["total_amount"])),
                 currency=po_node["currency"],
                 status=po_node["status"],
@@ -829,19 +924,24 @@ async def get_all_purchase_orders(session: AsyncSession, user_id: str) -> List[P
                 updated_at=datetime.fromisoformat(po_node["updated_at"].iso_format()),
                 items=[],
             )
-        
+
         for item_data in items_data:
             if item_data and item_data.get("inventory_item_id"):
-                pos_map[po_id].items.append(PurchaseOrderItemBase(
-                    inventory_item_id=item_data["inventory_item_id"],
-                    quantity=item_data["quantity"],
-                    unit_price=Decimal(str(item_data["unit_price"])),
-                    line_total=Decimal(str(item_data["line_total"]))
-                ))
-        
+                pos_map[po_id].items.append(
+                    PurchaseOrderItemBase(
+                        inventory_item_id=item_data["inventory_item_id"],
+                        quantity=item_data["quantity"],
+                        unit_price=Decimal(str(item_data["unit_price"])),
+                        line_total=Decimal(str(item_data["line_total"])),
+                    )
+                )
+
     return list(pos_map.values())
 
-async def update_purchase_order(session: AsyncSession, user_id: str, po_id: str, po_data: PurchaseOrderUpdate) -> Optional[PurchaseOrderInDB]:
+
+async def update_purchase_order(
+    session: AsyncSession, user_id: str, po_id: str, po_data: PurchaseOrderUpdate
+) -> Optional[PurchaseOrderInDB]:
     update_fields = po_data.model_dump(exclude_unset=True)
     if not update_fields:
         return await get_purchase_order(session, user_id, po_id)
@@ -862,7 +962,7 @@ async def update_purchase_order(session: AsyncSession, user_id: str, po_id: str,
     SET {set_query_part}
     RETURN po
     """
-    
+
     params = {"user_id": user_id, "po_id": po_id, **update_fields}
     result = await session.run(query, params)
     record = await result.single()
@@ -870,6 +970,7 @@ async def update_purchase_order(session: AsyncSession, user_id: str, po_id: str,
     if record:
         return await get_purchase_order(session, user_id, po_id)
     return None
+
 
 async def delete_purchase_order(session: AsyncSession, user_id: str, po_id: str) -> bool:
     query = """

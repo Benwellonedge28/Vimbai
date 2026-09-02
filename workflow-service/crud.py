@@ -1,13 +1,21 @@
-from neo4j import AsyncSession
-from typing import Optional, List, Dict, Any
-from workflow_service.models import (
-    WorkflowDefinitionCreate, WorkflowDefinitionUpdate, WorkflowDefinitionInDB,
-    WorkflowInstanceCreate, WorkflowInstanceUpdate, WorkflowInstanceInDB,
-    WorkflowStep, WorkflowTaskStatus
-)
-from datetime import datetime
+import json  # For serializing/deserializing complex Pydantic models to/from JSON strings for Neo4j properties
 import uuid
-import json # For serializing/deserializing complex Pydantic models to/from JSON strings for Neo4j properties
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from neo4j import AsyncSession
+from pydantic import BaseModel
+from workflow_service.models import (
+    WorkflowDefinitionCreate,
+    WorkflowDefinitionInDB,
+    WorkflowDefinitionUpdate,
+    WorkflowInstanceCreate,
+    WorkflowInstanceInDB,
+    WorkflowInstanceUpdate,
+    WorkflowStep,
+    WorkflowTaskStatus,
+)
+
 
 # Helper function to convert Pydantic models to Neo4j-compatible dictionary (handles nested models)
 def _to_neo4j_props(model_instance: BaseModel) -> Dict[str, Any]:
@@ -22,30 +30,34 @@ def _to_neo4j_props(model_instance: BaseModel) -> Dict[str, Any]:
             data[key] = value.isoformat()
     return data
 
+
 # Helper function to reconstruct Pydantic models from Neo4j properties
 def _from_neo4j_props(node_props: Dict[str, Any], model_class: BaseModel) -> BaseModel:
     props = node_props.copy()
-    if 'created_at' in props and isinstance(props['created_at'], str):
-        props['created_at'] = datetime.fromisoformat(props['created_at'])
-    if 'updated_at' in props and isinstance(props['updated_at'], str):
-        props['updated_at'] = datetime.fromisoformat(props['updated_at'])
-    if 'start_date' in props and isinstance(props['start_date'], str):
-        props['start_date'] = datetime.fromisoformat(props['start_date'])
-    if 'end_date' in props and isinstance(props['end_date'], str):
-        props['end_date'] = datetime.fromisoformat(props['end_date'])
-    if 'completed_at' in props and isinstance(props['completed_at'], str):
-        props['completed_at'] = datetime.fromisoformat(props['completed_at'])
+    if "created_at" in props and isinstance(props["created_at"], str):
+        props["created_at"] = datetime.fromisoformat(props["created_at"])
+    if "updated_at" in props and isinstance(props["updated_at"], str):
+        props["updated_at"] = datetime.fromisoformat(props["updated_at"])
+    if "start_date" in props and isinstance(props["start_date"], str):
+        props["start_date"] = datetime.fromisoformat(props["start_date"])
+    if "end_date" in props and isinstance(props["end_date"], str):
+        props["end_date"] = datetime.fromisoformat(props["end_date"])
+    if "completed_at" in props and isinstance(props["completed_at"], str):
+        props["completed_at"] = datetime.fromisoformat(props["completed_at"])
 
     # Reconstruct nested Pydantic models from JSON strings
-    if 'steps' in props and isinstance(props['steps'], str):
-        props['steps'] = [WorkflowStep(**item) for item in json.loads(props['steps'])]
-    if 'tasks' in props and isinstance(props['tasks'], str):
-        props['tasks'] = [WorkflowTaskStatus(**item) for item in json.loads(props['tasks'])]
+    if "steps" in props and isinstance(props["steps"], str):
+        props["steps"] = [WorkflowStep(**item) for item in json.loads(props["steps"])]
+    if "tasks" in props and isinstance(props["tasks"], str):
+        props["tasks"] = [WorkflowTaskStatus(**item) for item in json.loads(props["tasks"])]
 
     return model_class(**props)
 
+
 # --- WorkflowDefinition CRUD ---
-async def create_workflow_definition(session: AsyncSession, definition_data: WorkflowDefinitionCreate) -> WorkflowDefinitionInDB:
+async def create_workflow_definition(
+    session: AsyncSession, definition_data: WorkflowDefinitionCreate
+) -> WorkflowDefinitionInDB:
     definition_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
     updated_at = datetime.now(timezone.utc)
@@ -61,7 +73,7 @@ async def create_workflow_definition(session: AsyncSession, definition_data: Wor
     """
     result = await session.run(query, props=props)
     record = await result.single()
-    
+
     return _from_neo4j_props(record["wd"], WorkflowDefinitionInDB)
 
 
@@ -103,7 +115,9 @@ async def get_all_workflow_definitions(session: AsyncSession) -> List[WorkflowDe
     return definitions
 
 
-async def update_workflow_definition(session: AsyncSession, definition_id: str, definition_data: WorkflowDefinitionUpdate) -> Optional[WorkflowDefinitionInDB]:
+async def update_workflow_definition(
+    session: AsyncSession, definition_id: str, definition_data: WorkflowDefinitionUpdate
+) -> Optional[WorkflowDefinitionInDB]:
     update_fields = definition_data.model_dump(exclude_unset=True)
     if not update_fields:
         return await get_workflow_definition(session, definition_id)
@@ -143,7 +157,9 @@ async def delete_workflow_definition(session: AsyncSession, definition_id: str) 
 
 
 # --- WorkflowInstance CRUD ---
-async def create_workflow_instance(session: AsyncSession, instance_data: WorkflowInstanceCreate) -> WorkflowInstanceInDB:
+async def create_workflow_instance(
+    session: AsyncSession, instance_data: WorkflowInstanceCreate
+) -> WorkflowInstanceInDB:
     instance_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
     updated_at = datetime.now(timezone.utc)
@@ -153,7 +169,7 @@ async def create_workflow_instance(session: AsyncSession, instance_data: Workflo
     props["created_at"] = created_at.isoformat()
     props["updated_at"] = updated_at.isoformat()
     # Initialize tasks list for the new instance
-    props["tasks"] = json.dumps([]) # Start with no tasks
+    props["tasks"] = json.dumps([])  # Start with no tasks
 
     query = """
     MATCH (wd:WorkflowDefinition {id: $workflow_definition_id})
@@ -193,7 +209,9 @@ async def get_workflow_instances_by_definition(session: AsyncSession, definition
     return instances
 
 
-async def update_workflow_instance(session: AsyncSession, instance_id: str, instance_data: WorkflowInstanceUpdate) -> Optional[WorkflowInstanceInDB]:
+async def update_workflow_instance(
+    session: AsyncSession, instance_id: str, instance_data: WorkflowInstanceUpdate
+) -> Optional[WorkflowInstanceInDB]:
     update_fields = instance_data.model_dump(exclude_unset=True)
     if not update_fields:
         return await get_workflow_instance(session, instance_id)

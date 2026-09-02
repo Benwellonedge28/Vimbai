@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Order Acceptance Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class OrderAcceptanceDecision(BaseModel):
@@ -86,21 +94,30 @@ async def root():
 
 @app.post("/analyze")
 async def analyze_order_acceptance(
-    order_id: str, product_id: str, product_name: str, customer_name: str,
-    normal_selling_price: float, offered_price: float,
-    variable_cost_per_unit: float, units_requested: float,
+    order_id: str,
+    product_id: str,
+    product_name: str,
+    customer_name: str,
+    normal_selling_price: float,
+    offered_price: float,
+    variable_cost_per_unit: float,
+    units_requested: float,
     full_cost_per_unit: Optional[float] = None,
     incremental_fixed_costs: float = 0,
     displaced_sales_units: float = 0,
-    displaced_contribution_per_unit: float = 0
+    displaced_contribution_per_unit: float = 0,
 ):
     """Analyze order acceptance decision."""
     decision = OrderAcceptanceDecision(
-        order_id=order_id, product_id=product_id, product_name=product_name,
-        customer_name=customer_name, normal_selling_price=normal_selling_price,
-        offered_price=offered_price, variable_cost_per_unit=variable_cost_per_unit,
+        order_id=order_id,
+        product_id=product_id,
+        product_name=product_name,
+        customer_name=customer_name,
+        normal_selling_price=normal_selling_price,
+        offered_price=offered_price,
+        variable_cost_per_unit=variable_cost_per_unit,
         units_requested=units_requested,
-        total_fixed_cost_incremental=incremental_fixed_costs
+        total_fixed_cost_incremental=incremental_fixed_costs,
     )
 
     # Calculate price difference
@@ -121,9 +138,7 @@ async def analyze_order_acceptance(
     # Calculate minimum acceptable price
     if units_requested > 0:
         # Price that covers variable cost + incremental fixed costs
-        decision.minimum_acceptable_price = (
-            variable_cost_per_unit + (incremental_fixed_costs / units_requested)
-        )
+        decision.minimum_acceptable_price = variable_cost_per_unit + (incremental_fixed_costs / units_requested)
 
     # Calculate opportunity cost (contribution lost from displaced sales)
     decision.opportunity_cost = displaced_sales_units * displaced_contribution_per_unit
@@ -148,18 +163,16 @@ async def analyze_order_acceptance(
             decision.recommendation = "ACCEPT_WITH_CONDITIONS"
             decision.conditions = [
                 f"Net contribution: {decision.net_contribution}",
-                f"Consider impact on existing customers"
+                f"Consider impact on existing customers",
             ]
         elif decision.net_contribution == 0:
             decision.recommendation = "INDIFFERENT"
-            decision.conditions = [
-                "Consider strategic value of customer relationship"
-            ]
+            decision.conditions = ["Consider strategic value of customer relationship"]
         else:
             decision.recommendation = "REJECT"
             decision.conditions = [
                 f"Net contribution negative: {decision.net_contribution}",
-                "Would reduce overall profitability"
+                "Would reduce overall profitability",
             ]
 
     decisions.append(decision)
@@ -168,9 +181,11 @@ async def analyze_order_acceptance(
 
 @app.post("/one-time-order")
 async def analyze_one_time_order(
-    product_name: str, offered_price: float,
-    variable_cost_per_unit: float, units: float,
-    has_spare_capacity: bool = True
+    product_name: str,
+    offered_price: float,
+    variable_cost_per_unit: float,
+    units: float,
+    has_spare_capacity: bool = True,
 ):
     """Quick analysis for one-time special order."""
     contribution_per_unit = offered_price - variable_cost_per_unit
@@ -203,15 +218,13 @@ async def analyze_one_time_order(
         "minimum_acceptable_price": minimum_price,
         "has_spare_capacity": has_spare_capacity,
         "recommendation": recommendation,
-        "reason": reason
+        "reason": reason,
     }
 
 
 @app.get("/decisions")
 async def list_decisions(
-    order_id: Optional[str] = None,
-    product_id: Optional[str] = None,
-    recommendation: Optional[str] = None
+    order_id: Optional[str] = None, product_id: Optional[str] = None, recommendation: Optional[str] = None
 ):
     """List order acceptance decisions."""
     result = decisions
@@ -226,4 +239,5 @@ async def list_decisions(
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Revaluation Reserve Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class RevaluationEntry(BaseModel):
@@ -103,9 +111,14 @@ async def root():
 
 @app.post("/revaluations/record")
 async def record_revaluation(
-    company_id: str, asset_id: str, asset_name: str, asset_class: str,
-    revaluation_date: datetime, previous_value: float, new_value: float,
-    depreciation_adjustment: float = 0
+    company_id: str,
+    asset_id: str,
+    asset_name: str,
+    asset_class: str,
+    revaluation_date: datetime,
+    previous_value: float,
+    new_value: float,
+    depreciation_adjustment: float = 0,
 ):
     """Record asset revaluation."""
     revaluation_gain = 0
@@ -120,11 +133,17 @@ async def record_revaluation(
     net_effect = revaluation_gain - revaluation_loss - depreciation_adjustment
 
     entry = RevaluationEntry(
-        company_id=company_id, asset_id=asset_id, asset_name=asset_name,
-        asset_class=asset_class, revaluation_date=revaluation_date,
-        previous_value=previous_value, new_value=new_value,
-        revaluation_gain=revaluation_gain, revaluation_loss=revaluation_loss,
-        depreciation_adjustment=depreciation_adjustment, net_effect=net_effect
+        company_id=company_id,
+        asset_id=asset_id,
+        asset_name=asset_name,
+        asset_class=asset_class,
+        revaluation_date=revaluation_date,
+        previous_value=previous_value,
+        new_value=new_value,
+        revaluation_gain=revaluation_gain,
+        revaluation_loss=revaluation_loss,
+        depreciation_adjustment=depreciation_adjustment,
+        net_effect=net_effect,
     )
 
     asset_account = "1500" if asset_class == "property" else "1600"
@@ -137,7 +156,7 @@ async def record_revaluation(
                 {"account_code": asset_account, "description": asset_name, "debit": revaluation_gain, "credit": 0},
                 {"account_code": "3320", "description": "Revaluation Reserve", "debit": 0, "credit": revaluation_gain},
             ],
-            "reference": f"REV-{entry.id[:8]}"
+            "reference": f"REV-{entry.id[:8]}",
         }
     else:
         journal_entry = {
@@ -147,7 +166,7 @@ async def record_revaluation(
                 {"account_code": "3320", "description": "Revaluation Reserve", "debit": revaluation_loss, "credit": 0},
                 {"account_code": asset_account, "description": asset_name, "debit": 0, "credit": revaluation_loss},
             ],
-            "reference": f"REV-{entry.id[:8]}"
+            "reference": f"REV-{entry.id[:8]}",
         }
 
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
@@ -159,14 +178,18 @@ async def record_revaluation(
     if cumulative:
         cumulative.total_revaluation_gain += revaluation_gain
         cumulative.total_revaluation_loss += revaluation_loss
-        cumulative.net_revaluation_reserve = cumulative.total_revaluation_gain - cumulative.total_revaluation_loss - cumulative.total_utilized
+        cumulative.net_revaluation_reserve = (
+            cumulative.total_revaluation_gain - cumulative.total_revaluation_loss - cumulative.total_utilized
+        )
         cumulative.last_revaluation_date = revaluation_date
     else:
         cumulative = CumulativeRevaluation(
-            company_id=company_id, asset_id=asset_id,
-            total_revaluation_gain=revaluation_gain, total_revaluation_loss=revaluation_loss,
+            company_id=company_id,
+            asset_id=asset_id,
+            total_revaluation_gain=revaluation_gain,
+            total_revaluation_loss=revaluation_loss,
             net_revaluation_reserve=revaluation_gain - revaluation_loss,
-            last_revaluation_date=revaluation_date
+            last_revaluation_date=revaluation_date,
         )
         cumulative_revaluations.append(cumulative)
 
@@ -175,18 +198,24 @@ async def record_revaluation(
 
 @app.post("/utilizations/record")
 async def utilize_revaluation_reserve(
-    company_id: str, amount: float, utilization_type: str,
-    related_asset_id: Optional[str] = None, description: str = "",
-    utilization_date: Optional[datetime] = None
+    company_id: str,
+    amount: float,
+    utilization_type: str,
+    related_asset_id: Optional[str] = None,
+    description: str = "",
+    utilization_date: Optional[datetime] = None,
 ):
     """Utilize revaluation reserve."""
     if utilization_date is None:
         utilization_date = datetime.utcnow()
 
     utilization = RevaluationUtilization(
-        company_id=company_id, amount=amount, utilization_type=utilization_type,
-        related_asset_id=related_asset_id, description=description,
-        utilization_date=utilization_date
+        company_id=company_id,
+        amount=amount,
+        utilization_type=utilization_type,
+        related_asset_id=related_asset_id,
+        description=description,
+        utilization_date=utilization_date,
     )
 
     if utilization_type == "asset_disposal":
@@ -197,7 +226,7 @@ async def utilize_revaluation_reserve(
                 {"account_code": "3320", "description": "Revaluation Reserve", "debit": amount, "credit": 0},
                 {"account_code": "3300", "description": "Retained Earnings", "debit": 0, "credit": amount},
             ],
-            "reference": f"REV-UTIL-{utilization.id[:8]}"
+            "reference": f"REV-UTIL-{utilization.id[:8]}",
         }
     elif utilization_type == "impairment":
         journal_entry = {
@@ -207,7 +236,7 @@ async def utilize_revaluation_reserve(
                 {"account_code": "3320", "description": "Revaluation Reserve", "debit": amount, "credit": 0},
                 {"account_code": "1650", "description": "Impairment Loss", "debit": 0, "credit": amount},
             ],
-            "reference": f"REV-UTIL-{utilization.id[:8]}"
+            "reference": f"REV-UTIL-{utilization.id[:8]}",
         }
     else:  # transfer_retained_earnings
         journal_entry = {
@@ -217,7 +246,7 @@ async def utilize_revaluation_reserve(
                 {"account_code": "3320", "description": "Revaluation Reserve", "debit": amount, "credit": 0},
                 {"account_code": "3300", "description": "Retained Earnings", "debit": 0, "credit": amount},
             ],
-            "reference": f"REV-UTIL-{utilization.id[:8]}"
+            "reference": f"REV-UTIL-{utilization.id[:8]}",
         }
 
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
@@ -263,10 +292,11 @@ async def get_revaluation_summary(company_id: str):
         "total_revaluation_losses": total_losses,
         "total_utilized": total_utilized,
         "net_revaluation_reserve": total_gains - total_losses - total_utilized,
-        "assets_revalued": len(set(r.asset_id for r in company_revaluations))
+        "assets_revalued": len(set(r.asset_id for r in company_revaluations)),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

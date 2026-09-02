@@ -3,18 +3,19 @@ Vimbai Payment Gateway Service
 Processes payments, manages payment methods, handles refunds and disputes
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, status
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
-from enum import Enum
 import asyncio
+import hashlib
 import json
 import uuid
-import hashlib
-from decimal import Decimal, ROUND_HALF_UP
+from datetime import datetime, timedelta, timezone
+from decimal import ROUND_HALF_UP, Decimal
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
 from dotenv import load_dotenv
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -35,12 +36,13 @@ GATEWAY_PROVIDERS = {
     "paypal": {"name": "PayPal", "supports_cards": True, "supports_bank_transfer": True},
     "square": {"name": "Square", "supports_cards": True, "supports_bank_transfer": False},
     "adyen": {"name": "Adyen", "supports_cards": True, "supports_bank_transfer": True},
-    "braintree": {"name": "Braintree", "supports_cards": True, "supports_bank_transfer": True}
+    "braintree": {"name": "Braintree", "supports_cards": True, "supports_bank_transfer": True},
 }
 
 # ============================================================================
 # Models
 # ============================================================================
+
 
 class PaymentStatus(str, Enum):
     PENDING = "pending"
@@ -54,11 +56,13 @@ class PaymentStatus(str, Enum):
     CANCELLED = "cancelled"
     DISPUTED = "disputed"
 
+
 class PaymentMethodType(str, Enum):
     CARD = "card"
     BANK_ACCOUNT = "bank_account"
     PAYPAL = "paypal"
     CRYPTO = "crypto"
+
 
 class PaymentMethod(BaseModel):
     id: str
@@ -79,6 +83,7 @@ class PaymentMethod(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     created_at: datetime
 
+
 class PaymentCreate(BaseModel):
     customer_id: str
     amount: float = Field(..., gt=0)
@@ -96,6 +101,7 @@ class PaymentCreate(BaseModel):
     description: Optional[str] = None
     order_id: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+
 
 class Payment(BaseModel):
     id: str
@@ -117,11 +123,13 @@ class Payment(BaseModel):
     updated_at: datetime
     completed_at: Optional[datetime] = None
 
+
 class RefundCreate(BaseModel):
     payment_id: str
     amount: Optional[float] = None  # None = full refund
     reason: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+
 
 class Refund(BaseModel):
     id: str
@@ -135,12 +143,14 @@ class Refund(BaseModel):
     created_at: datetime
     completed_at: Optional[datetime] = None
 
+
 class DisputeCreate(BaseModel):
     payment_id: str
     reason: str
     amount: Optional[float] = None
     evidence: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
+
 
 class Dispute(BaseModel):
     id: str
@@ -156,6 +166,7 @@ class Dispute(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
 class Customer(BaseModel):
     id: str
     email: str
@@ -164,6 +175,7 @@ class Customer(BaseModel):
     default_payment_method_id: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
     created_at: datetime
+
 
 # ============================================================================
 # In-Memory Storage
@@ -179,28 +191,30 @@ disputes: Dict[str, Dispute] = {}
 # Helper Functions
 # ============================================================================
 
+
 def round_amount(amount: float, currency: str = "USD") -> float:
     """Round amount to proper decimal places for currency"""
-    decimal_places = {
-        "USD": 2, "EUR": 2, "GBP": 2, "CAD": 2, "AUD": 2,
-        "JPY": 0, "CNY": 2
-    }
+    decimal_places = {"USD": 2, "EUR": 2, "GBP": 2, "CAD": 2, "AUD": 2, "JPY": 0, "CNY": 2}
     places = decimal_places.get(currency, 2)
     return float(Decimal(str(amount)).quantize(Decimal(f"0.{'0' * places}"), rounding=ROUND_HALF_UP))
+
 
 def generate_payment_id() -> str:
     """Generate unique payment ID"""
     return f"pay_{uuid.uuid4().hex[:24]}"
 
+
 def generate_customer_id() -> str:
     """Generate unique customer ID"""
     return f"cus_{uuid.uuid4().hex[:16]}"
+
 
 def mask_card_number(card_number: str) -> str:
     """Mask card number, showing only last 4 digits"""
     if len(card_number) < 4:
         return "****"
     return card_number[-4:]
+
 
 def detect_card_brand(card_number: str) -> str:
     """Detect card brand from card number"""
@@ -212,10 +226,15 @@ def detect_card_brand(card_number: str) -> str:
         return "mastercard"
     elif card_number.startswith(("34", "37")):
         return "amex"
-    elif card_number.startswith("6011") or card_number.startswith(("644", "645", "646", "647", "648", "649")) or card_number.startswith("65"):
+    elif (
+        card_number.startswith("6011")
+        or card_number.startswith(("644", "645", "646", "647", "648", "649"))
+        or card_number.startswith("65")
+    ):
         return "discover"
     else:
         return "unknown"
+
 
 def validate_card_expiry(month: int, year: int) -> bool:
     """Validate card expiry date"""
@@ -230,11 +249,8 @@ def validate_card_expiry(month: int, year: int) -> bool:
 
     return True
 
-async def process_payment_gateway(
-    payment: Payment,
-    method: PaymentMethod,
-    capture: bool
-) -> Dict[str, Any]:
+
+async def process_payment_gateway(payment: Payment, method: PaymentMethod, capture: bool) -> Dict[str, Any]:
     """Process payment through gateway (simulated)"""
     # In production, integrate with actual gateway (Stripe, PayPal, etc.)
     # This is a simulation for the service
@@ -244,31 +260,26 @@ async def process_payment_gateway(
 
     # Simulate gateway response
     if payment.amount > 10000:
-        return {
-            "success": False,
-            "error_code": "insufficient_funds",
-            "error_message": "Payment amount exceeds limit"
-        }
+        return {"success": False, "error_code": "insufficient_funds", "error_message": "Payment amount exceeds limit"}
 
     return {
         "success": True,
         "gateway_transaction_id": f"ch_{uuid.uuid4().hex[:24]}",
-        "status": "captured" if capture else "authorized"
+        "status": "captured" if capture else "authorized",
     }
+
 
 async def process_refund_gateway(refund: Refund) -> Dict[str, Any]:
     """Process refund through gateway (simulated)"""
     await asyncio.sleep(0.3)
 
-    return {
-        "success": True,
-        "gateway_refund_id": f"re_{uuid.uuid4().hex[:24]}",
-        "status": "completed"
-    }
+    return {"success": True, "gateway_refund_id": f"re_{uuid.uuid4().hex[:24]}", "status": "completed"}
+
 
 # ============================================================================
 # API Endpoints
 # ============================================================================
+
 
 @app.get("/")
 async def health_check():
@@ -276,39 +287,34 @@ async def health_check():
         "status": "healthy",
         "service": "payment-gateway",
         "total_payments": len(payments),
-        "total_customers": len(customers)
+        "total_customers": len(customers),
     }
+
 
 # --- Customer Management ---
 
+
 @app.post("/customers", status_code=status.HTTP_201_CREATED)
 async def create_customer(
-    email: str,
-    name: Optional[str] = None,
-    currency: str = "USD",
-    metadata: Optional[Dict[str, Any]] = None
+    email: str, name: Optional[str] = None, currency: str = "USD", metadata: Optional[Dict[str, Any]] = None
 ):
     """Create a new customer"""
     if currency not in SUPPORTED_CURRENCIES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Currency not supported. Supported: {', '.join(SUPPORTED_CURRENCIES)}"
+            detail=f"Currency not supported. Supported: {', '.join(SUPPORTED_CURRENCIES)}",
         )
 
     customer_id = generate_customer_id()
     now = datetime.now(timezone.utc)
 
     customer = Customer(
-        id=customer_id,
-        email=email,
-        name=name,
-        default_currency=currency,
-        metadata=metadata,
-        created_at=now
+        id=customer_id, email=email, name=name, default_currency=currency, metadata=metadata, created_at=now
     )
 
     customers[customer_id] = customer
     return customer
+
 
 @app.get("/customers/{customer_id}")
 async def get_customer(customer_id: str):
@@ -317,16 +323,19 @@ async def get_customer(customer_id: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
     return customers[customer_id]
 
+
 @app.get("/customers")
 async def list_customers(limit: int = 50, offset: int = 0):
     """List all customers"""
     results = list(customers.values())
     results.sort(key=lambda x: x.created_at, reverse=True)
     total = len(results)
-    results = results[offset:offset + limit]
+    results = results[offset : offset + limit]
     return {"total": total, "customers": results}
 
+
 # --- Payment Method Management ---
+
 
 @app.post("/customers/{customer_id}/payment-methods", status_code=status.HTTP_201_CREATED)
 async def add_payment_method(
@@ -344,7 +353,7 @@ async def add_payment_method(
     account_type: Optional[str] = None,
     # Options
     set_as_default: bool = False,
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None,
 ):
     """Add a payment method for customer"""
     if customer_id not in customers:
@@ -359,7 +368,7 @@ async def add_payment_method(
         "type": method_type,
         "is_default": set_as_default,
         "metadata": metadata,
-        "created_at": now
+        "created_at": now,
     }
 
     if method_type == PaymentMethodType.CARD:
@@ -397,6 +406,7 @@ async def add_payment_method(
 
     return method
 
+
 @app.get("/customers/{customer_id}/payment-methods")
 async def list_payment_methods(customer_id: str):
     """List customer's payment methods"""
@@ -405,6 +415,7 @@ async def list_payment_methods(customer_id: str):
 
     methods = [m for m in payment_methods.values() if m.customer_id == customer_id]
     return {"total": len(methods), "payment_methods": methods}
+
 
 @app.delete("/payment-methods/{method_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_payment_method(method_id: str):
@@ -415,19 +426,15 @@ async def delete_payment_method(method_id: str):
     del payment_methods[method_id]
     return {"ok": True}
 
+
 # --- Payment Processing ---
 
+
 @app.post("/payments", status_code=status.HTTP_201_CREATED)
-async def create_payment(
-    payment_data: PaymentCreate,
-    background_tasks: BackgroundTasks
-):
+async def create_payment(payment_data: PaymentCreate, background_tasks: BackgroundTasks):
     """Create and process a payment"""
     if payment_data.currency not in SUPPORTED_CURRENCIES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Currency not supported"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Currency not supported")
 
     if payment_data.customer_id not in customers:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
@@ -458,11 +465,13 @@ async def create_payment(
                 brand=detect_card_brand(payment_data.card_number),
                 expiry_month=payment_data.card_exp_month,
                 expiry_year=payment_data.card_exp_year,
-                created_at=datetime.now(timezone.utc)
+                created_at=datetime.now(timezone.utc),
             )
             payment_methods[method_id] = method
         else:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Payment method type not fully supported")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Payment method type not fully supported"
+            )
     else:
         # Use customer's default payment method
         default_pm_id = customers[payment_data.customer_id].default_payment_method_id
@@ -486,7 +495,7 @@ async def create_payment(
         order_id=payment_data.order_id,
         metadata=payment_data.metadata,
         created_at=now,
-        updated_at=now
+        updated_at=now,
     )
 
     payments[payment_id] = payment
@@ -495,6 +504,7 @@ async def create_payment(
     background_tasks.add_task(process_payment, payment_id, method.id, payment_data.capture)
 
     return payment
+
 
 async def process_payment(payment_id: str, method_id: str, capture: bool):
     """Background task to process payment"""
@@ -522,12 +532,14 @@ async def process_payment(payment_id: str, method_id: str, capture: bool):
 
     payment.updated_at = datetime.now(timezone.utc)
 
+
 @app.get("/payments/{payment_id}")
 async def get_payment(payment_id: str):
     """Get payment details"""
     if payment_id not in payments:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
     return payments[payment_id]
+
 
 @app.get("/payments")
 async def list_payments(
@@ -536,7 +548,7 @@ async def list_payments(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     limit: int = 50,
-    offset: int = 0
+    offset: int = 0,
 ):
     """List payments with filters"""
     results = list(payments.values())
@@ -552,9 +564,10 @@ async def list_payments(
 
     results.sort(key=lambda x: x.created_at, reverse=True)
     total = len(results)
-    results = results[offset:offset + limit]
+    results = results[offset : offset + limit]
 
     return {"total": total, "payments": results}
+
 
 @app.post("/payments/{payment_id}/capture", status_code=status.HTTP_200_OK)
 async def capture_authorized_payment(payment_id: str):
@@ -566,8 +579,7 @@ async def capture_authorized_payment(payment_id: str):
 
     if payment.status != PaymentStatus.AUTHORIZED:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot capture payment with status: {payment.status}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Cannot capture payment with status: {payment.status}"
         )
 
     # In production, call gateway to capture
@@ -576,6 +588,7 @@ async def capture_authorized_payment(payment_id: str):
     payment.updated_at = datetime.now(timezone.utc)
 
     return payment
+
 
 @app.post("/payments/{payment_id}/cancel", status_code=status.HTTP_200_OK)
 async def cancel_payment(payment_id: str):
@@ -587,8 +600,7 @@ async def cancel_payment(payment_id: str):
 
     if payment.status in [PaymentStatus.COMPLETED, PaymentStatus.REFUNDED]:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot cancel payment with status: {payment.status}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Cannot cancel payment with status: {payment.status}"
         )
 
     # In production, void with gateway
@@ -597,13 +609,12 @@ async def cancel_payment(payment_id: str):
 
     return payment
 
+
 # --- Refunds ---
 
+
 @app.post("/refunds", status_code=status.HTTP_201_CREATED)
-async def create_refund(
-    refund_data: RefundCreate,
-    background_tasks: BackgroundTasks
-):
+async def create_refund(refund_data: RefundCreate, background_tasks: BackgroundTasks):
     """Create and process a refund"""
     if refund_data.payment_id not in payments:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
@@ -612,18 +623,14 @@ async def create_refund(
 
     if payment.status not in [PaymentStatus.CAPTURED, PaymentStatus.COMPLETED]:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot refund payment with status: {payment.status}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Cannot refund payment with status: {payment.status}"
         )
 
     # Calculate refund amount
     refund_amount = refund_data.amount or (payment.amount - payment.refunded_amount)
 
     if refund_amount > (payment.amount - payment.refunded_amount):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Refund amount exceeds available"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Refund amount exceeds available")
 
     refund_id = f"re_{uuid.uuid4().hex[:24]}"
     now = datetime.now(timezone.utc)
@@ -636,7 +643,7 @@ async def create_refund(
         status="pending",
         reason=refund_data.reason,
         metadata=refund_data.metadata,
-        created_at=now
+        created_at=now,
     )
 
     refunds[refund_id] = refund
@@ -645,6 +652,7 @@ async def create_refund(
     background_tasks.add_task(process_refund, refund_id)
 
     return refund
+
 
 async def process_refund(refund_id: str):
     """Background task to process refund"""
@@ -676,12 +684,14 @@ async def process_refund(refund_id: str):
 
     payment.updated_at = datetime.now(timezone.utc)
 
+
 @app.get("/refunds/{refund_id}")
 async def get_refund(refund_id: str):
     """Get refund details"""
     if refund_id not in refunds:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Refund not found")
     return refunds[refund_id]
+
 
 @app.get("/payments/{payment_id}/refunds")
 async def list_payment_refunds(payment_id: str):
@@ -692,7 +702,9 @@ async def list_payment_refunds(payment_id: str):
     payment_refunds = [r for r in refunds.values() if r.payment_id == payment_id]
     return {"total": len(payment_refunds), "refunds": payment_refunds}
 
+
 # --- Disputes ---
+
 
 @app.post("/disputes", status_code=status.HTTP_201_CREATED)
 async def create_dispute(dispute_data: DisputeCreate):
@@ -703,10 +715,7 @@ async def create_dispute(dispute_data: DisputeCreate):
     payment = payments[dispute_data.payment_id]
 
     if payment.status != PaymentStatus.CAPTURED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can only dispute captured payments"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Can only dispute captured payments")
 
     dispute_id = f"dp_{uuid.uuid4().hex[:24]}"
     now = datetime.now(timezone.utc)
@@ -722,7 +731,7 @@ async def create_dispute(dispute_data: DisputeCreate):
         metadata=dispute_data.metadata,
         due_by=now + timedelta(days=14),
         created_at=now,
-        updated_at=now
+        updated_at=now,
     )
 
     disputes[dispute_id] = dispute
@@ -733,6 +742,7 @@ async def create_dispute(dispute_data: DisputeCreate):
 
     return dispute
 
+
 @app.get("/disputes/{dispute_id}")
 async def get_dispute(dispute_id: str):
     """Get dispute details"""
@@ -740,12 +750,9 @@ async def get_dispute(dispute_id: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dispute not found")
     return disputes[dispute_id]
 
+
 @app.get("/disputes")
-async def list_disputes(
-    payment_id: Optional[str] = None,
-    status: Optional[str] = None,
-    limit: int = 50
-):
+async def list_disputes(payment_id: Optional[str] = None, status: Optional[str] = None, limit: int = 50):
     """List disputes"""
     results = list(disputes.values())
 
@@ -756,6 +763,7 @@ async def list_disputes(
 
     results.sort(key=lambda x: x.created_at, reverse=True)
     return {"total": len(results), "disputes": results[:limit]}
+
 
 @app.post("/disputes/{dispute_id}/evidence")
 async def submit_dispute_evidence(dispute_id: str, evidence: Dict[str, Any]):
@@ -770,7 +778,9 @@ async def submit_dispute_evidence(dispute_id: str, evidence: Dict[str, Any]):
     # In production, submit to gateway
     return dispute
 
+
 # --- Statistics ---
+
 
 @app.get("/statistics")
 async def get_statistics(start_date: Optional[datetime] = None, end_date: Optional[datetime] = None):
@@ -783,7 +793,9 @@ async def get_statistics(start_date: Optional[datetime] = None, end_date: Option
         all_payments = [p for p in all_payments if p.created_at <= end_date]
 
     total_amount = sum(p.amount for p in all_payments)
-    successful_amount = sum(p.amount for p in all_payments if p.status in [PaymentStatus.CAPTURED, PaymentStatus.COMPLETED])
+    successful_amount = sum(
+        p.amount for p in all_payments if p.status in [PaymentStatus.CAPTURED, PaymentStatus.COMPLETED]
+    )
     refunded_amount = sum(p.refunded_amount for p in all_payments)
 
     by_status = {}
@@ -812,10 +824,11 @@ async def get_statistics(start_date: Optional[datetime] = None, end_date: Option
         "by_currency": by_currency,
         "total_customers": len(customers),
         "total_payment_methods": len(payment_methods),
-        "open_disputes": len([d for d in disputes.values() if d.status == "open"])
+        "open_disputes": len([d for d in disputes.values() if d.status == "open"]),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8098)

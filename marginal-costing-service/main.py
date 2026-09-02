@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Marginal Costing Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class MarginalCost(BaseModel):
@@ -101,14 +109,21 @@ async def root():
 
 @app.post("/costs/add")
 async def add_marginal_cost(
-    cost_name: str, cost_code: str, variable_cost: float,
-    fixed_cost: float = 0, units: float = 1, cost_driver: str = "units"
+    cost_name: str,
+    cost_code: str,
+    variable_cost: float,
+    fixed_cost: float = 0,
+    units: float = 1,
+    cost_driver: str = "units",
 ):
     """Add a marginal cost item."""
     cost = MarginalCost(
-        cost_name=cost_name, cost_code=cost_code,
-        variable_cost=variable_cost, fixed_cost=fixed_cost,
-        units=units, cost_driver=cost_driver
+        cost_name=cost_name,
+        cost_code=cost_code,
+        variable_cost=variable_cost,
+        fixed_cost=fixed_cost,
+        units=units,
+        cost_driver=cost_driver,
     )
     cost.total_cost = variable_cost + fixed_cost
     cost.unit_variable_cost = variable_cost / units if units > 0 else 0
@@ -118,19 +133,18 @@ async def add_marginal_cost(
 
 @app.post("/income-statement/generate")
 async def generate_marginal_income_statement(
-    company_id: str, period: str,
-    sales_revenue: float, variable_costs: Dict[str, float],
-    fixed_costs: float
+    company_id: str, period: str, sales_revenue: float, variable_costs: Dict[str, float], fixed_costs: float
 ):
     """Generate marginal income statement."""
     total_variable_costs = sum(variable_costs.values())
 
     statement = MarginalIncomeStatement(
-        company_id=company_id, period=period,
+        company_id=company_id,
+        period=period,
         sales_revenue=sales_revenue,
         total_variable_costs=total_variable_costs,
         fixed_costs=fixed_costs,
-        variable_cost_breakdown=variable_costs
+        variable_cost_breakdown=variable_costs,
     )
 
     # Calculate Contribution
@@ -145,15 +159,14 @@ async def generate_marginal_income_statement(
 
 @app.post("/contribution/analyze")
 async def analyze_contribution(
-    product_id: str, selling_price: float,
-    variable_cost_per_unit: float, units_sold: float,
-    fixed_costs: float = 0
+    product_id: str, selling_price: float, variable_cost_per_unit: float, units_sold: float, fixed_costs: float = 0
 ):
     """Analyze contribution for a product."""
     analysis = ContributionAnalysis(
-        product_id=product_id, selling_price=selling_price,
+        product_id=product_id,
+        selling_price=selling_price,
         variable_cost_per_unit=variable_cost_per_unit,
-        fixed_costs_allocated=fixed_costs
+        fixed_costs_allocated=fixed_costs,
     )
 
     # Calculate Contribution per Unit
@@ -175,8 +188,7 @@ async def analyze_contribution(
 
 @app.post("/profit-forecast")
 async def forecast_profit(
-    selling_price: float, variable_cost_per_unit: float,
-    fixed_costs: float, expected_units: float
+    selling_price: float, variable_cost_per_unit: float, fixed_costs: float, expected_units: float
 ):
     """Forecast profit using marginal costing."""
     contribution_per_unit = selling_price - variable_cost_per_unit
@@ -191,15 +203,12 @@ async def forecast_profit(
         "expected_units": expected_units,
         "total_contribution": total_contribution,
         "fixed_costs": fixed_costs,
-        "forecast_profit": forecast_profit
+        "forecast_profit": forecast_profit,
     }
 
 
 @app.get("/income-statements")
-async def list_income_statements(
-    company_id: Optional[str] = None,
-    period: Optional[str] = None
-):
+async def list_income_statements(company_id: Optional[str] = None, period: Optional[str] = None):
     """List marginal income statements."""
     result = income_statements
     if company_id:
@@ -228,10 +237,11 @@ async def get_marginal_cost_summary():
         "total_variable_costs": total_variable,
         "total_fixed_costs": total_fixed,
         "total_costs": total_variable + total_fixed,
-        "cost_items": len(marginal_costs)
+        "cost_items": len(marginal_costs),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

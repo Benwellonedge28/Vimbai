@@ -22,15 +22,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Bank Reconciliation Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class TransactionType(str, Enum):
@@ -155,10 +163,16 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 async def call_audit_service(action: str, resource_type: str, resource_id: str, details: Dict[str, Any]):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(f"{AUDIT_SERVICE_URL}/audit", json={
-                "action": action, "resource_type": resource_type, "resource_id": resource_id,
-                "details": details, "timestamp": datetime.utcnow().isoformat()
-            })
+            await client.post(
+                f"{AUDIT_SERVICE_URL}/audit",
+                json={
+                    "action": action,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "details": details,
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            )
     except Exception:
         pass
 
@@ -176,6 +190,7 @@ async def root():
 # ============================================================================
 # Bank Statement Management
 # ============================================================================
+
 
 @app.post("/statements")
 async def import_statement(data: BankStatement):
@@ -214,6 +229,7 @@ async def get_statement(statement_id: str):
 # Cash Book Management
 # ============================================================================
 
+
 @app.post("/cash-book")
 async def add_cash_book_entry(data: CashBookEntry):
     """Add cash book entry."""
@@ -225,8 +241,10 @@ async def add_cash_book_entry(data: CashBookEntry):
 
 @app.get("/cash-book")
 async def list_cash_book_entries(
-    bank_account: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None,
-    matched: Optional[bool] = None
+    bank_account: str,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    matched: Optional[bool] = None,
 ):
     """List cash book entries."""
     result = [e for e in cash_book_entries if e.date.year == datetime.utcnow().year]
@@ -243,31 +261,36 @@ async def list_cash_book_entries(
 # Reconciliation Process
 # ============================================================================
 
+
 @app.post("/reconcile")
 async def create_reconciliation(
-    bank_account: str, reconciliation_date: datetime,
-    statement_balance: float, cash_book_balance: float,
-    outstanding_deposits: float = 0, outstanding_cheques: float = 0,
-    bank_errors: float = 0, cash_book_errors: float = 0
+    bank_account: str,
+    reconciliation_date: datetime,
+    statement_balance: float,
+    cash_book_balance: float,
+    outstanding_deposits: float = 0,
+    outstanding_cheques: float = 0,
+    bank_errors: float = 0,
+    cash_book_errors: float = 0,
 ):
     """Create bank reconciliation."""
     reconciliation = BankReconciliation(
-        bank_account=bank_account, reconciliation_date=reconciliation_date,
-        statement_balance=statement_balance, cash_book_balance=cash_book_balance,
-        outstanding_deposits=outstanding_deposits, outstanding_cheques=outstanding_cheques,
-        bank_errors=bank_errors, cash_book_errors=cash_book_errors
+        bank_account=bank_account,
+        reconciliation_date=reconciliation_date,
+        statement_balance=statement_balance,
+        cash_book_balance=cash_book_balance,
+        outstanding_deposits=outstanding_deposits,
+        outstanding_cheques=outstanding_cheques,
+        bank_errors=bank_errors,
+        cash_book_errors=cash_book_errors,
     )
 
     # Calculate adjusted balances
     reconciliation.adjusted_statement_balance = (
         statement_balance - outstanding_cheques + outstanding_deposits - bank_errors
     )
-    reconciliation.adjusted_cash_book_balance = (
-        cash_book_balance - bank_errors + cash_book_errors
-    )
-    reconciliation.difference = (
-        reconciliation.adjusted_statement_balance - reconciliation.adjusted_cash_book_balance
-    )
+    reconciliation.adjusted_cash_book_balance = cash_book_balance - bank_errors + cash_book_errors
+    reconciliation.difference = reconciliation.adjusted_statement_balance - reconciliation.adjusted_cash_book_balance
 
     reconciliations.append(reconciliation)
     await call_audit_service("CREATE", "reconciliation", reconciliation.id, {"difference": reconciliation.difference})
@@ -310,12 +333,14 @@ async def auto_match_transactions(reconciliation_id: str, statement_id: str):
     unmatched_cash = [e for e in cash_book_entries if not e.matched]
 
     reconciliation.items = [
-        ReconciliationItem(item_type="bank_only", date=l.date, description=l.description,
-                         reference=l.reference, amount=l.amount)
+        ReconciliationItem(
+            item_type="bank_only", date=l.date, description=l.description, reference=l.reference, amount=l.amount
+        )
         for l in unmatched_bank
     ] + [
-        ReconciliationItem(item_type="cash_book_only", date=e.date, description=e.description,
-                         reference=e.reference, amount=e.amount)
+        ReconciliationItem(
+            item_type="cash_book_only", date=e.date, description=e.description, reference=e.reference, amount=e.amount
+        )
         for e in unmatched_cash
     ]
 
@@ -323,7 +348,7 @@ async def auto_match_transactions(reconciliation_id: str, statement_id: str):
         "reconciliation": reconciliation,
         "matched_count": len(statement.lines) - len(unmatched_bank),
         "unmatched_bank": len(unmatched_bank),
-        "unmatched_cash_book": len(unmatched_cash)
+        "unmatched_cash_book": len(unmatched_cash),
     }
 
 
@@ -338,12 +363,14 @@ async def post_adjustments(reconciliation_id: str):
 
     # Bank errors
     if reconciliation.bank_errors != 0:
-        entries.append({
-            "account_code": "2100" if reconciliation.bank_errors > 0 else "1100",
-            "description": "Bank reconciliation adjustment",
-            "debit": abs(reconciliation.bank_errors) if reconciliation.bank_errors < 0 else 0,
-            "credit": abs(reconciliation.bank_errors) if reconciliation.bank_errors > 0 else 0,
-        })
+        entries.append(
+            {
+                "account_code": "2100" if reconciliation.bank_errors > 0 else "1100",
+                "description": "Bank reconciliation adjustment",
+                "debit": abs(reconciliation.bank_errors) if reconciliation.bank_errors < 0 else 0,
+                "credit": abs(reconciliation.bank_errors) if reconciliation.bank_errors > 0 else 0,
+            }
+        )
 
     journal_entry = {
         "date": reconciliation.reconciliation_date,
@@ -385,6 +412,7 @@ async def get_reconciliation(reconciliation_id: str):
 # Outstanding Items Report
 # ============================================================================
 
+
 @app.get("/outstanding-items")
 async def get_outstanding_items(bank_account: str, as_of_date: Optional[datetime] = None):
     """Get outstanding cheques and deposits."""
@@ -399,17 +427,20 @@ async def get_outstanding_items(bank_account: str, as_of_date: Optional[datetime
     return {
         "outstanding_cheques": [
             {"date": i.date, "description": i.description, "amount": i.amount, "reference": i.reference}
-            for i in latest.items if i.amount > 0 and "cheque" in i.description.lower()
+            for i in latest.items
+            if i.amount > 0 and "cheque" in i.description.lower()
         ],
         "outstanding_deposits": [
             {"date": i.date, "description": i.description, "amount": i.amount, "reference": i.reference}
-            for i in latest.items if i.amount < 0 or "deposit" in i.description.lower()
+            for i in latest.items
+            if i.amount < 0 or "deposit" in i.description.lower()
         ],
         "total_cheques": latest.outstanding_cheques,
-        "total_deposits": latest.outstanding_deposits
+        "total_deposits": latest.outstanding_deposits,
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

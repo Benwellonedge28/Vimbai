@@ -1,12 +1,14 @@
-import httpx
 import os
-from typing import Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
+import httpx
 from dotenv import load_dotenv
 
 # Assuming accounting_service.models.py is available (e.g., copied or shared module)
 # For a proper microservices setup, this would be imported from a shared client library
 # or re-defined. For simplicity, we'll assume the structure of JournalEntryCreate.
 # In a real system, you'd define this in a common 'shared_models' or similar.
+
 
 # Placeholder for JournalEntryCreate/JournalLineCreate from accounting_service
 # In a production environment, these would be imported from a shared library/package
@@ -25,8 +27,16 @@ class MockJournalLineCreate:
             "description": self.description,
         }
 
+
 class MockJournalEntryCreate:
-    def __init__(self, entry_date: str, description: str, source_module: str, reference_number: str, lines: List[MockJournalLineCreate]):
+    def __init__(
+        self,
+        entry_date: str,
+        description: str,
+        source_module: str,
+        reference_number: str,
+        lines: List[MockJournalLineCreate],
+    ):
         self.entry_date = entry_date
         self.description = description
         self.source_module = source_module
@@ -42,13 +52,17 @@ class MockJournalEntryCreate:
             "lines": [line.dict() for line in self.lines],
         }
 
+
 load_dotenv()
+
 
 class AccountingServiceClientException(Exception):
     """Custom exception for Accounting Service API errors."""
+
     def __init__(self, message: str, status_code: Optional[int] = None):
         super().__init__(message)
         self.status_code = status_code
+
 
 class AccountingServiceClient:
     def __init__(self, base_url: str = None):
@@ -61,7 +75,7 @@ class AccountingServiceClient:
         url = f"{self.base_url}/journal-entries/"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {user_id}", # In a real system, this would be a valid JWT or internal service token
+            "Authorization": f"Bearer {user_id}",  # In a real system, this would be a valid JWT or internal service token
         }
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=journal_entry_data.json())
@@ -69,8 +83,7 @@ class AccountingServiceClient:
             if response.status_code != 201:
                 error_detail = response.json().get("detail", response.text)
                 raise AccountingServiceClientException(
-                    f"Failed to create Journal Entry: {error_detail}",
-                    response.status_code
+                    f"Failed to create Journal Entry: {error_detail}", response.status_code
                 )
             return response.json()
 
@@ -78,17 +91,15 @@ class AccountingServiceClient:
         """Calls the Accounting Service to get the Chart of Accounts."""
         url = f"{self.base_url}/accounts/"
         headers = {
-            "Authorization": f"Bearer {user_id}", # Use user_id as a mock token
+            "Authorization": f"Bearer {user_id}",  # Use user_id as a mock token
         }
         async with httpx.AsyncClient() as client:
             response = await client.get(url, headers=headers)
             if response.status_code != 200:
                 error_detail = response.json().get("detail", response.text)
                 raise AccountingServiceClientException(
-                    f"Failed to fetch Chart of Accounts: {error_detail}",
-                    response.status_code
+                    f"Failed to fetch Chart of Accounts: {error_detail}", response.status_code
                 )
             return response.json()
 
     # Add other Accounting Service methods as needed (e.g., get_account_by_number, get_journal_entry_by_id)
-

@@ -2,6 +2,7 @@
 Migration 001: Initial Neo4j Schema
 Creates constraints, indexes, and initial schema for Vimbai
 """
+
 import logging
 from datetime import datetime
 
@@ -10,6 +11,7 @@ logger = logging.getLogger(__name__)
 MIGRATION_ID = "001"
 MIGRATION_NAME = "initial_schema"
 MIGRATION_DESCRIPTION = "Create initial Neo4j constraints and indexes"
+
 
 async def up(session):
     """Apply the migration."""
@@ -46,9 +48,12 @@ async def up(session):
     # Record migration
     await session.run(
         "CREATE (m:Migration {id: $id, name: $name, description: $description, applied_at: datetime()})",
-        id=MIGRATION_ID, name=MIGRATION_NAME, description=MIGRATION_DESCRIPTION
+        id=MIGRATION_ID,
+        name=MIGRATION_NAME,
+        description=MIGRATION_DESCRIPTION,
     )
     logger.info(f"Migration {MIGRATION_ID} applied successfully")
+
 
 async def down(session):
     """Rollback the migration."""

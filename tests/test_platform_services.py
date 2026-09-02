@@ -2,9 +2,11 @@
 Integration tests for Policy Engine, Webhook, WebSocket, State Machine,
 and other platform services.
 """
+
 import pytest
-from tests.conftest import load_service
 from fastapi.testclient import TestClient
+
+from tests.conftest import load_service
 
 
 @pytest.fixture
@@ -12,45 +14,54 @@ def policy_client():
     app = load_service("policy-engine-service").main.app
     return TestClient(app)
 
+
 @pytest.fixture
 def webhook_client():
     app = load_service("webhook-service").main.app
     return TestClient(app)
+
 
 @pytest.fixture
 def state_machine_client():
     app = load_service("financial-state-machine-service").main.app
     return TestClient(app)
 
+
 @pytest.fixture
 def integrity_client():
     app = load_service("financial-integrity-service").main.app
     return TestClient(app)
+
 
 @pytest.fixture
 def identity_client():
     app = load_service("financial-identity-service").main.app
     return TestClient(app)
 
+
 @pytest.fixture
 def appropriation_client():
     app = load_service("appropriation-control-service").main.app
     return TestClient(app)
+
 
 @pytest.fixture
 def scenario_client():
     app = load_service("scenario-analysis-service").main.app
     return TestClient(app)
 
+
 @pytest.fixture
 def cash_opt_client():
     app = load_service("cash-optimization-service").main.app
     return TestClient(app)
 
+
 @pytest.fixture
 def sensitivity_client():
     app = load_service("sensitivity-analysis-service").main.app
     return TestClient(app)
+
 
 @pytest.fixture
 def zbb_client():
@@ -63,24 +74,34 @@ class TestPolicyEngine:
         assert policy_client.get("/").status_code == 200
 
     def test_create_rule(self, policy_client):
-        resp = policy_client.post("/rules/comp-1", json={
-            "name": "Large Transaction Check",
-            "resource_type": "transaction",
-            "condition_field": "amount",
-            "condition_operator": ">",
-            "condition_value": 50000,
-            "action": "require_approval",
-            "message": "Transaction requires approval"
-        })
+        resp = policy_client.post(
+            "/rules/comp-1",
+            json={
+                "name": "Large Transaction Check",
+                "resource_type": "transaction",
+                "condition_field": "amount",
+                "condition_operator": ">",
+                "condition_value": 50000,
+                "action": "require_approval",
+                "message": "Transaction requires approval",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["action"] == "require_approval"
 
     def test_evaluate_triggered(self, policy_client):
-        policy_client.post("/rules/comp-eval", json={
-            "name": "Max Amount", "resource_type": "transaction",
-            "condition_field": "amount", "condition_operator": ">",
-            "condition_value": 10000, "action": "deny", "message": "Too large"
-        })
+        policy_client.post(
+            "/rules/comp-eval",
+            json={
+                "name": "Max Amount",
+                "resource_type": "transaction",
+                "condition_field": "amount",
+                "condition_operator": ">",
+                "condition_value": 10000,
+                "action": "deny",
+                "message": "Too large",
+            },
+        )
         resp = policy_client.post("/evaluate/comp-eval?resource_type=transaction", json={"amount": 50000})
         assert resp.status_code == 200
         data = resp.json()
@@ -89,11 +110,18 @@ class TestPolicyEngine:
         assert data["allowed"] == False
 
     def test_evaluate_not_triggered(self, policy_client):
-        policy_client.post("/rules/comp-ok", json={
-            "name": "Max Amount", "resource_type": "transaction",
-            "condition_field": "amount", "condition_operator": ">",
-            "condition_value": 100000, "action": "deny", "message": "Too large"
-        })
+        policy_client.post(
+            "/rules/comp-ok",
+            json={
+                "name": "Max Amount",
+                "resource_type": "transaction",
+                "condition_field": "amount",
+                "condition_operator": ">",
+                "condition_value": 100000,
+                "action": "deny",
+                "message": "Too large",
+            },
+        )
         resp = policy_client.post("/evaluate/comp-ok?resource_type=transaction", json={"amount": 5000})
         assert resp.json()["allowed"] == True
 
@@ -103,10 +131,14 @@ class TestWebhook:
         assert webhook_client.get("/").status_code == 200
 
     def test_create_endpoint(self, webhook_client):
-        resp = webhook_client.post("/endpoints", json={
-            "company_id": "comp-1", "url": "https://example.com/webhook",
-            "events": ["invoice.created", "payment.received"]
-        })
+        resp = webhook_client.post(
+            "/endpoints",
+            json={
+                "company_id": "comp-1",
+                "url": "https://example.com/webhook",
+                "events": ["invoice.created", "payment.received"],
+            },
+        )
         assert resp.status_code == 200
         assert "id" in resp.json()
 
@@ -129,9 +161,9 @@ class TestStateMachine:
         assert "posted" in data["states"]
 
     def test_create_and_transition(self, state_machine_client):
-        create = state_machine_client.post("/documents", json={
-            "company_id": "comp-1", "document_type": "invoice", "reference": "INV-001"
-        })
+        create = state_machine_client.post(
+            "/documents", json={"company_id": "comp-1", "document_type": "invoice", "reference": "INV-001"}
+        )
         assert create.status_code == 200
         doc_id = create.json()["id"]
         assert create.json()["current_state"] == "draft"
@@ -183,7 +215,9 @@ class TestFinancialIntegrity:
         assert resp.json()["passed"] == False
 
     def test_completeness_check(self, integrity_client):
-        resp = integrity_client.post("/check/completeness?company_id=comp-1&entity_type=transactions&expected_count=100&actual_count=98")
+        resp = integrity_client.post(
+            "/check/completeness?company_id=comp-1&entity_type=transactions&expected_count=100&actual_count=98"
+        )
         assert resp.json()["passed"] == False
         assert resp.json()["missing"] == 2
 
@@ -199,17 +233,17 @@ class TestFinancialIdentity:
         assert identity_client.get("/").status_code == 200
 
     def test_create_profile(self, identity_client):
-        resp = identity_client.post("/profiles", json={
-            "user_id": "user-1", "legal_name": "John Doe",
-            "national_id": "ID123", "email": "john@example.com"
-        })
+        resp = identity_client.post(
+            "/profiles",
+            json={"user_id": "user-1", "legal_name": "John Doe", "national_id": "ID123", "email": "john@example.com"},
+        )
         assert resp.status_code == 200
         assert resp.json()["verification_status"] == "pending"
 
     def test_verify_profile(self, identity_client):
         create = identity_client.post("/profiles", json={"user_id": "user-2", "legal_name": "Jane"})
         profile_id = create.json()["id"]
-        resp = identity_client.put(f"/profiles/{profile_id}/verify?documents=[\"passport\",\"utility_bill\"]")
+        resp = identity_client.put(f'/profiles/{profile_id}/verify?documents=["passport","utility_bill"]')
         # The documents param is a list, let me try differently
         # Actually it takes a List[str] body
         resp = identity_client.put(f"/profiles/{profile_id}/verify", json=["passport", "utility_bill"])
@@ -222,24 +256,24 @@ class TestAppropriationControl:
         assert appropriation_client.get("/").status_code == 200
 
     def test_create_and_spend(self, appropriation_client):
-        create = appropriation_client.post("/appropriations", json={
-            "company_id": "comp-1", "department": "IT",
-            "fiscal_year": "2026", "approved_amount": 100000
-        })
+        create = appropriation_client.post(
+            "/appropriations",
+            json={"company_id": "comp-1", "department": "IT", "fiscal_year": "2026", "approved_amount": 100000},
+        )
         assert create.status_code == 200
         appr_id = create.json()["id"]
         assert create.json()["available_amount"] == 100000
 
         # Commit some funds
-        spend = appropriation_client.post("/transactions", json={
-            "appropriation_id": appr_id, "type": "commit", "amount": 30000
-        })
+        spend = appropriation_client.post(
+            "/transactions", json={"appropriation_id": appr_id, "type": "commit", "amount": 30000}
+        )
         assert spend.json()["available"] == 70000  # 100000 - 30000 committed
 
         # Actually spend
-        spend2 = appropriation_client.post("/transactions", json={
-            "appropriation_id": appr_id, "type": "spend", "amount": 30000
-        })
+        spend2 = appropriation_client.post(
+            "/transactions", json={"appropriation_id": appr_id, "type": "spend", "amount": 30000}
+        )
         assert spend2.json()["available"] == 70000  # committed reduced, spent increased
 
         # Check availability
@@ -253,21 +287,31 @@ class TestScenarioAnalysis:
 
     def test_create_scenarios(self, scenario_client):
         for stype in ["optimistic", "base", "pessimistic"]:
-            scenario_client.post("/scenarios", json={
-                "company_id": "comp-1", "name": f"{stype} case",
-                "scenario_type": stype,
-                "projected_revenue": {"optimistic": 200000, "base": 150000, "pessimistic": 100000}[stype],
-                "projected_expenses": 100000
-            })
+            scenario_client.post(
+                "/scenarios",
+                json={
+                    "company_id": "comp-1",
+                    "name": f"{stype} case",
+                    "scenario_type": stype,
+                    "projected_revenue": {"optimistic": 200000, "base": 150000, "pessimistic": 100000}[stype],
+                    "projected_expenses": 100000,
+                },
+            )
         resp = scenario_client.get("/scenarios/comp-1")
         assert resp.json()["total"] == 3
 
     def test_compare(self, scenario_client):
         for rev, name in [(200000, "Best"), (100000, "Worst")]:
-            scenario_client.post("/scenarios", json={
-                "company_id": "comp-cmp", "name": name,
-                "scenario_type": "custom", "projected_revenue": rev, "projected_expenses": 80000
-            })
+            scenario_client.post(
+                "/scenarios",
+                json={
+                    "company_id": "comp-cmp",
+                    "name": name,
+                    "scenario_type": "custom",
+                    "projected_revenue": rev,
+                    "projected_expenses": 80000,
+                },
+            )
         resp = scenario_client.get("/compare/comp-cmp")
         assert resp.status_code == 200
         assert resp.json()["best_case"] == "Best"
@@ -279,14 +323,26 @@ class TestCashOptimization:
         assert cash_opt_client.get("/").status_code == 200
 
     def test_optimize(self, cash_opt_client):
-        cash_opt_client.post("/accounts", json={
-            "company_id": "comp-1", "account_name": "Operating",
-            "account_type": "operating", "balance": 200000, "min_required": 50000
-        })
-        cash_opt_client.post("/accounts", json={
-            "company_id": "comp-1", "account_name": "Investment",
-            "account_type": "investment", "balance": 50000, "interest_rate": 0.05
-        })
+        cash_opt_client.post(
+            "/accounts",
+            json={
+                "company_id": "comp-1",
+                "account_name": "Operating",
+                "account_type": "operating",
+                "balance": 200000,
+                "min_required": 50000,
+            },
+        )
+        cash_opt_client.post(
+            "/accounts",
+            json={
+                "company_id": "comp-1",
+                "account_name": "Investment",
+                "account_type": "investment",
+                "balance": 50000,
+                "interest_rate": 0.05,
+            },
+        )
         resp = cash_opt_client.post("/optimize/comp-1")
         assert resp.status_code == 200
         data = resp.json()
@@ -299,16 +355,19 @@ class TestSensitivityAnalysis:
         assert sensitivity_client.get("/").status_code == 200
 
     def test_analyze(self, sensitivity_client):
-        resp = sensitivity_client.post("/analyze", json={
-            "company_id": "comp-1",
-            "target_metric": "net_profit",
-            "base_target_value": 100000,
-            "variables": [
-                {"name": "revenue", "base_value": 500000, "change_pct": 10},
-                {"name": "costs", "base_value": 400000, "change_pct": 10}
-            ],
-            "change_steps": [-10, 0, 10]
-        })
+        resp = sensitivity_client.post(
+            "/analyze",
+            json={
+                "company_id": "comp-1",
+                "target_metric": "net_profit",
+                "base_target_value": 100000,
+                "variables": [
+                    {"name": "revenue", "base_value": 500000, "change_pct": 10},
+                    {"name": "costs", "base_value": 400000, "change_pct": 10},
+                ],
+                "change_steps": [-10, 0, 10],
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["results"]) == 6  # 2 variables * 3 steps
@@ -320,24 +379,57 @@ class TestZeroBasedBudgeting:
         assert zbb_client.get("/").status_code == 200
 
     def test_create_package_with_items(self, zbb_client):
-        resp = zbb_client.post("/packages", json={
-            "company_id": "comp-1", "period": "2026-Q1",
-            "name": "IT Budget", "department": "IT",
-            "items": [
-                {"department": "IT", "category": "software", "description": "Licenses", "amount": 50000, "justification": "Required for ops", "priority": 1},
-                {"department": "IT", "category": "hardware", "description": "Servers", "amount": 30000, "justification": "Aging equipment", "priority": 2},
-            ]
-        })
+        resp = zbb_client.post(
+            "/packages",
+            json={
+                "company_id": "comp-1",
+                "period": "2026-Q1",
+                "name": "IT Budget",
+                "department": "IT",
+                "items": [
+                    {
+                        "department": "IT",
+                        "category": "software",
+                        "description": "Licenses",
+                        "amount": 50000,
+                        "justification": "Required for ops",
+                        "priority": 1,
+                    },
+                    {
+                        "department": "IT",
+                        "category": "hardware",
+                        "description": "Servers",
+                        "amount": 30000,
+                        "justification": "Aging equipment",
+                        "priority": 2,
+                    },
+                ],
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["total_amount"] == 80000
         assert data["status"] == "draft"
 
     def test_zbb_summary(self, zbb_client):
-        zbb_client.post("/packages", json={
-            "company_id": "comp-sum", "name": "Finance Q1", "department": "Finance",
-            "period": "2026-Q1", "items": [{"department": "Finance", "category": "travel", "description": "Audit travel", "amount": 10000, "justification": "Need"}]
-        })
+        zbb_client.post(
+            "/packages",
+            json={
+                "company_id": "comp-sum",
+                "name": "Finance Q1",
+                "department": "Finance",
+                "period": "2026-Q1",
+                "items": [
+                    {
+                        "department": "Finance",
+                        "category": "travel",
+                        "description": "Audit travel",
+                        "amount": 10000,
+                        "justification": "Need",
+                    }
+                ],
+            },
+        )
         resp = zbb_client.get("/summary/comp-sum")
         assert resp.status_code == 200
         assert resp.json()["total_packages"] >= 1

@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Continue/Shutdown Decision Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class CostAnalysis(BaseModel):
@@ -86,16 +94,23 @@ async def root():
 
 @app.post("/analyze")
 async def analyze_continue_shutdown(
-    entity_id: str, entity_name: str, entity_type: str, period: str,
-    revenue: float, variable_costs: float,
-    avoidable_fixed_costs: float, unavoidable_fixed_costs: float,
-    shutdown_costs: float = 0, shutdown_savings: float = 0
+    entity_id: str,
+    entity_name: str,
+    entity_type: str,
+    period: str,
+    revenue: float,
+    variable_costs: float,
+    avoidable_fixed_costs: float,
+    unavoidable_fixed_costs: float,
+    shutdown_costs: float = 0,
+    shutdown_savings: float = 0,
 ):
     """Analyze continue vs shutdown decision."""
     cost_analysis = CostAnalysis(
-        revenue=revenue, variable_costs=variable_costs,
+        revenue=revenue,
+        variable_costs=variable_costs,
         avoidable_fixed_costs=avoidable_fixed_costs,
-        unavoidable_fixed_costs=unavoidable_fixed_costs
+        unavoidable_fixed_costs=unavoidable_fixed_costs,
     )
 
     cost_analysis.contribution = revenue - variable_costs
@@ -121,14 +136,18 @@ async def analyze_continue_shutdown(
         recommendation = "INDIFFERENT"
 
     decision = ContinueShutdownDecision(
-        entity_id=entity_id, entity_name=entity_name, entity_type=entity_type,
-        period=period, cost_analysis=cost_analysis,
-        shutdown_costs=shutdown_costs, shutdown_savings=shutdown_savings,
+        entity_id=entity_id,
+        entity_name=entity_name,
+        entity_type=entity_type,
+        period=period,
+        cost_analysis=cost_analysis,
+        shutdown_costs=shutdown_costs,
+        shutdown_savings=shutdown_savings,
         net_shutdown_benefit=net_shutdown_benefit,
         contribution_if_continue=contribution_if_continue,
         financial_outcome_continue=financial_outcome_continue,
         financial_outcome_shutdown=financial_outcome_shutdown,
-        recommendation=recommendation
+        recommendation=recommendation,
     )
 
     decisions.append(decision)
@@ -136,9 +155,7 @@ async def analyze_continue_shutdown(
 
 
 @app.post("/quick-analysis")
-async def quick_shutdown_analysis(
-    entity_name: str, contribution: float, unavoidable_fixed_costs: float
-):
+async def quick_shutdown_analysis(entity_name: str, contribution: float, unavoidable_fixed_costs: float):
     """Quick analysis when only key figures are available."""
     financial_outcome = contribution - unavoidable_fixed_costs
 
@@ -158,15 +175,12 @@ async def quick_shutdown_analysis(
         "unavoidable_fixed_costs": unavoidable_fixed_costs,
         "financial_outcome": financial_outcome,
         "recommendation": recommendation,
-        "reason": reason
+        "reason": reason,
     }
 
 
 @app.get("/decisions")
-async def list_decisions(
-    entity_id: Optional[str] = None,
-    entity_type: Optional[str] = None
-):
+async def list_decisions(entity_id: Optional[str] = None, entity_type: Optional[str] = None):
     """List decisions."""
     result = decisions
     if entity_id:
@@ -187,4 +201,5 @@ async def get_decision(decision_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai General Reserve Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class GeneralReserve(BaseModel):
@@ -98,15 +106,23 @@ async def root():
 
 @app.post("/reserves/create")
 async def create_reserve(
-    company_id: str, reserve_name: str, description: str = "",
-    initial_balance: float = 0, target_balance: Optional[float] = None,
-    minimum_balance: float = 0, funding_source: str = "retained_earnings"
+    company_id: str,
+    reserve_name: str,
+    description: str = "",
+    initial_balance: float = 0,
+    target_balance: Optional[float] = None,
+    minimum_balance: float = 0,
+    funding_source: str = "retained_earnings",
 ):
     """Create a general reserve."""
     reserve = GeneralReserve(
-        company_id=company_id, reserve_name=reserve_name, description=description,
-        current_balance=initial_balance, target_balance=target_balance,
-        minimum_balance=minimum_balance, funding_source=funding_source
+        company_id=company_id,
+        reserve_name=reserve_name,
+        description=description,
+        current_balance=initial_balance,
+        target_balance=target_balance,
+        minimum_balance=minimum_balance,
+        funding_source=funding_source,
     )
 
     if initial_balance > 0:
@@ -117,7 +133,7 @@ async def create_reserve(
                 {"account_code": "3300", "description": "Retained Earnings", "debit": initial_balance, "credit": 0},
                 {"account_code": "3310", "description": "General Reserve", "debit": 0, "credit": initial_balance},
             ],
-            "reference": f"RESERVE-CREATE-{reserve.id[:8]}"
+            "reference": f"RESERVE-CREATE-{reserve.id[:8]}",
         }
         result = await call_accounting_service("POST", "/journal-entries", journal_entry)
         reserve.journal_entry_id = result.get("id")
@@ -128,8 +144,7 @@ async def create_reserve(
 
 @app.post("/reserves/{reserve_id}/allocate")
 async def allocate_to_reserve(
-    reserve_id: str, amount: float, source: str, description: str,
-    allocation_date: Optional[datetime] = None
+    reserve_id: str, amount: float, source: str, description: str, allocation_date: Optional[datetime] = None
 ):
     """Allocate funds to reserve."""
     reserve = next((r for r in reserves if r.id == reserve_id), None)
@@ -140,8 +155,7 @@ async def allocate_to_reserve(
         allocation_date = datetime.utcnow()
 
     allocation = ReserveAllocation(
-        reserve_id=reserve_id, amount=amount, allocation_date=allocation_date,
-        source=source, description=description
+        reserve_id=reserve_id, amount=amount, allocation_date=allocation_date, source=source, description=description
     )
 
     reserve.current_balance += amount
@@ -152,10 +166,15 @@ async def allocate_to_reserve(
         "date": allocation_date,
         "description": f"Allocation to {reserve.reserve_name}: {description}",
         "entries": [
-            {"account_code": source_account, "description": source.replace("_", " ").title(), "debit": amount, "credit": 0},
+            {
+                "account_code": source_account,
+                "description": source.replace("_", " ").title(),
+                "debit": amount,
+                "credit": 0,
+            },
             {"account_code": "3310", "description": "General Reserve", "debit": 0, "credit": amount},
         ],
-        "reference": f"RESERVE-ALLOC-{allocation.id[:8]}"
+        "reference": f"RESERVE-ALLOC-{allocation.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     allocation.journal_entry_id = result.get("id")
@@ -166,8 +185,7 @@ async def allocate_to_reserve(
 
 @app.post("/reserves/{reserve_id}/utilize")
 async def utilize_reserve(
-    reserve_id: str, amount: float, purpose: str, description: str,
-    utilization_date: Optional[datetime] = None
+    reserve_id: str, amount: float, purpose: str, description: str, utilization_date: Optional[datetime] = None
 ):
     """Utilize funds from reserve."""
     reserve = next((r for r in reserves if r.id == reserve_id), None)
@@ -181,8 +199,11 @@ async def utilize_reserve(
         utilization_date = datetime.utcnow()
 
     utilization = ReserveUtilization(
-        reserve_id=reserve_id, amount=amount, utilization_date=utilization_date,
-        purpose=purpose, description=description
+        reserve_id=reserve_id,
+        amount=amount,
+        utilization_date=utilization_date,
+        purpose=purpose,
+        description=description,
     )
 
     reserve.current_balance -= amount
@@ -194,9 +215,14 @@ async def utilize_reserve(
         "description": f"Utilization of {reserve.reserve_name}: {description}",
         "entries": [
             {"account_code": "3310", "description": "General Reserve", "debit": amount, "credit": 0},
-            {"account_code": dest_account, "description": purpose.replace("_", " ").title(), "debit": 0, "credit": amount},
+            {
+                "account_code": dest_account,
+                "description": purpose.replace("_", " ").title(),
+                "debit": 0,
+                "credit": amount,
+            },
         ],
-        "reference": f"RESERVE-UTIL-{utilization.id[:8]}"
+        "reference": f"RESERVE-UTIL-{utilization.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     utilization.journal_entry_id = result.get("id")
@@ -233,4 +259,5 @@ async def get_reserve_history(reserve_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

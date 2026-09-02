@@ -59,11 +59,14 @@ app = FastAPI(
     version=SERVICE_VERSION,
     docs_url="/docs",
 )
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 # ============================================================================
 # Pydantic Models
 # ============================================================================
+
 
 class CVPAnalysis(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -136,6 +139,7 @@ analyses: List[CVPAnalysis] = []
 # Helper
 # ============================================================================
 
+
 def _perform_cvp(
     entity_id: str,
     entity_name: str,
@@ -184,9 +188,7 @@ def _perform_cvp(
             )
 
     # Profit at expected sales
-    analysis.profit_at_expected_sales = (
-        expected_sales_units * analysis.contribution_per_unit - fixed_costs
-    )
+    analysis.profit_at_expected_sales = expected_sales_units * analysis.contribution_per_unit - fixed_costs
 
     # Degree of operating leverage
     if analysis.profit_at_expected_sales != 0:
@@ -200,6 +202,7 @@ def _perform_cvp(
 # Routes — Health
 # ============================================================================
 
+
 @app.get("/health")
 async def health_check():
     return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
@@ -207,12 +210,17 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "CVP, Break-Even, and Contribution Margin Analysis"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "description": "CVP, Break-Even, and Contribution Margin Analysis",
+    }
 
 
 # ============================================================================
 # Routes — Full CVP Analysis
 # ============================================================================
+
 
 @app.post("/analyze")
 async def perform_cvp_analysis(
@@ -227,8 +235,13 @@ async def perform_cvp_analysis(
     """Perform a comprehensive CVP analysis including break-even, target profit, margin of safety, and operating leverage."""
     logger.info("Performing CVP analysis", entity=entity_id)
     analysis = _perform_cvp(
-        entity_id, entity_name, selling_price_per_unit,
-        variable_cost_per_unit, fixed_costs, expected_sales_units, target_profit,
+        entity_id,
+        entity_name,
+        selling_price_per_unit,
+        variable_cost_per_unit,
+        fixed_costs,
+        expected_sales_units,
+        target_profit,
     )
     analyses.append(analysis)
     return analysis
@@ -261,6 +274,7 @@ async def quick_cvp_analysis(
 # Routes — Contribution Margin
 # ============================================================================
 
+
 @app.post("/contribution")
 async def calculate_contribution(request: ContributionRequest):
     """Calculate contribution margin per unit, ratio, and total contribution."""
@@ -268,9 +282,7 @@ async def calculate_contribution(request: ContributionRequest):
 
     contribution_per_unit = request.selling_price_per_unit - request.variable_cost_per_unit
     contribution_margin_ratio = (
-        contribution_per_unit / request.selling_price_per_unit
-        if request.selling_price_per_unit > 0
-        else 0.0
+        contribution_per_unit / request.selling_price_per_unit if request.selling_price_per_unit > 0 else 0.0
     )
     total_contribution = contribution_per_unit * request.units_sold
 
@@ -290,6 +302,7 @@ async def calculate_contribution(request: ContributionRequest):
 # ============================================================================
 # Routes — Target Profit
 # ============================================================================
+
 
 @app.post("/target-profit")
 async def calculate_target_profit(
@@ -331,6 +344,7 @@ async def calculate_target_profit(
 # Routes — Multi-Product Analysis
 # ============================================================================
 
+
 @app.post("/multi-product")
 async def multi_product_analysis(request: MultiProductRequest):
     """Calculate break-even and target profit for a multi-product sales mix."""
@@ -347,20 +361,20 @@ async def multi_product_analysis(request: MultiProductRequest):
         cm_ratio = cm / prod.selling_price if prod.selling_price > 0 else 0.0
         weight = prod.expected_proportion / 100
         weighted_cm_ratio += cm_ratio * weight
-        product_details.append({
-            "product_name": prod.product_name,
-            "selling_price": prod.selling_price,
-            "variable_cost": prod.variable_cost,
-            "contribution_per_unit": round(cm, 4),
-            "contribution_margin_ratio": round(cm_ratio, 4),
-            "expected_proportion_pct": prod.expected_proportion,
-        })
+        product_details.append(
+            {
+                "product_name": prod.product_name,
+                "selling_price": prod.selling_price,
+                "variable_cost": prod.variable_cost,
+                "contribution_per_unit": round(cm, 4),
+                "contribution_margin_ratio": round(cm_ratio, 4),
+                "expected_proportion_pct": prod.expected_proportion,
+            }
+        )
 
     break_even_revenue = request.fixed_costs / weighted_cm_ratio if weighted_cm_ratio > 0 else float("inf")
     target_revenue = (
-        (request.fixed_costs + request.target_profit) / weighted_cm_ratio
-        if weighted_cm_ratio > 0
-        else float("inf")
+        (request.fixed_costs + request.target_profit) / weighted_cm_ratio if weighted_cm_ratio > 0 else float("inf")
     )
 
     # Allocate break-even revenue by product mix
@@ -385,6 +399,7 @@ async def multi_product_analysis(request: MultiProductRequest):
 # Routes — History
 # ============================================================================
 
+
 @app.get("/analyses")
 async def list_analyses(entity_id: Optional[str] = None):
     """List stored CVP analyses."""
@@ -405,4 +420,5 @@ async def get_analysis(analysis_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

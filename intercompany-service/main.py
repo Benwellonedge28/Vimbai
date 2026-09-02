@@ -3,15 +3,18 @@ Intercompany Service
 Port: 8350
 Intercompany transaction management and elimination
 """
+
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
+
 import httpx
 import structlog
-from typing import Any, Dict, List, Optional
-from datetime import datetime, date
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Intercompany Service", version="1.0.0")
+
 
 class IntercompanyTransaction(BaseModel):
     transaction_id: str
@@ -22,10 +25,12 @@ class IntercompanyTransaction(BaseModel):
     transaction_type: str
     description: str
 
+
 class ICTransactionRequest(BaseModel):
     company_id: str
     transaction: IntercompanyTransaction
     matching_criteria: Optional[Dict[str, Any]] = None
+
 
 class ICTransactionResponse(BaseModel):
     transaction_id: str
@@ -34,10 +39,12 @@ class ICTransactionResponse(BaseModel):
     unmatched_amount: float
     elimination_entries: List[Dict[str, Any]]
 
+
 class ICReconciliationRequest(BaseModel):
     company_id: str
     period: str
     entities: List[str]
+
 
 class ICReconciliationResponse(BaseModel):
     reconciliation_id: str
@@ -48,14 +55,16 @@ class ICReconciliationResponse(BaseModel):
     items_needing_review: List[Dict[str, Any]]
     status: str
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "intercompany", "version": "1.0.0"}
 
+
 @app.post("/transaction", response_model=ICTransactionResponse)
 async def process_ic_transaction(request: ICTransactionRequest):
     logger.info("Processing IC transaction", company=request.company_id, txn=request.transaction.transaction_id)
-    
+
     return ICTransactionResponse(
         transaction_id=request.transaction.transaction_id,
         status="matched",
@@ -63,14 +72,15 @@ async def process_ic_transaction(request: ICTransactionRequest):
         unmatched_amount=0.0,
         elimination_entries=[
             {"account": "ic_receivable", "amount": -request.transaction.amount},
-            {"account": "ic_revenue", "amount": -request.transaction.amount}
-        ]
+            {"account": "ic_revenue", "amount": -request.transaction.amount},
+        ],
     )
+
 
 @app.post("/reconcile", response_model=ICReconciliationResponse)
 async def reconcile_intercompany(request: ICReconciliationRequest):
     logger.info("Reconciling intercompany", company=request.company_id, period=request.period)
-    
+
     return ICReconciliationResponse(
         reconciliation_id=f"ICR-{datetime.now().strftime('%Y%m%d')}",
         period=request.period,
@@ -78,9 +88,11 @@ async def reconcile_intercompany(request: ICReconciliationRequest):
         total_eliminated=985000.0,
         net_uneliminated=15000.0,
         items_needing_review=[],
-        status="reconciled"
+        status="reconciled",
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8350)

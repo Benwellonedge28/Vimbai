@@ -3,15 +3,18 @@ IFRS 2 Share-Based Payment Service
 Port: 8150
 Accounts for equity-settled and cash-settled share-based payments
 """
-import httpx
-import structlog
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+
+import httpx
+import structlog
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="IFRS 2 Share-Based Payment Service", version="1.0.0")
+
 
 # Pydantic Models
 class VestingCondition(BaseModel):
@@ -21,6 +24,7 @@ class VestingCondition(BaseModel):
     target_value: float
     probability_assessment: float = Field(ge=0, le=1)
     probability_weight: float = Field(ge=0, le=1)
+
 
 class ShareOption(BaseModel):
     option_id: str
@@ -33,6 +37,7 @@ class ShareOption(BaseModel):
     vesting_conditions: List[VestingCondition]
     employee_category: str
 
+
 class ShareBasedPaymentRequest(BaseModel):
     company_id: str
     reporting_date: str
@@ -40,6 +45,7 @@ class ShareBasedPaymentRequest(BaseModel):
     cash_settled_grants: List[ShareOption]
     shares_issued: int
     share_price_at_reporting: float
+
 
 class VestingCalculation(BaseModel):
     option_id: str
@@ -49,6 +55,7 @@ class VestingCalculation(BaseModel):
     forfeiture_rate: float
     cumulative_expense: float
     period_expense: float
+
 
 class IFRS2Response(BaseModel):
     company_id: str
@@ -61,6 +68,7 @@ class IFRS2Response(BaseModel):
     liability_for_cash_settled: float
     equity_reserve: float
     dilutive_effect: int
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     """Call another internal Vimbai service."""
@@ -76,9 +84,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "ifrs-2-share-based-payment", "version": "1.0.0"}
+
 
 @app.post("/calculate", response_model=IFRS2Response)
 async def calculate_share_based_payment(request: ShareBasedPaymentRequest):
@@ -99,7 +109,7 @@ async def calculate_share_based_payment(request: ShareBasedPaymentRequest):
         for condition in option.vesting_conditions:
             if condition.condition_type != "market":
                 expected_vesting *= condition.probability_assessment
-                forfeiture_rate += (1 - condition.probability_weight)
+                forfeiture_rate += 1 - condition.probability_weight
 
         options_to_expense = int(expected_vesting * (1 - min(0.3, forfeiture_rate)))
 
@@ -107,15 +117,17 @@ async def calculate_share_based_payment(request: ShareBasedPaymentRequest):
         per_year_expense = options_to_expense * option.fair_value_per_option / option.vesting_period_years
         cumulative_expense = per_year_expense * 2  # Assume 2 years elapsed
 
-        equity_vesting.append(VestingCalculation(
-            option_id=option.option_id,
-            grant_date=option.grant_date,
-            options_granted=option.number_of_options,
-            options_expected_to_vest=options_to_expense,
-            forfeiture_rate=forfeiture_rate,
-            cumulative_expense=cumulative_expense,
-            period_expense=per_year_expense
-        ))
+        equity_vesting.append(
+            VestingCalculation(
+                option_id=option.option_id,
+                grant_date=option.grant_date,
+                options_granted=option.number_of_options,
+                options_expected_to_vest=options_to_expense,
+                forfeiture_rate=forfeiture_rate,
+                cumulative_expense=cumulative_expense,
+                period_expense=per_year_expense,
+            )
+        )
         total_equity_expense += per_year_expense
 
     # Cash-settled grants
@@ -133,21 +145,27 @@ async def calculate_share_based_payment(request: ShareBasedPaymentRequest):
 
         per_year_expense = options_to_expense * option.fair_value_per_option / option.vesting_period_years
 
-        cash_vesting.append(VestingCalculation(
-            option_id=option.option_id,
-            grant_date=option.grant_date,
-            options_granted=option.number_of_options,
-            options_expected_to_vest=options_to_expense,
-            forfeiture_rate=0.0,
-            cumulative_expense=liability,
-            period_expense=per_year_expense
-        ))
+        cash_vesting.append(
+            VestingCalculation(
+                option_id=option.option_id,
+                grant_date=option.grant_date,
+                options_granted=option.number_of_options,
+                options_expected_to_vest=options_to_expense,
+                forfeiture_rate=0.0,
+                cumulative_expense=liability,
+                period_expense=per_year_expense,
+            )
+        )
         total_cash_expense += per_year_expense
 
     # Dilutive effect for EPS
     total_options = sum(o.number_of_options for o in request.equity_settled_grants + request.cash_settled_grants)
     avg_price = request.share_price_at_reporting
-    exercise_price = sum(o.exercise_price * o.number_of_options for o in request.equity_settled_grants) / total_options if total_options > 0 else 0
+    exercise_price = (
+        sum(o.exercise_price * o.number_of_options for o in request.equity_settled_grants) / total_options
+        if total_options > 0
+        else 0
+    )
     dilutive_effect = total_options * (1 - exercise_price / avg_price) if avg_price > exercise_price else 0
 
     response = IFRS2Response(
@@ -160,11 +178,12 @@ async def calculate_share_based_payment(request: ShareBasedPaymentRequest):
         cash_settled_vesting=cash_vesting,
         liability_for_cash_settled=sum(v.cumulative_expense for v in cash_vesting),
         equity_reserve=sum(v.cumulative_expense for v in equity_vesting),
-        dilutive_effect=int(dilutive_effect)
+        dilutive_effect=int(dilutive_effect),
     )
 
     logger.info("IFRS 2 calculation complete", total_expense=response.total_expense)
     return response
+
 
 @app.post("/fair-value-equity-instruments")
 async def calculate_fair_value_equity(
@@ -174,13 +193,15 @@ async def calculate_fair_value_equity(
     time_to_expiry: float,
     risk_free_rate: float,
     volatility: float,
-    dividend_yield: float
+    dividend_yield: float,
 ):
     """Calculate fair value of equity instruments using Black-Scholes variants."""
     import math
 
     # Simplified Black-Scholes for plain vanilla
-    d1 = (math.log(spot_price / exercise_price) + (risk_free_rate + volatility ** 2 / 2) * time_to_expiry) / (volatility * math.sqrt(time_to_expiry))
+    d1 = (math.log(spot_price / exercise_price) + (risk_free_rate + volatility**2 / 2) * time_to_expiry) / (
+        volatility * math.sqrt(time_to_expiry)
+    )
     d2 = d1 - volatility * math.sqrt(time_to_expiry)
 
     call_value = spot_price * math.exp(-dividend_yield * time_to_expiry) * 0.5 * (1 + math.exp(d1) + math.exp(-d1))
@@ -208,8 +229,9 @@ async def calculate_fair_value_equity(
         "d1": d1,
         "d2": d2,
         "calculated_fair_value": fair_value,
-        "adjustment_applied": adjustment_factor
+        "adjustment_applied": adjustment_factor,
     }
+
 
 @app.post("/performance-condition")
 async def assess_performance_condition(
@@ -217,7 +239,7 @@ async def assess_performance_condition(
     target_metric: float,
     current_metric: float,
     measurement_period: float,
-    probability_based_on_regression: float
+    probability_based_on_regression: float,
 ):
     """Assess probability of performance condition achievement."""
     achievement_rate = current_metric / target_metric if target_metric > 0 else 0
@@ -237,8 +259,9 @@ async def assess_performance_condition(
         "achievement_rate": achievement_rate,
         "measurement_period": measurement_period,
         "expected_achievement_probability": expected_achievement,
-        "expense_multiplier": expected_achievement
+        "expense_multiplier": expected_achievement,
     }
+
 
 @app.post("/modification")
 async def account_for_modification(
@@ -250,7 +273,7 @@ async def account_for_modification(
     new_options: int,
     new_vesting_period: int,
     years_elapsed: int,
-    cumulative_expense_original: float
+    cumulative_expense_original: float,
 ):
     """Account for modification of share-based payment arrangement."""
     # Calculate incremental fair value
@@ -283,15 +306,16 @@ async def account_for_modification(
         "remaining_vesting_period": remaining_period,
         "catch_up_expense": catch_up_expense,
         "prospective_expense": per_period_incremental,
-        "total_modification_impact": catch_up_expense + per_period_incremental
+        "total_modification_impact": catch_up_expense + per_period_incremental,
     }
+
 
 @app.post("/group-transaction")
 async def account_for_group_transaction(
     parent_equity_settled: float,
     parent_cash_settled: float,
     non_controlling_interests: float,
-    transaction_type: str  # "equity_for_equity", "cash_for_equity"
+    transaction_type: str,  # "equity_for_equity", "cash_for_equity"
 ):
     """Account for share-based payment in group transactions."""
     if transaction_type == "equity_for_equity":
@@ -308,9 +332,11 @@ async def account_for_group_transaction(
         "non_controlling_interests": non_controlling_interests,
         "ncI_impact": ncI_impact,
         "treatment": treatment,
-        "financial_statement_impact": "equity reserve" if transaction_type == "equity_for_equity" else "liability"
+        "financial_statement_impact": "equity reserve" if transaction_type == "equity_for_equity" else "liability",
     }
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8150)

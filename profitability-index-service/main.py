@@ -3,14 +3,17 @@ Profitability Index Service
 Port: 8217
 PI and investment decision analysis
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Profitability Index Service", version="1.0.0")
+
 
 class ProjectAnalysis(BaseModel):
     project_id: str
@@ -20,10 +23,12 @@ class ProjectAnalysis(BaseModel):
     npv: float
     accept: bool
 
+
 class PIRequest(BaseModel):
     company_id: str
     discount_rate: float
     projects: List[Dict[str, Any]]
+
 
 class PIResponse(BaseModel):
     company_id: str
@@ -33,6 +38,7 @@ class PIResponse(BaseModel):
     ranking_by_pi: List[Dict[str, Any]]
     optimal_portfolio: List[str]
     recommendations: List[str]
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -44,9 +50,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "profitability-index", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=PIResponse)
 async def analyze_profitability_index(request: PIRequest):
@@ -67,17 +75,19 @@ async def analyze_profitability_index(request: PIRequest):
         pi = pv / investment if investment else 0
         npv = pv - investment
 
-        project_analysis.append(ProjectAnalysis(
-            project_id=project.get("id", ""),
-            initial_investment=investment,
-            pv_of_future_cash_flows=round(pv, 2),
-            profitability_index=round(pi, 4),
-            npv=round(npv, 2),
-            accept=pi > 1.0
-        ))
+        project_analysis.append(
+            ProjectAnalysis(
+                project_id=project.get("id", ""),
+                initial_investment=investment,
+                pv_of_future_cash_flows=round(pv, 2),
+                profitability_index=round(pi, 4),
+                npv=round(npv, 2),
+                accept=pi > 1.0,
+            )
+        )
 
     ranked = sorted(project_analysis, key=lambda x: x.profitability_index, reverse=True)
-    ranking = [{"rank": i+1, "project": p.project_id, "pi": p.profitability_index} for i, p in enumerate(ranked)]
+    ranking = [{"rank": i + 1, "project": p.project_id, "pi": p.profitability_index} for i, p in enumerate(ranked)]
 
     optimal = [p.project_id for p in ranked if p.accept]
 
@@ -91,10 +101,12 @@ async def analyze_profitability_index(request: PIRequest):
         recommendations=[
             "Accept all projects with PI > 1.0",
             "Prioritize projects by PI ranking",
-            "Consider risk-adjusted returns for projects with similar PI"
-        ]
+            "Consider risk-adjusted returns for projects with similar PI",
+        ],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8217)

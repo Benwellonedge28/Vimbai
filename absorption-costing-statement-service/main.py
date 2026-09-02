@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Absorption Costing Statement Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class StatementLineItem(BaseModel):
@@ -116,19 +124,26 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Absorption costing statement generation"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "description": "Absorption costing statement generation",
+    }
 
 
 @app.post("/trading-account/generate")
 async def generate_trading_account(
-    company_id: str, period_start: datetime, period_end: datetime,
-    opening_stock: float, purchases: float, carriage_inwards: float,
-    closing_stock: float, sales_revenue: float
+    company_id: str,
+    period_start: datetime,
+    period_end: datetime,
+    opening_stock: float,
+    purchases: float,
+    carriage_inwards: float,
+    closing_stock: float,
+    sales_revenue: float,
 ):
     """Generate trading account statement."""
-    statement = TradingAccountStatement(
-        company_id=company_id, period_start=period_start, period_end=period_end
-    )
+    statement = TradingAccountStatement(company_id=company_id, period_start=period_start, period_end=period_end)
 
     statement.opening_stock = opening_stock
     statement.purchases = purchases
@@ -137,9 +152,7 @@ async def generate_trading_account(
     statement.sales_revenue = sales_revenue
 
     # Calculate Cost of Goods Sold
-    statement.cost_of_goods_sold = (
-        opening_stock + purchases + carriage_inwards - closing_stock
-    )
+    statement.cost_of_goods_sold = opening_stock + purchases + carriage_inwards - closing_stock
 
     # Calculate Gross Profit
     statement.gross_profit = sales_revenue - statement.cost_of_goods_sold
@@ -150,7 +163,12 @@ async def generate_trading_account(
         StatementLineItem(description="Opening Stock", amount=opening_stock, indent_level=1),
         StatementLineItem(description="Add: Purchases", amount=purchases, indent_level=1),
         StatementLineItem(description="Add: Carriage Inwards", amount=carriage_inwards, indent_level=1),
-        StatementLineItem(description="Cost of Goods Available", amount=opening_stock + purchases + carriage_inwards, is_subtotal=True, indent_level=1),
+        StatementLineItem(
+            description="Cost of Goods Available",
+            amount=opening_stock + purchases + carriage_inwards,
+            is_subtotal=True,
+            indent_level=1,
+        ),
         StatementLineItem(description="Less: Closing Stock", amount=closing_stock, indent_level=1),
         StatementLineItem(description="Cost of Goods Sold", amount=statement.cost_of_goods_sold, is_total=True),
         StatementLineItem(description="Gross Profit", amount=statement.gross_profit, is_total=True),
@@ -162,10 +180,7 @@ async def generate_trading_account(
 
 @app.post("/trading-account/{statement_id}/add-expenses")
 async def add_expenses_to_statement(
-    statement_id: str,
-    distribution_costs: float = 0,
-    administrative_expenses: float = 0,
-    other_expenses: float = 0
+    statement_id: str, distribution_costs: float = 0, administrative_expenses: float = 0, other_expenses: float = 0
 ):
     """Add expenses to complete profit statement."""
     statement = next((s for s in trading_statements if s.id == statement_id), None)
@@ -181,13 +196,17 @@ async def add_expenses_to_statement(
     statement.net_profit = statement.gross_profit - total_expenses
 
     # Add P&L line items
-    statement.line_items.extend([
-        StatementLineItem(description="Gross Profit", amount=statement.gross_profit, is_total=True),
-        StatementLineItem(description="Less: Distribution Costs", amount=distribution_costs, indent_level=1),
-        StatementLineItem(description="Less: Administrative Expenses", amount=administrative_expenses, indent_level=1),
-        StatementLineItem(description="Less: Other Expenses", amount=other_expenses, indent_level=1),
-        StatementLineItem(description="Net Profit", amount=statement.net_profit, is_total=True),
-    ])
+    statement.line_items.extend(
+        [
+            StatementLineItem(description="Gross Profit", amount=statement.gross_profit, is_total=True),
+            StatementLineItem(description="Less: Distribution Costs", amount=distribution_costs, indent_level=1),
+            StatementLineItem(
+                description="Less: Administrative Expenses", amount=administrative_expenses, indent_level=1
+            ),
+            StatementLineItem(description="Less: Other Expenses", amount=other_expenses, indent_level=1),
+            StatementLineItem(description="Net Profit", amount=statement.net_profit, is_total=True),
+        ]
+    )
 
     statement.status = "completed"
     return statement
@@ -195,16 +214,20 @@ async def add_expenses_to_statement(
 
 @app.post("/production-cost/generate")
 async def generate_production_cost_statement(
-    product_id: str, period: str,
-    direct_materials_opening: float, direct_materials_purchases: float,
-    direct_materials_closing: float, direct_labor: float, direct_expenses: float,
-    factory_overhead: float, work_in_progress_opening: float,
-    work_in_progress_closing: float, units_produced: int
+    product_id: str,
+    period: str,
+    direct_materials_opening: float,
+    direct_materials_purchases: float,
+    direct_materials_closing: float,
+    direct_labor: float,
+    direct_expenses: float,
+    factory_overhead: float,
+    work_in_progress_opening: float,
+    work_in_progress_closing: float,
+    units_produced: int,
 ):
     """Generate production cost statement."""
-    statement = ProductionCostStatement(
-        product_id=product_id, period=period
-    )
+    statement = ProductionCostStatement(product_id=product_id, period=period)
 
     statement.direct_materials_opening = direct_materials_opening
     statement.direct_materials_purchases = direct_materials_purchases
@@ -217,19 +240,14 @@ async def generate_production_cost_statement(
     statement.units_produced = units_produced
 
     # Calculate Direct Materials Used
-    statement.direct_materials_used = (
-        direct_materials_opening + direct_materials_purchases - direct_materials_closing
-    )
+    statement.direct_materials_used = direct_materials_opening + direct_materials_purchases - direct_materials_closing
 
     # Calculate Prime Cost
-    statement.prime_cost = (
-        statement.direct_materials_used + direct_labor + direct_expenses
-    )
+    statement.prime_cost = statement.direct_materials_used + direct_labor + direct_expenses
 
     # Calculate Production Cost
     statement.production_cost = (
-        statement.prime_cost + factory_overhead +
-        work_in_progress_opening - work_in_progress_closing
+        statement.prime_cost + factory_overhead + work_in_progress_opening - work_in_progress_closing
     )
 
     # Calculate Cost Per Unit
@@ -242,9 +260,7 @@ async def generate_production_cost_statement(
 
 @app.get("/trading-account")
 async def list_trading_statements(
-    company_id: Optional[str] = None,
-    period_start: Optional[datetime] = None,
-    period_end: Optional[datetime] = None
+    company_id: Optional[str] = None, period_start: Optional[datetime] = None, period_end: Optional[datetime] = None
 ):
     """List trading account statements."""
     result = trading_statements
@@ -254,10 +270,7 @@ async def list_trading_statements(
 
 
 @app.get("/production-cost")
-async def list_production_statements(
-    product_id: Optional[str] = None,
-    period: Optional[str] = None
-):
+async def list_production_statements(product_id: Optional[str] = None, period: Optional[str] = None):
     """List production cost statements."""
     result = production_statements
     if product_id:
@@ -278,4 +291,5 @@ async def get_trading_statement(statement_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

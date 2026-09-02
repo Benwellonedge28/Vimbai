@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Fixed Cost Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class CostBehavior(str):
@@ -97,16 +105,27 @@ async def root():
 
 @app.post("/costs/add")
 async def add_fixed_cost(
-    cost_name: str, cost_code: str, amount: float, cost_behavior: str = "fixed",
-    period_type: str = "monthly", committed_cost: bool = False, controllable: bool = True,
-    department_id: Optional[str] = None, product_id: Optional[str] = None
+    cost_name: str,
+    cost_code: str,
+    amount: float,
+    cost_behavior: str = "fixed",
+    period_type: str = "monthly",
+    committed_cost: bool = False,
+    controllable: bool = True,
+    department_id: Optional[str] = None,
+    product_id: Optional[str] = None,
 ):
     """Add a fixed cost item."""
     cost = FixedCost(
-        cost_name=cost_name, cost_code=cost_code, amount=amount,
-        cost_behavior=cost_behavior, period_type=period_type,
-        committed_cost=committed_cost, controllable=controllable,
-        department_id=department_id, product_id=product_id
+        cost_name=cost_name,
+        cost_code=cost_code,
+        amount=amount,
+        cost_behavior=cost_behavior,
+        period_type=period_type,
+        committed_cost=committed_cost,
+        controllable=controllable,
+        department_id=department_id,
+        product_id=product_id,
     )
     fixed_costs.append(cost)
     return cost
@@ -114,8 +133,10 @@ async def add_fixed_cost(
 
 @app.post("/costs/{cost_id}/update")
 async def update_fixed_cost(
-    cost_id: str, amount: Optional[float] = None,
-    committed_cost: Optional[bool] = None, controllable: Optional[bool] = None
+    cost_id: str,
+    amount: Optional[float] = None,
+    committed_cost: Optional[bool] = None,
+    controllable: Optional[bool] = None,
 ):
     """Update fixed cost details."""
     cost = next((c for c in fixed_costs if c.id == cost_id), None)
@@ -134,8 +155,10 @@ async def update_fixed_cost(
 
 @app.post("/analyze")
 async def analyze_fixed_costs(
-    analysis_period_start: datetime, analysis_period_end: datetime,
-    department_id: Optional[str] = None, product_id: Optional[str] = None
+    analysis_period_start: datetime,
+    analysis_period_end: datetime,
+    department_id: Optional[str] = None,
+    product_id: Optional[str] = None,
 ):
     """Analyze fixed costs for a period."""
     costs = fixed_costs
@@ -144,10 +167,7 @@ async def analyze_fixed_costs(
     if product_id:
         costs = [c for c in costs if c.product_id == product_id]
 
-    analysis = FixedCostAnalysis(
-        analysis_period_start=analysis_period_start,
-        analysis_period_end=analysis_period_end
-    )
+    analysis = FixedCostAnalysis(analysis_period_start=analysis_period_start, analysis_period_end=analysis_period_end)
 
     for cost in costs:
         cost_detail = {
@@ -156,7 +176,7 @@ async def analyze_fixed_costs(
             "cost_code": cost.cost_code,
             "amount": cost.amount,
             "committed": cost.committed_cost,
-            "controllable": cost.controllable
+            "controllable": cost.controllable,
         }
         analysis.fixed_cost_details.append(cost_detail)
         analysis.total_fixed_costs += cost.amount
@@ -177,9 +197,7 @@ async def analyze_fixed_costs(
 
 @app.get("/costs")
 async def list_fixed_costs(
-    department_id: Optional[str] = None,
-    product_id: Optional[str] = None,
-    committed: Optional[bool] = None
+    department_id: Optional[str] = None, product_id: Optional[str] = None, committed: Optional[bool] = None
 ):
     """List fixed costs."""
     result = fixed_costs
@@ -193,10 +211,7 @@ async def list_fixed_costs(
 
 
 @app.get("/analyses")
-async def list_analyses(
-    period_start: Optional[datetime] = None,
-    period_end: Optional[datetime] = None
-):
+async def list_analyses(period_start: Optional[datetime] = None, period_end: Optional[datetime] = None):
     """List fixed cost analyses."""
     result = fixed_cost_analyses
     if period_start:
@@ -207,10 +222,7 @@ async def list_analyses(
 
 
 @app.get("/summary")
-async def get_fixed_cost_summary(
-    department_id: Optional[str] = None,
-    product_id: Optional[str] = None
-):
+async def get_fixed_cost_summary(department_id: Optional[str] = None, product_id: Optional[str] = None):
     """Get fixed cost summary."""
     costs = fixed_costs
     if department_id:
@@ -224,10 +236,11 @@ async def get_fixed_cost_summary(
         "discretionary_costs": sum(c.amount for c in costs if not c.committed_cost),
         "controllable_costs": sum(c.amount for c in costs if c.controllable),
         "non_controllable_costs": sum(c.amount for c in costs if not c.controllable),
-        "total_cost_items": len(costs)
+        "total_cost_items": len(costs),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

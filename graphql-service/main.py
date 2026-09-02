@@ -3,16 +3,17 @@ Vimbai GraphQL API Service
 Provides GraphQL interface for all Vimbai services
 """
 
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from strawberry.fastapi import GraphQLRouter
-import strawberry
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-from decimal import Decimal
 import asyncio
 import os
+from datetime import datetime
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+
+import strawberry
 from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from strawberry.fastapi import GraphQLRouter
 
 load_dotenv()
 
@@ -35,6 +36,7 @@ app.add_middleware(
 # GraphQL Types
 # ============================================================================
 
+
 @strawberry.type
 class AccountType:
     id: str
@@ -46,12 +48,14 @@ class AccountType:
     is_active: bool
     created_at: datetime
 
+
 @strawberry.type
 class JournalEntryLine:
     account_number: str
     description: str
     debit: float
     credit: float
+
 
 @strawberry.type
 class JournalEntry:
@@ -64,6 +68,7 @@ class JournalEntry:
     total_credit: float
     is_balanced: bool
     created_by: str
+
 
 @strawberry.type
 class Transaction:
@@ -78,6 +83,7 @@ class Transaction:
     fraud_score: Optional[float] = None
     fraud_flag: Optional[str] = None
 
+
 @strawberry.type
 class FinancialStatement:
     id: str
@@ -86,6 +92,7 @@ class FinancialStatement:
     end_date: datetime
     content: str
     generated_by: str
+
 
 @strawberry.type
 class Budget:
@@ -97,6 +104,7 @@ class Budget:
     remaining_amount: float
     period: str
 
+
 @strawberry.type
 class Alert:
     id: str
@@ -106,6 +114,7 @@ class Alert:
     category: str
     status: str
     created_at: datetime
+
 
 @strawberry.type
 class Notification:
@@ -117,12 +126,14 @@ class Notification:
     is_read: bool
     created_at: datetime
 
+
 @strawberry.type
 class Currency:
     code: str
     name: str
     symbol: str
     exchange_rate_to_usd: float
+
 
 @strawberry.type
 class ConversionResult:
@@ -132,18 +143,16 @@ class ConversionResult:
     converted_amount: float
     rate_used: float
 
+
 # ============================================================================
 # GraphQL Queries
 # ============================================================================
 
+
 @strawberry.type
 class Query:
     @strawberry.field
-    async def accounts(
-        self,
-        account_type: Optional[str] = None,
-        is_active: Optional[bool] = None
-    ) -> List[AccountType]:
+    async def accounts(self, account_type: Optional[str] = None, is_active: Optional[bool] = None) -> List[AccountType]:
         """Get all accounts with optional filtering"""
         # In production, this would call the accounting service
         return [
@@ -155,7 +164,7 @@ class Query:
                 normal_balance="debit",
                 balance=50000.0,
                 is_active=True,
-                created_at=datetime.now()
+                created_at=datetime.now(),
             ),
             AccountType(
                 id="acc-002",
@@ -165,8 +174,8 @@ class Query:
                 normal_balance="debit",
                 balance=25000.0,
                 is_active=True,
-                created_at=datetime.now()
-            )
+                created_at=datetime.now(),
+            ),
         ]
 
     @strawberry.field
@@ -180,15 +189,12 @@ class Query:
             normal_balance="debit",
             balance=50000.0,
             is_active=True,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
     @strawberry.field
     async def journal_entries(
-        self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        limit: int = 50
+        self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None, limit: int = 50
     ) -> List[JournalEntry]:
         """Get journal entries with optional date filtering"""
         return [
@@ -199,12 +205,12 @@ class Query:
                 source_module="manual",
                 lines=[
                     JournalEntryLine(account_number="1001", description="Cash", debit=1000.0, credit=0.0),
-                    JournalEntryLine(account_number="4000", description="Revenue", debit=0.0, credit=1000.0)
+                    JournalEntryLine(account_number="4000", description="Revenue", debit=0.0, credit=1000.0),
                 ],
                 total_debit=1000.0,
                 total_credit=1000.0,
                 is_balanced=True,
-                created_by="admin"
+                created_by="admin",
             )
         ]
 
@@ -216,21 +222,16 @@ class Query:
             entry_date=datetime.now(),
             description="Sample journal entry",
             source_module="manual",
-            lines=[
-                JournalEntryLine(account_number="1001", description="Cash", debit=1000.0, credit=0.0)
-            ],
+            lines=[JournalEntryLine(account_number="1001", description="Cash", debit=1000.0, credit=0.0)],
             total_debit=1000.0,
             total_credit=1000.0,
             is_balanced=True,
-            created_by="admin"
+            created_by="admin",
         )
 
     @strawberry.field
     async def transactions(
-        self,
-        account_id: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        limit: int = 50
+        self, account_id: Optional[str] = None, start_date: Optional[datetime] = None, limit: int = 50
     ) -> List[Transaction]:
         """Get transactions with optional filtering"""
         return [
@@ -244,16 +245,13 @@ class Query:
                 timestamp=datetime.now(),
                 status="completed",
                 fraud_score=0.15,
-                fraud_flag="safe"
+                fraud_flag="safe",
             )
         ]
 
     @strawberry.field
     async def financial_statements(
-        self,
-        statement_type: str,
-        start_date: datetime,
-        end_date: datetime
+        self, statement_type: str, start_date: datetime, end_date: datetime
     ) -> List[FinancialStatement]:
         """Get financial statements for a period"""
         return [
@@ -263,16 +261,12 @@ class Query:
                 start_date=start_date,
                 end_date=end_date,
                 content="{}",
-                generated_by="system"
+                generated_by="system",
             )
         ]
 
     @strawberry.field
-    async def budgets(
-        self,
-        category: Optional[str] = None,
-        is_active: Optional[bool] = None
-    ) -> List[Budget]:
+    async def budgets(self, category: Optional[str] = None, is_active: Optional[bool] = None) -> List[Budget]:
         """Get budgets with optional filtering"""
         return [
             Budget(
@@ -282,16 +276,13 @@ class Query:
                 allocated_amount=50000.0,
                 spent_amount=25000.0,
                 remaining_amount=25000.0,
-                period="2024"
+                period="2024",
             )
         ]
 
     @strawberry.field
     async def alerts(
-        self,
-        status: Optional[str] = None,
-        severity: Optional[str] = None,
-        limit: int = 50
+        self, status: Optional[str] = None, severity: Optional[str] = None, limit: int = 50
     ) -> List[Alert]:
         """Get alerts with optional filtering"""
         return [
@@ -302,17 +293,12 @@ class Query:
                 severity="high",
                 category="fraud",
                 status="active",
-                created_at=datetime.now()
+                created_at=datetime.now(),
             )
         ]
 
     @strawberry.field
-    async def notifications(
-        self,
-        user_id: str,
-        unread_only: bool = False,
-        limit: int = 50
-    ) -> List[Notification]:
+    async def notifications(self, user_id: str, unread_only: bool = False, limit: int = 50) -> List[Notification]:
         """Get notifications for a user"""
         return [
             Notification(
@@ -322,7 +308,7 @@ class Query:
                 message="Please approve expense report",
                 priority="high",
                 is_read=False,
-                created_at=datetime.now()
+                created_at=datetime.now(),
             )
         ]
 
@@ -332,27 +318,20 @@ class Query:
         return [
             Currency(code="USD", name="US Dollar", symbol="$", exchange_rate_to_usd=1.0),
             Currency(code="EUR", name="Euro", symbol="€", exchange_rate_to_usd=0.92),
-            Currency(code="GBP", name="British Pound", symbol="£", exchange_rate_to_usd=0.79)
+            Currency(code="GBP", name="British Pound", symbol="£", exchange_rate_to_usd=0.79),
         ]
 
     @strawberry.field
-    async def exchange_rate(
-        self,
-        from_currency: str,
-        to_currency: str
-    ) -> Optional[float]:
+    async def exchange_rate(self, from_currency: str, to_currency: str) -> Optional[float]:
         """Get exchange rate between two currencies"""
-        rates = {
-            ("USD", "EUR"): 0.92,
-            ("USD", "GBP"): 0.79,
-            ("EUR", "USD"): 1.09,
-            ("GBP", "USD"): 1.27
-        }
+        rates = {("USD", "EUR"): 0.92, ("USD", "GBP"): 0.79, ("EUR", "USD"): 1.09, ("GBP", "USD"): 1.27}
         return rates.get((from_currency.upper(), to_currency.upper()))
+
 
 # ============================================================================
 # GraphQL Mutations
 # ============================================================================
+
 
 @strawberry.input
 class AccountInput:
@@ -362,12 +341,14 @@ class AccountInput:
     normal_balance: str
     description: Optional[str] = None
 
+
 @strawberry.input
 class JournalEntryLineInput:
     account_number: str
     description: str
     debit: float
     credit: float
+
 
 @strawberry.input
 class JournalEntryInput:
@@ -376,6 +357,7 @@ class JournalEntryInput:
     source_module: str
     lines: List[JournalEntryLineInput]
 
+
 @strawberry.input
 class TransactionInput:
     amount: float
@@ -383,17 +365,20 @@ class TransactionInput:
     sender_account_id: str
     recipient_account_id: str
 
+
 @strawberry.input
 class CurrencyConversionInput:
     from_currency: str
     to_currency: str
     amount: float
 
+
 @strawberry.type
 class MutationResult:
     success: bool
     message: str
     id: Optional[str] = None
+
 
 @strawberry.type
 class Mutation:
@@ -405,10 +390,7 @@ class Mutation:
 
     @strawberry.mutation
     async def update_account(
-        self,
-        id: str,
-        name: Optional[str] = None,
-        is_active: Optional[bool] = None
+        self, id: str, name: Optional[str] = None, is_active: Optional[bool] = None
     ) -> MutationResult:
         """Update an existing account"""
         return MutationResult(success=True, message="Account updated")
@@ -422,8 +404,7 @@ class Mutation:
 
         if abs(total_debit - total_credit) > 0.001:
             return MutationResult(
-                success=False,
-                message=f"Journal entry is not balanced. Debits: {total_debit}, Credits: {total_credit}"
+                success=False, message=f"Journal entry is not balanced. Debits: {total_debit}, Credits: {total_credit}"
             )
 
         return MutationResult(success=True, message="Journal entry created", id="je-new-001")
@@ -442,7 +423,7 @@ class Mutation:
             ("EUR", "USD"): 1.09,
             ("GBP", "USD"): 1.27,
             ("EUR", "GBP"): 0.86,
-            ("GBP", "EUR"): 1.16
+            ("GBP", "EUR"): 1.16,
         }
 
         from_curr = input.from_currency.upper()
@@ -456,7 +437,7 @@ class Mutation:
             to_currency=to_curr,
             original_amount=input.amount,
             converted_amount=converted,
-            rate_used=rate
+            rate_used=rate,
         )
 
     @strawberry.mutation
@@ -474,6 +455,7 @@ class Mutation:
         """Mark a notification as read"""
         return MutationResult(success=True, message="Notification marked as read")
 
+
 # ============================================================================
 # Create GraphQL Schema and Router
 # ============================================================================
@@ -485,15 +467,19 @@ graphql_app = GraphQLRouter(schema)
 # Mount GraphQL endpoint
 app.include_router(graphql_app, prefix="/graphql")
 
+
 # Health check endpoint
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "graphql-api"}
 
+
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "graphql-api"}
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8095)

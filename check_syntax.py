@@ -20,7 +20,7 @@ files_to_check = [
     "supply-chain-service/main.py",
     "suspense-error-service/main.py",
     "tax-calculation-service/main.py",
-    "trading-account-service/main.py"
+    "trading-account-service/main.py",
 ]
 
 for file_path in files_to_check:

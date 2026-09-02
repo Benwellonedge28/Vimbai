@@ -1,13 +1,15 @@
 import os
-import requests
-import pytest
 from typing import List
+
+import pytest
+import requests
 
 # This integration test suite assumes that all services are running locally
 # or in a staging environment accessible via the API Gateway.
 # For local testing, we will check if the services are up.
 
 BASE_URL = os.getenv("VIMBAI_API_URL", "http://localhost:8000")
+
 
 def get_all_services() -> List[str]:
     """Return a list of known core services to check."""
@@ -17,8 +19,9 @@ def get_all_services() -> List[str]:
         "cvp-analysis-service",
         "consolidation-service",
         "accounting-service",
-        "identity-service"
+        "identity-service",
     ]
+
 
 @pytest.mark.integration
 def test_api_gateway_health():
@@ -31,20 +34,20 @@ def test_api_gateway_health():
     except requests.exceptions.ConnectionError:
         pytest.skip("API Gateway is not reachable")
 
+
 @pytest.mark.integration
 def test_identity_service_token_generation():
     """Test if we can generate a token from the identity service."""
     try:
         response = requests.post(
-            f"{BASE_URL}/auth/token",
-            json={"username": "test_user", "password": "password123"},
-            timeout=5
+            f"{BASE_URL}/auth/token", json={"username": "test_user", "password": "password123"}, timeout=5
         )
         if response.status_code != 200:
             pytest.skip(f"Identity service returned {response.status_code}")
         assert "access_token" in response.json()
     except requests.exceptions.ConnectionError:
         pytest.skip("Identity service is not reachable")
+
 
 @pytest.mark.integration
 def test_core_services_health():
@@ -59,6 +62,7 @@ def test_core_services_health():
                 assert data.get("status") == "healthy" or data.get("service")
         except requests.exceptions.ConnectionError:
             continue  # Skip if not running
+
 
 @pytest.mark.integration
 def test_end_to_end_financial_flow():

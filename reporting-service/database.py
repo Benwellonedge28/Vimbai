@@ -1,16 +1,14 @@
 import os
+
 from neo4j import GraphDatabase
+
 
 class Neo4jConnector:
     _driver = None
 
     @classmethod
     def configure(cls, uri: str, user: str, password: str):
-        cls._config = {
-            "uri": uri,
-            "user": user,
-            "password": password
-        }
+        cls._config = {"uri": uri, "user": user, "password": password}
 
     @classmethod
     def get_driver(cls):
@@ -30,6 +28,7 @@ class Neo4jConnector:
             cls._driver.close()
             cls._driver = None
             print("Reporting Service: Neo4j driver closed.")
+
 
 async def init_db_schema():
     """Initialize Neo4j constraints and indexes for reporting service"""

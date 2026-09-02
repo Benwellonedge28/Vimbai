@@ -1,13 +1,22 @@
-from neo4j import AsyncSession
-from typing import Optional, List, Dict, Any
-from multimodal_pipeline_service.models import (
-    MultimodalProcessingTaskCreate, MultimodalProcessingTaskUpdate, MultimodalProcessingTaskInDB,
-    UserCorrection, UserCorrectionInDB,
-    ExtractedDataField, DocumentParseResult, AudioParseResult, ImageParseResult
-)
-from datetime import datetime
+import json  # For serializing/deserializing complex Pydantic models to/from JSON strings for Neo4j properties
 import uuid
-import json # For serializing/deserializing complex Pydantic models to/from JSON strings for Neo4j properties
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from multimodal_pipeline_service.models import (
+    AudioParseResult,
+    DocumentParseResult,
+    ExtractedDataField,
+    ImageParseResult,
+    MultimodalProcessingTaskCreate,
+    MultimodalProcessingTaskInDB,
+    MultimodalProcessingTaskUpdate,
+    UserCorrection,
+    UserCorrectionInDB,
+)
+from neo4j import AsyncSession
+from pydantic import BaseModel
+
 
 # Helper function to convert Pydantic models to Neo4j-compatible dictionary (handles nested models)
 def _to_neo4j_props(model_instance: BaseModel) -> Dict[str, Any]:
@@ -22,42 +31,44 @@ def _to_neo4j_props(model_instance: BaseModel) -> Dict[str, Any]:
             data[key] = value.isoformat()
     return data
 
+
 # Helper function to reconstruct Pydantic models from Neo4j properties
 def _from_neo4j_props(node_props: Dict[str, Any], model_class: BaseModel) -> BaseModel:
     props = node_props.copy()
-    if 'created_at' in props and isinstance(props['created_at'], str):
-        props['created_at'] = datetime.fromisoformat(props['created_at'])
-    if 'updated_at' in props and isinstance(props['updated_at'], str):
-        props['updated_at'] = datetime.fromisoformat(props['updated_at'])
-    if 'processing_start_time' in props and isinstance(props['processing_start_time'], str):
-        props['processing_start_time'] = datetime.fromisoformat(props['processing_start_time'])
-    if 'processing_end_time' in props and isinstance(props['processing_end_time'], str):
-        props['processing_end_time'] = datetime.fromisoformat(props['processing_end_time'])
-    if 'last_review_request_time' in props and isinstance(props['last_review_request_time'], str):
-        props['last_review_request_time'] = datetime.fromisoformat(props['last_review_request_time'])
-    if 'submitted_at' in props and isinstance(props['submitted_at'], str):
-        props['submitted_at'] = datetime.fromisoformat(props['submitted_at'])
-
+    if "created_at" in props and isinstance(props["created_at"], str):
+        props["created_at"] = datetime.fromisoformat(props["created_at"])
+    if "updated_at" in props and isinstance(props["updated_at"], str):
+        props["updated_at"] = datetime.fromisoformat(props["updated_at"])
+    if "processing_start_time" in props and isinstance(props["processing_start_time"], str):
+        props["processing_start_time"] = datetime.fromisoformat(props["processing_start_time"])
+    if "processing_end_time" in props and isinstance(props["processing_end_time"], str):
+        props["processing_end_time"] = datetime.fromisoformat(props["processing_end_time"])
+    if "last_review_request_time" in props and isinstance(props["last_review_request_time"], str):
+        props["last_review_request_time"] = datetime.fromisoformat(props["last_review_request_time"])
+    if "submitted_at" in props and isinstance(props["submitted_at"], str):
+        props["submitted_at"] = datetime.fromisoformat(props["submitted_at"])
 
     # Reconstruct nested Pydantic models from JSON strings
-    if 'document_result' in props and isinstance(props['document_result'], str):
-        props['document_result'] = DocumentParseResult(**json.loads(props['document_result']))
-    if 'audio_result' in props and isinstance(props['audio_result'], str):
-        props['audio_result'] = AudioParseResult(**json.loads(props['audio_result']))
-    if 'image_result' in props and isinstance(props['image_result'], str):
-        props['image_result'] = ImageParseResult(**json.loads(props['image_result']))
-    if 'extracted_data' in props and isinstance(props['extracted_data'], str):
-        props['extracted_data'] = [ExtractedDataField(**item) for item in json.loads(props['extracted_data'])]
-    if 'extracted_commands' in props and isinstance(props['extracted_commands'], str):
-        props['extracted_commands'] = [ExtractedDataField(**item) for item in json.loads(props['extracted_commands'])]
-    if 'extracted_objects' in props and isinstance(props['extracted_objects'], str):
-        props['extracted_objects'] = [ExtractedDataField(**item) for item in json.loads(props['extracted_objects'])]
+    if "document_result" in props and isinstance(props["document_result"], str):
+        props["document_result"] = DocumentParseResult(**json.loads(props["document_result"]))
+    if "audio_result" in props and isinstance(props["audio_result"], str):
+        props["audio_result"] = AudioParseResult(**json.loads(props["audio_result"]))
+    if "image_result" in props and isinstance(props["image_result"], str):
+        props["image_result"] = ImageParseResult(**json.loads(props["image_result"]))
+    if "extracted_data" in props and isinstance(props["extracted_data"], str):
+        props["extracted_data"] = [ExtractedDataField(**item) for item in json.loads(props["extracted_data"])]
+    if "extracted_commands" in props and isinstance(props["extracted_commands"], str):
+        props["extracted_commands"] = [ExtractedDataField(**item) for item in json.loads(props["extracted_commands"])]
+    if "extracted_objects" in props and isinstance(props["extracted_objects"], str):
+        props["extracted_objects"] = [ExtractedDataField(**item) for item in json.loads(props["extracted_objects"])]
 
     return model_class(**props)
 
 
 # --- MultimodalProcessingTask CRUD ---
-async def create_multimodal_processing_task(session: AsyncSession, task_data: MultimodalProcessingTaskCreate) -> MultimodalProcessingTaskInDB:
+async def create_multimodal_processing_task(
+    session: AsyncSession, task_data: MultimodalProcessingTaskCreate
+) -> MultimodalProcessingTaskInDB:
     task_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
     updated_at = datetime.now(timezone.utc)
@@ -75,7 +86,7 @@ async def create_multimodal_processing_task(session: AsyncSession, task_data: Mu
     """
     result = await session.run(query, user_id=task_data.user_id, props=props)
     record = await result.single()
-    
+
     return _from_neo4j_props(record["mpt"], MultimodalProcessingTaskInDB)
 
 
@@ -91,7 +102,10 @@ async def get_multimodal_processing_task(session: AsyncSession, task_id: str) ->
         return _from_neo4j_props(record["mpt"], MultimodalProcessingTaskInDB)
     return None
 
-async def get_all_multimodal_processing_tasks(session: AsyncSession, user_id: str) -> List[MultimodalProcessingTaskInDB]:
+
+async def get_all_multimodal_processing_tasks(
+    session: AsyncSession, user_id: str
+) -> List[MultimodalProcessingTaskInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_MULTIMODAL_TASK]->(mpt:MultimodalProcessingTask)
     RETURN mpt
@@ -103,7 +117,10 @@ async def get_all_multimodal_processing_tasks(session: AsyncSession, user_id: st
         tasks.append(_from_neo4j_props(record["mpt"], MultimodalProcessingTaskInDB))
     return tasks
 
-async def update_multimodal_processing_task(session: AsyncSession, task_id: str, task_data: MultimodalProcessingTaskUpdate) -> Optional[MultimodalProcessingTaskInDB]:
+
+async def update_multimodal_processing_task(
+    session: AsyncSession, task_id: str, task_data: MultimodalProcessingTaskUpdate
+) -> Optional[MultimodalProcessingTaskInDB]:
     update_fields = task_data.model_dump(exclude_unset=True)
     if not update_fields:
         return await get_multimodal_processing_task(session, task_id)
@@ -133,6 +150,7 @@ async def update_multimodal_processing_task(session: AsyncSession, task_id: str,
     if record:
         return _from_neo4j_props(record["mpt"], MultimodalProcessingTaskInDB)
     return None
+
 
 async def delete_multimodal_processing_task(session: AsyncSession, task_id: str) -> bool:
     query = """

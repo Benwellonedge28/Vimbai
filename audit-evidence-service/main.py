@@ -3,14 +3,17 @@ Audit Evidence Service
 Port: 8201
 Evidence gathering and evaluation
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Audit Evidence Service", version="1.0.0")
+
 
 class EvidenceItem(BaseModel):
     evidence_id: str
@@ -21,12 +24,14 @@ class EvidenceItem(BaseModel):
     sufficiency: bool
     appropriateness: bool
 
+
 class EvidenceEvaluationRequest(BaseModel):
     audit_id: str
     assertion: str
     required_evidence_types: List[str]
     evidence_items: List[Dict[str, Any]]
     reliability_factors: Dict[str, str]
+
 
 class EvidenceEvaluationResponse(BaseModel):
     audit_id: str
@@ -40,6 +45,7 @@ class EvidenceEvaluationResponse(BaseModel):
     conclusion: str
     additional_evidence_required: List[str]
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -50,9 +56,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "audit-evidence", "version": "1.0.0"}
+
 
 @app.post("/evaluate", response_model=EvidenceEvaluationResponse)
 async def evaluate_evidence(request: EvidenceEvaluationRequest):
@@ -71,20 +79,26 @@ async def evaluate_evidence(request: EvidenceEvaluationRequest):
         if appropriateness:
             appropriateness_count += 1
 
-        evidence_items.append(EvidenceItem(
-            evidence_id=item.get("id", ""),
-            source=item.get("source", ""),
-            type=item.get("type", ""),
-            description=item.get("description", ""),
-            obtained_date=item.get("date", ""),
-            sufficiency=sufficiency,
-            appropriateness=appropriateness
-        ))
+        evidence_items.append(
+            EvidenceItem(
+                evidence_id=item.get("id", ""),
+                source=item.get("source", ""),
+                type=item.get("type", ""),
+                description=item.get("description", ""),
+                obtained_date=item.get("date", ""),
+                sufficiency=sufficiency,
+                appropriateness=appropriateness,
+            )
+        )
 
-    reliability_score = (sufficiency_count + appropriateness_count) / (2 * len(request.evidence_items)) if request.evidence_items else 0
+    reliability_score = (
+        (sufficiency_count + appropriateness_count) / (2 * len(request.evidence_items)) if request.evidence_items else 0
+    )
 
     sufficiency_assessment = "sufficient" if sufficiency_count >= len(request.evidence_items) * 0.7 else "insufficient"
-    appropriateness_assessment = "appropriate" if appropriateness_count >= len(request.evidence_items) * 0.8 else "concerns_noted"
+    appropriateness_assessment = (
+        "appropriate" if appropriateness_count >= len(request.evidence_items) * 0.8 else "concerns_noted"
+    )
 
     additional_required = []
     if sufficiency_assessment == "insufficient":
@@ -101,10 +115,18 @@ async def evaluate_evidence(request: EvidenceEvaluationRequest):
         appropriateness_assessment=appropriateness_assessment,
         reliability_score=round(reliability_score, 2),
         evidence_items=evidence_items,
-        conclusion="Evidence supports assertion" if sufficiency_assessment == "sufficient" and appropriateness_assessment == "appropriate" else "Evidence requires supplementation",
-        additional_evidence_required=additional_required if additional_required else ["No additional evidence required"]
+        conclusion=(
+            "Evidence supports assertion"
+            if sufficiency_assessment == "sufficient" and appropriateness_assessment == "appropriate"
+            else "Evidence requires supplementation"
+        ),
+        additional_evidence_required=(
+            additional_required if additional_required else ["No additional evidence required"]
+        ),
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8201)

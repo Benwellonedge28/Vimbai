@@ -18,15 +18,23 @@ SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8108"))
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Variance Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class VarianceResult(BaseModel):
@@ -67,18 +75,18 @@ async def calculate_variance(budgeted: float, actual: float, is_cost: bool = Tru
     percentage = (variance / budgeted * 100) if budgeted != 0 else 0
 
     result = VarianceResult(
-        budgeted=budgeted, actual=actual, variance=variance,
-        variance_type=variance_type, percentage=round(percentage, 2)
+        budgeted=budgeted,
+        actual=actual,
+        variance=variance,
+        variance_type=variance_type,
+        percentage=round(percentage, 2),
     )
     return result
 
 
 @app.post("/material-variance")
 async def calculate_material_variance(
-    standard_price: float,
-    actual_price: float,
-    standard_quantity: float,
-    actual_quantity: float
+    standard_price: float, actual_price: float, standard_quantity: float, actual_quantity: float
 ):
     """
     Calculate material variances.
@@ -105,16 +113,13 @@ async def calculate_material_variance(
         "price_variance": round(price_variance, 2),
         "usage_variance": round(usage_variance, 2),
         "price_variance_type": "Favorable" if price_variance > 0 else "Adverse",
-        "usage_variance_type": "Favorable" if usage_variance > 0 else "Adverse"
+        "usage_variance_type": "Favorable" if usage_variance > 0 else "Adverse",
     }
 
 
 @app.post("/labour-variance")
 async def calculate_labour_variance(
-    standard_rate: float,
-    actual_rate: float,
-    standard_hours: float,
-    actual_hours: float
+    standard_rate: float, actual_rate: float, standard_hours: float, actual_hours: float
 ):
     """
     Calculate labour variances.
@@ -140,16 +145,13 @@ async def calculate_labour_variance(
         "rate_variance": round(rate_variance, 2),
         "efficiency_variance": round(efficiency_variance, 2),
         "rate_variance_type": "Favorable" if rate_variance > 0 else "Adverse",
-        "efficiency_variance_type": "Favorable" if efficiency_variance > 0 else "Adverse"
+        "efficiency_variance_type": "Favorable" if efficiency_variance > 0 else "Adverse",
     }
 
 
 @app.post("/sales-variance")
 async def calculate_sales_variance(
-    standard_price: float,
-    actual_price: float,
-    standard_quantity: float,
-    actual_quantity: float
+    standard_price: float, actual_price: float, standard_quantity: float, actual_quantity: float
 ):
     """
     Calculate sales variances.
@@ -175,17 +177,13 @@ async def calculate_sales_variance(
         "price_variance": round(price_variance, 2),
         "volume_variance": round(volume_variance, 2),
         "price_variance_type": "Favorable" if price_variance > 0 else "Adverse",
-        "volume_variance_type": "Favorable" if volume_variance > 0 else "Adverse"
+        "volume_variance_type": "Favorable" if volume_variance > 0 else "Adverse",
     }
 
 
 @app.post("/overhead-variance")
 async def calculate_overhead_variance(
-    standard_overhead: float,
-    actual_overhead: float,
-    budgeted_output: float,
-    actual_output: float,
-    overhead_rate: float
+    standard_overhead: float, actual_overhead: float, budgeted_output: float, actual_output: float, overhead_rate: float
 ):
     """Calculate overhead variance."""
     # Volume variance = (Budgeted output - Actual output) × OAR
@@ -205,16 +203,12 @@ async def calculate_overhead_variance(
         "volume_variance": round(volume_variance, 2),
         "spending_variance": round(spending_variance, 2),
         "total_overhead_variance": round(total_variance, 2),
-        "interpretation": "Favorable" if total_variance > 0 else "Adverse"
+        "interpretation": "Favorable" if total_variance > 0 else "Adverse",
     }
 
 
 @app.post("/flexible-budget-variance")
-async def calculate_flexible_budget_variance(
-    static_budget: float,
-    flexed_budget: float,
-    actual: float
-):
+async def calculate_flexible_budget_variance(static_budget: float, flexed_budget: float, actual: float):
     """Calculate flexible budget variances."""
     # Sales volume variance = Flexed budget - Static budget
     sales_volume_var = flexed_budget - static_budget
@@ -231,10 +225,11 @@ async def calculate_flexible_budget_variance(
         "actual": actual,
         "sales_volume_variance": round(sales_volume_var, 2),
         "expenditure_variance": round(expenditure_var, 2),
-        "total_variance": round(total_var, 2)
+        "total_variance": round(total_var, 2),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

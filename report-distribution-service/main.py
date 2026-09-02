@@ -3,12 +3,13 @@ Report Distribution Service
 Port: 8273
 Automated report distribution management
 """
+from datetime import datetime
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
-from datetime import datetime
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Report Distribution Service", version="1.0.0")

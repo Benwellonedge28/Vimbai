@@ -1,11 +1,13 @@
 import random
-from typing import Dict, Any, Tuple
-from fraud_detection_service.models import TransactionForFraudCheck, FraudDetectionResult
 from datetime import datetime
+from typing import Any, Dict, Tuple
+
+from fraud_detection_service.models import FraudDetectionResult, TransactionForFraudCheck
 
 # This is a highly simplified, rule-based "ML model" for demonstration purposes.
 # In a real scenario, this would be a trained machine learning model (e.g., RandomForest, XGBoost, Neural Network)
 # loaded from a serialized file (.pkl, .joblib, etc.) and much more complex feature engineering.
+
 
 class FraudDetector:
     def __init__(self):
@@ -20,8 +22,8 @@ class FraudDetector:
             "transaction_type": transaction.transaction_type,
             "previous_transactions_count_24h": transaction.previous_transactions_count_24h,
             "avg_daily_transaction_amount_7d": float(transaction.avg_daily_transaction_amount_7d),
-            "is_large_transaction": float(transaction.amount > 5000), # Rule example
-            "is_unusual_time": float(transaction.timestamp.hour < 6 or transaction.timestamp.hour > 22), # Rule example
+            "is_large_transaction": float(transaction.amount > 5000),  # Rule example
+            "is_unusual_time": float(transaction.timestamp.hour < 6 or transaction.timestamp.hour > 22),  # Rule example
             "same_sender_recipient": float(transaction.sender_account_id == transaction.recipient_account_id),
             # Add more features from location_data, device_info, etc.
         }
@@ -52,8 +54,9 @@ class FraudDetector:
             fraud_score += 0.2
             reason.append("Self-transfer observed.")
         # Rule 5: Deviation from average amount
-        if features["avg_daily_transaction_amount_7d"] > 0 and \
-           features["amount"] > (features["avg_daily_transaction_amount_7d"] * 3):
+        if features["avg_daily_transaction_amount_7d"] > 0 and features["amount"] > (
+            features["avg_daily_transaction_amount_7d"] * 3
+        ):
             fraud_score += 0.2
             reason.append("Transaction amount significantly higher than average.")
 
@@ -71,11 +74,10 @@ class FraudDetector:
             fraud_flag = "safe"
             reason = ["Transaction appears normal."]
 
-
         return FraudDetectionResult(
             transaction_id=transaction.transaction_id,
             fraud_score=fraud_score,
             fraud_flag=fraud_flag,
             reason=". ".join(reason) if reason else "No specific issues detected.",
-            model_version=self.model_version
+            model_version=self.model_version,
         )

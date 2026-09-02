@@ -2,15 +2,19 @@
 Neo4j Database Connection with Connection Pooling
 Implements connection pool management, health checks, and graceful shutdown
 """
-import os
+
 import logging
+import os
+
 from neo4j import AsyncGraphDatabase
-from neo4j.exceptions import ServiceUnavailable, AuthError
+from neo4j.exceptions import AuthError, ServiceUnavailable
 
 logger = logging.getLogger(__name__)
 
+
 class Neo4jConnector:
     """Singleton Neo4j connector with connection pooling."""
+
     _driver = None
     _config = None
 
@@ -65,5 +69,6 @@ class Neo4jConnector:
     async def initialize_schema(cls):
         """Run initial schema creation if needed."""
         from migrations import run_migrations
+
         async with cls.get_driver().session() as session:
             await run_migrations(session)

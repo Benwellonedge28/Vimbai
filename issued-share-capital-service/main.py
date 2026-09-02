@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Issued Share Capital Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class Shareholder(BaseModel):
@@ -82,13 +90,14 @@ async def root():
 
 
 @app.post("/issue")
-async def issue_shares(
-    company_id: str, issue_date: datetime, share_class: str, shares_issued: int, issue_price: float
-):
+async def issue_shares(company_id: str, issue_date: datetime, share_class: str, shares_issued: int, issue_price: float):
     """Issue new shares."""
     issue = ShareIssue(
-        company_id=company_id, issue_date=issue_date, share_class=share_class,
-        shares_issued=shares_issued, issue_price=issue_price
+        company_id=company_id,
+        issue_date=issue_date,
+        share_class=share_class,
+        shares_issued=shares_issued,
+        issue_price=issue_price,
     )
     issue.total_proceeds = shares_issued * issue_price
 
@@ -98,9 +107,14 @@ async def issue_shares(
         "entries": [
             {"account_code": "1000", "description": "Bank", "debit": issue.total_proceeds, "credit": 0},
             {"account_code": "3200", "description": "Share Capital", "debit": 0, "credit": shares_issued * 1},
-            {"account_code": "3210", "description": "Share Premium", "debit": 0, "credit": issue.total_proceeds - shares_issued},
+            {
+                "account_code": "3210",
+                "description": "Share Premium",
+                "debit": 0,
+                "credit": issue.total_proceeds - shares_issued,
+            },
         ],
-        "reference": f"ISS-{issue.id[:8]}"
+        "reference": f"ISS-{issue.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     issue.journal_entry_id = result.get("id")
@@ -142,4 +156,5 @@ async def get_capital_summary(company_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

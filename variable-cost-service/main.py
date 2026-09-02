@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Variable Cost Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class VariableCost(BaseModel):
@@ -86,14 +94,23 @@ async def root():
 
 @app.post("/costs/add")
 async def add_variable_cost(
-    cost_name: str, cost_code: str, unit_cost: float, quantity: float,
-    cost_driver: str, department_id: Optional[str] = None, product_id: Optional[str] = None
+    cost_name: str,
+    cost_code: str,
+    unit_cost: float,
+    quantity: float,
+    cost_driver: str,
+    department_id: Optional[str] = None,
+    product_id: Optional[str] = None,
 ):
     """Add a variable cost item."""
     cost = VariableCost(
-        cost_name=cost_name, cost_code=cost_code, unit_cost=unit_cost,
-        quantity=quantity, cost_driver=cost_driver,
-        department_id=department_id, product_id=product_id
+        cost_name=cost_name,
+        cost_code=cost_code,
+        unit_cost=unit_cost,
+        quantity=quantity,
+        cost_driver=cost_driver,
+        department_id=department_id,
+        product_id=product_id,
     )
     cost.total_cost = unit_cost * quantity
     cost.cost_driver_rate = unit_cost
@@ -102,9 +119,7 @@ async def add_variable_cost(
 
 
 @app.post("/costs/{cost_id}/update")
-async def update_variable_cost(
-    cost_id: str, unit_cost: Optional[float] = None, quantity: Optional[float] = None
-):
+async def update_variable_cost(cost_id: str, unit_cost: Optional[float] = None, quantity: Optional[float] = None):
     """Update variable cost details."""
     cost = next((c for c in variable_costs if c.id == cost_id), None)
     if not cost:
@@ -121,9 +136,7 @@ async def update_variable_cost(
 
 @app.post("/analyze")
 async def analyze_variable_costs(
-    analysis_period: str,
-    department_id: Optional[str] = None,
-    product_id: Optional[str] = None
+    analysis_period: str, department_id: Optional[str] = None, product_id: Optional[str] = None
 ):
     """Analyze variable costs for a period."""
     costs = variable_costs
@@ -155,24 +168,19 @@ async def analyze_variable_costs(
 
 
 @app.post("/calculate-total")
-async def calculate_total_variable_cost(
-    unit_cost: float, expected_quantity: float
-):
+async def calculate_total_variable_cost(unit_cost: float, expected_quantity: float):
     """Calculate total variable cost for expected production."""
     total_cost = unit_cost * expected_quantity
     return {
         "unit_cost": unit_cost,
         "expected_quantity": expected_quantity,
         "total_variable_cost": total_cost,
-        "cost_per_driver_unit": unit_cost
+        "cost_per_driver_unit": unit_cost,
     }
 
 
 @app.get("/costs")
-async def list_variable_costs(
-    department_id: Optional[str] = None,
-    product_id: Optional[str] = None
-):
+async def list_variable_costs(department_id: Optional[str] = None, product_id: Optional[str] = None):
     """List variable costs."""
     result = variable_costs
     if department_id:
@@ -183,10 +191,7 @@ async def list_variable_costs(
 
 
 @app.get("/summary")
-async def get_variable_cost_summary(
-    department_id: Optional[str] = None,
-    product_id: Optional[str] = None
-):
+async def get_variable_cost_summary(department_id: Optional[str] = None, product_id: Optional[str] = None):
     """Get variable cost summary."""
     costs = variable_costs
     if department_id:
@@ -202,10 +207,11 @@ async def get_variable_cost_summary(
         "total_units": total_units,
         "average_cost_per_unit": total_cost / total_units if total_units > 0 else 0,
         "cost_drivers": list(set(c.cost_driver for c in costs)),
-        "total_cost_items": len(costs)
+        "total_cost_items": len(costs),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

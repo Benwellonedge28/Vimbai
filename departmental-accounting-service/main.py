@@ -5,15 +5,16 @@ and department-level financial reporting
 Uses existing services via internal API calls for core accounting functions
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query, BackgroundTasks
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
-from enum import Enum
-import uuid
-import httpx
-from decimal import Decimal
 import os
+import uuid
+from datetime import datetime, timezone
+from decimal import Decimal
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+import httpx
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
+from pydantic import BaseModel, Field
 
 app = FastAPI(
     title="Vimbai Departmental Accounting Service",
@@ -33,6 +34,7 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8091")
 # ============================================================================
 # Enums
 # ============================================================================
+
 
 class DepartmentType(str, Enum):
     REVENUE = "revenue"  # Generates income
@@ -67,6 +69,7 @@ class DepartmentStatus(str, Enum):
 # ============================================================================
 # Pydantic Models
 # ============================================================================
+
 
 class Department(BaseModel):
     id: str
@@ -192,6 +195,7 @@ dept_financials_cache: Dict[str, DepartmentFinancials] = {}
 # Internal API Helper Functions
 # ============================================================================
 
+
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None):
     """Call accounting service for core accounting functions"""
     async with httpx.AsyncClient() as client:
@@ -254,6 +258,7 @@ async def call_audit_service(event_data: Dict):
 # API Endpoints
 # ============================================================================
 
+
 @app.get("/")
 async def health_check():
     """Health check endpoint"""
@@ -268,6 +273,7 @@ async def health_check():
 
 # --- Department Management ---
 
+
 @app.post("/departments")
 async def create_department(department: Department):
     """Create a new department"""
@@ -278,21 +284,27 @@ async def create_department(department: Department):
     departments[department.id] = department
 
     # Create cost center in accounting service
-    await call_accounting_service("POST", "/accounts/", {
-        "account_number": f"DEPT-{department.department_code}",
-        "account_name": f"{department.department_name} - Cost Center",
-        "account_type": "Expense",
-        "description": f"Cost center for {department.department_name}",
-    })
+    await call_accounting_service(
+        "POST",
+        "/accounts/",
+        {
+            "account_number": f"DEPT-{department.department_code}",
+            "account_name": f"{department.department_name} - Cost Center",
+            "account_type": "Expense",
+            "description": f"Cost center for {department.department_name}",
+        },
+    )
 
     # Log to audit
-    await call_audit_service({
-        "event_type": "create",
-        "resource_type": "department",
-        "resource_id": department.id,
-        "user_id": "system",
-        "action_details": {"department_name": department.department_name},
-    })
+    await call_audit_service(
+        {
+            "event_type": "create",
+            "resource_type": "department",
+            "resource_id": department.id,
+            "user_id": "system",
+            "action_details": {"department_name": department.department_name},
+        }
+    )
 
     return department
 
@@ -301,7 +313,7 @@ async def create_department(department: Department):
 async def list_departments(
     department_type: Optional[DepartmentType] = None,
     status: Optional[DepartmentStatus] = None,
-    parent_id: Optional[str] = None
+    parent_id: Optional[str] = None,
 ):
     """List all departments"""
     results = list(departments.values())
@@ -365,6 +377,7 @@ async def get_department_hierarchy(department_id: str):
 
 # --- Allocation Rules ---
 
+
 @app.post("/allocation-rules")
 async def create_allocation_rule(rule: DepartmentAllocationRule):
     """Create cost allocation rule"""
@@ -398,6 +411,7 @@ async def deactivate_allocation_rule(rule_id: str):
 
 # --- Cost Pools ---
 
+
 @app.post("/cost-pools")
 async def create_cost_pool(pool: DepartmentCostPool):
     """Create a cost pool for allocation"""
@@ -429,12 +443,10 @@ async def get_cost_pool(pool_id: str):
 
 # --- Cost Allocation ---
 
+
 @app.post("/allocate")
 async def run_cost_allocation(
-    cost_pool_id: str,
-    period_start: datetime,
-    period_end: datetime,
-    created_by: str = "system"
+    cost_pool_id: str, period_start: datetime, period_end: datetime, created_by: str = "system"
 ):
     """Run cost allocation for a cost pool"""
     if cost_pool_id not in cost_pools:
@@ -447,9 +459,7 @@ async def run_cost_allocation(
 
     # Get departments to allocate to
     target_departments = [
-        d for d in departments.values()
-        if d.id not in pool.excluded_departments
-        and d.status == DepartmentStatus.ACTIVE
+        d for d in departments.values() if d.id not in pool.excluded_departments and d.status == DepartmentStatus.ACTIVE
     ]
 
     results = []
@@ -473,11 +483,16 @@ async def run_cost_allocation(
             revenue = Decimal(str(revenue_data.get("total_credits", 0)))
             total_revenue = sum(
                 Decimal(str(r.get("total_credits", 0)))
-                for r in [await call_accounting_service("GET", f"/accounts/{d.account_code}/period-activity") for d in target_departments]
+                for r in [
+                    await call_accounting_service("GET", f"/accounts/{d.account_code}/period-activity")
+                    for d in target_departments
+                ]
             )
             allocation_percentage = float(revenue / total_revenue * 100) if total_revenue else 0
         elif pool.allocation_basis == AllocationBasis.EXPENSES:
-            allocation_percentage = float(total_expenses / sum(total_expenses for _ in target_departments) * 100) if total_expenses else 0
+            allocation_percentage = (
+                float(total_expenses / sum(total_expenses for _ in target_departments) * 100) if total_expenses else 0
+            )
         else:
             allocation_percentage = 100.0 / len(target_departments)
 
@@ -502,25 +517,29 @@ async def run_cost_allocation(
         results.append(result)
 
         # Create journal entry in accounting service to record allocation
-        await call_accounting_service("POST", "/journal-entries/", {
-            "description": f"Cost allocation from {pool.pool_name} to {dept.department_name}",
-            "reference": f"ALLOC-{pool.id[:8]}",
-            "date": datetime.now().isoformat(),
-            "lines": [
-                {
-                    "account_code": f"DEPT-{dept.department_code}",
-                    "description": f"Allocated cost from {pool.pool_name}",
-                    "debit": True,
-                    "amount": str(allocated_amount),
-                },
-                {
-                    "account_code": f"POOL-{pool.id[:8]}",
-                    "description": f"Cost pool {pool.pool_name}",
-                    "debit": False,
-                    "amount": str(allocated_amount),
-                },
-            ],
-        })
+        await call_accounting_service(
+            "POST",
+            "/journal-entries/",
+            {
+                "description": f"Cost allocation from {pool.pool_name} to {dept.department_name}",
+                "reference": f"ALLOC-{pool.id[:8]}",
+                "date": datetime.now().isoformat(),
+                "lines": [
+                    {
+                        "account_code": f"DEPT-{dept.department_code}",
+                        "description": f"Allocated cost from {pool.pool_name}",
+                        "debit": True,
+                        "amount": str(allocated_amount),
+                    },
+                    {
+                        "account_code": f"POOL-{pool.id[:8]}",
+                        "description": f"Cost pool {pool.pool_name}",
+                        "debit": False,
+                        "amount": str(allocated_amount),
+                    },
+                ],
+            },
+        )
 
     allocation_results[pool.id] = results
     pool.status = "closed"
@@ -542,6 +561,7 @@ async def get_allocation_results(pool_id: str):
 
 # --- Inter-Department Billing ---
 
+
 @app.post("/inter-department-bills")
 async def create_inter_dept_bill(bill: InterDepartmentBilling):
     """Create inter-department billing"""
@@ -555,9 +575,7 @@ async def create_inter_dept_bill(bill: InterDepartmentBilling):
 
 @app.get("/inter-department-bills")
 async def list_inter_dept_bills(
-    from_dept_id: Optional[str] = None,
-    to_dept_id: Optional[str] = None,
-    status: Optional[str] = None
+    from_dept_id: Optional[str] = None, to_dept_id: Optional[str] = None, status: Optional[str] = None
 ):
     """List inter-department bills"""
     results = list(inter_dept_bills.values())
@@ -587,37 +605,38 @@ async def approve_inter_dept_bill(bill_id: str, approved_by: str):
     to_dept = departments.get(bill.to_department_id)
 
     if from_dept and to_dept:
-        await call_accounting_service("POST", "/journal-entries/", {
-            "description": f"Inter-dept billing: {from_dept.department_name} -> {to_dept.department_name}",
-            "reference": bill.bill_number,
-            "date": bill.billing_date.isoformat(),
-            "lines": [
-                {
-                    "account_code": from_dept.cost_center_code or f"DEPT-{from_dept.department_code}",
-                    "description": f"Charge to {to_dept.department_name}",
-                    "debit": True,
-                    "amount": str(bill.amount),
-                },
-                {
-                    "account_code": to_dept.revenue_center_code or f"DEPT-{to_dept.department_code}",
-                    "description": f"Service provided to {from_dept.department_name}",
-                    "debit": False,
-                    "amount": str(bill.amount),
-                },
-            ],
-        })
+        await call_accounting_service(
+            "POST",
+            "/journal-entries/",
+            {
+                "description": f"Inter-dept billing: {from_dept.department_name} -> {to_dept.department_name}",
+                "reference": bill.bill_number,
+                "date": bill.billing_date.isoformat(),
+                "lines": [
+                    {
+                        "account_code": from_dept.cost_center_code or f"DEPT-{from_dept.department_code}",
+                        "description": f"Charge to {to_dept.department_name}",
+                        "debit": True,
+                        "amount": str(bill.amount),
+                    },
+                    {
+                        "account_code": to_dept.revenue_center_code or f"DEPT-{to_dept.department_code}",
+                        "description": f"Service provided to {from_dept.department_name}",
+                        "debit": False,
+                        "amount": str(bill.amount),
+                    },
+                ],
+            },
+        )
 
     return bill
 
 
 # --- Department Financials ---
 
+
 @app.get("/departments/{department_id}/financials")
-async def get_department_financials(
-    department_id: str,
-    period_start: datetime,
-    period_end: datetime
-):
+async def get_department_financials(department_id: str, period_start: datetime, period_end: datetime):
     """Get department financial summary using existing services"""
     if department_id not in departments:
         raise HTTPException(status_code=404, detail="Department not found")
@@ -675,11 +694,7 @@ async def get_department_financials(
 
 
 @app.get("/departments/{department_id}/performance-report")
-async def get_performance_report(
-    department_id: str,
-    period_start: datetime,
-    period_end: datetime
-):
+async def get_performance_report(department_id: str, period_start: datetime, period_end: datetime):
     """Generate comprehensive department performance report"""
     if department_id not in departments:
         raise HTTPException(status_code=404, detail="Department not found")
@@ -692,16 +707,15 @@ async def get_performance_report(
     # Get budget execution from budgeting service
     budget_execution = {}
     if dept.budget_id:
-        budget_execution = await call_budgeting_service(
-            "GET",
-            f"/reports/execution?budget_id={dept.budget_id}"
-        )
+        budget_execution = await call_budgeting_service("GET", f"/reports/execution?budget_id={dept.budget_id}")
 
     # Calculate KPIs
     kpis = {
         "profit_margin": float(financials.net_income / financials.revenue * 100) if financials.revenue else 0,
         "cost_ratio": float(financials.total_expenses / financials.revenue * 100) if financials.revenue else 0,
-        "cost_efficiency": "Good" if float(financials.total_expenses / financials.revenue * 100) < 80 else "Needs Improvement",
+        "cost_efficiency": (
+            "Good" if float(financials.total_expenses / financials.revenue * 100) < 80 else "Needs Improvement"
+        ),
         "budget_adherence": "On Budget" if abs(financials.budget_variance_percentage) < 5 else "Over/Under Budget",
     }
 
@@ -732,12 +746,9 @@ async def get_performance_report(
 
 # --- Reports ---
 
+
 @app.get("/reports/department-comparison")
-async def compare_departments(
-    department_ids: List[str],
-    period_start: datetime,
-    period_end: datetime
-):
+async def compare_departments(department_ids: List[str], period_start: datetime, period_end: datetime):
     """Compare financial performance across departments"""
     comparisons = []
 
@@ -768,15 +779,17 @@ async def get_cost_distribution_report(period_start: datetime, period_end: datet
         if dept.status == DepartmentStatus.ACTIVE:
             financials = await get_department_financials(dept.id, period_start, period_end)
 
-            distribution.append({
-                "department_id": dept.id,
-                "department_name": dept.department_name,
-                "department_type": dept.department_type.value,
-                "direct_costs": str(financials.direct_expenses),
-                "allocated_costs": str(financials.allocated_costs),
-                "total_costs": str(financials.total_expenses),
-                "percentage_of_total": 0,  # Calculate after
-            })
+            distribution.append(
+                {
+                    "department_id": dept.id,
+                    "department_name": dept.department_name,
+                    "department_type": dept.department_type.value,
+                    "direct_costs": str(financials.direct_expenses),
+                    "allocated_costs": str(financials.allocated_costs),
+                    "total_costs": str(financials.total_expenses),
+                    "percentage_of_total": 0,  # Calculate after
+                }
+            )
 
     total_costs = sum(Decimal(str(d["total_costs"])) for d in distribution)
     for d in distribution:
@@ -791,4 +804,5 @@ async def get_cost_distribution_report(period_start: datetime, period_end: datet
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8100)

@@ -13,18 +13,19 @@ Usage:
         span.set_attribute("key", "value")
         ...
 """
-import os
+
 import logging
+import os
 from typing import Optional
 
 from opentelemetry import trace
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPGrcpSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import get_tracer_provider
 
 logger = logging.getLogger(__name__)
@@ -54,17 +55,16 @@ def setup_tracing(
         logger.warning(f"Tracing already initialized for {_TRACER}")
         return _TRACER
 
-    endpoint = otlp_endpoint or os.environ.get(
-        "OTEL_EXPORTER_OTLP_ENDPOINT",
-        "http://otel-collector:4317"
-    )
+    endpoint = otlp_endpoint or os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4317")
 
-    resource = Resource.create({
-        "service.name": service_name,
-        "service.version": service_version,
-        "service.namespace": "vimbai",
-        "deployment.environment": os.environ.get("DEPLOYMENT_ENV", "production"),
-    })
+    resource = Resource.create(
+        {
+            "service.name": service_name,
+            "service.version": service_version,
+            "service.namespace": "vimbai",
+            "deployment.environment": os.environ.get("DEPLOYMENT_ENV", "production"),
+        }
+    )
 
     provider = TracerProvider(resource=resource)
     exporter = OTLPGrcpSpanExporter(endpoint=endpoint, insecure=True)

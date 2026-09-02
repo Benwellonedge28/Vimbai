@@ -3,18 +3,19 @@ Vimbai POS Integration Service
 Provides seamless integration with Point-of-Sale systems for real-time transaction syncing
 """
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, status, BackgroundTasks
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
-from enum import Enum
 import asyncio
 import json
-import uuid
 import os
-from dotenv import load_dotenv
+import uuid
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
 import httpx
+from dotenv import load_dotenv
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -28,11 +29,13 @@ app = FastAPI(
 # Models
 # ============================================================================
 
+
 class POSDeviceStatus(str, Enum):
     ONLINE = "online"
     OFFLINE = "offline"
     SYNCING = "syncing"
     ERROR = "error"
+
 
 class TransactionType(str, Enum):
     SALE = "sale"
@@ -42,6 +45,7 @@ class TransactionType(str, Enum):
     LAYAWAY = "layaway"
     RETURN = "return"
 
+
 class PaymentMethod(str, Enum):
     CASH = "cash"
     CARD = "card"
@@ -50,11 +54,13 @@ class PaymentMethod(str, Enum):
     GIFT_CARD = "gift_card"
     LOYALTY = "loyalty"
 
+
 class SyncStatus(str, Enum):
     PENDING = "pending"
     SYNCED = "synced"
     FAILED = "failed"
     PARTIAL = "partial"
+
 
 class POSDeviceCreate(BaseModel):
     device_id: str = Field(..., description="Unique POS device identifier")
@@ -65,12 +71,14 @@ class POSDeviceCreate(BaseModel):
     webhook_url: Optional[str] = None
     enabled: bool = True
 
+
 class POSDeviceInDB(POSDeviceCreate):
     id: str
     status: POSDeviceStatus = POSDeviceStatus.OFFLINE
     last_sync: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+
 
 class POSTransactionCreate(BaseModel):
     transaction_id: str = Field(..., description="External POS transaction ID")
@@ -88,6 +96,7 @@ class POSTransactionCreate(BaseModel):
     notes: Optional[str] = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+
 class POSTransactionInDB(POSTransactionCreate):
     id: str
     sync_status: SyncStatus = SyncStatus.PENDING
@@ -96,10 +105,12 @@ class POSTransactionInDB(POSTransactionCreate):
     error_message: Optional[str] = None
     created_at: datetime
 
+
 class InventorySyncRequest(BaseModel):
     device_id: str
     products: List[Dict[str, Any]] = Field(..., description="Product inventory updates")
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 
 class SalesSummaryRequest(BaseModel):
     device_id: str
@@ -107,9 +118,11 @@ class SalesSummaryRequest(BaseModel):
     end_date: datetime
     group_by: str = "hour"  # hour, day, week
 
+
 # ============================================================================
 # Connection Manager
 # ============================================================================
+
 
 class POSConnectionManager:
     """Manages WebSocket connections for real-time POS updates"""
@@ -154,6 +167,7 @@ class POSConnectionManager:
                 except Exception:
                     pass
 
+
 pos_manager = POSConnectionManager()
 
 # ============================================================================
@@ -168,14 +182,16 @@ transaction_mappings: Dict[str, str] = {}  # external_id -> internal_id
 # API Endpoints
 # ============================================================================
 
+
 @app.get("/")
 async def health_check():
     return {
         "status": "healthy",
         "service": "pos-integration",
         "connected_devices": len(pos_manager.active_connections),
-        "total_transactions": len(transactions)
+        "total_transactions": len(transactions),
     }
+
 
 # --- Device Management ---
 @app.post("/devices", response_model=POSDeviceInDB, status_code=status.HTTP_201_CREATED)
@@ -188,15 +204,12 @@ async def register_device(device: POSDeviceCreate):
 
     now = datetime.now(timezone.utc)
     db_device = POSDeviceInDB(
-        id=str(uuid.uuid4()),
-        **device.model_dump(),
-        status=POSDeviceStatus.OFFLINE,
-        created_at=now,
-        updated_at=now
+        id=str(uuid.uuid4()), **device.model_dump(), status=POSDeviceStatus.OFFLINE, created_at=now, updated_at=now
     )
 
     devices[device_id] = db_device
     return db_device
+
 
 @app.get("/devices", response_model=List[POSDeviceInDB])
 async def list_devices(status: Optional[POSDeviceStatus] = None):
@@ -206,11 +219,13 @@ async def list_devices(status: Optional[POSDeviceStatus] = None):
         devices_list = [d for d in devices_list if d.status == status]
     return devices_list
 
+
 @app.get("/devices/{device_id}", response_model=POSDeviceInDB)
 async def get_device(device_id: str):
     if device_id not in devices:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
     return devices[device_id]
+
 
 @app.put("/devices/{device_id}/status")
 async def update_device_status(device_id: str, status_update: Dict[str, Any]):
@@ -222,20 +237,16 @@ async def update_device_status(device_id: str, status_update: Dict[str, Any]):
     devices[device_id].last_sync = datetime.now(timezone.utc)
     devices[device_id].updated_at = datetime.now(timezone.utc)
 
-    await pos_manager.broadcast_to_all({
-        "type": "device_status_update",
-        "device_id": device_id,
-        "status": devices[device_id].status.value
-    })
+    await pos_manager.broadcast_to_all(
+        {"type": "device_status_update", "device_id": device_id, "status": devices[device_id].status.value}
+    )
 
     return {"status": "updated", "device_id": device_id}
 
+
 # --- Transaction Processing ---
 @app.post("/transactions", response_model=POSTransactionInDB, status_code=status.HTTP_201_CREATED)
-async def receive_transaction(
-    transaction: POSTransactionCreate,
-    background_tasks: BackgroundTasks
-):
+async def receive_transaction(transaction: POSTransactionCreate, background_tasks: BackgroundTasks):
     """Receive transaction from POS device and process for accounting"""
     transaction_id = transaction.transaction_id
 
@@ -244,10 +255,7 @@ async def receive_transaction(
 
     now = datetime.now(timezone.utc)
     db_transaction = POSTransactionInDB(
-        id=str(uuid.uuid4()),
-        **transaction.model_dump(),
-        sync_status=SyncStatus.PENDING,
-        created_at=now
+        id=str(uuid.uuid4()), **transaction.model_dump(), sync_status=SyncStatus.PENDING, created_at=now
     )
 
     transactions[transaction_id] = db_transaction
@@ -257,17 +265,20 @@ async def receive_transaction(
     background_tasks.add_task(process_transaction_for_accounting, db_transaction)
 
     # Broadcast to connected dashboards
-    await pos_manager.broadcast_to_all({
-        "type": "new_transaction",
-        "transaction": {
-            "id": db_transaction.id,
-            "external_id": transaction_id,
-            "amount": db_transaction.total_amount,
-            "type": db_transaction.transaction_type.value
+    await pos_manager.broadcast_to_all(
+        {
+            "type": "new_transaction",
+            "transaction": {
+                "id": db_transaction.id,
+                "external_id": transaction_id,
+                "amount": db_transaction.total_amount,
+                "type": db_transaction.transaction_type.value,
+            },
         }
-    })
+    )
 
     return db_transaction
+
 
 async def process_transaction_for_accounting(transaction: POSTransactionInDB):
     """Process POS transaction and create journal entry"""
@@ -280,73 +291,75 @@ async def process_transaction_for_accounting(transaction: POSTransactionInDB):
             "description": f"POS Transaction {transaction.transaction_id}",
             "entry_date": transaction.timestamp.isoformat(),
             "reference": f"POS-{transaction.device_id}-{transaction.transaction_id}",
-            "lines": []
+            "lines": [],
         }
 
         # For sales, create debit to cash/receivables and credit to sales
         if transaction.transaction_type == TransactionType.SALE:
             # Debit entry (cash or accounts receivable)
-            journal_entry_data["lines"].append({
-                "account_code": "1100",  # Cash account
-                "description": "Cash from POS sale",
-                "debit": transaction.total_amount - transaction.tax_amount,
-                "credit": 0
-            })
+            journal_entry_data["lines"].append(
+                {
+                    "account_code": "1100",  # Cash account
+                    "description": "Cash from POS sale",
+                    "debit": transaction.total_amount - transaction.tax_amount,
+                    "credit": 0,
+                }
+            )
             # Tax liability
             if transaction.tax_amount > 0:
-                journal_entry_data["lines"].append({
-                    "account_code": "2200",  # Sales Tax Payable
-                    "description": "Sales tax collected",
-                    "debit": 0,
-                    "credit": transaction.tax_amount
-                })
+                journal_entry_data["lines"].append(
+                    {
+                        "account_code": "2200",  # Sales Tax Payable
+                        "description": "Sales tax collected",
+                        "debit": 0,
+                        "credit": transaction.tax_amount,
+                    }
+                )
             # Credit to sales revenue
-            journal_entry_data["lines"].append({
-                "account_code": "4000",  # Sales Revenue
-                "description": "POS Sale",
-                "debit": 0,
-                "credit": transaction.total_amount - transaction.tax_amount
-            })
+            journal_entry_data["lines"].append(
+                {
+                    "account_code": "4000",  # Sales Revenue
+                    "description": "POS Sale",
+                    "debit": 0,
+                    "credit": transaction.total_amount - transaction.tax_amount,
+                }
+            )
 
         # Update transaction status
         transaction.sync_status = SyncStatus.SYNCED
         transaction.processed_at = datetime.now(timezone.utc)
 
         # Broadcast update
-        await pos_manager.broadcast_to_device(transaction.device_id, {
-            "type": "transaction_synced",
-            "transaction_id": transaction.transaction_id,
-            "journal_entry_id": f"JE-{transaction.id[:8]}"
-        })
+        await pos_manager.broadcast_to_device(
+            transaction.device_id,
+            {
+                "type": "transaction_synced",
+                "transaction_id": transaction.transaction_id,
+                "journal_entry_id": f"JE-{transaction.id[:8]}",
+            },
+        )
 
     except Exception as e:
         transaction.sync_status = SyncStatus.FAILED
         transaction.error_message = str(e)
 
+
 @app.post("/transactions/batch", status_code=status.HTTP_201_CREATED)
-async def receive_batch_transactions(
-    transactions_list: List[POSTransactionCreate],
-    background_tasks: BackgroundTasks
-):
+async def receive_batch_transactions(transactions_list: List[POSTransactionCreate], background_tasks: BackgroundTasks):
     """Receive multiple transactions from POS device"""
     results = []
 
     for transaction in transactions_list:
         try:
             db_transaction = await receive_transaction(transaction, background_tasks)
-            results.append({
-                "transaction_id": transaction.transaction_id,
-                "status": "accepted",
-                "internal_id": db_transaction.id
-            })
+            results.append(
+                {"transaction_id": transaction.transaction_id, "status": "accepted", "internal_id": db_transaction.id}
+            )
         except HTTPException as e:
-            results.append({
-                "transaction_id": transaction.transaction_id,
-                "status": "rejected",
-                "reason": e.detail
-            })
+            results.append({"transaction_id": transaction.transaction_id, "status": "rejected", "reason": e.detail})
 
     return {"total": len(transactions_list), "results": results}
+
 
 @app.get("/transactions", response_model=List[POSTransactionInDB])
 async def list_transactions(
@@ -354,7 +367,7 @@ async def list_transactions(
     status: Optional[SyncStatus] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    limit: int = 100
+    limit: int = 100,
 ):
     """List POS transactions with filters"""
     filtered = list(transactions.values())
@@ -370,11 +383,13 @@ async def list_transactions(
 
     return sorted(filtered, key=lambda x: x.created_at, reverse=True)[:limit]
 
+
 @app.get("/transactions/{transaction_id}", response_model=POSTransactionInDB)
 async def get_transaction(transaction_id: str):
     if transaction_id not in transactions:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
     return transactions[transaction_id]
+
 
 # --- Inventory Sync ---
 @app.post("/inventory/sync")
@@ -386,8 +401,9 @@ async def sync_inventory(request: InventorySyncRequest):
         "status": "synced",
         "device_id": request.device_id,
         "items_updated": len(request.products),
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
 
 @app.post("/inventory/reconcile")
 async def reconcile_inventory(device_id: str, inventory_data: List[Dict[str, Any]]):
@@ -403,17 +419,18 @@ async def reconcile_inventory(device_id: str, inventory_data: List[Dict[str, Any
         "device_id": device_id,
         "total_items": len(inventory_data),
         "discrepancies_found": len(discrepancies),
-        "discrepancies": discrepancies
+        "discrepancies": discrepancies,
     }
+
 
 # --- Sales Summary ---
 @app.post("/reports/sales-summary")
 async def get_sales_summary(request: SalesSummaryRequest):
     """Generate sales summary report for POS device"""
     filtered = [
-        t for t in transactions.values()
-        if t.device_id == request.device_id
-        and request.start_date <= t.timestamp <= request.end_date
+        t
+        for t in transactions.values()
+        if t.device_id == request.device_id and request.start_date <= t.timestamp <= request.end_date
     ]
 
     total_sales = sum(t.total_amount for t in filtered if t.transaction_type == TransactionType.SALE)
@@ -439,9 +456,10 @@ async def get_sales_summary(request: SalesSummaryRequest):
         "by_type": {
             "sale": sum(1 for t in filtered if t.transaction_type == TransactionType.SALE),
             "refund": sum(1 for t in filtered if t.transaction_type == TransactionType.REFUND),
-            "void": sum(1 for t in filtered if t.transaction_type == TransactionType.VOID)
-        }
+            "void": sum(1 for t in filtered if t.transaction_type == TransactionType.VOID),
+        },
     }
+
 
 # --- WebSocket for Real-time Updates ---
 @app.websocket("/ws/pos/{device_id}")
@@ -464,6 +482,7 @@ async def websocket_pos(websocket: WebSocket, device_id: str):
     except WebSocketDisconnect:
         await pos_manager.disconnect(websocket, device_id)
 
+
 @app.websocket("/ws/dashboard")
 async def websocket_dashboard(websocket: WebSocket):
     """WebSocket endpoint for dashboard to receive all POS updates"""
@@ -476,6 +495,7 @@ async def websocket_dashboard(websocket: WebSocket):
                 await websocket.send_json({"type": "pong"})
     except WebSocketDisconnect:
         pass
+
 
 # --- External Integration Endpoints ---
 @app.post("/integrations/{pos_type}/webhook")
@@ -499,13 +519,14 @@ async def receive_pos_webhook(pos_type: str, payload: Dict[str, Any]):
         id=str(uuid.uuid4()),
         **transaction.model_dump(),
         sync_status=SyncStatus.PENDING,
-        created_at=datetime.now(timezone.utc)
+        created_at=datetime.now(timezone.utc),
     )
 
     transactions[transaction.transaction_id] = db_transaction
     transaction_mappings[transaction.transaction_id] = db_transaction.id
 
     return {"status": "received", "transaction_id": transaction.transaction_id}
+
 
 def transform_square_transaction(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Transform Square webhook payload to standard format"""
@@ -518,8 +539,9 @@ def transform_square_transaction(payload: Dict[str, Any]) -> Dict[str, Any]:
         "discount_amount": 0,
         "payment_method": PaymentMethod.CARD,
         "items": [],
-        "timestamp": datetime.now(timezone.utc)
+        "timestamp": datetime.now(timezone.utc),
     }
+
 
 def transform_stripe_transaction(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Transform Stripe webhook payload to standard format"""
@@ -532,8 +554,9 @@ def transform_stripe_transaction(payload: Dict[str, Any]) -> Dict[str, Any]:
         "discount_amount": 0,
         "payment_method": PaymentMethod.CARD,
         "items": [],
-        "timestamp": datetime.fromtimestamp(payload.get("created", 0), tz=timezone.utc)
+        "timestamp": datetime.fromtimestamp(payload.get("created", 0), tz=timezone.utc),
     }
+
 
 def transform_shopify_transaction(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Transform Shopify webhook payload to standard format"""
@@ -546,8 +569,9 @@ def transform_shopify_transaction(payload: Dict[str, Any]) -> Dict[str, Any]:
         "discount_amount": float(payload.get("total_discounts", 0)),
         "payment_method": PaymentMethod.CARD,
         "items": [],
-        "timestamp": datetime.now(timezone.utc)
+        "timestamp": datetime.now(timezone.utc),
     }
+
 
 # --- Health and Metrics ---
 @app.get("/metrics")
@@ -567,10 +591,11 @@ async def get_metrics():
         "failed": failed,
         "total_amount_processed": total_amount,
         "connected_devices": len(pos_manager.active_connections),
-        "registered_devices": len(devices)
+        "registered_devices": len(devices),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8095)

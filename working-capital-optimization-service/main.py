@@ -3,14 +3,17 @@ Working Capital Optimization Service
 Port: 8168
 DSO, DPO, DIO optimization, cash conversion cycle improvement
 """
+
+from typing import Any, Dict, Optional
+
 import httpx
 import structlog
-from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field
 from fastapi import FastAPI
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="Working Capital Optimization Service", version="1.0.0")
+
 
 class WorkingCapitalRequest(BaseModel):
     company_id: str
@@ -22,6 +25,7 @@ class WorkingCapitalRequest(BaseModel):
     cogs: float
     purchases: float
     days_analysis: int = 365
+
 
 class WorkingCapitalResponse(BaseModel):
     company_id: str
@@ -35,6 +39,7 @@ class WorkingCapitalResponse(BaseModel):
     net_working_capital: float
     recommendations: Dict[str, str]
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -45,9 +50,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "working-capital-optimization", "version": "1.0.0"}
+
 
 @app.post("/optimize", response_model=WorkingCapitalResponse)
 async def optimize_working_capital(request: WorkingCapitalRequest):
@@ -70,7 +77,9 @@ async def optimize_working_capital(request: WorkingCapitalRequest):
         recommendations["DPO"] = "DPO is well managed"
 
     if dio > 90:
-        recommendations["DIO"] = "Implement just-in-time inventory, review slow-moving stock, improve demand forecasting"
+        recommendations["DIO"] = (
+            "Implement just-in-time inventory, review slow-moving stock, improve demand forecasting"
+        )
     else:
         recommendations["DIO"] = "Inventory turnover is satisfactory"
 
@@ -87,9 +96,11 @@ async def optimize_working_capital(request: WorkingCapitalRequest):
         current_ratio=round(current_assets / request.accounts_payable, 2),
         quick_ratio=round(request.accounts_receivable / request.accounts_payable, 2),
         net_working_capital=working_capital,
-        recommendations=recommendations
+        recommendations=recommendations,
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8168)

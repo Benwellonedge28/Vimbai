@@ -3,18 +3,19 @@ Vimbai Bank Feed Integration Service
 Connects to bank APIs to import transactions and reconcile with Vimbai records
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, status
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone, timedelta
-from enum import Enum
 import asyncio
-import json
-import uuid
 import hashlib
 import hmac
+import json
+import uuid
+from datetime import datetime, timedelta, timezone
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
 from dotenv import load_dotenv
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -34,41 +35,42 @@ BANK_PROVIDERS = {
         "base_url": "https://production.plaid.com",
         "supports_balance": True,
         "supports_transactions": True,
-        "supports_transfer": False
+        "supports_transfer": False,
     },
     "stripe": {
         "name": "Stripe",
         "base_url": "https://api.stripe.com",
         "supports_balance": True,
         "supports_transactions": False,
-        "supports_transfer": True
+        "supports_transfer": True,
     },
     "quickbooks": {
         "name": "QuickBooks",
         "base_url": "https://quickbooks.api.intuit.com",
         "supports_balance": True,
         "supports_transactions": True,
-        "supports_transfer": True
+        "supports_transfer": True,
     },
     "xero": {
         "name": "Xero",
         "base_url": "https://api.xero.com",
         "supports_balance": True,
         "supports_transactions": True,
-        "supports_transfer": True
+        "supports_transfer": True,
     },
     "manual": {
         "name": "Manual Import",
         "base_url": None,
         "supports_balance": True,
         "supports_transactions": True,
-        "supports_transfer": False
-    }
+        "supports_transfer": False,
+    },
 }
 
 # ============================================================================
 # Models
 # ============================================================================
+
 
 class BankProvider(str, Enum):
     PLAID = "plaid"
@@ -76,6 +78,7 @@ class BankProvider(str, Enum):
     QUICKBOOKS = "quickbooks"
     XERO = "xero"
     MANUAL = "manual"
+
 
 class AccountType(str, Enum):
     CHECKING = "checking"
@@ -85,6 +88,7 @@ class AccountType(str, Enum):
     LOAN = "loan"
     MONEY_MARKET = "money_market"
 
+
 class TransactionStatus(str, Enum):
     PENDING = "pending"
     CLEARED = "cleared"
@@ -92,11 +96,13 @@ class TransactionStatus(str, Enum):
     DISPUTED = "disputed"
     RETURNED = "returned"
 
+
 class SyncStatus(str, Enum):
     PENDING = "pending"
     SYNCING = "syncing"
     COMPLETED = "completed"
     FAILED = "failed"
+
 
 class BankConnectionCreate(BaseModel):
     provider: BankProvider
@@ -109,6 +115,7 @@ class BankConnectionCreate(BaseModel):
     auto_sync_enabled: bool = True
     sync_interval_minutes: int = 60
 
+
 class BankConnection(BankConnectionCreate):
     id: str
     organization_id: str
@@ -118,6 +125,7 @@ class BankConnection(BankConnectionCreate):
     error_message: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
 
 class TransactionImport(BaseModel):
     bank_connection_id: str
@@ -133,6 +141,7 @@ class TransactionImport(BaseModel):
     pending: bool = False
     metadata: Optional[Dict[str, Any]] = None
 
+
 class TransactionInDB(TransactionImport):
     id: str
     bank_connection_id: str
@@ -145,6 +154,7 @@ class TransactionInDB(TransactionImport):
     created_at: datetime
     updated_at: datetime
 
+
 class ReconciliationRule(BaseModel):
     id: str
     name: str
@@ -156,6 +166,7 @@ class ReconciliationRule(BaseModel):
     journal_entry_template: Optional[Dict[str, Any]] = None
     active: bool = True
 
+
 class BankBalance(BaseModel):
     account_id: str
     available_balance: float
@@ -164,11 +175,13 @@ class BankBalance(BaseModel):
     as_of_date: datetime
     pending_transactions: float = 0.0
 
+
 class SyncRequest(BaseModel):
     bank_connection_id: str
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     force_full_sync: bool = False
+
 
 class SyncResult(BaseModel):
     sync_id: str
@@ -180,6 +193,7 @@ class SyncResult(BaseModel):
     errors: List[str] = []
     started_at: datetime
     completed_at: Optional[datetime] = None
+
 
 # ============================================================================
 # In-Memory Storage
@@ -194,47 +208,47 @@ sync_history: List[SyncResult] = []
 # Helper Functions
 # ============================================================================
 
+
 def calculate_checksum(data: str) -> str:
     """Calculate checksum for data verification"""
     return hashlib.sha256(data.encode()).hexdigest()
 
+
 def verify_webhook_signature(payload: bytes, signature: str, secret: str) -> bool:
     """Verify webhook signature from bank provider"""
-    expected_signature = hmac.new(
-        secret.encode(),
-        payload,
-        hashlib.sha256
-    ).hexdigest()
+    expected_signature = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
     return hmac.compare_digest(signature, expected_signature)
+
 
 def parse_mt940_format(statement_data: str) -> List[Dict]:
     """Parse MT940 bank statement format"""
     transactions = []
-    lines = statement_data.split('\n')
+    lines = statement_data.split("\n")
 
     current_tx = {}
     for line in lines:
-        if line.startswith(':61:'):  # Transaction line
+        if line.startswith(":61:"):  # Transaction line
             # Parse :61:DDMMYYMMDDC...CR...
             date_str = line[4:10]
             entry_date = line[10:14]
             debit_credit = line[14]
-            amount = line[15:line.find(':')]
+            amount = line[15 : line.find(":")]
 
             current_tx = {
-                'date': f"20{date_str[:2]}-{date_str[2:4]}-{date_str[4:6]}",
-                'amount': float(amount) if debit_credit == 'C' else -float(amount),
-                'type': 'credit' if debit_credit == 'C' else 'debit'
+                "date": f"20{date_str[:2]}-{date_str[2:4]}-{date_str[4:6]}",
+                "amount": float(amount) if debit_credit == "C" else -float(amount),
+                "type": "credit" if debit_credit == "C" else "debit",
             }
-        elif line.startswith(':82:'):  # Bank reference
-            current_tx['bank_ref'] = line[4:].strip()
-        elif line.startswith(':86:'):  # Transaction description
-            current_tx['description'] = line[4:].strip()
+        elif line.startswith(":82:"):  # Bank reference
+            current_tx["bank_ref"] = line[4:].strip()
+        elif line.startswith(":86:"):  # Transaction description
+            current_tx["description"] = line[4:].strip()
             if current_tx:
                 transactions.append(current_tx)
                 current_tx = {}
 
     return transactions
+
 
 async def fetch_plaid_transactions(access_token: str, start_date: str, end_date: str) -> List[Dict]:
     """Fetch transactions from Plaid API"""
@@ -242,15 +256,18 @@ async def fetch_plaid_transactions(access_token: str, start_date: str, end_date:
     # This is a placeholder for the integration
     return []
 
+
 async def fetch_stripe_balance(access_token: str) -> Dict:
     """Fetch balance from Stripe API"""
     # In production, use stripe-python library
     return {"available": 0, "pending": 0, "currency": "usd"}
 
+
 async def fetch_quickbooks_transactions(access_token: str, account_id: str) -> List[Dict]:
     """Fetch transactions from QuickBooks API"""
     # In production, use intuit-oauth library
     return []
+
 
 async def apply_reconciliation_rules(transaction: TransactionInDB) -> Optional[str]:
     """Apply reconciliation rules to auto-match transaction"""
@@ -264,27 +281,27 @@ async def apply_reconciliation_rules(transaction: TransactionInDB) -> Optional[s
         match = True
 
         # Check amount range
-        if 'amount_min' in conditions or 'amount_max' in conditions:
+        if "amount_min" in conditions or "amount_max" in conditions:
             amount = abs(transaction.amount)
-            if 'amount_min' in conditions and amount < conditions['amount_min']:
+            if "amount_min" in conditions and amount < conditions["amount_min"]:
                 match = False
-            if 'amount_max' in conditions and amount > conditions['amount_max']:
+            if "amount_max" in conditions and amount > conditions["amount_max"]:
                 match = False
 
         # Check merchant pattern
-        if 'merchant_pattern' in conditions and transaction.merchant_name:
-            pattern = conditions['merchant_pattern'].lower()
+        if "merchant_pattern" in conditions and transaction.merchant_name:
+            pattern = conditions["merchant_pattern"].lower()
             if pattern not in transaction.merchant_name.lower():
                 match = False
 
         # Check category
-        if 'categories' in conditions and transaction.category:
-            if transaction.category not in conditions['categories']:
+        if "categories" in conditions and transaction.category:
+            if transaction.category not in conditions["categories"]:
                 match = False
 
         # Check transaction type
-        if 'transaction_type' in conditions:
-            if transaction.transaction_type != conditions['transaction_type']:
+        if "transaction_type" in conditions:
+            if transaction.transaction_type != conditions["transaction_type"]:
                 match = False
 
         if match:
@@ -295,9 +312,11 @@ async def apply_reconciliation_rules(transaction: TransactionInDB) -> Optional[s
 
     return matched_rule_id
 
+
 # ============================================================================
 # API Endpoints
 # ============================================================================
+
 
 @app.get("/")
 async def health_check():
@@ -305,16 +324,15 @@ async def health_check():
         "status": "healthy",
         "service": "bank-feed-integration",
         "total_connections": len(bank_connections),
-        "total_transactions": len(imported_transactions)
+        "total_transactions": len(imported_transactions),
     }
+
 
 # --- Bank Connection Management ---
 
+
 @app.post("/connections", status_code=status.HTTP_201_CREATED)
-async def create_bank_connection(
-    connection: BankConnectionCreate,
-    organization_id: str
-):
+async def create_bank_connection(connection: BankConnectionCreate, organization_id: str):
     """Register a new bank account connection"""
     conn_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
@@ -332,11 +350,12 @@ async def create_bank_connection(
         auto_sync_enabled=connection.auto_sync_enabled,
         sync_interval_minutes=connection.sync_interval_minutes,
         created_at=now,
-        updated_at=now
+        updated_at=now,
     )
 
     bank_connections[conn_id] = bank_conn
     return bank_conn
+
 
 @app.get("/connections")
 async def list_connections(organization_id: str):
@@ -344,12 +363,14 @@ async def list_connections(organization_id: str):
     results = [c for c in bank_connections.values() if c.organization_id == organization_id]
     return {"total": len(results), "connections": results}
 
+
 @app.get("/connections/{connection_id}")
 async def get_connection(connection_id: str):
     """Get bank connection details"""
     if connection_id not in bank_connections:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connection not found")
     return bank_connections[connection_id]
+
 
 @app.delete("/connections/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_connection(connection_id: str):
@@ -360,7 +381,9 @@ async def delete_connection(connection_id: str):
     del bank_connections[connection_id]
     return {"ok": True}
 
+
 # --- Transaction Import ---
+
 
 @app.post("/transactions/import", status_code=status.HTTP_201_CREATED)
 async def import_transaction(transaction: TransactionImport):
@@ -375,7 +398,7 @@ async def import_transaction(transaction: TransactionImport):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Transaction already imported",
-                headers={"X-Existing-Transaction-ID": existing.id}
+                headers={"X-Existing-Transaction-ID": existing.id},
             )
 
     tx_id = str(uuid.uuid4())
@@ -399,7 +422,7 @@ async def import_transaction(transaction: TransactionImport):
         confidence_score=0.0,
         imported_at=now,
         created_at=now,
-        updated_at=now
+        updated_at=now,
     )
 
     # Apply reconciliation rules
@@ -407,6 +430,7 @@ async def import_transaction(transaction: TransactionImport):
 
     imported_transactions[tx_id] = tx
     return tx
+
 
 @app.post("/transactions/import-batch", status_code=status.HTTP_201_CREATED)
 async def import_transactions_batch(transactions: List[TransactionImport]):
@@ -419,11 +443,13 @@ async def import_transactions_batch(transactions: List[TransactionImport]):
             results.append({"status": "imported", "transaction_id": tx.id})
         except HTTPException as e:
             if e.status_code == 409:  # Duplicate
-                results.append({
-                    "status": "duplicate",
-                    "external_id": tx_data.external_id,
-                    "existing_id": e.headers.get("X-Existing-Transaction-ID")
-                })
+                results.append(
+                    {
+                        "status": "duplicate",
+                        "external_id": tx_data.external_id,
+                        "existing_id": e.headers.get("X-Existing-Transaction-ID"),
+                    }
+                )
             else:
                 results.append({"status": "failed", "error": e.detail})
 
@@ -435,8 +461,9 @@ async def import_transactions_batch(transactions: List[TransactionImport]):
         "imported": imported,
         "duplicates": duplicates,
         "failed": len(results) - imported - duplicates,
-        "results": results
+        "results": results,
     }
+
 
 @app.post("/transactions/import-mt940")
 async def import_mt940_statement(connection_id: str, statement_data: str):
@@ -451,10 +478,10 @@ async def import_mt940_statement(connection_id: str, statement_data: str):
         tx = TransactionImport(
             bank_connection_id=connection_id,
             external_id=f"mt940_{tx_data.get('bank_ref', uuid.uuid4())}",
-            date=datetime.fromisoformat(tx_data['date']),
-            amount=tx_data['amount'],
-            description=tx_data.get('description', ''),
-            transaction_type='credit' if tx_data['amount'] > 0 else 'debit'
+            date=datetime.fromisoformat(tx_data["date"]),
+            amount=tx_data["amount"],
+            description=tx_data.get("description", ""),
+            transaction_type="credit" if tx_data["amount"] > 0 else "debit",
         )
 
         try:
@@ -463,13 +490,11 @@ async def import_mt940_statement(connection_id: str, statement_data: str):
         except HTTPException:
             continue  # Skip duplicates
 
-    return {
-        "parsed": len(transactions),
-        "imported": len(imported_txs),
-        "transaction_ids": imported_txs
-    }
+    return {"parsed": len(transactions), "imported": len(imported_txs), "transaction_ids": imported_txs}
+
 
 # --- Transaction Retrieval ---
+
 
 @app.get("/transactions")
 async def list_transactions(
@@ -478,7 +503,7 @@ async def list_transactions(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     limit: int = 100,
-    offset: int = 0
+    offset: int = 0,
 ):
     """List imported transactions with filters"""
     results = list(imported_transactions.values())
@@ -494,9 +519,10 @@ async def list_transactions(
 
     results.sort(key=lambda x: x.date, reverse=True)
     total = len(results)
-    results = results[offset:offset + limit]
+    results = results[offset : offset + limit]
 
     return {"total": total, "transactions": results}
+
 
 @app.get("/transactions/{transaction_id}")
 async def get_transaction(transaction_id: str):
@@ -505,12 +531,9 @@ async def get_transaction(transaction_id: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
     return imported_transactions[transaction_id]
 
+
 @app.put("/transactions/{transaction_id}/status")
-async def update_transaction_status(
-    transaction_id: str,
-    status: TransactionStatus,
-    notes: Optional[str] = None
-):
+async def update_transaction_status(transaction_id: str, status: TransactionStatus, notes: Optional[str] = None):
     """Update transaction status (reconcile, dispute, etc.)"""
     if transaction_id not in imported_transactions:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
@@ -525,11 +548,10 @@ async def update_transaction_status(
 
     return tx
 
+
 @app.post("/transactions/{transaction_id}/link")
 async def link_transaction(
-    transaction_id: str,
-    journal_entry_id: Optional[str] = None,
-    invoice_id: Optional[str] = None
+    transaction_id: str, journal_entry_id: Optional[str] = None, invoice_id: Optional[str] = None
 ):
     """Link transaction to Vimbai entities"""
     if transaction_id not in imported_transactions:
@@ -546,7 +568,9 @@ async def link_transaction(
 
     return tx
 
+
 # --- Bank Sync ---
+
 
 @app.post("/sync/start")
 async def start_sync(request: SyncRequest, background_tasks: BackgroundTasks):
@@ -563,7 +587,7 @@ async def start_sync(request: SyncRequest, background_tasks: BackgroundTasks):
         sync_id=sync_id,
         bank_connection_id=request.bank_connection_id,
         status=SyncStatus.SYNCING,
-        started_at=datetime.now(timezone.utc)
+        started_at=datetime.now(timezone.utc),
     )
 
     # Process in background
@@ -573,17 +597,14 @@ async def start_sync(request: SyncRequest, background_tasks: BackgroundTasks):
         request.bank_connection_id,
         request.start_date,
         request.end_date,
-        request.force_full_sync
+        request.force_full_sync,
     )
 
     return {"sync_id": sync_id, "status": "started"}
 
+
 async def perform_bank_sync(
-    sync_id: str,
-    connection_id: str,
-    start_date: Optional[datetime],
-    end_date: Optional[datetime],
-    force_full: bool
+    sync_id: str, connection_id: str, start_date: Optional[datetime], end_date: Optional[datetime], force_full: bool
 ):
     """Background task to perform bank sync"""
     conn = bank_connections[connection_id]
@@ -607,7 +628,7 @@ async def perform_bank_sync(
             sync_id=sync_id,
             bank_connection_id=connection_id,
             status=SyncStatus.SYNCING,
-            started_at=datetime.now(timezone.utc)
+            started_at=datetime.now(timezone.utc),
         )
         sync_history.append(sync_result)
 
@@ -615,17 +636,12 @@ async def perform_bank_sync(
         # Fetch based on provider
         if conn.provider == BankProvider.PLAID:
             transactions = await fetch_plaid_transactions(
-                conn.access_token_encrypted,
-                start_date.isoformat(),
-                end_date.isoformat()
+                conn.access_token_encrypted, start_date.isoformat(), end_date.isoformat()
             )
         elif conn.provider == BankProvider.STRIPE:
             balance = await fetch_stripe_balance(conn.access_token_encrypted)
         elif conn.provider == BankProvider.QUICKBOOKS:
-            transactions = await fetch_quickbooks_transactions(
-                conn.access_token_encrypted,
-                connection_id
-            )
+            transactions = await fetch_quickbooks_transactions(conn.access_token_encrypted, connection_id)
         else:
             # Manual or other providers
             transactions = []
@@ -635,12 +651,12 @@ async def perform_bank_sync(
         for tx_data in transactions:
             tx = TransactionImport(
                 bank_connection_id=connection_id,
-                external_id=tx_data.get('id', str(uuid.uuid4())),
-                date=datetime.fromisoformat(tx_data['date']),
-                amount=float(tx_data['amount']),
-                description=tx_data.get('description', ''),
-                merchant_name=tx_data.get('merchant_name'),
-                category=tx_data.get('category')
+                external_id=tx_data.get("id", str(uuid.uuid4())),
+                date=datetime.fromisoformat(tx_data["date"]),
+                amount=float(tx_data["amount"]),
+                description=tx_data.get("description", ""),
+                merchant_name=tx_data.get("merchant_name"),
+                category=tx_data.get("category"),
             )
 
             try:
@@ -667,6 +683,7 @@ async def perform_bank_sync(
 
     conn.updated_at = datetime.now(timezone.utc)
 
+
 @app.get("/sync/{sync_id}")
 async def get_sync_status(sync_id: str):
     """Get sync operation status"""
@@ -674,6 +691,7 @@ async def get_sync_status(sync_id: str):
         if sr.sync_id == sync_id:
             return sr
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sync not found")
+
 
 @app.get("/sync/history")
 async def get_sync_history(connection_id: Optional[str] = None, limit: int = 50):
@@ -686,7 +704,9 @@ async def get_sync_history(connection_id: Optional[str] = None, limit: int = 50)
     results.sort(key=lambda x: x.started_at, reverse=True)
     return {"total": len(results), "history": results[:limit]}
 
+
 # --- Balance Checking ---
+
 
 @app.get("/connections/{connection_id}/balance")
 async def get_account_balance(connection_id: str):
@@ -704,12 +724,14 @@ async def get_account_balance(connection_id: str):
         current_balance=10500.00,
         currency="USD",
         as_of_date=datetime.now(timezone.utc),
-        pending_transactions=500.00
+        pending_transactions=500.00,
     )
 
     return balance
 
+
 # --- Reconciliation Rules ---
+
 
 @app.post("/rules", status_code=status.HTTP_201_CREATED)
 async def create_reconciliation_rule(rule: ReconciliationRule):
@@ -721,6 +743,7 @@ async def create_reconciliation_rule(rule: ReconciliationRule):
     reconciliation_rules[rule_id] = ReconciliationRule(**rule_dict)
     return reconciliation_rules[rule_id]
 
+
 @app.get("/rules")
 async def list_reconciliation_rules(active_only: bool = False):
     """List all reconciliation rules"""
@@ -730,6 +753,7 @@ async def list_reconciliation_rules(active_only: bool = False):
         results = [r for r in results if r.active]
 
     return {"total": len(results), "rules": results}
+
 
 @app.put("/rules/{rule_id}")
 async def update_reconciliation_rule(rule_id: str, update: ReconciliationRule):
@@ -743,6 +767,7 @@ async def update_reconciliation_rule(rule_id: str, update: ReconciliationRule):
 
     return reconciliation_rules[rule_id]
 
+
 @app.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_reconciliation_rule(rule_id: str):
     """Delete a reconciliation rule"""
@@ -752,6 +777,7 @@ async def delete_reconciliation_rule(rule_id: str):
     del reconciliation_rules[rule_id]
     return {"ok": True}
 
+
 @app.post("/rules/apply")
 async def apply_rules_to_transactions(transaction_ids: List[str]):
     """Apply reconciliation rules to specific transactions"""
@@ -760,22 +786,16 @@ async def apply_rules_to_transactions(transaction_ids: List[str]):
     for tx_id in transaction_ids:
         if tx_id in imported_transactions:
             matched = await apply_reconciliation_rules(imported_transactions[tx_id])
-            results.append({
-                "transaction_id": tx_id,
-                "matched": matched is not None,
-                "rule_id": matched
-            })
+            results.append({"transaction_id": tx_id, "matched": matched is not None, "rule_id": matched})
 
     return {"processed": len(results), "results": results}
 
+
 # --- Webhook Handling ---
 
+
 @app.post("/webhooks/{provider}")
-async def handle_webhook(
-    provider: str,
-    payload: bytes,
-    signature: Optional[str] = None
-):
+async def handle_webhook(provider: str, payload: bytes, signature: Optional[str] = None):
     """Handle webhook from bank provider"""
     if provider not in BANK_PROVIDERS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown provider")
@@ -799,6 +819,7 @@ async def handle_webhook(
 
     return {"status": "received"}
 
+
 async def handle_plaid_transaction_webhook(data: Dict):
     """Handle Plaid transaction webhook"""
     # Process new transactions from Plaid
@@ -812,7 +833,7 @@ async def handle_plaid_transaction_webhook(data: Dict):
             amount=float(tx_data.get("amount", 0)),
             description=tx_data.get("name", ""),
             merchant_name=tx_data.get("merchant_name"),
-            category=tx_data.get("category")
+            category=tx_data.get("category"),
         )
 
         try:
@@ -820,7 +841,9 @@ async def handle_plaid_transaction_webhook(data: Dict):
         except HTTPException:
             continue
 
+
 # --- Statistics ---
+
 
 @app.get("/statistics")
 async def get_statistics(organization_id: str):
@@ -843,9 +866,9 @@ async def get_statistics(organization_id: str):
         if provider not in by_provider:
             by_provider[provider] = {"connections": 0, "transactions": 0}
         by_provider[provider]["connections"] += 1
-        by_provider[provider]["transactions"] += len([
-            t for t in imported_transactions.values() if t.bank_connection_id == conn.id
-        ])
+        by_provider[provider]["transactions"] += len(
+            [t for t in imported_transactions.values() if t.bank_connection_id == conn.id]
+        )
 
     return {
         "total_connections": len(org_connections),
@@ -853,10 +876,11 @@ async def get_statistics(organization_id: str):
         "reconciled": reconciled,
         "pending": pending,
         "reconciliation_rate": round(reconciled / total_transactions * 100, 2) if total_transactions else 0,
-        "by_provider": by_provider
+        "by_provider": by_provider,
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8097)

@@ -2,10 +2,13 @@
 Integration tests for Balance Sheet, Cash Flow Statement, Cost Accounting,
 Expense Tracking, Revenue Recognition, and Tax services.
 """
-import pytest
-from tests.conftest import load_service
-from fastapi.testclient import TestClient
+
 from datetime import datetime, timezone
+
+import pytest
+from fastapi.testclient import TestClient
+
+from tests.conftest import load_service
 
 
 @pytest.fixture
@@ -13,30 +16,36 @@ def balance_sheet_client():
     app = load_service("balance-sheet-service").main.app
     return TestClient(app)
 
+
 @pytest.fixture
 def cash_flow_client():
     app = load_service("cash-flow-statement-service").main.app
     return TestClient(app)
+
 
 @pytest.fixture
 def cost_accounting_client():
     app = load_service("cost-accounting-service").main.app
     return TestClient(app)
 
+
 @pytest.fixture
 def expense_client():
     app = load_service("expense-tracking-service").main.app
     return TestClient(app)
+
 
 @pytest.fixture
 def revenue_client():
     app = load_service("revenue-recognition-service").main.app
     return TestClient(app)
 
+
 @pytest.fixture
 def corporate_tax_client():
     app = load_service("corporate-tax-service").main.app
     return TestClient(app)
+
 
 @pytest.fixture
 def calc_engine_client():
@@ -49,21 +58,24 @@ class TestBalanceSheet:
         assert balance_sheet_client.get("/").status_code == 200
 
     def test_generate_balanced_sheet(self, balance_sheet_client):
-        resp = balance_sheet_client.post("/generate", json={
-            "company_id": "comp-1",
-            "assets": [
-                {"name": "Cash", "amount": 100000, "category": "current", "is_liquid": True},
-                {"name": "Equipment", "amount": 50000, "category": "non_current", "is_liquid": False},
-            ],
-            "liabilities": [
-                {"name": "Accounts Payable", "amount": 30000, "category": "current"},
-                {"name": "Long-term Loan", "amount": 50000, "category": "non_current"},
-            ],
-            "equity": [
-                {"name": "Share Capital", "amount": 50000},
-                {"name": "Retained Earnings", "amount": 20000},
-            ]
-        })
+        resp = balance_sheet_client.post(
+            "/generate",
+            json={
+                "company_id": "comp-1",
+                "assets": [
+                    {"name": "Cash", "amount": 100000, "category": "current", "is_liquid": True},
+                    {"name": "Equipment", "amount": 50000, "category": "non_current", "is_liquid": False},
+                ],
+                "liabilities": [
+                    {"name": "Accounts Payable", "amount": 30000, "category": "current"},
+                    {"name": "Long-term Loan", "amount": 50000, "category": "non_current"},
+                ],
+                "equity": [
+                    {"name": "Share Capital", "amount": 50000},
+                    {"name": "Retained Earnings", "amount": 20000},
+                ],
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["total_assets"] == 150000
@@ -72,28 +84,34 @@ class TestBalanceSheet:
         assert data["is_balanced"] == True
 
     def test_generate_unbalanced_sheet(self, balance_sheet_client):
-        resp = balance_sheet_client.post("/generate", json={
-            "company_id": "comp-2",
-            "assets": [{"name": "Cash", "amount": 100000}],
-            "liabilities": [{"name": "Loan", "amount": 50000}],
-            "equity": [{"name": "Capital", "amount": 40000}]
-        })
+        resp = balance_sheet_client.post(
+            "/generate",
+            json={
+                "company_id": "comp-2",
+                "assets": [{"name": "Cash", "amount": 100000}],
+                "liabilities": [{"name": "Loan", "amount": 50000}],
+                "equity": [{"name": "Capital", "amount": 40000}],
+            },
+        )
         assert resp.json()["is_balanced"] == False
 
     def test_ratios(self, balance_sheet_client):
-        balance_sheet_client.post("/generate", json={
-            "company_id": "comp-ratios",
-            "assets": [
-                {"name": "Cash", "amount": 50000, "category": "current", "is_liquid": True},
-                {"name": "Inventory", "amount": 30000, "category": "current"},
-                {"name": "Equipment", "amount": 20000, "category": "non_current"},
-            ],
-            "liabilities": [
-                {"name": "AP", "amount": 20000, "category": "current"},
-                {"name": "Loan", "amount": 30000, "category": "non_current"},
-            ],
-            "equity": [{"name": "Capital", "amount": 50000}]
-        })
+        balance_sheet_client.post(
+            "/generate",
+            json={
+                "company_id": "comp-ratios",
+                "assets": [
+                    {"name": "Cash", "amount": 50000, "category": "current", "is_liquid": True},
+                    {"name": "Inventory", "amount": 30000, "category": "current"},
+                    {"name": "Equipment", "amount": 20000, "category": "non_current"},
+                ],
+                "liabilities": [
+                    {"name": "AP", "amount": 20000, "category": "current"},
+                    {"name": "Loan", "amount": 30000, "category": "non_current"},
+                ],
+                "equity": [{"name": "Capital", "amount": 50000}],
+            },
+        )
         resp = balance_sheet_client.get("/ratios/comp-ratios")
         assert resp.status_code == 200
         data = resp.json()
@@ -106,24 +124,27 @@ class TestCashFlowStatement:
         assert cash_flow_client.get("/").status_code == 200
 
     def test_generate_statement(self, cash_flow_client):
-        resp = cash_flow_client.post("/generate", json={
-            "company_id": "comp-1",
-            "period_start": "2026-01-01T00:00:00Z",
-            "period_end": "2026-03-31T00:00:00Z",
-            "method": "indirect",
-            "operating_activities": [
-                {"description": "Cash from customers", "amount": 100000, "is_inflow": True},
-                {"description": "Cash to suppliers", "amount": 60000, "is_inflow": False},
-            ],
-            "investing_activities": [
-                {"description": "Equipment purchase", "amount": 20000, "is_inflow": False},
-            ],
-            "financing_activities": [
-                {"description": "Loan proceeds", "amount": 50000, "is_inflow": True},
-                {"description": "Dividend paid", "amount": 10000, "is_inflow": False},
-            ],
-            "beginning_cash": 30000
-        })
+        resp = cash_flow_client.post(
+            "/generate",
+            json={
+                "company_id": "comp-1",
+                "period_start": "2026-01-01T00:00:00Z",
+                "period_end": "2026-03-31T00:00:00Z",
+                "method": "indirect",
+                "operating_activities": [
+                    {"description": "Cash from customers", "amount": 100000, "is_inflow": True},
+                    {"description": "Cash to suppliers", "amount": 60000, "is_inflow": False},
+                ],
+                "investing_activities": [
+                    {"description": "Equipment purchase", "amount": 20000, "is_inflow": False},
+                ],
+                "financing_activities": [
+                    {"description": "Loan proceeds", "amount": 50000, "is_inflow": True},
+                    {"description": "Dividend paid", "amount": 10000, "is_inflow": False},
+                ],
+                "beginning_cash": 30000,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["net_operating"] == 40000
@@ -138,17 +159,20 @@ class TestCostAccounting:
         assert cost_accounting_client.get("/").status_code == 200
 
     def test_standard_costing(self, cost_accounting_client):
-        resp = cost_accounting_client.post("/standards", json={
-            "company_id": "comp-1",
-            "product_name": "Widget A",
-            "direct_materials_std": 10,
-            "direct_labor_std": 5,
-            "overhead_std": 3,
-            "units_produced": 1000,
-            "actual_materials": 12000,
-            "actual_labor": 4500,
-            "actual_overhead": 3500
-        })
+        resp = cost_accounting_client.post(
+            "/standards",
+            json={
+                "company_id": "comp-1",
+                "product_name": "Widget A",
+                "direct_materials_std": 10,
+                "direct_labor_std": 5,
+                "overhead_std": 3,
+                "units_produced": 1000,
+                "actual_materials": 12000,
+                "actual_labor": 4500,
+                "actual_overhead": 3500,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["standard_cost_per_unit"] == 18  # 10+5+3
@@ -162,11 +186,17 @@ class TestExpenseTracking:
         assert expense_client.get("/").status_code == 200
 
     def test_create_and_approve_expense(self, expense_client):
-        create = expense_client.post("/expenses", json={
-            "company_id": "comp-1", "employee_id": "emp-1",
-            "category": "travel", "amount": 1500,
-            "description": "Client visit", "vendor": "Airline"
-        })
+        create = expense_client.post(
+            "/expenses",
+            json={
+                "company_id": "comp-1",
+                "employee_id": "emp-1",
+                "category": "travel",
+                "amount": 1500,
+                "description": "Client visit",
+                "vendor": "Airline",
+            },
+        )
         assert create.status_code == 200
         expense_id = create.json()["id"]
         approve = expense_client.put(f"/expenses/{expense_id}/approve?approver=manager-1")
@@ -174,8 +204,12 @@ class TestExpenseTracking:
         assert approve.json()["status"] == "approved"
 
     def test_expense_summary(self, expense_client):
-        expense_client.post("/expenses", json={"company_id": "comp-sum", "employee_id": "e1", "category": "travel", "amount": 500})
-        expense_client.post("/expenses", json={"company_id": "comp-sum", "employee_id": "e2", "category": "office", "amount": 300})
+        expense_client.post(
+            "/expenses", json={"company_id": "comp-sum", "employee_id": "e1", "category": "travel", "amount": 500}
+        )
+        expense_client.post(
+            "/expenses", json={"company_id": "comp-sum", "employee_id": "e2", "category": "office", "amount": 300}
+        )
         resp = expense_client.get("/summary/comp-sum")
         assert resp.status_code == 200
         data = resp.json()
@@ -189,14 +223,27 @@ class TestRevenueRecognition:
         assert revenue_client.get("/").status_code == 200
 
     def test_create_contract_and_recognize(self, revenue_client):
-        resp = revenue_client.post("/contracts", json={
-            "company_id": "comp-1",
-            "customer_name": "Customer A",
-            "obligations": [
-                {"description": "Software License", "transaction_price": 80000, "standalone_selling_price": 80000, "recognition_method": "point_in_time"},
-                {"description": "Implementation", "transaction_price": 20000, "standalone_selling_price": 20000, "recognition_method": "over_time"},
-            ]
-        })
+        resp = revenue_client.post(
+            "/contracts",
+            json={
+                "company_id": "comp-1",
+                "customer_name": "Customer A",
+                "obligations": [
+                    {
+                        "description": "Software License",
+                        "transaction_price": 80000,
+                        "standalone_selling_price": 80000,
+                        "recognition_method": "point_in_time",
+                    },
+                    {
+                        "description": "Implementation",
+                        "transaction_price": 20000,
+                        "standalone_selling_price": 20000,
+                        "recognition_method": "over_time",
+                    },
+                ],
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["total_transaction_price"] == 100000
@@ -213,11 +260,18 @@ class TestCorporateTax:
         assert corporate_tax_client.get("/").status_code == 200
 
     def test_compute_tax(self, corporate_tax_client):
-        resp = corporate_tax_client.post("/compute", json={
-            "company_id": "comp-1", "tax_year": 2026,
-            "revenue": 1000000, "deductible_expenses": 600000,
-            "capital_allowances": 100000, "tax_rate": 25.0, "credits": 5000
-        })
+        resp = corporate_tax_client.post(
+            "/compute",
+            json={
+                "company_id": "comp-1",
+                "tax_year": 2026,
+                "revenue": 1000000,
+                "deductible_expenses": 600000,
+                "capital_allowances": 100000,
+                "tax_rate": 25.0,
+                "credits": 5000,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["taxable_income"] == 300000  # 1M - 600K - 100K
@@ -237,37 +291,35 @@ class TestRealtimeCalculationEngine:
         assert calc_engine_client.get("/").status_code == 200
 
     def test_npv(self, calc_engine_client):
-        resp = calc_engine_client.post("/npv", json={
-            "initial_investment": 100000,
-            "cash_flows": [30000, 40000, 50000, 40000],
-            "discount_rate": 10
-        })
+        resp = calc_engine_client.post(
+            "/npv", json={"initial_investment": 100000, "cash_flows": [30000, 40000, 50000, 40000], "discount_rate": 10}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data["npv"], (int, float))
         assert data["profitable"] in (True, False)
 
     def test_irr(self, calc_engine_client):
-        resp = calc_engine_client.post("/irr", json={
-            "initial_investment": 100000,
-            "cash_flows": [30000, 40000, 50000, 40000]
-        })
+        resp = calc_engine_client.post(
+            "/irr", json={"initial_investment": 100000, "cash_flows": [30000, 40000, 50000, 40000]}
+        )
         assert resp.status_code == 200
         assert resp.json()["irr"] > 0
 
     def test_depreciation_straight_line(self, calc_engine_client):
-        resp = calc_engine_client.post("/depreciation", json={
-            "cost": 50000, "salvage_value": 5000, "useful_life": 5, "method": "straight_line"
-        })
+        resp = calc_engine_client.post(
+            "/depreciation", json={"cost": 50000, "salvage_value": 5000, "useful_life": 5, "method": "straight_line"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["schedule"]) == 5
         assert data["schedule"][0]["depreciation"] == 9000  # (50000-5000)/5
 
     def test_depreciation_declining_balance(self, calc_engine_client):
-        resp = calc_engine_client.post("/depreciation", json={
-            "cost": 50000, "salvage_value": 5000, "useful_life": 5, "method": "declining_balance"
-        })
+        resp = calc_engine_client.post(
+            "/depreciation",
+            json={"cost": 50000, "salvage_value": 5000, "useful_life": 5, "method": "declining_balance"},
+        )
         assert resp.status_code == 200
         assert len(resp.json()["schedule"]) == 5
 

@@ -3,14 +3,17 @@ Sustainable Growth Rate Service
 Port: 8215
 Internal growth rate and sustainable growth analysis
 """
+
+from typing import Any, Dict
+
 import httpx
 import structlog
-from typing import Any, Dict
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Sustainable Growth Rate Service", version="1.0.0")
+
 
 class GrowthMetrics(BaseModel):
     return_on_equity: float
@@ -19,6 +22,7 @@ class GrowthMetrics(BaseModel):
     internal_growth_rate: float
     sustainable_growth_rate: float
     achievable_growth_rate: float
+
 
 class GrowthRateRequest(BaseModel):
     company_id: str
@@ -29,6 +33,7 @@ class GrowthRateRequest(BaseModel):
     target_debt_to_equity: float
     actual_debt_to_equity: float
 
+
 class GrowthRateResponse(BaseModel):
     company_id: str
     period: str
@@ -36,6 +41,7 @@ class GrowthRateResponse(BaseModel):
     growth_comparison: Dict[str, float]
     growth_assessment: str
     recommendations: list
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -47,9 +53,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "sustainable-growth", "version": "1.0.0"}
+
 
 @app.post("/calculate", response_model=GrowthRateResponse)
 async def calculate_sustainable_growth(request: GrowthRateRequest):
@@ -65,7 +73,11 @@ async def calculate_sustainable_growth(request: GrowthRateRequest):
 
     sustainable_gr = roe * retention_ratio * (1 + request.target_debt_to_equity)
 
-    achievable = min(request.actual_debt_to_equity / request.target_debt_to_equity, 1.0) * sustainable_gr if request.target_debt_to_equity else internal_gr
+    achievable = (
+        min(request.actual_debt_to_equity / request.target_debt_to_equity, 1.0) * sustainable_gr
+        if request.target_debt_to_equity
+        else internal_gr
+    )
 
     assessment = "aggressive" if achievable > 0.2 else "moderate" if achievable > 0.1 else "conservative"
 
@@ -78,21 +90,27 @@ async def calculate_sustainable_growth(request: GrowthRateRequest):
             retention_ratio=round(retention_ratio, 4),
             internal_growth_rate=round(internal_gr, 4),
             sustainable_growth_rate=round(sustainable_gr, 4),
-            achievable_growth_rate=round(achievable, 4)
+            achievable_growth_rate=round(achievable, 4),
         ),
         growth_comparison={
             "internal_growth": round(internal_gr * 100, 2),
             "sustainable_growth": round(sustainable_gr * 100, 2),
-            "achievable_growth": round(achievable * 100, 2)
+            "achievable_growth": round(achievable * 100, 2),
         },
         growth_assessment=assessment,
         recommendations=[
-            "Growth strategy aligns with sustainable capacity" if assessment == "moderate" else "Consider adjusting growth targets",
+            (
+                "Growth strategy aligns with sustainable capacity"
+                if assessment == "moderate"
+                else "Consider adjusting growth targets"
+            ),
             "Monitor ROE sustainability",
-            "Balance dividend policy with growth investments"
-        ]
+            "Balance dividend policy with growth investments",
+        ],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8215)

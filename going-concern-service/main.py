@@ -3,14 +3,17 @@ Going Concern Service
 Port: 8203
 Going concern assessment under IAS/IFRS
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Going Concern Service", version="1.0.0")
+
 
 class FinancialStressIndicators(BaseModel):
     negative_working_capital: bool
@@ -20,6 +23,7 @@ class FinancialStressIndicators(BaseModel):
     arrears_on_dividends: bool
     loan_repayment_extensions: bool
 
+
 class GoingConcernRequest(BaseModel):
     company_id: str
     audit_id: str
@@ -28,6 +32,7 @@ class GoingConcernRequest(BaseModel):
     cash_flows: Dict[str, float]
     management_plans: List[str]
     financing_arrangements: List[str]
+
 
 class GoingConcernResponse(BaseModel):
     company_id: str
@@ -42,6 +47,7 @@ class GoingConcernResponse(BaseModel):
     mitigating_factors: List[str]
     conclusions: Dict[str, str]
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -52,9 +58,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "going-concern", "version": "1.0.0"}
+
 
 @app.post("/assess", response_model=GoingConcernResponse)
 async def assess_going_concern(request: GoingConcernRequest):
@@ -82,15 +90,17 @@ async def assess_going_concern(request: GoingConcernRequest):
         covenant_violations=any(d.get("violation", False) for d in request.debt_covenants),
         going_concern_modifications=financial.get("going_concern_modifications", 0) > 0,
         arrears_on_dividends=financial.get("dividend_arrears", 0) > 0,
-        loan_repayment_extensions=financial.get("extensions_granted", 0) > 0
+        loan_repayment_extensions=financial.get("extensions_granted", 0) > 0,
     )
 
-    risk_count = sum([
-        indicators.negative_working_capital,
-        indicators.borrowing_agreement_breaches,
-        indicators.covenant_violations,
-        indicators.going_concern_modifications
-    ])
+    risk_count = sum(
+        [
+            indicators.negative_working_capital,
+            indicators.borrowing_agreement_breaches,
+            indicators.covenant_violations,
+            indicators.going_concern_modifications,
+        ]
+    )
 
     if risk_count >= 3 or liquidity_score < 30:
         result = "high_risk"
@@ -124,10 +134,12 @@ async def assess_going_concern(request: GoingConcernRequest):
         conclusions={
             "going_concern": "Basis for concern exists" if result == "high_risk" else "No significant doubts",
             "disclosure": "Material uncertainty disclosure required" if material_uncertainty else "Standard disclosure",
-            "opinion_impact": "Qualified or emphasis of matter" if material_uncertainty else "Unqualified"
-        }
+            "opinion_impact": "Qualified or emphasis of matter" if material_uncertainty else "Unqualified",
+        },
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8203)

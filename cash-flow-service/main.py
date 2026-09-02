@@ -19,15 +19,23 @@ SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8100"))
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Cash Flow Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class CashFlowEntry(BaseModel):
@@ -68,7 +76,7 @@ async def create_cash_flow(
     project_name: str,
     initial_investment: float,
     yearly_inflows: List[float],
-    yearly_outflows: Optional[List[float]] = None
+    yearly_outflows: Optional[List[float]] = None,
 ):
     """Create cash flow schedule for a project."""
     entries = []
@@ -82,8 +90,12 @@ async def create_cash_flow(
     total_net_flow = sum(e.net_flow for e in entries)
 
     summary = CashFlowSummary(
-        project_name=project_name, initial_investment=initial_investment, entries=entries,
-        total_inflows=total_inflows, total_outflows=total_outflows, total_net_flow=total_net_flow
+        project_name=project_name,
+        initial_investment=initial_investment,
+        entries=entries,
+        total_inflows=total_inflows,
+        total_outflows=total_outflows,
+        total_net_flow=total_net_flow,
     )
     cash_flows.append(summary)
     return summary
@@ -144,4 +156,5 @@ async def get_cash_flow(cash_flow_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

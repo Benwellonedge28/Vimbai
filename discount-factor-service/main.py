@@ -5,9 +5,9 @@ Discount Factor = 1 / (1 + r)^n
 where r = rate of interest, n = number of years
 """
 
+import math
 import os
 import uuid
-import math
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -21,15 +21,23 @@ SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8102"))
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Discount Factor Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class DiscountFactorResult(BaseModel):
@@ -71,12 +79,7 @@ async def calculate_discount_factor_percent(rate_percent: float, years: int):
     """Calculate discount factor from rate percentage."""
     rate_decimal = rate_percent / 100
     df = 1 / math.pow(1 + rate_decimal, years)
-    return {
-        "rate_percent": rate_percent,
-        "rate_decimal": rate_decimal,
-        "years": years,
-        "discount_factor": df
-    }
+    return {"rate_percent": rate_percent, "rate_decimal": rate_decimal, "years": years, "discount_factor": df}
 
 
 @app.post("/annuity-factor")
@@ -94,7 +97,7 @@ async def calculate_annuity_factor(rate: float, years: int):
         "rate": rate,
         "years": years,
         "annuity_factor": pvaf,
-        "formula": f"[1 - 1/(1+{rate})^{years}]/{rate} = {pvaf}"
+        "formula": f"[1 - 1/(1+{rate})^{years}]/{rate} = {pvaf}",
     }
 
 
@@ -107,12 +110,7 @@ async def calculate_annuity_factor_percent(rate_percent: float, years: int):
     else:
         pvaf = (1 - (1 / math.pow(1 + rate_decimal, years))) / rate_decimal
 
-    return {
-        "rate_percent": rate_percent,
-        "rate_decimal": rate_decimal,
-        "years": years,
-        "annuity_factor": pvaf
-    }
+    return {"rate_percent": rate_percent, "rate_decimal": rate_decimal, "years": years, "annuity_factor": pvaf}
 
 
 @app.post("/table")
@@ -126,12 +124,7 @@ async def generate_discount_factor_table(base_rate: float, years: List[int]):
 
 
 @app.post("/table-range")
-async def generate_discount_factor_table_range(
-    rate_start: float,
-    rate_end: float,
-    rate_step: float,
-    years: int
-):
+async def generate_discount_factor_table_range(rate_start: float, rate_end: float, rate_step: float, years: int):
     """Generate discount factor table for rate range."""
     factors = []
     rate = rate_start
@@ -144,4 +137,5 @@ async def generate_discount_factor_table_range(
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

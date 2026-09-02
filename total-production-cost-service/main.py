@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Total Production Cost Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class ProductionCostCalculation(BaseModel):
@@ -92,40 +100,47 @@ async def root():
 
 @app.post("/calculate")
 async def calculate_total_production_cost(
-    product_id: str, department_id: str, period: str,
-    direct_materials: float, direct_labor: float,
+    product_id: str,
+    department_id: str,
+    period: str,
+    direct_materials: float,
+    direct_labor: float,
     direct_expenses: float = 0,
-    factory_rent: float = 0, factory_depreciation: float = 0,
-    factory_insurance: float = 0, factory_maintenance: float = 0,
+    factory_rent: float = 0,
+    factory_depreciation: float = 0,
+    factory_insurance: float = 0,
+    factory_maintenance: float = 0,
     other_overhead: float = 0,
-    wip_opening: float = 0, wip_closing: float = 0,
-    units_produced: int = 0
+    wip_opening: float = 0,
+    wip_closing: float = 0,
+    units_produced: int = 0,
 ):
     """Calculate total production cost."""
     calc = ProductionCostCalculation(
-        product_id=product_id, department_id=department_id, period=period,
-        direct_materials=direct_materials, direct_labor=direct_labor,
+        product_id=product_id,
+        department_id=department_id,
+        period=period,
+        direct_materials=direct_materials,
+        direct_labor=direct_labor,
         direct_expenses=direct_expenses,
-        factory_rent=factory_rent, factory_depreciation=factory_depreciation,
-        factory_insurance=factory_insurance, factory_maintenance=factory_maintenance,
+        factory_rent=factory_rent,
+        factory_depreciation=factory_depreciation,
+        factory_insurance=factory_insurance,
+        factory_maintenance=factory_maintenance,
         other_overhead=other_overhead,
-        wip_opening=wip_opening, wip_closing=wip_closing,
-        units_produced=units_produced
+        wip_opening=wip_opening,
+        wip_closing=wip_closing,
+        units_produced=units_produced,
     )
 
     # Calculate Prime Cost
     calc.prime_cost = direct_materials + direct_labor + direct_expenses
 
     # Calculate Total Overhead
-    calc.total_overhead = (
-        factory_rent + factory_depreciation + factory_insurance +
-        factory_maintenance + other_overhead
-    )
+    calc.total_overhead = factory_rent + factory_depreciation + factory_insurance + factory_maintenance + other_overhead
 
     # Calculate Total Production Cost
-    calc.total_production_cost = (
-        calc.prime_cost + calc.total_overhead + wip_opening - wip_closing
-    )
+    calc.total_production_cost = calc.prime_cost + calc.total_overhead + wip_opening - wip_closing
 
     # Calculate Cost Per Unit
     if units_produced > 0:
@@ -137,9 +152,7 @@ async def calculate_total_production_cost(
 
 @app.get("/calculations")
 async def list_calculations(
-    product_id: Optional[str] = None,
-    department_id: Optional[str] = None,
-    period: Optional[str] = None
+    product_id: Optional[str] = None, department_id: Optional[str] = None, period: Optional[str] = None
 ):
     """List production cost calculations."""
     result = production_costs
@@ -162,10 +175,7 @@ async def get_latest_calculation(product_id: str):
 
 
 @app.get("/summary")
-async def get_production_cost_summary(
-    department_id: Optional[str] = None,
-    period: Optional[str] = None
-):
+async def get_production_cost_summary(department_id: Optional[str] = None, period: Optional[str] = None):
     """Get summary of production costs."""
     calcs = production_costs
     if department_id:
@@ -180,12 +190,14 @@ async def get_production_cost_summary(
         "total_units_produced": sum(c.units_produced for c in calcs),
         "average_cost_per_unit": (
             sum(c.total_production_cost for c in calcs) / sum(c.units_produced for c in calcs)
-            if sum(c.units_produced for c in calcs) > 0 else 0
+            if sum(c.units_produced for c in calcs) > 0
+            else 0
         ),
-        "calculations_count": len(calcs)
+        "calculations_count": len(calcs),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

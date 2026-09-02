@@ -6,10 +6,10 @@ Port: 8312
 
 import os
 import uuid
+from collections import defaultdict
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
-from collections import defaultdict
 
 import httpx
 import structlog
@@ -23,10 +23,16 @@ PORT = int(os.getenv("PORT", "8312"))
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8001")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
@@ -37,11 +43,14 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 # Distributed tracing
 try:
-    from shared.tracing import setup_tracing, get_tracer
+    from shared.tracing import get_tracer, setup_tracing
+
     TRACER = setup_tracing(service_name="fraud-detection-service", instrument_app=app)
 except ImportError:
     TRACER = None
@@ -50,6 +59,7 @@ except ImportError:
 # ============================================================
 # Enums
 # ============================================================
+
 
 class FraudSeverity(str, Enum):
     LOW = "low"
@@ -76,6 +86,7 @@ class RiskLevel(str, Enum):
 # ============================================================
 # Models
 # ============================================================
+
 
 class Transaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -208,6 +219,7 @@ def get_rules(company_id: str) -> List[FraudRule]:
 # Fraud Detection Engine
 # ============================================================
 
+
 def check_amount_threshold(tx: Transaction, rule: FraudRule) -> Optional[FraudAlert]:
     threshold = rule.parameters.get("threshold", 50000.0)
     if abs(tx.amount) >= threshold:
@@ -224,13 +236,17 @@ def check_amount_threshold(tx: Transaction, rule: FraudRule) -> Optional[FraudAl
     return None
 
 
-def check_frequency(transactions: List[Transaction], tx: Transaction, rule: FraudRule, company_id: str) -> Optional[FraudAlert]:
+def check_frequency(
+    transactions: List[Transaction], tx: Transaction, rule: FraudRule, company_id: str
+) -> Optional[FraudAlert]:
     max_count = rule.parameters.get("max_count", 20)
     window = rule.parameters.get("window_minutes", 60)
     window_start = tx.timestamp
     from datetime import timedelta
+
     count = sum(
-        1 for t in transactions
+        1
+        for t in transactions
         if t.company_id == company_id and abs((t.timestamp - window_start).total_seconds()) <= window * 60
     )
     if count > max_count:
@@ -247,13 +263,17 @@ def check_frequency(transactions: List[Transaction], tx: Transaction, rule: Frau
     return None
 
 
-def check_velocity(transactions: List[Transaction], tx: Transaction, rule: FraudRule, company_id: str) -> Optional[FraudAlert]:
+def check_velocity(
+    transactions: List[Transaction], tx: Transaction, rule: FraudRule, company_id: str
+) -> Optional[FraudAlert]:
     max_value = rule.parameters.get("max_value", 100000.0)
     window = rule.parameters.get("window_minutes", 30)
     window_start = tx.timestamp
     from datetime import timedelta
+
     total = sum(
-        abs(t.amount) for t in transactions
+        abs(t.amount)
+        for t in transactions
         if t.company_id == company_id and abs((t.timestamp - window_start).total_seconds()) <= window * 60
     )
     if total > max_value:
@@ -273,12 +293,16 @@ def check_velocity(transactions: List[Transaction], tx: Transaction, rule: Fraud
 def check_duplicate(transactions: List[Transaction], tx: Transaction, rule: FraudRule) -> Optional[FraudAlert]:
     window = rule.parameters.get("window_minutes", 15)
     from datetime import timedelta
+
     for t in transactions:
         if t.id == tx.id:
             continue
-        if (t.amount == tx.amount and t.merchant == tx.merchant and
-            t.description == tx.description and
-            abs((t.timestamp - tx.timestamp).total_seconds()) <= window * 60):
+        if (
+            t.amount == tx.amount
+            and t.merchant == tx.merchant
+            and t.description == tx.description
+            and abs((t.timestamp - tx.timestamp).total_seconds()) <= window * 60
+        ):
             return FraudAlert(
                 transaction_id=tx.id,
                 company_id=tx.company_id,
@@ -328,7 +352,9 @@ def check_off_hours(tx: Transaction, rule: FraudRule) -> Optional[FraudAlert]:
     return None
 
 
-def evaluate_transaction(tx: Transaction, all_transactions: List[Transaction], rules: List[FraudRule]) -> List[FraudAlert]:
+def evaluate_transaction(
+    tx: Transaction, all_transactions: List[Transaction], rules: List[FraudRule]
+) -> List[FraudAlert]:
     """Run all enabled rules against a single transaction."""
     alerts = []
     for rule in rules:
@@ -367,6 +393,7 @@ def calculate_risk_level(score: float) -> RiskLevel:
 # ============================================================
 # API Endpoints
 # ============================================================
+
 
 @app.get("/")
 async def health_check():
@@ -407,12 +434,14 @@ async def detect_fraud(request: FraudDetectionRequest):
         alerts=all_alerts,
     )
 
-    logger.info("fraud_detection_complete",
-                company_id=request.company_id,
-                transactions=len(request.transactions),
-                alerts=len(all_alerts),
-                risk_level=risk_level.value,
-                risk_score=max_score)
+    logger.info(
+        "fraud_detection_complete",
+        company_id=request.company_id,
+        transactions=len(request.transactions),
+        alerts=len(all_alerts),
+        risk_level=risk_level.value,
+        risk_score=max_score,
+    )
 
     return FraudDetectionResponse(
         company_id=request.company_id,
@@ -496,4 +525,5 @@ async def get_risk_assessment(company_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

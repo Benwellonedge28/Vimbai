@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Absorption Costing Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class CostComponent(BaseModel):
@@ -100,18 +108,30 @@ async def root():
 
 @app.post("/product-costs/calculate")
 async def calculate_product_cost(
-    product_id: str, product_name: str, period: str,
-    direct_materials: float, direct_labor: float, direct_expenses: float,
-    manufacturing_overhead: float, units_produced: int,
-    opening_stock: int = 0, closing_stock: int = 0,
-    cost_components: Optional[List[Dict[str, Any]]] = None
+    product_id: str,
+    product_name: str,
+    period: str,
+    direct_materials: float,
+    direct_labor: float,
+    direct_expenses: float,
+    manufacturing_overhead: float,
+    units_produced: int,
+    opening_stock: int = 0,
+    closing_stock: int = 0,
+    cost_components: Optional[List[Dict[str, Any]]] = None,
 ):
     """Calculate full product cost using absorption costing."""
     product_cost = ProductCost(
-        product_id=product_id, product_name=product_name, period=period,
-        direct_materials=direct_materials, direct_labor=direct_labor,
-        direct_expenses=direct_expenses, manufacturing_overhead=manufacturing_overhead,
-        units_produced=units_produced, opening_stock=opening_stock, closing_stock=closing_stock
+        product_id=product_id,
+        product_name=product_name,
+        period=period,
+        direct_materials=direct_materials,
+        direct_labor=direct_labor,
+        direct_expenses=direct_expenses,
+        manufacturing_overhead=manufacturing_overhead,
+        units_produced=units_produced,
+        opening_stock=opening_stock,
+        closing_stock=closing_stock,
     )
 
     # Calculate prime cost
@@ -134,12 +154,22 @@ async def calculate_product_cost(
         "date": datetime.utcnow(),
         "description": f"Product cost calculation - {product_name} ({period})",
         "entries": [
-            {"account_code": "1500", "description": "Work in Progress", "debit": product_cost.total_production_cost, "credit": 0},
+            {
+                "account_code": "1500",
+                "description": "Work in Progress",
+                "debit": product_cost.total_production_cost,
+                "credit": 0,
+            },
             {"account_code": "1100", "description": "Raw Materials", "debit": 0, "credit": direct_materials},
             {"account_code": "2100", "description": "Direct Labor", "debit": 0, "credit": direct_labor},
-            {"account_code": "2200", "description": "Manufacturing Overhead", "debit": 0, "credit": manufacturing_overhead},
+            {
+                "account_code": "2200",
+                "description": "Manufacturing Overhead",
+                "debit": 0,
+                "credit": manufacturing_overhead,
+            },
         ],
-        "reference": f"ABS-COST-{product_cost.id[:8]}"
+        "reference": f"ABS-COST-{product_cost.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     product_cost.journal_entry_id = result.get("id")
@@ -150,13 +180,15 @@ async def calculate_product_cost(
 
 @app.post("/overhead/absorption")
 async def calculate_overhead_absorption(
-    product_id: str, period: str, overhead_cost: float,
-    absorption_base: str, absorption_base_units: float
+    product_id: str, period: str, overhead_cost: float, absorption_base: str, absorption_base_units: float
 ):
     """Calculate overhead absorption rate and absorbed overhead."""
     absorption = OverheadAbsorption(
-        product_id=product_id, period=period, overhead_cost=overhead_cost,
-        absorption_base=absorption_base, absorption_base_units=absorption_base_units
+        product_id=product_id,
+        period=period,
+        overhead_cost=overhead_cost,
+        absorption_base=absorption_base,
+        absorption_base_units=absorption_base_units,
     )
 
     # Calculate overhead absorption rate
@@ -169,9 +201,7 @@ async def calculate_overhead_absorption(
 
 
 @app.post("/cost-plus")
-async def calculate_cost_plus_pricing(
-    product_cost: float, markup_percentage: float
-):
+async def calculate_cost_plus_pricing(product_cost: float, markup_percentage: float):
     """Calculate selling price using cost-plus pricing."""
     markup_amount = product_cost * (markup_percentage / 100)
     selling_price = product_cost + markup_amount
@@ -180,15 +210,12 @@ async def calculate_cost_plus_pricing(
         "product_cost": product_cost,
         "markup_percentage": markup_percentage,
         "markup_amount": markup_amount,
-        "selling_price": selling_price
+        "selling_price": selling_price,
     }
 
 
 @app.get("/product-costs")
-async def list_product_costs(
-    product_id: Optional[str] = None,
-    period: Optional[str] = None
-):
+async def list_product_costs(product_id: Optional[str] = None, period: Optional[str] = None):
     """List product costs."""
     result = product_costs
     if product_id:
@@ -221,10 +248,11 @@ async def calculate_stock_valuation(product_id: str, valuation_method: str = "fi
         "valuation_method": valuation_method,
         "cost_per_unit": product_cost.cost_per_unit,
         "closing_stock_units": product_cost.closing_stock,
-        "closing_stock_value": closing_stock_value
+        "closing_stock_value": closing_stock_value,
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

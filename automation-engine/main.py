@@ -3,16 +3,17 @@ Vimbai Automation Engine
 Scheduler and worker system for executing autonomous tasks across microservices
 """
 
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Callable
+import asyncio
+import os
+import uuid
 from datetime import datetime, timedelta
 from enum import Enum
-import asyncio
-import uuid
-import os
-from dotenv import load_dotenv
+from typing import Any, Callable, Dict, List, Optional
+
 import croniter
+from dotenv import load_dotenv
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -25,6 +26,7 @@ app = FastAPI(
 # ============================================================================
 # Models
 # ============================================================================
+
 
 class TaskStatus(str, Enum):
     PENDING = "pending"
@@ -204,6 +206,7 @@ for task in DEFAULT_TASKS:
 # Automation Engine Core
 # ============================================================================
 
+
 class AutomationEngine:
     """Main automation engine for scheduling and executing tasks"""
 
@@ -374,13 +377,16 @@ engine = AutomationEngine()
 # API Endpoints
 # ============================================================================
 
+
 @app.on_event("startup")
 async def startup():
     await engine.start()
 
+
 @app.on_event("shutdown")
 async def shutdown():
     await engine.stop()
+
 
 @app.get("/")
 async def health_check():
@@ -392,7 +398,9 @@ async def health_check():
         "total_tasks": len(tasks),
     }
 
+
 # --- Task Management ---
+
 
 @app.post("/tasks", status_code=201)
 async def create_task(task_req: TaskCreateRequest):
@@ -412,6 +420,7 @@ async def create_task(task_req: TaskCreateRequest):
     tasks[task.id] = task
     return task
 
+
 @app.get("/tasks")
 async def list_tasks(enabled_only: bool = False):
     """List all tasks"""
@@ -420,12 +429,14 @@ async def list_tasks(enabled_only: bool = False):
         result = [t for t in result if t.enabled]
     return result
 
+
 @app.get("/tasks/{task_id}")
 async def get_task(task_id: str):
     """Get a specific task"""
     if task_id not in tasks:
         raise HTTPException(status_code=404, detail="Task not found")
     return tasks[task_id]
+
 
 @app.put("/tasks/{task_id}")
 async def update_task(task_id: str, task_req: TaskCreateRequest):
@@ -446,6 +457,7 @@ async def update_task(task_id: str, task_req: TaskCreateRequest):
 
     return task
 
+
 @app.delete("/tasks/{task_id}")
 async def delete_task(task_id: str):
     """Delete a task"""
@@ -453,6 +465,7 @@ async def delete_task(task_id: str):
         del tasks[task_id]
         return {"status": "deleted"}
     raise HTTPException(status_code=404, detail="Task not found")
+
 
 @app.post("/tasks/{task_id}/enable")
 async def enable_task(task_id: str):
@@ -462,6 +475,7 @@ async def enable_task(task_id: str):
     tasks[task_id].enabled = True
     return {"status": "enabled"}
 
+
 @app.post("/tasks/{task_id}/disable")
 async def disable_task(task_id: str):
     """Disable a task"""
@@ -470,7 +484,9 @@ async def disable_task(task_id: str):
     tasks[task_id].enabled = False
     return {"status": "disabled"}
 
+
 # --- Task Execution ---
+
 
 @app.post("/tasks/{task_id}/run")
 async def run_task_now(task_id: str):
@@ -482,12 +498,9 @@ async def run_task_now(task_id: str):
         "task_name": execution.task_name,
     }
 
+
 @app.get("/tasks/{task_id}/executions")
-async def get_task_executions(
-    task_id: str,
-    limit: int = 50,
-    status: Optional[TaskStatus] = None
-):
+async def get_task_executions(task_id: str, limit: int = 50, status: Optional[TaskStatus] = None):
     """Get execution history for a task"""
     if task_id not in executions:
         return []
@@ -499,10 +512,12 @@ async def get_task_executions(
     result.sort(key=lambda x: x.started_at or datetime.min, reverse=True)
     return result[:limit]
 
+
 @app.get("/executions/running")
 async def get_running_executions():
     """Get all currently running executions"""
     return list(running_tasks.values())
+
 
 @app.post("/executions/{execution_id}/cancel")
 async def cancel_execution(execution_id: str):
@@ -516,30 +531,25 @@ async def cancel_execution(execution_id: str):
 
     raise HTTPException(status_code=404, detail="Execution not found or already completed")
 
+
 # --- Task Types ---
+
 
 @app.get("/task-types")
 async def list_task_types():
     """List all available task types"""
-    return [
-        {"name": tt.name, "value": tt.value}
-        for tt in TaskType
-    ]
+    return [{"name": tt.name, "value": tt.value} for tt in TaskType]
+
 
 # --- Metrics ---
+
 
 @app.get("/metrics")
 async def get_metrics():
     """Get automation engine metrics"""
     total_executions = sum(len(exec_list) for exec_list in executions.values())
-    completed = sum(
-        1 for exec_list in executions.values()
-        for e in exec_list if e.status == TaskStatus.COMPLETED
-    )
-    failed = sum(
-        1 for exec_list in executions.values()
-        for e in exec_list if e.status == TaskStatus.FAILED
-    )
+    completed = sum(1 for exec_list in executions.values() for e in exec_list if e.status == TaskStatus.COMPLETED)
+    failed = sum(1 for exec_list in executions.values() for e in exec_list if e.status == TaskStatus.FAILED)
 
     return {
         "total_tasks": len(tasks),
@@ -554,4 +564,5 @@ async def get_metrics():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8098)

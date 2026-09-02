@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Bonus Shares Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class BonusIssue(BaseModel):
@@ -75,28 +83,42 @@ async def root():
 
 @app.post("/issue")
 async def issue_bonus_shares(
-    company_id: str, issue_date: datetime, shares_issued: int, nominal_value: float,
-    source_reserve: str, shareholder_allocations: Dict[str, int]
+    company_id: str,
+    issue_date: datetime,
+    shares_issued: int,
+    nominal_value: float,
+    source_reserve: str,
+    shareholder_allocations: Dict[str, int],
 ):
     """Issue bonus shares from reserves."""
     issue = BonusIssue(
-        company_id=company_id, issue_date=issue_date, shares_issued=shares_issued,
-        nominal_value=nominal_value, source_reserve=source_reserve,
-        shareholder_allocations=shareholder_allocations
+        company_id=company_id,
+        issue_date=issue_date,
+        shares_issued=shares_issued,
+        nominal_value=nominal_value,
+        source_reserve=source_reserve,
+        shareholder_allocations=shareholder_allocations,
     )
     issue.total_nominal_value = shares_issued * nominal_value
     issue.amount_utilized = issue.total_nominal_value
 
-    reserve_account = {"share_premium": "3210", "retained_earnings": "3300", "general_reserve": "3310"}.get(source_reserve, "3300")
+    reserve_account = {"share_premium": "3210", "retained_earnings": "3300", "general_reserve": "3310"}.get(
+        source_reserve, "3300"
+    )
 
     journal_entry = {
         "date": issue_date,
         "description": f"Issue of {shares_issued} bonus shares from {source_reserve}",
         "entries": [
-            {"account_code": reserve_account, "description": f"{source_reserve} Reserve", "debit": issue.amount_utilized, "credit": 0},
+            {
+                "account_code": reserve_account,
+                "description": f"{source_reserve} Reserve",
+                "debit": issue.amount_utilized,
+                "credit": 0,
+            },
             {"account_code": "3200", "description": "Share Capital", "debit": 0, "credit": issue.total_nominal_value},
         ],
-        "reference": f"BONUS-{issue.id[:8]}"
+        "reference": f"BONUS-{issue.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     issue.journal_entry_id = result.get("id")
@@ -115,4 +137,5 @@ async def list_bonus_issues(company_id: Optional[str] = None):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

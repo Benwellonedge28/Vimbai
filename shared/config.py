@@ -2,6 +2,7 @@
 Shared configuration for Vimbai services.
 Provides connection pooling, retry policies, and common settings.
 """
+
 import os
 from dataclasses import dataclass, field
 from typing import Optional
@@ -10,17 +11,21 @@ from typing import Optional
 @dataclass
 class Neo4jConfig:
     """Neo4j connection pool configuration."""
+
     uri: str = field(default_factory=lambda: os.getenv("NEO4J_URI", "bolt://localhost:7687"))
     user: str = field(default_factory=lambda: os.getenv("NEO4J_USER", "neo4j"))
     password: str = field(default_factory=lambda: os.getenv("NEO4J_PASSWORD", "dev-password"))
     max_connection_pool_size: int = field(default_factory=lambda: int(os.getenv("NEO4J_MAX_POOL_SIZE", "50")))
     connection_timeout: int = field(default_factory=lambda: int(os.getenv("NEO4J_CONNECTION_TIMEOUT", "30")))
-    max_connection_lifetime: int = field(default_factory=lambda: int(os.getenv("NEO4J_MAX_CONNECTION_LIFETIME", "3600")))
+    max_connection_lifetime: int = field(
+        default_factory=lambda: int(os.getenv("NEO4J_MAX_CONNECTION_LIFETIME", "3600"))
+    )
 
 
 @dataclass
 class RedisConfig:
     """Redis connection pool configuration."""
+
     url: str = field(default_factory=lambda: os.getenv("REDIS_URL", "redis://localhost:6379"))
     max_connections: int = field(default_factory=lambda: int(os.getenv("REDIS_MAX_CONNECTIONS", "20")))
     socket_timeout: int = field(default_factory=lambda: int(os.getenv("REDIS_SOCKET_TIMEOUT", "5")))
@@ -31,6 +36,7 @@ class RedisConfig:
 @dataclass
 class RetryConfig:
     """Retry policy for external service calls."""
+
     max_retries: int = 3
     initial_delay: float = 0.5
     max_delay: float = 10.0
@@ -41,6 +47,7 @@ class RetryConfig:
 @dataclass
 class ServiceConfig:
     """Base configuration for all Vimbai services."""
+
     service_name: str = ""
     host: str = field(default_factory=lambda: os.getenv("HOST", "0.0.0.0"))
     port: int = field(default_factory=lambda: int(os.getenv("PORT", "8000")))
@@ -57,6 +64,7 @@ def get_neo4j_driver(config: Optional[Neo4jConfig] = None):
     cfg = config or Neo4jConfig()
     try:
         from neo4j import GraphDatabase
+
         return GraphDatabase.driver(
             cfg.uri,
             auth=(cfg.user, cfg.password),
@@ -76,6 +84,7 @@ def get_redis_client(config: Optional[RedisConfig] = None):
     cfg = config or RedisConfig()
     try:
         import redis
+
         pool = redis.ConnectionPool(
             host=cfg.url.split("://")[1].split(":")[0] if "://" in cfg.url else "localhost",
             port=int(cfg.url.split(":")[-1]) if ":" in cfg.url else 6379,

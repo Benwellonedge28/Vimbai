@@ -1,14 +1,16 @@
-from neo4j import AsyncSession
-from typing import List, Dict, Any, Optional
 import json
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from neo4j import AsyncSession
+
 
 class ReportGenerator:
     """Generates reports from graph database using Cypher queries"""
-    
+
     def __init__(self, session: AsyncSession):
         self.session = session
-    
+
     async def execute_query(self, query: str, parameters: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Execute a Cypher query and return results as list of dicts"""
         result = await self.session.run(query, **parameters)
@@ -16,15 +18,15 @@ class ReportGenerator:
         async for record in result:
             rec = {}
             for key, value in record.items():
-                if hasattr(value, 'iso_format'):
+                if hasattr(value, "iso_format"):
                     rec[key] = value.iso_format()
                 elif isinstance(value, dict):
-                    rec[key] = {k: v.iso_format() if hasattr(v, 'iso_format') else v for k, v in value.items()}
+                    rec[key] = {k: v.iso_format() if hasattr(v, "iso_format") else v for k, v in value.items()}
                 else:
                     rec[key] = value
             records.append(rec)
         return records
-    
+
     async def generate_financial_summary(self, start_date: str, end_date: str) -> Dict[str, Any]:
         """Generate a comprehensive financial summary report"""
         query = """
@@ -36,7 +38,7 @@ class ReportGenerator:
         ORDER BY a.account_type, a.account_number
         """
         results = await self.execute_query(query, {"start_date": start_date, "end_date": end_date, "user_id": "system"})
-        
+
         summary = {"revenues": [], "expenses": [], "assets": [], "liabilities": [], "equity": []}
         for row in results:
             if row["account_type"] == "revenue":
@@ -49,10 +51,12 @@ class ReportGenerator:
                 summary["liabilities"].append(row)
             elif row["account_type"] == "equity":
                 summary["equity"].append(row)
-        
+
         return summary
-    
-    async def generate_account_activity(self, account_number: str, start_date: str, end_date: str) -> List[Dict[str, Any]]:
+
+    async def generate_account_activity(
+        self, account_number: str, start_date: str, end_date: str
+    ) -> List[Dict[str, Any]]:
         """Generate detailed account activity report"""
         query = """
         MATCH (u:User)-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account {account_number: $account_number})
@@ -62,4 +66,6 @@ class ReportGenerator:
                jl.debit as debit, jl.credit as credit, je.source_module as source
         ORDER BY je.entry_date
         """
-        return await self.execute_query(query, {"account_number": account_number, "start_date": start_date, "end_date": end_date})
+        return await self.execute_query(
+            query, {"account_number": account_number, "start_date": start_date, "end_date": end_date}
+        )

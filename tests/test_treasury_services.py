@@ -1,10 +1,13 @@
 """
 Integration tests for Treasury Management, Compliance, and Analytics services.
 """
-import pytest
-from tests.conftest import load_service
-from fastapi.testclient import TestClient
+
 from datetime import datetime, timezone
+
+import pytest
+from fastapi.testclient import TestClient
+
+from tests.conftest import load_service
 
 
 @pytest.fixture
@@ -12,10 +15,12 @@ def treasury_client():
     app = load_service("treasury-management-service").main.app
     return TestClient(app)
 
+
 @pytest.fixture
 def compliance_client():
     app = load_service("treasury-compliance-service").main.app
     return TestClient(app)
+
 
 @pytest.fixture
 def analytics_client():
@@ -30,17 +35,21 @@ class TestTreasuryManagement:
         assert resp.json()["service"] == "treasury-management-service"
 
     def test_record_cashflow(self, treasury_client):
-        resp = treasury_client.post("/cashflows", json={
-            "company_id": "comp-1", "flow_type": "inflow", "amount": 50000,
-            "currency": "USD", "description": "Customer payment"
-        })
+        resp = treasury_client.post(
+            "/cashflows",
+            json={
+                "company_id": "comp-1",
+                "flow_type": "inflow",
+                "amount": 50000,
+                "currency": "USD",
+                "description": "Customer payment",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["status"] == "recorded"
 
     def test_get_cashflows(self, treasury_client):
-        treasury_client.post("/cashflows", json={
-            "company_id": "comp-2", "flow_type": "inflow", "amount": 10000
-        })
+        treasury_client.post("/cashflows", json={"company_id": "comp-2", "flow_type": "inflow", "amount": 10000})
         resp = treasury_client.get("/cashflows/comp-2")
         assert resp.status_code == 200
         assert resp.json()["total"] >= 1
@@ -100,16 +109,19 @@ class TestTreasuryAnalytics:
         assert resp.status_code == 200
 
     def test_analyze(self, analytics_client):
-        resp = analytics_client.post("/analyze", json={
-            "company_id": "comp-1",
-            "total_cash": 500000,
-            "monthly_inflow": 200000,
-            "monthly_outflow": 150000,
-            "short_term_debt": 30000,
-            "total_debt": 100000,
-            "investments": 200000,
-            "fx_exposure": 50000
-        })
+        resp = analytics_client.post(
+            "/analyze",
+            json={
+                "company_id": "comp-1",
+                "total_cash": 500000,
+                "monthly_inflow": 200000,
+                "monthly_outflow": 150000,
+                "short_term_debt": 30000,
+                "total_debt": 100000,
+                "investments": 200000,
+                "fx_exposure": 50000,
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["kpis"]) >= 5
@@ -117,9 +129,9 @@ class TestTreasuryAnalytics:
         assert data["debt_service_ratio"] >= 0
 
     def test_kpi_lookup(self, analytics_client):
-        analytics_client.post("/analyze", json={
-            "company_id": "comp-kpi", "total_cash": 100000, "monthly_inflow": 50000,
-            "monthly_outflow": 30000
-        })
+        analytics_client.post(
+            "/analyze",
+            json={"company_id": "comp-kpi", "total_cash": 100000, "monthly_inflow": 50000, "monthly_outflow": 30000},
+        )
         resp = analytics_client.get("/kpi/comp-kpi")
         assert resp.status_code == 200

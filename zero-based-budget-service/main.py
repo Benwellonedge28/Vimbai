@@ -3,14 +3,17 @@ Zero-Based Budget Service
 Port: 8176
 Zero-based budgeting - all expenses justified
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Zero-Based Budget Service", version="1.0.0")
+
 
 class ExpenseItem(BaseModel):
     item_id: str
@@ -20,11 +23,13 @@ class ExpenseItem(BaseModel):
     justification: str
     mandatory: bool
 
+
 class ZeroBasedBudgetRequest(BaseModel):
     company_id: str
     budget_year: str
     total_available: float
     expense_items: List[ExpenseItem]
+
 
 class PrioritizedItem(BaseModel):
     item_id: str
@@ -35,6 +40,7 @@ class PrioritizedItem(BaseModel):
     funded: bool
     funded_amount: float
 
+
 class ZeroBasedBudgetResponse(BaseModel):
     company_id: str
     budget_year: str
@@ -43,6 +49,7 @@ class ZeroBasedBudgetResponse(BaseModel):
     funded_items: List[PrioritizedItem]
     unfunded_items: List[PrioritizedItem]
     funding_coverage: float
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -54,9 +61,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "zero-based-budget", "version": "1.0.0"}
+
 
 @app.post("/prepare", response_model=ZeroBasedBudgetResponse)
 async def prepare_zero_based_budget(request: ZeroBasedBudgetRequest):
@@ -65,15 +74,17 @@ async def prepare_zero_based_budget(request: ZeroBasedBudgetRequest):
     prioritized = []
     for item in request.expense_items:
         priority = 100 if item.mandatory else 50
-        prioritized.append(PrioritizedItem(
-            item_id=item.item_id,
-            description=item.description,
-            department=item.department,
-            requested_amount=item.requested_amount,
-            priority_score=priority,
-            funded=False,
-            funded_amount=0.0
-        ))
+        prioritized.append(
+            PrioritizedItem(
+                item_id=item.item_id,
+                description=item.description,
+                department=item.department,
+                requested_amount=item.requested_amount,
+                priority_score=priority,
+                funded=False,
+                funded_amount=0.0,
+            )
+        )
 
     prioritized.sort(key=lambda x: x.priority_score, reverse=True)
 
@@ -97,9 +108,11 @@ async def prepare_zero_based_budget(request: ZeroBasedBudgetRequest):
         total_requested=sum(i.requested_amount for i in request.expense_items),
         funded_items=funded,
         unfunded_items=unfunded,
-        funding_coverage=len(funded) / len(prioritized) * 100 if prioritized else 0
+        funding_coverage=len(funded) / len(prioritized) * 100 if prioritized else 0,
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8176)

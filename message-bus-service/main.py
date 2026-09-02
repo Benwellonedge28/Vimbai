@@ -3,18 +3,19 @@ Vimbai Message Bus Service
 RabbitMQ-based event bus for asynchronous communication between microservices
 """
 
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Callable
-from datetime import datetime
-from enum import Enum
 import asyncio
+import hashlib
 import json
 import os
-import hashlib
-from dotenv import load_dotenv
+from datetime import datetime
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
+
 import aio_pika
-from aio_pika import Message, DeliveryMode, ExchangeType
+from aio_pika import DeliveryMode, ExchangeType, Message
+from dotenv import load_dotenv
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -35,6 +36,7 @@ DEAD_LETTER_EXCHANGE = "vimbai_dlx"
 # ============================================================================
 # Enums and Models
 # ============================================================================
+
 
 class EventType(str, Enum):
     # Accounting Events
@@ -130,6 +132,7 @@ channel = None
 # Event Bus Core
 # ============================================================================
 
+
 class EventBus:
     """Main event bus for publishing and subscribing to events"""
 
@@ -145,18 +148,10 @@ class EventBus:
             self.rabbitmq_channel = await self.rabbitmq_connection.channel()
 
             # Declare main exchange
-            await self.rabbitmq_channel.declare_exchange(
-                EXCHANGE_NAME,
-                ExchangeType.TOPIC,
-                durable=True
-            )
+            await self.rabbitmq_channel.declare_exchange(EXCHANGE_NAME, ExchangeType.TOPIC, durable=True)
 
             # Declare dead letter exchange
-            await self.rabbitmq_channel.declare_exchange(
-                DEAD_LETTER_EXCHANGE,
-                ExchangeType.TOPIC,
-                durable=True
-            )
+            await self.rabbitmq_channel.declare_exchange(DEAD_LETTER_EXCHANGE, ExchangeType.TOPIC, durable=True)
 
             # Declare main queue
             main_queue = await self.rabbitmq_channel.declare_queue(
@@ -165,7 +160,7 @@ class EventBus:
                 arguments={
                     "x-dead-letter-exchange": DEAD_LETTER_EXCHANGE,
                     "x-message-ttl": 86400000,  # 24 hours
-                }
+                },
             )
 
             # Bind queue to exchange with wildcard routing
@@ -196,16 +191,18 @@ class EventBus:
             if self.rabbitmq_channel:
                 exchange = await self.rabbitmq_channel.get_exchange(EXCHANGE_NAME)
 
-                message_body = json.dumps({
-                    "id": event.id,
-                    "type": event.type.value,
-                    "source_service": event.source_service,
-                    "timestamp": event.timestamp.isoformat(),
-                    "priority": event.priority.value,
-                    "payload": event.payload,
-                    "correlation_id": event.correlation_id,
-                    "retry_count": event.retry_count,
-                })
+                message_body = json.dumps(
+                    {
+                        "id": event.id,
+                        "type": event.type.value,
+                        "source_service": event.source_service,
+                        "timestamp": event.timestamp.isoformat(),
+                        "priority": event.priority.value,
+                        "payload": event.payload,
+                        "correlation_id": event.correlation_id,
+                        "retry_count": event.retry_count,
+                    }
+                )
 
                 message = Message(
                     body=message_body.encode(),
@@ -215,10 +212,7 @@ class EventBus:
                     correlation_id=event.correlation_id or "",
                 )
 
-                await exchange.publish(
-                    message,
-                    routing_key=event.type.value
-                )
+                await exchange.publish(message, routing_key=event.type.value)
 
                 print(f"[EventBus] Published event: {event.type.value}")
                 return True
@@ -273,12 +267,13 @@ event_bus = EventBus()
 # Helper Functions
 # ============================================================================
 
+
 def create_event(
     event_type: EventType,
     source_service: str,
     payload: Dict[str, Any],
     priority: EventPriority = EventPriority.NORMAL,
-    correlation_id: Optional[str] = None
+    correlation_id: Optional[str] = None,
 ) -> Event:
     """Create a new event"""
     return Event(
@@ -294,13 +289,16 @@ def create_event(
 # API Endpoints
 # ============================================================================
 
+
 @app.on_event("startup")
 async def startup():
     await event_bus.connect()
 
+
 @app.on_event("shutdown")
 async def shutdown():
     await event_bus.disconnect()
+
 
 @app.get("/")
 async def health_check():
@@ -312,7 +310,9 @@ async def health_check():
         "subscriptions": len(subscriptions),
     }
 
+
 # --- Event Publishing ---
+
 
 @app.post("/events/publish")
 async def publish_event(event: Event):
@@ -320,13 +320,10 @@ async def publish_event(event: Event):
     success = await event_bus.publish(event)
 
     if success:
-        return {
-            "status": "published",
-            "event_id": event.id,
-            "event_type": event.type.value
-        }
+        return {"status": "published", "event_id": event.id, "event_type": event.type.value}
     else:
         raise HTTPException(status_code=500, detail="Failed to publish event")
+
 
 @app.post("/events/{event_type}/publish")
 async def publish_event_by_type(
@@ -345,13 +342,11 @@ async def publish_event_by_type(
 
     success = await event_bus.publish(event)
 
-    return {
-        "status": "published" if success else "failed",
-        "event_id": event.id,
-        "event_type": event_type.value
-    }
+    return {"status": "published" if success else "failed", "event_id": event.id, "event_type": event_type.value}
+
 
 # --- Event Subscription ---
+
 
 @app.post("/subscriptions", status_code=201)
 async def create_subscription(subscription: EventSubscription):
@@ -359,10 +354,12 @@ async def create_subscription(subscription: EventSubscription):
     subscriptions[subscription.id] = subscription
     return subscription
 
+
 @app.get("/subscriptions")
 async def list_subscriptions():
     """List all event subscriptions"""
     return list(subscriptions.values())
+
 
 @app.get("/subscriptions/{subscription_id}")
 async def get_subscription(subscription_id: str):
@@ -370,6 +367,7 @@ async def get_subscription(subscription_id: str):
     if subscription_id not in subscriptions:
         raise HTTPException(status_code=404, detail="Subscription not found")
     return subscriptions[subscription_id]
+
 
 @app.delete("/subscriptions/{subscription_id}")
 async def delete_subscription(subscription_id: str):
@@ -379,14 +377,12 @@ async def delete_subscription(subscription_id: str):
         return {"status": "deleted"}
     raise HTTPException(status_code=404, detail="Subscription not found")
 
+
 # --- Event Store ---
 
+
 @app.get("/events")
-async def list_events(
-    event_type: Optional[EventType] = None,
-    source_service: Optional[str] = None,
-    limit: int = 100
-):
+async def list_events(event_type: Optional[EventType] = None, source_service: Optional[str] = None, limit: int = 100):
     """List recent events"""
     filtered = event_store
 
@@ -400,6 +396,7 @@ async def list_events(
 
     return filtered[:limit]
 
+
 @app.get("/events/{event_id}")
 async def get_event(event_id: str):
     """Get a specific event"""
@@ -408,17 +405,18 @@ async def get_event(event_id: str):
             return event
     raise HTTPException(status_code=404, detail="Event not found")
 
+
 # --- Event Types ---
+
 
 @app.get("/event-types")
 async def list_event_types():
     """List all available event types"""
-    return [
-        {"name": et.name, "value": et.value}
-        for et in EventType
-    ]
+    return [{"name": et.name, "value": et.value} for et in EventType]
+
 
 # --- Metrics ---
+
 
 @app.get("/metrics")
 async def get_metrics():
@@ -435,14 +433,12 @@ async def get_metrics():
         "rabbitmq_connected": event_bus.rabbitmq_connection is not None,
     }
 
+
 # --- Specific Event Triggers (for testing) ---
 
+
 @app.post("/trigger/journal-entry-created")
-async def trigger_journal_entry_created(
-    entry_id: str,
-    amount: float,
-    description: str = "Test journal entry"
-):
+async def trigger_journal_entry_created(entry_id: str, amount: float, description: str = "Test journal entry"):
     """Trigger a journal entry created event (for testing)"""
     event = create_event(
         event_type=EventType.JOURNAL_ENTRY_CREATED,
@@ -451,17 +447,14 @@ async def trigger_journal_entry_created(
             "entry_id": entry_id,
             "amount": amount,
             "description": description,
-        }
+        },
     )
     await event_bus.publish(event)
     return {"status": "triggered", "event_id": event.id}
 
+
 @app.post("/trigger/budget-variance-alert")
-async def trigger_budget_variance_alert(
-    budget_id: str,
-    variance_percent: float,
-    category: str
-):
+async def trigger_budget_variance_alert(budget_id: str, variance_percent: float, category: str):
     """Trigger a budget variance alert"""
     priority = EventPriority.HIGH if variance_percent > 20 else EventPriority.NORMAL
 
@@ -473,17 +466,14 @@ async def trigger_budget_variance_alert(
             "variance_percent": variance_percent,
             "category": category,
         },
-        priority=priority
+        priority=priority,
     )
     await event_bus.publish(event)
     return {"status": "triggered", "event_id": event.id}
 
+
 @app.post("/trigger/transaction-flagged")
-async def trigger_transaction_flagged(
-    transaction_id: str,
-    fraud_score: float,
-    reason: str
-):
+async def trigger_transaction_flagged(transaction_id: str, fraud_score: float, reason: str):
     """Trigger a transaction flagged event"""
     priority = EventPriority.CRITICAL if fraud_score > 0.8 else EventPriority.HIGH
 
@@ -495,18 +485,14 @@ async def trigger_transaction_flagged(
             "fraud_score": fraud_score,
             "reason": reason,
         },
-        priority=priority
+        priority=priority,
     )
     await event_bus.publish(event)
     return {"status": "triggered", "event_id": event.id}
 
+
 @app.post("/trigger/approval-requested")
-async def trigger_approval_requested(
-    approval_id: str,
-    requester: str,
-    approvers: List[str],
-    amount: float
-):
+async def trigger_approval_requested(approval_id: str, requester: str, approvers: List[str], amount: float):
     """Trigger an approval requested event"""
     event = create_event(
         event_type=EventType.APPROVAL_REQUESTED,
@@ -517,7 +503,7 @@ async def trigger_approval_requested(
             "approvers": approvers,
             "amount": amount,
         },
-        priority=EventPriority.HIGH
+        priority=EventPriority.HIGH,
     )
     await event_bus.publish(event)
     return {"status": "triggered", "event_id": event.id}
@@ -525,4 +511,5 @@ async def trigger_approval_requested(
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8097)

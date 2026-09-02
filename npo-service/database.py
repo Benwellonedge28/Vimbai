@@ -1,11 +1,14 @@
 """Database configuration and Neo4j connection for NPO Service"""
 
-from neo4j import AsyncGraphDatabase, AsyncDriver
-from typing import Optional
 import os
+from typing import Optional
+
+from neo4j import AsyncDriver, AsyncGraphDatabase
+
 
 class Neo4jConnector:
     """Neo4j database connector singleton"""
+
     _driver: Optional[AsyncDriver] = None
 
     @classmethod
@@ -19,10 +22,7 @@ class Neo4jConnector:
     def get_driver(cls) -> AsyncDriver:
         """Get Neo4j driver instance"""
         if cls._driver is None:
-            cls._driver = AsyncGraphDatabase.driver(
-                cls._uri,
-                auth=(cls._user, cls._password)
-            )
+            cls._driver = AsyncGraphDatabase.driver(cls._uri, auth=(cls._user, cls._password))
         return cls._driver
 
     @classmethod
@@ -38,10 +38,12 @@ class Neo4jConnector:
         driver = cls.get_driver()
         return driver.session()
 
+
 async def get_db_session():
     """Dependency for getting database session"""
     async with Neo4jConnector.get_driver().session() as session:
         yield session
+
 
 async def init_db_schema():
     """Initialize Neo4j schema constraints and indexes"""

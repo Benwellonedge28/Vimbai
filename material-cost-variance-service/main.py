@@ -19,15 +19,23 @@ SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8121"))
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Material Cost Variance Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 @app.get("/health")
@@ -42,10 +50,7 @@ async def root():
 
 @app.post("/calculate")
 async def calculate_material_cost_variance(
-    standard_price: float,
-    actual_price: float,
-    standard_quantity: float,
-    actual_quantity: float
+    standard_price: float, actual_price: float, standard_quantity: float, actual_quantity: float
 ):
     """
     Calculate Total Material Cost Variance.
@@ -73,7 +78,7 @@ async def calculate_material_cost_variance(
         "price_variance": round(price_variance, 2),
         "usage_variance": round(usage_variance, 2),
         "total_check": round(price_variance + usage_variance, 2),
-        "overall": "Favorable" if total_variance > 0 else "Adverse" if total_variance < 0 else "None"
+        "overall": "Favorable" if total_variance > 0 else "Adverse" if total_variance < 0 else "None",
     }
 
 
@@ -85,7 +90,7 @@ async def simple_material_variance(standard_cost: float, actual_cost: float):
         "standard_cost": standard_cost,
         "actual_cost": actual_cost,
         "variance": round(variance, 2),
-        "type": "Favorable" if variance > 0 else "Adverse"
+        "type": "Favorable" if variance > 0 else "Adverse",
     }
 
 
@@ -103,12 +108,9 @@ async def multi_material_variance(materials: list):
         total_std += std
         total_actual += act
 
-        breakdown.append({
-            "material": m.get("name", "Unknown"),
-            "standard_cost": std,
-            "actual_cost": act,
-            "variance": round(var, 2)
-        })
+        breakdown.append(
+            {"material": m.get("name", "Unknown"), "standard_cost": std, "actual_cost": act, "variance": round(var, 2)}
+        )
 
     total_variance = total_std - total_actual
 
@@ -116,10 +118,11 @@ async def multi_material_variance(materials: list):
         "materials": breakdown,
         "total_standard_cost": total_std,
         "total_actual_cost": total_actual,
-        "total_variance": round(total_variance, 2)
+        "total_variance": round(total_variance, 2),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

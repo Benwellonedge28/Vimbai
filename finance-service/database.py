@@ -1,5 +1,7 @@
 import os
+
 from neo4j import GraphDatabase
+
 
 class Neo4jConnector:
     _driver = None
@@ -22,10 +24,13 @@ class Neo4jConnector:
             cls._driver = None
             print("Neo4j driver closed for Finance Service.")
 
+
 async def init_db_schema():
     driver = Neo4jConnector.get_driver()
     async with driver.session() as session:
         # Constraints for Budget entities
         await session.run("CREATE CONSTRAINT IF NOT EXISTS ON (b:Budget) ASSERT b.name IS UNIQUE")
-        await session.run("CREATE CONSTRAINT IF NOT EXISTS ON (bi:BudgetItem) ASSERT bi.id IS UNIQUE") # Each budget item needs a unique ID
+        await session.run(
+            "CREATE CONSTRAINT IF NOT EXISTS ON (bi:BudgetItem) ASSERT bi.id IS UNIQUE"
+        )  # Each budget item needs a unique ID
         print("Neo4j Finance schema constraints ensured.")

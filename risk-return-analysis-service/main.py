@@ -3,14 +3,17 @@ Risk Return Analysis Service
 Port: 8236
 Risk-adjusted return metrics
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Risk Return Analysis Service", version="1.0.0")
+
 
 class RiskReturnMetrics(BaseModel):
     asset_id: str
@@ -25,12 +28,14 @@ class RiskReturnMetrics(BaseModel):
     alpha: float
     information_ratio: float
 
+
 class RiskReturnRequest(BaseModel):
     company_id: str
     assets: List[Dict[str, Any]]
     benchmark_return: float
     risk_free_rate: float
     returns_data: List[List[float]]
+
 
 class RiskReturnResponse(BaseModel):
     company_id: str
@@ -40,6 +45,7 @@ class RiskReturnResponse(BaseModel):
     portfolio_sharpe_ratio: float
     efficient_frontier: List[Dict[str, float]]
     recommendations: List[str]
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -51,9 +57,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "risk-return-analysis", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=RiskReturnResponse)
 async def analyze_risk_return(request: RiskReturnRequest):
@@ -65,30 +73,34 @@ async def analyze_risk_return(request: RiskReturnRequest):
         returns = request.returns_data[i] if i < len(request.returns_data) else []
         exp_return = sum(returns) / len(returns) if returns else asset.get("expected_return", 0.1)
         variance = sum((r - exp_return) ** 2 for r in returns) / len(returns) if returns else 0.02
-        std_dev = variance ** 0.5
+        std_dev = variance**0.5
 
         downside_returns = [r for r in returns if r < 0]
-        downside_variance = sum(r ** 2 for r in downside_returns) / len(downside_returns) if downside_returns else variance
-        sortino = (exp_return - request.risk_free_rate) / (downside_variance ** 0.5) if downside_variance else 0
+        downside_variance = (
+            sum(r**2 for r in downside_returns) / len(downside_returns) if downside_returns else variance
+        )
+        sortino = (exp_return - request.risk_free_rate) / (downside_variance**0.5) if downside_variance else 0
 
         sharpe = (exp_return - request.risk_free_rate) / std_dev if std_dev else 0
         beta = asset.get("beta", 1.0)
         treynor = (exp_return - request.risk_free_rate) / beta if beta else 0
         alpha = exp_return - (request.risk_free_rate + beta * (request.benchmark_return - request.risk_free_rate))
 
-        risk_return_metrics.append(RiskReturnMetrics(
-            asset_id=asset.get("id", ""),
-            asset_name=asset.get("name", ""),
-            expected_return=round(exp_return, 4),
-            standard_deviation=round(std_dev, 4),
-            variance=round(variance, 6),
-            sharpe_ratio=round(sharpe, 4),
-            sortino_ratio=round(sortino, 4),
-            treynor_ratio=round(treynor, 4),
-            beta=round(beta, 4),
-            alpha=round(alpha, 4),
-            information_ratio=round(alpha / 0.1, 4)
-        ))
+        risk_return_metrics.append(
+            RiskReturnMetrics(
+                asset_id=asset.get("id", ""),
+                asset_name=asset.get("name", ""),
+                expected_return=round(exp_return, 4),
+                standard_deviation=round(std_dev, 4),
+                variance=round(variance, 6),
+                sharpe_ratio=round(sharpe, 4),
+                sortino_ratio=round(sortino, 4),
+                treynor_ratio=round(treynor, 4),
+                beta=round(beta, 4),
+                alpha=round(alpha, 4),
+                information_ratio=round(alpha / 0.1, 4),
+            )
+        )
 
     portfolio_return = sum(m.expected_return for m in risk_return_metrics) / len(risk_return_metrics)
     portfolio_risk = sum(m.standard_deviation for m in risk_return_metrics) / len(risk_return_metrics) * 0.8
@@ -104,11 +116,17 @@ async def analyze_risk_return(request: RiskReturnRequest):
             {"return": 0.05, "risk": 0.05},
             {"return": 0.08, "risk": 0.08},
             {"return": 0.12, "risk": 0.12},
-            {"return": 0.15, "risk": 0.16}
+            {"return": 0.15, "risk": 0.16},
         ],
-        recommendations=["Consider assets with higher Sharpe ratios", "Monitor Sortino ratio for downside risk", "Review beta against market movements"]
+        recommendations=[
+            "Consider assets with higher Sharpe ratios",
+            "Monitor Sortino ratio for downside risk",
+            "Review beta against market movements",
+        ],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8236)

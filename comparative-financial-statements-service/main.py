@@ -3,15 +3,18 @@ Comparative Financial Statements Service
 Port: 8142
 Creates comparative statements with horizontal analysis and trend percentages
 """
-import httpx
-import structlog
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+
+import httpx
+import structlog
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="Comparative Financial Statements Service", version="1.0.0")
+
 
 # Pydantic Models
 class PeriodData(BaseModel):
@@ -27,6 +30,7 @@ class PeriodData(BaseModel):
     total_equity: float
     cash_from_operations: float
 
+
 class HorizontalAnalysisItem(BaseModel):
     item_name: str
     current_period: float
@@ -35,6 +39,7 @@ class HorizontalAnalysisItem(BaseModel):
     change_percentage: float
     absolute_change: float
 
+
 class TrendAnalysisItem(BaseModel):
     item_name: str
     base_period_value: float
@@ -42,12 +47,14 @@ class TrendAnalysisItem(BaseModel):
     trend_percentages: List[float]
     compound_annual_growth_rate: float
 
+
 class RatioComparison(BaseModel):
     ratio_name: str
     current_value: float
     prior_value: float
     change: float
     industry_benchmark: Optional[float] = None
+
 
 class ComparativeRequest(BaseModel):
     company_id: str
@@ -58,6 +65,7 @@ class ComparativeRequest(BaseModel):
     include_ratio_comparison: bool = True
     number_of_periods: int = Field(default=5, ge=3, le=10)
 
+
 class ComparativeResponse(BaseModel):
     company_id: str
     periods: List[str]
@@ -65,6 +73,7 @@ class ComparativeResponse(BaseModel):
     trend_analysis: Optional[List[TrendAnalysisItem]] = None
     ratio_comparison: Optional[List[RatioComparison]] = None
     summary_statistics: Dict[str, Any]
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     """Call another internal Vimbai service."""
@@ -80,9 +89,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "comparative-financial-statements", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=ComparativeResponse)
 async def analyze_comparative_statements(request: ComparativeRequest):
@@ -105,7 +116,7 @@ async def analyze_comparative_statements(request: ComparativeRequest):
             "total_assets": base_revenue * growth * 4,
             "total_liabilities": base_revenue * growth * 2.2,
             "total_equity": base_revenue * growth * 1.8,
-            "cash_from_operations": base_revenue * growth * 0.22
+            "cash_from_operations": base_revenue * growth * 0.22,
         }
         periods.append(period_data)
 
@@ -123,21 +134,23 @@ async def analyze_comparative_statements(request: ComparativeRequest):
         ("Total Assets", current["total_assets"], prior["total_assets"]),
         ("Total Liabilities", current["total_liabilities"], prior["total_liabilities"]),
         ("Total Equity", current["total_equity"], prior["total_equity"]),
-        ("Cash from Operations", current["cash_from_operations"], prior["cash_from_operations"])
+        ("Cash from Operations", current["cash_from_operations"], prior["cash_from_operations"]),
     ]
 
     horizontal_analysis = []
     for name, curr, prev in horizontal_items:
         change = curr - prev
         change_pct = (change / prev * 100) if prev != 0 else 0
-        horizontal_analysis.append(HorizontalAnalysisItem(
-            item_name=name,
-            current_period=curr,
-            prior_period=prev,
-            change=change,
-            change_percentage=change_pct,
-            absolute_change=abs(change)
-        ))
+        horizontal_analysis.append(
+            HorizontalAnalysisItem(
+                item_name=name,
+                current_period=curr,
+                prior_period=prev,
+                change=change,
+                change_percentage=change_pct,
+                absolute_change=abs(change),
+            )
+        )
 
     # Trend analysis
     trend_analysis = None
@@ -147,7 +160,7 @@ async def analyze_comparative_statements(request: ComparativeRequest):
             "Revenue": periods[0]["revenue"],
             "Net Profit": periods[0]["net_profit"],
             "Total Assets": periods[0]["total_assets"],
-            "Operating Profit": periods[0]["operating_profit"]
+            "Operating Profit": periods[0]["operating_profit"],
         }
 
         for name, base_value in base_values.items():
@@ -155,15 +168,17 @@ async def analyze_comparative_statements(request: ComparativeRequest):
             # Calculate CAGR
             final_value = periods[-1][name]
             n_periods = len(periods) - 1
-            cagr = ((final_value / base_value) ** (1/n_periods) - 1) * 100 if base_value > 0 else 0
+            cagr = ((final_value / base_value) ** (1 / n_periods) - 1) * 100 if base_value > 0 else 0
 
-            trend_analysis.append(TrendAnalysisItem(
-                item_name=name,
-                base_period_value=base_value,
-                periods=[{"period": p["period"], "value": p[name]} for p in periods],
-                trend_percentages=trend_pcts,
-                compound_annual_growth_rate=cagr
-            ))
+            trend_analysis.append(
+                TrendAnalysisItem(
+                    item_name=name,
+                    base_period_value=base_value,
+                    periods=[{"period": p["period"], "value": p[name]} for p in periods],
+                    trend_percentages=trend_pcts,
+                    compound_annual_growth_rate=cagr,
+                )
+            )
 
     # Ratio comparison
     ratio_comparison = None
@@ -187,38 +202,47 @@ async def analyze_comparative_statements(request: ComparativeRequest):
                 current_value=current_gross_margin * 100,
                 prior_value=prior_gross_margin * 100,
                 change=(current_gross_margin - prior_gross_margin) * 100,
-                industry_benchmark=45.0
+                industry_benchmark=45.0,
             ),
             RatioComparison(
                 ratio_name="Operating Margin",
                 current_value=current_op_margin * 100,
                 prior_value=prior_op_margin * 100,
                 change=(current_op_margin - prior_op_margin) * 100,
-                industry_benchmark=20.0
+                industry_benchmark=20.0,
             ),
             RatioComparison(
                 ratio_name="Return on Assets",
                 current_value=current_roa * 100,
                 prior_value=prior_roa * 100,
                 change=(current_roa - prior_roa) * 100,
-                industry_benchmark=8.0
+                industry_benchmark=8.0,
             ),
             RatioComparison(
                 ratio_name="Debt Ratio",
                 current_value=current_debt_ratio * 100,
                 prior_value=prior_debt_ratio * 100,
                 change=(current_debt_ratio - prior_debt_ratio) * 100,
-                industry_benchmark=55.0
-            )
+                industry_benchmark=55.0,
+            ),
         ]
 
     # Summary statistics
     summary = {
-        "average_revenue_growth": sum((periods[i]["revenue"] - periods[i-1]["revenue"]) / periods[i-1]["revenue"]
-                                       for i in range(1, len(periods))) / (len(periods) - 1) * 100,
+        "average_revenue_growth": sum(
+            (periods[i]["revenue"] - periods[i - 1]["revenue"]) / periods[i - 1]["revenue"]
+            for i in range(1, len(periods))
+        )
+        / (len(periods) - 1)
+        * 100,
         "average_profit_margin": sum(p["net_profit"] / p["revenue"] for p in periods) / len(periods) * 100,
-        "total_asset_growth": (periods[-1]["total_assets"] - periods[0]["total_assets"]) / periods[0]["total_assets"] * 100,
-        "equity_compound_growth": ((periods[-1]["total_equity"] / periods[0]["total_equity"]) ** (1/(len(periods)-1)) - 1) * 100
+        "total_asset_growth": (periods[-1]["total_assets"] - periods[0]["total_assets"])
+        / periods[0]["total_assets"]
+        * 100,
+        "equity_compound_growth": (
+            (periods[-1]["total_equity"] / periods[0]["total_equity"]) ** (1 / (len(periods) - 1)) - 1
+        )
+        * 100,
     }
 
     response = ComparativeResponse(
@@ -227,11 +251,12 @@ async def analyze_comparative_statements(request: ComparativeRequest):
         horizontal_analysis=horizontal_analysis,
         trend_analysis=trend_analysis,
         ratio_comparison=ratio_comparison,
-        summary_statistics=summary
+        summary_statistics=summary,
     )
 
     logger.info("Comparative analysis complete", company=request.company_id)
     return response
+
 
 @app.post("/horizontal-analysis")
 async def perform_horizontal_analysis(current_value: float, prior_value: float, item_name: str):
@@ -245,8 +270,9 @@ async def perform_horizontal_analysis(current_value: float, prior_value: float, 
         "prior_period": prior_value,
         "absolute_change": change,
         "percentage_change": change_pct,
-        "interpretation": "Favorable" if change > 0 else "Unfavorable" if change < 0 else "No change"
+        "interpretation": "Favorable" if change > 0 else "Unfavorable" if change < 0 else "No change",
     }
+
 
 @app.post("/trend-analysis")
 async def perform_trend_analysis(values: List[float], periods: List[str]):
@@ -259,18 +285,22 @@ async def perform_trend_analysis(values: List[float], periods: List[str]):
 
     # Calculate CAGR
     n_periods = len(values) - 1
-    cagr = ((values[-1] / base_value) ** (1/n_periods) - 1) * 100 if base_value > 0 else 0
+    cagr = ((values[-1] / base_value) ** (1 / n_periods) - 1) * 100 if base_value > 0 else 0
 
     return {
         "base_period": periods[0],
         "base_value": base_value,
         "final_period": periods[-1],
         "final_value": values[-1],
-        "trend_percentages": [{"period": p, "value": v, "trend": t}
-                              for p, v, t in zip(periods, values, trend_percentages)],
+        "trend_percentages": [
+            {"period": p, "value": v, "trend": t} for p, v, t in zip(periods, values, trend_percentages)
+        ],
         "compound_annual_growth_rate": cagr,
-        "average_growth": sum((values[i] - values[i-1]) / values[i-1] for i in range(1, len(values))) / (len(values) - 1) * 100
+        "average_growth": sum((values[i] - values[i - 1]) / values[i - 1] for i in range(1, len(values)))
+        / (len(values) - 1)
+        * 100,
     }
+
 
 @app.post("/variance-analysis")
 async def variance_analysis(budgeted: List[float], actual: List[float], items: List[str]):
@@ -280,21 +310,25 @@ async def variance_analysis(budgeted: List[float], actual: List[float], items: L
         if i < len(budgeted) and i < len(actual):
             variance = actual[i] - budgeted[i]
             variance_pct = (variance / budgeted[i] * 100) if budgeted[i] != 0 else 0
-            variances.append({
-                "item": item,
-                "budgeted": budgeted[i],
-                "actual": actual[i],
-                "variance": variance,
-                "variance_percentage": variance_pct,
-                "favorable": variance > 0
-            })
+            variances.append(
+                {
+                    "item": item,
+                    "budgeted": budgeted[i],
+                    "actual": actual[i],
+                    "variance": variance,
+                    "variance_percentage": variance_pct,
+                    "favorable": variance > 0,
+                }
+            )
 
     return {
         "variances": variances,
         "total_favorable_variance": sum(v["variance"] for v in variances if v["favorable"]),
-        "total_unfavorable_variance": sum(abs(v["variance"]) for v in variances if not v["favorable"])
+        "total_unfavorable_variance": sum(abs(v["variance"]) for v in variances if not v["favorable"]),
     }
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8142)

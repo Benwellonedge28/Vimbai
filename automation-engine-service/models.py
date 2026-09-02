@@ -1,13 +1,19 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field
+
 
 # --- Automation Task Definition Models ---
 class AutomationTaskDefinitionBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100, description="Name of the automated task.")
     description: Optional[str] = Field(None, max_length=500, description="Description of what the task does.")
-    service_target: str = Field(..., description="The target service for the automation (e.g., 'accounting', 'finance', 'banking').")
-    endpoint_path: str = Field(..., description="The API endpoint path to call on the target service (e.g., '/journal-entries/reconcile-all').")
+    service_target: str = Field(
+        ..., description="The target service for the automation (e.g., 'accounting', 'finance', 'banking')."
+    )
+    endpoint_path: str = Field(
+        ..., description="The API endpoint path to call on the target service (e.g., '/journal-entries/reconcile-all')."
+    )
     http_method: Literal["GET", "POST", "PUT", "DELETE"] = Field("POST")
     payload_template: Dict[str, Any] = Field({}, description="JSON template for the request body.")
     schedule_type: Literal["manual", "cron", "interval"] = Field("manual")
@@ -18,8 +24,10 @@ class AutomationTaskDefinitionBase(BaseModel):
     next_execution_at: Optional[datetime] = None
     owner_user_id: str = Field(..., description="User ID who owns/created this automation.")
 
+
 class AutomationTaskDefinitionCreate(AutomationTaskDefinitionBase):
     pass
+
 
 class AutomationTaskDefinitionUpdate(BaseModel):
     name: Optional[str] = None
@@ -33,6 +41,7 @@ class AutomationTaskDefinitionUpdate(BaseModel):
     interval_seconds: Optional[int] = None
     is_active: Optional[bool] = None
 
+
 class AutomationTaskDefinitionInDB(AutomationTaskDefinitionBase):
     id: str = Field(..., example="uuid-string-for-node")
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -40,6 +49,7 @@ class AutomationTaskDefinitionInDB(AutomationTaskDefinitionBase):
 
     class Config:
         from_attributes = True
+
 
 # --- Automation Task Instance Models (running tasks) ---
 class AutomationTaskInstanceBase(BaseModel):
@@ -51,14 +61,17 @@ class AutomationTaskInstanceBase(BaseModel):
     error_message: Optional[str] = Field(None, max_length=1000, description="Error message if task failed.")
     triggered_by: Literal["schedule", "manual", "event"] = Field("manual")
 
+
 class AutomationTaskInstanceCreate(AutomationTaskInstanceBase):
     pass
+
 
 class AutomationTaskInstanceUpdate(BaseModel):
     status: Optional[Literal["pending", "running", "completed", "failed", "cancelled"]] = None
     end_time: Optional[datetime] = None
     output: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
+
 
 class AutomationTaskInstanceInDB(AutomationTaskInstanceBase):
     id: str = Field(..., example="uuid-string-for-node")
@@ -68,6 +81,7 @@ class AutomationTaskInstanceInDB(AutomationTaskInstanceBase):
     class Config:
         from_attributes = True
 
+
 # --- Automation Log Models ---
 class AutomationLogBase(BaseModel):
     instance_id: str = Field(..., description="ID of the AutomationTaskInstance this log belongs to.")
@@ -75,8 +89,10 @@ class AutomationLogBase(BaseModel):
     message: str = Field(..., description="Log message.")
     details: Optional[Dict[str, Any]] = Field(None, description="Additional log details.")
 
+
 class AutomationLogCreate(AutomationLogBase):
     pass
+
 
 class AutomationLogInDB(AutomationLogBase):
     id: str = Field(..., example="uuid-string-for-node")

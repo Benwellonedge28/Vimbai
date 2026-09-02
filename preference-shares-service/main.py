@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Preference Shares Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class DividendPriority(str):
@@ -111,27 +119,36 @@ async def root():
 
 @app.post("/classes/create")
 async def create_share_class(
-    name: str, company_id: str, nominal_value: float, issue_price: float,
-    fixed_dividend_rate: float, dividend_type: str, participation_rights: str,
-    liquidation_priority: int, redemption_terms: Optional[str] = None,
-    conversion_terms: Optional[str] = None
+    name: str,
+    company_id: str,
+    nominal_value: float,
+    issue_price: float,
+    fixed_dividend_rate: float,
+    dividend_type: str,
+    participation_rights: str,
+    liquidation_priority: int,
+    redemption_terms: Optional[str] = None,
+    conversion_terms: Optional[str] = None,
 ):
     """Create a preference share class."""
     share_class = PreferenceShareClass(
-        name=name, company_id=company_id, nominal_value=nominal_value,
-        issue_price=issue_price, fixed_dividend_rate=fixed_dividend_rate,
-        dividend_type=dividend_type, participation_rights=participation_rights,
-        liquidation_priority=liquidation_priority, redemption_terms=redemption_terms,
-        conversion_terms=conversion_terms
+        name=name,
+        company_id=company_id,
+        nominal_value=nominal_value,
+        issue_price=issue_price,
+        fixed_dividend_rate=fixed_dividend_rate,
+        dividend_type=dividend_type,
+        participation_rights=participation_rights,
+        liquidation_priority=liquidation_priority,
+        redemption_terms=redemption_terms,
+        conversion_terms=conversion_terms,
     )
     share_classes.append(share_class)
     return share_class
 
 
 @app.post("/classes/{share_class_id}/issue")
-async def issue_preference_shares(
-    share_class_id: str, shares_issued: int, issue_date: datetime
-):
+async def issue_preference_shares(share_class_id: str, shares_issued: int, issue_date: datetime):
     """Issue preference shares of a given class."""
     share_class = next((s for s in share_classes if s.id == share_class_id), None)
     if not share_class:
@@ -152,7 +169,7 @@ async def issue_preference_shares(
             {"account_code": "3205", "description": "Preference Share Capital", "debit": 0, "credit": nominal},
             {"account_code": "3215", "description": "Preference Share Premium", "debit": 0, "credit": premium},
         ],
-        "reference": f"PREF-ISS-{share_class_id[:8]}"
+        "reference": f"PREF-ISS-{share_class_id[:8]}",
     }
     await call_accounting_service("POST", "/journal-entries", journal_entry)
 
@@ -161,8 +178,12 @@ async def issue_preference_shares(
 
 @app.post("/classes/{share_class_id}/dividends/declare")
 async def declare_preference_dividend(
-    share_class_id: str, company_id: str, per_share_amount: float,
-    total_shares: int, preference_arears: float, record_date: datetime
+    share_class_id: str,
+    company_id: str,
+    per_share_amount: float,
+    total_shares: int,
+    preference_arears: float,
+    record_date: datetime,
 ):
     """Declare preference share dividend."""
     share_class = next((s for s in share_classes if s.id == share_class_id), None)
@@ -170,10 +191,13 @@ async def declare_preference_dividend(
         return {"error": "Share class not found"}
 
     dividend = PreferenceDividend(
-        share_class_id=share_class_id, company_id=company_id,
-        dividend_type="fixed", per_share_amount=per_share_amount,
-        total_shares=total_shares, preference_arears=preference_arears,
-        record_date=record_date
+        share_class_id=share_class_id,
+        company_id=company_id,
+        dividend_type="fixed",
+        per_share_amount=per_share_amount,
+        total_shares=total_shares,
+        preference_arears=preference_arears,
+        record_date=record_date,
     )
     dividend.total_dividend = (per_share_amount * total_shares) + preference_arears
 
@@ -182,9 +206,14 @@ async def declare_preference_dividend(
         "description": f"Declaration of {share_class.name} preference dividend",
         "entries": [
             {"account_code": "3300", "description": "Retained Earnings", "debit": dividend.total_dividend, "credit": 0},
-            {"account_code": "2315", "description": "Preference Dividend Payable", "debit": 0, "credit": dividend.total_dividend},
+            {
+                "account_code": "2315",
+                "description": "Preference Dividend Payable",
+                "debit": 0,
+                "credit": dividend.total_dividend,
+            },
         ],
-        "reference": f"PREF-DIV-{dividend.id[:8]}"
+        "reference": f"PREF-DIV-{dividend.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     dividend.journal_entry_id = result.get("id")
@@ -204,10 +233,15 @@ async def pay_preference_dividend(share_class_id: str, dividend_id: str, payment
         "date": payment_date,
         "description": "Payment of preference dividend",
         "entries": [
-            {"account_code": "2315", "description": "Preference Dividend Payable", "debit": dividend.total_dividend, "credit": 0},
+            {
+                "account_code": "2315",
+                "description": "Preference Dividend Payable",
+                "debit": dividend.total_dividend,
+                "credit": 0,
+            },
             {"account_code": "1000", "description": "Bank", "debit": 0, "credit": dividend.total_dividend},
         ],
-        "reference": f"PREF-DIV-PAY-{dividend_id[:8]}"
+        "reference": f"PREF-DIV-PAY-{dividend_id[:8]}",
     }
     await call_accounting_service("POST", "/journal-entries", journal_entry)
     dividend.payment_date = payment_date
@@ -226,8 +260,10 @@ async def redeem_preference_shares(
         return {"error": "Share class not found"}
 
     redemption = RedemptionEntry(
-        share_class_id=share_class_id, shares_redeemed=shares_redeemed,
-        redemption_price=redemption_price, redemption_date=redemption_date
+        share_class_id=share_class_id,
+        shares_redeemed=shares_redeemed,
+        redemption_price=redemption_price,
+        redemption_date=redemption_date,
     )
     redemption.total_proceeds = shares_redeemed * redemption_price
 
@@ -240,10 +276,15 @@ async def redeem_preference_shares(
         "description": f"Redemption of {shares_redeemed} {share_class.name} preference shares",
         "entries": [
             {"account_code": "3205", "description": "Preference Share Capital", "debit": nominal, "credit": 0},
-            {"account_code": "3220", "description": "Capital Redemption Reserve", "debit": redemption.total_proceeds - nominal, "credit": 0},
+            {
+                "account_code": "3220",
+                "description": "Capital Redemption Reserve",
+                "debit": redemption.total_proceeds - nominal,
+                "credit": 0,
+            },
             {"account_code": "1000", "description": "Bank", "debit": 0, "credit": redemption.total_proceeds},
         ],
-        "reference": f"PREF-RED-{redemption.id[:8]}"
+        "reference": f"PREF-RED-{redemption.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     redemption.journal_entry_id = result.get("id")
@@ -272,4 +313,5 @@ async def list_dividends(company_id: Optional[str] = None):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

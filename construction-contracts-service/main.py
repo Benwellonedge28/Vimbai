@@ -3,14 +3,17 @@ Construction Contracts Service
 Port: 8219
 Percentage of completion and completed contract methods
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Construction Contracts Service", version="1.0.0")
+
 
 class ContractAnalysis(BaseModel):
     contract_id: str
@@ -23,11 +26,13 @@ class ContractAnalysis(BaseModel):
     expected_profit: float
     provision_for_losses: float
 
+
 class ConstructionContractRequest(BaseModel):
     company_id: str
     period: str
     contracts: List[Dict[str, Any]]
     accounting_method: str
+
 
 class ConstructionContractResponse(BaseModel):
     company_id: str
@@ -40,6 +45,7 @@ class ConstructionContractResponse(BaseModel):
     ongoing_contracts: int
     recommendations: List[str]
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -50,9 +56,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "construction-contracts", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=ConstructionContractResponse)
 async def analyze_construction_contracts(request: ConstructionContractRequest):
@@ -83,17 +91,19 @@ async def analyze_construction_contracts(request: ConstructionContractRequest):
         else:
             ongoing += 1
 
-        contract_analysis.append(ContractAnalysis(
-            contract_id=contract.get("id", ""),
-            contract_value=value,
-            costs_incurred=costs,
-            estimated_total_costs=etc,
-            progress_percentage=round(progress * 100, 2),
-            revenue_to_date=round(revenue, 2),
-            recognized_profit=round(revenue - costs if revenue > costs else 0, 2),
-            expected_profit=round(expected_profit, 2),
-            provision_for_losses=round(provision, 2)
-        ))
+        contract_analysis.append(
+            ContractAnalysis(
+                contract_id=contract.get("id", ""),
+                contract_value=value,
+                costs_incurred=costs,
+                estimated_total_costs=etc,
+                progress_percentage=round(progress * 100, 2),
+                revenue_to_date=round(revenue, 2),
+                recognized_profit=round(revenue - costs if revenue > costs else 0, 2),
+                expected_profit=round(expected_profit, 2),
+                provision_for_losses=round(provision, 2),
+            )
+        )
 
     return ConstructionContractResponse(
         company_id=request.company_id,
@@ -107,10 +117,12 @@ async def analyze_construction_contracts(request: ConstructionContractRequest):
         recommendations=[
             "Review cost estimates for contracts with low progress",
             "Recognize losses immediately when identified",
-            "Ensure percentage of completion calculations are accurate"
-        ]
+            "Ensure percentage of completion calculations are accurate",
+        ],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8219)

@@ -22,15 +22,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Double Entry Principles Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class AccountCategory(str, Enum):
@@ -118,18 +126,33 @@ double_entry_rules: Dict[str, DoubleEntryRule] = {}
 def get_normal_balance(account_type: AccountType) -> EntryType:
     """Get normal balance direction for an account type."""
     debit_normal = [
-        AccountType.CURRENT_ASSET, AccountType.NON_CURRENT_ASSET, AccountType.FIXED_ASSET,
-        AccountType.INTANGIBLE_ASSET, AccountType.DIRECT_EXPENSE, AccountType.INDIRECT_EXPENSE,
-        AccountType.ADMIN_EXPENSE, AccountType.SELLING_EXPENSE, AccountType.FINANCIAL_EXPENSE,
+        AccountType.CURRENT_ASSET,
+        AccountType.NON_CURRENT_ASSET,
+        AccountType.FIXED_ASSET,
+        AccountType.INTANGIBLE_ASSET,
+        AccountType.DIRECT_EXPENSE,
+        AccountType.INDIRECT_EXPENSE,
+        AccountType.ADMIN_EXPENSE,
+        AccountType.SELLING_EXPENSE,
+        AccountType.FINANCIAL_EXPENSE,
     ]
     return EntryType.DEBIT if account_type in debit_normal else EntryType.CREDIT
 
 
 def get_account_category(account_type: AccountType) -> AccountCategory:
     """Map account type to category."""
-    if account_type in [AccountType.CURRENT_ASSET, AccountType.NON_CURRENT_ASSET, AccountType.FIXED_ASSET, AccountType.INTANGIBLE_ASSET]:
+    if account_type in [
+        AccountType.CURRENT_ASSET,
+        AccountType.NON_CURRENT_ASSET,
+        AccountType.FIXED_ASSET,
+        AccountType.INTANGIBLE_ASSET,
+    ]:
         return AccountCategory.ASSET
-    elif account_type in [AccountType.CURRENT_LIABILITY, AccountType.NON_CURRENT_LIABILITY, AccountType.LONG_TERM_LIABILITY]:
+    elif account_type in [
+        AccountType.CURRENT_LIABILITY,
+        AccountType.NON_CURRENT_LIABILITY,
+        AccountType.LONG_TERM_LIABILITY,
+    ]:
         return AccountCategory.LIABILITY
     elif account_type in [AccountType.EQUITY, AccountType.CAPITAL]:
         return AccountCategory.EQUITY
@@ -157,9 +180,15 @@ def get_debit_credit_for_transaction(
     normal_balance = get_normal_balance(account_type)
 
     increase_debit = [
-        AccountType.CURRENT_ASSET, AccountType.NON_CURRENT_ASSET, AccountType.FIXED_ASSET,
-        AccountType.INTANGIBLE_ASSET, AccountType.DIRECT_EXPENSE, AccountType.INDIRECT_EXPENSE,
-        AccountType.ADMIN_EXPENSE, AccountType.SELLING_EXPENSE, AccountType.FINANCIAL_EXPENSE,
+        AccountType.CURRENT_ASSET,
+        AccountType.NON_CURRENT_ASSET,
+        AccountType.FIXED_ASSET,
+        AccountType.INTANGIBLE_ASSET,
+        AccountType.DIRECT_EXPENSE,
+        AccountType.INDIRECT_EXPENSE,
+        AccountType.ADMIN_EXPENSE,
+        AccountType.SELLING_EXPENSE,
+        AccountType.FINANCIAL_EXPENSE,
     ]
 
     if account_type in increase_debit:
@@ -189,14 +218,24 @@ def get_account_balance_type(account_type: AccountType, debit_amount: float, cre
 # API Endpoints
 # ============================================================================
 
+
 @app.get("/health")
 async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+    }
 
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Double entry bookkeeping principles and rules"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "description": "Double entry bookkeeping principles and rules",
+    }
 
 
 @app.post("/validate-journal-entry")
@@ -205,31 +244,26 @@ async def validate_journal_entry(entry: JournalEntryRequest):
     is_valid, total_debit, total_credit = validate_double_entry(entry.entries)
 
     if not is_valid:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Double entry violation: Debits ({total_debit}) must equal Credits ({total_credit})")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Double entry violation: Debits ({total_debit}) must equal Credits ({total_credit})",
+        )
 
     return {
         "valid": True,
         "total_debit": total_debit,
         "total_credit": total_credit,
         "difference": abs(total_debit - total_credit),
-        "message": "Journal entry is valid"
+        "message": "Journal entry is valid",
     }
 
 
 @app.post("/calculate-entry")
 async def calculate_double_entry(
-    transaction_type: str,
-    amount: float,
-    account_type: AccountType,
-    is_increase: bool = True
+    transaction_type: str, amount: float, account_type: AccountType, is_increase: bool = True
 ):
     """Calculate debit/credit for a transaction."""
-    debit, credit = get_debit_credit_for_transaction(
-        account_type,
-        "increase" if is_increase else "decrease",
-        amount
-    )
+    debit, credit = get_debit_credit_for_transaction(account_type, "increase" if is_increase else "decrease", amount)
 
     return {
         "account_type": account_type,
@@ -238,7 +272,7 @@ async def calculate_double_entry(
         "debit": debit,
         "credit": credit,
         "normal_balance": get_normal_balance(account_type),
-        "category": get_account_category(account_type)
+        "category": get_account_category(account_type),
     }
 
 
@@ -270,7 +304,7 @@ async def get_account_rules(account_type: AccountType):
         "category": category,
         "normal_balance": normal,
         "rules": rules.get(account_type, ["Default rules apply"]),
-        "examples": _get_transaction_examples(account_type)
+        "examples": _get_transaction_examples(account_type),
     }
 
 
@@ -278,10 +312,22 @@ def _get_transaction_examples(account_type: AccountType) -> List[Dict[str, Any]]
     """Get common transaction examples for account type."""
     examples = {
         AccountType.CASH: [{"transaction": "Receive cash", "debit": True}, {"transaction": "Pay cash", "debit": False}],
-        AccountType.CURRENT_ASSET: [{"transaction": "Purchase asset", "debit": True}, {"transaction": "Sell asset", "debit": False}],
-        AccountType.CURRENT_LIABILITY: [{"transaction": "Incur liability", "debit": False}, {"transaction": "Pay liability", "debit": True}],
-        AccountType.REVENUE: [{"transaction": "Make sale", "debit": False}, {"transaction": "Receive income", "debit": False}],
-        AccountType.EXPENSE: [{"transaction": "Pay expense", "debit": True}, {"transaction": "Expense incurred", "debit": True}],
+        AccountType.CURRENT_ASSET: [
+            {"transaction": "Purchase asset", "debit": True},
+            {"transaction": "Sell asset", "debit": False},
+        ],
+        AccountType.CURRENT_LIABILITY: [
+            {"transaction": "Incur liability", "debit": False},
+            {"transaction": "Pay liability", "debit": True},
+        ],
+        AccountType.REVENUE: [
+            {"transaction": "Make sale", "debit": False},
+            {"transaction": "Receive income", "debit": False},
+        ],
+        AccountType.EXPENSE: [
+            {"transaction": "Pay expense", "debit": True},
+            {"transaction": "Expense incurred", "debit": True},
+        ],
     }
     return examples.get(account_type, [])
 
@@ -304,51 +350,91 @@ async def get_journal_entry_template(entry_type: str):
         "sale": {
             "description": "Recording a sale",
             "entries": [
-                {"account_type": "CURRENT_ASSET", "debit": True, "credit": False, "explanation": "Debit Customers/Receivables"},
+                {
+                    "account_type": "CURRENT_ASSET",
+                    "debit": True,
+                    "credit": False,
+                    "explanation": "Debit Customers/Receivables",
+                },
                 {"account_type": "REVENUE", "debit": False, "credit": True, "explanation": "Credit Sales Revenue"},
-            ]
+            ],
         },
         "purchase": {
             "description": "Recording a purchase",
             "entries": [
                 {"account_type": "EXPENSE", "debit": True, "credit": False, "explanation": "Debit Purchases/Expense"},
-                {"account_type": "CURRENT_LIABILITY", "debit": False, "credit": True, "explanation": "Credit Suppliers/Payables"},
-            ]
+                {
+                    "account_type": "CURRENT_LIABILITY",
+                    "debit": False,
+                    "credit": True,
+                    "explanation": "Credit Suppliers/Payables",
+                },
+            ],
         },
         "cash_receipt": {
             "description": "Receiving cash",
             "entries": [
                 {"account_type": "CURRENT_ASSET", "debit": True, "credit": False, "explanation": "Debit Cash/Bank"},
                 {"account_type": "REVENUE", "debit": False, "credit": True, "explanation": "Credit Revenue"},
-            ]
+            ],
         },
         "cash_payment": {
             "description": "Paying cash",
             "entries": [
                 {"account_type": "EXPENSE", "debit": True, "credit": False, "explanation": "Debit Expense"},
                 {"account_type": "CURRENT_ASSET", "debit": False, "credit": True, "explanation": "Credit Cash/Bank"},
-            ]
+            ],
         },
         "depreciation": {
             "description": "Recording depreciation",
             "entries": [
-                {"account_type": "INDIRECT_EXPENSE", "debit": True, "credit": False, "explanation": "Debit Depreciation Expense"},
-                {"account_type": "NON_CURRENT_ASSET", "debit": False, "credit": True, "explanation": "Credit Accumulated Depreciation"},
-            ]
+                {
+                    "account_type": "INDIRECT_EXPENSE",
+                    "debit": True,
+                    "credit": False,
+                    "explanation": "Debit Depreciation Expense",
+                },
+                {
+                    "account_type": "NON_CURRENT_ASSET",
+                    "debit": False,
+                    "credit": True,
+                    "explanation": "Credit Accumulated Depreciation",
+                },
+            ],
         },
         "bad_debt": {
             "description": "Writing off bad debt",
             "entries": [
-                {"account_type": "INDIRECT_EXPENSE", "debit": True, "credit": False, "explanation": "Debit Bad Debts Expense"},
-                {"account_type": "CURRENT_ASSET", "debit": False, "credit": True, "explanation": "Credit Accounts Receivable"},
-            ]
+                {
+                    "account_type": "INDIRECT_EXPENSE",
+                    "debit": True,
+                    "credit": False,
+                    "explanation": "Debit Bad Debts Expense",
+                },
+                {
+                    "account_type": "CURRENT_ASSET",
+                    "debit": False,
+                    "credit": True,
+                    "explanation": "Credit Accounts Receivable",
+                },
+            ],
         },
         "provision_doubtful_debt": {
             "description": "Creating provision for doubtful debts",
             "entries": [
-                {"account_type": "INDIRECT_EXPENSE", "debit": True, "credit": False, "explanation": "Debit Bad Debts Expense"},
-                {"account_type": "CURRENT_ASSET", "debit": False, "credit": True, "explanation": "Credit Provision for Doubtful Debts"},
-            ]
+                {
+                    "account_type": "INDIRECT_EXPENSE",
+                    "debit": True,
+                    "credit": False,
+                    "explanation": "Debit Bad Debts Expense",
+                },
+                {
+                    "account_type": "CURRENT_ASSET",
+                    "debit": False,
+                    "credit": True,
+                    "explanation": "Credit Provision for Doubtful Debts",
+                },
+            ],
         },
     }
 
@@ -371,10 +457,15 @@ async def analyze_transaction(transaction_description: str, amounts: Dict[str, f
             "suggested_entry": {
                 "description": f"Sale: {transaction_description}",
                 "entries": [
-                    {"account_type": "CURRENT_ASSET", "account_name": "Accounts Receivable", "debit": amount, "credit": 0},
+                    {
+                        "account_type": "CURRENT_ASSET",
+                        "account_name": "Accounts Receivable",
+                        "debit": amount,
+                        "credit": 0,
+                    },
                     {"account_type": "REVENUE", "account_name": "Sales Revenue", "debit": 0, "credit": amount},
-                ]
-            }
+                ],
+            },
         }
     elif "purchase" in desc_lower and "asset" not in desc_lower:
         amount = amounts.get("amount", 0)
@@ -384,9 +475,14 @@ async def analyze_transaction(transaction_description: str, amounts: Dict[str, f
                 "description": f"Purchase: {transaction_description}",
                 "entries": [
                     {"account_type": "EXPENSE", "account_name": "Purchases", "debit": amount, "credit": 0},
-                    {"account_type": "CURRENT_LIABILITY", "account_name": "Accounts Payable", "debit": 0, "credit": amount},
-                ]
-            }
+                    {
+                        "account_type": "CURRENT_LIABILITY",
+                        "account_name": "Accounts Payable",
+                        "debit": 0,
+                        "credit": amount,
+                    },
+                ],
+            },
         }
     elif "depreciation" in desc_lower:
         amount = amounts.get("amount", 0)
@@ -395,16 +491,26 @@ async def analyze_transaction(transaction_description: str, amounts: Dict[str, f
             "suggested_entry": {
                 "description": f"Depreciation: {transaction_description}",
                 "entries": [
-                    {"account_type": "INDIRECT_EXPENSE", "account_name": "Depreciation Expense", "debit": amount, "credit": 0},
-                    {"account_type": "NON_CURRENT_ASSET", "account_name": "Accumulated Depreciation", "debit": 0, "credit": amount},
-                ]
-            }
+                    {
+                        "account_type": "INDIRECT_EXPENSE",
+                        "account_name": "Depreciation Expense",
+                        "debit": amount,
+                        "credit": 0,
+                    },
+                    {
+                        "account_type": "NON_CURRENT_ASSET",
+                        "account_name": "Accumulated Depreciation",
+                        "debit": 0,
+                        "credit": amount,
+                    },
+                ],
+            },
         }
     else:
         return {
             "transaction": transaction_description,
             "message": "Transaction type not recognized. Please provide more details.",
-            "amounts": amounts
+            "amounts": amounts,
         }
 
 
@@ -422,12 +528,13 @@ async def get_accounting_equation():
         "rules": [
             "Every transaction affects at least two accounts",
             "Total debits must equal total credits",
-            "The equation must always balance"
-        ]
+            "The equation must always balance",
+        ],
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     logger.info("starting_double_entry_principles_service", port=PORT)
     uvicorn.run(app, host="0.0.0.0", port=PORT)

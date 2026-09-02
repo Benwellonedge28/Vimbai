@@ -3,14 +3,17 @@ Economic Value Added Service
 Port: 8212
 EVA calculation and wealth creation analysis
 """
+
+from typing import Any, Dict
+
 import httpx
 import structlog
-from typing import Any, Dict
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Economic Value Added Service", version="1.0.0")
+
 
 class EVAMetrics(BaseModel):
     invested_capital: float
@@ -19,6 +22,7 @@ class EVAMetrics(BaseModel):
     capital_charge: float
     economic_value_added: float
     value_creation_index: float
+
 
 class EVARequest(BaseModel):
     company_id: str
@@ -33,6 +37,7 @@ class EVARequest(BaseModel):
     tax_rate: float
     expected_growth: float
 
+
 class EVAResponse(BaseModel):
     company_id: str
     period: str
@@ -41,6 +46,7 @@ class EVAResponse(BaseModel):
     eva_momentum: str
     wealth_created: bool
     recommendations: list
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -52,9 +58,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "eva", "version": "1.0.0"}
+
 
 @app.post("/calculate", response_model=EVAResponse)
 async def calculate_eva(request: EVARequest):
@@ -88,26 +96,32 @@ async def calculate_eva(request: EVARequest):
             net_operating_profit_after_tax=round(nopat, 2),
             capital_charge=round(capital_charge, 2),
             economic_value_added=round(eva, 2),
-            value_creation_index=round(value_creation_index, 2)
+            value_creation_index=round(value_creation_index, 2),
         ),
         eva_by_segment={
             "core_operations": round(eva * 0.7, 2),
             "growth_investments": round(eva * 0.2, 2),
-            "non_operating": round(eva * 0.1, 2)
+            "non_operating": round(eva * 0.1, 2),
         },
         eva_momentum=eva_momentum,
         wealth_created=wealth_created,
-        recommendations=[
-            "Focus on capital efficiency to improve EVA",
-            "Review underperforming business segments",
-            "Optimize working capital management"
-        ] if not wealth_created else [
-            "Continue value-creating investments",
-            "Monitor WACC changes",
-            "Consider share buybacks if excess capital"
-        ]
+        recommendations=(
+            [
+                "Focus on capital efficiency to improve EVA",
+                "Review underperforming business segments",
+                "Optimize working capital management",
+            ]
+            if not wealth_created
+            else [
+                "Continue value-creating investments",
+                "Monitor WACC changes",
+                "Consider share buybacks if excess capital",
+            ]
+        ),
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8212)

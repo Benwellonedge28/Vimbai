@@ -22,15 +22,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Fixed Assets Schedule Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class AssetCategory(str, Enum):
@@ -95,10 +103,16 @@ fixed_assets: Dict[str, FixedAsset] = {}
 async def call_audit_service(action: str, resource_type: str, resource_id: str, details: Dict[str, Any]):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(f"{AUDIT_SERVICE_URL}/audit", json={
-                "action": action, "resource_type": resource_type, "resource_id": resource_id,
-                "details": details, "timestamp": datetime.utcnow().isoformat()
-            })
+            await client.post(
+                f"{AUDIT_SERVICE_URL}/audit",
+                json={
+                    "action": action,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "details": details,
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            )
     except Exception:
         pass
 
@@ -178,9 +192,12 @@ async def generate_schedule(as_of_date: datetime):
             }
 
     schedule = AssetSchedule(
-        as_of_date=as_of_date, assets=list(fixed_assets.values()),
-        total_cost=total_cost, total_accumulated_depreciation=total_accumulated,
-        total_net_book_value=total_nbv, category_summary=category_summary
+        as_of_date=as_of_date,
+        assets=list(fixed_assets.values()),
+        total_cost=total_cost,
+        total_accumulated_depreciation=total_accumulated,
+        total_net_book_value=total_nbv,
+        category_summary=category_summary,
     )
 
     await call_audit_service("GENERATE", "schedule", schedule.id, {"asset_count": len(fixed_assets)})
@@ -212,10 +229,11 @@ async def get_asset_summary():
         "total_cost": sum(a.purchase_cost for a in fixed_assets.values()),
         "total_accumulated_depreciation": sum(a.accumulated_depreciation for a in fixed_assets.values()),
         "total_net_book_value": sum(a.net_book_value for a in fixed_assets.values()),
-        "by_category": summary
+        "by_category": summary,
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

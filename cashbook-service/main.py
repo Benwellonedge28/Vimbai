@@ -4,13 +4,14 @@ Complete cash book management with multi-currency support,
 bank reconciliation, and cash flow tracking
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
-from enum import Enum
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from fastapi import Depends, FastAPI, HTTPException, Query
+from pydantic import BaseModel, Field
 
 app = FastAPI(
     title="Vimbai Cash Book Service",
@@ -21,6 +22,7 @@ app = FastAPI(
 # ============================================================================
 # Enums
 # ============================================================================
+
 
 class CashBookType(str, Enum):
     RECEIPTS = "receipts"
@@ -45,6 +47,7 @@ class BankAccountType(str, Enum):
 # ============================================================================
 # Pydantic Models
 # ============================================================================
+
 
 class BankAccount(BaseModel):
     id: str
@@ -150,6 +153,7 @@ cash_flow_entries: Dict[str, CashFlowEntry] = {}
 # API Endpoints
 # ============================================================================
 
+
 @app.get("/")
 async def health_check():
     """Health check endpoint"""
@@ -167,6 +171,7 @@ async def health_check():
 
 # --- Bank Account Management ---
 
+
 @app.post("/accounts")
 async def create_bank_account(account: BankAccount):
     """Create a new bank/cash account"""
@@ -180,9 +185,7 @@ async def create_bank_account(account: BankAccount):
 
 @app.get("/accounts")
 async def list_bank_accounts(
-    account_type: Optional[BankAccountType] = None,
-    currency: Optional[str] = None,
-    is_active: Optional[bool] = None
+    account_type: Optional[BankAccountType] = None, currency: Optional[str] = None, is_active: Optional[bool] = None
 ):
     """List all bank accounts"""
     results = list(bank_accounts.values())
@@ -218,6 +221,7 @@ async def update_bank_account(account_id: str, account: BankAccount):
 
 # --- Cash Book Entry Management ---
 
+
 @app.post("/entries")
 async def create_cash_book_entry(entry: CashBookEntry):
     """Create a cash book entry"""
@@ -252,7 +256,7 @@ async def list_cash_book_entries(
     end_date: Optional[datetime] = None,
     status: Optional[TransactionStatus] = None,
     reconciled: Optional[bool] = None,
-    limit: int = 100
+    limit: int = 100,
 ):
     """List cash book entries with filters"""
     results = list(cash_book_entries.values())
@@ -318,11 +322,10 @@ async def void_cash_book_entry(entry_id: str, voided_by: str, reason: str):
 
 # --- Cash Book Summary ---
 
+
 @app.get("/summary/{account_code}")
 async def get_cash_book_summary(
-    account_code: str,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None
+    account_code: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None
 ):
     """Get cash book summary for an account"""
     if account_code not in [a.account_code for a in bank_accounts.values()]:
@@ -355,6 +358,7 @@ async def get_cash_book_summary(
 
 # --- Bank Reconciliation ---
 
+
 @app.post("/reconciliations")
 async def create_reconciliation(reconciliation: BankReconciliation):
     """Create bank reconciliation"""
@@ -363,20 +367,14 @@ async def create_reconciliation(reconciliation: BankReconciliation):
 
     # Calculate book balance
     entries = [
-        e for e in cash_book_entries.values()
-        if e.bank_account == reconciliation.bank_account
-        and e.status == TransactionStatus.POSTED
+        e
+        for e in cash_book_entries.values()
+        if e.bank_account == reconciliation.bank_account and e.status == TransactionStatus.POSTED
     ]
-    book_balance = sum(
-        e.base_amount if e.is_debit else -e.base_amount
-        for e in entries
-    )
+    book_balance = sum(e.base_amount if e.is_debit else -e.base_amount for e in entries)
 
     # Get account opening balance
-    account = next(
-        (a for a in bank_accounts.values() if a.account_code == reconciliation.bank_account),
-        None
-    )
+    account = next((a for a in bank_accounts.values() if a.account_code == reconciliation.bank_account), None)
     if account:
         book_balance = account.opening_balance + book_balance
 
@@ -392,10 +390,7 @@ async def create_reconciliation(reconciliation: BankReconciliation):
 
 
 @app.get("/reconciliations")
-async def list_reconciliations(
-    bank_account: Optional[str] = None,
-    status: Optional[str] = None
-):
+async def list_reconciliations(bank_account: Optional[str] = None, status: Optional[str] = None):
     """List bank reconciliations"""
     results = list(reconciliations.values())
 
@@ -417,10 +412,7 @@ async def get_reconciliation(reconciliation_id: str):
 
 
 @app.put("/reconciliations/{reconciliation_id}/complete")
-async def complete_reconciliation(
-    reconciliation_id: str,
-    reviewed_by: str
-):
+async def complete_reconciliation(reconciliation_id: str, reviewed_by: str):
     """Complete a reconciliation"""
     if reconciliation_id not in reconciliations:
         raise HTTPException(status_code=404, detail="Reconciliation not found")
@@ -451,10 +443,9 @@ async def get_outstanding_items(reconciliation_id: str):
 
     # Get unreconciled entries
     entries = [
-        e for e in cash_book_entries.values()
-        if e.bank_account == reconciliation.bank_account
-        and not e.reconciled
-        and e.status == TransactionStatus.POSTED
+        e
+        for e in cash_book_entries.values()
+        if e.bank_account == reconciliation.bank_account and not e.reconciled and e.status == TransactionStatus.POSTED
     ]
 
     total_debits = sum(e.base_amount for e in entries if e.is_debit)
@@ -471,6 +462,7 @@ async def get_outstanding_items(reconciliation_id: str):
 
 
 # --- Cash Flow ---
+
 
 @app.post("/cash-flow")
 async def create_cash_flow_entry(entry: CashFlowEntry):
@@ -492,7 +484,7 @@ async def list_cash_flow_entries(
     category: Optional[str] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    limit: int = 100
+    limit: int = 100,
 ):
     """List cash flow entries"""
     results = list(cash_flow_entries.values())
@@ -511,10 +503,7 @@ async def list_cash_flow_entries(
 
 
 @app.get("/cash-flow/summary")
-async def get_cash_flow_summary(
-    start_date: datetime,
-    end_date: datetime
-):
+async def get_cash_flow_summary(start_date: datetime, end_date: datetime):
     """Get cash flow summary for period"""
     entries = list(cash_flow_entries.values())
     entries = [e for e in entries if start_date <= e.entry_date <= end_date]
@@ -538,14 +527,12 @@ async def get_cash_flow_summary(
         "operating": calculate_total(operating),
         "investing": calculate_total(investing),
         "financing": calculate_total(financing),
-        "net_change": str(
-            sum(e.actual_amount or 0 for e in entries) -
-            sum(e.expected_amount or 0 for e in entries)
-        ),
+        "net_change": str(sum(e.actual_amount or 0 for e in entries) - sum(e.expected_amount or 0 for e in entries)),
     }
 
 
 # --- Cash Position ---
+
 
 @app.get("/cash-position")
 async def get_cash_position(as_of_date: Optional[datetime] = None):
@@ -599,10 +586,7 @@ async def get_cash_position(as_of_date: Optional[datetime] = None):
 
 
 @app.get("/cash-position/history")
-async def get_cash_position_history(
-    start_date: datetime,
-    end_date: datetime
-):
+async def get_cash_position_history(start_date: datetime, end_date: datetime):
     """Get cash position history"""
     entries = list(cash_book_entries.values())
     entries = [e for e in entries if start_date <= e.entry_date <= end_date]
@@ -629,11 +613,10 @@ async def get_cash_position_history(
 
 # --- Reports ---
 
+
 @app.get("/reports/cash-receipts-register")
 async def get_cash_receipts_register(
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    bank_account: Optional[str] = None
+    start_date: Optional[datetime] = None, end_date: Optional[datetime] = None, bank_account: Optional[str] = None
 ):
     """Generate cash receipts register"""
     entries = list(cash_book_entries.values())
@@ -659,9 +642,7 @@ async def get_cash_receipts_register(
 
 @app.get("/reports/cash-payments-register")
 async def get_cash_payments_register(
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    bank_account: Optional[str] = None
+    start_date: Optional[datetime] = None, end_date: Optional[datetime] = None, bank_account: Optional[str] = None
 ):
     """Generate cash payments register"""
     entries = list(cash_book_entries.values())
@@ -687,4 +668,5 @@ async def get_cash_payments_register(
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8098)

@@ -3,15 +3,18 @@ Revaluation Model Service
 Port: 8144
 Implements revaluation model for property, plant and equipment under IFRS
 """
-import httpx
-import structlog
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+
+import httpx
+import structlog
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="Revaluation Model Service", version="1.0.0")
+
 
 # Pydantic Models
 class AssetDetails(BaseModel):
@@ -25,6 +28,7 @@ class AssetDetails(BaseModel):
     depreciation_method: str = "straight_line"
     accumulated_depreciation: float = 0.0
 
+
 class RevaluationRequest(BaseModel):
     company_id: str
     revaluation_date: str
@@ -34,6 +38,7 @@ class RevaluationRequest(BaseModel):
     include_frequency_check: bool = True
     regularity: str = "annual"  # "annual", "every_3_years", "every_5_years"
 
+
 class RevaluationGain(BaseModel):
     asset_id: str
     asset_name: str
@@ -42,6 +47,7 @@ class RevaluationGain(BaseModel):
     revaluation_gain: float
     treatment: str  # "to_revaluation_surplus", "to_profit_or_loss"
     cumulative_surplus: float
+
 
 class RevaluationLoss(BaseModel):
     asset_id: str
@@ -53,6 +59,7 @@ class RevaluationLoss(BaseModel):
     absorbed_from_surplus: float
     charged_to_profit: float
 
+
 class DepreciationAdjustment(BaseModel):
     asset_id: str
     new_useful_life: int
@@ -61,6 +68,7 @@ class DepreciationAdjustment(BaseModel):
     new_depreciation_rate: float
     new_annual_depreciation: float
     accumulated_depreciation_adjustment: float
+
 
 class RevaluationResponse(BaseModel):
     company_id: str
@@ -74,6 +82,7 @@ class RevaluationResponse(BaseModel):
     revaluation_surplus_OCI: float
     profit_or_loss_impact: float
     new_carrying_amounts: Dict[str, float]
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     """Call another internal Vimbai service."""
@@ -89,9 +98,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "revaluation-model", "version": "1.0.0"}
+
 
 @app.post("/revalue", response_model=RevaluationResponse)
 async def perform_revaluation(request: RevaluationRequest):
@@ -120,15 +131,17 @@ async def perform_revaluation(request: RevaluationRequest):
             total_gain += gain
             cumulative_surplus += gain
 
-            gains.append(RevaluationGain(
-                asset_id=asset.asset_id,
-                asset_name=asset.asset_name,
-                previous_carrying_amount=current_carries,
-                fair_value=fair_value,
-                revaluation_gain=gain,
-                treatment="to_revaluation_surplus",
-                cumulative_surplus=cumulative_surplus
-            ))
+            gains.append(
+                RevaluationGain(
+                    asset_id=asset.asset_id,
+                    asset_name=asset.asset_name,
+                    previous_carrying_amount=current_carries,
+                    fair_value=fair_value,
+                    revaluation_gain=gain,
+                    treatment="to_revaluation_surplus",
+                    cumulative_surplus=cumulative_surplus,
+                )
+            )
 
             new_carrying_amounts[asset.asset_id] = fair_value
 
@@ -142,16 +155,18 @@ async def perform_revaluation(request: RevaluationRequest):
             cumulative_surplus = max(0, cumulative_surplus - absorbed)
             total_loss += loss
 
-            losses.append(RevaluationLoss(
-                asset_id=asset.asset_id,
-                asset_name=asset.asset_name,
-                previous_carrying_amount=current_carries,
-                fair_value=fair_value,
-                revaluation_loss=loss,
-                treatment="mixed" if absorbed > 0 else "to_profit_or_loss",
-                absorbed_from_surplus=absorbed,
-                charged_to_profit=charged
-            ))
+            losses.append(
+                RevaluationLoss(
+                    asset_id=asset.asset_id,
+                    asset_name=asset.asset_name,
+                    previous_carrying_amount=current_carries,
+                    fair_value=fair_value,
+                    revaluation_loss=loss,
+                    treatment="mixed" if absorbed > 0 else "to_profit_or_loss",
+                    absorbed_from_surplus=absorbed,
+                    charged_to_profit=charged,
+                )
+            )
 
             new_carrying_amounts[asset.asset_id] = fair_value
 
@@ -160,15 +175,17 @@ async def perform_revaluation(request: RevaluationRequest):
             new_annual_dep = (fair_value - asset.residual_value) / remaining_life
             old_annual_dep = annual_depreciation
 
-            depreciation_adjustments.append(DepreciationAdjustment(
-                asset_id=asset.asset_id,
-                new_useful_life=asset.useful_life_years,
-                remaining_useful_life=remaining_life,
-                current_depreciation_rate=old_annual_dep / current_carries * 100,
-                new_depreciation_rate=new_annual_dep / fair_value * 100,
-                new_annual_depreciation=new_annual_dep,
-                accumulated_depreciation_adjustment=0.0
-            ))
+            depreciation_adjustments.append(
+                DepreciationAdjustment(
+                    asset_id=asset.asset_id,
+                    new_useful_life=asset.useful_life_years,
+                    remaining_useful_life=remaining_life,
+                    current_depreciation_rate=old_annual_dep / current_carries * 100,
+                    new_depreciation_rate=new_annual_dep / fair_value * 100,
+                    new_annual_depreciation=new_annual_dep,
+                    accumulated_depreciation_adjustment=0.0,
+                )
+            )
         else:
             new_carrying_amounts[asset.asset_id] = current_carries
 
@@ -183,18 +200,18 @@ async def perform_revaluation(request: RevaluationRequest):
         net_revaluation_effect=total_gain - total_loss,
         revaluation_surplus_OCI=total_gain - sum(l.absorbed_from_surplus for l in losses),
         profit_or_loss_impact=sum(l.charged_to_profit for l in losses),
-        new_carrying_amounts=new_carrying_amounts
+        new_carrying_amounts=new_carrying_amounts,
     )
 
-    logger.info("Revaluation complete", gains=len(gains), losses=len(losses), net_effect=response.net_revaluation_effect)
+    logger.info(
+        "Revaluation complete", gains=len(gains), losses=len(losses), net_effect=response.net_revaluation_effect
+    )
     return response
+
 
 @app.post("/revaluation-surplus")
 async def calculate_revaluation_surplus(
-    revaluation_gain: float,
-    deferred_tax_rate: float,
-    previous_surplus: float = 0.0,
-    losses_absorbed: float = 0.0
+    revaluation_gain: float, deferred_tax_rate: float, previous_surplus: float = 0.0, losses_absorbed: float = 0.0
 ):
     """Calculate revaluation surplus and its tax effects."""
     net_gain_after_losses = revaluation_gain - losses_absorbed
@@ -208,15 +225,13 @@ async def calculate_revaluation_surplus(
         "deferred_tax_liability": deferred_tax,
         "revaluation_surplus_OCI": revaluation_surplus,
         "previous_cumulative_surplus": previous_surplus,
-        "total_revaluation_surplus": previous_surplus + revaluation_surplus
+        "total_revaluation_surplus": previous_surplus + revaluation_surplus,
     }
+
 
 @app.post("/depreciation-after-revaluation")
 async def calculate_depreciation_after_revaluation(
-    revalued_amount: float,
-    residual_value: float,
-    remaining_useful_life: int,
-    total_useful_life: int
+    revalued_amount: float, residual_value: float, remaining_useful_life: int, total_useful_life: int
 ):
     """Calculate depreciation charge after revaluation."""
     depreciable_amount = revalued_amount - residual_value
@@ -231,14 +246,15 @@ async def calculate_depreciation_after_revaluation(
         "annual_depreciation": annual_depreciation,
         "depreciation_rate": depreciation_rate,
         "monthly_depreciation": annual_depreciation / 12,
-        "total_life_expired": ((total_useful_life - remaining_useful_life) / total_useful_life * 100) if total_useful_life > 0 else 0
+        "total_life_expired": (
+            ((total_useful_life - remaining_useful_life) / total_useful_life * 100) if total_useful_life > 0 else 0
+        ),
     }
+
 
 @app.post("/impairment-after-revaluation")
 async def calculate_impairment_after_revaluation(
-    carrying_amount: float,
-    recoverable_amount: float,
-    revaluation_surplus_available: float
+    carrying_amount: float, recoverable_amount: float, revaluation_surplus_available: float
 ):
     """Calculate impairment loss after revaluation."""
     impairment_loss = carrying_amount - recoverable_amount
@@ -248,7 +264,7 @@ async def calculate_impairment_after_revaluation(
             "recoverable_amount": recoverable_amount,
             "impairment_loss": 0,
             "recoverable_amount_is_higher": True,
-            "no_impairment_required": True
+            "no_impairment_required": True,
         }
 
     # First charge against revaluation surplus
@@ -261,16 +277,13 @@ async def calculate_impairment_after_revaluation(
         "impairment_loss": impairment_loss,
         "absorbed_from_revaluation_surplus": absorbed_from_surplus,
         "charged_to_profit_or_loss": charged_to_profit,
-        "remaining_surplus": revaluation_surplus_available - absorbed_from_surplus
+        "remaining_surplus": revaluation_surplus_available - absorbed_from_surplus,
     }
+
 
 @app.post("/indexation-allowance")
 async def calculate_indexation_allowance(
-    original_cost: float,
-    original_date: str,
-    disposal_date: str,
-    cpi_at_acquisition: float,
-    cpi_at_disposal: float
+    original_cost: float, original_date: str, disposal_date: str, cpi_at_acquisition: float, cpi_at_disposal: float
 ):
     """Calculate indexation allowance for capital gains."""
     indexation_factor = cpi_at_disposal / cpi_at_acquisition if cpi_at_acquisition > 0 else 1.0
@@ -285,9 +298,11 @@ async def calculate_indexation_allowance(
         "cpi_at_disposal": cpi_at_disposal,
         "indexation_factor": indexation_factor,
         "indexed_cost": indexed_cost,
-        "indexation_allowance": indexation_allowance
+        "indexation_allowance": indexation_allowance,
     }
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8144)

@@ -2,14 +2,17 @@
 Integration tests for the Fraud Detection Service.
 Tests all fraud rules, risk assessment, and alert management.
 """
+
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from fastapi.testclient import TestClient
-from datetime import datetime, timezone, timedelta
 
 
 @pytest.fixture
 def client():
     from tests.conftest import load_service
+
     app = load_service("fraud-detection-service").main.app
     return TestClient(app)
 
@@ -19,10 +22,24 @@ def sample_transactions():
     # Use noon UTC to avoid off-hours alerts
     noon = datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
     return [
-        {"company_id": "comp-1", "account_id": "acc-1", "amount": 1000, "currency": "USD",
-         "timestamp": noon.isoformat(), "description": "Office supplies", "merchant": "Staples"},
-        {"company_id": "comp-1", "account_id": "acc-1", "amount": 500, "currency": "USD",
-         "timestamp": noon.isoformat(), "description": "Lunch", "merchant": "Restaurant"},
+        {
+            "company_id": "comp-1",
+            "account_id": "acc-1",
+            "amount": 1000,
+            "currency": "USD",
+            "timestamp": noon.isoformat(),
+            "description": "Office supplies",
+            "merchant": "Staples",
+        },
+        {
+            "company_id": "comp-1",
+            "account_id": "acc-1",
+            "amount": 500,
+            "currency": "USD",
+            "timestamp": noon.isoformat(),
+            "description": "Lunch",
+            "merchant": "Restaurant",
+        },
     ]
 
 
@@ -51,8 +68,16 @@ class TestFraudDetection:
         assert data["risk_assessment"]["overall_risk_level"] == "minimal"
 
     def test_detect_large_transaction(self, client):
-        tx = [{"company_id": "comp-1", "account_id": "acc-1", "amount": 60000,
-               "timestamp": datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat(), "description": "Large transfer", "merchant": "Bank"}]
+        tx = [
+            {
+                "company_id": "comp-1",
+                "account_id": "acc-1",
+                "amount": 60000,
+                "timestamp": datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat(),
+                "description": "Large transfer",
+                "merchant": "Bank",
+            }
+        ]
         resp = client.post("/detect", json={"company_id": "comp-1", "transactions": tx})
         assert resp.status_code == 200
         data = resp.json()
@@ -64,10 +89,22 @@ class TestFraudDetection:
     def test_detect_duplicate_transaction(self, client):
         ts = datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat()
         tx = [
-            {"company_id": "comp-1", "account_id": "acc-1", "amount": 5000, "timestamp": ts,
-             "description": "Payment", "merchant": "Supplier A"},
-            {"company_id": "comp-1", "account_id": "acc-1", "amount": 5000, "timestamp": ts,
-             "description": "Payment", "merchant": "Supplier A"},
+            {
+                "company_id": "comp-1",
+                "account_id": "acc-1",
+                "amount": 5000,
+                "timestamp": ts,
+                "description": "Payment",
+                "merchant": "Supplier A",
+            },
+            {
+                "company_id": "comp-1",
+                "account_id": "acc-1",
+                "amount": 5000,
+                "timestamp": ts,
+                "description": "Payment",
+                "merchant": "Supplier A",
+            },
         ]
         resp = client.post("/detect", json={"company_id": "comp-1", "transactions": tx})
         assert resp.status_code == 200
@@ -77,8 +114,16 @@ class TestFraudDetection:
         assert len(dup_alerts) >= 1
 
     def test_detect_round_amount(self, client):
-        tx = [{"company_id": "comp-1", "account_id": "acc-1", "amount": 10000,
-               "timestamp": datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat(), "description": "Payment", "merchant": "X"}]
+        tx = [
+            {
+                "company_id": "comp-1",
+                "account_id": "acc-1",
+                "amount": 10000,
+                "timestamp": datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat(),
+                "description": "Payment",
+                "merchant": "X",
+            }
+        ]
         resp = client.post("/detect", json={"company_id": "comp-1", "transactions": tx})
         data = resp.json()
         round_alerts = [a for a in data["alerts"] if "Round" in a["rule_name"]]
@@ -92,8 +137,16 @@ class TestFraudDetection:
 class TestAlertManagement:
     def test_get_alerts(self, client):
         # First trigger an alert
-        tx = [{"company_id": "comp-2", "account_id": "acc-1", "amount": 80000,
-               "timestamp": datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat(), "description": "Big", "merchant": "X"}]
+        tx = [
+            {
+                "company_id": "comp-2",
+                "account_id": "acc-1",
+                "amount": 80000,
+                "timestamp": datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat(),
+                "description": "Big",
+                "merchant": "X",
+            }
+        ]
         client.post("/detect", json={"company_id": "comp-2", "transactions": tx})
         # Get alerts
         resp = client.get("/alerts/comp-2")
@@ -102,8 +155,16 @@ class TestAlertManagement:
         assert data["total"] >= 1
 
     def test_update_alert_status(self, client):
-        tx = [{"company_id": "comp-3", "account_id": "acc-1", "amount": 70000,
-               "timestamp": datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat(), "description": "Big", "merchant": "X"}]
+        tx = [
+            {
+                "company_id": "comp-3",
+                "account_id": "acc-1",
+                "amount": 70000,
+                "timestamp": datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat(),
+                "description": "Big",
+                "merchant": "X",
+            }
+        ]
         client.post("/detect", json={"company_id": "comp-3", "transactions": tx})
         alerts = client.get("/alerts/comp-3").json()
         alert_id = alerts["alerts"][0]["id"]
@@ -149,8 +210,16 @@ class TestRiskAssessment:
         assert data["risk_score"] == 0
 
     def test_risk_with_alerts(self, client):
-        tx = [{"company_id": "comp-risk", "account_id": "acc-1", "amount": 100000,
-               "timestamp": datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat(), "description": "Huge", "merchant": "X"}]
+        tx = [
+            {
+                "company_id": "comp-risk",
+                "account_id": "acc-1",
+                "amount": 100000,
+                "timestamp": datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc).isoformat(),
+                "description": "Huge",
+                "merchant": "X",
+            }
+        ]
         client.post("/detect", json={"company_id": "comp-risk", "transactions": tx})
         resp = client.get("/risk/comp-risk")
         data = resp.json()

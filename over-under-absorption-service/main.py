@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Over/Under Absorption Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class OverUnderAbsorption(BaseModel):
@@ -94,10 +102,14 @@ async def root():
 
 @app.post("/calculate")
 async def calculate_over_under_absorption(
-    cost_centre_name: str, cost_centre_id: str, period: str,
-    budgeted_overhead: float, actual_overhead: float,
-    budgeted_base_units: float, actual_base_units: float,
-    absorption_rate: float
+    cost_centre_name: str,
+    cost_centre_id: str,
+    period: str,
+    budgeted_overhead: float,
+    actual_overhead: float,
+    budgeted_base_units: float,
+    actual_base_units: float,
+    absorption_rate: float,
 ):
     """Calculate over or under absorption."""
     # Calculate overhead absorbed
@@ -109,12 +121,18 @@ async def calculate_over_under_absorption(
     under_absorption = abs(variance) if variance < 0 else 0
 
     record = OverUnderAbsorption(
-        cost_centre_name=cost_centre_name, cost_centre_id=cost_centre_id, period=period,
-        budgeted_overhead=budgeted_overhead, actual_overhead=actual_overhead,
-        budgeted_base_units=budgeted_base_units, actual_base_units=actual_base_units,
-        absorption_rate=absorption_rate, overhead_absorbed=overhead_absorbed,
-        over_absorption=over_absorption, under_absorption=under_absorption,
-        total_variance=abs(variance)
+        cost_centre_name=cost_centre_name,
+        cost_centre_id=cost_centre_id,
+        period=period,
+        budgeted_overhead=budgeted_overhead,
+        actual_overhead=actual_overhead,
+        budgeted_base_units=budgeted_base_units,
+        actual_base_units=actual_base_units,
+        absorption_rate=absorption_rate,
+        overhead_absorbed=overhead_absorbed,
+        over_absorption=over_absorption,
+        under_absorption=under_absorption,
+        total_variance=abs(variance),
     )
 
     # Determine cause
@@ -129,9 +147,7 @@ async def calculate_over_under_absorption(
 
 
 @app.post("/simple-calculation")
-async def simple_over_under_calculation(
-    overhead_absorbed: float, actual_overhead: float
-):
+async def simple_over_under_calculation(overhead_absorbed: float, actual_overhead: float):
     """Simple over/under calculation."""
     variance = overhead_absorbed - actual_overhead
     is_over = variance > 0
@@ -141,14 +157,12 @@ async def simple_over_under_calculation(
         "actual_overhead": actual_overhead,
         "variance": abs(variance),
         "status": "over_absorbed" if is_over else "under_absorbed",
-        "interpretation": f"Overhead was {'over' if is_over else 'under'} absorbed by {abs(variance)}"
+        "interpretation": f"Overhead was {'over' if is_over else 'under'} absorbed by {abs(variance)}",
     }
 
 
 @app.post("/spending-variance")
-async def calculate_spending_variance(
-    cost_centre_name: str, budgeted_overhead: float, actual_overhead: float
-):
+async def calculate_spending_variance(cost_centre_name: str, budgeted_overhead: float, actual_overhead: float):
     """Calculate overhead spending variance."""
     spending_variance = budgeted_overhead - actual_overhead
     is_favorable = spending_variance > 0
@@ -159,14 +173,13 @@ async def calculate_spending_variance(
         "actual_overhead": actual_overhead,
         "spending_variance": spending_variance,
         "is_favorable": is_favorable,
-        "interpretation": f"Spending variance is {'favorable' if is_favorable else 'adverse'}: {abs(spending_variance)}"
+        "interpretation": f"Spending variance is {'favorable' if is_favorable else 'adverse'}: {abs(spending_variance)}",
     }
 
 
 @app.post("/volume-variance")
 async def calculate_volume_variance(
-    cost_centre_name: str, absorption_rate: float,
-    budgeted_base_units: float, actual_base_units: float
+    cost_centre_name: str, absorption_rate: float, budgeted_base_units: float, actual_base_units: float
 ):
     """Calculate overhead volume variance."""
     budgeted_absorbed = absorption_rate * budgeted_base_units
@@ -183,14 +196,13 @@ async def calculate_volume_variance(
         "actual_absorbed": actual_absorbed,
         "volume_variance": volume_variance,
         "is_favorable": is_favorable,
-        "interpretation": f"Volume variance is {'favorable' if is_favorable else 'adverse'}: {abs(volume_variance)}"
+        "interpretation": f"Volume variance is {'favorable' if is_favorable else 'adverse'}: {abs(volume_variance)}",
     }
 
 
 @app.post("/capacity-variance")
 async def calculate_capacity_variance(
-    cost_centre_name: str, absorption_rate: float,
-    budgeted_capacity: float, actual_capacity: float
+    cost_centre_name: str, absorption_rate: float, budgeted_capacity: float, actual_capacity: float
 ):
     """Calculate capacity variance (idle capacity)."""
     capacity_variance = absorption_rate * (actual_capacity - budgeted_capacity)
@@ -204,16 +216,19 @@ async def calculate_capacity_variance(
         "idle_capacity": budgeted_capacity - actual_capacity,
         "capacity_variance": capacity_variance,
         "is_favorable": is_favorable,
-        "interpretation": f"Capacity variance: {abs(capacity_variance)} ({'favorable' if is_favorable else 'adverse'})"
+        "interpretation": f"Capacity variance: {abs(capacity_variance)} ({'favorable' if is_favorable else 'adverse'})",
     }
 
 
 @app.post("/comprehensive-analysis")
 async def comprehensive_variance_analysis(
-    cost_centre_name: str, period: str,
-    budgeted_overhead: float, actual_overhead: float,
-    budgeted_base_units: float, actual_base_units: float,
-    absorption_rate: float
+    cost_centre_name: str,
+    period: str,
+    budgeted_overhead: float,
+    actual_overhead: float,
+    budgeted_base_units: float,
+    actual_base_units: float,
+    absorption_rate: float,
 ):
     """Comprehensive variance analysis."""
     # Overhead absorbed
@@ -233,11 +248,14 @@ async def comprehensive_variance_analysis(
     is_over = total_variance > 0
 
     analysis = VarianceAnalysis(
-        cost_centre_name=cost_centre_name, period=period,
-        overhead_absorbed=overhead_absorbed, actual_overhead=actual_overhead,
-        spending_variance=spending_variance, volume_variance=volume_variance,
+        cost_centre_name=cost_centre_name,
+        period=period,
+        overhead_absorbed=overhead_absorbed,
+        actual_overhead=actual_overhead,
+        spending_variance=spending_variance,
+        volume_variance=volume_variance,
         total_variance=total_variance,
-        over_or_under="over" if is_over else "under"
+        over_or_under="over" if is_over else "under",
     )
     variance_analyses.append(analysis)
 
@@ -259,16 +277,13 @@ async def comprehensive_variance_analysis(
         "interpretation": {
             "spending": f"Spending variance {'favorable' if spending_favorable else 'adverse'} by {abs(spending_variance)}",
             "volume": f"Volume variance {'favorable' if volume_favorable else 'adverse'} by {abs(volume_variance)}",
-            "total": f"Total {'over' if is_over else 'under'} absorption: {abs(total_variance)}"
-        }
+            "total": f"Total {'over' if is_over else 'under'} absorption: {abs(total_variance)}",
+        },
     }
 
 
 @app.post("/adjust-over-under")
-async def adjust_over_under(
-    over_absorption: float, under_absorption: float,
-    write_off_to_costing: bool = False
-):
+async def adjust_over_under(over_absorption: float, under_absorption: float, write_off_to_costing: bool = False):
     """Determine treatment of over/under absorption."""
     net_variance = over_absorption - under_absorption
 
@@ -282,7 +297,7 @@ async def adjust_over_under(
         "under_absorption": under_absorption,
         "net_variance": net_variance,
         "treatment": treatment,
-        "recommendation": "Over-absorption: reduce cost of production; Under-absorption: write off to P&L or carry forward"
+        "recommendation": "Over-absorption: reduce cost of production; Under-absorption: write off to P&L or carry forward",
     }
 
 
@@ -305,4 +320,5 @@ async def list_analyses():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

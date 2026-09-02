@@ -3,15 +3,18 @@ IFRS 16 Lease Accounting Service
 Port: 8147
 Implements IFRS 16 lease accounting, calculates ROU assets and lease liabilities
 """
-import httpx
-import structlog
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+
+import httpx
+import structlog
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="IFRS 16 Lease Accounting Service", version="1.0.0")
+
 
 # Pydantic Models
 class LeaseDetails(BaseModel):
@@ -31,6 +34,7 @@ class LeaseDetails(BaseModel):
     renewal_options_probable: bool = False
     guaranteed_residual_value: float = 0.0
 
+
 class IFRS16CalculationRequest(BaseModel):
     company_id: str
     reporting_date: str
@@ -38,6 +42,7 @@ class IFRS16CalculationRequest(BaseModel):
     incremental_borrowing_rate: float
     include_short_term_exemption: bool = True
     include_low_value_exemption: bool = True
+
 
 class LeaseLiabilityMeasurement(BaseModel):
     lease_id: str
@@ -50,6 +55,7 @@ class LeaseLiabilityMeasurement(BaseModel):
     guaranteed_residual_value: float
     initial_measurement: float
 
+
 class ROUAssetMeasurement(BaseModel):
     lease_id: str
     initial_lease_liability: float
@@ -60,6 +66,7 @@ class ROUAssetMeasurement(BaseModel):
     depreciation_period: int
     annual_depreciation: float
 
+
 class LeaseExpenseBreakdown(BaseModel):
     lease_id: str
     interest_expense: float
@@ -68,6 +75,7 @@ class LeaseExpenseBreakdown(BaseModel):
     short_term_lease_expense: float
     low_value_lease_expense: float
     total_lease_expense: float
+
 
 class IFRS16Response(BaseModel):
     company_id: str
@@ -80,6 +88,7 @@ class IFRS16Response(BaseModel):
     interest_payable_current: float
     interest_payable_non_current: float
     total_interest_expense: float
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
     """Call another internal Vimbai service."""
@@ -95,9 +104,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: Optional[
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "ifrs-16-lease-accounting", "version": "1.0.0"}
+
 
 @app.post("/calculate", response_model=IFRS16Response)
 async def calculate_ifrs16(request: IFRS16CalculationRequest):
@@ -116,28 +127,32 @@ async def calculate_ifrs16(request: IFRS16CalculationRequest):
         if request.include_short_term_exemption and lease.lease_type == "short_term":
             # Expense only treatment
             annual_expense = lease.payment_amount * 12
-            lease_expenses.append(LeaseExpenseBreakdown(
-                lease_id=lease.lease_id,
-                interest_expense=0.0,
-                depreciation_charge=0.0,
-                variable_lease_payment=lease.variable_lease_payments,
-                short_term_lease_expense=annual_expense,
-                low_value_lease_expense=0.0,
-                total_lease_expense=annual_expense
-            ))
+            lease_expenses.append(
+                LeaseExpenseBreakdown(
+                    lease_id=lease.lease_id,
+                    interest_expense=0.0,
+                    depreciation_charge=0.0,
+                    variable_lease_payment=lease.variable_lease_payments,
+                    short_term_lease_expense=annual_expense,
+                    low_value_lease_expense=0.0,
+                    total_lease_expense=annual_expense,
+                )
+            )
             continue
 
         if request.include_low_value_exemption and lease.lease_type == "low_value":
             annual_expense = lease.payment_amount * 12
-            lease_expenses.append(LeaseExpenseBreakdown(
-                lease_id=lease.lease_id,
-                interest_expense=0.0,
-                depreciation_charge=0.0,
-                variable_lease_payment=lease.variable_lease_payments,
-                short_term_lease_expense=0.0,
-                low_value_lease_expense=annual_expense,
-                total_lease_expense=annual_expense
-            ))
+            lease_expenses.append(
+                LeaseExpenseBreakdown(
+                    lease_id=lease.lease_id,
+                    interest_expense=0.0,
+                    depreciation_charge=0.0,
+                    variable_lease_payment=lease.variable_lease_payments,
+                    short_term_lease_expense=0.0,
+                    low_value_lease_expense=annual_expense,
+                    total_lease_expense=annual_expense,
+                )
+            )
             continue
 
         # Calculate present value of lease payments
@@ -148,49 +163,57 @@ async def calculate_ifrs16(request: IFRS16CalculationRequest):
         pv_total = pv_payments + pv_residual
 
         # Lease liability
-        lease_liabilities.append(LeaseLiabilityMeasurement(
-            lease_id=lease.lease_id,
-            lease_commencement_date=lease.lease_commencement_date,
-            lease_term_years=lease.lease_term_years,
-            payment_amount=lease.payment_amount,
-            number_of_payments=lease.number_of_payments,
-            discount_rate=lease.discount_rate,
-            present_value_lease_payments=pv_payments,
-            guaranteed_residual_value=lease.guaranteed_residual_value,
-            initial_measurement=pv_total
-        ))
+        lease_liabilities.append(
+            LeaseLiabilityMeasurement(
+                lease_id=lease.lease_id,
+                lease_commencement_date=lease.lease_commencement_date,
+                lease_term_years=lease.lease_term_years,
+                payment_amount=lease.payment_amount,
+                number_of_payments=lease.number_of_payments,
+                discount_rate=lease.discount_rate,
+                present_value_lease_payments=pv_payments,
+                guaranteed_residual_value=lease.guaranteed_residual_value,
+                initial_measurement=pv_total,
+            )
+        )
         total_liability += pv_total
 
         # ROU Asset
         initial_rou = pv_total + lease.initial_direct_costs - lease.lease_incentive_received
-        depreciation_period = lease.lease_term_years if not lease.renewal_options_probable else lease.lease_term_years + 2
+        depreciation_period = (
+            lease.lease_term_years if not lease.renewal_options_probable else lease.lease_term_years + 2
+        )
         annual_dep = initial_rou / depreciation_period
 
-        rou_assets.append(ROUAssetMeasurement(
-            lease_id=lease.lease_id,
-            initial_lease_liability=pv_total,
-            initial_direct_costs=lease.initial_direct_costs,
-            lease_incentive_received=lease.lease_incentive_received,
-            prepaid_lease_payments=0.0,
-            initial_recognition=initial_rou,
-            depreciation_period=depreciation_period,
-            annual_depreciation=annual_dep
-        ))
+        rou_assets.append(
+            ROUAssetMeasurement(
+                lease_id=lease.lease_id,
+                initial_lease_liability=pv_total,
+                initial_direct_costs=lease.initial_direct_costs,
+                lease_incentive_received=lease.lease_incentive_received,
+                prepaid_lease_payments=0.0,
+                initial_recognition=initial_rou,
+                depreciation_period=depreciation_period,
+                annual_depreciation=annual_dep,
+            )
+        )
         total_rou += initial_rou
 
         # Interest expense (first year)
         year1_interest = pv_total * r
         total_interest += year1_interest
 
-        lease_expenses.append(LeaseExpenseBreakdown(
-            lease_id=lease.lease_id,
-            interest_expense=year1_interest,
-            depreciation_charge=annual_dep,
-            variable_lease_payment=lease.variable_lease_payments,
-            short_term_lease_expense=0.0,
-            low_value_lease_expense=0.0,
-            total_lease_expense=year1_interest + annual_dep + lease.variable_lease_payments
-        ))
+        lease_expenses.append(
+            LeaseExpenseBreakdown(
+                lease_id=lease.lease_id,
+                interest_expense=year1_interest,
+                depreciation_charge=annual_dep,
+                variable_lease_payment=lease.variable_lease_payments,
+                short_term_lease_expense=0.0,
+                low_value_lease_expense=0.0,
+                total_lease_expense=year1_interest + annual_dep + lease.variable_lease_payments,
+            )
+        )
 
     response = IFRS16Response(
         company_id=request.company_id,
@@ -202,18 +225,16 @@ async def calculate_ifrs16(request: IFRS16CalculationRequest):
         lease_expenses=lease_expenses,
         interest_payable_current=total_interest * 0.3,
         interest_payable_non_current=total_interest * 0.7,
-        total_interest_expense=total_interest
+        total_interest_expense=total_interest,
     )
 
     logger.info("IFRS 16 calculation complete", total_liability=total_liability, total_rou=total_rou)
     return response
 
+
 @app.post("/lease-liability")
 async def measure_lease_liability(
-    payment_amount: float,
-    number_of_payments: int,
-    discount_rate: float,
-    guaranteed_residual: float = 0.0
+    payment_amount: float, number_of_payments: int, discount_rate: float, guaranteed_residual: float = 0.0
 ):
     """Measure lease liability using present value."""
     r = discount_rate
@@ -236,21 +257,24 @@ async def measure_lease_liability(
         interest = remaining * r
         principal = payment_amount - interest
         remaining = max(0, remaining - principal)
-        schedule.append({
-            "period": period,
-            "payment": payment_amount,
-            "interest": interest,
-            "principal": principal,
-            "remaining_balance": remaining
-        })
+        schedule.append(
+            {
+                "period": period,
+                "payment": payment_amount,
+                "interest": interest,
+                "principal": principal,
+                "remaining_balance": remaining,
+            }
+        )
 
     return {
         "present_value_lease_payments": pv_payments,
         "present_value_residual": pv_residual,
         "total_lease_liability": pv_total,
         "amortization_schedule": schedule,
-        "total_interest": sum(s["interest"] for s in schedule)
+        "total_interest": sum(s["interest"] for s in schedule),
     }
+
 
 @app.post("/renewal-options")
 async def assess_renewal_options(
@@ -258,7 +282,7 @@ async def assess_renewal_options(
     market_rent_annual: float,
     current_rent_annual: float,
     economic_incentives: str,
-    business_use_intent: str
+    business_use_intent: str,
 ):
     """Assess whether renewal options should be included in lease term."""
     # Criteria: economic penalties, business use, renewal intent
@@ -278,16 +302,15 @@ async def assess_renewal_options(
         "business_use_intent": business_use_intent,
         "renewal_probable": probable_criteria_met,
         "recommended_lease_term_extension": renewal_option_years if probable_criteria_met else 0,
-        "reasoning": "Renewal options included" if probable_criteria_met else "Renewal options excluded from lease term"
+        "reasoning": (
+            "Renewal options included" if probable_criteria_met else "Renewal options excluded from lease term"
+        ),
     }
+
 
 @app.post("/variable-lease-payments")
 async def calculate_variable_payments(
-    lease_id: str,
-    variable_payment_type: str,
-    base_amount: float,
-    variable_rate: float,
-    usage_measure: float
+    lease_id: str, variable_payment_type: str, base_amount: float, variable_rate: float, usage_measure: float
 ):
     """Calculate variable lease payments."""
     if variable_payment_type == "percentage_of_sales":
@@ -306,8 +329,11 @@ async def calculate_variable_payments(
         "variable_rate": variable_rate,
         "usage_measure": usage_measure,
         "variable_lease_payment": variable_payment,
-        "recognition": "expensed as incurred" if variable_payment_type != "percentage_of_sales" else "included in lease liability"
+        "recognition": (
+            "expensed as incurred" if variable_payment_type != "percentage_of_sales" else "included in lease liability"
+        ),
     }
+
 
 @app.post("/sale-leaseback")
 async def calculate_sale_leaseback(
@@ -316,7 +342,7 @@ async def calculate_sale_leaseback(
     fair_value: float,
     lease_payment: float,
     lease_term: int,
-    discount_rate: float
+    discount_rate: float,
 ):
     """Calculate sale and leaseback transaction."""
     profit_on_sale = sale_price - carrying_amount
@@ -342,9 +368,11 @@ async def calculate_sale_leaseback(
         "right_of_use_asset_recognized": pv_lease if transfer_qualified else fair_value,
         "gain_deferred": sale_below_fair_value,
         "gain_recognized_immediately": sale_at_fair_value,
-        "transfer_qualifies_as_sale": transfer_qualified
+        "transfer_qualifies_as_sale": transfer_qualified,
     }
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8147)

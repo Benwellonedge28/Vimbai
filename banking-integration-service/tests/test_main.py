@@ -2,9 +2,11 @@
 Vimbai Banking Integration Service - Test Suite
 Tests: bank connections, transactions, reconciliation
 """
-import pytest
+
 import os
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 os.environ["JWT_SECRET"] = "test-secret-key-for-testing-only"
@@ -17,13 +19,20 @@ client = TestClient(app)
 
 @pytest.fixture
 def auth_headers():
+    from datetime import datetime, timedelta, timezone
+
     import jwt as pyjwt
-    from datetime import datetime, timezone, timedelta
+
     token = pyjwt.encode(
-        {"user_id": "test-user-id", "username": "testuser", "role": "admin",
-         "permissions": ["banking:view", "banking:create", "banking:sync"],
-         "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
-        os.environ["JWT_SECRET"], algorithm="HS256"
+        {
+            "user_id": "test-user-id",
+            "username": "testuser",
+            "role": "admin",
+            "permissions": ["banking:view", "banking:create", "banking:sync"],
+            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        },
+        os.environ["JWT_SECRET"],
+        algorithm="HS256",
     )
     return {"Authorization": f"Bearer {token}"}
 
@@ -44,10 +53,9 @@ class TestBankConnections:
         assert response.status_code in [200, 500]
 
     def test_create_bank_connection_no_auth(self):
-        response = client.post("/banking-integration/connect", json={
-            "bank_code": "test-bank",
-            "credentials": {"api_key": "test-key"}
-        })
+        response = client.post(
+            "/banking-integration/connect", json={"bank_code": "test-bank", "credentials": {"api_key": "test-key"}}
+        )
         assert response.status_code in [401, 403, 404]
 
 
@@ -61,16 +69,13 @@ class TestTransactions:
         assert response.status_code in [200, 500]
 
     def test_sync_transactions_no_auth(self):
-        response = client.post("/banking-integration/sync", json={
-            "bank_connection_id": "test-connection"
-        })
+        response = client.post("/banking-integration/sync", json={"bank_connection_id": "test-connection"})
         assert response.status_code in [401, 403, 404]
 
 
 class TestInputValidation:
     def test_invalid_bank_code(self, auth_headers):
-        response = client.post("/banking-integration/connect", json={
-            "bank_code": "",
-            "credentials": {}
-        }, headers=auth_headers)
+        response = client.post(
+            "/banking-integration/connect", json={"bank_code": "", "credentials": {}}, headers=auth_headers
+        )
         assert response.status_code in [422, 404]

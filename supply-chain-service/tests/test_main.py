@@ -2,9 +2,11 @@
 Vimbai Supply Chain Service - Comprehensive Test Suite
 Tests: inventory, suppliers, customers, purchase orders, sales invoices
 """
-import pytest
+
 import os
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 os.environ["JWT_SECRET"] = "test-secret-key-for-testing-only"
@@ -17,13 +19,20 @@ client = TestClient(app)
 
 @pytest.fixture
 def auth_headers():
+    from datetime import datetime, timedelta, timezone
+
     import jwt as pyjwt
-    from datetime import datetime, timezone, timedelta
+
     token = pyjwt.encode(
-        {"user_id": "test-user-id", "username": "testuser", "role": "admin",
-         "permissions": ["supply:view", "supply:create", "supply:edit", "supply:delete"],
-         "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
-        os.environ["JWT_SECRET"], algorithm="HS256"
+        {
+            "user_id": "test-user-id",
+            "username": "testuser",
+            "role": "admin",
+            "permissions": ["supply:view", "supply:create", "supply:edit", "supply:delete"],
+            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        },
+        os.environ["JWT_SECRET"],
+        algorithm="HS256",
     )
     return {"Authorization": f"Bearer {token}"}
 
@@ -35,7 +44,7 @@ def valid_customer():
         "email": "customer@vimbai.com",
         "phone": "+263771234567",
         "address": "123 Test Street, Harare",
-        "tax_number": "BRN123456"
+        "tax_number": "BRN123456",
     }
 
 
@@ -46,7 +55,7 @@ def valid_supplier():
         "email": "supplier@vimbai.com",
         "phone": "+263771987654",
         "address": "456 Supplier Ave, Harare",
-        "payment_terms": "net_30"
+        "payment_terms": "net_30",
     }
 
 
@@ -58,7 +67,7 @@ def valid_inventory_item():
         "quantity": 100,
         "unit_price": "15.99",
         "reorder_level": 20,
-        "category": "General"
+        "category": "General",
     }
 
 
@@ -118,21 +127,20 @@ class TestInventory:
         assert response.status_code in [200, 500]
 
     def test_create_inventory_negative_quantity(self, auth_headers):
-        response = client.post("/inventory-items/", json={
-            "name": "Negative Stock",
-            "sku": "NEG-001",
-            "quantity": -10,
-            "unit_price": "5.00"
-        }, headers=auth_headers)
+        response = client.post(
+            "/inventory-items/",
+            json={"name": "Negative Stock", "sku": "NEG-001", "quantity": -10, "unit_price": "5.00"},
+            headers=auth_headers,
+        )
         assert response.status_code in [422, 400, 201]
 
 
 class TestPurchaseOrders:
     def test_create_purchase_order_no_auth(self):
-        response = client.post("/purchase-orders/", json={
-            "supplier_id": "supplier-001",
-            "items": [{"sku": "TEST-001", "quantity": 10, "unit_price": "15.99"}]
-        })
+        response = client.post(
+            "/purchase-orders/",
+            json={"supplier_id": "supplier-001", "items": [{"sku": "TEST-001", "quantity": 10, "unit_price": "15.99"}]},
+        )
         assert response.status_code in [401, 403]
 
     def test_get_purchase_orders_with_auth(self, auth_headers):
@@ -142,10 +150,10 @@ class TestPurchaseOrders:
 
 class TestSalesInvoices:
     def test_create_sales_invoice_no_auth(self):
-        response = client.post("/sales-invoices/", json={
-            "customer_id": "customer-001",
-            "items": [{"sku": "TEST-001", "quantity": 5, "unit_price": "15.99"}]
-        })
+        response = client.post(
+            "/sales-invoices/",
+            json={"customer_id": "customer-001", "items": [{"sku": "TEST-001", "quantity": 5, "unit_price": "15.99"}]},
+        )
         assert response.status_code in [401, 403]
 
     def test_get_sales_invoices_with_auth(self, auth_headers):

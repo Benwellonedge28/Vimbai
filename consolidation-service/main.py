@@ -57,6 +57,7 @@ app = FastAPI(
 # Pydantic Models
 # ============================================================================
 
+
 class SubsidiaryInput(BaseModel):
     subsidiary_id: str
     subsidiary_name: str
@@ -112,6 +113,7 @@ class ConsolidationValidationRequest(BaseModel):
 # Routes — Health
 # ============================================================================
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": SERVICE_NAME, "version": SERVICE_VERSION}
@@ -126,6 +128,7 @@ async def health():
 # Routes — Full Consolidation
 # ============================================================================
 
+
 @app.post("/consolidate")
 async def consolidate_financials(request: ConsolidationRequest):
     """
@@ -133,7 +136,12 @@ async def consolidate_financials(request: ConsolidationRequest):
     Produces consolidated revenue, profit, balance sheet, and cash flow statements.
     Handles NCI, goodwill, and intercompany eliminations.
     """
-    logger.info("Consolidating financials", parent=request.parent_company_id, period=request.period, subs=len(request.subsidiaries))
+    logger.info(
+        "Consolidating financials",
+        parent=request.parent_company_id,
+        period=request.period,
+        subs=len(request.subsidiaries),
+    )
 
     # Aggregate subsidiary data
     total_sub_revenue = 0.0
@@ -170,12 +178,15 @@ async def consolidate_financials(request: ConsolidationRequest):
 
     # Intercompany eliminations
     intercompany_sales = sum(t.amount for t in request.intercompany_transactions if t.transaction_type == "sale")
-    intercompany_dividends = sum(t.amount for t in request.intercompany_transactions if t.transaction_type == "dividend")
+    intercompany_dividends = sum(
+        t.amount for t in request.intercompany_transactions if t.transaction_type == "dividend"
+    )
 
     # NCI
     nci_pct_avg = (
         sum(sub.non_controlling_interests_percentage for sub in request.subsidiaries) / len(request.subsidiaries)
-        if request.subsidiaries else 0.0
+        if request.subsidiaries
+        else 0.0
     )
     nci_profit_share = total_sub_profit * (nci_pct_avg / 100)
     nci_equity_share = total_sub_equity * (nci_pct_avg / 100)
@@ -236,6 +247,7 @@ async def consolidate_financials(request: ConsolidationRequest):
 # Routes — Intercompany Eliminations
 # ============================================================================
 
+
 @app.post("/eliminations")
 async def process_eliminations(request: ConsolidationRequest):
     """Calculate and categorise all intercompany eliminations."""
@@ -291,6 +303,7 @@ async def process_eliminations(request: ConsolidationRequest):
 # Routes — NCI Calculation
 # ============================================================================
 
+
 @app.post("/nci-calculation")
 async def calculate_nci(request: ConsolidationRequest):
     """Calculate Non-Controlling Interests for each subsidiary."""
@@ -324,6 +337,7 @@ async def calculate_nci(request: ConsolidationRequest):
 # Routes — Goodwill Calculation
 # ============================================================================
 
+
 @app.post("/goodwill-calculation")
 async def calculate_goodwill(request: ConsolidationRequest):
     """Calculate goodwill on acquisition for each subsidiary."""
@@ -340,15 +354,17 @@ async def calculate_goodwill(request: ConsolidationRequest):
         goodwill = consideration_paid + fair_value_nci - net_identifiable_assets
         goodwill_recognised = max(goodwill, 0.0)
 
-        goodwill_data.append({
-            "subsidiary_id": sub.subsidiary_id,
-            "subsidiary_name": sub.subsidiary_name,
-            "consideration_transferred": round(consideration_paid, 2),
-            "fair_value_nci": round(fair_value_nci, 2),
-            "net_identifiable_assets": round(net_identifiable_assets, 2),
-            "goodwill": round(goodwill_recognised, 2),
-            "bargain_purchase": goodwill < 0,
-        })
+        goodwill_data.append(
+            {
+                "subsidiary_id": sub.subsidiary_id,
+                "subsidiary_name": sub.subsidiary_name,
+                "consideration_transferred": round(consideration_paid, 2),
+                "fair_value_nci": round(fair_value_nci, 2),
+                "net_identifiable_assets": round(net_identifiable_assets, 2),
+                "goodwill": round(goodwill_recognised, 2),
+                "bargain_purchase": goodwill < 0,
+            }
+        )
         total_goodwill += goodwill_recognised
 
     return {
@@ -363,10 +379,16 @@ async def calculate_goodwill(request: ConsolidationRequest):
 # Routes — Currency Translation
 # ============================================================================
 
+
 @app.post("/currency-translation")
 async def translate_currency(request: CurrencyTranslationRequest):
     """Translate foreign subsidiary balances to the reporting currency."""
-    logger.info("Translating currency", parent=request.parent_id, from_curr=request.local_currency, to_curr=request.reporting_currency)
+    logger.info(
+        "Translating currency",
+        parent=request.parent_id,
+        from_curr=request.local_currency,
+        to_curr=request.reporting_currency,
+    )
 
     translated: Dict[str, Any] = {}
     translation_adj = 0.0
@@ -391,14 +413,19 @@ async def translate_currency(request: CurrencyTranslationRequest):
 # Routes — Validation
 # ============================================================================
 
+
 @app.post("/validate")
 async def validate_consolidation(request: ConsolidationValidationRequest):
     """Validate the consolidation: check balance sheet balance and intercompany elimination completeness."""
-    logger.info("Validating consolidation", parent=request.parent_id, period=request.period, entities=len(request.entities))
+    logger.info(
+        "Validating consolidation", parent=request.parent_id, period=request.period, entities=len(request.entities)
+    )
 
     results = [{"rule": r, "status": "passed"} for r in request.validation_rules]
     results.append({"rule": "balance_sheet_balanced", "status": "passed", "details": "Assets = Liabilities + Equity"})
-    results.append({"rule": "intercompany_eliminated", "status": "passed", "details": "All intercompany transactions eliminated"})
+    results.append(
+        {"rule": "intercompany_eliminated", "status": "passed", "details": "All intercompany transactions eliminated"}
+    )
 
     errors: List[str] = []
     warnings: List[str] = []
@@ -415,4 +442,5 @@ async def validate_consolidation(request: ConsolidationValidationRequest):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

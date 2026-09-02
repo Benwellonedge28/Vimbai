@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Purchases Ledger Control Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class TransactionType(str):
@@ -84,10 +92,16 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 async def call_audit_service(action: str, resource_type: str, resource_id: str, details: Dict[str, Any]):
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(f"{AUDIT_SERVICE_URL}/audit", json={
-                "action": action, "resource_type": resource_type, "resource_id": resource_id,
-                "details": details, "timestamp": datetime.utcnow().isoformat()
-            })
+            await client.post(
+                f"{AUDIT_SERVICE_URL}/audit",
+                json={
+                    "action": action,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "details": details,
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            )
     except Exception:
         pass
 
@@ -99,18 +113,32 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Purchases ledger control account management"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "description": "Purchases ledger control account management",
+    }
 
 
 @app.post("/transactions")
 async def record_transaction(
-    transaction_type: TransactionType, creditor_id: str, creditor_name: str,
-    date: datetime, amount: float, invoice_number: Optional[str] = None, reference: Optional[str] = None
+    transaction_type: TransactionType,
+    creditor_id: str,
+    creditor_name: str,
+    date: datetime,
+    amount: float,
+    invoice_number: Optional[str] = None,
+    reference: Optional[str] = None,
 ):
     """Record a creditor transaction."""
     txn = CreditorTransaction(
-        transaction_type=transaction_type, creditor_id=creditor_id, creditor_name=creditor_name,
-        invoice_number=invoice_number, date=date, amount=amount, reference=reference
+        transaction_type=transaction_type,
+        creditor_id=creditor_id,
+        creditor_name=creditor_name,
+        invoice_number=invoice_number,
+        date=date,
+        amount=amount,
+        reference=reference,
     )
 
     current_balance = creditor_balances.get(creditor_id, 0)
@@ -158,17 +186,22 @@ async def get_control_summary(as_of_date: Optional[datetime] = None):
     closing_balance = total_invoices - total_debit_notes - total_payments
 
     return ControlAccountSummary(
-        as_of_date=as_of_date, total_invoices=total_invoices,
-        total_debit_notes=total_debit_notes, total_payments=total_payments,
-        closing_balance=closing_balance, transaction_count=len(transactions)
+        as_of_date=as_of_date,
+        total_invoices=total_invoices,
+        total_debit_notes=total_debit_notes,
+        total_payments=total_payments,
+        closing_balance=closing_balance,
+        transaction_count=len(transactions),
     )
 
 
 @app.get("/creditors")
 async def list_creditors():
     """List all creditors with balances."""
-    return {"creditors": [{"creditor_id": cid, "balance": bal} for cid, bal in creditor_balances.items()],
-            "total_balance": sum(creditor_balances.values())}
+    return {
+        "creditors": [{"creditor_id": cid, "balance": bal} for cid, bal in creditor_balances.items()],
+        "total_balance": sum(creditor_balances.values()),
+    }
 
 
 @app.post("/reconcile")
@@ -180,10 +213,11 @@ async def reconcile_control_account():
         "control_account_balance": summary.closing_balance,
         "purchases_ledger_total": control_balance,
         "difference": abs(summary.closing_balance - control_balance),
-        "reconciled": abs(summary.closing_balance - control_balance) < 0.01
+        "reconciled": abs(summary.closing_balance - control_balance) < 0.01,
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

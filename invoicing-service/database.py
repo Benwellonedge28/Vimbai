@@ -1,5 +1,7 @@
 import os
+
 from neo4j import GraphDatabase
+
 
 class Neo4jConnector:
     _driver = None
@@ -21,6 +23,7 @@ class Neo4jConnector:
             cls._driver.close()
             cls._driver = None
             print("Neo4j driver closed for Invoicing Service.")
+
 
 async def init_db_schema():
     driver = Neo4jConnector.get_driver()

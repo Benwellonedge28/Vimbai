@@ -20,15 +20,23 @@ PORT = int(os.getenv("PORT", "8132"))
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Trial Balance Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class LedgerAccount(BaseModel):
@@ -87,20 +95,12 @@ async def generate_trial_balance(accounts: List[dict]):
             balance = cr - dr
 
         if balance >= 0:
-            trial_balance.append({
-                "account_name": name,
-                "account_type": acc_type,
-                "debit": balance if balance > 0 else 0,
-                "credit": 0
-            })
+            trial_balance.append(
+                {"account_name": name, "account_type": acc_type, "debit": balance if balance > 0 else 0, "credit": 0}
+            )
             total_debits += balance if balance > 0 else 0
         else:
-            trial_balance.append({
-                "account_name": name,
-                "account_type": acc_type,
-                "debit": 0,
-                "credit": abs(balance)
-            })
+            trial_balance.append({"account_name": name, "account_type": acc_type, "debit": 0, "credit": abs(balance)})
             total_credits += abs(balance)
 
     is_balanced = abs(total_debits - total_credits) < 0.01
@@ -111,7 +111,7 @@ async def generate_trial_balance(accounts: List[dict]):
         "total_credits": round(total_credits, 2),
         "is_balanced": is_balanced,
         "difference": round(total_debits - total_credits, 2),
-        "status": "Agree" if is_balanced else "Disagree - Check balances"
+        "status": "Agree" if is_balanced else "Disagree - Check balances",
     }
 
 
@@ -132,7 +132,7 @@ async def validate_trial_balance(total_debits: float, total_credits: float):
         "total_credits": total_credits,
         "difference": round(diff, 2),
         "is_valid": is_valid,
-        "message": "Trial balance agrees" if is_valid else f"Trial balance disagrees by {diff}"
+        "message": "Trial balance agrees" if is_valid else f"Trial balance disagrees by {diff}",
     }
 
 
@@ -161,11 +161,26 @@ async def trial_balance_classification_summary(accounts: List[dict]):
             expenses.append(acc)
 
     return {
-        "assets": {"accounts": assets, "total": sum(a.get("debit_balance", 0) + a.get("credit_balance", 0) for a in assets)},
-        "liabilities": {"accounts": liabilities, "total": sum(l.get("debit_balance", 0) + l.get("credit_balance", 0) for l in liabilities)},
-        "equity": {"accounts": equity, "total": sum(e.get("debit_balance", 0) + e.get("credit_balance", 0) for e in equity)},
-        "revenues": {"accounts": revenues, "total": sum(r.get("debit_balance", 0) + r.get("credit_balance", 0) for r in revenues)},
-        "expenses": {"accounts": expenses, "total": sum(ex.get("debit_balance", 0) + ex.get("credit_balance", 0) for ex in expenses)}
+        "assets": {
+            "accounts": assets,
+            "total": sum(a.get("debit_balance", 0) + a.get("credit_balance", 0) for a in assets),
+        },
+        "liabilities": {
+            "accounts": liabilities,
+            "total": sum(l.get("debit_balance", 0) + l.get("credit_balance", 0) for l in liabilities),
+        },
+        "equity": {
+            "accounts": equity,
+            "total": sum(e.get("debit_balance", 0) + e.get("credit_balance", 0) for e in equity),
+        },
+        "revenues": {
+            "accounts": revenues,
+            "total": sum(r.get("debit_balance", 0) + r.get("credit_balance", 0) for r in revenues),
+        },
+        "expenses": {
+            "accounts": expenses,
+            "total": sum(ex.get("debit_balance", 0) + ex.get("credit_balance", 0) for ex in expenses),
+        },
     }
 
 
@@ -189,15 +204,12 @@ async def adjusted_trial_balance(pre_adjustment: List[dict], adjustments: List[d
                 break
 
         if not found:
-            adjusted.append({
-                "account_name": account_name,
-                "debit_balance": debit,
-                "credit_balance": credit
-            })
+            adjusted.append({"account_name": account_name, "debit_balance": debit, "credit_balance": credit})
 
     return await generate_trial_balance(adjusted)
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

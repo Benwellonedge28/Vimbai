@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Debentures Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class DebentureClass(BaseModel):
@@ -121,34 +129,46 @@ async def root():
 
 @app.post("/classes/create")
 async def create_debenture_class(
-    name: str, company_id: str, nominal_value: float, issue_price: float,
-    coupon_rate: float, interest_payment_frequency: str, maturity_date: datetime,
-    redemption_price: float, convertibility: str = "none", conversion_terms: Optional[str] = None
+    name: str,
+    company_id: str,
+    nominal_value: float,
+    issue_price: float,
+    coupon_rate: float,
+    interest_payment_frequency: str,
+    maturity_date: datetime,
+    redemption_price: float,
+    convertibility: str = "none",
+    conversion_terms: Optional[str] = None,
 ):
     """Create a debenture class."""
     deb_class = DebentureClass(
-        name=name, company_id=company_id, nominal_value=nominal_value,
-        issue_price=issue_price, coupon_rate=coupon_rate,
-        interest_payment_frequency=interest_payment_frequency, maturity_date=maturity_date,
-        redemption_price=redemption_price, convertibility=convertibility,
-        conversion_terms=conversion_terms
+        name=name,
+        company_id=company_id,
+        nominal_value=nominal_value,
+        issue_price=issue_price,
+        coupon_rate=coupon_rate,
+        interest_payment_frequency=interest_payment_frequency,
+        maturity_date=maturity_date,
+        redemption_price=redemption_price,
+        convertibility=convertibility,
+        conversion_terms=conversion_terms,
     )
     debenture_classes.append(deb_class)
     return deb_class
 
 
 @app.post("/classes/{debenture_class_id}/issue")
-async def issue_debentures(
-    debenture_class_id: str, company_id: str, debentures_issued: int, issue_date: datetime
-):
+async def issue_debentures(debenture_class_id: str, company_id: str, debentures_issued: int, issue_date: datetime):
     """Issue debentures."""
     deb_class = next((d for d in debenture_classes if d.id == debenture_class_id), None)
     if not deb_class:
         return {"error": "Debenture class not found"}
 
     issue = DebentureIssue(
-        company_id=company_id, debenture_class_id=debenture_class_id,
-        debentures_issued=debentures_issued, issue_date=issue_date
+        company_id=company_id,
+        debenture_class_id=debenture_class_id,
+        debentures_issued=debentures_issued,
+        issue_date=issue_date,
     )
     issue.total_proceeds = debentures_issued * deb_class.issue_price
     issue.discount_on_issue = debentures_issued * (deb_class.nominal_value - deb_class.issue_price)
@@ -161,10 +181,20 @@ async def issue_debentures(
         "description": f"Issue of {debentures_issued} {deb_class.name} debentures",
         "entries": [
             {"account_code": "1000", "description": "Bank", "debit": issue.total_proceeds, "credit": 0},
-            {"account_code": "2330", "description": "Debenture Discount", "debit": issue.discount_on_issue, "credit": 0},
-            {"account_code": "2320", "description": "Debenture Stock", "debit": 0, "credit": debentures_issued * deb_class.nominal_value},
+            {
+                "account_code": "2330",
+                "description": "Debenture Discount",
+                "debit": issue.discount_on_issue,
+                "credit": 0,
+            },
+            {
+                "account_code": "2320",
+                "description": "Debenture Stock",
+                "debit": 0,
+                "credit": debentures_issued * deb_class.nominal_value,
+            },
         ],
-        "reference": f"DEB-ISS-{issue.id[:8]}"
+        "reference": f"DEB-ISS-{issue.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     issue.journal_entry_id = result.get("id")
@@ -175,8 +205,7 @@ async def issue_debentures(
 
 @app.post("/classes/{debenture_class_id}/interest/accrue")
 async def accrue_interest(
-    debenture_class_id: str, company_id: str, period_start: datetime,
-    period_end: datetime, debentures_outstanding: int
+    debenture_class_id: str, company_id: str, period_start: datetime, period_end: datetime, debentures_outstanding: int
 ):
     """Accrue debenture interest."""
     deb_class = next((d for d in debenture_classes if d.id == debenture_class_id), None)
@@ -184,9 +213,12 @@ async def accrue_interest(
         return {"error": "Debenture class not found"}
 
     interest = InterestPayment(
-        company_id=company_id, debenture_class_id=debenture_class_id,
-        period_start=period_start, period_end=period_end,
-        debentures_outstanding=debentures_outstanding, interest_rate=deb_class.coupon_rate
+        company_id=company_id,
+        debenture_class_id=debenture_class_id,
+        period_start=period_start,
+        period_end=period_end,
+        debentures_outstanding=debentures_outstanding,
+        interest_rate=deb_class.coupon_rate,
     )
 
     # Calculate interest based on frequency
@@ -211,7 +243,7 @@ async def accrue_interest(
             {"account_code": "4100", "description": "Interest Expense", "debit": interest.interest_amount, "credit": 0},
             {"account_code": "2335", "description": "Interest Payable", "debit": 0, "credit": interest.interest_amount},
         ],
-        "reference": f"DEB-INT-{interest.id[:8]}"
+        "reference": f"DEB-INT-{interest.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     interest.journal_entry_id = result.get("id")
@@ -235,7 +267,7 @@ async def pay_interest(interest_id: str, payment_date: datetime):
             {"account_code": "1000", "description": "Bank", "debit": 0, "credit": interest.net_payment},
             {"account_code": "2200", "description": "Tax Payable", "debit": 0, "credit": interest.tax_deducted},
         ],
-        "reference": f"DEB-INT-PAY-{interest_id[:8]}"
+        "reference": f"DEB-INT-PAY-{interest_id[:8]}",
     }
     await call_accounting_service("POST", "/journal-entries", journal_entry)
     interest.payment_date = payment_date
@@ -246,8 +278,7 @@ async def pay_interest(interest_id: str, payment_date: datetime):
 
 @app.post("/classes/{debenture_class_id}/redeem")
 async def redeem_debentures(
-    debenture_class_id: str, company_id: str, debentures_redeemed: int,
-    redemption_date: datetime
+    debenture_class_id: str, company_id: str, debentures_redeemed: int, redemption_date: datetime
 ):
     """Redeem debentures."""
     deb_class = next((d for d in debenture_classes if d.id == debenture_class_id), None)
@@ -255,9 +286,11 @@ async def redeem_debentures(
         return {"error": "Debenture class not found"}
 
     redemption = RedemptionEntry(
-        company_id=company_id, debenture_class_id=debenture_class_id,
-        debentures_redeemed=debentures_redeemed, redemption_date=redemption_date,
-        redemption_price=deb_class.redemption_price
+        company_id=company_id,
+        debenture_class_id=debenture_class_id,
+        debentures_redeemed=debentures_redeemed,
+        redemption_date=redemption_date,
+        redemption_price=deb_class.redemption_price,
     )
     redemption.total_proceeds = debentures_redeemed * deb_class.redemption_price
     redemption.premium_on_redemption = debentures_redeemed * (deb_class.redemption_price - deb_class.nominal_value)
@@ -268,11 +301,21 @@ async def redeem_debentures(
         "date": redemption_date,
         "description": f"Redemption of {debentures_redeemed} {deb_class.name} debentures",
         "entries": [
-            {"account_code": "2320", "description": "Debenture Stock", "debit": debentures_redeemed * deb_class.nominal_value, "credit": 0},
-            {"account_code": "4100", "description": "Premium on Redemption", "debit": redemption.premium_on_redemption, "credit": 0},
+            {
+                "account_code": "2320",
+                "description": "Debenture Stock",
+                "debit": debentures_redeemed * deb_class.nominal_value,
+                "credit": 0,
+            },
+            {
+                "account_code": "4100",
+                "description": "Premium on Redemption",
+                "debit": redemption.premium_on_redemption,
+                "credit": 0,
+            },
             {"account_code": "1000", "description": "Bank", "debit": 0, "credit": redemption.total_proceeds},
         ],
-        "reference": f"DEB-RED-{redemption.id[:8]}"
+        "reference": f"DEB-RED-{redemption.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     redemption.journal_entry_id = result.get("id")
@@ -310,4 +353,5 @@ async def list_interest_payments(company_id: Optional[str] = None):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

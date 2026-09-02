@@ -3,17 +3,18 @@ Vimbai Real-Time Alerts Service
 Provides real-time monitoring and alerting for financial events and metrics
 """
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, status, Query
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Literal
-from datetime import datetime, timedelta
-from enum import Enum
 import asyncio
 import json
-import uuid
 import os
+import uuid
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional
+
 from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -27,12 +28,14 @@ app = FastAPI(
 # Models
 # ============================================================================
 
+
 class AlertSeverity(str, Enum):
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
     INFO = "info"
+
 
 class AlertCategory(str, Enum):
     FRAUD = "fraud"
@@ -42,11 +45,13 @@ class AlertCategory(str, Enum):
     SYSTEM = "system"
     WORKFLOW = "workflow"
 
+
 class AlertStatus(str, Enum):
     ACTIVE = "active"
     ACKNOWLEDGED = "acknowledged"
     RESOLVED = "resolved"
     DISMISSED = "dismissed"
+
 
 class AlertRuleCreate(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
@@ -59,12 +64,14 @@ class AlertRuleCreate(BaseModel):
     enabled: bool = True
     cooldown_seconds: int = Field(default=300, ge=0)
 
+
 class AlertRuleInDB(AlertRuleCreate):
     id: str
     created_by: str
     created_at: datetime
     updated_at: datetime
     trigger_count: int = 0
+
 
 class AlertCreate(BaseModel):
     rule_id: str
@@ -75,6 +82,7 @@ class AlertCreate(BaseModel):
     source: str
     metadata: Optional[Dict[str, Any]] = None
 
+
 class AlertInDB(AlertCreate):
     id: str
     status: AlertStatus
@@ -82,15 +90,18 @@ class AlertInDB(AlertCreate):
     acknowledged_at: Optional[datetime] = None
     resolved_at: Optional[datetime] = None
 
+
 class AlertSubscription(BaseModel):
     user_id: str
     categories: List[AlertCategory] = []
     severities: List[AlertSeverity] = []
     webhook_url: Optional[str] = None
 
+
 # ============================================================================
 # Connection Manager for WebSocket
 # ============================================================================
+
 
 class ConnectionManager:
     """Manages WebSocket connections for real-time alerts"""
@@ -160,6 +171,7 @@ class ConnectionManager:
         if user_id in self.subscriptions:
             del self.subscriptions[user_id]
 
+
 manager = ConnectionManager()
 
 # ============================================================================
@@ -181,7 +193,7 @@ default_rules = [
         action="notify",
         created_by="system",
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        updated_at=datetime.utcnow(),
     ),
     AlertRuleInDB(
         id="fraud-unusual-pattern",
@@ -193,7 +205,7 @@ default_rules = [
         action="notify",
         created_by="system",
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        updated_at=datetime.utcnow(),
     ),
     AlertRuleInDB(
         id="compliance-deadline",
@@ -205,7 +217,7 @@ default_rules = [
         action="email",
         created_by="system",
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        updated_at=datetime.utcnow(),
     ),
 ]
 
@@ -215,6 +227,7 @@ for rule in default_rules:
 # ============================================================================
 # Alert Evaluation Engine
 # ============================================================================
+
 
 class AlertEngine:
     """Evaluates conditions and triggers alerts"""
@@ -291,20 +304,24 @@ class AlertEngine:
 
         return False
 
+
 alert_engine = AlertEngine()
 
 # ============================================================================
 # API Endpoints
 # ============================================================================
 
+
 @app.on_event("startup")
 async def startup():
     """Initialize service"""
     print("Alerts service started")
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "alerts"}
+
 
 # --- WebSocket Endpoint ---
 @app.websocket("/ws/alerts/{user_id}")
@@ -323,24 +340,24 @@ async def websocket_alerts(websocket: WebSocket, user_id: str):
                         user_id=user_id,
                         categories=[AlertCategory(c) for c in message.get("categories", [])],
                         severities=[AlertSeverity(s) for s in message.get("severities", [])],
-                        webhook_url=message.get("webhook_url")
+                        webhook_url=message.get("webhook_url"),
                     )
                     manager.subscribe(subscription)
-                    await websocket.send_json({
-                        "type": "subscription_confirmed",
-                        "categories": [c.value for c in subscription.categories],
-                        "severities": [s.value for s in subscription.severities]
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "subscription_confirmed",
+                            "categories": [c.value for c in subscription.categories],
+                            "severities": [s.value for s in subscription.severities],
+                        }
+                    )
                 elif message.get("type") == "unsubscribe":
                     manager.unsubscribe(user_id)
                     await websocket.send_json({"type": "unsubscription_confirmed"})
             except (json.JSONDecodeError, ValueError):
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "Invalid message format"
-                })
+                await websocket.send_json({"type": "error", "message": "Invalid message format"})
     except WebSocketDisconnect:
         await manager.disconnect(websocket, user_id)
+
 
 # --- Alert Rules Endpoints ---
 @app.post("/rules", response_model=AlertRuleInDB, status_code=status.HTTP_201_CREATED)
@@ -362,11 +379,12 @@ async def create_alert_rule(rule: AlertRuleCreate, user_id: str = "system"):
         cooldown_seconds=rule.cooldown_seconds,
         created_by=user_id,
         created_at=now,
-        updated_at=now
+        updated_at=now,
     )
 
     alert_rules[rule_id] = db_rule
     return db_rule
+
 
 @app.get("/rules", response_model=List[AlertRuleInDB])
 async def list_alert_rules(enabled_only: bool = False):
@@ -376,12 +394,14 @@ async def list_alert_rules(enabled_only: bool = False):
         rules = [r for r in rules if r.enabled]
     return rules
 
+
 @app.get("/rules/{rule_id}", response_model=AlertRuleInDB)
 async def get_alert_rule(rule_id: str):
     """Get a specific alert rule"""
     if rule_id not in alert_rules:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
     return alert_rules[rule_id]
+
 
 @app.put("/rules/{rule_id}", response_model=AlertRuleInDB)
 async def update_alert_rule(rule_id: str, rule: AlertRuleCreate):
@@ -403,11 +423,13 @@ async def update_alert_rule(rule_id: str, rule: AlertRuleCreate):
 
     return existing
 
+
 @app.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_alert_rule(rule_id: str):
     """Delete an alert rule"""
     if rule_id in alert_rules:
         del alert_rules[rule_id]
+
 
 # --- Alerts Endpoints ---
 @app.post("/alerts", response_model=AlertInDB, status_code=status.HTTP_201_CREATED)
@@ -426,7 +448,7 @@ async def create_alert(alert: AlertCreate):
         source=alert.source,
         metadata=alert.metadata,
         status=AlertStatus.ACTIVE,
-        created_at=now
+        created_at=now,
     )
 
     alerts[alert_id] = db_alert
@@ -440,23 +462,20 @@ async def create_alert(alert: AlertCreate):
             "message": db_alert.message,
             "severity": db_alert.severity.value,
             "category": db_alert.category.value,
-            "created_at": db_alert.created_at.isoformat()
-        }
+            "created_at": db_alert.created_at.isoformat(),
+        },
     }
-    await manager.broadcast(
-        alert_message,
-        categories=[db_alert.category.value],
-        severities=[db_alert.severity.value]
-    )
+    await manager.broadcast(alert_message, categories=[db_alert.category.value], severities=[db_alert.severity.value])
 
     return db_alert
+
 
 @app.get("/alerts", response_model=List[AlertInDB])
 async def list_alerts(
     status: Optional[AlertStatus] = None,
     category: Optional[AlertCategory] = None,
     severity: Optional[AlertSeverity] = None,
-    limit: int = Query(100, ge=1, le=1000)
+    limit: int = Query(100, ge=1, le=1000),
 ):
     """List alerts with optional filters"""
     filtered = list(alerts.values())
@@ -473,12 +492,14 @@ async def list_alerts(
 
     return filtered[:limit]
 
+
 @app.get("/alerts/{alert_id}", response_model=AlertInDB)
 async def get_alert(alert_id: str):
     """Get a specific alert"""
     if alert_id not in alerts:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
     return alerts[alert_id]
+
 
 @app.put("/alerts/{alert_id}/acknowledge", response_model=AlertInDB)
 async def acknowledge_alert(alert_id: str):
@@ -491,14 +512,17 @@ async def acknowledge_alert(alert_id: str):
     alert.acknowledged_at = datetime.utcnow()
 
     # Broadcast update
-    await manager.broadcast({
-        "type": "alert_update",
-        "alert_id": alert_id,
-        "status": AlertStatus.ACKNOWLEDGED.value,
-        "acknowledged_at": alert.acknowledged_at.isoformat()
-    })
+    await manager.broadcast(
+        {
+            "type": "alert_update",
+            "alert_id": alert_id,
+            "status": AlertStatus.ACKNOWLEDGED.value,
+            "acknowledged_at": alert.acknowledged_at.isoformat(),
+        }
+    )
 
     return alert
+
 
 @app.put("/alerts/{alert_id}/resolve", response_model=AlertInDB)
 async def resolve_alert(alert_id: str, resolution_note: Optional[str] = None):
@@ -514,14 +538,17 @@ async def resolve_alert(alert_id: str, resolution_note: Optional[str] = None):
         alert.metadata["resolution_note"] = resolution_note
 
     # Broadcast update
-    await manager.broadcast({
-        "type": "alert_update",
-        "alert_id": alert_id,
-        "status": AlertStatus.RESOLVED.value,
-        "resolved_at": alert.resolved_at.isoformat()
-    })
+    await manager.broadcast(
+        {
+            "type": "alert_update",
+            "alert_id": alert_id,
+            "status": AlertStatus.RESOLVED.value,
+            "resolved_at": alert.resolved_at.isoformat(),
+        }
+    )
 
     return alert
+
 
 @app.put("/alerts/{alert_id}/dismiss", response_model=AlertInDB)
 async def dismiss_alert(alert_id: str):
@@ -533,13 +560,10 @@ async def dismiss_alert(alert_id: str):
     alert.status = AlertStatus.DISMISSED
 
     # Broadcast update
-    await manager.broadcast({
-        "type": "alert_update",
-        "alert_id": alert_id,
-        "status": AlertStatus.DISMISSED.value
-    })
+    await manager.broadcast({"type": "alert_update", "alert_id": alert_id, "status": AlertStatus.DISMISSED.value})
 
     return alert
+
 
 # --- Alert Evaluation Endpoint ---
 @app.post("/evaluate")
@@ -552,7 +576,7 @@ async def evaluate_data(data: Dict[str, Any]):
             continue
 
         # Check cooldown
-        if hasattr(rule, '_last_triggered') and rule._last_triggered:
+        if hasattr(rule, "_last_triggered") and rule._last_triggered:
             elapsed = (datetime.utcnow() - rule._last_triggered).total_seconds()
             if elapsed < rule.cooldown_seconds:
                 continue
@@ -573,7 +597,7 @@ async def evaluate_data(data: Dict[str, Any]):
                 source=data.get("source", "system"),
                 metadata={"data": data, "rule_name": rule.name},
                 status=AlertStatus.ACTIVE,
-                created_at=now
+                created_at=now,
             )
 
             alerts[alert_id] = alert
@@ -581,21 +605,26 @@ async def evaluate_data(data: Dict[str, Any]):
             rule._last_triggered = now
 
             # Broadcast
-            await manager.broadcast({
-                "type": "alert",
-                "alert": {
-                    "id": alert.id,
-                    "title": alert.title,
-                    "message": alert.message,
-                    "severity": alert.severity.value,
-                    "category": alert.category.value,
-                    "created_at": alert.created_at.isoformat()
-                }
-            }, categories=[alert.category.value], severities=[alert.severity.value])
+            await manager.broadcast(
+                {
+                    "type": "alert",
+                    "alert": {
+                        "id": alert.id,
+                        "title": alert.title,
+                        "message": alert.message,
+                        "severity": alert.severity.value,
+                        "category": alert.category.value,
+                        "created_at": alert.created_at.isoformat(),
+                    },
+                },
+                categories=[alert.category.value],
+                severities=[alert.severity.value],
+            )
 
             triggered.append(alert)
 
     return {"triggered_count": len(triggered), "alerts": triggered}
+
 
 # --- Statistics Endpoint ---
 @app.get("/stats")
@@ -618,8 +647,9 @@ async def get_alert_stats():
         "by_category": by_category,
         "active_connections": len(manager.active_connections),
         "total_rules": len(alert_rules),
-        "enabled_rules": sum(1 for r in alert_rules.values() if r.enabled)
+        "enabled_rules": sum(1 for r in alert_rules.values() if r.enabled),
     }
+
 
 # --- Integration Endpoint for Internal Services ---
 @app.post("/trigger/{rule_id}")
@@ -643,27 +673,30 @@ async def trigger_alert_by_rule(rule_id: str, data: Dict[str, Any]):
         source=data.get("source", "internal"),
         metadata=data,
         status=AlertStatus.ACTIVE,
-        created_at=now
+        created_at=now,
     )
 
     alerts[alert_id] = alert
 
     # Broadcast
-    await manager.broadcast({
-        "type": "alert",
-        "alert": {
-            "id": alert.id,
-            "title": alert.title,
-            "message": alert.message,
-            "severity": alert.severity.value,
-            "category": alert.category.value,
-            "created_at": alert.created_at.isoformat()
+    await manager.broadcast(
+        {
+            "type": "alert",
+            "alert": {
+                "id": alert.id,
+                "title": alert.title,
+                "message": alert.message,
+                "severity": alert.severity.value,
+                "category": alert.category.value,
+                "created_at": alert.created_at.isoformat(),
+            },
         }
-    })
+    )
 
     return alert
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8090)

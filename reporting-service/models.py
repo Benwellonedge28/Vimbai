@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field
+
 
 # --- Report Template Models ---
 class WidgetConfig(BaseModel):
@@ -12,20 +14,24 @@ class WidgetConfig(BaseModel):
     visualization_config: Optional[Dict[str, Any]] = {}
     position: Dict[str, int] = Field(default_factory=lambda: {"x": 0, "y": 0, "w": 4, "h": 3})
 
+
 class DashboardBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
     description: Optional[str] = None
     widgets: List[WidgetConfig] = Field(default_factory=list)
     is_default: bool = Field(False)
 
+
 class DashboardCreate(DashboardBase):
     pass
+
 
 class DashboardUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=3, max_length=100)
     description: Optional[str] = None
     widgets: Optional[List[WidgetConfig]] = None
     is_default: Optional[bool] = None
+
 
 class DashboardInDB(DashboardBase):
     id: str
@@ -36,6 +42,7 @@ class DashboardInDB(DashboardBase):
     class Config:
         from_attributes = True
 
+
 # --- Report Template Models ---
 class ReportTemplateBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
@@ -45,8 +52,10 @@ class ReportTemplateBase(BaseModel):
     output_format: Literal["json", "csv", "pdf"] = Field("json")
     is_shared: bool = Field(False)
 
+
 class ReportTemplateCreate(ReportTemplateBase):
     pass
+
 
 class ReportTemplateUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=3, max_length=100)
@@ -55,6 +64,7 @@ class ReportTemplateUpdate(BaseModel):
     parameters_schema: Optional[Dict[str, Any]] = None
     output_format: Optional[Literal["json", "csv", "pdf"]] = None
     is_shared: Optional[bool] = None
+
 
 class ReportTemplateInDB(ReportTemplateBase):
     id: str
@@ -65,6 +75,7 @@ class ReportTemplateInDB(ReportTemplateBase):
     class Config:
         from_attributes = True
 
+
 # --- Generated Report Models ---
 class ReportGenerationRequest(BaseModel):
     template_id: Optional[str] = None
@@ -72,14 +83,17 @@ class ReportGenerationRequest(BaseModel):
     parameters: Dict[str, Any] = Field(default_factory=dict)
     output_format: Literal["json", "csv", "pdf"] = "json"
 
+
 class ReportDataPoint(BaseModel):
     label: str
     value: float
     category: Optional[str] = None
 
+
 class ChartData(BaseModel):
     labels: List[str]
     datasets: List[Dict[str, Any]]
+
 
 class ReportResult(BaseModel):
     report_id: str
@@ -93,6 +107,7 @@ class ReportResult(BaseModel):
     class Config:
         from_attributes = True
 
+
 # --- Scheduled Report Models ---
 class ScheduledReportBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
@@ -102,8 +117,10 @@ class ScheduledReportBase(BaseModel):
     recipients: List[str] = Field(..., description="Email addresses for distribution")
     is_active: bool = Field(True)
 
+
 class ScheduledReportCreate(ScheduledReportBase):
     pass
+
 
 class ScheduledReportInDB(ScheduledReportBase):
     id: str
@@ -115,21 +132,25 @@ class ScheduledReportInDB(ScheduledReportBase):
     class Config:
         from_attributes = True
 
+
 # --- Filter Models ---
 class ReportFilter(BaseModel):
     field: str
     operator: Literal["eq", "neq", "gt", "gte", "lt", "lte", "in", "contains"]
     value: Any
 
+
 class ReportSort(BaseModel):
     field: str
     order: Literal["asc", "desc"] = "asc"
+
 
 # --- Export Models ---
 class ExportRequest(BaseModel):
     report_id: str
     format: Literal["csv", "json", "pdf"] = "csv"
     include_filters: bool = True
+
 
 class ExportResult(BaseModel):
     file_path: str

@@ -2,6 +2,7 @@
 Database Migration System for Vimbai
 Runs migrations in order, tracks applied migrations in Neo4j
 """
+
 import importlib
 import logging
 import os
@@ -10,6 +11,7 @@ from typing import List
 logger = logging.getLogger(__name__)
 
 MIGRATIONS_DIR = os.path.dirname(__file__)
+
 
 async def run_migrations(session):
     """Run all pending migrations in order."""
@@ -26,16 +28,16 @@ async def run_migrations(session):
     # Find and sort migration files
     migration_files = []
     for filename in sorted(os.listdir(MIGRATIONS_DIR)):
-        if filename.startswith('__') or not filename.endswith('.py'):
+        if filename.startswith("__") or not filename.endswith(".py"):
             continue
-        if filename == '__init__.py':
+        if filename == "__init__.py":
             continue
         migration_files.append(filename)
 
     pending_count = 0
     for filename in migration_files:
         module_name = filename[:-3]  # Remove .py
-        migration_id = module_name.split('_')[0]
+        migration_id = module_name.split("_")[0]
 
         if migration_id in applied:
             logger.debug(f"Migration {migration_id} already applied, skipping")
@@ -55,11 +57,12 @@ async def run_migrations(session):
     else:
         logger.info(f"Applied {pending_count} migrations")
 
+
 async def rollback_migration(session, migration_id):
     """Rollback a specific migration."""
     module_name = None
     for filename in sorted(os.listdir(MIGRATIONS_DIR)):
-        if filename.startswith(str(migration_id).zfill(3)) and filename.endswith('.py'):
+        if filename.startswith(str(migration_id).zfill(3)) and filename.endswith(".py"):
             module_name = filename[:-3]
             break
 

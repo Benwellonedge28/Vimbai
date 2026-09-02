@@ -3,20 +3,21 @@ Vimbai Document Management Service
 Centralized document storage, retrieval, and management for financial documents
 """
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks, Depends, status
-from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+import asyncio
+import hashlib
+import json
+import os
+import uuid
 from datetime import datetime, timezone
 from enum import Enum
-import asyncio
-import json
-import uuid
-import os
-import hashlib
-import aiofiles
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import aiofiles
 from dotenv import load_dotenv
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -41,6 +42,7 @@ Path(DOCUMENT_STORAGE_PATH).mkdir(parents=True, exist_ok=True)
 # Models
 # ============================================================================
 
+
 class DocumentType(str, Enum):
     INVOICE = "invoice"
     RECEIPT = "receipt"
@@ -54,6 +56,7 @@ class DocumentType(str, Enum):
     JOURNAL_ENTRY_DOCUMENT = "journal_entry_document"
     OTHER = "other"
 
+
 class DocumentStatus(str, Enum):
     UPLOADED = "uploaded"
     PROCESSING = "processing"
@@ -61,6 +64,7 @@ class DocumentStatus(str, Enum):
     INDEXED = "indexed"
     ARCHIVED = "archived"
     DELETED = "deleted"
+
 
 class DocumentCreate(BaseModel):
     document_type: DocumentType
@@ -70,6 +74,7 @@ class DocumentCreate(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     linked_entity_type: Optional[str] = None  # invoice, journal_entry, etc.
     linked_entity_id: Optional[str] = None
+
 
 class DocumentInDB(DocumentCreate):
     id: str
@@ -86,6 +91,7 @@ class DocumentInDB(DocumentCreate):
     updated_at: datetime
     deleted_at: Optional[datetime] = None
 
+
 class DocumentUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
@@ -93,6 +99,7 @@ class DocumentUpdate(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     linked_entity_type: Optional[str] = None
     linked_entity_id: Optional[str] = None
+
 
 class DocumentSearchRequest(BaseModel):
     query: Optional[str] = None
@@ -105,10 +112,12 @@ class DocumentSearchRequest(BaseModel):
     limit: int = 50
     offset: int = 0
 
+
 class OCRResult(BaseModel):
     text: str
     confidence: float
     entities: List[Dict[str, Any]] = []
+
 
 # ============================================================================
 # In-Memory Storage (Use Neo4j/S3 in production)
@@ -121,17 +130,21 @@ document_index: Dict[str, List[str]] = {}  # tag -> document_ids
 # Helper Functions
 # ============================================================================
 
+
 def calculate_checksum(content: bytes) -> str:
     """Calculate SHA-256 checksum of file content"""
     return hashlib.sha256(content).hexdigest()
+
 
 def get_file_extension(file_name: str) -> str:
     """Get lowercase file extension"""
     return Path(file_name).suffix.lower()
 
+
 def is_allowed_file(file_name: str) -> bool:
     """Check if file extension is allowed"""
     return get_file_extension(file_name) in ALLOWED_EXTENSIONS
+
 
 def get_mime_type(file_name: str) -> str:
     """Get MIME type based on file extension"""
@@ -145,9 +158,10 @@ def get_mime_type(file_name: str) -> str:
         ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         ".xls": "application/vnd.ms-excel",
         ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        ".csv": "text/csv"
+        ".csv": "text/csv",
     }
     return mime_types.get(get_file_extension(file_name), "application/octet-stream")
+
 
 async def perform_ocr(content: bytes, file_type: str) -> OCRResult:
     """Simulate OCR processing (use actual OCR service in production)"""
@@ -161,19 +175,18 @@ async def perform_ocr(content: bytes, file_type: str) -> OCRResult:
             entities=[
                 {"type": "date", "value": datetime.now(timezone.utc).isoformat()},
                 {"type": "amount", "value": "0.00"},
-                {"type": "vendor", "value": "Unknown"}
-            ]
+                {"type": "vendor", "value": "Unknown"},
+            ],
         )
     elif file_type == "application/pdf":
         return OCRResult(
             text="[PDF text extraction placeholder]",
             confidence=0.90,
-            entities=[
-                {"type": "date", "value": datetime.now(timezone.utc).isoformat()}
-            ]
+            entities=[{"type": "date", "value": datetime.now(timezone.utc).isoformat()}],
         )
     else:
         return OCRResult(text="", confidence=0.0, entities=[])
+
 
 async def index_document_content(document: DocumentInDB, ocr_result: OCRResult):
     """Index document for full-text search"""
@@ -190,9 +203,11 @@ async def index_document_content(document: DocumentInDB, ocr_result: OCRResult):
             if document.id not in document_index[word]:
                 document_index[word].append(document.id)
 
+
 # ============================================================================
 # API Endpoints
 # ============================================================================
+
 
 @app.get("/")
 async def health_check():
@@ -200,8 +215,9 @@ async def health_check():
         "status": "healthy",
         "service": "document-management",
         "total_documents": len(documents),
-        "storage_path": DOCUMENT_STORAGE_PATH
+        "storage_path": DOCUMENT_STORAGE_PATH,
     }
+
 
 # --- Document Upload ---
 @app.post("/documents", response_model=DocumentInDB, status_code=status.HTTP_201_CREATED)
@@ -213,14 +229,14 @@ async def upload_document(
     tags: Optional[str] = Form(None),  # Comma-separated
     linked_entity_type: Optional[str] = Form(None),
     linked_entity_id: Optional[str] = Form(None),
-    user_id: str = "system"
+    user_id: str = "system",
 ):
     """Upload a new document"""
     # Validate file
     if not is_allowed_file(file.filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+            detail=f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}",
         )
 
     # Read file content
@@ -230,7 +246,7 @@ async def upload_document(
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)}MB"
+            detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)}MB",
         )
 
     # Calculate checksum
@@ -242,7 +258,7 @@ async def upload_document(
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Document with same content already exists",
-                headers={"X-Existing-Document-ID": doc.id}
+                headers={"X-Existing-Document-ID": doc.id},
             )
 
     # Generate document ID
@@ -253,11 +269,11 @@ async def upload_document(
     stored_filename = f"{doc_id}{file_ext}"
     file_path = os.path.join(DOCUMENT_STORAGE_PATH, stored_filename)
 
-    async with aiofiles.open(file_path, 'wb') as f:
+    async with aiofiles.open(file_path, "wb") as f:
         await f.write(content)
 
     # Parse tags
-    tag_list = [t.strip() for t in tags.split(',')] if tags else []
+    tag_list = [t.strip() for t in tags.split(",")] if tags else []
 
     # Create document record
     now = datetime.now(timezone.utc)
@@ -278,7 +294,7 @@ async def upload_document(
         linked_entity_id=linked_entity_id,
         uploaded_by=user_id,
         created_at=now,
-        updated_at=now
+        updated_at=now,
     )
 
     documents[doc_id] = document
@@ -291,11 +307,10 @@ async def upload_document(
 
     return document
 
+
 @app.post("/documents/batch", status_code=status.HTTP_201_CREATED)
 async def upload_documents_batch(
-    files: List[UploadFile] = File(...),
-    document_type: DocumentType = DocumentType.OTHER,
-    user_id: str = "system"
+    files: List[UploadFile] = File(...), document_type: DocumentType = DocumentType.OTHER, user_id: str = "system"
 ):
     """Upload multiple documents"""
     results = []
@@ -303,24 +318,14 @@ async def upload_documents_batch(
     for file in files:
         try:
             document = await upload_document(
-                file=file,
-                document_type=document_type,
-                title=file.filename,
-                user_id=user_id
+                file=file, document_type=document_type, title=file.filename, user_id=user_id
             )
-            results.append({
-                "filename": file.filename,
-                "status": "uploaded",
-                "document_id": document.id
-            })
+            results.append({"filename": file.filename, "status": "uploaded", "document_id": document.id})
         except HTTPException as e:
-            results.append({
-                "filename": file.filename,
-                "status": "failed",
-                "error": e.detail
-            })
+            results.append({"filename": file.filename, "status": "failed", "error": e.detail})
 
     return {"total": len(files), "results": results}
+
 
 # --- Document Retrieval ---
 @app.get("/documents/{document_id}", response_model=DocumentInDB)
@@ -334,6 +339,7 @@ async def get_document(document_id: str):
 
     return doc
 
+
 @app.get("/documents/{document_id}/download")
 async def download_document(document_id: str):
     """Download document file"""
@@ -346,7 +352,7 @@ async def download_document(document_id: str):
 
     # Read file
     try:
-        async with aiofiles.open(doc.file_path, 'rb') as f:
+        async with aiofiles.open(doc.file_path, "rb") as f:
             content = await f.read()
     except FileNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on disk")
@@ -354,11 +360,9 @@ async def download_document(document_id: str):
     return StreamingResponse(
         iter([content]),
         media_type=doc.mime_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{doc.file_name}"',
-            "Content-Length": str(len(content))
-        }
+        headers={"Content-Disposition": f'attachment; filename="{doc.file_name}"', "Content-Length": str(len(content))},
     )
+
 
 @app.get("/documents/{document_id}/preview")
 async def preview_document(document_id: str):
@@ -369,28 +373,20 @@ async def preview_document(document_id: str):
     doc = documents[document_id]
 
     if not doc.mime_type.startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Preview only available for image files"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Preview only available for image files")
 
     try:
-        async with aiofiles.open(doc.file_path, 'rb') as f:
+        async with aiofiles.open(doc.file_path, "rb") as f:
             content = await f.read()
     except FileNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on disk")
 
-    return StreamingResponse(
-        iter([content]),
-        media_type=doc.mime_type
-    )
+    return StreamingResponse(iter([content]), media_type=doc.mime_type)
+
 
 # --- Document Update ---
 @app.put("/documents/{document_id}", response_model=DocumentInDB)
-async def update_document(
-    document_id: str,
-    update: DocumentUpdate
-):
+async def update_document(document_id: str, update: DocumentUpdate):
     if document_id not in documents:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
@@ -425,6 +421,7 @@ async def update_document(
 
     return doc
 
+
 # --- Document Delete ---
 @app.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(document_id: str, permanent: bool = False):
@@ -453,6 +450,7 @@ async def delete_document(document_id: str, permanent: bool = False):
         doc.deleted_at = datetime.now(timezone.utc)
 
     return {"ok": True}
+
 
 # --- Document Search ---
 @app.post("/documents/search")
@@ -486,10 +484,12 @@ async def search_documents(request: DocumentSearchRequest):
     # Full-text search
     if request.query:
         query_lower = request.query.lower()
-        results = [d for d in results if
-            query_lower in d.title.lower() or
-            (d.description and query_lower in d.description.lower()) or
-            (d.ocr_text and query_lower in d.ocr_text.lower())
+        results = [
+            d
+            for d in results
+            if query_lower in d.title.lower()
+            or (d.description and query_lower in d.description.lower())
+            or (d.ocr_text and query_lower in d.ocr_text.lower())
         ]
 
     # Sort by created_at descending
@@ -497,14 +497,10 @@ async def search_documents(request: DocumentSearchRequest):
 
     # Paginate
     total = len(results)
-    results = results[request.offset:request.offset + request.limit]
+    results = results[request.offset : request.offset + request.limit]
 
-    return {
-        "total": total,
-        "limit": request.limit,
-        "offset": request.offset,
-        "documents": results
-    }
+    return {"total": total, "limit": request.limit, "offset": request.offset, "documents": results}
+
 
 # --- OCR Processing ---
 @app.post("/documents/{document_id}/ocr")
@@ -522,13 +518,14 @@ async def process_ocr(document_id: str, background_tasks: BackgroundTasks):
 
     return {"status": "processing", "document_id": document_id}
 
+
 async def perform_document_ocr(document_id: str):
     """Background task to perform OCR"""
     doc = documents[document_id]
 
     try:
         # Read file content
-        async with aiofiles.open(doc.file_path, 'rb') as f:
+        async with aiofiles.open(doc.file_path, "rb") as f:
             content = await f.read()
 
         # Perform OCR
@@ -548,13 +545,11 @@ async def perform_document_ocr(document_id: str):
 
     doc.updated_at = datetime.now(timezone.utc)
 
+
 # --- Document Listing ---
 @app.get("/documents")
 async def list_documents(
-    document_type: Optional[DocumentType] = None,
-    tag: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0
+    document_type: Optional[DocumentType] = None, tag: Optional[str] = None, limit: int = 50, offset: int = 0
 ):
     """List documents with optional filters"""
     results = [d for d in documents.values() if d.status != DocumentStatus.DELETED]
@@ -567,9 +562,10 @@ async def list_documents(
 
     results.sort(key=lambda x: x.created_at, reverse=True)
     total = len(results)
-    results = results[offset:offset + limit]
+    results = results[offset : offset + limit]
 
     return {"total": total, "documents": results}
+
 
 # --- Document Statistics ---
 @app.get("/statistics")
@@ -596,16 +592,13 @@ async def get_statistics():
         "total_size_bytes": total_size,
         "total_size_mb": round(total_size / (1024 * 1024), 2),
         "by_type": by_type,
-        "by_status": by_status
+        "by_status": by_status,
     }
+
 
 # --- Link Document to Entity ---
 @app.post("/documents/{document_id}/link")
-async def link_document(
-    document_id: str,
-    entity_type: str,
-    entity_id: str
-):
+async def link_document(document_id: str, entity_type: str, entity_id: str):
     """Link a document to another entity (invoice, journal entry, etc.)"""
     if document_id not in documents:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
@@ -620,11 +613,7 @@ async def link_document(
 
 # --- Batch Operations ---
 @app.post("/documents/batch/link")
-async def batch_link_documents(
-    document_ids: List[str],
-    entity_type: str,
-    entity_id: str
-):
+async def batch_link_documents(document_ids: List[str], entity_type: str, entity_id: str):
     """Link multiple documents to an entity"""
     results = []
 
@@ -646,4 +635,5 @@ async def batch_link_documents(
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8096)

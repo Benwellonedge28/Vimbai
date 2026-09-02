@@ -72,6 +72,7 @@ app = FastAPI(
 # Enums
 # ============================================================================
 
+
 class EventType(str, Enum):
     CREATE = "create"
     UPDATE = "update"
@@ -118,6 +119,7 @@ class Severity(str, Enum):
 # ============================================================================
 # Pydantic Models — Audit Trail
 # ============================================================================
+
 
 class AuditEventCreate(BaseModel):
     event_type: EventType
@@ -190,6 +192,7 @@ class DataLineageEdge(BaseModel):
 # Pydantic Models — Compliance
 # ============================================================================
 
+
 class ComplianceCheck(BaseModel):
     check_id: str
     regulation: str
@@ -242,6 +245,7 @@ class ComplianceMonitoringRequest(BaseModel):
 # Pydantic Models — Audit Planning
 # ============================================================================
 
+
 class AuditScope(BaseModel):
     entities: List[str]
     periods: List[str]
@@ -276,6 +280,7 @@ class AuditPlanningRequest(BaseModel):
 # Pydantic Models — Audit Report
 # ============================================================================
 
+
 class Finding(BaseModel):
     finding_id: str
     description: str
@@ -298,6 +303,7 @@ class AuditReportRequest(BaseModel):
 # ============================================================================
 # Pydantic Models — Audit Trails Analysis
 # ============================================================================
+
 
 class AuditEntry(BaseModel):
     entry_id: str
@@ -327,6 +333,7 @@ integrity_chain: List[str] = []
 # Helper Functions
 # ============================================================================
 
+
 def generate_checksum(event_data: Dict) -> str:
     content = json.dumps(event_data, sort_keys=True, default=str)
     return hashlib.sha256(content.encode()).hexdigest()
@@ -350,15 +357,14 @@ def calculate_hash_chain(event_ids: List[str]) -> str:
     for event_id in event_ids:
         event = audit_events.get(event_id)
         if event:
-            chain_hash = hashlib.sha256(
-                (chain_hash + event.checksum).encode()
-            ).hexdigest()
+            chain_hash = hashlib.sha256((chain_hash + event.checksum).encode()).hexdigest()
     return chain_hash
 
 
 # ============================================================================
 # Routes — Health
 # ============================================================================
+
 
 @app.get("/")
 async def health_check():
@@ -373,6 +379,7 @@ async def health():
 # ============================================================================
 # Routes — Audit Trail
 # ============================================================================
+
 
 @app.post("/events", status_code=status.HTTP_201_CREATED)
 async def create_audit_event(event_create: AuditEventCreate):
@@ -436,7 +443,7 @@ async def list_audit_events(
     if event_type:
         events = [e for e in events if e.event_type == event_type]
     events.sort(key=lambda x: x.timestamp, reverse=True)
-    return {"total": len(events), "events": events[offset: offset + limit]}
+    return {"total": len(events), "events": events[offset : offset + limit]}
 
 
 @app.get("/events/{event_id}")
@@ -450,6 +457,7 @@ async def get_audit_event(event_id: str):
 # ============================================================================
 # Routes — Versioning
 # ============================================================================
+
 
 @app.post("/versions/{resource_type}/{resource_id}")
 async def create_version_snapshot(
@@ -489,6 +497,7 @@ async def get_version_history(resource_type: ResourceType, resource_id: str):
 # ============================================================================
 # Routes — Data Lineage
 # ============================================================================
+
 
 @app.get("/lineage/{resource_id}")
 async def get_data_lineage(
@@ -539,6 +548,7 @@ async def get_data_lineage(
 # Routes — Integrity Verification
 # ============================================================================
 
+
 @app.get("/integrity/verify")
 async def verify_integrity():
     """Verify the integrity of the entire audit chain."""
@@ -574,6 +584,7 @@ async def verify_single_event(event_id: str):
 # Routes — Audit Planning
 # ============================================================================
 
+
 @app.post("/planning/plan")
 async def create_audit_plan(request: AuditPlanningRequest):
     """Create an audit plan with materiality, scope, risk assessment, and timeline."""
@@ -606,8 +617,18 @@ async def create_audit_plan(request: AuditPlanningRequest):
             "locations": ["Head Office", "Regional Office 1"],
         },
         "risk_assessment": {
-            "revenue_recognition": {"inherent_risk": "high", "control_risk": "medium", "detection_risk": 0.10, "risk_level": "high"},
-            "inventory": {"inherent_risk": "medium", "control_risk": "low", "detection_risk": 0.05, "risk_level": "medium"},
+            "revenue_recognition": {
+                "inherent_risk": "high",
+                "control_risk": "medium",
+                "detection_risk": 0.10,
+                "risk_level": "high",
+            },
+            "inventory": {
+                "inherent_risk": "medium",
+                "control_risk": "low",
+                "detection_risk": 0.05,
+                "risk_level": "medium",
+            },
         },
         "audit_strategy": {
             "approach": "Risk-based audit approach",
@@ -628,6 +649,7 @@ async def create_audit_plan(request: AuditPlanningRequest):
 # ============================================================================
 # Routes — Audit Report
 # ============================================================================
+
 
 @app.post("/reports/generate")
 async def generate_audit_report(request: AuditReportRequest):
@@ -677,6 +699,7 @@ async def generate_audit_report(request: AuditReportRequest):
 # Routes — Audit Trails Analysis
 # ============================================================================
 
+
 @app.post("/trails/analyze")
 async def analyze_audit_trails(request: AuditTrailsRequest):
     """Analyze audit trail entries for activity patterns and suspicious behaviour."""
@@ -690,9 +713,7 @@ async def analyze_audit_trails(request: AuditTrailsRequest):
 
     activity_by_user = list(by_user.values())
     suspicious = [
-        {"user_id": u["user_id"], "reason": "High activity volume"}
-        for u in activity_by_user
-        if u["actions"] > 100
+        {"user_id": u["user_id"], "reason": "High activity volume"} for u in activity_by_user if u["actions"] > 100
     ]
 
     return {
@@ -712,6 +733,7 @@ async def analyze_audit_trails(request: AuditTrailsRequest):
 # ============================================================================
 # Routes — Compliance Monitoring
 # ============================================================================
+
 
 @app.post("/compliance/monitor")
 async def monitor_compliance(request: ComplianceMonitoringRequest):
@@ -808,11 +830,21 @@ async def generate_compliance_report(report_request: ComplianceReportRequest):
         is_valid, errors = verify_chain_integrity()
         integrity_verified = is_valid
         for error in errors:
-            findings.append({"type": "integrity_error", "severity": Severity.CRITICAL.value, "description": error, "timestamp": now})
+            findings.append(
+                {"type": "integrity_error", "severity": Severity.CRITICAL.value, "description": error, "timestamp": now}
+            )
 
     for user_id, count in events_by_user.items():
         if count > 1000:
-            findings.append({"type": "unusual_activity", "severity": Severity.WARNING.value, "description": f"User {user_id} has {count} events in period", "user_id": user_id, "count": count})
+            findings.append(
+                {
+                    "type": "unusual_activity",
+                    "severity": Severity.WARNING.value,
+                    "description": f"User {user_id} has {count} events in period",
+                    "user_id": user_id,
+                    "count": count,
+                }
+            )
 
     return ComplianceReport(
         report_id=report_id,
@@ -830,6 +862,7 @@ async def generate_compliance_report(report_request: ComplianceReportRequest):
 # ============================================================================
 # Routes — Analytics & Search
 # ============================================================================
+
 
 @app.get("/analytics/summary")
 async def get_audit_summary(
@@ -887,4 +920,5 @@ async def search_audit_events(query: str, fields: Optional[List[str]] = None, li
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

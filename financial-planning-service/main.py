@@ -3,14 +3,17 @@ Financial Planning Service
 Port: 8231
 Comprehensive financial planning and forecasting
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Financial Planning Service", version="1.0.0")
+
 
 class FinancialPlan(BaseModel):
     company_id: str
@@ -21,12 +24,14 @@ class FinancialPlan(BaseModel):
     working_capital_requirements: List[float]
     financing_plan: Dict[str, Any]
 
+
 class FinancialPlanningRequest(BaseModel):
     company_id: str
     fiscal_year: str
     historical_data: Dict[str, Any]
     growth_assumptions: Dict[str, float]
     strategic_initiatives: List[Dict[str, Any]]
+
 
 class FinancialPlanningResponse(BaseModel):
     company_id: str
@@ -35,6 +40,7 @@ class FinancialPlanningResponse(BaseModel):
     key_assumptions: Dict[str, float]
     sensitivity_analysis: Dict[str, List[float]]
     recommendations: List[str]
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -46,9 +52,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "financial-planning", "version": "1.0.0"}
+
 
 @app.post("/plan", response_model=FinancialPlanningResponse)
 async def create_financial_plan(request: FinancialPlanningRequest):
@@ -69,12 +77,12 @@ async def create_financial_plan(request: FinancialPlanningRequest):
         cost_projections=[round(c, 2) for c in cost_projections],
         capital_expenditure_plan=[round(c, 2) for c in capex],
         working_capital_requirements=[round(w, 2) for w in working_capital],
-        financing_plan={"debt_ratio": 0.4, "equity_ratio": 0.6}
+        financing_plan={"debt_ratio": 0.4, "equity_ratio": 0.6},
     )
 
     sensitivity = {
         "revenue_growth": [r * 0.9 for r in revenue_projections],
-        "cost_increase": [c * 1.05 for c in cost_projections]
+        "cost_increase": [c * 1.05 for c in cost_projections],
     }
 
     return FinancialPlanningResponse(
@@ -83,9 +91,15 @@ async def create_financial_plan(request: FinancialPlanningRequest):
         financial_plan=financial_plan,
         key_assumptions=request.growth_assumptions,
         sensitivity_analysis=sensitivity,
-        recommendations=["Monitor revenue growth assumptions quarterly", "Review cost structure annually", "Maintain capital reserve for contingencies"]
+        recommendations=[
+            "Monitor revenue growth assumptions quarterly",
+            "Review cost structure annually",
+            "Maintain capital reserve for contingencies",
+        ],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8231)

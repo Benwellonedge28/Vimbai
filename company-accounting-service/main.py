@@ -5,15 +5,16 @@ shareholder equity, dividends, capital transactions, and company-specific report
 Uses existing services via internal API calls
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
-from enum import Enum
-import uuid
-import httpx
-from decimal import Decimal
 import os
+import uuid
+from datetime import datetime, timezone
+from decimal import Decimal
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+import httpx
+from fastapi import Depends, FastAPI, HTTPException, Query
+from pydantic import BaseModel, Field
 
 app = FastAPI(
     title="Vimbai Company Accounting Service",
@@ -33,6 +34,7 @@ REPORTING_SERVICE_URL = os.getenv("REPORTING_SERVICE_URL", "http://localhost:800
 # ============================================================================
 # Enums
 # ============================================================================
+
 
 class CompanyType(str, Enum):
     SOLE_PROPRIETORSHIP = "sole_proprietorship"
@@ -83,6 +85,7 @@ class CompanyStatus(str, Enum):
 # ============================================================================
 # Pydantic Models
 # ============================================================================
+
 
 class Company(BaseModel):
     id: str
@@ -250,6 +253,7 @@ reserves: Dict[str, List[Reserve]] = {}
 # Internal API Helper Functions
 # ============================================================================
 
+
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None):
     """Call accounting service for core accounting functions"""
     async with httpx.AsyncClient() as client:
@@ -296,6 +300,7 @@ async def call_currency_service(method: str, endpoint: str, data: Optional[Dict]
 # API Endpoints
 # ============================================================================
 
+
 @app.get("/")
 async def health_check():
     """Health check endpoint"""
@@ -309,6 +314,7 @@ async def health_check():
 
 
 # --- Company Management ---
+
 
 @app.post("/companies")
 async def create_company(company: Company):
@@ -328,30 +334,33 @@ async def create_company(company: Company):
     ]
 
     for code, name, acc_type in equity_accounts:
-        await call_accounting_service("POST", "/accounts/", {
-            "account_number": f"{company.company_code}-{code}",
-            "account_name": name,
-            "account_type": acc_type,
-            "description": f"Equity account for {company.company_name}",
-        })
+        await call_accounting_service(
+            "POST",
+            "/accounts/",
+            {
+                "account_number": f"{company.company_code}-{code}",
+                "account_name": name,
+                "account_type": acc_type,
+                "description": f"Equity account for {company.company_name}",
+            },
+        )
 
     # Log to audit
-    await call_audit_service({
-        "event_type": "create",
-        "resource_type": "company",
-        "resource_id": company.id,
-        "user_id": "system",
-        "action_details": {"company_name": company.company_name, "type": company.company_type.value},
-    })
+    await call_audit_service(
+        {
+            "event_type": "create",
+            "resource_type": "company",
+            "resource_id": company.id,
+            "user_id": "system",
+            "action_details": {"company_name": company.company_name, "type": company.company_type.value},
+        }
+    )
 
     return company
 
 
 @app.get("/companies")
-async def list_companies(
-    company_type: Optional[CompanyType] = None,
-    status: Optional[CompanyStatus] = None
-):
+async def list_companies(company_type: Optional[CompanyType] = None, status: Optional[CompanyStatus] = None):
     """List all companies"""
     results = list(companies.values())
 
@@ -386,6 +395,7 @@ async def update_company(company_id: str, company: Company):
 
 # --- Shareholder Management ---
 
+
 @app.post("/shareholders")
 async def register_shareholder(shareholder: Shareholder):
     """Register a new shareholder"""
@@ -401,10 +411,7 @@ async def register_shareholder(shareholder: Shareholder):
 
 
 @app.get("/shareholders")
-async def list_shareholders(
-    company_id: Optional[str] = None,
-    share_class: Optional[ShareClass] = None
-):
+async def list_shareholders(company_id: Optional[str] = None, share_class: Optional[ShareClass] = None):
     """List shareholders"""
     results = list(shareholders.values())
 
@@ -428,6 +435,7 @@ async def recalculate_shareholding_percentages(company_id: str):
 
 # --- Share Capital Management ---
 
+
 @app.post("/share-capital")
 async def create_share_capital(share_capital: ShareCapital):
     """Create share capital record"""
@@ -435,7 +443,9 @@ async def create_share_capital(share_capital: ShareCapital):
     share_capital.created_at = datetime.now(timezone.utc)
 
     # Calculate totals
-    share_capital.total_paid_up_capital = Decimal(str(share_capital.issued_shares)) * share_capital.paid_up_value_per_share
+    share_capital.total_paid_up_capital = (
+        Decimal(str(share_capital.issued_shares)) * share_capital.paid_up_value_per_share
+    )
 
     share_capitals[share_capital.id] = share_capital
 
@@ -450,6 +460,7 @@ async def get_share_capital(company_id: str):
 
 
 # --- Capital Transactions ---
+
 
 @app.post("/capital-transactions")
 async def record_capital_transaction(transaction: CapitalTransaction):
@@ -481,12 +492,14 @@ async def record_capital_transaction(transaction: CapitalTransaction):
                 },
             ]
             if transaction.share_premium_amount:
-                journal_lines.append({
-                    "account_code": f"{company.company_code}-SHARE_PREMIUM",
-                    "description": "Share premium",
-                    "debit": False,
-                    "amount": str(transaction.share_premium_amount),
-                })
+                journal_lines.append(
+                    {
+                        "account_code": f"{company.company_code}-SHARE_PREMIUM",
+                        "description": "Share premium",
+                        "debit": False,
+                        "amount": str(transaction.share_premium_amount),
+                    }
+                )
 
         elif transaction.transaction_type == CapitalTransactionType.DIVIDEND_PAYMENT:
             journal_lines = [
@@ -505,12 +518,16 @@ async def record_capital_transaction(transaction: CapitalTransaction):
             ]
 
         if journal_lines:
-            journal_result = await call_accounting_service("POST", "/journal-entries/", {
-                "description": transaction.reason or f"Capital transaction: {transaction.transaction_type.value}",
-                "reference": transaction.reference_number,
-                "date": transaction.transaction_date.isoformat(),
-                "lines": journal_lines,
-            })
+            journal_result = await call_accounting_service(
+                "POST",
+                "/journal-entries/",
+                {
+                    "description": transaction.reason or f"Capital transaction: {transaction.transaction_type.value}",
+                    "reference": transaction.reference_number,
+                    "date": transaction.transaction_date.isoformat(),
+                    "lines": journal_lines,
+                },
+            )
             transaction.journal_entry_id = journal_result.get("id")
 
     return transaction
@@ -521,7 +538,7 @@ async def list_capital_transactions(
     company_id: Optional[str] = None,
     transaction_type: Optional[CapitalTransactionType] = None,
     start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None,
 ):
     """List capital transactions"""
     results = list(capital_transactions.values())
@@ -540,6 +557,7 @@ async def list_capital_transactions(
 
 
 # --- Dividend Management ---
+
 
 @app.post("/dividends")
 async def declare_dividend(dividend: Dividend):
@@ -575,25 +593,29 @@ async def declare_dividend(dividend: Dividend):
     # Create journal entry
     company = companies.get(dividend.company_id)
     if company:
-        await call_accounting_service("POST", "/journal-entries/", {
-            "description": f"Dividend declared - {dividend.dividend_type.value}",
-            "reference": f"DIV-{dividend.id[:8]}",
-            "date": dividend.declaration_date.isoformat(),
-            "lines": [
-                {
-                    "account_code": f"{company.company_code}-PROFIT_LOSS_CURRENT",
-                    "description": "Proposed dividend",
-                    "debit": True,
-                    "amount": str(dividend.total_amount),
-                },
-                {
-                    "account_code": f"{company.company_code}-DIVIDEND_PAYABLE",
-                    "description": "Dividend payable",
-                    "debit": False,
-                    "amount": str(dividend.total_amount),
-                },
-            ],
-        })
+        await call_accounting_service(
+            "POST",
+            "/journal-entries/",
+            {
+                "description": f"Dividend declared - {dividend.dividend_type.value}",
+                "reference": f"DIV-{dividend.id[:8]}",
+                "date": dividend.declaration_date.isoformat(),
+                "lines": [
+                    {
+                        "account_code": f"{company.company_code}-PROFIT_LOSS_CURRENT",
+                        "description": "Proposed dividend",
+                        "debit": True,
+                        "amount": str(dividend.total_amount),
+                    },
+                    {
+                        "account_code": f"{company.company_code}-DIVIDEND_PAYABLE",
+                        "description": "Dividend payable",
+                        "debit": False,
+                        "amount": str(dividend.total_amount),
+                    },
+                ],
+            },
+        )
 
     return dividend
 
@@ -630,31 +652,35 @@ async def pay_dividend(dividend_id: str, approved_by: str):
     # Create journal entry
     company = companies.get(dividend.company_id)
     if company:
-        await call_accounting_service("POST", "/journal-entries/", {
-            "description": f"Dividend payment - {dividend.dividend_type.value}",
-            "reference": f"DIV-PAY-{dividend.id[:8]}",
-            "date": datetime.now().isoformat(),
-            "lines": [
-                {
-                    "account_code": f"{company.company_code}-DIVIDEND_PAYABLE",
-                    "description": "Clear dividend payable",
-                    "debit": True,
-                    "amount": str(dividend.total_amount),
-                },
-                {
-                    "account_code": f"{company.company_code}-BANK",
-                    "description": "Cash paid for dividends",
-                    "debit": False,
-                    "amount": str(dividend.net_payment),
-                },
-                {
-                    "account_code": f"{company.company_code}-TAX",
-                    "description": "Tax withheld on dividends",
-                    "debit": False,
-                    "amount": str(dividend.tax_withheld),
-                },
-            ],
-        })
+        await call_accounting_service(
+            "POST",
+            "/journal-entries/",
+            {
+                "description": f"Dividend payment - {dividend.dividend_type.value}",
+                "reference": f"DIV-PAY-{dividend.id[:8]}",
+                "date": datetime.now().isoformat(),
+                "lines": [
+                    {
+                        "account_code": f"{company.company_code}-DIVIDEND_PAYABLE",
+                        "description": "Clear dividend payable",
+                        "debit": True,
+                        "amount": str(dividend.total_amount),
+                    },
+                    {
+                        "account_code": f"{company.company_code}-BANK",
+                        "description": "Cash paid for dividends",
+                        "debit": False,
+                        "amount": str(dividend.net_payment),
+                    },
+                    {
+                        "account_code": f"{company.company_code}-TAX",
+                        "description": "Tax withheld on dividends",
+                        "debit": False,
+                        "amount": str(dividend.tax_withheld),
+                    },
+                ],
+            },
+        )
 
     return dividend
 
@@ -667,6 +693,7 @@ async def get_dividend_payments(dividend_id: str):
 
 # --- Retained Earnings ---
 
+
 @app.post("/retained-earnings")
 async def calculate_retained_earnings(entry: RetainedEarnings):
     """Calculate and record retained earnings"""
@@ -675,11 +702,11 @@ async def calculate_retained_earnings(entry: RetainedEarnings):
 
     # Calculate closing balance
     entry.closing_balance = (
-        entry.opening_balance +
-        entry.net_profit_for_period -
-        entry.dividends_declared +
-        entry.prior_year_adjustments -
-        entry.transfers_to_reserves
+        entry.opening_balance
+        + entry.net_profit_for_period
+        - entry.dividends_declared
+        + entry.prior_year_adjustments
+        - entry.transfers_to_reserves
     )
 
     if entry.company_id not in retained_earnings:
@@ -698,6 +725,7 @@ async def get_retained_earnings(company_id: str):
 
 
 # --- Reserves ---
+
 
 @app.post("/reserves")
 async def create_reserve(reserve: Reserve):
@@ -722,6 +750,7 @@ async def get_reserves(company_id: str):
 
 
 # --- Reports ---
+
 
 @app.get("/reports/equity-statement/{company_id}")
 async def get_equity_statement(company_id: str, as_of_date: datetime):
@@ -748,12 +777,14 @@ async def get_equity_statement(company_id: str, as_of_date: datetime):
     movements = []
     for transaction in capital_transactions.values():
         if transaction.company_id == company_id and transaction.transaction_date <= as_of_date:
-            movements.append({
-                "date": transaction.transaction_date.isoformat(),
-                "type": transaction.transaction_type.value,
-                "description": transaction.reason,
-                "amount": str(transaction.total_amount),
-            })
+            movements.append(
+                {
+                    "date": transaction.transaction_date.isoformat(),
+                    "type": transaction.transaction_type.value,
+                    "description": transaction.reason,
+                    "amount": str(transaction.total_amount),
+                }
+            )
 
     total_equity = share_capital_amount + share_premium_amount + total_reserves + current_re
 
@@ -814,4 +845,5 @@ async def get_dividend_history(company_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8101)

@@ -3,20 +3,24 @@ Annual Report Service
 Port: 8210
 Annual report preparation and compliance checklist
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Annual Report Service", version="1.0.0")
+
 
 class ReportSection(BaseModel):
     section_name: str
     required: bool
     completed: bool
     status: str
+
 
 class AnnualReportRequest(BaseModel):
     company_id: str
@@ -26,6 +30,7 @@ class AnnualReportRequest(BaseModel):
     sections_included: List[Dict[str, Any]]
     audit_opinion: str
     regulatory_filings: List[str]
+
 
 class AnnualReportResponse(BaseModel):
     company_id: str
@@ -39,6 +44,7 @@ class AnnualReportResponse(BaseModel):
     outstanding_items: List[str]
     recommendations: List[str]
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -49,9 +55,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "annual-report", "version": "1.0.0"}
+
 
 @app.post("/prepare", response_model=AnnualReportResponse)
 async def prepare_annual_report(request: AnnualReportRequest):
@@ -68,17 +76,19 @@ async def prepare_annual_report(request: AnnualReportRequest):
         else:
             pending += 1
 
-        sections.append(ReportSection(
-            section_name=section.get("name", ""),
-            required=section.get("required", True),
-            completed=status == "completed",
-            status=status
-        ))
+        sections.append(
+            ReportSection(
+                section_name=section.get("name", ""),
+                required=section.get("required", True),
+                completed=status == "completed",
+                status=status,
+            )
+        )
 
     regulatory_filings = {
         "sec_filing": "SEC Filing" in request.regulatory_filings,
         "stock_exchange": "Stock Exchange" in request.regulatory_filings,
-        "tax_return": "Tax Return" in request.regulatory_filings
+        "tax_return": "Tax Return" in request.regulatory_filings,
     }
 
     outstanding = [s.section_name for s in sections if not s.completed and s.required]
@@ -98,17 +108,23 @@ async def prepare_annual_report(request: AnnualReportRequest):
         filing_deadlines={
             "annual_report": f"{request.fiscal_year}-04-30",
             "sec_filing": f"{request.fiscal_year}-03-31",
-            "agm": f"{request.fiscal_year}-06-30"
+            "agm": f"{request.fiscal_year}-06-30",
         },
         outstanding_items=outstanding if outstanding else ["All required sections completed"],
-        recommendations=[
-            "Complete all pending sections before filing deadline",
-            "Obtain board approval for annual report",
-            "Ensure audit opinion is attached",
-            "Submit regulatory filings on time"
-        ] if pending > 0 else ["Proceed with report publication"]
+        recommendations=(
+            [
+                "Complete all pending sections before filing deadline",
+                "Obtain board approval for annual report",
+                "Ensure audit opinion is attached",
+                "Submit regulatory filings on time",
+            ]
+            if pending > 0
+            else ["Proceed with report publication"]
+        ),
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8210)

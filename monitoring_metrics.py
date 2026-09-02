@@ -23,18 +23,24 @@ Usage:
         ...
 """
 
-from typing import Callable, Optional, Dict, Any
-from functools import wraps
-import time
-import psutil
 import os
+import time
+from functools import wraps
+from typing import Any, Callable, Dict, Optional
+
+import psutil
 
 # Prometheus metrics library
 try:
     from prometheus_client import (
-        Counter, Histogram, Gauge, Summary,
-        CollectorRegistry, generate_latest,
-        CONTENT_TYPE_LATEST, REGISTRY
+        CONTENT_TYPE_LATEST,
+        REGISTRY,
+        CollectorRegistry,
+        Counter,
+        Gauge,
+        Histogram,
+        Summary,
+        generate_latest,
     )
 except ImportError:
     print("Install prometheus-client: pip install prometheus-client")
@@ -61,7 +67,7 @@ http_requests_total = Counter(
     "vimbai_http_requests_total",
     "Total number of HTTP requests",
     ["method", "endpoint", "status_code", "service"],
-    registry=REGISTRY
+    registry=REGISTRY,
 )
 
 # HTTP Request Duration (Histogram)
@@ -70,7 +76,7 @@ http_request_duration_seconds = Histogram(
     "HTTP request duration in seconds",
     ["method", "endpoint", "service"],
     buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
-    registry=REGISTRY
+    registry=REGISTRY,
 )
 
 # HTTP Request Size
@@ -79,7 +85,7 @@ http_request_size_bytes = Histogram(
     "HTTP request size in bytes",
     ["method", "endpoint", "service"],
     buckets=[100, 500, 1000, 5000, 10000, 50000, 100000],
-    registry=REGISTRY
+    registry=REGISTRY,
 )
 
 # HTTP Response Size
@@ -88,7 +94,7 @@ http_response_size_bytes = Histogram(
     "HTTP response size in bytes",
     ["method", "endpoint", "service"],
     buckets=[100, 500, 1000, 5000, 10000, 50000, 100000, 500000],
-    registry=REGISTRY
+    registry=REGISTRY,
 )
 
 
@@ -98,10 +104,7 @@ http_response_size_bytes = Histogram(
 
 # Database Query Counter
 db_queries_total = Counter(
-    "vimbai_db_queries_total",
-    "Total number of database queries",
-    ["operation", "status", "service"],
-    registry=REGISTRY
+    "vimbai_db_queries_total", "Total number of database queries", ["operation", "status", "service"], registry=REGISTRY
 )
 
 # Database Query Duration
@@ -110,22 +113,16 @@ db_query_duration_seconds = Histogram(
     "Database query duration in seconds",
     ["operation", "service"],
     buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
-    registry=REGISTRY
+    registry=REGISTRY,
 )
 
 # Database Connection Pool
 db_connection_pool_size = Gauge(
-    "vimbai_db_connection_pool_size",
-    "Database connection pool size",
-    ["service"],
-    registry=REGISTRY
+    "vimbai_db_connection_pool_size", "Database connection pool size", ["service"], registry=REGISTRY
 )
 
 db_connection_pool_used = Gauge(
-    "vimbai_db_connection_pool_used",
-    "Database connection pool used connections",
-    ["service"],
-    registry=REGISTRY
+    "vimbai_db_connection_pool_used", "Database connection pool used connections", ["service"], registry=REGISTRY
 )
 
 
@@ -138,15 +135,12 @@ transactions_total = Counter(
     "vimbai_transactions_total",
     "Total number of financial transactions",
     ["type", "status", "service"],
-    registry=REGISTRY
+    registry=REGISTRY,
 )
 
 # Journal Entries
 journal_entries_total = Counter(
-    "vimbai_journal_entries_total",
-    "Total number of journal entries created",
-    ["status", "service"],
-    registry=REGISTRY
+    "vimbai_journal_entries_total", "Total number of journal entries created", ["status", "service"], registry=REGISTRY
 )
 
 # Account Operations
@@ -154,23 +148,15 @@ account_operations_total = Counter(
     "vimbai_account_operations_total",
     "Total number of account operations",
     ["operation", "status", "service"],
-    registry=REGISTRY
+    registry=REGISTRY,
 )
 
 # NPO-specific metrics
 donations_total = Counter(
-    "vimbai_donations_total",
-    "Total number of donations received",
-    ["type", "status"],
-    registry=REGISTRY
+    "vimbai_donations_total", "Total number of donations received", ["type", "status"], registry=REGISTRY
 )
 
-grants_total = Counter(
-    "vimbai_grants_total",
-    "Total number of grants",
-    ["status", "fund_type"],
-    registry=REGISTRY
-)
+grants_total = Counter("vimbai_grants_total", "Total number of grants", ["status", "fund_type"], registry=REGISTRY)
 
 
 # =============================================================================
@@ -179,26 +165,17 @@ grants_total = Counter(
 
 # Error Counter
 errors_total = Counter(
-    "vimbai_errors_total",
-    "Total number of errors",
-    ["error_type", "endpoint", "service"],
-    registry=REGISTRY
+    "vimbai_errors_total", "Total number of errors", ["error_type", "endpoint", "service"], registry=REGISTRY
 )
 
 # Validation Errors
 validation_errors_total = Counter(
-    "vimbai_validation_errors_total",
-    "Total number of validation errors",
-    ["field", "service"],
-    registry=REGISTRY
+    "vimbai_validation_errors_total", "Total number of validation errors", ["field", "service"], registry=REGISTRY
 )
 
 # Database Errors
 db_errors_total = Counter(
-    "vimbai_db_errors_total",
-    "Total number of database errors",
-    ["operation", "service"],
-    registry=REGISTRY
+    "vimbai_db_errors_total", "Total number of database errors", ["operation", "service"], registry=REGISTRY
 )
 
 
@@ -207,35 +184,17 @@ db_errors_total = Counter(
 # =============================================================================
 
 # CPU Usage
-cpu_usage_percent = Gauge(
-    "vimbai_cpu_usage_percent",
-    "CPU usage percentage",
-    ["service"],
-    registry=REGISTRY
-)
+cpu_usage_percent = Gauge("vimbai_cpu_usage_percent", "CPU usage percentage", ["service"], registry=REGISTRY)
 
 # Memory Usage
-memory_usage_bytes = Gauge(
-    "vimbai_memory_usage_bytes",
-    "Memory usage in bytes",
-    ["service"],
-    registry=REGISTRY
-)
+memory_usage_bytes = Gauge("vimbai_memory_usage_bytes", "Memory usage in bytes", ["service"], registry=REGISTRY)
 
 # Disk Usage
-disk_usage_percent = Gauge(
-    "vimbai_disk_usage_percent",
-    "Disk usage percentage",
-    ["service"],
-    registry=REGISTRY
-)
+disk_usage_percent = Gauge("vimbai_disk_usage_percent", "Disk usage percentage", ["service"], registry=REGISTRY)
 
 # Active Connections
 active_connections = Gauge(
-    "vimbai_active_connections",
-    "Number of active connections",
-    ["type", "service"],
-    registry=REGISTRY
+    "vimbai_active_connections", "Number of active connections", ["type", "service"], registry=REGISTRY
 )
 
 
@@ -244,25 +203,16 @@ active_connections = Gauge(
 # =============================================================================
 
 # Request Rate (requests per second)
-request_rate = Gauge(
-    "vimbai_request_rate",
-    "Current request rate per second",
-    ["service"],
-    registry=REGISTRY
-)
+request_rate = Gauge("vimbai_request_rate", "Current request rate per second", ["service"], registry=REGISTRY)
 
 # Error Rate (errors per second)
-error_rate = Gauge(
-    "vimbai_error_rate",
-    "Current error rate per second",
-    ["service"],
-    registry=REGISTRY
-)
+error_rate = Gauge("vimbai_error_rate", "Current error rate per second", ["service"], registry=REGISTRY)
 
 
 # =============================================================================
 # CUSTOM METRICS REGISTRY
 # =============================================================================
+
 
 class MetricsRegistry:
     """
@@ -276,43 +226,28 @@ class MetricsRegistry:
     def register_counter(cls, name: str, description: str, labels: list = None):
         """Register a custom counter metric."""
         if name not in cls._custom_metrics:
-            cls._custom_metrics[name] = Counter(
-                name,
-                description,
-                labels or [],
-                registry=REGISTRY
-            )
+            cls._custom_metrics[name] = Counter(name, description, labels or [], registry=REGISTRY)
         return cls._custom_metrics[name]
 
     @classmethod
     def register_histogram(cls, name: str, description: str, labels: list = None, buckets=None):
         """Register a custom histogram metric."""
         if name not in cls._custom_metrics:
-            cls._custom_metrics[name] = Histogram(
-                name,
-                description,
-                labels or [],
-                buckets=buckets,
-                registry=REGISTRY
-            )
+            cls._custom_metrics[name] = Histogram(name, description, labels or [], buckets=buckets, registry=REGISTRY)
         return cls._custom_metrics[name]
 
     @classmethod
     def register_gauge(cls, name: str, description: str, labels: list = None):
         """Register a custom gauge metric."""
         if name not in cls._custom_metrics:
-            cls._custom_metrics[name] = Gauge(
-                name,
-                description,
-                labels or [],
-                registry=REGISTRY
-            )
+            cls._custom_metrics[name] = Gauge(name, description, labels or [], registry=REGISTRY)
         return cls._custom_metrics[name]
 
 
 # =============================================================================
 # DECORATORS AND UTILITIES
 # =============================================================================
+
 
 def track_request_duration(service: str):
     """
@@ -323,6 +258,7 @@ def track_request_duration(service: str):
         async def my_endpoint():
             ...
     """
+
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -331,21 +267,16 @@ def track_request_duration(service: str):
                 result = await func(*args, **kwargs)
                 return result
             except Exception as e:
-                errors_total.labels(
-                    error_type=type(e).__name__,
-                    endpoint=func.__name__,
-                    service=service
-                ).inc()
+                errors_total.labels(error_type=type(e).__name__, endpoint=func.__name__, service=service).inc()
                 raise
             finally:
                 duration = time.time() - start_time
                 http_request_duration_seconds.labels(
-                    method="POST",  # Default, can be updated
-                    endpoint=func.__name__,
-                    service=service
+                    method="POST", endpoint=func.__name__, service=service  # Default, can be updated
                 ).observe(duration)
 
         return wrapper
+
     return decorator
 
 
@@ -358,37 +289,25 @@ def track_db_query(operation: str, service: str):
         async def create_account(db, data):
             ...
     """
+
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(*args, **kwargs):
             start_time = time.time()
             try:
                 result = await func(*args, **kwargs)
-                db_queries_total.labels(
-                    operation=operation,
-                    status="success",
-                    service=service
-                ).inc()
+                db_queries_total.labels(operation=operation, status="success", service=service).inc()
                 return result
             except Exception as e:
-                db_queries_total.labels(
-                    operation=operation,
-                    status="error",
-                    service=service
-                ).inc()
-                db_errors_total.labels(
-                    operation=operation,
-                    service=service
-                ).inc()
+                db_queries_total.labels(operation=operation, status="error", service=service).inc()
+                db_errors_total.labels(operation=operation, service=service).inc()
                 raise
             finally:
                 duration = time.time() - start_time
-                db_query_duration_seconds.labels(
-                    operation=operation,
-                    service=service
-                ).observe(duration)
+                db_query_duration_seconds.labels(operation=operation, service=service).observe(duration)
 
         return wrapper
+
     return decorator
 
 
@@ -408,6 +327,7 @@ def increment_counter(metric: Counter, labels: Dict[str, str]):
 # =============================================================================
 # SYSTEM METRICS COLLECTOR
 # =============================================================================
+
 
 class SystemMetricsCollector:
     """
@@ -442,13 +362,14 @@ class SystemMetricsCollector:
         memory_usage_bytes.labels(service=self.service_name).set(memory.used)
 
         # Disk usage
-        disk = psutil.disk_usage('/')
+        disk = psutil.disk_usage("/")
         disk_usage_percent.labels(service=self.service_name).set(disk.percent)
 
 
 # =============================================================================
 # METRICS EXPOSITION
 # =============================================================================
+
 
 def get_metrics() -> bytes:
     """
@@ -474,6 +395,7 @@ def get_metrics_content_type() -> str:
 # FASTAPI INTEGRATION
 # =============================================================================
 
+
 async def setup_metrics(app, service_name: str = "vimbai"):
     """
     Setup Prometheus metrics endpoint for FastAPI application.
@@ -487,10 +409,7 @@ async def setup_metrics(app, service_name: str = "vimbai"):
     @app.get("/metrics")
     async def metrics_endpoint():
         """Prometheus metrics endpoint."""
-        return Response(
-            content=get_metrics(),
-            media_type=get_metrics_content_type()
-        )
+        return Response(content=get_metrics(), media_type=get_metrics_content_type())
 
     # Start system metrics collector
     collector = SystemMetricsCollector(service_name)
@@ -500,6 +419,7 @@ async def setup_metrics(app, service_name: str = "vimbai"):
 # =============================================================================
 # MIDDLEWARE FOR AUTOMATIC METRICS
 # =============================================================================
+
 
 class MetricsMiddleware:
     """
@@ -543,23 +463,16 @@ class MetricsMiddleware:
 
             # Record metrics
             http_requests_total.labels(
-                method=method,
-                endpoint=path,
-                status_code=status_code,
-                service=self.service_name
+                method=method, endpoint=path, status_code=status_code, service=self.service_name
             ).inc()
 
-            http_request_duration_seconds.labels(
-                method=method,
-                endpoint=path,
-                service=self.service_name
-            ).observe(duration)
+            http_request_duration_seconds.labels(method=method, endpoint=path, service=self.service_name).observe(
+                duration
+            )
 
-            http_response_size_bytes.labels(
-                method=method,
-                endpoint=path,
-                service=self.service_name
-            ).observe(response_size)
+            http_response_size_bytes.labels(method=method, endpoint=path, service=self.service_name).observe(
+                response_size
+            )
 
 
 # =============================================================================
@@ -568,18 +481,12 @@ class MetricsMiddleware:
 
 # Service Health Status
 service_health = Gauge(
-    "vimbai_service_health",
-    "Service health status (1=healthy, 0=unhealthy)",
-    ["service"],
-    registry=REGISTRY
+    "vimbai_service_health", "Service health status (1=healthy, 0=unhealthy)", ["service"], registry=REGISTRY
 )
 
 # Database Health
 database_health = Gauge(
-    "vimbai_database_health",
-    "Database health status (1=healthy, 0=unhealthy)",
-    ["service"],
-    registry=REGISTRY
+    "vimbai_database_health", "Database health status (1=healthy, 0=unhealthy)", ["service"], registry=REGISTRY
 )
 
 

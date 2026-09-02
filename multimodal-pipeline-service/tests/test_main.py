@@ -2,9 +2,11 @@
 Vimbai Multimodal Pipeline Service - Test Suite
 Tests: task CRUD, document OCR, audio processing, corrections
 """
-import pytest
+
 import os
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 os.environ["JWT_SECRET"] = "test-secret-key-for-testing-only"
@@ -17,24 +19,27 @@ client = TestClient(app)
 
 @pytest.fixture
 def auth_headers():
+    from datetime import datetime, timedelta, timezone
+
     import jwt as pyjwt
-    from datetime import datetime, timezone, timedelta
+
     token = pyjwt.encode(
-        {"user_id": "test-user-id", "username": "testuser", "role": "admin",
-         "permissions": ["multimodal:view", "multimodal:create", "multimodal:edit", "multimodal:delete"],
-         "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
-        os.environ["JWT_SECRET"], algorithm="HS256"
+        {
+            "user_id": "test-user-id",
+            "username": "testuser",
+            "role": "admin",
+            "permissions": ["multimodal:view", "multimodal:create", "multimodal:edit", "multimodal:delete"],
+            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        },
+        os.environ["JWT_SECRET"],
+        algorithm="HS256",
     )
     return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
 def valid_task():
-    return {
-        "input_type": "text",
-        "input_data": "Sample invoice text for processing",
-        "user_id": "test-user-id"
-    }
+    return {"input_type": "text", "input_data": "Sample invoice text for processing", "user_id": "test-user-id"}
 
 
 class TestHealthCheck:
@@ -75,11 +80,10 @@ class TestTaskCRUD:
 
 class TestCorrections:
     def test_submit_correction_no_auth(self):
-        response = client.post("/tasks/test-task-id/corrections", json={
-            "field_name": "amount",
-            "original_value": "100.00",
-            "corrected_value": "150.00"
-        })
+        response = client.post(
+            "/tasks/test-task-id/corrections",
+            json={"field_name": "amount", "original_value": "100.00", "corrected_value": "150.00"},
+        )
         assert response.status_code in [401, 403]
 
     def test_get_corrections_no_auth(self):

@@ -6,12 +6,13 @@ Provides common middleware for all services:
 - Error handling
 - CORS configuration
 """
-import os
-import uuid
-import time
+
 import logging
-from typing import Optional, Callable
+import os
+import time
+import uuid
 from contextvars import ContextVar
+from typing import Callable, Optional
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,16 +26,16 @@ service_name_ctx: ContextVar[str] = ContextVar("service_name", default="")
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
     """Injects a request ID into every request for correlation across services."""
-    
+
     async def dispatch(self, request: Request, call_next: Callable):
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
         request_id_ctx.set(request_id)
-        
+
         # Extract company_id from headers or path params
         company_id = request.headers.get("X-Company-ID", "")
         if company_id:
             company_id_ctx.set(company_id)
-        
+
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
         return response
@@ -42,19 +43,19 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Logs every request with timing, method, path, and status code."""
-    
+
     async def dispatch(self, request: Request, call_next: Callable):
         start_time = time.time()
         service = service_name_ctx.get() or os.getenv("SERVICE_NAME", "unknown")
-        
+
         # Skip health checks to reduce noise
         if request.url.path in ("/health", "/", "/metrics"):
             return await call_next(request)
-        
+
         try:
             response = await call_next(request)
             duration_ms = (time.time() - start_time) * 1000
-            
+
             logging.info(
                 f"request_completed service={service} method={request.method} "
                 f"path={request.url.path} status={response.status_code} "
@@ -75,7 +76,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
 class ErrorHandlerMiddleware(BaseHTTPMiddleware):
     """Catches unhandled exceptions and returns a standardized error response."""
-    
+
     async def dispatch(self, request: Request, call_next: Callable):
         try:
             return await call_next(request)
@@ -89,7 +90,7 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
             return Response(
                 content=f'{{"detail": "Internal server error", "code": "INTERNAL_ERROR", "request_id": "{request_id}"}}',
                 status_code=500,
-                media_type="application/json"
+                media_type="application/json",
             )
 
 
@@ -102,7 +103,7 @@ def setup_middleware(
 ):
     """
     Configure all standard middleware for a Vimbai service.
-    
+
     Args:
         app: FastAPI app instance
         service_name: Name of the service for logging
@@ -112,7 +113,7 @@ def setup_middleware(
     """
     service_name_ctx.set(service_name)
     os.environ["SERVICE_NAME"] = service_name
-    
+
     # CORS
     origins = cors_origins or os.getenv("CORS_ORIGINS", "*").split(",")
     app.add_middleware(
@@ -123,18 +124,18 @@ def setup_middleware(
         allow_headers=["*"],
         expose_headers=["X-Request-ID"],
     )
-    
+
     # Request ID (always first, so other middleware can access it)
     app.add_middleware(RequestIDMiddleware)
-    
+
     # Error handler (catches exceptions, returns clean JSON)
     if enable_error_handler:
         app.add_middleware(ErrorHandlerMiddleware)
-    
+
     # Request logging (outermost, so it can time the full request)
     if enable_logging:
         app.add_middleware(RequestLoggingMiddleware)
-    
+
     logging.info(f"Middleware configured for {service_name}")
 
 

@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Right Issues Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class RightIssue(BaseModel):
@@ -90,17 +98,29 @@ async def root():
 
 @app.post("/offer")
 async def offer_rights(
-    company_id: str, issue_date: datetime, expiry_date: datetime, share_class: str,
-    rights_offered: int, new_shares_offered: int, issue_price: float, nominal_value: float,
-    entitlements: Dict[str, int], renouncement_allowed: bool = True
+    company_id: str,
+    issue_date: datetime,
+    expiry_date: datetime,
+    share_class: str,
+    rights_offered: int,
+    new_shares_offered: int,
+    issue_price: float,
+    nominal_value: float,
+    entitlements: Dict[str, int],
+    renouncement_allowed: bool = True,
 ):
     """Offer rights issue to existing shareholders."""
     right_issue = RightIssue(
-        company_id=company_id, issue_date=issue_date, expiry_date=expiry_date,
-        share_class=share_class, rights_offered=rights_offered,
-        new_shares_offered=new_shares_offered, issue_price=issue_price,
-        nominal_value=nominal_value, entitlements=entitlements,
-        renouncement_allowed=renouncement_allowed
+        company_id=company_id,
+        issue_date=issue_date,
+        expiry_date=expiry_date,
+        share_class=share_class,
+        rights_offered=rights_offered,
+        new_shares_offered=new_shares_offered,
+        issue_price=issue_price,
+        nominal_value=nominal_value,
+        entitlements=entitlements,
+        renouncement_allowed=renouncement_allowed,
     )
     right_issue.total_proceeds = new_shares_offered * issue_price
     right_issues.append(right_issue)
@@ -122,16 +142,28 @@ async def accept_rights(right_issue_id: str, shareholder_id: str, shares_accepte
         "description": f"Acceptance of rights issue - {shares_accepted} shares",
         "entries": [
             {"account_code": "1000", "description": "Bank", "debit": acceptance_value, "credit": 0},
-            {"account_code": "3200", "description": "Share Capital", "debit": 0, "credit": shares_accepted * right_issue.nominal_value},
-            {"account_code": "3210", "description": "Share Premium", "debit": 0, "credit": acceptance_value - (shares_accepted * right_issue.nominal_value)},
+            {
+                "account_code": "3200",
+                "description": "Share Capital",
+                "debit": 0,
+                "credit": shares_accepted * right_issue.nominal_value,
+            },
+            {
+                "account_code": "3210",
+                "description": "Share Premium",
+                "debit": 0,
+                "credit": acceptance_value - (shares_accepted * right_issue.nominal_value),
+            },
         ],
-        "reference": f"RIGHT-ACCEPT-{right_issue_id[:8]}"
+        "reference": f"RIGHT-ACCEPT-{right_issue_id[:8]}",
     }
     await call_accounting_service("POST", "/journal-entries", journal_entry)
 
-    if all(right_issue.entitlements.get(sh, 0) == right_issue.acceptances.get(sh, 0) +
-           sum(1 for orig, new in right_issue.renunciations.items() if orig == sh)
-           for sh in right_issue.entitlements):
+    if all(
+        right_issue.entitlements.get(sh, 0)
+        == right_issue.acceptances.get(sh, 0) + sum(1 for orig, new in right_issue.renunciations.items() if orig == sh)
+        for sh in right_issue.entitlements
+    ):
         right_issue.status = "completed"
 
     return right_issue
@@ -139,8 +171,11 @@ async def accept_rights(right_issue_id: str, shareholder_id: str, shares_accepte
 
 @app.post("/{right_issue_id}/renounce")
 async def renounce_rights(
-    right_issue_id: str, shareholder_id: str, new_shareholder_id: str,
-    renunciation_price: float, renunciation_date: datetime
+    right_issue_id: str,
+    shareholder_id: str,
+    new_shareholder_id: str,
+    renunciation_price: float,
+    renunciation_date: datetime,
 ):
     """Record renunciation of rights to another party."""
     right_issue = next((r for r in right_issues if r.id == right_issue_id), None)
@@ -151,9 +186,11 @@ async def renounce_rights(
         return {"error": "Renouncement not allowed for this issue"}
 
     renunciation = Renunciation(
-        right_issue_id=right_issue_id, original_shareholder_id=shareholder_id,
-        new_shareholder_id=new_shareholder_id, renunciation_date=renunciation_date,
-        renunciation_price=renunciation_price
+        right_issue_id=right_issue_id,
+        original_shareholder_id=shareholder_id,
+        new_shareholder_id=new_shareholder_id,
+        renunciation_date=renunciation_date,
+        renunciation_price=renunciation_price,
     )
     right_issue.renunciations[shareholder_id] = new_shareholder_id
     renunciations.append(renunciation)
@@ -166,7 +203,7 @@ async def renounce_rights(
             {"account_code": "1000", "description": "Bank", "debit": renunciation_price, "credit": 0},
             {"account_code": "1000", "description": "Bank", "debit": 0, "credit": renunciation_price},
         ],
-        "reference": f"RIGHT-REN-{right_issue_id[:8]}"
+        "reference": f"RIGHT-REN-{right_issue_id[:8]}",
     }
     await call_accounting_service("POST", "/journal-entries", journal_entry)
 
@@ -193,4 +230,5 @@ async def get_right_issue(right_issue_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

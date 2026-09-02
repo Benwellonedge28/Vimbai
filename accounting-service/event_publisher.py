@@ -9,12 +9,13 @@ Usage:
     from accounting_service.event_publisher import publish_event, publish_journal_entry_created
 """
 
-import os
-import json
-import httpx
-from typing import Dict, Any, Optional
-from datetime import datetime
 import asyncio
+import json
+import os
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
+import httpx
 
 # Message Bus Service URL
 MESSAGE_BUS_URL = os.getenv("MESSAGE_BUS_URL", "http://message-bus-service:8090")
@@ -24,8 +25,10 @@ MESSAGE_BUS_URL = os.getenv("MESSAGE_BUS_URL", "http://message-bus-service:8090"
 # EVENT TYPES
 # =============================================================================
 
+
 class EventType:
     """Event types for accounting service"""
+
     JOURNAL_ENTRY_CREATED = "accounting.journal_entry.created"
     JOURNAL_ENTRY_POSTED = "accounting.journal_entry.posted"
     JOURNAL_ENTRY_VOIDED = "accounting.journal_entry.voided"
@@ -41,11 +44,9 @@ class EventType:
 # EVENT PUBLISHER
 # =============================================================================
 
+
 async def publish_event(
-    event_type: str,
-    payload: Dict[str, Any],
-    user_id: Optional[str] = None,
-    idempotency_key: Optional[str] = None
+    event_type: str, payload: Dict[str, Any], user_id: Optional[str] = None, idempotency_key: Optional[str] = None
 ) -> bool:
     """
     Publish an event to the Message Bus Service.
@@ -64,19 +65,12 @@ async def publish_event(
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "source_service": "accounting-service",
         "payload": payload,
-        "metadata": {
-            "user_id": user_id,
-            "idempotency_key": idempotency_key,
-            "version": "1.0"
-        }
+        "metadata": {"user_id": user_id, "idempotency_key": idempotency_key, "version": "1.0"},
     }
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.post(
-                f"{MESSAGE_BUS_URL}/events/publish",
-                json=event_data
-            )
+            response = await client.post(f"{MESSAGE_BUS_URL}/events/publish", json=event_data)
             return response.status_code == 200 or response.status_code == 201
     except Exception as e:
         # Log error but don't fail the main operation
@@ -85,10 +79,7 @@ async def publish_event(
 
 
 def publish_event_sync(
-    event_type: str,
-    payload: Dict[str, Any],
-    user_id: Optional[str] = None,
-    idempotency_key: Optional[str] = None
+    event_type: str, payload: Dict[str, Any], user_id: Optional[str] = None, idempotency_key: Optional[str] = None
 ) -> bool:
     """
     Synchronous wrapper for publish_event (for use in non-async contexts).
@@ -114,13 +105,9 @@ def publish_event_sync(
 # SPECIFIC EVENT PUBLISHERS
 # =============================================================================
 
+
 async def publish_journal_entry_created(
-    journal_entry_id: str,
-    entry_date: datetime,
-    description: str,
-    total_amount: float,
-    source_module: str,
-    user_id: str
+    journal_entry_id: str, entry_date: datetime, description: str, total_amount: float, source_module: str, user_id: str
 ) -> bool:
     """Publish event when a journal entry is created"""
     payload = {
@@ -129,115 +116,76 @@ async def publish_journal_entry_created(
         "description": description,
         "total_amount": total_amount,
         "source_module": source_module,
-        "status": "created"
+        "status": "created",
     }
     return await publish_event(
-        EventType.JOURNAL_ENTRY_CREATED,
-        payload,
-        user_id=user_id,
-        idempotency_key=f"je_created_{journal_entry_id}"
+        EventType.JOURNAL_ENTRY_CREATED, payload, user_id=user_id, idempotency_key=f"je_created_{journal_entry_id}"
     )
 
 
-async def publish_journal_entry_posted(
-    journal_entry_id: str,
-    user_id: str
-) -> bool:
+async def publish_journal_entry_posted(journal_entry_id: str, user_id: str) -> bool:
     """Publish event when a journal entry is posted"""
     payload = {
         "journal_entry_id": journal_entry_id,
         "status": "posted",
-        "posted_at": datetime.now(timezone.utc).isoformat()
+        "posted_at": datetime.now(timezone.utc).isoformat(),
     }
     return await publish_event(
-        EventType.JOURNAL_ENTRY_POSTED,
-        payload,
-        user_id=user_id,
-        idempotency_key=f"je_posted_{journal_entry_id}"
+        EventType.JOURNAL_ENTRY_POSTED, payload, user_id=user_id, idempotency_key=f"je_posted_{journal_entry_id}"
     )
 
 
 async def publish_account_created(
-    account_id: str,
-    account_number: str,
-    account_name: str,
-    account_type: str,
-    user_id: str
+    account_id: str, account_number: str, account_name: str, account_type: str, user_id: str
 ) -> bool:
     """Publish event when an account is created"""
     payload = {
         "account_id": account_id,
         "account_number": account_number,
         "account_name": account_name,
-        "account_type": account_type
+        "account_type": account_type,
     }
     return await publish_event(
-        EventType.ACCOUNT_CREATED,
-        payload,
-        user_id=user_id,
-        idempotency_key=f"account_created_{account_id}"
+        EventType.ACCOUNT_CREATED, payload, user_id=user_id, idempotency_key=f"account_created_{account_id}"
     )
 
 
 async def publish_trial_balance_generated(
-    user_id: str,
-    as_of_date: str,
-    total_debits: float,
-    total_credits: float,
-    is_balanced: bool
+    user_id: str, as_of_date: str, total_debits: float, total_credits: float, is_balanced: bool
 ) -> bool:
     """Publish event when trial balance is generated"""
     payload = {
         "as_of_date": as_of_date,
         "total_debits": total_debits,
         "total_credits": total_credits,
-        "is_balanced": is_balanced
+        "is_balanced": is_balanced,
     }
-    return await publish_event(
-        EventType.TRIAL_BALANCE_GENERATED,
-        payload,
-        user_id=user_id
-    )
+    return await publish_event(EventType.TRIAL_BALANCE_GENERATED, payload, user_id=user_id)
 
 
-async def publish_fraud_alert(
-    journal_entry_id: str,
-    risk_score: float,
-    risk_factors: list,
-    user_id: str
-) -> bool:
+async def publish_fraud_alert(journal_entry_id: str, risk_score: float, risk_factors: list, user_id: str) -> bool:
     """Publish fraud detection alert"""
     payload = {
         "journal_entry_id": journal_entry_id,
         "risk_score": risk_score,
         "risk_factors": risk_factors,
-        "alert_timestamp": datetime.now(timezone.utc).isoformat()
+        "alert_timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    return await publish_event(
-        EventType.FRAUD_ALERT,
-        payload,
-        user_id=user_id
-    )
+    return await publish_event(EventType.FRAUD_ALERT, payload, user_id=user_id)
 
 
 # =============================================================================
 # SUBSCRIPTION HELPERS (for receiving events)
 # =============================================================================
 
-async def subscribe_to_events(
-    event_types: list,
-    callback_url: str
-) -> Dict[str, Any]:
+
+async def subscribe_to_events(event_types: list, callback_url: str) -> Dict[str, Any]:
     """Subscribe to specific event types"""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
                 f"{MESSAGE_BUS_URL}/subscriptions/create",
-                json={
-                    "subscriber_id": "accounting-service",
-                    "callback_url": callback_url,
-                    "event_types": event_types
-                }
+                json={"subscriber_id": "accounting-service", "callback_url": callback_url, "event_types": event_types},
             )
             if response.status_code == 200:
                 return response.json()
@@ -249,6 +197,7 @@ async def subscribe_to_events(
 # =============================================================================
 # HEALTH CHECK
 # =============================================================================
+
 
 async def check_message_bus_health() -> bool:
     """Check if Message Bus Service is healthy"""

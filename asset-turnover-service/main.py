@@ -3,14 +3,17 @@ Asset Turnover Analysis Service
 Port: 8216
 Operating asset efficiency metrics
 """
+
+from typing import Any, Dict
+
 import httpx
 import structlog
-from typing import Any, Dict
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Asset Turnover Analysis Service", version="1.0.0")
+
 
 class TurnoverMetrics(BaseModel):
     total_asset_turnover: float
@@ -20,6 +23,7 @@ class TurnoverMetrics(BaseModel):
     inventory_turnover: float
     payables_turnover: float
     cash_conversion_cycle: int
+
 
 class TurnoverRequest(BaseModel):
     company_id: str
@@ -34,6 +38,7 @@ class TurnoverRequest(BaseModel):
     inventory: float
     accounts_payable: float
 
+
 class TurnoverResponse(BaseModel):
     company_id: str
     period: str
@@ -42,6 +47,7 @@ class TurnoverResponse(BaseModel):
     efficiency_assessment: str
     improvement_areas: list
     recommendations: list
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -53,9 +59,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "asset-turnover", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=TurnoverResponse)
 async def analyze_asset_turnover(request: TurnoverRequest):
@@ -78,7 +86,7 @@ async def analyze_asset_turnover(request: TurnoverRequest):
         "total_asset_turnover": 1.5,
         "fixed_asset_turnover": 3.0,
         "receivables_turnover": 8.0,
-        "inventory_turnover": 6.0
+        "inventory_turnover": 6.0,
     }
 
     improvement_areas = []
@@ -89,7 +97,11 @@ async def analyze_asset_turnover(request: TurnoverRequest):
     if ccc > 90:
         improvement_areas.append("Cash conversion cycle is lengthy")
 
-    assessment = "efficient" if total_turnover > benchmark["total_asset_turnover"] else "moderate" if total_turnover > 1.0 else "inefficient"
+    assessment = (
+        "efficient"
+        if total_turnover > benchmark["total_asset_turnover"]
+        else "moderate" if total_turnover > 1.0 else "inefficient"
+    )
 
     return TurnoverResponse(
         company_id=request.company_id,
@@ -101,19 +113,27 @@ async def analyze_asset_turnover(request: TurnoverRequest):
             receivables_turnover=round(receivables_turnover, 2),
             inventory_turnover=round(inventory_turnover, 2),
             payables_turnover=round(payables_turnover, 2),
-            cash_conversion_cycle=ccc
+            cash_conversion_cycle=ccc,
         ),
         industry_benchmark=benchmark,
         efficiency_assessment=assessment,
-        improvement_areas=improvement_areas if improvement_areas else ["Asset utilization is in line with expectations"],
-        recommendations=[
-            "Optimize working capital management",
-            "Improve inventory turnover",
-            "Review credit policies for receivables",
-            "Negotiate better payment terms with suppliers"
-        ] if assessment == "inefficient" else ["Continue monitoring efficiency metrics"]
+        improvement_areas=(
+            improvement_areas if improvement_areas else ["Asset utilization is in line with expectations"]
+        ),
+        recommendations=(
+            [
+                "Optimize working capital management",
+                "Improve inventory turnover",
+                "Review credit policies for receivables",
+                "Negotiate better payment terms with suppliers",
+            ]
+            if assessment == "inefficient"
+            else ["Continue monitoring efficiency metrics"]
+        ),
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8216)

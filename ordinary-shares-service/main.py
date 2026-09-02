@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Ordinary Shares Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class OrdinaryDividend(BaseModel):
@@ -74,13 +82,15 @@ async def root():
 
 @app.post("/dividends/declare")
 async def declare_dividend(
-    company_id: str, dividend_type: str, per_share_amount: float,
-    total_shares: int, record_date: datetime
+    company_id: str, dividend_type: str, per_share_amount: float, total_shares: int, record_date: datetime
 ):
     """Declare ordinary dividend."""
     dividend = OrdinaryDividend(
-        company_id=company_id, dividend_type=dividend_type,
-        per_share_amount=per_share_amount, total_shares=total_shares, record_date=record_date
+        company_id=company_id,
+        dividend_type=dividend_type,
+        per_share_amount=per_share_amount,
+        total_shares=total_shares,
+        record_date=record_date,
     )
     dividend.total_dividend = per_share_amount * total_shares
 
@@ -91,7 +101,7 @@ async def declare_dividend(
             {"account_code": "3300", "description": "Retained Earnings", "debit": dividend.total_dividend, "credit": 0},
             {"account_code": "2310", "description": "Dividend Payable", "debit": 0, "credit": dividend.total_dividend},
         ],
-        "reference": f"DIV-{dividend.id[:8]}"
+        "reference": f"DIV-{dividend.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     dividend.journal_entry_id = result.get("id")
@@ -113,7 +123,7 @@ async def pay_dividend(dividend_id: str, payment_date: datetime):
             {"account_code": "2310", "description": "Dividend Payable", "debit": dividend.total_dividend, "credit": 0},
             {"account_code": "1000", "description": "Bank", "debit": 0, "credit": dividend.total_dividend},
         ],
-        "reference": f"DIV-PAY-{dividend_id[:8]}"
+        "reference": f"DIV-PAY-{dividend_id[:8]}",
     }
     await call_accounting_service("POST", "/journal-entries", journal_entry)
     dividend.payment_date = payment_date
@@ -132,4 +142,5 @@ async def list_dividends(company_id: Optional[str] = None):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

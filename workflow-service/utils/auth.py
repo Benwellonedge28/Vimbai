@@ -1,14 +1,16 @@
 import os
 from functools import wraps
-from fastapi import HTTPException, status, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import jwt
+
 import httpx
+import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 security = HTTPBearer(auto_error=False)
 
 IDENTITY_SERVICE_URL = os.getenv("IDENTITY_SERVICE_URL", "http://identity-service:8080")
 JWT_SECRET = os.environ["JWT_SECRET"]
+
 
 async def get_user_id_from_token(token: str) -> str:
     """Extract user_id from JWT token"""
@@ -16,32 +18,20 @@ async def get_user_id_from_token(token: str) -> str:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user_id = payload.get("sub") or payload.get("user_id")
         if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: user_id not found"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token: user_id not found")
         return user_id
     except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
 
 def check_permission(permission: str):
     """Dependency for checking permissions"""
-    async def permission_checker(
-        credentials: HTTPAuthorizationCredentials = Depends(security)
-    ) -> bool:
+
+    async def permission_checker(credentials: HTTPAuthorizationCredentials = Depends(security)) -> bool:
         if not credentials:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
         token = credentials.credentials
         try:
@@ -58,22 +48,16 @@ def check_permission(permission: str):
                 return True
 
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission denied: {permission} required"
+                status_code=status.HTTP_403_FORBIDDEN, detail=f"Permission denied: {permission} required"
             )
         except jwt.InvalidTokenError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
     return Depends(permission_checker)
+
 
 async def get_jwt_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """Extract JWT token for service-to-service calls"""
     if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return credentials.credentials

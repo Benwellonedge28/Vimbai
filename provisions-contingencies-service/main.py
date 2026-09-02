@@ -3,14 +3,17 @@ Provisions and Contingencies Service
 Port: 8205
 Provision recognition and contingency disclosure
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Provisions and Contingencies Service", version="1.0.0")
+
 
 class ProvisionItem(BaseModel):
     provision_id: str
@@ -21,6 +24,7 @@ class ProvisionItem(BaseModel):
     possible_outcome: float
     recognition_status: str
 
+
 class ProvisionsRequest(BaseModel):
     company_id: str
     audit_id: str
@@ -28,6 +32,7 @@ class ProvisionsRequest(BaseModel):
     contingencies: List[Dict[str, Any]]
     legal_advice_available: bool
     tax_uncertainties: List[Dict[str, Any]]
+
 
 class ProvisionsResponse(BaseModel):
     company_id: str
@@ -42,6 +47,7 @@ class ProvisionsResponse(BaseModel):
     disclosure_completeness: str
     recommendations: List[str]
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -52,9 +58,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "provisions-contingencies", "version": "1.0.0"}
+
 
 @app.post("/assess", response_model=ProvisionsResponse)
 async def assess_provisions_contingencies(request: ProvisionsRequest):
@@ -73,25 +81,28 @@ async def assess_provisions_contingencies(request: ProvisionsRequest):
             recognized_count += 1
             total_amount += best
 
-        provision_items.append(ProvisionItem(
-            provision_id=prov.get("id", ""),
-            category=prov.get("category", ""),
-            description=prov.get("description", ""),
-            carrying_amount=prov.get("carrying_amount", 0.0),
-            best_estimate=best,
-            possible_outcome=possible,
-            recognition_status=status
-        ))
+        provision_items.append(
+            ProvisionItem(
+                provision_id=prov.get("id", ""),
+                category=prov.get("category", ""),
+                description=prov.get("description", ""),
+                carrying_amount=prov.get("carrying_amount", 0.0),
+                best_estimate=best,
+                possible_outcome=possible,
+                recognition_status=status,
+            )
+        )
 
     unrecognised = [
         {"id": p.provision_id, "description": p.description, "possible_amount": p.possible_outcome}
-        for p in provision_items if p.recognition_status == "not_recognized"
+        for p in provision_items
+        if p.recognition_status == "not_recognized"
     ]
 
     tax_provisions = {
         "current_tax": sum(t.get("current", 0) for t in request.tax_uncertainties),
         "deferred_tax": sum(t.get("deferred", 0) for t in request.tax_uncertainties),
-        "uncertain_positions": len([t for t in request.tax_uncertainties if t.get("uncertain", False)])
+        "uncertain_positions": len([t for t in request.tax_uncertainties if t.get("uncertain", False)]),
     }
 
     return ProvisionsResponse(
@@ -108,10 +119,12 @@ async def assess_provisions_contingencies(request: ProvisionsRequest):
         recommendations=[
             "Ensure provisions meet recognition criteria under IAS 37",
             "Review contingent liabilities for possible recognition",
-            "Document estimation techniques for provisions"
-        ]
+            "Document estimation techniques for provisions",
+        ],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8205)

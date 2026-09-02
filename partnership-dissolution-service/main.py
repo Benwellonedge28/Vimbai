@@ -22,15 +22,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Partnership Dissolution Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class DissolutionReason(str, Enum):
@@ -115,19 +123,23 @@ async def root():
 
 @app.post("/dissolve")
 async def create_dissolution(
-    partnership_id: str, dissolution_date: datetime, reason: DissolutionReason,
-    assets: List[Dict[str, Any]], creditors: List[Dict[str, Any]], partners: List[Dict[str, Any]]
+    partnership_id: str,
+    dissolution_date: datetime,
+    reason: DissolutionReason,
+    assets: List[Dict[str, Any]],
+    creditors: List[Dict[str, Any]],
+    partners: List[Dict[str, Any]],
 ):
     """Process partnership dissolution."""
-    report = DissolutionReport(
-        partnership_id=partnership_id, dissolution_date=dissolution_date, reason=reason
-    )
+    report = DissolutionReport(partnership_id=partnership_id, dissolution_date=dissolution_date, reason=reason)
 
     # Asset realizations
     for asset in assets:
         realization = AssetRealization(
-            asset_id=asset["asset_id"], asset_name=asset["asset_name"],
-            book_value=asset["book_value"], sale_proceeds=asset["sale_proceeds"]
+            asset_id=asset["asset_id"],
+            asset_name=asset["asset_name"],
+            book_value=asset["book_value"],
+            sale_proceeds=asset["sale_proceeds"],
         )
         if realization.sale_proceeds > realization.book_value:
             realization.profit = realization.sale_proceeds - realization.book_value
@@ -141,9 +153,11 @@ async def create_dissolution(
     # Creditor settlements
     for creditor in creditors:
         settlement = CreditorSettlement(
-            creditor_id=creditor["id"], creditor_name=creditor["name"],
-            amount_owed=creditor["amount"], amount_paid=creditor.get("paid", creditor["amount"]),
-            discount_received=creditor.get("discount", 0)
+            creditor_id=creditor["id"],
+            creditor_name=creditor["name"],
+            amount_owed=creditor["amount"],
+            amount_paid=creditor.get("paid", creditor["amount"]),
+            discount_received=creditor.get("discount", 0),
         )
         report.creditors.append(settlement)
         report.total_creditors += settlement.amount_paid
@@ -151,11 +165,16 @@ async def create_dissolution(
     # Partner settlements
     for partner in partners:
         settlement = PartnerSettlement(
-            partner_id=partner["id"], partner_name=partner["name"],
-            capital_balance=partner["capital"], current_account_balance=partner.get("current", 0),
-            share_of_profit_loss=partner.get("share", 0), total_due=0
+            partner_id=partner["id"],
+            partner_name=partner["name"],
+            capital_balance=partner["capital"],
+            current_account_balance=partner.get("current", 0),
+            share_of_profit_loss=partner.get("share", 0),
+            total_due=0,
         )
-        settlement.total_due = settlement.capital_balance + settlement.current_account_balance + settlement.share_of_profit_loss
+        settlement.total_due = (
+            settlement.capital_balance + settlement.current_account_balance + settlement.share_of_profit_loss
+        )
         report.partners.append(settlement)
         report.total_partners_capitals += settlement.total_due
 
@@ -178,4 +197,5 @@ async def get_dissolution(dissolution_id: str):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

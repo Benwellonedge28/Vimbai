@@ -5,15 +5,16 @@ Includes organization-level feature settings, rollout schedules, feature depende
 and user-requested feature management
 """
 
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Literal
-from datetime import datetime, timezone, timedelta
-from enum import Enum
 import asyncio
-import uuid
 import os
+import uuid
+from datetime import datetime, timedelta, timezone
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional
+
 from dotenv import load_dotenv
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -26,6 +27,7 @@ app = FastAPI(
 # ============================================================================
 # Enums and Models
 # ============================================================================
+
 
 class FeatureCategory(str, Enum):
     ACCOUNTING = "accounting"
@@ -111,8 +113,10 @@ class ServiceHealth(BaseModel):
 # Organization Feature Configuration Models
 # ============================================================================
 
+
 class OrgFeatureConfig(BaseModel):
     """Organization-specific feature configuration"""
+
     organization_id: str
     feature_id: str
     enabled: bool
@@ -126,6 +130,7 @@ class OrgFeatureConfig(BaseModel):
 
 class FeatureDependency(BaseModel):
     """Feature dependency configuration"""
+
     feature_id: str
     depends_on: List[str]  # List of feature IDs that must be enabled
     required_permissions: List[str] = []
@@ -134,6 +139,7 @@ class FeatureDependency(BaseModel):
 
 class FeatureRolloutSchedule(BaseModel):
     """Scheduled feature rollout"""
+
     feature_id: str
     organization_id: Optional[str] = None
     scheduled_date: datetime
@@ -145,6 +151,7 @@ class FeatureRolloutSchedule(BaseModel):
 
 class FeatureRequest(BaseModel):
     """User-submitted feature request"""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str
     user_email: str
@@ -221,7 +228,6 @@ FEATURES: Dict[str, Feature] = {
         status=FeatureStatus.ENABLED,
         enabled_by_default=True,
     ),
-
     # Finance Features
     "budgeting": Feature(
         id="budgeting",
@@ -247,7 +253,6 @@ FEATURES: Dict[str, Feature] = {
         status=FeatureStatus.BETA,
         enabled_by_default=False,
     ),
-
     # Banking Features
     "bank_integration": Feature(
         id="bank_integration",
@@ -265,7 +270,6 @@ FEATURES: Dict[str, Feature] = {
         status=FeatureStatus.ENABLED,
         enabled_by_default=True,
     ),
-
     # Fraud Detection
     "fraud_detection": Feature(
         id="fraud_detection",
@@ -283,7 +287,6 @@ FEATURES: Dict[str, Feature] = {
         status=FeatureStatus.ENABLED,
         enabled_by_default=True,
     ),
-
     # Reporting
     "custom_reports": Feature(
         id="custom_reports",
@@ -317,7 +320,6 @@ FEATURES: Dict[str, Feature] = {
         status=FeatureStatus.ENABLED,
         enabled_by_default=True,
     ),
-
     # Workflow
     "approval_workflows": Feature(
         id="approval_workflows",
@@ -335,7 +337,6 @@ FEATURES: Dict[str, Feature] = {
         status=FeatureStatus.ENABLED,
         enabled_by_default=True,
     ),
-
     # Multimodal
     "ocr_processing": Feature(
         id="ocr_processing",
@@ -353,7 +354,6 @@ FEATURES: Dict[str, Feature] = {
         status=FeatureStatus.BETA,
         enabled_by_default=False,
     ),
-
     # Security
     "oauth_login": Feature(
         id="oauth_login",
@@ -379,7 +379,6 @@ FEATURES: Dict[str, Feature] = {
         status=FeatureStatus.ENABLED,
         enabled_by_default=True,
     ),
-
     # System
     "offline_mode": Feature(
         id="offline_mode",
@@ -524,6 +523,7 @@ audit_logs: List[AuditLogEntry] = []
 # API Endpoints
 # ============================================================================
 
+
 @app.get("/")
 async def health_check():
     return {
@@ -532,13 +532,13 @@ async def health_check():
         "version": "1.2.0",
     }
 
+
 # --- Feature Management ---
+
 
 @app.get("/features")
 async def list_features(
-    category: Optional[FeatureCategory] = None,
-    status: Optional[FeatureStatus] = None,
-    enabled_only: bool = False
+    category: Optional[FeatureCategory] = None, status: Optional[FeatureStatus] = None, enabled_only: bool = False
 ):
     """List all features with optional filtering"""
     result = list(FEATURES.values())
@@ -577,14 +577,16 @@ async def update_feature(feature_id: str, update: FeatureUpdate):
         feature.rollout_percentage = update.rollout_percentage
 
     # Log the change
-    audit_logs.append(AuditLogEntry(
-        user_id="admin",
-        user_email="admin@vimbai.com",
-        action="feature_updated",
-        resource_type="feature",
-        resource_id=feature_id,
-        changes={"status": update.status, "config": update.config}
-    ))
+    audit_logs.append(
+        AuditLogEntry(
+            user_id="admin",
+            user_email="admin@vimbai.com",
+            action="feature_updated",
+            resource_type="feature",
+            resource_id=feature_id,
+            changes={"status": update.status, "config": update.config},
+        )
+    )
 
     return feature
 
@@ -612,41 +614,39 @@ async def disable_feature(feature_id: str):
 @app.get("/features/categories")
 async def list_feature_categories():
     """List all feature categories"""
-    return [
-        {"name": cat.name, "value": cat.value}
-        for cat in FeatureCategory
-    ]
+    return [{"name": cat.name, "value": cat.value} for cat in FeatureCategory]
 
 
 # --- Organization Feature Configuration ---
 
+
 @app.get("/organizations/{organization_id}/features")
 async def get_org_features(organization_id: str):
     """Get all feature configurations for an organization"""
-    org_configs = {
-        f.feature_id: f
-        for f in org_feature_configs.values()
-        if f.organization_id == organization_id
-    }
+    org_configs = {f.feature_id: f for f in org_feature_configs.values() if f.organization_id == organization_id}
 
     # Merge with default features
     result = []
     for feature_id, feature in FEATURES.items():
         if feature_id in org_configs:
             org_config = org_configs[feature_id]
-            result.append({
-                **feature.model_dump(),
-                "org_enabled": org_config.enabled,
-                "org_rollout_percentage": org_config.rollout_percentage,
-                "org_custom_config": org_config.custom_config,
-            })
+            result.append(
+                {
+                    **feature.model_dump(),
+                    "org_enabled": org_config.enabled,
+                    "org_rollout_percentage": org_config.rollout_percentage,
+                    "org_custom_config": org_config.custom_config,
+                }
+            )
         else:
-            result.append({
-                **feature.model_dump(),
-                "org_enabled": feature.enabled_by_default,
-                "org_rollout_percentage": feature.rollout_percentage,
-                "org_custom_config": None,
-            })
+            result.append(
+                {
+                    **feature.model_dump(),
+                    "org_enabled": feature.enabled_by_default,
+                    "org_rollout_percentage": feature.rollout_percentage,
+                    "org_custom_config": None,
+                }
+            )
 
     return result
 
@@ -659,7 +659,7 @@ async def update_org_feature(
     custom_config: Optional[Dict[str, Any]] = None,
     rollout_percentage: int = 100,
     notes: Optional[str] = None,
-    updated_by: str = "admin"
+    updated_by: str = "admin",
 ):
     """Update organization-specific feature configuration"""
     if feature_id not in FEATURES:
@@ -694,47 +694,34 @@ async def update_org_feature(
         org_feature_configs[config_key] = config
 
     # Log the change
-    audit_logs.append(AuditLogEntry(
-        user_id=updated_by,
-        user_email=f"{updated_by}@vimbai.com",
-        action="org_feature_updated",
-        resource_type="org_feature",
-        resource_id=config_key,
-        changes={
-            "enabled": enabled,
-            "rollout_percentage": rollout_percentage,
-            "organization_id": organization_id
-        }
-    ))
+    audit_logs.append(
+        AuditLogEntry(
+            user_id=updated_by,
+            user_email=f"{updated_by}@vimbai.com",
+            action="org_feature_updated",
+            resource_type="org_feature",
+            resource_id=config_key,
+            changes={"enabled": enabled, "rollout_percentage": rollout_percentage, "organization_id": organization_id},
+        )
+    )
 
     return config
 
 
 @app.post("/organizations/{organization_id}/features/{feature_id}/enable")
-async def enable_org_feature(
-    organization_id: str,
-    feature_id: str,
-    updated_by: str = "admin"
-):
+async def enable_org_feature(organization_id: str, feature_id: str, updated_by: str = "admin"):
     """Enable a feature for a specific organization"""
-    return await update_org_feature(
-        organization_id, feature_id, True, None, 100, None, updated_by
-    )
+    return await update_org_feature(organization_id, feature_id, True, None, 100, None, updated_by)
 
 
 @app.post("/organizations/{organization_id}/features/{feature_id}/disable")
-async def disable_org_feature(
-    organization_id: str,
-    feature_id: str,
-    updated_by: str = "admin"
-):
+async def disable_org_feature(organization_id: str, feature_id: str, updated_by: str = "admin"):
     """Disable a feature for a specific organization"""
-    return await update_org_feature(
-        organization_id, feature_id, False, None, 0, None, updated_by
-    )
+    return await update_org_feature(organization_id, feature_id, False, None, 0, None, updated_by)
 
 
 # --- Feature Dependencies ---
+
 
 @app.get("/features/{feature_id}/dependencies")
 async def get_feature_dependencies(feature_id: str):
@@ -771,11 +758,10 @@ async def get_feature_dependencies(feature_id: str):
 
 # --- Feature Rollout Schedules ---
 
+
 @app.get("/rollout-schedules")
 async def list_rollout_schedules(
-    feature_id: Optional[str] = None,
-    organization_id: Optional[str] = None,
-    status: Optional[str] = None
+    feature_id: Optional[str] = None, organization_id: Optional[str] = None, status: Optional[str] = None
 ):
     """List all feature rollout schedules"""
     result = rollout_schedules
@@ -796,7 +782,7 @@ async def create_rollout_schedule(
     scheduled_date: datetime,
     target_percentage: int,
     organization_id: Optional[str] = None,
-    created_by: str = "admin"
+    created_by: str = "admin",
 ):
     """Schedule a feature rollout"""
     if feature_id not in FEATURES:
@@ -812,14 +798,16 @@ async def create_rollout_schedule(
     rollout_schedules.append(schedule)
 
     # Log the change
-    audit_logs.append(AuditLogEntry(
-        user_id=created_by,
-        user_email=f"{created_by}@vimbai.com",
-        action="rollout_scheduled",
-        resource_type="rollout_schedule",
-        resource_id=feature_id,
-        changes={"scheduled_date": scheduled_date, "target_percentage": target_percentage}
-    ))
+    audit_logs.append(
+        AuditLogEntry(
+            user_id=created_by,
+            user_email=f"{created_by}@vimbai.com",
+            action="rollout_scheduled",
+            resource_type="rollout_schedule",
+            resource_id=feature_id,
+            changes={"scheduled_date": scheduled_date, "target_percentage": target_percentage},
+        )
+    )
 
     return schedule
 
@@ -837,6 +825,7 @@ async def cancel_rollout_schedule(schedule_id: str):
 
 # --- Feature Requests (User-Requested Features) ---
 
+
 @app.post("/feature-requests")
 async def create_feature_request(
     user_id: str,
@@ -846,7 +835,7 @@ async def create_feature_request(
     feature_description: Optional[str] = None,
     category: Optional[FeatureCategory] = None,
     priority: str = "normal",
-    business_justification: Optional[str] = None
+    business_justification: Optional[str] = None,
 ):
     """Submit a new feature request"""
     request = FeatureRequest(
@@ -862,14 +851,16 @@ async def create_feature_request(
     feature_requests[request.id] = request
 
     # Log the request
-    audit_logs.append(AuditLogEntry(
-        user_id=user_id,
-        user_email=user_email,
-        action="feature_request_submitted",
-        resource_type="feature_request",
-        resource_id=request.id,
-        changes={"feature_name": feature_name, "priority": priority}
-    ))
+    audit_logs.append(
+        AuditLogEntry(
+            user_id=user_id,
+            user_email=user_email,
+            action="feature_request_submitted",
+            resource_type="feature_request",
+            resource_id=request.id,
+            changes={"feature_name": feature_name, "priority": priority},
+        )
+    )
 
     return request
 
@@ -879,7 +870,7 @@ async def list_feature_requests(
     status: Optional[FeatureRequestStatus] = None,
     organization_id: Optional[str] = None,
     priority: Optional[str] = None,
-    limit: int = 50
+    limit: int = 50,
 ):
     """List all feature requests with filters"""
     result = list(feature_requests.values())
@@ -905,10 +896,7 @@ async def get_feature_request(request_id: str):
 
 @app.put("/feature-requests/{request_id}/review")
 async def review_feature_request(
-    request_id: str,
-    status: FeatureRequestStatus,
-    reviewed_by: str,
-    review_notes: Optional[str] = None
+    request_id: str, status: FeatureRequestStatus, reviewed_by: str, review_notes: Optional[str] = None
 ):
     """Review and update a feature request status"""
     if request_id not in feature_requests:
@@ -922,14 +910,16 @@ async def review_feature_request(
     request.updated_at = datetime.utcnow()
 
     # Log the review
-    audit_logs.append(AuditLogEntry(
-        user_id=reviewed_by,
-        user_email=f"{reviewed_by}@vimbai.com",
-        action="feature_request_reviewed",
-        resource_type="feature_request",
-        resource_id=request_id,
-        changes={"status": status.value, "review_notes": review_notes}
-    ))
+    audit_logs.append(
+        AuditLogEntry(
+            user_id=reviewed_by,
+            user_email=f"{reviewed_by}@vimbai.com",
+            action="feature_request_reviewed",
+            resource_type="feature_request",
+            resource_id=request_id,
+            changes={"status": status.value, "review_notes": review_notes},
+        )
+    )
 
     return request
 
@@ -945,6 +935,7 @@ async def delete_feature_request(request_id: str):
 
 
 # --- System Configuration ---
+
 
 @app.get("/config")
 async def list_config(category: Optional[str] = None):
@@ -1000,26 +991,26 @@ async def update_config(key: str, value: Any, updated_by: str = "admin"):
     config.updated_by = updated_by
 
     # Log the change
-    audit_logs.append(AuditLogEntry(
-        user_id=updated_by,
-        user_email=f"{updated_by}@vimbai.com",
-        action="config_updated",
-        resource_type="config",
-        resource_id=key,
-        changes={"old_value": old_value, "new_value": value}
-    ))
+    audit_logs.append(
+        AuditLogEntry(
+            user_id=updated_by,
+            user_email=f"{updated_by}@vimbai.com",
+            action="config_updated",
+            resource_type="config",
+            resource_id=key,
+            changes={"old_value": old_value, "new_value": value},
+        )
+    )
 
     return config
 
 
 # --- Audit Logs ---
 
+
 @app.get("/audit-logs")
 async def list_audit_logs(
-    user_id: Optional[str] = None,
-    action: Optional[str] = None,
-    resource_type: Optional[str] = None,
-    limit: int = 100
+    user_id: Optional[str] = None, action: Optional[str] = None, resource_type: Optional[str] = None, limit: int = 100
 ):
     """List audit log entries"""
     result = audit_logs
@@ -1042,7 +1033,7 @@ async def create_audit_entry(
     action: str,
     resource_type: str,
     resource_id: str,
-    changes: Optional[Dict[str, Any]] = None
+    changes: Optional[Dict[str, Any]] = None,
 ):
     """Create an audit log entry"""
     entry = AuditLogEntry(
@@ -1063,6 +1054,7 @@ async def create_audit_entry(
 
 
 # --- Service Health ---
+
 
 @app.get("/services/health")
 async def get_services_health():
@@ -1128,6 +1120,7 @@ async def get_services_health():
 
 # --- Dashboard Stats ---
 
+
 @app.get("/dashboard/stats")
 async def get_dashboard_stats():
     """Get admin dashboard statistics"""
@@ -1163,4 +1156,5 @@ async def get_dashboard_stats():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8099)

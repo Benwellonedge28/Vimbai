@@ -1,10 +1,12 @@
 import os
+
 import jwt
-from fastapi import HTTPException, status, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 security = HTTPBearer(auto_error=False)
 JWT_SECRET = os.environ["JWT_SECRET"]
+
 
 def check_permission(permission: str):
     async def checker(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -19,4 +21,5 @@ def check_permission(permission: str):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Permission denied: {permission}")
         except jwt.InvalidTokenError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
     return Depends(checker)

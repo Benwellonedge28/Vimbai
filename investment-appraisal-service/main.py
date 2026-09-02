@@ -3,14 +3,17 @@ Investment Appraisal Service
 Port: 8233
 Multi-criteria investment evaluation
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Investment Appraisal Service", version="1.0.0")
+
 
 class AppraisalResult(BaseModel):
     project_id: str
@@ -23,11 +26,13 @@ class AppraisalResult(BaseModel):
     overall_score: float
     recommendation: str
 
+
 class InvestmentAppraisalRequest(BaseModel):
     company_id: str
     projects: List[Dict[str, Any]]
     evaluation_criteria: Dict[str, float]
     weights: Dict[str, float]
+
 
 class InvestmentAppraisalResponse(BaseModel):
     company_id: str
@@ -35,6 +40,7 @@ class InvestmentAppraisalResponse(BaseModel):
     best_project: str
     recommended_projects: List[str]
     recommendations: List[str]
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -46,9 +52,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "investment-appraisal", "version": "1.0.0"}
+
 
 @app.post("/appraise", response_model=InvestmentAppraisalResponse)
 async def appraise_investments(request: InvestmentAppraisalRequest):
@@ -66,23 +74,25 @@ async def appraise_investments(request: InvestmentAppraisalRequest):
         gov_score = project.get("governance_score", 7) / 10
 
         overall = (
-            fin_score * weights.get("financial", 0.4) +
-            strat_score * weights.get("strategic", 0.2) +
-            risk_score * weights.get("risk", 0.2) +
-            (env_score + soc_score + gov_score) / 3 * weights.get("esg", 0.2)
+            fin_score * weights.get("financial", 0.4)
+            + strat_score * weights.get("strategic", 0.2)
+            + risk_score * weights.get("risk", 0.2)
+            + (env_score + soc_score + gov_score) / 3 * weights.get("esg", 0.2)
         )
 
-        appraisal_results.append(AppraisalResult(
-            project_id=project.get("id", ""),
-            financial_score=round(fin_score, 2),
-            strategic_score=round(strat_score, 2),
-            risk_score=round(risk_score, 2),
-            environmental_score=round(env_score, 2),
-            social_score=round(soc_score, 2),
-            governance_score=round(gov_score, 2),
-            overall_score=round(overall, 4),
-            recommendation="approve" if overall > 0.6 else "review" if overall > 0.4 else "reject"
-        ))
+        appraisal_results.append(
+            AppraisalResult(
+                project_id=project.get("id", ""),
+                financial_score=round(fin_score, 2),
+                strategic_score=round(strat_score, 2),
+                risk_score=round(risk_score, 2),
+                environmental_score=round(env_score, 2),
+                social_score=round(soc_score, 2),
+                governance_score=round(gov_score, 2),
+                overall_score=round(overall, 4),
+                recommendation="approve" if overall > 0.6 else "review" if overall > 0.4 else "reject",
+            )
+        )
 
     ranked = sorted(appraisal_results, key=lambda x: x.overall_score, reverse=True)
     best = ranked[0].project_id if ranked else ""
@@ -93,9 +103,15 @@ async def appraise_investments(request: InvestmentAppraisalRequest):
         appraisal_results=appraisal_results,
         best_project=best,
         recommended_projects=recommended,
-        recommendations=["Prioritize highest scoring investments", "Review medium-scored projects for improvement", "Consider portfolio diversification"]
+        recommendations=[
+            "Prioritize highest scoring investments",
+            "Review medium-scored projects for improvement",
+            "Consider portfolio diversification",
+        ],
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8233)

@@ -13,14 +13,15 @@ Supports all major accounting standards worldwide including:
 - Japanese Standards (J-GAAP)
 """
 
-from fastapi import FastAPI, HTTPException, Depends, status
-from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Dict, Any, Literal
-from datetime import datetime, timezone, date
-from enum import Enum
-import uuid
 import hashlib
 import json
+import uuid
+from datetime import date, datetime, timezone
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional
+
+from fastapi import Depends, FastAPI, HTTPException, status
+from pydantic import BaseModel, Field, field_validator
 
 app = FastAPI(
     title="Vimbai Accounting Standards Service",
@@ -31,6 +32,7 @@ app = FastAPI(
 # ============================================================================
 # Enums
 # ============================================================================
+
 
 class StandardType(str, Enum):
     IFRS = "ifrs"
@@ -136,6 +138,7 @@ class DisclosureLevel(str, Enum):
 # ============================================================================
 # Pydantic Models
 # ============================================================================
+
 
 class AccountingStandard(BaseModel):
     id: str
@@ -644,6 +647,7 @@ compliance_checks: Dict[str, List[ComplianceCheck]] = {}
 # API Endpoints
 # ============================================================================
 
+
 @app.get("/")
 async def health_check():
     return {
@@ -655,10 +659,7 @@ async def health_check():
 
 
 @app.get("/standards")
-async def list_standards(
-    region: Optional[str] = None,
-    standard_type: Optional[StandardType] = None
-):
+async def list_standards(region: Optional[str] = None, standard_type: Optional[StandardType] = None):
     """List all available accounting standards"""
     result = list(ACCOUNTING_STANDARDS.values())
 
@@ -701,21 +702,21 @@ async def list_standard_categories():
     for standard in ACCOUNTING_STANDARDS.values():
         if standard.region not in categories:
             categories[standard.region] = []
-        categories[standard.region].append({
-            "code": standard.standard_type.value,
-            "name": standard.name,
-            "country": standard.country,
-        })
+        categories[standard.region].append(
+            {
+                "code": standard.standard_type.value,
+                "name": standard.name,
+                "country": standard.country,
+            }
+        )
     return categories
 
 
 # --- Organization Standard Configuration ---
 
+
 @app.post("/organizations/{organization_id}/configuration")
-async def create_standard_configuration(
-    organization_id: str,
-    config: StandardConfiguration
-):
+async def create_standard_configuration(organization_id: str, config: StandardConfiguration):
     """Configure accounting standards for an organization"""
     config.id = str(uuid.uuid4())
     config.organization_id = organization_id
@@ -735,10 +736,7 @@ async def get_standard_configuration(organization_id: str):
 
 
 @app.put("/organizations/{organization_id}/configuration")
-async def update_standard_configuration(
-    organization_id: str,
-    config: StandardConfiguration
-):
+async def update_standard_configuration(organization_id: str, config: StandardConfiguration):
     """Update standard configuration for an organization"""
     if organization_id not in org_standard_configs:
         raise HTTPException(status_code=404, detail="Configuration not found")
@@ -782,6 +780,7 @@ async def deactivate_standard(organization_id: str, standard_type: StandardType)
 
 # --- Account Mapping ---
 
+
 @app.get("/standards/{standard_type}/account-mapping")
 async def get_account_mapping(standard_type: StandardType):
     """Get standard chart of accounts mapping"""
@@ -792,10 +791,7 @@ async def get_account_mapping(standard_type: StandardType):
 
 
 @app.post("/standards/{standard_type}/account-mapping")
-async def add_account_mapping(
-    standard_type: StandardType,
-    mapping: AccountMapping
-):
+async def add_account_mapping(standard_type: StandardType, mapping: AccountMapping):
     """Add account mapping for a standard"""
     key = standard_type.value
     if key not in account_mappings:
@@ -806,11 +802,9 @@ async def add_account_mapping(
 
 # --- Accounting Policies ---
 
+
 @app.post("/organizations/{organization_id}/policies")
-async def create_accounting_policy(
-    organization_id: str,
-    policy: AccountingPolicy
-):
+async def create_accounting_policy(organization_id: str, policy: AccountingPolicy):
     """Create accounting policy for an organization"""
     policy.id = str(uuid.uuid4())
     policy.organization_id = organization_id
@@ -823,15 +817,9 @@ async def create_accounting_policy(
 
 
 @app.get("/organizations/{organization_id}/policies")
-async def list_accounting_policies(
-    organization_id: str,
-    standard_type: Optional[StandardType] = None
-):
+async def list_accounting_policies(organization_id: str, standard_type: Optional[StandardType] = None):
     """List all accounting policies for an organization"""
-    policies = [
-        p for k, p in accounting_policies.items()
-        if k.startswith(f"{organization_id}:")
-    ]
+    policies = [p for k, p in accounting_policies.items() if k.startswith(f"{organization_id}:")]
 
     if standard_type:
         policies = [p for p in policies if p.standard_type == standard_type]
@@ -840,11 +828,7 @@ async def list_accounting_policies(
 
 
 @app.get("/organizations/{organization_id}/policies/{policy_area}")
-async def get_policy_for_area(
-    organization_id: str,
-    policy_area: str,
-    standard_type: StandardType
-):
+async def get_policy_for_area(organization_id: str, policy_area: str, standard_type: StandardType):
     """Get policy for specific area and standard"""
     policy_key = f"{organization_id}:{standard_type.value}:{policy_area}"
     if policy_key in accounting_policies:
@@ -854,12 +838,9 @@ async def get_policy_for_area(
 
 # --- Compliance Checking ---
 
+
 @app.post("/organizations/{organization_id}/compliance/check")
-async def run_compliance_check(
-    organization_id: str,
-    standard_type: StandardType,
-    check_data: Dict[str, Any]
-):
+async def run_compliance_check(organization_id: str, standard_type: StandardType, check_data: Dict[str, Any]):
     """Run compliance check against standard requirements"""
     checks = []
     requirements = STANDARD_REQUIREMENTS.get(standard_type.value, [])
@@ -924,10 +905,7 @@ async def get_disclosure_requirements(standard_type: StandardType):
 
 
 @app.get("/standards/comparison")
-async def compare_standards(
-    standard_1: StandardType,
-    standard_2: StandardType
-):
+async def compare_standards(standard_1: StandardType, standard_2: StandardType):
     """Compare two accounting standards"""
     s1 = await get_standard(standard_1)
     s2 = await get_standard(standard_2)
@@ -938,15 +916,9 @@ async def compare_standards(
         "comparison": {
             "measurement_basis_differences": s1.measurement_basis != s2.measurement_basis,
             "consolidation_method_differences": s1.consolidation_method != s2.consolidation_method,
-            "key_principles_common": [
-                p for p in s1.key_principles if p in s2.key_principles
-            ],
-            "unique_to_standard_1": [
-                p for p in s1.key_principles if p not in s2.key_principles
-            ],
-            "unique_to_standard_2": [
-                p for p in s2.key_principles if p not in s1.key_principles
-            ],
+            "key_principles_common": [p for p in s1.key_principles if p in s2.key_principles],
+            "unique_to_standard_1": [p for p in s1.key_principles if p not in s2.key_principles],
+            "unique_to_standard_2": [p for p in s2.key_principles if p not in s1.key_principles],
         },
     }
 
@@ -969,9 +941,12 @@ async def get_measurement_guide(standard_type: StandardType):
         },
     }
 
-    base_guide = guides.get(standard_type.value, {
-        "default": f"Measurement basis: {standard.measurement_basis.value}",
-    })
+    base_guide = guides.get(
+        standard_type.value,
+        {
+            "default": f"Measurement basis: {standard.measurement_basis.value}",
+        },
+    )
 
     return {
         "standard": standard_type.value,
@@ -982,4 +957,5 @@ async def get_measurement_guide(standard_type: StandardType):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8095)

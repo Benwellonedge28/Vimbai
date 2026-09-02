@@ -3,14 +3,17 @@ Scenario Budget Service
 Port: 8175
 Best case/worst case/most likely scenarios
 """
+
+from typing import Any, Dict
+
 import httpx
 import structlog
-from typing import Any, Dict
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Scenario Budget Service", version="1.0.0")
+
 
 class ScenarioBudgetRequest(BaseModel):
     company_id: str
@@ -19,6 +22,7 @@ class ScenarioBudgetRequest(BaseModel):
     worst_case_multiplier: float
     best_case_multiplier: float
 
+
 class ScenarioResult(BaseModel):
     scenario: str
     revenue: float
@@ -26,12 +30,14 @@ class ScenarioResult(BaseModel):
     profit: float
     profit_margin: float
 
+
 class ScenarioBudgetResponse(BaseModel):
     company_id: str
     worst_case: ScenarioResult
     most_likely: ScenarioResult
     best_case: ScenarioResult
     risk_assessment: str
+
 
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
@@ -43,9 +49,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "scenario-budget", "version": "1.0.0"}
+
 
 @app.post("/analyze", response_model=ScenarioBudgetResponse)
 async def analyze_scenarios(request: ScenarioBudgetRequest):
@@ -70,25 +78,31 @@ async def analyze_scenarios(request: ScenarioBudgetRequest):
             revenue=round(worst_rev, 2),
             expenses=round(worst_exp, 2),
             profit=round(worst_profit, 2),
-            profit_margin=round(worst_profit / worst_rev * 100, 2) if worst_rev else 0
+            profit_margin=round(worst_profit / worst_rev * 100, 2) if worst_rev else 0,
         ),
         most_likely=ScenarioResult(
             scenario="Most Likely",
             revenue=round(most_rev, 2),
             expenses=round(most_exp, 2),
             profit=round(most_profit, 2),
-            profit_margin=round(most_profit / most_rev * 100, 2) if most_rev else 0
+            profit_margin=round(most_profit / most_rev * 100, 2) if most_rev else 0,
         ),
         best_case=ScenarioResult(
             scenario="Best Case",
             revenue=round(best_rev, 2),
             expenses=round(best_exp, 2),
             profit=round(best_profit, 2),
-            profit_margin=round(best_profit / best_rev * 100, 2) if best_rev else 0
+            profit_margin=round(best_profit / best_rev * 100, 2) if best_rev else 0,
         ),
-        risk_assessment="Medium risk - wide range between scenarios" if abs(worst_profit - best_profit) > request.base_profit else "Low risk"
+        risk_assessment=(
+            "Medium risk - wide range between scenarios"
+            if abs(worst_profit - best_profit) > request.base_profit
+            else "Low risk"
+        ),
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8175)

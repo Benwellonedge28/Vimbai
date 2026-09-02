@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Capital Reconstruction Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class ReconstructionType(str):
@@ -115,16 +123,23 @@ async def root():
 
 @app.post("/reconstructions/create")
 async def create_reconstruction(
-    company_id: str, reconstruction_type: str, description: str,
-    scheme_date: datetime, previous_share_capital: float, new_share_capital: float,
-    share_consolidation_ratio: str = ""
+    company_id: str,
+    reconstruction_type: str,
+    description: str,
+    scheme_date: datetime,
+    previous_share_capital: float,
+    new_share_capital: float,
+    share_consolidation_ratio: str = "",
 ):
     """Create capital reconstruction scheme."""
     reconstruction = CapitalReconstruction(
-        company_id=company_id, reconstruction_type=reconstruction_type,
-        description=description, scheme_date=scheme_date,
-        previous_share_capital=previous_share_capital, new_share_capital=new_share_capital,
-        share_consolidation_ratio=share_consolidation_ratio
+        company_id=company_id,
+        reconstruction_type=reconstruction_type,
+        description=description,
+        scheme_date=scheme_date,
+        previous_share_capital=previous_share_capital,
+        new_share_capital=new_share_capital,
+        share_consolidation_ratio=share_consolidation_ratio,
     )
     reconstruction.capital_reduction_amount = previous_share_capital - new_share_capital
     reconstructions.append(reconstruction)
@@ -133,9 +148,13 @@ async def create_reconstruction(
 
 @app.post("/reconstructions/{reconstruction_id}/adjustments/add")
 async def add_adjustment(
-    reconstruction_id: str, account_code: str, account_name: str,
-    previous_balance: float, adjustment_type: str, adjustment_amount: float,
-    description: str
+    reconstruction_id: str,
+    account_code: str,
+    account_name: str,
+    previous_balance: float,
+    adjustment_type: str,
+    adjustment_amount: float,
+    description: str,
 ):
     """Add reconstruction adjustment."""
     reconstruction = next((r for r in reconstructions if r.id == reconstruction_id), None)
@@ -143,10 +162,13 @@ async def add_adjustment(
         return {"error": "Reconstruction not found"}
 
     adjustment = ReconstructionAdjustment(
-        reconstruction_id=reconstruction_id, account_code=account_code,
-        account_name=account_name, previous_balance=previous_balance,
-        adjustment_type=adjustment_type, adjustment_amount=adjustment_amount,
-        description=description
+        reconstruction_id=reconstruction_id,
+        account_code=account_code,
+        account_name=account_name,
+        previous_balance=previous_balance,
+        adjustment_type=adjustment_type,
+        adjustment_amount=adjustment_amount,
+        description=description,
     )
     adjustment.new_balance = previous_balance + adjustment_amount if adjustment_type == "transfer" else 0
     adjustments.append(adjustment)
@@ -156,19 +178,28 @@ async def add_adjustment(
 
 @app.post("/reconstructions/{reconstruction_id}/reserve-conversions/add")
 async def add_reserve_conversion(
-    reconstruction_id: str, from_account: str, from_account_name: str,
-    to_account: str, to_account_name: str, amount: float, reason: str,
-    conversion_date: Optional[datetime] = None
+    reconstruction_id: str,
+    from_account: str,
+    from_account_name: str,
+    to_account: str,
+    to_account_name: str,
+    amount: float,
+    reason: str,
+    conversion_date: Optional[datetime] = None,
 ):
     """Add reserve conversion entry."""
     if conversion_date is None:
         conversion_date = datetime.utcnow()
 
     conversion = ReserveConversion(
-        reconstruction_id=reconstruction_id, from_account=from_account,
-        from_account_name=from_account_name, to_account=to_account,
-        to_account_name=to_account_name, amount=amount, conversion_date=conversion_date,
-        reason=reason
+        reconstruction_id=reconstruction_id,
+        from_account=from_account,
+        from_account_name=from_account_name,
+        to_account=to_account,
+        to_account_name=to_account_name,
+        amount=amount,
+        conversion_date=conversion_date,
+        reason=reason,
     )
 
     journal_entry = {
@@ -178,7 +209,7 @@ async def add_reserve_conversion(
             {"account_code": from_account, "description": from_account_name, "debit": amount, "credit": 0},
             {"account_code": to_account, "description": to_account_name, "debit": 0, "credit": amount},
         ],
-        "reference": f"RCONV-{conversion.id[:8]}"
+        "reference": f"RCONV-{conversion.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     conversion.journal_entry_id = result.get("id")
@@ -189,8 +220,9 @@ async def add_reserve_conversion(
 
 @app.post("/reconstructions/{reconstruction_id}/approve")
 async def approve_reconstruction(
-    reconstruction_id: str, court_approval_date: Optional[datetime] = None,
-    shareholders_approval_date: Optional[datetime] = None
+    reconstruction_id: str,
+    court_approval_date: Optional[datetime] = None,
+    shareholders_approval_date: Optional[datetime] = None,
 ):
     """Approve and execute reconstruction."""
     reconstruction = next((r for r in reconstructions if r.id == reconstruction_id), None)
@@ -211,25 +243,39 @@ async def approve_reconstruction(
     # Create main reconstruction journal entry
     entries = [
         # Reduce share capital
-        {"account_code": "3200", "description": "Share Capital", "debit": reconstruction.capital_reduction_amount, "credit": 0},
+        {
+            "account_code": "3200",
+            "description": "Share Capital",
+            "debit": reconstruction.capital_reduction_amount,
+            "credit": 0,
+        },
     ]
 
     # Add write-offs from adjustments
     for adj in reconstruction_adjustments:
         if adj.adjustment_type == "write_off":
-            entries.append({"account_code": adj.account_code, "description": adj.account_name, "debit": adj.adjustment_amount, "credit": 0})
+            entries.append(
+                {
+                    "account_code": adj.account_code,
+                    "description": adj.account_name,
+                    "debit": adj.adjustment_amount,
+                    "credit": 0,
+                }
+            )
 
     # Credits go to various reserves
     total_credits = reconstruction.capital_reduction_amount + sum(
         adj.adjustment_amount for adj in reconstruction_adjustments if adj.adjustment_type == "write_off"
     )
-    entries.append({"account_code": "3300", "description": "Retained Earnings / P&L", "debit": 0, "credit": total_credits})
+    entries.append(
+        {"account_code": "3300", "description": "Retained Earnings / P&L", "debit": 0, "credit": total_credits}
+    )
 
     journal_entry = {
         "date": reconstruction.scheme_date,
         "description": f"Capital reconstruction: {reconstruction.description}",
         "entries": entries,
-        "reference": f"RECONST-{reconstruction.id[:8]}"
+        "reference": f"RECONST-{reconstruction.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     reconstruction.journal_entry_id = result.get("id")
@@ -238,7 +284,7 @@ async def approve_reconstruction(
     return {
         "reconstruction": reconstruction,
         "adjustments": reconstruction_adjustments,
-        "conversions": reconstruction_conversions
+        "conversions": reconstruction_conversions,
     }
 
 
@@ -266,7 +312,7 @@ async def get_reconstruction(reconstruction_id: str):
     return {
         "reconstruction": reconstruction,
         "adjustments": reconstruction_adjustments,
-        "reserve_conversions": reconstruction_conversions
+        "reserve_conversions": reconstruction_conversions,
     }
 
 
@@ -283,10 +329,11 @@ async def get_reconstruction_summary(company_id: str):
         "total_reconstructions": len(company_reconstructions),
         "completed_reconstructions": completed,
         "total_capital_reduced": total_reduction,
-        "reconstructions": company_reconstructions
+        "reconstructions": company_reconstructions,
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

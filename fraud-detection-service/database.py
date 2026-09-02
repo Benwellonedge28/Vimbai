@@ -1,5 +1,6 @@
 from neo4j import AsyncGraphDatabase, AsyncSession
 
+
 class Neo4jConnector:
     _driver = None
     _uri = None
@@ -25,6 +26,7 @@ class Neo4jConnector:
         if cls._driver:
             await cls._driver.close()
             cls._driver = None
+
 
 async def init_db_schema():
     driver = Neo4jConnector.get_driver()

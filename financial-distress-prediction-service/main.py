@@ -3,11 +3,12 @@ Financial Distress Prediction Service
 Port: 8169
 Altman Z-score, working capital to total assets ratio, distress prediction
 """
+from typing import Any, Dict, Optional
+
 import httpx
 import structlog
-from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field
 from fastapi import FastAPI
+from pydantic import BaseModel, Field
 
 logger = structlog.get_logger()
 app = FastAPI(title="Financial Distress Prediction Service", version="1.0.0")

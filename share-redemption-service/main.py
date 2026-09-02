@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Share Redemption Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class RedemptionMethod(str):
@@ -111,16 +119,25 @@ async def root():
 
 @app.post("/redemptions/initiate")
 async def initiate_redemption(
-    company_id: str, share_class: str, shares_redeemed: int, nominal_value: float,
-    redemption_price: float, redemption_date: datetime, redemption_method: str,
-    authority_date: datetime
+    company_id: str,
+    share_class: str,
+    shares_redeemed: int,
+    nominal_value: float,
+    redemption_price: float,
+    redemption_date: datetime,
+    redemption_method: str,
+    authority_date: datetime,
 ):
     """Initiate share redemption."""
     redemption = ShareRedemption(
-        company_id=company_id, share_class=share_class, shares_redeemed=shares_redeemed,
-        nominal_value=nominal_value, redemption_price=redemption_price,
-        redemption_date=redemption_date, redemption_method=redemption_method,
-        authority_date=authority_date
+        company_id=company_id,
+        share_class=share_class,
+        shares_redeemed=shares_redeemed,
+        nominal_value=nominal_value,
+        redemption_price=redemption_price,
+        redemption_date=redemption_date,
+        redemption_method=redemption_method,
+        authority_date=authority_date,
     )
     redemption.total_redemption_value = shares_redeemed * redemption_price
 
@@ -134,7 +151,7 @@ async def initiate_redemption(
             fresh_issue_proceeds=0,
             minimum_crr_required=shares_redeemed * nominal_value,
             crr_created=0,
-            source_of_crr="requires_calculation"
+            source_of_crr="requires_calculation",
         )
         crr_requirements.append(crr_req)
         redemption.status = "awaiting_crr"
@@ -145,8 +162,7 @@ async def initiate_redemption(
 
 @app.post("/redemptions/{redemption_id}/fresh-issue")
 async def record_fresh_issue(
-    redemption_id: str, shares_issued: int, issue_price: float,
-    nominal_value: float, issue_date: datetime
+    redemption_id: str, shares_issued: int, issue_price: float, nominal_value: float, issue_date: datetime
 ):
     """Record fresh issue to fund redemption."""
     redemption = next((r for r in redemptions if r.id == redemption_id), None)
@@ -154,8 +170,11 @@ async def record_fresh_issue(
         return {"error": "Redemption not found"}
 
     fresh_issue = FreshIssueForRedemption(
-        redemption_id=redemption_id, shares_issued=shares_issued,
-        issue_price=issue_price, nominal_value=nominal_value, issue_date=issue_date
+        redemption_id=redemption_id,
+        shares_issued=shares_issued,
+        issue_price=issue_price,
+        nominal_value=nominal_value,
+        issue_date=issue_date,
     )
     fresh_issue.total_proceeds = shares_issued * issue_price
 
@@ -165,10 +184,20 @@ async def record_fresh_issue(
         "description": f"Fresh issue to fund redemption",
         "entries": [
             {"account_code": "1000", "description": "Bank", "debit": fresh_issue.total_proceeds, "credit": 0},
-            {"account_code": "3200", "description": "Share Capital", "debit": 0, "credit": shares_issued * nominal_value},
-            {"account_code": "3210", "description": "Share Premium", "debit": 0, "credit": fresh_issue.total_proceeds - (shares_issued * nominal_value)},
+            {
+                "account_code": "3200",
+                "description": "Share Capital",
+                "debit": 0,
+                "credit": shares_issued * nominal_value,
+            },
+            {
+                "account_code": "3210",
+                "description": "Share Premium",
+                "debit": 0,
+                "credit": fresh_issue.total_proceeds - (shares_issued * nominal_value),
+            },
         ],
-        "reference": f"FRESH-ISS-{fresh_issue.id[:8]}"
+        "reference": f"FRESH-ISS-{fresh_issue.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     fresh_issue.journal_entry_id = result.get("id")
@@ -178,9 +207,7 @@ async def record_fresh_issue(
 
 
 @app.post("/redemptions/{redemption_id}/complete")
-async def complete_redemption(
-    redemption_id: str, statutory_declaration_date: Optional[datetime] = None
-):
+async def complete_redemption(redemption_id: str, statutory_declaration_date: Optional[datetime] = None):
     """Complete share redemption after statutory requirements."""
     redemption = next((r for r in redemptions if r.id == redemption_id), None)
     if not redemption:
@@ -209,19 +236,28 @@ async def complete_redemption(
     capital_account = "3205" if redemption.share_class == "preference" else "3200"
 
     entries = [
-        {"account_code": capital_account, "description": "Share Capital", "debit": redemption.shares_redeemed * redemption.nominal_value, "credit": 0},
+        {
+            "account_code": capital_account,
+            "description": "Share Capital",
+            "debit": redemption.shares_redeemed * redemption.nominal_value,
+            "credit": 0,
+        },
     ]
 
     if crr_amount > 0:
-        entries.append({"account_code": "3220", "description": "Capital Redemption Reserve", "debit": crr_amount, "credit": 0})
+        entries.append(
+            {"account_code": "3220", "description": "Capital Redemption Reserve", "debit": crr_amount, "credit": 0}
+        )
 
-    entries.append({"account_code": "1000", "description": "Bank", "debit": 0, "credit": redemption.total_redemption_value})
+    entries.append(
+        {"account_code": "1000", "description": "Bank", "debit": 0, "credit": redemption.total_redemption_value}
+    )
 
     journal_entry = {
         "date": redemption.redemption_date,
         "description": f"Redemption of {redemption.shares_redeemed} {redemption.share_class} shares",
         "entries": entries,
-        "reference": f"SH-RED-{redemption.id[:8]}"
+        "reference": f"SH-RED-{redemption.id[:8]}",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     redemption.journal_entry_id = result.get("id")
@@ -251,11 +287,7 @@ async def get_redemption(redemption_id: str):
     redemption_fresh_issues = [f for f in fresh_issues if f.redemption_id == redemption_id]
     redemption_crr = next((c for c in crr_requirements if c.redemption_id == redemption_id), None)
 
-    return {
-        "redemption": redemption,
-        "fresh_issues": redemption_fresh_issues,
-        "crr_requirement": redemption_crr
-    }
+    return {"redemption": redemption, "fresh_issues": redemption_fresh_issues, "crr_requirement": redemption_crr}
 
 
 @app.get("/crr-requirements")
@@ -269,4 +301,5 @@ async def list_crr_requirements(status: Optional[str] = None):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

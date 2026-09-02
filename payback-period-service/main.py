@@ -19,15 +19,23 @@ SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8114"))
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Payback Period Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 @app.get("/health")
@@ -58,7 +66,7 @@ async def calculate_payback_period(initial_investment: float, annual_cash_flows:
             "annual_cash_flows": annual_cash_flows,
             "equal_cash_flows": True,
             "payback_period": round(payback, 2),
-            "payback_years": f"{int(payback)} years and {(payback % 1) * 12:.1f} months"
+            "payback_years": f"{int(payback)} years and {(payback % 1) * 12:.1f} months",
         }
 
     # Unequal cash flows - calculate cumulative
@@ -81,7 +89,7 @@ async def calculate_payback_period(initial_investment: float, annual_cash_flows:
                 "equal_cash_flows": False,
                 "payback_period": round(payback, 2),
                 "payback_years": f"{int(payback)} years and {(payback % 1) * 12:.1f} months",
-                "payback_achieved_in_year": i
+                "payback_achieved_in_year": i,
             }
 
     # Payback never achieved
@@ -90,13 +98,13 @@ async def calculate_payback_period(initial_investment: float, annual_cash_flows:
         "cash_flow_schedule": years,
         "equal_cash_flows": False,
         "payback_period": None,
-        "message": "Payback not achieved within given cash flow period"
+        "message": "Payback not achieved within given cash flow period",
     }
 
 
 @app.post("/compare")
 async def compare_payback_periods(
-    projects: List[dict]  # [{"name": "A", "initial_investment": x, "cash_flows": [y1, y2, ...]}]
+    projects: List[dict],  # [{"name": "A", "initial_investment": x, "cash_flows": [y1, y2, ...]}]
 ):
     """Compare payback periods of multiple projects."""
     results = []
@@ -130,7 +138,7 @@ async def compare_payback_periods(
 
     return {
         "project_comparison": valid_results,
-        "recommended_project": valid_results[0]["name"] if valid_results else None
+        "recommended_project": valid_results[0]["name"] if valid_results else None,
     }
 
 
@@ -148,10 +156,11 @@ async def average_cash_flow_payback(initial_investment: float, total_cash_flows:
         "total_cash_flows": total_cash_flows,
         "years": years,
         "average_annual_cash_flow": round(avg_cf, 2),
-        "payback_period": round(payback, 2) if payback else None
+        "payback_period": round(payback, 2) if payback else None,
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

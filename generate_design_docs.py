@@ -1,8 +1,9 @@
 import os
 
+
 def generate_design_doc(service_dir, service_name):
     doc_path = os.path.join(service_dir, "DESIGN.md")
-    
+
     content = f"""# Design Document: {service_name}
 
 ## 1. Overview
@@ -38,18 +39,19 @@ The service uses standard HTTP status codes:
     with open(doc_path, "w", encoding="utf-8") as f:
         f.write(content)
 
+
 if __name__ == "__main__":
     base_dir = "/home/ubuntu/Vimbai"
-    
+
     # Python services
     with open("/tmp/python_services.txt", "r") as f:
         python_services = [line.strip() for line in f if line.strip()]
-        
+
     for service in python_services:
         generate_design_doc(os.path.join(base_dir, service), service)
-        
+
     # Go services
     generate_design_doc(os.path.join(base_dir, "api-gateway"), "api-gateway")
     generate_design_doc(os.path.join(base_dir, "identity-service"), "identity-service")
-    
+
     print(f"Generated design documents for {len(python_services) + 2} services.")

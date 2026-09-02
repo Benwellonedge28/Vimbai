@@ -21,15 +21,23 @@ AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
-    processors=[structlog.stdlib.add_log_level, structlog.stdlib.add_logger_name,
-                structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()],
-    wrapper_class=structlog.stdlib.BoundLogger, context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(), cache_logger_on_first_use=True,
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Margin of Safety Service", version=SERVICE_VERSION, docs_url="/docs")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 
 class MarginOfSafety(BaseModel):
@@ -77,15 +85,23 @@ async def root():
 
 @app.post("/calculate")
 async def calculate_margin_of_safety(
-    entity_id: str, entity_name: str, period: str,
-    current_output: float, current_revenue: float,
-    break_even_output: float, break_even_revenue: float
+    entity_id: str,
+    entity_name: str,
+    period: str,
+    current_output: float,
+    current_revenue: float,
+    break_even_output: float,
+    break_even_revenue: float,
 ):
     """Calculate margin of safety."""
     mos = MarginOfSafety(
-        entity_id=entity_id, entity_name=entity_name, period=period,
-        current_output=current_output, current_revenue=current_revenue,
-        break_even_output=break_even_output, break_even_revenue=break_even_revenue
+        entity_id=entity_id,
+        entity_name=entity_name,
+        period=period,
+        current_output=current_output,
+        current_revenue=current_revenue,
+        break_even_output=break_even_output,
+        break_even_revenue=break_even_revenue,
     )
 
     # Calculate margin of safety in units
@@ -116,9 +132,11 @@ async def calculate_margin_of_safety(
 
 @app.post("/calculate-from-data")
 async def calculate_from_basic_data(
-    entity_name: str, selling_price: float,
-    fixed_costs: float, variable_cost_per_unit: float,
-    expected_sales_units: float
+    entity_name: str,
+    selling_price: float,
+    fixed_costs: float,
+    variable_cost_per_unit: float,
+    expected_sales_units: float,
 ):
     """Calculate margin of safety from basic data."""
     contribution = selling_price - variable_cost_per_unit
@@ -146,15 +164,12 @@ async def calculate_from_basic_data(
         "margin_of_safety_units": mos_units,
         "margin_of_safety_revenue": mos_revenue,
         "margin_of_safety_percentage": mos_percentage,
-        "risk_level": risk_level
+        "risk_level": risk_level,
     }
 
 
 @app.post("/target-mos")
-async def calculate_sales_for_target_mos(
-    entity_name: str, break_even_revenue: float,
-    target_mos_percentage: float
-):
+async def calculate_sales_for_target_mos(entity_name: str, break_even_revenue: float, target_mos_percentage: float):
     """Calculate sales revenue needed for target margin of safety."""
     # MOS% = (Sales - BEP) / Sales
     # MOS% = 1 - (BEP / Sales)
@@ -163,13 +178,13 @@ async def calculate_sales_for_target_mos(
     if target_mos_percentage < 100:
         required_sales = break_even_revenue / (1 - target_mos_percentage / 100)
     else:
-        required_sales = float('inf')
+        required_sales = float("inf")
 
     return {
         "entity_name": entity_name,
         "break_even_revenue": break_even_revenue,
         "target_mos_percentage": target_mos_percentage,
-        "required_sales_revenue": required_sales
+        "required_sales_revenue": required_sales,
     }
 
 
@@ -186,4 +201,5 @@ async def list_margins(entity_id: Optional[str] = None, risk_level: Optional[str
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=PORT)

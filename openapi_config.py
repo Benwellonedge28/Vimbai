@@ -12,10 +12,10 @@ Usage:
     app.openapi = get_openapi_schema(app)
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
+
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-
 
 # =============================================================================
 # API METADATA
@@ -57,20 +57,14 @@ Vimbai is a comprehensive financial management system with microservices archite
     "contact": {
         "name": "Vimbai Support",
         "email": "support@vimbai.example.com",
-        "url": "https://vimbai.example.com/support"
+        "url": "https://vimbai.example.com/support",
     },
-    "license": {
-        "name": "MIT License",
-        "url": "https://opensource.org/licenses/MIT"
-    },
+    "license": {"name": "MIT License", "url": "https://opensource.org/licenses/MIT"},
     "terms_of_service": "https://vimbai.example.com/terms",
 }
 
 # External Documentation
-EXTERNAL_DOCS = {
-    "description": "Full API Documentation",
-    "url": "https://docs.vimbai.example.com/api"
-}
+EXTERNAL_DOCS = {"description": "Full API Documentation", "url": "https://docs.vimbai.example.com/api"}
 
 
 # =============================================================================
@@ -82,14 +76,14 @@ SECURITY_SCHEMES = {
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Enter your JWT token obtained from the identity service"
+        "description": "Enter your JWT token obtained from the identity service",
     },
     "ApiKeyAuth": {
         "type": "apiKey",
         "in": "header",
         "name": "X-API-Key",
-        "description": "API key for service-to-service communication"
-    }
+        "description": "API key for service-to-service communication",
+    },
 }
 
 # Security requirements for all endpoints
@@ -106,89 +100,44 @@ TAGS_METADATA = [
         "description": "Chart of Accounts management - create, read, update, delete accounts",
         "externalDocs": {
             "description": "Account management documentation",
-            "url": "https://docs.vimbai.example.com/accounts"
-        }
+            "url": "https://docs.vimbai.example.com/accounts",
+        },
     },
     {
         "name": "journal-entries",
         "description": "Journal Entry operations - double-entry accounting transactions",
         "externalDocs": {
             "description": "Journal entries documentation",
-            "url": "https://docs.vimbai.example.com/journal-entries"
-        }
+            "url": "https://docs.vimbai.example.com/journal-entries",
+        },
     },
-    {
-        "name": "ledgers",
-        "description": "Ledger reports - account activity and balances"
-    },
+    {"name": "ledgers", "description": "Ledger reports - account activity and balances"},
     {
         "name": "financial-statements",
-        "description": "Financial statement generation - trial balance, income statement, balance sheet"
+        "description": "Financial statement generation - trial balance, income statement, balance sheet",
     },
     {
         "name": "special-journals",
-        "description": "Special journal operations - sales, purchases, cash receipts/disbursements"
+        "description": "Special journal operations - sales, purchases, cash receipts/disbursements",
     },
-    {
-        "name": "subsidiary-ledgers",
-        "description": "Subsidiary ledger reports - AR, AP, fixed assets, inventory"
-    },
-    {
-        "name": "petty-cash",
-        "description": "Petty cash fund management and tracking"
-    },
-    {
-        "name": "bank-reconciliation",
-        "description": "Bank statement reconciliation and matching"
-    },
+    {"name": "subsidiary-ledgers", "description": "Subsidiary ledger reports - AR, AP, fixed assets, inventory"},
+    {"name": "petty-cash", "description": "Petty cash fund management and tracking"},
+    {"name": "bank-reconciliation", "description": "Bank statement reconciliation and matching"},
     {
         "name": "incomplete-records",
-        "description": "Single-entry accounting for incomplete records - Statement of Affairs, Capital calculations"
+        "description": "Single-entry accounting for incomplete records - Statement of Affairs, Capital calculations",
     },
-    {
-        "name": "funds",
-        "description": "NPO Fund Accounting - fund creation, transactions, restrictions"
-    },
-    {
-        "name": "donations",
-        "description": "Donation tracking and management"
-    },
-    {
-        "name": "grants",
-        "description": "Grant lifecycle management - application, approval, disbursement, reporting"
-    },
-    {
-        "name": "donors",
-        "description": "Donor information and contribution history"
-    },
-    {
-        "name": "budgets",
-        "description": "NPO budget planning and variance tracking"
-    },
-    {
-        "name": "programs",
-        "description": "NPO programs and associated metrics"
-    },
-    {
-        "name": "projects",
-        "description": "NPO project tracking and resource allocation"
-    },
-    {
-        "name": "compliance",
-        "description": "Internal controls, audit reports, and governance"
-    },
-    {
-        "name": "impact",
-        "description": "Impact measurement and SROI analysis"
-    },
-    {
-        "name": "volunteers",
-        "description": "Volunteer hours tracking and value calculation"
-    },
-    {
-        "name": "health",
-        "description": "Service health checks and status monitoring"
-    }
+    {"name": "funds", "description": "NPO Fund Accounting - fund creation, transactions, restrictions"},
+    {"name": "donations", "description": "Donation tracking and management"},
+    {"name": "grants", "description": "Grant lifecycle management - application, approval, disbursement, reporting"},
+    {"name": "donors", "description": "Donor information and contribution history"},
+    {"name": "budgets", "description": "NPO budget planning and variance tracking"},
+    {"name": "programs", "description": "NPO programs and associated metrics"},
+    {"name": "projects", "description": "NPO project tracking and resource allocation"},
+    {"name": "compliance", "description": "Internal controls, audit reports, and governance"},
+    {"name": "impact", "description": "Impact measurement and SROI analysis"},
+    {"name": "volunteers", "description": "Volunteer hours tracking and value calculation"},
+    {"name": "health", "description": "Service health checks and status monitoring"},
 ]
 
 
@@ -202,68 +151,35 @@ CUSTOM_SCHEMAS = {
         "title": "Validation Error",
         "type": "object",
         "properties": {
-            "detail": {
-                "type": "string",
-                "description": "Human-readable error message"
-            },
-            "code": {
-                "type": "string",
-                "description": "Error code for programmatic handling"
-            },
+            "detail": {"type": "string", "description": "Human-readable error message"},
+            "code": {"type": "string", "description": "Error code for programmatic handling"},
             "errors": {
                 "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "field": {"type": "string"},
-                        "message": {"type": "string"}
-                    }
-                }
-            }
-        }
+                "items": {"type": "object", "properties": {"field": {"type": "string"}, "message": {"type": "string"}}},
+            },
+        },
     },
     "NotFoundError": {
         "title": "Resource Not Found",
         "type": "object",
-        "properties": {
-            "detail": {"type": "string"},
-            "code": {"type": "string", "example": "RESOURCE_NOT_FOUND"}
-        }
+        "properties": {"detail": {"type": "string"}, "code": {"type": "string", "example": "RESOURCE_NOT_FOUND"}},
     },
     "UnauthorizedError": {
         "title": "Authentication Required",
         "type": "object",
-        "properties": {
-            "detail": {"type": "string"},
-            "code": {"type": "string", "example": "UNAUTHORIZED"}
-        }
+        "properties": {"detail": {"type": "string"}, "code": {"type": "string", "example": "UNAUTHORIZED"}},
     },
     # Pagination schemas
     "PaginatedResponse": {
         "title": "Paginated Response",
         "type": "object",
         "properties": {
-            "items": {
-                "type": "array",
-                "description": "Array of result items"
-            },
-            "total": {
-                "type": "integer",
-                "description": "Total number of items matching query"
-            },
-            "page": {
-                "type": "integer",
-                "description": "Current page number"
-            },
-            "per_page": {
-                "type": "integer",
-                "description": "Items per page"
-            },
-            "pages": {
-                "type": "integer",
-                "description": "Total number of pages"
-            }
-        }
+            "items": {"type": "array", "description": "Array of result items"},
+            "total": {"type": "integer", "description": "Total number of items matching query"},
+            "page": {"type": "integer", "description": "Current page number"},
+            "per_page": {"type": "integer", "description": "Items per page"},
+            "pages": {"type": "integer", "description": "Total number of pages"},
+        },
     },
     # Health check schema
     "HealthStatus": {
@@ -273,37 +189,28 @@ CUSTOM_SCHEMAS = {
             "status": {
                 "type": "string",
                 "enum": ["healthy", "degraded", "unhealthy"],
-                "description": "Overall service health"
+                "description": "Overall service health",
             },
             "service": {"type": "string", "description": "Service name"},
             "version": {"type": "string", "description": "Service version"},
-            "timestamp": {
-                "type": "string",
-                "format": "date-time",
-                "description": "Health check timestamp"
-            },
+            "timestamp": {"type": "string", "format": "date-time", "description": "Health check timestamp"},
             "dependencies": {
                 "type": "object",
                 "description": "Status of service dependencies",
                 "properties": {
-                    "database": {
-                        "type": "string",
-                        "enum": ["healthy", "unhealthy"]
-                    },
-                    "cache": {
-                        "type": "string",
-                        "enum": ["healthy", "unhealthy"]
-                    }
-                }
-            }
-        }
-    }
+                    "database": {"type": "string", "enum": ["healthy", "unhealthy"]},
+                    "cache": {"type": "string", "enum": ["healthy", "unhealthy"]},
+                },
+            },
+        },
+    },
 }
 
 
 # =============================================================================
 # UTILITY FUNCTIONS
 # =============================================================================
+
 
 def get_openapi_schema(app: FastAPI) -> Dict[str, Any]:
     """
@@ -330,19 +237,19 @@ def get_openapi_schema(app: FastAPI) -> Dict[str, Any]:
         )
 
     # Add Vimbai-specific metadata
-    openapi_schema.update({
-        "info": {
-            **API_INFO,
-            "title": app.title if app.title else API_INFO["title"],
-            "version": app.version if app.version else API_INFO["version"]
-        },
-        "externalDocs": EXTERNAL_DOCS,
-        "securitySchemes": SECURITY_SCHEMES,
-        "tags": TAGS_METADATA,
-        "components": {
-            "schemas": CUSTOM_SCHEMAS
+    openapi_schema.update(
+        {
+            "info": {
+                **API_INFO,
+                "title": app.title if app.title else API_INFO["title"],
+                "version": app.version if app.version else API_INFO["version"],
+            },
+            "externalDocs": EXTERNAL_DOCS,
+            "securitySchemes": SECURITY_SCHEMES,
+            "tags": TAGS_METADATA,
+            "components": {"schemas": CUSTOM_SCHEMAS},
         }
-    })
+    )
 
     return openapi_schema
 
@@ -358,7 +265,7 @@ def add_api_documentation(app: FastAPI) -> None:
     app.openapi = lambda: get_openapi_schema(app)
 
     # Add Swagger UI custom configuration
-    if hasattr(app, 'swagger_ui_parameters'):
+    if hasattr(app, "swagger_ui_parameters"):
         app.swagger_ui_parameters = {
             "deepLinking": True,
             "persistAuthorization": True,
@@ -376,7 +283,7 @@ def create_endpoint_documentation(
     tags: List[str],
     response_model: Optional[type] = None,
     responses: Optional[Dict] = None,
-    deprecated: bool = False
+    deprecated: bool = False,
 ) -> Dict[str, Any]:
     """
     Create documentation metadata for an endpoint.
@@ -397,11 +304,12 @@ def create_endpoint_documentation(
         "description": description,
         "tags": tags,
         "deprecated": deprecated,
-        "responses": responses or {
+        "responses": responses
+        or {
             "401": {"description": "Authentication required"},
             "403": {"description": "Insufficient permissions"},
-            "404": {"description": "Resource not found"}
-        }
+            "404": {"description": "Resource not found"},
+        },
     }
 
     return doc

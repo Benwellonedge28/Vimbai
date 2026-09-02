@@ -1,7 +1,8 @@
-from typing import Dict, Any, List, Optional
-from pydantic import BaseModel
-from fastapi import FastAPI
+from typing import Any, Dict, List, Optional
+
 import structlog
+from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Service", version="1.0.0")
@@ -9,36 +10,40 @@ app = FastAPI(title="Service", version="1.0.0")
 
 # Distributed tracing
 try:
-    from shared.tracing import setup_tracing, get_tracer
+    from shared.tracing import get_tracer, setup_tracing
+
     TRACER = setup_tracing(service_name="banking-integration-service", instrument_app=app)
 except ImportError:
     TRACER = None
     import logging
+
     logging.getLogger(__name__).warning("OpenTelemetry not installed - tracing disabled")
+
 
 class GenericRequest(BaseModel):
     company_id: str
     data: Dict[str, Any]
+
 
 class GenericResponse(BaseModel):
     company_id: str
     status: str
     result: Dict[str, Any]
 
+
 @app.get("/")
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "banking-integration-service", "version": "1.0.0"}
 
+
 @app.post("/process", response_model=GenericResponse)
 async def process_data(request: GenericRequest):
     logger.info("Processing data", company=request.company_id)
-    return GenericResponse(
-        company_id=request.company_id,
-        status="success",
-        result={"processed": True}
-    )
+    return GenericResponse(company_id=request.company_id, status="success", result={"processed": True})
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

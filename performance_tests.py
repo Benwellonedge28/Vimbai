@@ -23,13 +23,14 @@ import random
 import string
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 # Import locust for load testing
 try:
-    from locust import HttpUser, task, between, events
-    from locust.runners import MasterRunner, WorkerRunner
     import json
+
+    from locust import HttpUser, between, events, task
+    from locust.runners import MasterRunner, WorkerRunner
 except ImportError:
     print("Install locust for performance testing: pip install locust")
     raise
@@ -38,6 +39,7 @@ except ImportError:
 # =============================================================================
 # TEST DATA GENERATORS
 # =============================================================================
+
 
 def generate_account_number() -> str:
     """Generate a random account number."""
@@ -55,15 +57,15 @@ def generate_journal_entry_data() -> Dict[str, Any]:
                 "account_number": generate_account_number(),
                 "debit_amount": str(random.randint(100, 10000)),
                 "credit_amount": "0",
-                "description": "Debit entry"
+                "description": "Debit entry",
             },
             {
                 "account_number": generate_account_number(),
                 "debit_amount": "0",
                 "credit_amount": str(random.randint(100, 10000)),
-                "description": "Credit entry"
-            }
-        ]
+                "description": "Credit entry",
+            },
+        ],
     }
 
 
@@ -77,7 +79,7 @@ def generate_fund_data() -> Dict[str, Any]:
         "description": f"Test fund for performance testing",
         "current_balance": str(random.randint(1000, 100000)),
         "total_contributions": str(random.randint(1000, 50000)),
-        "total_disbursements": str(random.randint(500, 25000))
+        "total_disbursements": str(random.randint(500, 25000)),
     }
 
 
@@ -91,13 +93,14 @@ def generate_donation_data() -> Dict[str, Any]:
         "donation_type": random.choice(donation_types),
         "designation": random.choice(["general", "program", "capital", "endowment"]),
         "payment_method": random.choice(["cash", "check", "credit_card", "bank_transfer"]),
-        "receipt_number": f"RCP-{random.randint(100000, 999999)}"
+        "receipt_number": f"RCP-{random.randint(100000, 999999)}",
     }
 
 
 # =============================================================================
 # BASE TEST CONFIGURATION
 # =============================================================================
+
 
 class VimbaiUser(HttpUser):
     """
@@ -107,6 +110,7 @@ class VimbaiUser(HttpUser):
         abstract: Prevents instantiation of this base class
         wait_time: Time between task executions (1-3 seconds)
     """
+
     abstract = True
     wait_time = between(1, 3)
 
@@ -119,10 +123,7 @@ class VimbaiUser(HttpUser):
     def _authenticate(self):
         """Authenticate and store JWT token for requests."""
         # Note: Replace with actual authentication endpoint
-        response = self.client.post("/auth/login", json={
-            "username": "test_user",
-            "password": "test_password"
-        })
+        response = self.client.post("/auth/login", json={"username": "test_user", "password": "test_password"})
         if response.status_code == 200:
             self.jwt_token = response.json().get("access_token")
 
@@ -138,6 +139,7 @@ class VimbaiUser(HttpUser):
 # ACCOUNTING SERVICE TESTS
 # =============================================================================
 
+
 class AccountingServiceUser(VimbaiUser):
     """
     Load test user for accounting service endpoints.
@@ -147,21 +149,13 @@ class AccountingServiceUser(VimbaiUser):
     @task(10)
     def get_accounts(self):
         """Test: List all accounts (high frequency)."""
-        self.client.get(
-            "/accounts/",
-            headers=self._get_headers(),
-            name="/accounts/ [LIST]"
-        )
+        self.client.get("/accounts/", headers=self._get_headers(), name="/accounts/ [LIST]")
 
     @task(8)
     def get_account_by_number(self):
         """Test: Get single account by number."""
         account_num = generate_account_number()
-        self.client.get(
-            f"/accounts/{account_num}",
-            headers=self._get_headers(),
-            name="/accounts/{id} [GET]"
-        )
+        self.client.get(f"/accounts/{account_num}", headers=self._get_headers(), name="/accounts/{id} [GET]")
 
     @task(5)
     def create_account(self):
@@ -171,53 +165,33 @@ class AccountingServiceUser(VimbaiUser):
             "account_name": f"Test Account {random.randint(1000, 9999)}",
             "account_type": random.choice(["Asset", "Liability", "Equity", "Revenue", "Expense"]),
             "description": "Load test account",
-            "is_active": True
+            "is_active": True,
         }
-        self.client.post(
-            "/accounts/",
-            json=account_data,
-            headers=self._get_headers(),
-            name="/accounts/ [CREATE]"
-        )
+        self.client.post("/accounts/", json=account_data, headers=self._get_headers(), name="/accounts/ [CREATE]")
 
     @task(8)
     def get_journal_entries(self):
         """Test: List journal entries."""
-        self.client.get(
-            "/journal-entries/",
-            headers=self._get_headers(),
-            name="/journal-entries/ [LIST]"
-        )
+        self.client.get("/journal-entries/", headers=self._get_headers(), name="/journal-entries/ [LIST]")
 
     @task(6)
     def create_journal_entry(self):
         """Test: Create journal entry."""
         entry_data = generate_journal_entry_data()
         self.client.post(
-            "/journal-entries/",
-            json=entry_data,
-            headers=self._get_headers(),
-            name="/journal-entries/ [CREATE]"
+            "/journal-entries/", json=entry_data, headers=self._get_headers(), name="/journal-entries/ [CREATE]"
         )
 
     @task(7)
     def get_ledger(self):
         """Test: Get account ledger."""
         account_num = generate_account_number()
-        self.client.get(
-            f"/ledgers/{account_num}",
-            headers=self._get_headers(),
-            name="/ledgers/{account} [GET]"
-        )
+        self.client.get(f"/ledgers/{account_num}", headers=self._get_headers(), name="/ledgers/{account} [GET]")
 
     @task(4)
     def get_trial_balance(self):
         """Test: Generate trial balance report."""
-        self.client.get(
-            "/trial-balance/",
-            headers=self._get_headers(),
-            name="/trial-balance/ [GET]"
-        )
+        self.client.get("/trial-balance/", headers=self._get_headers(), name="/trial-balance/ [GET]")
 
     @task(5)
     def get_income_statement(self):
@@ -227,7 +201,7 @@ class AccountingServiceUser(VimbaiUser):
         self.client.get(
             f"/income-statement/?start_date={start_date}&end_date={end_date}",
             headers=self._get_headers(),
-            name="/income-statement/ [GET]"
+            name="/income-statement/ [GET]",
         )
 
     @task(5)
@@ -235,42 +209,29 @@ class AccountingServiceUser(VimbaiUser):
         """Test: Generate balance sheet."""
         as_of_date = datetime.now().isoformat()
         self.client.get(
-            f"/balance-sheet/?as_of_date={as_of_date}",
-            headers=self._get_headers(),
-            name="/balance-sheet/ [GET]"
+            f"/balance-sheet/?as_of_date={as_of_date}", headers=self._get_headers(), name="/balance-sheet/ [GET]"
         )
 
     @task(3)
     def get_sales_journal(self):
         """Test: Get sales journal."""
-        self.client.get(
-            "/sales-journal/",
-            headers=self._get_headers(),
-            name="/sales-journal/ [LIST]"
-        )
+        self.client.get("/sales-journal/", headers=self._get_headers(), name="/sales-journal/ [LIST]")
 
     @task(3)
     def get_petty_cash_funds(self):
         """Test: Get petty cash funds."""
-        self.client.get(
-            "/petty-cash-funds/",
-            headers=self._get_headers(),
-            name="/petty-cash-funds/ [LIST]"
-        )
+        self.client.get("/petty-cash-funds/", headers=self._get_headers(), name="/petty-cash-funds/ [LIST]")
 
     @task(2)
     def get_bank_reconciliations(self):
         """Test: Get bank reconciliations."""
-        self.client.get(
-            "/bank-reconciliation/",
-            headers=self._get_headers(),
-            name="/bank-reconciliation/ [LIST]"
-        )
+        self.client.get("/bank-reconciliation/", headers=self._get_headers(), name="/bank-reconciliation/ [LIST]")
 
 
 # =============================================================================
 # NPO SERVICE TESTS
 # =============================================================================
+
 
 class NPOServiceUser(VimbaiUser):
     """
@@ -281,69 +242,39 @@ class NPOServiceUser(VimbaiUser):
     @task(8)
     def get_funds(self):
         """Test: List all funds (high frequency)."""
-        self.client.get(
-            "/funds/",
-            headers=self._get_headers(),
-            name="/funds/ [LIST]"
-        )
+        self.client.get("/funds/", headers=self._get_headers(), name="/funds/ [LIST]")
 
     @task(6)
     def create_fund(self):
         """Test: Create new fund."""
         fund_data = generate_fund_data()
-        self.client.post(
-            "/funds/",
-            json=fund_data,
-            headers=self._get_headers(),
-            name="/funds/ [CREATE]"
-        )
+        self.client.post("/funds/", json=fund_data, headers=self._get_headers(), name="/funds/ [CREATE]")
 
     @task(5)
     def get_donations(self):
         """Test: List donations."""
-        self.client.get(
-            "/donations/",
-            headers=self._get_headers(),
-            name="/donations/ [LIST]"
-        )
+        self.client.get("/donations/", headers=self._get_headers(), name="/donations/ [LIST]")
 
     @task(4)
     def create_donation(self):
         """Test: Create donation."""
         donation_data = generate_donation_data()
-        self.client.post(
-            "/donations/",
-            json=donation_data,
-            headers=self._get_headers(),
-            name="/donations/ [CREATE]"
-        )
+        self.client.post("/donations/", json=donation_data, headers=self._get_headers(), name="/donations/ [CREATE]")
 
     @task(5)
     def get_grants(self):
         """Test: List grants."""
-        self.client.get(
-            "/grants/",
-            headers=self._get_headers(),
-            name="/grants/ [LIST]"
-        )
+        self.client.get("/grants/", headers=self._get_headers(), name="/grants/ [LIST]")
 
     @task(4)
     def get_donors(self):
         """Test: List donors."""
-        self.client.get(
-            "/donors/",
-            headers=self._get_headers(),
-            name="/donors/ [LIST]"
-        )
+        self.client.get("/donors/", headers=self._get_headers(), name="/donors/ [LIST]")
 
     @task(3)
     def get_budgets(self):
         """Test: List budgets."""
-        self.client.get(
-            "/budgets/",
-            headers=self._get_headers(),
-            name="/budgets/ [LIST]"
-        )
+        self.client.get("/budgets/", headers=self._get_headers(), name="/budgets/ [LIST]")
 
     @task(4)
     def get_statement_of_activities(self):
@@ -353,50 +284,35 @@ class NPOServiceUser(VimbaiUser):
         self.client.get(
             f"/statements/activities/?period_start={period_start}&period_end={period_end}",
             headers=self._get_headers(),
-            name="/statements/activities/ [GET]"
+            name="/statements/activities/ [GET]",
         )
 
     @task(4)
     def get_net_assets(self):
         """Test: Get net assets."""
         as_of_date = datetime.now().date().isoformat()
-        self.client.get(
-            f"/net-assets/{as_of_date}",
-            headers=self._get_headers(),
-            name="/net-assets/{date} [GET]"
-        )
+        self.client.get(f"/net-assets/{as_of_date}", headers=self._get_headers(), name="/net-assets/{date} [GET]")
 
     @task(2)
     def get_projects(self):
         """Test: List projects."""
-        self.client.get(
-            "/projects/",
-            headers=self._get_headers(),
-            name="/projects/ [LIST]"
-        )
+        self.client.get("/projects/", headers=self._get_headers(), name="/projects/ [LIST]")
 
     @task(2)
     def get_programs(self):
         """Test: List programs."""
-        self.client.get(
-            "/programs/",
-            headers=self._get_headers(),
-            name="/programs/ [LIST]"
-        )
+        self.client.get("/programs/", headers=self._get_headers(), name="/programs/ [LIST]")
 
     @task(2)
     def get_internal_controls(self):
         """Test: List internal controls."""
-        self.client.get(
-            "/internal-controls/",
-            headers=self._get_headers(),
-            name="/internal-controls/ [LIST]"
-        )
+        self.client.get("/internal-controls/", headers=self._get_headers(), name="/internal-controls/ [LIST]")
 
 
 # =============================================================================
 # MIXED WORKLOAD TEST
 # =============================================================================
+
 
 class MixedWorkloadUser(VimbaiUser):
     """
@@ -422,17 +338,28 @@ class MixedWorkloadUser(VimbaiUser):
     def write_operations(self):
         """Test: Write operations (20% of traffic)."""
         operations = [
-            lambda: self.client.post("/accounts/", json={
-                "account_number": generate_account_number(),
-                "account_name": f"Test {random.randint(1000, 9999)}",
-                "account_type": "Asset"
-            }, headers=self._get_headers(), name="[WRITE] account"),
-            lambda: self.client.post("/journal-entries/", json=generate_journal_entry_data(),
-                                     headers=self._get_headers(), name="[WRITE] journal"),
-            lambda: self.client.post("/funds/", json=generate_fund_data(),
-                                     headers=self._get_headers(), name="[WRITE] fund"),
-            lambda: self.client.post("/donations/", json=generate_donation_data(),
-                                     headers=self._get_headers(), name="[WRITE] donation"),
+            lambda: self.client.post(
+                "/accounts/",
+                json={
+                    "account_number": generate_account_number(),
+                    "account_name": f"Test {random.randint(1000, 9999)}",
+                    "account_type": "Asset",
+                },
+                headers=self._get_headers(),
+                name="[WRITE] account",
+            ),
+            lambda: self.client.post(
+                "/journal-entries/",
+                json=generate_journal_entry_data(),
+                headers=self._get_headers(),
+                name="[WRITE] journal",
+            ),
+            lambda: self.client.post(
+                "/funds/", json=generate_fund_data(), headers=self._get_headers(), name="[WRITE] fund"
+            ),
+            lambda: self.client.post(
+                "/donations/", json=generate_donation_data(), headers=self._get_headers(), name="[WRITE] donation"
+            ),
         ]
         random.choice(operations)()
 
@@ -450,34 +377,38 @@ class MixedWorkloadUser(VimbaiUser):
     def _get_income_statement(self):
         start = (datetime.now() - timedelta(days=30)).isoformat()
         end = datetime.now().isoformat()
-        self.client.get(f"/income-statement/?start_date={start}&end_date={end}",
-                       headers=self._get_headers(), name="[REPORT] income")
+        self.client.get(
+            f"/income-statement/?start_date={start}&end_date={end}", headers=self._get_headers(), name="[REPORT] income"
+        )
 
     def _get_balance_sheet(self):
         date = datetime.now().isoformat()
-        self.client.get(f"/balance-sheet/?as_of_date={date}",
-                       headers=self._get_headers(), name="[REPORT] balance")
+        self.client.get(f"/balance-sheet/?as_of_date={date}", headers=self._get_headers(), name="[REPORT] balance")
 
     def _get_trial_balance(self):
-        self.client.get("/trial-balance/", headers=self._get_headers(),
-                       name="[REPORT] trial")
+        self.client.get("/trial-balance/", headers=self._get_headers(), name="[REPORT] trial")
 
     def _get_statement_of_activities(self):
         start = (datetime.now() - timedelta(days=30)).date().isoformat()
         end = datetime.now().date().isoformat()
-        self.client.get(f"/statements/activities/?period_start={start}&period_end={end}",
-                       headers=self._get_headers(), name="[REPORT] activities")
+        self.client.get(
+            f"/statements/activities/?period_start={start}&period_end={end}",
+            headers=self._get_headers(),
+            name="[REPORT] activities",
+        )
 
 
 # =============================================================================
 # SPIKE TEST SCENARIOS
 # =============================================================================
 
+
 class SpikeLoadUser(VimbaiUser):
     """
     Simulates spike load scenarios - sudden increases in traffic.
     Used for capacity planning and identifying bottlenecks.
     """
+
     wait_time = between(0.1, 0.5)  # Fast consecutive requests
 
     @task
@@ -490,13 +421,12 @@ class SpikeLoadUser(VimbaiUser):
 # CUSTOM EVENT HANDLERS
 # =============================================================================
 
+
 @events.init_command_line_parser.add_listener
 def add_custom_arguments(parser):
     """Add custom command line arguments for test configuration."""
-    parser.add_argument("--test-duration", type=int, default=60,
-                       help="Duration of test in seconds")
-    parser.add_argument("--peak-users", type=int, default=50,
-                       help="Number of peak concurrent users")
+    parser.add_argument("--test-duration", type=int, default=60, help="Duration of test in seconds")
+    parser.add_argument("--peak-users", type=int, default=50, help="Number of peak concurrent users")
 
 
 @events.test_start.add_listener
@@ -514,9 +444,9 @@ def on_test_stop(environment, **kwargs):
     # Extract statistics
     stats = environment.stats
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("PERFORMANCE TEST RESULTS")
-    print("="*60)
+    print("=" * 60)
     print(f"Total Requests: {stats.total.num_requests}")
     print(f"Failed Requests: {stats.total.num_failures}")
     print(f"Average Response Time: {stats.total.avg_response_time:.2f}ms")
@@ -524,7 +454,7 @@ def on_test_stop(environment, **kwargs):
     print(f"95th Percentile: {stats.total.get_response_time_percentile(0.95):.2f}ms")
     print(f"99th Percentile: {stats.total.get_response_time_percentile(0.99):.2f}ms")
     print(f"Requests/sec: {stats.total.total_rps:.2f}")
-    print("="*60)
+    print("=" * 60)
 
 
 @events.request.add_listener
@@ -538,11 +468,13 @@ def on_request(request_type, name, response_time, response_length, exception, **
 # NEO4J QUERY PERFORMANCE TESTS
 # =============================================================================
 
+
 class Neo4jQueryTester(HttpUser):
     """
     Dedicated test class for Neo4j query performance.
     Tests specific query patterns and measures execution time.
     """
+
     abstract = True
 
     @task
@@ -582,6 +514,7 @@ class Neo4jQueryTester(HttpUser):
 # HELPER FUNCTIONS
 # =============================================================================
 
+
 def generate_performance_report(stats) -> Dict[str, Any]:
     """
     Generate a performance report from test statistics.
@@ -602,7 +535,7 @@ def generate_performance_report(stats) -> Dict[str, Any]:
         "p99_response_time_ms": stats.total.get_response_time_percentile(0.99),
         "max_response_time_ms": stats.total.max_response_time,
         "requests_per_second": stats.total.total_rps,
-        "bandwidth_mb_per_sec": stats.total.total_rps * (stats.total.avg_content_length / 1024 / 1024)
+        "bandwidth_mb_per_sec": stats.total.total_rps * (stats.total.avg_content_length / 1024 / 1024),
     }
 
 
@@ -616,7 +549,7 @@ def export_results_to_json(stats, filename: str = "performance_results.json"):
     """
     report = generate_performance_report(stats)
 
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         json.dump(report, f, indent=2)
 
     print(f"Results exported to {filename}")
@@ -630,14 +563,10 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Vimbai Performance Testing")
-    parser.add_argument("--host", default="http://localhost:8000",
-                       help="Target host URL")
-    parser.add_argument("--users", type=int, default=10,
-                       help="Number of concurrent users")
-    parser.add_argument("--spawn-rate", type=int, default=5,
-                       help="User spawn rate per second")
-    parser.add_argument("--run-time", default="60s",
-                       help="Test run duration")
+    parser.add_argument("--host", default="http://localhost:8000", help="Target host URL")
+    parser.add_argument("--users", type=int, default=10, help="Number of concurrent users")
+    parser.add_argument("--spawn-rate", type=int, default=5, help="User spawn rate per second")
+    parser.add_argument("--run-time", default="60s", help="Test run duration")
 
     args = parser.parse_args()
 

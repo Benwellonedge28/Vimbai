@@ -1,10 +1,14 @@
-from neo4j import AsyncSession
-from typing import Optional, List
-from fraud_detection_service.models import FraudulentTransactionFlagCreate, FraudulentTransactionFlagInDB
-from datetime import datetime
 import uuid
+from datetime import datetime, timezone
+from typing import List, Literal, Optional
 
-async def create_fraud_flag(session: AsyncSession, flag_data: FraudulentTransactionFlagCreate) -> FraudulentTransactionFlagInDB:
+from fraud_detection_service.models import FraudulentTransactionFlagCreate, FraudulentTransactionFlagInDB
+from neo4j import AsyncSession
+
+
+async def create_fraud_flag(
+    session: AsyncSession, flag_data: FraudulentTransactionFlagCreate
+) -> FraudulentTransactionFlagInDB:
     flag_neo4j_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc)
     updated_at = datetime.now(timezone.utc)
@@ -26,10 +30,10 @@ async def create_fraud_flag(session: AsyncSession, flag_data: FraudulentTransact
     """
     params = flag_data.model_dump()
     params["id"] = flag_neo4j_id
-    params["fraud_score"] = float(params["fraud_score"]) # Neo4j stores float, not Decimal
+    params["fraud_score"] = float(params["fraud_score"])  # Neo4j stores float, not Decimal
     params["created_at"] = created_at.isoformat()
     params["updated_at"] = updated_at.isoformat()
-    
+
     result = await session.run(query, params)
     record = await result.single()
     flag_node = record["f"]
@@ -46,6 +50,7 @@ async def create_fraud_flag(session: AsyncSession, flag_data: FraudulentTransact
         created_at=datetime.fromisoformat(flag_node["created_at"].iso_format()),
         updated_at=datetime.fromisoformat(flag_node["updated_at"].iso_format()),
     )
+
 
 async def get_fraud_flag(session: AsyncSession, flag_id: str) -> Optional[FraudulentTransactionFlagInDB]:
     query = """
@@ -71,6 +76,7 @@ async def get_fraud_flag(session: AsyncSession, flag_id: str) -> Optional[Fraudu
         )
     return None
 
+
 async def get_all_fraud_flags(session: AsyncSession) -> List[FraudulentTransactionFlagInDB]:
     query = """
     MATCH (f:FraudulentTransactionFlag)
@@ -81,21 +87,28 @@ async def get_all_fraud_flags(session: AsyncSession) -> List[FraudulentTransacti
     flags = []
     async for record in result:
         flag_node = record["f"]
-        flags.append(FraudulentTransactionFlagInDB(
-            id=flag_node["id"],
-            transaction_id=flag_node["transaction_id"],
-            fraud_score=flag_node["fraud_score"],
-            fraud_flag=flag_node["fraud_flag"],
-            reason=flag_node["reason"],
-            model_version=flag_node["model_version"],
-            flagged_by_user_id=flag_node["flagged_by_user_id"],
-            status=flag_node["status"],
-            created_at=datetime.fromisoformat(flag_node["created_at"].iso_format()),
-            updated_at=datetime.fromisoformat(flag_node["updated_at"].iso_format()),
-        ))
+        flags.append(
+            FraudulentTransactionFlagInDB(
+                id=flag_node["id"],
+                transaction_id=flag_node["transaction_id"],
+                fraud_score=flag_node["fraud_score"],
+                fraud_flag=flag_node["fraud_flag"],
+                reason=flag_node["reason"],
+                model_version=flag_node["model_version"],
+                flagged_by_user_id=flag_node["flagged_by_user_id"],
+                status=flag_node["status"],
+                created_at=datetime.fromisoformat(flag_node["created_at"].iso_format()),
+                updated_at=datetime.fromisoformat(flag_node["updated_at"].iso_format()),
+            )
+        )
     return flags
 
-async def update_fraud_flag_status(session: AsyncSession, flag_id: str, new_status: Literal["open", "investigating", "false_positive", "confirmed_fraud"]) -> Optional[FraudulentTransactionFlagInDB]:
+
+async def update_fraud_flag_status(
+    session: AsyncSession,
+    flag_id: str,
+    new_status: Literal["open", "investigating", "false_positive", "confirmed_fraud"],
+) -> Optional[FraudulentTransactionFlagInDB]:
     updated_at = datetime.now(timezone.utc).isoformat()
     query = """
     MATCH (f:FraudulentTransactionFlag {id: $flag_id})

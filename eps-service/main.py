@@ -3,14 +3,17 @@ Earnings Per Share Service
 Port: 8207
 Basic and diluted EPS calculations per IAS 33
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Earnings Per Share Service", version="1.0.0")
+
 
 class ShareOption(BaseModel):
     option_id: str
@@ -18,6 +21,7 @@ class ShareOption(BaseModel):
     exercise_price: float
     average_market_price: float
     dilution_effect: int
+
 
 class EPSRequest(BaseModel):
     company_id: str
@@ -27,6 +31,7 @@ class EPSRequest(BaseModel):
     potential_dilutive_shares: List[Dict[str, Any]]
     anti_dilutive_items: List[Dict[str, Any]]
     discontinued_operations_profit: float
+
 
 class EPSResponse(BaseModel):
     company_id: str
@@ -40,6 +45,7 @@ class EPSResponse(BaseModel):
     anti_dilutive_effect: int
     potential_dilutive_instruments: List[ShareOption]
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -50,15 +56,19 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "eps", "version": "1.0.0"}
+
 
 @app.post("/calculate", response_model=EPSResponse)
 async def calculate_eps(request: EPSRequest):
     logger.info("Calculating EPS", company=request.company_id, period=request.period)
 
-    basic_eps = request.net_profit_attributable / request.weighted_average_shares if request.weighted_average_shares else 0
+    basic_eps = (
+        request.net_profit_attributable / request.weighted_average_shares if request.weighted_average_shares else 0
+    )
 
     continuing_profit = request.net_profit_attributable - request.discontinued_operations_profit
     eps_continuing = continuing_profit / request.weighted_average_shares if request.weighted_average_shares else 0
@@ -75,13 +85,15 @@ async def calculate_eps(request: EPSRequest):
         if market_price > exercise_price:
             treasury_shares = int(num_options * (1 - exercise_price / market_price))
             dilutive_effect += treasury_shares
-            instruments.append(ShareOption(
-                option_id=option.get("id", ""),
-                number_of_options=num_options,
-                exercise_price=exercise_price,
-                average_market_price=market_price,
-                dilution_effect=treasury_shares
-            ))
+            instruments.append(
+                ShareOption(
+                    option_id=option.get("id", ""),
+                    number_of_options=num_options,
+                    exercise_price=exercise_price,
+                    average_market_price=market_price,
+                    dilution_effect=treasury_shares,
+                )
+            )
 
     for item in request.anti_dilutive_items:
         dilutive_effect -= item.get("anti_dilutive_shares", 0)
@@ -99,9 +111,11 @@ async def calculate_eps(request: EPSRequest):
         diluted_shares=diluted_shares,
         dilutive_effect=max(0, dilutive_effect),
         anti_dilutive_effect=max(0, abs(sum(i.get("anti_dilutive_shares", 0) for i in request.anti_dilutive_items))),
-        potential_dilutive_instruments=instruments
+        potential_dilutive_instruments=instruments,
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8207)

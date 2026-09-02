@@ -3,20 +3,24 @@ Fraud Risk Assessment Service
 Port: 8199
 Fraud triangle analysis, risk indicators
 """
+
+from typing import Any, Dict, List
+
 import httpx
 import structlog
-from typing import Any, Dict, List
-from pydantic import BaseModel
 from fastapi import FastAPI
+from pydantic import BaseModel
 
 logger = structlog.get_logger()
 app = FastAPI(title="Fraud Risk Assessment Service", version="1.0.0")
+
 
 class FraudIndicator(BaseModel):
     category: str
     indicator: str
     risk_level: str
     weight: float
+
 
 class FraudRiskAssessmentRequest(BaseModel):
     audit_id: str
@@ -27,6 +31,7 @@ class FraudRiskAssessmentRequest(BaseModel):
     management_characteristics: List[str]
     internal_control_gaps: List[str]
     prior_fraud_history: bool
+
 
 class FraudRiskAssessmentResponse(BaseModel):
     audit_id: str
@@ -39,6 +44,7 @@ class FraudRiskAssessmentResponse(BaseModel):
     recommended_procedures: List[str]
     conclusion: str
 
+
 async def call_internal_service(service_url: str, endpoint: str, data: dict = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -49,9 +55,11 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
         logger.warning(f"Failed to call {service_url}{endpoint}: {e}")
         return {}
 
+
 @app.get("/")
 async def health_check():
     return {"status": "healthy", "service": "fraud-risk-assessment", "version": "1.0.0"}
+
 
 @app.post("/assess", response_model=FraudRiskAssessmentResponse)
 async def assess_fraud_risk(request: FraudRiskAssessmentRequest):
@@ -66,27 +74,41 @@ async def assess_fraud_risk(request: FraudRiskAssessmentRequest):
     rationalization_score = 0.0
 
     if request.prior_fraud_history:
-        pressure_indicators.append(FraudIndicator(category="pressure", indicator="Prior fraud incidents", risk_level="high", weight=0.3))
+        pressure_indicators.append(
+            FraudIndicator(category="pressure", indicator="Prior fraud incidents", risk_level="high", weight=0.3)
+        )
         pressure_score += 0.3
 
     if request.company_size == "small":
-        pressure_indicators.append(FraudIndicator(category="pressure", indicator="Limited resources", risk_level="medium", weight=0.2))
+        pressure_indicators.append(
+            FraudIndicator(category="pressure", indicator="Limited resources", risk_level="medium", weight=0.2)
+        )
         pressure_score += 0.2
 
     if "high_turnover" in request.management_characteristics:
-        pressure_indicators.append(FraudIndicator(category="pressure", indicator="Management turnover", risk_level="high", weight=0.25))
+        pressure_indicators.append(
+            FraudIndicator(category="pressure", indicator="Management turnover", risk_level="high", weight=0.25)
+        )
         pressure_score += 0.25
 
     if len(request.internal_control_gaps) > 3:
-        opportunity_indicators.append(FraudIndicator(category="opportunity", indicator="Multiple control deficiencies", risk_level="high", weight=0.35))
+        opportunity_indicators.append(
+            FraudIndicator(
+                category="opportunity", indicator="Multiple control deficiencies", risk_level="high", weight=0.35
+            )
+        )
         opportunity_score += 0.35
 
     if "segregation_of_duties" in request.internal_control_gaps:
-        opportunity_indicators.append(FraudIndicator(category="opportunity", indicator="Inadequate segregation", risk_level="high", weight=0.3))
+        opportunity_indicators.append(
+            FraudIndicator(category="opportunity", indicator="Inadequate segregation", risk_level="high", weight=0.3)
+        )
         opportunity_score += 0.3
 
     if "aggressive_targets" in request.management_characteristics:
-        rationalization_indicators.append(FraudIndicator(category="rationalization", indicator="Aggressive targets", risk_level="medium", weight=0.2))
+        rationalization_indicators.append(
+            FraudIndicator(category="rationalization", indicator="Aggressive targets", risk_level="medium", weight=0.2)
+        )
         rationalization_score += 0.2
 
     total_score = (pressure_score * 0.4 + opportunity_score * 0.4 + rationalization_score * 0.2) * 100
@@ -106,14 +128,49 @@ async def assess_fraud_risk(request: FraudRiskAssessmentRequest):
         audit_id=request.audit_id,
         fraud_risk_score=round(total_score, 2),
         risk_category=risk_category,
-        pressure_indicators=pressure_indicators if pressure_indicators else [FraudIndicator(category="pressure", indicator="No significant pressures identified", risk_level="low", weight=0.0)],
-        opportunity_indicators=opportunity_indicators if opportunity_indicators else [FraudIndicator(category="opportunity", indicator="Controls appear adequate", risk_level="low", weight=0.0)],
-        rationalization_indicators=rationalization_indicators if rationalization_indicators else [FraudIndicator(category="rationalization", indicator="No concerning rationalization", risk_level="low", weight=0.0)],
+        pressure_indicators=(
+            pressure_indicators
+            if pressure_indicators
+            else [
+                FraudIndicator(
+                    category="pressure", indicator="No significant pressures identified", risk_level="low", weight=0.0
+                )
+            ]
+        ),
+        opportunity_indicators=(
+            opportunity_indicators
+            if opportunity_indicators
+            else [
+                FraudIndicator(
+                    category="opportunity", indicator="Controls appear adequate", risk_level="low", weight=0.0
+                )
+            ]
+        ),
+        rationalization_indicators=(
+            rationalization_indicators
+            if rationalization_indicators
+            else [
+                FraudIndicator(
+                    category="rationalization", indicator="No concerning rationalization", risk_level="low", weight=0.0
+                )
+            ]
+        ),
         high_risk_areas=high_risk_areas if high_risk_areas else ["No high risk areas identified"],
-        recommended_procedures=["Enhanced management inquiry", "Journal entry testing", "Significant estimates review", "Related party transaction testing"] if risk_category == "high" else ["Standard substantive procedures"],
-        conclusion=f"Fraud risk assessed as {risk_category} with score of {round(total_score, 2)}"
+        recommended_procedures=(
+            [
+                "Enhanced management inquiry",
+                "Journal entry testing",
+                "Significant estimates review",
+                "Related party transaction testing",
+            ]
+            if risk_category == "high"
+            else ["Standard substantive procedures"]
+        ),
+        conclusion=f"Fraud risk assessed as {risk_category} with score of {round(total_score, 2)}",
     )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8199)

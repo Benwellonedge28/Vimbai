@@ -1,7 +1,9 @@
 """
 Shared test configuration and fixtures for Vimbai
 """
+
 import os
+
 import pytest
 
 # Ensure test environment variables are set before any app import
