@@ -34,7 +34,7 @@ jobs:
             if [ -z "$CHANGED" ]; then
               echo "services=[]" >> $GITHUB_OUTPUT
             else
-              SERVICES=$(echo "$CHANGED" | jq -R . | jq -s .)
+              SERVICES=$(echo "$CHANGED" | jq -R . | jq -s -c .)
               echo "services=$SERVICES" >> $GITHUB_OUTPUT
             fi
           fi

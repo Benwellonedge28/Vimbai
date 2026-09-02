@@ -48,7 +48,7 @@ jobs:
           BATCH_SIZE=48
           for i in 1 2 3 4 5 6 7; do
             START=$(( (i - 1) * BATCH_SIZE + 1 ))
-            BATCH=$(echo "$SERVICES" | sed -n "${START},$(( START + BATCH_SIZE - 1 ))p" | jq -R . | jq -s .)
+            BATCH=$(echo "$SERVICES" | sed -n "${START},$(( START + BATCH_SIZE - 1 ))p" | jq -R . | jq -s -c .)
             echo "batch${i}=$BATCH" >> $GITHUB_OUTPUT
             COUNT=$(echo "$BATCH" | jq length)
             echo "Batch $i: $COUNT services"
