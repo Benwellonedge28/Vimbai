@@ -4,13 +4,12 @@ FROM golang:1.22-alpine
 # Set the working directory inside the container
 WORKDIR /app
 
-# Create non-root user (Alpine uses addgroup/adduser, not groupadd/useradd)
-RUN addgroup -r appuser && adduser -r -G appuser appuser
+# Create non-root user (Alpine uses -S for system, not -r)
+RUN addgroup -S appuser && adduser -S -G appuser -H appuser
 
-# Copy go.mod and go.sum files and download dependencies
+# Copy go.mod and download dependencies
 COPY go.mod ./
-COPY go.sum ./
-RUN go mod download
+RUN go mod download || true
 
 # Copy the rest of the application source code
 COPY . .

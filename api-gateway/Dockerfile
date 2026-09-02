@@ -13,7 +13,7 @@ FROM alpine:latest
 
 WORKDIR /app
 
-RUN addgroup -r appuser && adduser -r -G appuser appuser
+RUN addgroup -S appuser && adduser -S -G appuser -H appuser
 
 COPY --from=builder /app/main .
 COPY --from=builder /app/config ./config
