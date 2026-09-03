@@ -4,6 +4,7 @@ Lifecycle, scaling and donor-grade reporting for non-profits, plus
 size-banding for commercial (sole trader -> enterprise) and
 partnership organizations (partner capital accounts, profit sharing) and
 private limited companies (shareholders, directors, dividends, equity),
+public limited companies (listed-entity compliance),
 plus vendors/purchases/creditors for every organization type.
 
 One service for every size of non-profit:
@@ -72,7 +73,7 @@ app.add_middleware(
 
 SIZE_BANDS = ["small", "medium", "large", "extra_large"]
 
-ORG_TYPES = ["nonprofit", "commercial", "partnership", "company"]
+ORG_TYPES = ["nonprofit", "commercial", "partnership", "company", "plc"]
 
 # Partnership revenue (USD) thresholds: small firm -> international LLP.
 BAND_REVENUE_THRESHOLDS_PARTNERSHIP = [
@@ -293,6 +294,21 @@ FEATURES: Dict[str, Dict[str, List[str]]] = {
     },
 }
 
+# Public limited companies: company stack + listed-entity compliance.
+FEATURES["plc"] = {
+    "small": FEATURES["company"]["small"] + ["public_share_registry"],
+    "medium": FEATURES["company"]["medium"] + ["public_share_registry", "mandatory_audit"],
+    "large": FEATURES["company"]["large"] + ["public_share_registry", "mandatory_audit", "public_disclosure"],
+    "extra_large": FEATURES["company"]["extra_large"]
+    + [
+        "public_share_registry",
+        "mandatory_audit",
+        "public_disclosure",
+        "listing_compliance",
+        "sec_filings",
+    ],
+}
+
 
 def classify_band(
     annual_revenue: float,
@@ -306,7 +322,7 @@ def classify_band(
     organization up a band so growth is never blocked by classification.
     """
     ladder = BAND_REVENUE_THRESHOLDS
-    if org_type in ("partnership", "company"):
+    if org_type in ("partnership", "company", "plc"):
         # partnerships and private companies start at small
         ladder = BAND_REVENUE_THRESHOLDS_PARTNERSHIP
     elif org_type == "commercial":
@@ -738,7 +754,7 @@ def create_org(body: OrgCreate, user: str = Depends(current_user)):
     if body.org_type not in ORG_TYPES:
         raise HTTPException(
             status_code=400,
-            detail="org_type must be nonprofit, commercial, partnership or company",
+            detail="org_type must be nonprofit, commercial, partnership, company or plc",
         )
     band = classify_band(body.annual_revenue, body.headcount, 0, body.org_type)
     with db() as conn:
@@ -873,7 +889,7 @@ def record_revenue(org_id: str, body: RevenueEntryCreate, user: str = Depends(cu
     revenue_id = str(uuid.uuid4())
     with db() as conn:
         org = require_org(conn, org_id)
-        if org["org_type"] not in ("commercial", "partnership", "company"):
+        if org["org_type"] not in ("commercial", "partnership", "company", "plc"):
             raise HTTPException(
                 status_code=400,
                 detail="Revenue entries are for commercial/partnership orgs",
@@ -1073,10 +1089,10 @@ def add_shareholder(org_id: str, body: ShareholderCreate, user: str = Depends(cu
         raise HTTPException(status_code=400, detail="shares must be >= 1")
     with db() as conn:
         org = require_org(conn, org_id)
-        if org["org_type"] != "company":
+        if org["org_type"] not in ("company", "plc"):
             raise HTTPException(
                 status_code=400,
-                detail="Shareholders are for company orgs",
+                detail="Shareholders are for company/PLC orgs",
             )
         sid = str(uuid.uuid4())
         conn.execute(
@@ -1095,10 +1111,10 @@ class DirectorCreate(BaseModel):
 def add_director(org_id: str, body: DirectorCreate, user: str = Depends(current_user)):
     with db() as conn:
         org = require_org(conn, org_id)
-        if org["org_type"] != "company":
+        if org["org_type"] not in ("company", "plc"):
             raise HTTPException(
                 status_code=400,
-                detail="Directors are for company orgs",
+                detail="Directors are for company/PLC orgs",
             )
         did = str(uuid.uuid4())
         conn.execute(
@@ -1139,10 +1155,10 @@ def declare_dividend(org_id: str, body: DividendCreate, user: str = Depends(curr
     """Declare a dividend per share, capped at distributable reserves."""
     with db() as conn:
         org = require_org(conn, org_id)
-        if org["org_type"] != "company":
+        if org["org_type"] not in ("company", "plc"):
             raise HTTPException(
                 status_code=400,
-                detail="Dividends are for company orgs",
+                detail="Dividends are for company/PLC orgs",
             )
         shareholders = conn.execute("SELECT shares FROM shareholders WHERE org_id=?", (org_id,)).fetchall()
         total_shares = sum(s["shares"] for s in shareholders)
@@ -1189,10 +1205,10 @@ def report_equity(org_id: str, user: str = Depends(current_user)):
     retained earnings, dividends declared, closing equity."""
     with db() as conn:
         org = require_org(conn, org_id)
-        if org["org_type"] != "company":
+        if org["org_type"] not in ("company", "plc"):
             raise HTTPException(
                 status_code=400,
-                detail="Equity statement is for company orgs",
+                detail="Equity statement is for company/PLC orgs",
             )
         capital = conn.execute(
             "SELECT COALESCE(SUM(amount_paid),0) t FROM shareholders" " WHERE org_id=?",
@@ -1682,7 +1698,7 @@ def report_activities(org_id: str, user: str = Depends(current_user), fiscal_yea
     with db() as conn:
         org = require_org(conn, org_id)
         w, args = _fy_where(fiscal_year)
-        if org["org_type"] in ("commercial", "partnership", "company"):
+        if org["org_type"] in ("commercial", "partnership", "company", "plc"):
             revenue = conn.execute(
                 "SELECT source fund, SUM(amount) total FROM revenues" " WHERE org_id=?" + w + " GROUP BY source",
                 [org_id] + args,

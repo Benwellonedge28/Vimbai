@@ -674,3 +674,103 @@ def test_npo_can_buy_too(org):
     assert r.status_code == 200
     c = client.get("/orgs/%s/reports/creditors" % org, headers=hdr()).json()
     assert c["total_owed"] == 200
+
+
+# ---------------------------------------------------------------------------
+# Public limited companies: small cap to listed group
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def plc():
+    r = client.post(
+        "/orgs",
+        json={
+            "name": "Zamani Holdings PLC",
+            "org_type": "plc",
+            "annual_revenue": 300_000,
+            "headcount": 25,
+        },
+        headers=hdr(),
+    )
+    assert r.status_code == 200, r.text
+    return r.json()["org"]["id"]
+
+
+def test_plc_classified_small(plc):
+    f = client.get("/orgs/%s/features" % plc, headers=hdr()).json()
+    assert f["size_band"] == "small"
+    assert f["org_type"] == "plc"
+    assert "public_share_registry" in f["features"]
+    assert "share_capital" in f["features"]
+
+
+def test_plc_shareholders_dividend_and_directors(plc):
+    client.post(
+        "/orgs/%s/shareholders" % plc,
+        json={"name": "Public Investor A", "shares": 70000, "amount_paid": 70000},
+        headers=hdr(),
+    )
+    client.post(
+        "/orgs/%s/shareholders" % plc,
+        json={"name": "Public Investor B", "shares": 30000, "amount_paid": 30000},
+        headers=hdr(),
+    )
+    client.post(
+        "/orgs/%s/directors" % plc,
+        json={"name": "Chairperson Ncube"},
+        headers=hdr(),
+    )
+    client.post(
+        "/orgs/%s/revenues" % plc,
+        json={"amount": 50000, "source": "listings"},
+        headers=hdr(),
+    )
+    # 0.20/share on 100,000 shares = 20,000, within reserves of 50,000
+    r = client.post(
+        "/orgs/%s/dividends" % plc,
+        json={"per_share": 0.20},
+        headers=hdr(),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["total"] == 20000
+    eq = client.get("/orgs/%s/reports/equity" % plc, headers=hdr()).json()
+    assert eq["retained_earnings"] == 30000
+    assert eq["total_equity"] == 130000
+
+
+def test_plc_mandatory_audit_from_medium(plc):
+    f = client.get("/orgs/%s/features" % plc, headers=hdr()).json()
+    assert "mandatory_audit" not in f["features"]  # small cap
+    client.patch(
+        "/orgs/%s" % plc,
+        json={"annual_revenue": 3_000_000},
+        headers=hdr(),
+    )
+    f = client.get("/orgs/%s/features" % plc, headers=hdr()).json()
+    assert f["size_band"] == "medium"
+    assert "mandatory_audit" in f["features"]
+    assert "public_disclosure" not in f["features"]
+    assert "listing_compliance" not in f["features"]
+
+
+def test_plc_growth_to_listed_group(plc):
+    client.patch(
+        "/orgs/%s" % plc,
+        json={"annual_revenue": 200_000_000},
+        headers=hdr(),
+    )
+    f = client.get("/orgs/%s/features" % plc, headers=hdr()).json()
+    assert f["size_band"] == "extra_large"
+    assert "listing_compliance" in f["features"]
+    assert "sec_filings" in f["features"]
+    assert "public_disclosure" in f["features"]
+
+
+def test_partnership_still_rejected_for_shareholders(firm):
+    r = client.post(
+        "/orgs/%s/shareholders" % firm,
+        json={"name": "X", "shares": 100},
+        headers=hdr(),
+    )
+    assert r.status_code == 400

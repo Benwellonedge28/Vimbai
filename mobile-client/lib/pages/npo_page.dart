@@ -97,6 +97,12 @@ class _NpoPageState extends State<NpoPage> {
                   onChanged: (v) => setDialog(() => orgType = v ?? orgType),
                   title: const Text('Private company'),
                 ),
+                RadioListTile<String>(
+                  value: 'plc',
+                  groupValue: orgType,
+                  onChanged: (v) => setDialog(() => orgType = v ?? orgType),
+                  title: const Text('Public company (PLC)'),
+                ),
                 TextField(
                   controller: revenueCtrl,
                   keyboardType: TextInputType.number,
@@ -432,6 +438,7 @@ class _NpoPageState extends State<NpoPage> {
     'commercial': 'business',
     'partnership': 'partnership',
     'company': 'private company',
+    'plc': 'public company (PLC)',
   };
 
   static const Map<String, String> _bandLabels = {
@@ -501,7 +508,8 @@ class _NpoPageState extends State<NpoPage> {
                                     child: Text('Record sale'),
                                   )
                                 else if (org.orgType == 'partnership' ||
-                                    org.orgType == 'company')
+                                    org.orgType == 'company' ||
+                                    org.orgType == 'plc')
                                   const PopupMenuItem(
                                     value: 'sale',
                                     child: Text('Record revenue'),
