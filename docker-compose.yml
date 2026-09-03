@@ -187,7 +187,22 @@ services:
     restart: unless-stopped
     networks:
     - vimbai-net
+  book_sync_service:
+    build:
+      context: .
+      dockerfile: book-sync-service/Dockerfile
+    ports:
+    - 9020:9020
+    environment:
+    - JWT_SECRET=${JWT_SECRET:-dev-secret}
+    - BOOK_SYNC_DB=/data/vimbai_book_sync.db
+    volumes:
+    - book_sync_data:/data
+    restart: unless-stopped
+    networks:
+    - vimbai-net
   identity_service:
+
     build:
       context: ./identity-service
       dockerfile: Dockerfile
@@ -493,6 +508,7 @@ services:
 volumes:
   neo4j-data: null
   redis-data: null
+  book_sync_data: null
 networks:
   vimbai-net:
     driver: bridge

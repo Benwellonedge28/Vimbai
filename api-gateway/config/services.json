@@ -2661,6 +2661,14 @@
       "port": 8002,
       "auth_required": true,
       "strip_prefix": false
+    },
+    {
+      "name": "book-sync-service",
+      "path": "/book-sync",
+      "url": "http://localhost:9020",
+      "port": 9020,
+      "auth_required": true,
+      "strip_prefix": false
     }
   ]
 }
