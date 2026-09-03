@@ -6,7 +6,8 @@ partnership organizations (partner capital accounts, profit sharing) and
 private limited companies (shareholders, directors, dividends, equity),
 public limited companies (listed-entity compliance),
 plus vendors/purchases/creditors for every organization type, PDF
-receipts and a public investor view for shareholders.
+receipts, a public investor view for shareholders, and every org is
+backed by an end-to-end-encrypted Book with role-based members.
 
 One service for every size of non-profit:
   * small          - community trust, savings club charity arm
@@ -35,12 +36,24 @@ import uuid
 from contextlib import contextmanager
 from typing import Dict, List, Optional
 
+import httpx
 import structlog
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 SERVICE_NAME = "npo-scale-service"
+# Internal Book sync service (owns Books, memberships, E2E-encrypted sync).
+BOOK_SYNC_URL = os.environ.get("BOOK_SYNC_URL", "http://localhost:9020")
+
+# org type -> Book tier (Book is the atomic unit for every audience type)
+BOOK_TIER_BY_ORG = {
+    "nonprofit": "nonprofit",
+    "commercial": "business",
+    "partnership": "business",
+    "company": "business",
+    "plc": "business",
+}
 SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "9021"))
 DB_PATH = os.getenv("NPO_SCALE_DB", os.path.join(os.path.dirname(__file__), "vimbai_npo_scale.db"))
@@ -358,7 +371,8 @@ CREATE TABLE IF NOT EXISTS orgs (
     annual_revenue REAL DEFAULT 0,
     headcount INTEGER DEFAULT 0,
     created_at REAL NOT NULL,
-    updated_at REAL NOT NULL
+    updated_at REAL NOT NULL,
+    book_id TEXT
 );
 CREATE TABLE IF NOT EXISTS branches (
     id TEXT PRIMARY KEY,
@@ -558,6 +572,10 @@ def init_db():
             conn.execute("ALTER TABLE shareholders ADD COLUMN verify_code TEXT")
         except sqlite3.OperationalError:
             pass  # column already exists
+        try:
+            conn.execute("ALTER TABLE orgs ADD COLUMN book_id TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
 
 
 init_db()
@@ -717,6 +735,10 @@ def root():
             "GET  /orgs/{id}/reports/creditors",
             "GET  /orgs/{id}/receipts/{rid}/pdf",
             "GET  /public/holdings/{verify_code}",
+            "GET  /orgs/{id}/book",
+            "GET  /orgs/{id}/members",
+            "POST /orgs/{id}/members",
+            "POST /orgs/{id}/book/link",
             "POST /orgs/{id}/directors",
             "GET  /orgs/{id}/directors",
             "POST /orgs/{id}/shareholders",
@@ -755,6 +777,22 @@ def root():
 # ---------------------------------------------------------------------------
 
 
+def _sync_request(method: str, path: str, user: str, json_body=None):
+    """Call the Book sync service on behalf of a user. Raises ConnectionError
+    if the sync service is unreachable - orgs degrade gracefully."""
+    r = httpx.request(
+        method,
+        BOOK_SYNC_URL + path,
+        headers={"X-User-ID": user},
+        json=json_body,
+        timeout=5.0,
+    )
+    if r.status_code >= 400:
+        detail = r.json().get("detail", "book sync error") if r.content else "book sync error"
+        raise HTTPException(status_code=r.status_code, detail=detail)
+    return r.json() if r.content else {}
+
+
 @app.post("/orgs")
 def create_org(body: OrgCreate, user: str = Depends(current_user)):
     now = time.time()
@@ -765,11 +803,32 @@ def create_org(body: OrgCreate, user: str = Depends(current_user)):
             detail="org_type must be nonprofit, commercial, partnership, company or plc",
         )
     band = classify_band(body.annual_revenue, body.headcount, 0, body.org_type)
+    # The org gets its own encrypted Book (tiered by org type). If the
+    # sync service is down the org is still created and can be linked
+    # later via POST /orgs/{id}/book/link.
+    book_id = None
+    sync_error = None
+    try:
+        book = _sync_request(
+            "POST",
+            "/books",
+            user,
+            {
+                "name": body.name,
+                "tier": BOOK_TIER_BY_ORG[body.org_type],
+                "description": "auto-created for %s (%s)" % (body.name, body.org_type),
+            },
+        )
+        book_id = (book.get("book") or {}).get("id")
+    except httpx.ConnectError:
+        sync_error = "book sync unavailable - link later via /orgs/{id}/book/link"
+    except HTTPException as exc:
+        sync_error = "book creation failed: %s" % exc.detail
     with db() as conn:
         conn.execute(
             "INSERT INTO orgs (id, owner_id, name, org_type, sector, country,"
-            " currency, size_band, annual_revenue, headcount, created_at,"
-            " updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            " currency, size_band, annual_revenue, headcount, book_id,"
+            " created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 org_id,
                 user,
@@ -781,6 +840,7 @@ def create_org(body: OrgCreate, user: str = Depends(current_user)):
                 band,
                 body.annual_revenue,
                 body.headcount,
+                book_id,
                 now,
                 now,
             ),
@@ -792,7 +852,9 @@ def create_org(body: OrgCreate, user: str = Depends(current_user)):
             "name": body.name,
             "org_type": body.org_type,
             "size_band": band,
+            "book_id": book_id,
         },
+        "book_sync": sync_error,
     }
 
 
@@ -944,6 +1006,114 @@ def list_revenues(org_id: str, user: str = Depends(current_user)):
             )
         )
     return {"service": SERVICE_NAME, "revenues": revenue_rows}
+
+
+# ---------------------------------------------------------------------------
+# Books: every org is backed by an encrypted Book (role-based access)
+# ---------------------------------------------------------------------------
+
+
+class MemberInviteBody(BaseModel):
+    user_id: str
+    role: str  # admin | editor | viewer
+    display_name: str = ""
+    # The Book key wrapped for the invitee with their public key.
+    wrapped_book_key: str = ""
+
+
+class BookLinkBody(BaseModel):
+    book_id: str
+
+
+def _require_owner(conn, org_id: str, user: str):
+    org = require_org(conn, org_id)
+    if org["owner_id"] != user:
+        raise HTTPException(status_code=403, detail="Only the org owner can manage Book members")
+    return org
+
+
+@app.get("/orgs/{org_id}/book")
+def get_org_book(org_id: str, user: str = Depends(current_user)):
+    """The org's Book plus its members - enforced by the sync service's
+    own membership checks, so a non-member sees nothing."""
+    with db() as conn:
+        org = require_org(conn, org_id)
+        if not org["book_id"]:
+            raise HTTPException(status_code=404, detail="Org has no Book yet")
+        book_id = org["book_id"]
+    try:
+        book = _sync_request("GET", "/books/%s" % book_id, user)
+        members = _sync_request("GET", "/books/%s/members" % book_id, user)
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="book sync unavailable")
+    return {"service": SERVICE_NAME, "book": (book.get("book") or book), "members": members.get("members", [])}
+
+
+@app.post("/orgs/{org_id}/members")
+def invite_book_member(org_id: str, body: MemberInviteBody, user: str = Depends(current_user)):
+    """Invite a trustee/partner/director/manager into the org's Book.
+    Role-based access is enforced by the sync service; the wrapped key
+    keeps the Book end-to-end encrypted for the invitee."""
+    with db() as conn:
+        _require_owner(conn, org_id, user)
+    with db() as conn:
+        org = require_org(conn, org_id)
+        if not org["book_id"]:
+            raise HTTPException(status_code=400, detail="Org has no Book yet")
+        book_id = org["book_id"]
+    try:
+        result = _sync_request(
+            "POST",
+            "/books/%s/members" % book_id,
+            user,
+            {
+                "user_id": body.user_id,
+                "role": body.role,
+                "display_name": body.display_name,
+                "wrapped_book_key": body.wrapped_book_key,
+            },
+        )
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="book sync unavailable")
+    result["service"] = SERVICE_NAME
+    return result
+
+
+@app.get("/orgs/{org_id}/members")
+def list_book_members(org_id: str, user: str = Depends(current_user)):
+    with db() as conn:
+        org = require_org(conn, org_id)
+        if not org["book_id"]:
+            raise HTTPException(status_code=404, detail="Org has no Book yet")
+        book_id = org["book_id"]
+    try:
+        result = _sync_request("GET", "/books/%s/members" % book_id, user)
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="book sync unavailable")
+    result["service"] = SERVICE_NAME
+    return result
+
+
+@app.post("/orgs/{org_id}/book/link")
+def link_org_book(org_id: str, body: BookLinkBody, user: str = Depends(current_user)):
+    """Attach an existing Book to this org (owner only). Used when the
+    sync service was down at creation time, or to adopt a Book that
+    already exists."""
+    with db() as conn:
+        _require_owner(conn, org_id, user)
+    # verify the Book really exists and the caller owns it
+    try:
+        book = _sync_request("GET", "/books/%s" % body.book_id, user)
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="book sync unavailable")
+    if not (book.get("book") or {}).get("id"):
+        raise HTTPException(status_code=404, detail="Unknown book")
+    with db() as conn:
+        conn.execute(
+            "UPDATE orgs SET book_id=?, updated_at=? WHERE id=?",
+            (body.book_id, time.time(), org_id),
+        )
+    return {"service": SERVICE_NAME, "book_id": body.book_id, "status": "linked"}
 
 
 # ---------------------------------------------------------------------------

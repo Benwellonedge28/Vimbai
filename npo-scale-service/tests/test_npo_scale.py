@@ -827,3 +827,139 @@ def test_new_shareholder_gets_verify_code(plc):
     v = client.get("/public/holdings/%s" % code).json()
     assert v["shareholder"] == "Minority Holder"
     assert v["shares"] == 5000
+
+
+# ---------------------------------------------------------------------------
+# Books: every org is backed by an encrypted Book
+# ---------------------------------------------------------------------------
+
+import main as scale_main
+
+
+@pytest.fixture()
+def fake_sync(monkeypatch):
+    """Fake Book sync service: records calls, returns canned Books."""
+    calls = []
+
+    def fake(method, path, user, json_body=None):
+        calls.append((method, path, user, json_body))
+        if method == "POST" and path == "/books":
+            return {
+                "service": "book-sync",
+                "book": {"id": "bk_123", "name": json_body["name"], "tier": json_body["tier"]},
+                "your_role": "owner",
+            }
+        if method == "GET" and path == "/books/bk_123":
+            return {"service": "book-sync", "book": {"id": "bk_123", "name": "x", "tier": "nonprofit"}}
+        if method == "GET" and path == "/books/bk_123/members":
+            return {
+                "service": "book-sync",
+                "members": [
+                    {"user_id": "user-hq", "role": "owner", "status": "active"},
+                    {"user_id": "trustee-1", "role": "editor", "status": "invited"},
+                ],
+            }
+        if method == "POST" and path == "/books/bk_123/members":
+            return {"service": "book-sync", "status": "invited", "role": json_body["role"]}
+        raise AssertionError("unexpected sync call %s %s" % (method, path))
+
+    monkeypatch.setattr(scale_main, "_sync_request", fake)
+    return calls
+
+
+def test_org_gets_a_book_on_create(fake_sync):
+    r = client.post(
+        "/orgs",
+        json={"name": "Booked Trust", "org_type": "nonprofit", "annual_revenue": 10000},
+        headers=hdr(),
+    )
+    assert r.status_code == 200
+    org = r.json()["org"]
+    assert org["book_id"] == "bk_123"
+    assert fake_sync[0][0] == "POST"
+    assert fake_sync[0][1] == "/books"
+    assert fake_sync[0][3]["tier"] == "nonprofit"  # org type maps to tier
+
+
+def test_plc_org_gets_business_tier_book(fake_sync):
+    r = client.post(
+        "/orgs",
+        json={"name": "Listed Co", "org_type": "plc", "annual_revenue": 1000},
+        headers=hdr(),
+    )
+    assert r.json()["org"]["book_id"] == "bk_123"
+    assert fake_sync[0][3]["tier"] == "business"
+
+
+def test_org_degrades_gracefully_without_sync(monkeypatch):
+    def down(method, path, user, json_body=None):
+        raise scale_main.httpx.ConnectError("no sync service")
+
+    monkeypatch.setattr(scale_main, "_sync_request", down)
+    r = client.post(
+        "/orgs",
+        json={"name": "Offline Trust", "org_type": "nonprofit", "annual_revenue": 100},
+        headers=hdr(),
+    )
+    assert r.status_code == 200  # org created anyway
+    assert r.json()["org"]["book_id"] is None
+    assert "link later" in r.json()["book_sync"]
+
+
+def test_invite_member_into_org_book(fake_sync):
+    r = client.post(
+        "/orgs",
+        json={"name": "Trust With Board", "org_type": "nonprofit", "annual_revenue": 1000},
+        headers=hdr(),
+    )
+    org_id = r.json()["org"]["id"]
+    inv = client.post(
+        "/orgs/%s/members" % org_id,
+        json={
+            "user_id": "trustee-1",
+            "role": "editor",
+            "display_name": "Trustee Tendai",
+            "wrapped_book_key": "wrapped-key-blob",
+        },
+        headers=hdr(),
+    )
+    assert inv.status_code == 200, inv.text
+    assert inv.json()["status"] == "invited"
+    invite_call = [c for c in fake_sync if c[0] == "POST" and c[1] == "/books/bk_123/members"][0]
+    assert invite_call[3]["wrapped_book_key"] == "wrapped-key-blob"
+    # owner's own user id is the inviting user at the sync service
+    assert invite_call[2] == HQ
+
+
+def test_non_owner_cannot_invite(fake_sync):
+    r = client.post(
+        "/orgs",
+        json={"name": "Owners Only", "org_type": "nonprofit", "annual_revenue": 1000},
+        headers=hdr(),
+    )
+    org_id = r.json()["org"]["id"]
+    inv = client.post(
+        "/orgs/%s/members" % org_id,
+        json={"user_id": "intruder", "role": "viewer", "wrapped_book_key": "k"},
+        headers=hdr("someone-else"),
+    )
+    assert inv.status_code == 403
+
+
+def test_book_link_adopts_existing_book(fake_sync):
+    r = client.post(
+        "/orgs",
+        json={"name": "Adopter", "org_type": "nonprofit", "annual_revenue": 1000},
+        headers=hdr(),
+    )
+    org_id = r.json()["org"]["id"]
+    link = client.post(
+        "/orgs/%s/book/link" % org_id,
+        json={"book_id": "bk_123"},
+        headers=hdr(),
+    )
+    assert link.status_code == 200
+    assert link.json()["status"] == "linked"
+    book = client.get("/orgs/%s/book" % org_id, headers=hdr()).json()
+    assert book["book"]["id"] == "bk_123"
+    assert len(book["members"]) == 2

@@ -290,6 +290,7 @@ services:
     environment:
     - JWT_SECRET=${JWT_SECRET:-dev-secret}
     - NPO_SCALE_DB=/data/vimbai_npo_scale.db
+    - BOOK_SYNC_URL=http://book-sync-service:9020
     volumes:
     - npo_scale_data:/data
     restart: unless-stopped
