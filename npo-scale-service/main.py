@@ -1,6 +1,7 @@
 """
 Vimbai NPO Scale Service
-Lifecycle, scaling and donor-grade reporting for non-profits.
+Lifecycle, scaling and donor-grade reporting for non-profits, plus
+size-banding for commercial organizations (sole trader -> enterprise).
 
 One service for every size of non-profit:
   * small          - community trust, savings club charity arm
@@ -68,6 +69,17 @@ app.add_middleware(
 
 SIZE_BANDS = ["small", "medium", "large", "extra_large"]
 
+ORG_TYPES = ["nonprofit", "commercial"]
+
+# Commercial revenue (USD) thresholds: sole trader -> enterprise.
+BAND_REVENUE_THRESHOLDS_COMMERCIAL = [
+    ("sole_trader", 50_000),
+    ("small", 500_000),
+    ("medium", 5_000_000),
+    ("large", 50_000_000),
+    ("extra_large", float("inf")),
+]
+
 # Annual revenue (USD) thresholds used for automatic classification.
 BAND_REVENUE_THRESHOLDS = [
     ("small", 50_000),
@@ -77,6 +89,13 @@ BAND_REVENUE_THRESHOLDS = [
 ]
 
 FEATURES_BY_BAND: Dict[str, List[str]] = {
+    "sole_trader": [
+        "core_accounting",
+        "cash_book",
+        "self_service_setup",
+        "sales_receipting",
+        "tax_calendar",
+    ],
     "small": [
         "core_accounting",
         "donor_crm",
@@ -123,28 +142,59 @@ FEATURES_BY_BAND: Dict[str, List[str]] = {
 # Expense approval policy per band: single-signer limit above which
 # a second approver is required (dual approval).
 APPROVAL_LIMITS: Dict[str, float] = {
+    "sole_trader": float("inf"),
     "small": float("inf"),
     "medium": 5_000,
     "large": 2_000,
     "extra_large": 1_000,
 }
 
+# Feature ladders per organization type. Commercial organizations get
+# the full business stack; non-profits keep their fund-accounting set.
+FEATURES: Dict[str, Dict[str, List[str]]] = {
+    "nonprofit": FEATURES_BY_BAND,
+    "commercial": {
+        "sole_trader": FEATURES_BY_BAND["sole_trader"],
+        "small": FEATURES_BY_BAND["small"] + ["sales_receipting", "inventory_lite"],
+        "medium": FEATURES_BY_BAND["medium"] + ["sales_receipting", "inventory_lite", "payroll", "multi_currency"],
+        "large": FEATURES_BY_BAND["large"]
+        + ["sales_receipting", "inventory_lite", "payroll", "multi_currency", "multi_entity", "ifrs_reports"],
+        "extra_large": FEATURES_BY_BAND["extra_large"]
+        + [
+            "sales_receipting",
+            "inventory_lite",
+            "payroll",
+            "multi_currency",
+            "multi_entity",
+            "ifrs_reports",
+            "intercompany",
+            "group_consolidation",
+        ],
+    },
+}
 
-def classify_band(annual_revenue: float, headcount: int, branches: int) -> str:
+
+def classify_band(
+    annual_revenue: float,
+    headcount: int,
+    branches: int,
+    org_type: str = "nonprofit",
+) -> str:
     """Automatic size-band classification.
 
     Revenue is the primary signal; headcount and branch count push an
     organization up a band so growth is never blocked by classification.
     """
-    band = "small"
-    for name, threshold in BAND_REVENUE_THRESHOLDS:
+    ladder = BAND_REVENUE_THRESHOLDS_COMMERCIAL if org_type == "commercial" else BAND_REVENUE_THRESHOLDS
+    band = ladder[0][0]
+    for name, threshold in ladder:
         if annual_revenue < threshold:
             band = name
             break
     if branches > 25 or headcount > 500:
         band = "extra_large"
     elif branches > 5 or headcount > 50:
-        if band in ("small", "medium"):
+        if band not in ("large", "extra_large"):
             band = "large"
     return band
 
@@ -158,6 +208,7 @@ CREATE TABLE IF NOT EXISTS orgs (
     id TEXT PRIMARY KEY,
     owner_id TEXT NOT NULL,
     name TEXT NOT NULL,
+    org_type TEXT NOT NULL DEFAULT 'nonprofit',
     sector TEXT DEFAULT 'community',
     country TEXT DEFAULT 'ZW',
     currency TEXT DEFAULT 'USD',
@@ -185,6 +236,17 @@ CREATE TABLE IF NOT EXISTS donors (
     type TEXT DEFAULT 'individual',
     is_recurring INTEGER DEFAULT 0,
     created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS revenues (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    branch_id TEXT,
+    source TEXT DEFAULT 'sale',
+    customer TEXT DEFAULT '',
+    amount REAL NOT NULL,
+    currency TEXT DEFAULT 'USD',
+    received_at REAL NOT NULL,
+    receipt_id TEXT
 );
 CREATE TABLE IF NOT EXISTS donations (
     id TEXT PRIMARY KEY,
@@ -287,6 +349,10 @@ def db():
 def init_db():
     with db() as conn:
         conn.executescript(SCHEMA)
+        try:
+            conn.execute("ALTER TABLE orgs ADD COLUMN org_type TEXT NOT NULL" " DEFAULT 'nonprofit'")
+        except sqlite3.OperationalError:
+            pass  # column already exists
 
 
 init_db()
@@ -309,7 +375,12 @@ def refresh_band(conn, org_id: str) -> str:
     """Recompute the size band after membership/branch/revenue changes."""
     org = require_org(conn, org_id)
     n_branches = conn.execute("SELECT COUNT(*) c FROM branches WHERE org_id=?", (org_id,)).fetchone()["c"]
-    band = classify_band(org["annual_revenue"] or 0, org["headcount"] or 0, n_branches)
+    band = classify_band(
+        org["annual_revenue"] or 0,
+        org["headcount"] or 0,
+        n_branches,
+        org["org_type"],
+    )
     conn.execute(
         "UPDATE orgs SET size_band=?, updated_at=? WHERE id=?",
         (band, time.time(), org_id),
@@ -324,6 +395,7 @@ def refresh_band(conn, org_id: str) -> str:
 
 class OrgCreate(BaseModel):
     name: str
+    org_type: str = "nonprofit"
     sector: str = "community"
     country: str = "ZW"
     currency: str = "USD"
@@ -433,6 +505,8 @@ def root():
             "GET  /orgs/{id}/branches",
             "POST /orgs/{id}/donors",
             "GET  /orgs/{id}/donors",
+            "POST /orgs/{id}/revenues",
+            "GET  /orgs/{id}/revenues",
             "POST /orgs/{id}/donations",
             "GET  /orgs/{id}/donations",
             "POST /orgs/{id}/pledges",
@@ -463,16 +537,22 @@ def root():
 def create_org(body: OrgCreate, user: str = Depends(current_user)):
     now = time.time()
     org_id = str(uuid.uuid4())
-    band = classify_band(body.annual_revenue, body.headcount, 0)
+    if body.org_type not in ORG_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="org_type must be 'nonprofit' or 'commercial'",
+        )
+    band = classify_band(body.annual_revenue, body.headcount, 0, body.org_type)
     with db() as conn:
         conn.execute(
-            "INSERT INTO orgs (id, owner_id, name, sector, country, currency,"
-            " size_band, annual_revenue, headcount, created_at, updated_at)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO orgs (id, owner_id, name, org_type, sector, country,"
+            " currency, size_band, annual_revenue, headcount, created_at,"
+            " updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 org_id,
                 user,
                 body.name,
+                body.org_type,
                 body.sector,
                 body.country,
                 body.currency,
@@ -485,7 +565,12 @@ def create_org(body: OrgCreate, user: str = Depends(current_user)):
         )
     return {
         "service": SERVICE_NAME,
-        "org": {"id": org_id, "name": body.name, "size_band": band},
+        "org": {
+            "id": org_id,
+            "name": body.name,
+            "org_type": body.org_type,
+            "size_band": band,
+        },
     }
 
 
@@ -505,7 +590,7 @@ def list_orgs(user: str = Depends(current_user)):
 def get_org(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
         org = require_org(conn, org_id)
-        features = FEATURES_BY_BAND[org["size_band"]]
+        features = FEATURES[org["org_type"]][org["size_band"]]
     return {"service": SERVICE_NAME, "org": row(org), "features": features}
 
 
@@ -530,11 +615,14 @@ def update_org(org_id: str, body: OrgUpdate, user: str = Depends(current_user)):
 def org_features(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
         org = require_org(conn, org_id)
+    limit = APPROVAL_LIMITS[org["size_band"]]
     return {
         "service": SERVICE_NAME,
+        "org_type": org["org_type"],
         "size_band": org["size_band"],
-        "features": FEATURES_BY_BAND[org["size_band"]],
-        "approval_limit": APPROVAL_LIMITS[org["size_band"]],
+        "features": FEATURES[org["org_type"]][org["size_band"]],
+        # None means no limit: sole traders and small orgs approve alone
+        "approval_limit": None if limit == float("inf") else limit,
     }
 
 
@@ -563,6 +651,77 @@ def list_branches(org_id: str, user: str = Depends(current_user)):
         require_org(conn, org_id)
         branch_rows = rows(conn.execute("SELECT * FROM branches WHERE org_id=? ORDER BY created_at", (org_id,)))
     return {"service": SERVICE_NAME, "branches": branch_rows}
+
+
+# ---------------------------------------------------------------------------
+# Revenue (commercial organizations)
+# ---------------------------------------------------------------------------
+
+
+class RevenueEntryCreate(BaseModel):
+    amount: float
+    source: str = "sale"
+    customer: str = ""
+    currency: str = "USD"
+    branch_id: Optional[str] = None
+
+
+@app.post("/orgs/{org_id}/revenues")
+def record_revenue(org_id: str, body: RevenueEntryCreate, user: str = Depends(current_user)):
+    """Record business revenue (a sale, service invoice or other income)
+    with an automatic verifiable receipt - the commercial mirror of the
+    donation flow."""
+    now = time.time()
+    revenue_id = str(uuid.uuid4())
+    with db() as conn:
+        org = require_org(conn, org_id)
+        if org["org_type"] != "commercial":
+            raise HTTPException(
+                status_code=400,
+                detail="Revenue entries are for commercial organizations",
+            )
+        conn.execute(
+            "INSERT INTO revenues (id, org_id, branch_id, source, customer,"
+            " amount, currency, received_at, receipt_id)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (revenue_id, org_id, body.branch_id, body.source, body.customer, body.amount, body.currency, now, None),
+        )
+        seq = conn.execute("SELECT COUNT(*) c FROM receipts WHERE org_id=?", (org_id,)).fetchone()["c"] + 1
+        receipt_no = "RCP-%s-%05d" % (org_id[:8], seq)
+        conn.execute(
+            "INSERT INTO receipts (id, org_id, donation_id, donor_id,"
+            " receipt_no, amount, currency, token, issued_at)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (
+                str(uuid.uuid4()),
+                org_id,
+                revenue_id,
+                None,
+                receipt_no,
+                body.amount,
+                body.currency,
+                uuid.uuid4().hex,
+                now,
+            ),
+        )
+    return {
+        "service": SERVICE_NAME,
+        "revenue_id": revenue_id,
+        "receipt_no": receipt_no,
+    }
+
+
+@app.get("/orgs/{org_id}/revenues")
+def list_revenues(org_id: str, user: str = Depends(current_user)):
+    with db() as conn:
+        require_org(conn, org_id)
+        revenue_rows = rows(
+            conn.execute(
+                "SELECT * FROM revenues WHERE org_id=? ORDER BY received_at DESC",
+                (org_id,),
+            )
+        )
+    return {"service": SERVICE_NAME, "revenues": revenue_rows}
 
 
 # ---------------------------------------------------------------------------
@@ -895,12 +1054,19 @@ def report_activities(org_id: str, user: str = Depends(current_user), fiscal_yea
     """Statement of activities: revenue by fund (designation) minus
     expenses by fund, per branch with org total."""
     with db() as conn:
-        require_org(conn, org_id)
+        org = require_org(conn, org_id)
         w, args = _fy_where(fiscal_year)
-        revenue = conn.execute(
-            "SELECT designation fund, SUM(amount) total FROM donations" " WHERE org_id=?" + w + " GROUP BY designation",
-            [org_id] + args,
-        ).fetchall()
+        if org["org_type"] == "commercial":
+            revenue = conn.execute(
+                "SELECT source fund, SUM(amount) total FROM revenues" " WHERE org_id=?" + w + " GROUP BY source",
+                [org_id] + args,
+            ).fetchall()
+        else:
+            revenue = conn.execute(
+                "SELECT designation fund, SUM(amount) total FROM donations"
+                " WHERE org_id=?" + w + " GROUP BY designation",
+                [org_id] + args,
+            ).fetchall()
         w2 = ""
         eargs = [org_id]
         if fiscal_year:
@@ -969,10 +1135,16 @@ def report_position(org_id: str, user: str = Depends(current_user)):
             "SELECT COALESCE(SUM(amount),0) t FROM balance_items" " WHERE org_id=? AND kind='liability'",
             (org_id,),
         ).fetchone()["t"]
-        donated = conn.execute(
-            "SELECT COALESCE(SUM(amount),0) t FROM donations WHERE org_id=?",
-            (org_id,),
-        ).fetchone()["t"]
+        donated = (
+            conn.execute(
+                "SELECT COALESCE(SUM(amount),0) t FROM donations WHERE org_id=?",
+                (org_id,),
+            ).fetchone()["t"]
+            + conn.execute(
+                "SELECT COALESCE(SUM(amount),0) t FROM revenues WHERE org_id=?",
+                (org_id,),
+            ).fetchone()["t"]
+        )
         spent = conn.execute(
             "SELECT COALESCE(SUM(amount),0) t FROM expenses WHERE org_id=?",
             (org_id,),

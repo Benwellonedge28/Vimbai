@@ -57,25 +57,98 @@ class _NpoPageState extends State<NpoPage> {
   Future<void> _createOrg() async {
     final nameCtrl = TextEditingController();
     final revenueCtrl = TextEditingController();
+    String orgType = 'nonprofit';
     final created = await showDialog<Map<String, String>>(
       context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialog) => AlertDialog(
+            title: const Text('New organization'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Organization name',
+                  ),
+                ),
+                RadioListTile<String>(
+                  value: 'nonprofit',
+                  groupValue: orgType,
+                  onChanged: (v) => setDialog(() => orgType = v ?? orgType),
+                  title: const Text('Non-profit'),
+                ),
+                RadioListTile<String>(
+                  value: 'commercial',
+                  groupValue: orgType,
+                  onChanged: (v) => setDialog(() => orgType = v ?? orgType),
+                  title: const Text('Business'),
+                ),
+                TextField(
+                  controller: revenueCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Annual revenue (USD, optional)',
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, {
+                  'name': nameCtrl.text.trim(),
+                  'revenue': revenueCtrl.text.trim(),
+                  'org_type': orgType,
+                }),
+                child: const Text('Create'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (created == null || (created['name'] ?? '').isEmpty) return;
+    try {
+      final revenue =
+          double.tryParse(created['revenue'] ?? '') ?? 0;
+      await _npo.createOrg(
+        created['name']!,
+        orgType: created['org_type'] ?? 'nonprofit',
+        annualRevenue: revenue,
+      );
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Create failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _addRevenue(NpoOrg org) async {
+    final amountCtrl = TextEditingController();
+    final customerCtrl = TextEditingController();
+    final result = await showDialog<Map<String, String>>(
+      context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('New organization'),
+        title: const Text('Record sale'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Organization name',
-              ),
+              controller: customerCtrl,
+              decoration: const InputDecoration(labelText: 'Customer'),
             ),
             TextField(
-              controller: revenueCtrl,
+              controller: amountCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Annual revenue (USD, optional)',
-              ),
+              decoration: const InputDecoration(labelText: 'Amount (USD)'),
             ),
           ],
         ),
@@ -86,24 +159,34 @@ class _NpoPageState extends State<NpoPage> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, {
-              'name': nameCtrl.text.trim(),
-              'revenue': revenueCtrl.text.trim(),
+              'customer': customerCtrl.text.trim(),
+              'amount': amountCtrl.text.trim(),
             }),
-            child: const Text('Create'),
+            child: const Text('Save'),
           ),
         ],
       ),
     );
-    if (created == null || (created['name'] ?? '').isEmpty) return;
+    if (result == null) return;
+    final amount = double.tryParse(result['amount'] ?? '') ?? 0;
+    if (amount <= 0) return;
     try {
-      final revenue =
-          double.tryParse(created['revenue'] ?? '') ?? 0;
-      await _npo.createOrg(created['name']!, annualRevenue: revenue);
-      await _load();
+      final resp = await _npo.addRevenue(
+        org.id,
+        amount,
+        customer: result['customer'] ?? '',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Receipt ${resp['receipt_no']} issued'),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Create failed: $e')),
+          SnackBar(content: Text('Sale failed: $e')),
         );
       }
     }
@@ -223,10 +306,11 @@ class _NpoPageState extends State<NpoPage> {
   }
 
   static const Map<String, String> _bandLabels = {
-    'small': 'Small (community trust)',
+    'sole_trader': 'Sole trader',
+    'small': 'Small (community trust / business)',
     'medium': 'Medium (single office)',
     'large': 'Large (multi-branch)',
-    'extra_large': 'Extra-large (federation)',
+    'extra_large': 'Extra-large (federation / group)',
   };
 
   @override
@@ -253,8 +337,8 @@ class _NpoPageState extends State<NpoPage> {
                           padding: EdgeInsets.all(24),
                           child: Text(
                             'No organizations yet. Create one for your '
-                            'trust, church, NGO or community project - '
-                            'Vimbai scales from a small trust to a '
+                            'spaza shop, company, trust, church or NGO - '
+                            'Vimbai scales from a sole trader to a '
                             'national federation.',
                           ),
                         ),
@@ -270,19 +354,27 @@ class _NpoPageState extends State<NpoPage> {
                             title: Text(org.name),
                             subtitle: Text(
                               '${_bandLabels[org.sizeBand] ?? org.sizeBand}'
+                              ' (${org.orgType == 'commercial' ? 'business' : 'non-profit'})'
                               ' - revenue ${org.annualRevenue.toStringAsFixed(0)} USD',
                             ),
                             trailing: PopupMenuButton<String>(
                               onSelected: (v) {
                                 if (v == 'donation') _addDonation(org);
+                                if (v == 'sale') _addRevenue(org);
                                 if (v == 'reports') _showReports(org);
                               },
-                              itemBuilder: (ctx) => const [
-                                PopupMenuItem(
-                                  value: 'donation',
-                                  child: Text('Record donation'),
-                                ),
-                                PopupMenuItem(
+                              itemBuilder: (ctx) => [
+                                if (org.orgType == 'commercial')
+                                  const PopupMenuItem(
+                                    value: 'sale',
+                                    child: Text('Record sale'),
+                                  )
+                                else
+                                  const PopupMenuItem(
+                                    value: 'donation',
+                                    child: Text('Record donation'),
+                                  ),
+                                const PopupMenuItem(
                                   value: 'reports',
                                   child: Text('View reports'),
                                 ),

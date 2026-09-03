@@ -14,6 +14,7 @@ import 'package:http/http.dart' as http;
 class NpoOrg {
   final String id;
   final String name;
+  final String orgType; // nonprofit | commercial
   final String sizeBand;
   final double annualRevenue;
   final int headcount;
@@ -21,6 +22,7 @@ class NpoOrg {
   NpoOrg({
     required this.id,
     required this.name,
+    required this.orgType,
     required this.sizeBand,
     this.annualRevenue = 0,
     this.headcount = 0,
@@ -30,6 +32,7 @@ class NpoOrg {
     return NpoOrg(
       id: j['id'] as String,
       name: j['name'] as String? ?? '',
+      orgType: j['org_type'] as String? ?? 'nonprofit',
       sizeBand: j['size_band'] as String? ?? 'small',
       annualRevenue: (j['annual_revenue'] as num?)?.toDouble() ?? 0,
       headcount: (j['headcount'] as num?)?.toInt() ?? 0,
@@ -75,6 +78,7 @@ class NpoScaleService {
 
   Future<Map<String, dynamic>> createOrg(
     String name, {
+    String orgType = 'nonprofit',
     double annualRevenue = 0,
     int headcount = 0,
   }) async {
@@ -83,6 +87,7 @@ class NpoScaleService {
       headers: _headers,
       body: jsonEncode({
         'name': name,
+        'org_type': orgType,
         'annual_revenue': annualRevenue,
         'headcount': headcount,
       }),
@@ -137,6 +142,25 @@ class NpoScaleService {
     final r = await _client.get(
       _u('/orgs/$orgId/reports/activities'),
       headers: _headers,
+    );
+    return _decode<Map<String, dynamic>>(r);
+  }
+
+  /// Record business revenue (sale / service) with an automatic receipt.
+  Future<Map<String, dynamic>> addRevenue(
+    String orgId,
+    double amount, {
+    String source = 'sale',
+    String customer = '',
+  }) async {
+    final r = await _client.post(
+      _u('/orgs/$orgId/revenues'),
+      headers: _headers,
+      body: jsonEncode({
+        'amount': amount,
+        'source': source,
+        'customer': customer,
+      }),
     );
     return _decode<Map<String, dynamic>>(r);
   }

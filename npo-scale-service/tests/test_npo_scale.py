@@ -252,3 +252,115 @@ def test_compliance_calendar(org):
     assert r.status_code == 200
     items = client.get("/orgs/%s/compliance" % org, headers=hdr()).json()["compliance"]
     assert any(i["title"] == "ZIMRA ITF12C" for i in items)
+
+
+# ---------------------------------------------------------------------------
+# Commercial organizations: sole trader -> enterprise
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def biz():
+    r = client.post(
+        "/orgs",
+        json={
+            "name": "Kudzai Spaza Shop",
+            "org_type": "commercial",
+            "annual_revenue": 8000,
+            "headcount": 1,
+        },
+        headers=hdr(),
+    )
+    assert r.status_code == 200, r.text
+    return r.json()["org"]["id"]
+
+
+def test_sole_trader_classified(biz):
+    r = client.get("/orgs/%s/features" % biz, headers=hdr())
+    j = r.json()
+    assert j["org_type"] == "commercial"
+    assert j["size_band"] == "sole_trader"
+    assert "cash_book" in j["features"]
+    assert j["approval_limit"] is None
+
+
+def test_sole_trader_revenue_with_receipt(biz):
+    r = client.post(
+        "/orgs/%s/revenues" % biz,
+        json={"amount": 45.5, "source": "sale", "customer": "Tendai"},
+        headers=hdr(),
+    )
+    assert r.status_code == 200
+    assert r.json()["receipt_no"].startswith("RCP-")
+    listing = client.get("/orgs/%s/revenues" % biz, headers=hdr()).json()["revenues"]
+    assert listing[0]["amount"] == 45.5
+
+
+def test_revenue_rejected_for_nonprofit(org):
+    r = client.post(
+        "/orgs/%s/revenues" % org,
+        json={"amount": 10},
+        headers=hdr(),
+    )
+    assert r.status_code == 400
+
+
+def test_sole_trader_expenses_no_dual_approval(biz):
+    """A sole trader approves anything alone - no bureaucracy at small scale."""
+    r = client.post(
+        "/orgs/%s/expenses" % biz,
+        json={"amount": 250000, "fund": "general", "approver1": "kudzai"},
+        headers=hdr(),
+    )
+    assert r.json()["status"] == "approved"
+
+
+def test_enterprise_classification():
+    r = client.post(
+        "/orgs",
+        json={
+            "name": "Sable Holdings Group",
+            "org_type": "commercial",
+            "annual_revenue": 75_000_000,
+            "headcount": 1200,
+        },
+        headers=hdr(),
+    )
+    org_id = r.json()["org"]["id"]
+    f = client.get("/orgs/%s/features" % org_id, headers=hdr()).json()
+    assert f["size_band"] == "extra_large"
+    assert "group_consolidation" in f["features"]
+    assert "intercompany" in f["features"]
+    assert f["approval_limit"] == 1000
+
+
+def test_business_growth_upgrades_band(biz):
+    """Revenue growth moves the shop up the commercial ladder."""
+    r = client.patch(
+        "/orgs/%s" % biz,
+        json={"annual_revenue": 200_000},
+        headers=hdr(),
+    )
+    assert r.json()["size_band"] == "small"
+    r2 = client.patch(
+        "/orgs/%s" % biz,
+        json={"annual_revenue": 3_000_000},
+        headers=hdr(),
+    )
+    assert r2.json()["size_band"] == "medium"
+
+
+def test_invalid_org_type_rejected():
+    r = client.post(
+        "/orgs",
+        json={"name": "X", "org_type": "charity-shop"},
+        headers=hdr(),
+    )
+    assert r.status_code == 400
+
+
+def test_commercial_activities_report(biz):
+    r = client.get("/orgs/%s/reports/activities" % biz, headers=hdr())
+    funds = {f["fund"]: f for f in r.json()["funds"]}
+    assert funds["sale"]["revenue"] == 45.5
+    assert r.json()["total_net"] == 45.5 - 250000
