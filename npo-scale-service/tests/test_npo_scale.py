@@ -480,3 +480,109 @@ def test_partnership_activities_report(firm):
     r = client.get("/orgs/%s/reports/activities" % firm, headers=hdr())
     funds = {f["fund"]: f for f in r.json()["funds"]}
     assert funds["service"]["revenue"] == 20000
+
+
+# ---------------------------------------------------------------------------
+# Private limited companies: small -> group holding
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def ltd():
+    r = client.post(
+        "/orgs",
+        json={
+            "name": "Tariro Engineering (Pvt) Ltd",
+            "org_type": "company",
+            "annual_revenue": 300_000,
+            "headcount": 12,
+        },
+        headers=hdr(),
+    )
+    assert r.status_code == 200, r.text
+    return r.json()["org"]["id"]
+
+
+def test_company_classified_small(ltd):
+    f = client.get("/orgs/%s/features" % ltd, headers=hdr()).json()
+    assert f["size_band"] == "small"
+    assert f["org_type"] == "company"
+    assert "share_capital" in f["features"]
+    assert "shareholders_register" in f["features"]
+
+
+def test_shareholders_and_dividend(ltd):
+    client.post(
+        "/orgs/%s/shareholders" % ltd,
+        json={"name": "Rudo Tariro", "shares": 6000, "amount_paid": 6000},
+        headers=hdr(),
+    )
+    client.post(
+        "/orgs/%s/shareholders" % ltd,
+        json={"name": "Tapiwa Moyo", "shares": 4000, "amount_paid": 4000},
+        headers=hdr(),
+    )
+    client.post(
+        "/orgs/%s/revenues" % ltd,
+        json={"amount": 30000, "source": "contract"},
+        headers=hdr(),
+    )
+    client.post(
+        "/orgs/%s/expenses" % ltd,
+        json={"amount": 10000, "fund": "general", "approver1": "rudo"},
+        headers=hdr(),
+    )
+    # declare 1.00/share: 10,000 total, within reserves of 20,000
+    r = client.post(
+        "/orgs/%s/dividends" % ltd,
+        json={"per_share": 1.0},
+        headers=hdr(),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["total_shares"] == 10000
+    assert r.json()["total"] == 10000
+
+
+def test_dividend_capped_by_reserves(ltd):
+    """Corporate governance: no paying shareholders more than reserves."""
+    r = client.post(
+        "/orgs/%s/dividends" % ltd,
+        json={"per_share": 5.0},
+        headers=hdr(),
+    )
+    assert r.status_code == 400
+
+
+def test_equity_statement(ltd):
+    r = client.get("/orgs/%s/reports/equity" % ltd, headers=hdr()).json()
+    assert r["share_capital"] == 10000
+    assert r["retained_earnings"] == 10000  # 30k - 10k - 10k dividend
+    assert r["dividends_declared"] == 10000
+    assert r["total_equity"] == 20000
+
+
+def test_shareholder_rejected_for_partnership(firm):
+    r = client.post(
+        "/orgs/%s/shareholders" % firm,
+        json={"name": "X", "shares": 100},
+        headers=hdr(),
+    )
+    assert r.status_code == 400
+
+
+def test_company_growth_to_group(ltd):
+    client.patch(
+        "/orgs/%s" % ltd,
+        json={"annual_revenue": 60_000_000},
+        headers=hdr(),
+    )
+    f = client.get("/orgs/%s/features" % ltd, headers=hdr()).json()
+    assert f["size_band"] == "extra_large"
+    assert "subsidiaries" in f["features"]
+    assert "group_consolidation" in f["features"]
+
+
+def test_company_activities_report(ltd):
+    r = client.get("/orgs/%s/reports/activities" % ltd, headers=hdr())
+    funds = {x["fund"]: x for x in r.json()["funds"]}
+    assert funds["contract"]["revenue"] == 30000

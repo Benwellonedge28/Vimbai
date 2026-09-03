@@ -2,7 +2,8 @@
 Vimbai NPO Scale Service
 Lifecycle, scaling and donor-grade reporting for non-profits, plus
 size-banding for commercial (sole trader -> enterprise) and
-partnership organizations (partner capital accounts, profit sharing).
+partnership organizations (partner capital accounts, profit sharing) and
+private limited companies (shareholders, dividends, equity).
 
 One service for every size of non-profit:
   * small          - community trust, savings club charity arm
@@ -70,7 +71,7 @@ app.add_middleware(
 
 SIZE_BANDS = ["small", "medium", "large", "extra_large"]
 
-ORG_TYPES = ["nonprofit", "commercial", "partnership"]
+ORG_TYPES = ["nonprofit", "commercial", "partnership", "company"]
 
 # Partnership revenue (USD) thresholds: small firm -> international LLP.
 BAND_REVENUE_THRESHOLDS_PARTNERSHIP = [
@@ -162,6 +163,62 @@ APPROVAL_LIMITS: Dict[str, float] = {
 # the full business stack; non-profits keep their fund-accounting set.
 FEATURES: Dict[str, Dict[str, List[str]]] = {
     "nonprofit": FEATURES_BY_BAND,
+    # Private limited companies: share capital at every size, corporate
+    # stack as they grow toward group holding structures.
+    "company": {
+        "small": [
+            "share_capital",
+            "shareholders_register",
+            "statutory_registers",
+            "dividends",
+            "cash_book",
+            "sales_receipting",
+            "tax_calendar",
+        ],
+        "medium": [
+            "share_capital",
+            "shareholders_register",
+            "statutory_registers",
+            "dividends",
+            "sales_receipting",
+            "inventory_lite",
+            "payroll",
+            "multi_currency",
+        ],
+        "large": [
+            "share_capital",
+            "shareholders_register",
+            "statutory_registers",
+            "dividends",
+            "sales_receipting",
+            "inventory_lite",
+            "payroll",
+            "multi_currency",
+            "branch_hierarchy",
+            "consolidated_reporting",
+            "dual_approval_expenses",
+            "ifrs_reports",
+            "audit_trail",
+        ],
+        "extra_large": [
+            "share_capital",
+            "shareholders_register",
+            "statutory_registers",
+            "dividends",
+            "sales_receipting",
+            "inventory_lite",
+            "payroll",
+            "multi_currency",
+            "branch_hierarchy",
+            "consolidated_reporting",
+            "dual_approval_expenses",
+            "ifrs_reports",
+            "audit_trail",
+            "subsidiaries",
+            "group_consolidation",
+            "intercompany",
+        ],
+    },
     # Partnerships: partner equity at every size, business stack as they grow
     "partnership": {
         "small": [
@@ -248,8 +305,8 @@ def classify_band(
     organization up a band so growth is never blocked by classification.
     """
     ladder = BAND_REVENUE_THRESHOLDS
-    if org_type == "partnership":
-        # partnerships start at small: two or more partners by definition
+    if org_type in ("partnership", "company"):
+        # partnerships and private companies start at small
         ladder = BAND_REVENUE_THRESHOLDS_PARTNERSHIP
     elif org_type == "commercial":
         ladder = BAND_REVENUE_THRESHOLDS_COMMERCIAL
@@ -303,6 +360,23 @@ CREATE TABLE IF NOT EXISTS donors (
     type TEXT DEFAULT 'individual',
     is_recurring INTEGER DEFAULT 0,
     created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS shareholders (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    shares INTEGER DEFAULT 0,
+    share_class TEXT DEFAULT 'ordinary',
+    amount_paid REAL DEFAULT 0,
+    joined_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS dividends (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    per_share REAL NOT NULL,
+    total REAL NOT NULL,
+    declared_at REAL NOT NULL,
+    status TEXT DEFAULT 'declared'
 );
 CREATE TABLE IF NOT EXISTS partners (
     id TEXT PRIMARY KEY,
@@ -588,6 +662,10 @@ def root():
             "GET  /orgs/{id}/branches",
             "POST /orgs/{id}/donors",
             "GET  /orgs/{id}/donors",
+            "POST /orgs/{id}/shareholders",
+            "GET  /orgs/{id}/shareholders",
+            "POST /orgs/{id}/dividends",
+            "GET  /orgs/{id}/reports/equity",
             "POST /orgs/{id}/partners",
             "GET  /orgs/{id}/partners",
             "POST /orgs/{id}/partners/{pid}/draws",
@@ -627,7 +705,7 @@ def create_org(body: OrgCreate, user: str = Depends(current_user)):
     if body.org_type not in ORG_TYPES:
         raise HTTPException(
             status_code=400,
-            detail="org_type must be nonprofit, commercial or partnership",
+            detail="org_type must be nonprofit, commercial, partnership or company",
         )
     band = classify_band(body.annual_revenue, body.headcount, 0, body.org_type)
     with db() as conn:
@@ -762,7 +840,7 @@ def record_revenue(org_id: str, body: RevenueEntryCreate, user: str = Depends(cu
     revenue_id = str(uuid.uuid4())
     with db() as conn:
         org = require_org(conn, org_id)
-        if org["org_type"] not in ("commercial", "partnership"):
+        if org["org_type"] not in ("commercial", "partnership", "company"):
             raise HTTPException(
                 status_code=400,
                 detail="Revenue entries are for commercial/partnership orgs",
@@ -809,6 +887,145 @@ def list_revenues(org_id: str, user: str = Depends(current_user)):
             )
         )
     return {"service": SERVICE_NAME, "revenues": revenue_rows}
+
+
+# ---------------------------------------------------------------------------
+# Private limited companies: shareholders, dividends, equity
+# ---------------------------------------------------------------------------
+
+
+class ShareholderCreate(BaseModel):
+    name: str
+    shares: int
+    share_class: str = "ordinary"
+    amount_paid: float = 0
+
+
+class DividendCreate(BaseModel):
+    per_share: float
+
+
+@app.post("/orgs/{org_id}/shareholders")
+def add_shareholder(org_id: str, body: ShareholderCreate, user: str = Depends(current_user)):
+    if body.shares < 1:
+        raise HTTPException(status_code=400, detail="shares must be >= 1")
+    with db() as conn:
+        org = require_org(conn, org_id)
+        if org["org_type"] != "company":
+            raise HTTPException(
+                status_code=400,
+                detail="Shareholders are for company orgs",
+            )
+        sid = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO shareholders (id, org_id, name, shares, share_class,"
+            " amount_paid, joined_at) VALUES (?,?,?,?,?,?,?)",
+            (sid, org_id, body.name, body.shares, body.share_class, body.amount_paid, time.time()),
+        )
+    return {"service": SERVICE_NAME, "shareholder_id": sid}
+
+
+@app.get("/orgs/{org_id}/shareholders")
+def list_shareholders(org_id: str, user: str = Depends(current_user)):
+    with db() as conn:
+        require_org(conn, org_id)
+        sh_rows = rows(
+            conn.execute(
+                "SELECT * FROM shareholders WHERE org_id=? ORDER BY joined_at",
+                (org_id,),
+            )
+        )
+    return {"service": SERVICE_NAME, "shareholders": sh_rows}
+
+
+@app.post("/orgs/{org_id}/dividends")
+def declare_dividend(org_id: str, body: DividendCreate, user: str = Depends(current_user)):
+    """Declare a dividend per share, capped at distributable reserves."""
+    with db() as conn:
+        org = require_org(conn, org_id)
+        if org["org_type"] != "company":
+            raise HTTPException(
+                status_code=400,
+                detail="Dividends are for company orgs",
+            )
+        shareholders = conn.execute("SELECT shares FROM shareholders WHERE org_id=?", (org_id,)).fetchall()
+        total_shares = sum(s["shares"] for s in shareholders)
+        if total_shares == 0:
+            raise HTTPException(status_code=400, detail="Add shareholders before declaring dividends")
+        income = (
+            conn.execute(
+                "SELECT COALESCE(SUM(amount),0) t FROM revenues WHERE org_id=?",
+                (org_id,),
+            ).fetchone()["t"]
+            - conn.execute(
+                "SELECT COALESCE(SUM(amount),0) t FROM expenses WHERE org_id=?",
+                (org_id,),
+            ).fetchone()["t"]
+            - conn.execute(
+                "SELECT COALESCE(SUM(total),0) t FROM dividends WHERE org_id=?",
+                (org_id,),
+            ).fetchone()["t"]
+        )
+        if body.per_share <= 0:
+            raise HTTPException(status_code=400, detail="per_share must be positive")
+        total = body.per_share * total_shares
+        if total > income:
+            raise HTTPException(
+                status_code=400,
+                detail="Dividend exceeds distributable reserves (%.2f)" % income,
+            )
+        did = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO dividends (id, org_id, per_share, total, declared_at)" " VALUES (?,?,?,?,?)",
+            (did, org_id, body.per_share, total, time.time()),
+        )
+    return {
+        "service": SERVICE_NAME,
+        "dividend_id": did,
+        "total_shares": total_shares,
+        "total": total,
+    }
+
+
+@app.get("/orgs/{org_id}/reports/equity")
+def report_equity(org_id: str, user: str = Depends(current_user)):
+    """Statement of changes in equity: share capital paid in,
+    retained earnings, dividends declared, closing equity."""
+    with db() as conn:
+        org = require_org(conn, org_id)
+        if org["org_type"] != "company":
+            raise HTTPException(
+                status_code=400,
+                detail="Equity statement is for company orgs",
+            )
+        capital = conn.execute(
+            "SELECT COALESCE(SUM(amount_paid),0) t FROM shareholders" " WHERE org_id=?",
+            (org_id,),
+        ).fetchone()["t"]
+        income = (
+            conn.execute(
+                "SELECT COALESCE(SUM(amount),0) t FROM revenues WHERE org_id=?",
+                (org_id,),
+            ).fetchone()["t"]
+            - conn.execute(
+                "SELECT COALESCE(SUM(amount),0) t FROM expenses WHERE org_id=?",
+                (org_id,),
+            ).fetchone()["t"]
+        )
+        divs = conn.execute(
+            "SELECT COALESCE(SUM(total),0) t FROM dividends WHERE org_id=?",
+            (org_id,),
+        ).fetchone()["t"]
+        shareholders = rows(conn.execute("SELECT * FROM shareholders WHERE org_id=?", (org_id,)))
+        per_holder = [{"shareholder": s["name"], "shares": s["shares"]} for s in shareholders]
+    retained = income - divs
+    return {
+        "service": SERVICE_NAME,
+        "share_capital": capital,
+        "retained_earnings": retained,
+        "dividends_declared": divs,
+        "total_equity": capital + retained,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1269,7 +1486,7 @@ def report_activities(org_id: str, user: str = Depends(current_user), fiscal_yea
     with db() as conn:
         org = require_org(conn, org_id)
         w, args = _fy_where(fiscal_year)
-        if org["org_type"] in ("commercial", "partnership"):
+        if org["org_type"] in ("commercial", "partnership", "company"):
             revenue = conn.execute(
                 "SELECT source fund, SUM(amount) total FROM revenues" " WHERE org_id=?" + w + " GROUP BY source",
                 [org_id] + args,
