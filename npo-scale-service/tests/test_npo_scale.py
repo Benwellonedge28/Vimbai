@@ -586,3 +586,91 @@ def test_company_activities_report(ltd):
     r = client.get("/orgs/%s/reports/activities" % ltd, headers=hdr())
     funds = {x["fund"]: x for x in r.json()["funds"]}
     assert funds["contract"]["revenue"] == 30000
+
+
+# ---------------------------------------------------------------------------
+# Vendors, purchases, creditors (all org types)
+# ---------------------------------------------------------------------------
+
+
+def test_vendors_purchases_creditors(ltd):
+    vid = client.post(
+        "/orgs/%s/vendors" % ltd,
+        json={"name": "Zimbabwe Steel Supplies", "phone": "0771 234 567"},
+        headers=hdr(),
+    ).json()["vendor_id"]
+    client.post(
+        "/orgs/%s/vendors" % ltd,
+        json={"name": "Office Mart"},
+        headers=hdr(),
+    )
+    p1 = client.post(
+        "/orgs/%s/purchases" % ltd,
+        json={"vendor_id": vid, "description": "steel beams", "amount": 4000},
+        headers=hdr(),
+    ).json()["purchase_id"]
+    client.post(
+        "/orgs/%s/purchases" % ltd,
+        json={"vendor_id": vid, "description": "bolts", "amount": 500},
+        headers=hdr(),
+    )
+
+    # creditors: unpaid only
+    r = client.get("/orgs/%s/reports/creditors" % ltd, headers=hdr()).json()
+    assert r["total_owed"] == 4500
+    steel = [c for c in r["creditors"] if c["vendor"] == "Zimbabwe Steel Supplies"]
+    assert steel[0]["owed"] == 4500
+
+    # pay the beams: creditors drop, expense is booked
+    pay = client.post("/orgs/%s/purchases/%s/pay" % (ltd, p1), headers=hdr())
+    assert pay.json()["status"] == "paid"
+    r2 = client.get("/orgs/%s/reports/creditors" % ltd, headers=hdr()).json()
+    assert r2["total_owed"] == 500
+    double_pay = client.post("/orgs/%s/purchases/%s/pay" % (ltd, p1), headers=hdr())
+    assert double_pay.status_code == 400
+
+
+def test_purchase_unknown_vendor_rejected(ltd):
+    vendors = client.get("/orgs/%s/vendors" % ltd, headers=hdr()).json()["vendors"]
+    r = client.post(
+        "/orgs/%s/purchases" % ltd,
+        json={"vendor_id": "no-such-vendor", "amount": 100},
+        headers=hdr(),
+    )
+    assert r.status_code == 404
+    assert len(vendors) >= 2
+
+
+def test_directors_register(ltd, firm):
+    d = client.post(
+        "/orgs/%s/directors" % ltd,
+        json={"name": "Rudo Tariro"},
+        headers=hdr(),
+    )
+    assert d.status_code == 200
+    directors = client.get("/orgs/%s/directors" % ltd, headers=hdr()).json()["directors"]
+    assert directors[0]["name"] == "Rudo Tariro"
+    # partnerships cannot have directors
+    r = client.post(
+        "/orgs/%s/directors" % firm,
+        json={"name": "Not A Director"},
+        headers=hdr(),
+    )
+    assert r.status_code == 400
+
+
+def test_npo_can_buy_too(org):
+    """Non-profits purchase from vendors the same way."""
+    vid = client.post(
+        "/orgs/%s/vendors" % org,
+        json={"name": "Hardware Centre"},
+        headers=hdr(),
+    ).json()["vendor_id"]
+    r = client.post(
+        "/orgs/%s/purchases" % org,
+        json={"vendor_id": vid, "description": "building materials", "amount": 200},
+        headers=hdr(),
+    )
+    assert r.status_code == 200
+    c = client.get("/orgs/%s/reports/creditors" % org, headers=hdr()).json()
+    assert c["total_owed"] == 200

@@ -3,7 +3,8 @@ Vimbai NPO Scale Service
 Lifecycle, scaling and donor-grade reporting for non-profits, plus
 size-banding for commercial (sole trader -> enterprise) and
 partnership organizations (partner capital accounts, profit sharing) and
-private limited companies (shareholders, dividends, equity).
+private limited companies (shareholders, directors, dividends, equity),
+plus vendors/purchases/creditors for every organization type.
 
 One service for every size of non-profit:
   * small          - community trust, savings club charity arm
@@ -361,6 +362,31 @@ CREATE TABLE IF NOT EXISTS donors (
     is_recurring INTEGER DEFAULT 0,
     created_at REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS vendors (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    phone TEXT DEFAULT '',
+    email TEXT DEFAULT '',
+    created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS purchases (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    vendor_id TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    amount REAL NOT NULL,
+    currency TEXT DEFAULT 'USD',
+    status TEXT DEFAULT 'unpaid',
+    created_at REAL NOT NULL,
+    paid_at REAL
+);
+CREATE TABLE IF NOT EXISTS directors (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    appointed_at REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS shareholders (
     id TEXT PRIMARY KEY,
     org_id TEXT NOT NULL,
@@ -662,6 +688,13 @@ def root():
             "GET  /orgs/{id}/branches",
             "POST /orgs/{id}/donors",
             "GET  /orgs/{id}/donors",
+            "POST /orgs/{id}/vendors",
+            "GET  /orgs/{id}/vendors",
+            "POST /orgs/{id}/purchases",
+            "POST /orgs/{id}/purchases/{pid}/pay",
+            "GET  /orgs/{id}/reports/creditors",
+            "POST /orgs/{id}/directors",
+            "GET  /orgs/{id}/directors",
             "POST /orgs/{id}/shareholders",
             "GET  /orgs/{id}/shareholders",
             "POST /orgs/{id}/dividends",
@@ -890,6 +923,135 @@ def list_revenues(org_id: str, user: str = Depends(current_user)):
 
 
 # ---------------------------------------------------------------------------
+# Vendors, purchases and creditors (all org types)
+# ---------------------------------------------------------------------------
+
+
+class VendorCreate(BaseModel):
+    name: str
+    phone: str = ""
+    email: str = ""
+
+
+class PurchaseCreate(BaseModel):
+    vendor_id: str
+    description: str = ""
+    amount: float
+    currency: str = "USD"
+
+
+@app.post("/orgs/{org_id}/vendors")
+def add_vendor(org_id: str, body: VendorCreate, user: str = Depends(current_user)):
+    with db() as conn:
+        require_org(conn, org_id)
+        vid = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO vendors (id, org_id, name, phone, email, created_at)" " VALUES (?,?,?,?,?,?)",
+            (vid, org_id, body.name, body.phone, body.email, time.time()),
+        )
+    return {"service": SERVICE_NAME, "vendor_id": vid}
+
+
+@app.get("/orgs/{org_id}/vendors")
+def list_vendors(org_id: str, user: str = Depends(current_user)):
+    with db() as conn:
+        require_org(conn, org_id)
+        v = rows(
+            conn.execute(
+                "SELECT * FROM vendors WHERE org_id=? ORDER BY created_at",
+                (org_id,),
+            )
+        )
+    return {"service": SERVICE_NAME, "vendors": v}
+
+
+@app.post("/orgs/{org_id}/purchases")
+def record_purchase(org_id: str, body: PurchaseCreate, user: str = Depends(current_user)):
+    """Record a purchase from a vendor on credit (unpaid)."""
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="amount must be positive")
+    with db() as conn:
+        require_org(conn, org_id)
+        vendor = conn.execute(
+            "SELECT id FROM vendors WHERE id=? AND org_id=?",
+            (body.vendor_id, org_id),
+        ).fetchone()
+        if vendor is None:
+            raise HTTPException(status_code=404, detail="Unknown vendor")
+        pid = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO purchases (id, org_id, vendor_id, description,"
+            " amount, currency, status, created_at)"
+            " VALUES (?,?,?,?,?,?, 'unpaid', ?)",
+            (pid, org_id, body.vendor_id, body.description, body.amount, body.currency, time.time()),
+        )
+    return {"service": SERVICE_NAME, "purchase_id": pid, "status": "unpaid"}
+
+
+@app.post("/orgs/{org_id}/purchases/{purchase_id}/pay")
+def pay_purchase(org_id: str, purchase_id: str, user: str = Depends(current_user)):
+    """Settle a purchase: marks it paid and books it as an expense so
+    every report (activities, equity, capital accounts) stays honest."""
+    with db() as conn:
+        require_org(conn, org_id)
+        p = conn.execute(
+            "SELECT * FROM purchases WHERE id=? AND org_id=?",
+            (purchase_id, org_id),
+        ).fetchone()
+        if p is None:
+            raise HTTPException(status_code=404, detail="Unknown purchase")
+        if p["status"] == "paid":
+            raise HTTPException(status_code=400, detail="Already paid")
+        now = time.time()
+        conn.execute(
+            "UPDATE purchases SET status='paid', paid_at=? WHERE id=?",
+            (now, purchase_id),
+        )
+        conn.execute(
+            "INSERT INTO expenses (id, org_id, branch_id, fund, program,"
+            " functional_area, amount, currency, description, spent_at,"
+            " approver1, approver2, status)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'approved')",
+            (
+                str(uuid.uuid4()),
+                org_id,
+                None,
+                "general",
+                "",
+                "operations",
+                p["amount"],
+                p["currency"],
+                p["description"],
+                now,
+                user,
+                None,
+            ),
+        )
+    return {"service": SERVICE_NAME, "status": "paid"}
+
+
+@app.get("/orgs/{org_id}/reports/creditors")
+def report_creditors(org_id: str, user: str = Depends(current_user)):
+    """Aged payables: what the org owes each vendor right now."""
+    with db() as conn:
+        require_org(conn, org_id)
+        c = conn.execute(
+            "SELECT v.name vendor, SUM(p.amount) owed"
+            " FROM purchases p JOIN vendors v ON v.id = p.vendor_id"
+            " WHERE p.org_id=? AND p.status='unpaid'"
+            " GROUP BY v.name ORDER BY owed DESC",
+            (org_id,),
+        ).fetchall()
+        creditors = [{"vendor": r["vendor"], "owed": r["owed"]} for r in c]
+        total = sum(r["owed"] for r in c)
+    return {
+        "service": SERVICE_NAME,
+        "creditors": creditors,
+        "total_owed": total,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Private limited companies: shareholders, dividends, equity
 # ---------------------------------------------------------------------------
 
@@ -923,6 +1085,40 @@ def add_shareholder(org_id: str, body: ShareholderCreate, user: str = Depends(cu
             (sid, org_id, body.name, body.shares, body.share_class, body.amount_paid, time.time()),
         )
     return {"service": SERVICE_NAME, "shareholder_id": sid}
+
+
+class DirectorCreate(BaseModel):
+    name: str
+
+
+@app.post("/orgs/{org_id}/directors")
+def add_director(org_id: str, body: DirectorCreate, user: str = Depends(current_user)):
+    with db() as conn:
+        org = require_org(conn, org_id)
+        if org["org_type"] != "company":
+            raise HTTPException(
+                status_code=400,
+                detail="Directors are for company orgs",
+            )
+        did = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO directors (id, org_id, name, appointed_at)" " VALUES (?,?,?,?)",
+            (did, org_id, body.name, time.time()),
+        )
+    return {"service": SERVICE_NAME, "director_id": did}
+
+
+@app.get("/orgs/{org_id}/directors")
+def list_directors(org_id: str, user: str = Depends(current_user)):
+    with db() as conn:
+        require_org(conn, org_id)
+        d = rows(
+            conn.execute(
+                "SELECT * FROM directors WHERE org_id=? ORDER BY appointed_at",
+                (org_id,),
+            )
+        )
+    return {"service": SERVICE_NAME, "directors": d}
 
 
 @app.get("/orgs/{org_id}/shareholders")

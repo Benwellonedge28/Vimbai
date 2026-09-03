@@ -165,6 +165,50 @@ class NpoScaleService {
     return _decode<Map<String, dynamic>>(r);
   }
 
+  /// Vendors, purchases and creditors (all org types).
+  Future<String> addVendor(String orgId, String name) async {
+    final r = await _client.post(
+      _u('/orgs/$orgId/vendors'),
+      headers: _headers,
+      body: jsonEncode({'name': name}),
+    );
+    return (_decode<Map<String, dynamic>>(r))['vendor_id'] as String;
+  }
+
+  Future<String> recordPurchase(
+    String orgId,
+    String vendorId,
+    String description,
+    double amount,
+  ) async {
+    final r = await _client.post(
+      _u('/orgs/$orgId/purchases'),
+      headers: _headers,
+      body: jsonEncode({
+        'vendor_id': vendorId,
+        'description': description,
+        'amount': amount,
+      }),
+    );
+    return (_decode<Map<String, dynamic>>(r))['purchase_id'] as String;
+  }
+
+  Future<Map<String, dynamic>> payPurchase(String orgId, String purchaseId) async {
+    final r = await _client.post(
+      _u('/orgs/$orgId/purchases/$purchaseId/pay'),
+      headers: _headers,
+    );
+    return _decode<Map<String, dynamic>>(r);
+  }
+
+  Future<Map<String, dynamic>> creditorsReport(String orgId) async {
+    final r = await _client.get(
+      _u('/orgs/$orgId/reports/creditors'),
+      headers: _headers,
+    );
+    return _decode<Map<String, dynamic>>(r);
+  }
+
   /// Public receipt verification - lets a donor confirm a receipt.
   Future<bool> verifyReceipt(String token) async {
     final r = await _client.get(_u('/receipts/verify/$token'));

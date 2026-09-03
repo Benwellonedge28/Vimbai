@@ -204,6 +204,116 @@ class _NpoPageState extends State<NpoPage> {
     }
   }
 
+  Future<void> _addPurchase(NpoOrg org) async {
+    final vendorCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final amountCtrl = TextEditingController();
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Record purchase (on credit)'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: vendorCtrl,
+              decoration: const InputDecoration(labelText: 'Vendor name'),
+            ),
+            TextField(
+              controller: descCtrl,
+              decoration: const InputDecoration(labelText: 'What was bought'),
+            ),
+            TextField(
+              controller: amountCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Amount (USD)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, {
+              'vendor': vendorCtrl.text.trim(),
+              'desc': descCtrl.text.trim(),
+              'amount': amountCtrl.text.trim(),
+            }),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (result == null) return;
+    final amount = double.tryParse(result['amount'] ?? '') ?? 0;
+    if ((result['vendor'] ?? '').isEmpty || amount <= 0) return;
+    try {
+      final vendorId = await _npo.addVendor(org.id, result['vendor']!);
+      await _npo.recordPurchase(
+        org.id,
+        vendorId,
+        result['desc'] ?? '',
+        amount,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Purchase recorded - it is now owed to the vendor'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Purchase failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showCreditors(NpoOrg org) async {
+    try {
+      final r = await _npo.creditorsReport(org.id);
+      final creditors = (r['creditors'] as List<dynamic>).cast<Map>();
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('${org.name} - creditors'),
+          content: creditors.isEmpty
+              ? const Text('Nothing owed to vendors.')
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final c in creditors)
+                      Text('${c['vendor']}: owed ${c['owed']} USD'),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Total owed: ${r['total_owed']} USD',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Creditors failed: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _addDonation(NpoOrg org) async {
     final nameCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
@@ -380,7 +490,9 @@ class _NpoPageState extends State<NpoPage> {
                               onSelected: (v) {
                                 if (v == 'donation') _addDonation(org);
                                 if (v == 'sale') _addRevenue(org);
+                                if (v == 'purchase') _addPurchase(org);
                                 if (v == 'reports') _showReports(org);
+                                if (v == 'creditors') _showCreditors(org);
                               },
                               itemBuilder: (ctx) => [
                                 if (org.orgType == 'commercial')
@@ -388,14 +500,28 @@ class _NpoPageState extends State<NpoPage> {
                                     value: 'sale',
                                     child: Text('Record sale'),
                                   )
+                                else if (org.orgType == 'partnership' ||
+                                    org.orgType == 'company')
+                                  const PopupMenuItem(
+                                    value: 'sale',
+                                    child: Text('Record revenue'),
+                                  )
                                 else
                                   const PopupMenuItem(
                                     value: 'donation',
                                     child: Text('Record donation'),
                                   ),
                                 const PopupMenuItem(
+                                  value: 'purchase',
+                                  child: Text('Record purchase'),
+                                ),
+                                const PopupMenuItem(
                                   value: 'reports',
                                   child: Text('View reports'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'creditors',
+                                  child: Text('Creditors (owed)'),
                                 ),
                               ],
                             ),
