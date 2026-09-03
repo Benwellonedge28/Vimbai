@@ -552,7 +552,7 @@ docker-compose logs -f accounting-service
 
 ## License
 
-MIT License - See LICENSE file for details.
+Modified Business Source License 1.1 (no conversion period) - See LICENSE file for details.
 
 ---
 

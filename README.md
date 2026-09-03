@@ -58,7 +58,7 @@ We welcome contributions! Please refer to the design document for architectural 
 
 ## License
 
-MIT License
+Modified Business Source License 1.1 (BSL 1.1, no conversion period)
 
 ## Contact
 

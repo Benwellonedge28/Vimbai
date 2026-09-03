@@ -160,4 +160,4 @@ docker run -p 8087:8087 npo-service
 
 ## License
 
-MIT
+Modified Business Source License 1.1 (BSL 1.1, no conversion period). See root LICENSE file.

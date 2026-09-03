@@ -150,4 +150,4 @@ curl http://localhost:8006/
 
 ## License
 
-MIT License - See Vimbai root README for details.
+Modified Business Source License 1.1 (no conversion period) - See Vimbai root LICENSE for details.

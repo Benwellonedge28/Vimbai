@@ -1,21 +1,89 @@
-MIT License
+Business Source License 1.1
 
-Copyright (c) 2026 Samuel Mukandara
+Licensor: Samuel Mukandara
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Licensed Work: The Vimbai platform and all accompanying source code,
+configuration, documentation, and assets, as made available by the Licensor
+in the Vimbai repository.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Additional Use Grant: None. Use of the Licensed Work is limited to the
+Usage Grant defined below.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Change Date: None. This License has no Change Date and no conversion
+period. The Licensed Work will NOT automatically convert to any other
+license (including any open source or free software license) at any time.
+The Licensed Work remains under this License indefinitely unless the
+Licensor expressly grants a different license in writing.
+
+Change License: Not applicable. No Change License is designated and no
+automatic conversion will occur under any circumstances.
+
+Terms
+
+The Licensor hereby grants you the right to view, modify, and internally
+use the Licensed Work, subject to the following conditions:
+
+1. Usage Grant.
+
+   You may use the Licensed Work for your personal, internal business,
+   or evaluation purposes, and to build and run the Licensed Work for
+   those purposes. You may not make, use, sell, offer for sale,
+   distribute, publish, or sublicense the Licensed Work, in whole or in
+   part, or any derivative work based on the Licensed Work, for any
+   production, commercial, or external-facing purpose without a separate
+   written license from the Licensor.
+
+2. Distribution Prohibition.
+
+   You may not distribute, publish, or make available the Licensed Work
+   or any derivative work based on the Licensed Work to any third party,
+   in source or binary form, without prior written permission from the
+   Licensor.
+
+3. Derivative Works.
+
+   You may modify the Licensed Work for your own internal use as
+   permitted under the Usage Grant. Any derivative works remain subject
+   to this License and may not be distributed, published, or made
+   available to third parties without prior written permission from the
+   Licensor.
+
+4. Notices.
+
+   You must retain, and may not alter, remove, or obscure, all
+   copyright, patent, trademark, and attribution notices contained in
+   the Licensed Work, including this License, in all copies and
+   derivative works.
+
+5. No Warranty.
+
+   The Licensed Work is provided "as is", without warranty of any kind,
+   express or implied, including but not limited to the warranties of
+   merchantability, fitness for a particular purpose, and
+   non-infringement. The Licensor is not liable for any claim, damages,
+   or other liability, whether in an action of contract, tort, or
+   otherwise, arising from, out of, or in connection with the Licensed
+   Work or the use or other dealings in the Licensed Work.
+
+6. No Trademark Grant.
+
+   This License does not grant any rights to use the Licensor's name,
+   logo, or trademarks.
+
+7. Reservation of Rights.
+
+   All rights not expressly granted under this License are reserved by
+   the Licensor. No additional rights may be assumed or implied.
+
+8. Termination.
+
+   If you breach any term of this License, your rights under this
+   License terminate automatically upon notice from the Licensor.
+
+Copyright (c) 2026 Samuel Mukandara. All rights reserved.
+
+Note: This License is a modified version of the Business Source License
+1.1 (https://mariadb.com/bsl11/). Unlike the standard BSL 1.1, this
+License specifies no Change Date and no Change License, meaning the
+Licensed Work will never automatically convert to an open source
+license.

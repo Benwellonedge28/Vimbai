@@ -59,7 +59,7 @@ Vimbai is a comprehensive financial management system with microservices archite
         "email": "support@vimbai.example.com",
         "url": "https://vimbai.example.com/support",
     },
-    "license": {"name": "MIT License", "url": "https://opensource.org/licenses/MIT"},
+    "license": {"name": "Business Source License 1.1 (no conversion period)", "url": "https://mariadb.com/bsl11/"},
     "terms_of_service": "https://vimbai.example.com/terms",
 }
 
