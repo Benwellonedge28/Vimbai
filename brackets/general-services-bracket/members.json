@@ -1,0 +1,41 @@
+{
+  "bracket": "general-services-bracket",
+  "port": 9010,
+  "members": [
+    {
+      "path": "/business-combination",
+      "name": "business-combination-service",
+      "dir": "business-combination-service"
+    },
+    {
+      "path": "/business-documents",
+      "name": "business-documents-service",
+      "dir": "business-documents-service"
+    },
+    {
+      "path": "/du-pont",
+      "name": "du-pont-service",
+      "dir": "du-pont-service"
+    },
+    {
+      "path": "/family-community-group",
+      "name": "family-community-group-service",
+      "dir": "family-community-group-service"
+    },
+    {
+      "path": "/forward-contracts",
+      "name": "forward-contracts-service",
+      "dir": "forward-contracts-service"
+    },
+    {
+      "path": "/org-authorization",
+      "name": "org-authorization-engine",
+      "dir": "org-authorization-engine"
+    },
+    {
+      "path": "/selling-price-reduction",
+      "name": "selling-price-reduction-service",
+      "dir": "selling-price-reduction-service"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ Manages fixed cost classification and analysis.
 
 import os
 import uuid
+from enum import Enum
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -40,7 +41,7 @@ app.add_middleware(
 )
 
 
-class CostBehavior(str):
+class CostBehavior(str, Enum):
     FIXED = "fixed"
     VARIABLE = "variable"
     SEMI_VARIABLE = "semi_variable"

@@ -5,6 +5,7 @@ Manages cost centre classification and tracking.
 
 import os
 import uuid
+from enum import Enum
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -40,7 +41,7 @@ app.add_middleware(
 )
 
 
-class CostCentreType(str):
+class CostCentreType(str, Enum):
     PRODUCTION = "production"
     SERVICE = "service"
     ADMINISTRATIVE = "administrative"

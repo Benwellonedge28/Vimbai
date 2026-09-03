@@ -5,6 +5,7 @@ Manages disposal of fixed assets and calculation of profit/loss on disposal.
 
 import os
 import uuid
+from enum import Enum
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -40,7 +41,7 @@ app.add_middleware(
 )
 
 
-class DisposalReason(str):
+class DisposalReason(str, Enum):
     SOLD = "sold"
     SCRAPPED = "scrapped"
     STOLEN = "stolen"

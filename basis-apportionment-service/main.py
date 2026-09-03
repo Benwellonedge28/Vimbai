@@ -5,6 +5,7 @@ Handles different basis for apportioning costs to cost centres.
 
 import os
 import uuid
+from enum import Enum
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -40,7 +41,7 @@ app.add_middleware(
 )
 
 
-class ApportionmentBasis(str):
+class ApportionmentBasis(str, Enum):
     FLOOR_AREA = "floor_area"
     VOLUME = "volume"
     COST = "cost"

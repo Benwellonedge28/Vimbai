@@ -105,351 +105,159 @@ secrets:
   neo4jAuth: "neo4j/dev-password"
 
 newServices:
-  - name: "activity-based-budget"
-    port: 8177
+  - name: "advanced-accounting-bracket"
+    port: 9011
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 
-  - name: "authorized-share-capital"
-    port: 8017
+  - name: "ap-ar-expenses-bracket"
+    port: 9006
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 
-  - name: "banking-integration"
-    port: 8386
+  - name: "corporate-finance-bracket"
+    port: 9012
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 
-  - name: "benefits-admin"
-    port: 8360
+  - name: "costing-budgeting-bracket"
+    port: 9001
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 
-  - name: "cash-management"
-    port: 8264
+  - name: "general-services-bracket"
+    port: 9010
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 
-  - name: "data-warehou"
-    port: 8362
+  - name: "operations-inventory-bracket"
+    port: 9009
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 
-  - name: "disposal-group"
-    port: 8226
+  - name: "platform-automation-bracket"
+    port: 9008
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 
-  - name: "distributed-workflow-orchestration"
-    port: 8046
+  - name: "platform-infrastructure-bracket"
+    port: 9013
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 
-  - name: "encrypted-backup"
-    port: 8006
+  - name: "ratios-analytics-bracket"
+    port: 9007
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 
-  - name: "etl"
-    port: 8363
+  - name: "risk-governance-bracket"
+    port: 9005
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 
-  - name: "family-community-group"
-    port: 8005
+  - name: "statements-reporting-bracket"
+    port: 9002
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 
-  - name: "fixed-assets-regist"
-    port: 8355
+  - name: "tax-audit-investigation-bracket"
+    port: 9004
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 
-  - name: "ifrs-reporting"
-    port: 8268
+  - name: "treasury-banking-bracket"
+    port: 9003
     replicas: 2
     maxReplicas: 6
     resources:
       requests:
-        memory: "256Mi"
+        memory: "512Mi"
         cpu: "250m"
       limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "intangible-asset"
-    port: 8358
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "intercompany"
-    port: 8350
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "investment-monitoring"
-    port: 8290
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "lease-termination"
-    port: 8224
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "lifecycle-costing"
-    port: 8182
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "org-authorization-engine"
-    port: 8008
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "performance-benchmarking"
-    port: 8280
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "privacy-admin-dashboard"
-    port: 8003
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "report-automation"
-    port: 8272
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "report-distribution"
-    port: 8273
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "rolling-forecast"
-    port: 8173
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "sox-complian"
-    port: 8286
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "treasury-policy"
-    port: 8263
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "treasury-reporting"
-    port: 8262
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "treasury-risk"
-    port: 8259
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
-
-  - name: "zero-trust-data"
-    port: 8002
-    replicas: 2
-    maxReplicas: 6
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "250m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "1"
 

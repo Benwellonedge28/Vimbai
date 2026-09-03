@@ -1,0 +1,111 @@
+{
+  "bracket": "tax-audit-investigation-bracket",
+  "port": 9004,
+  "members": [
+    {
+      "path": "/audit-compliance",
+      "name": "audit-compliance-service",
+      "dir": "audit-compliance-service"
+    },
+    {
+      "path": "/audit-evidence",
+      "name": "audit-evidence-service",
+      "dir": "audit-evidence-service"
+    },
+    {
+      "path": "/audit-sampling",
+      "name": "audit-sampling-service",
+      "dir": "audit-sampling-service"
+    },
+    {
+      "path": "/corporate-tax",
+      "name": "corporate-tax-service",
+      "dir": "corporate-tax-service"
+    },
+    {
+      "path": "/forensic-accounting",
+      "name": "forensic-accounting-service",
+      "dir": "forensic-accounting-service"
+    },
+    {
+      "path": "/group-tax",
+      "name": "group-tax-service",
+      "dir": "group-tax-service"
+    },
+    {
+      "path": "/investigation",
+      "name": "investigation-service",
+      "dir": "investigation-service"
+    },
+    {
+      "path": "/it-audit",
+      "name": "it-audit-service",
+      "dir": "it-audit-service"
+    },
+    {
+      "path": "/operational-audit",
+      "name": "operational-audit-service",
+      "dir": "operational-audit-service"
+    },
+    {
+      "path": "/r-and-d-tax",
+      "name": "r-and-d-tax-service",
+      "dir": "r-and-d-tax-service"
+    },
+    {
+      "path": "/regulatory-compliance",
+      "name": "regulatory-compliance-service",
+      "dir": "regulatory-compliance-service"
+    },
+    {
+      "path": "/sox-compliance",
+      "name": "sox-compliance-service",
+      "dir": "sox-compliance-service"
+    },
+    {
+      "path": "/tax",
+      "name": "tax-service",
+      "dir": "tax-service"
+    },
+    {
+      "path": "/tax-accounting",
+      "name": "tax-accounting-service",
+      "dir": "tax-accounting-service"
+    },
+    {
+      "path": "/tax-audit",
+      "name": "tax-audit-service",
+      "dir": "tax-audit-service"
+    },
+    {
+      "path": "/tax-calculation",
+      "name": "tax-calculation-service",
+      "dir": "tax-calculation-service"
+    },
+    {
+      "path": "/tax-compliance",
+      "name": "tax-compliance-service",
+      "dir": "tax-compliance-service"
+    },
+    {
+      "path": "/tax-planning",
+      "name": "tax-planning-service",
+      "dir": "tax-planning-service"
+    },
+    {
+      "path": "/tax-provision",
+      "name": "tax-provision-service",
+      "dir": "tax-provision-service"
+    },
+    {
+      "path": "/tax-return-preparation",
+      "name": "tax-return-preparation-service",
+      "dir": "tax-return-preparation-service"
+    },
+    {
+      "path": "/tax-risk",
+      "name": "tax-risk-service",
+      "dir": "tax-risk-service"
+    }
+  ]
+}

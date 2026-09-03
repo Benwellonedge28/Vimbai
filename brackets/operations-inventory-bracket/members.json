@@ -1,0 +1,51 @@
+{
+  "bracket": "operations-inventory-bracket",
+  "port": 9009,
+  "members": [
+    {
+      "path": "/biological-assets",
+      "name": "biological-assets-service",
+      "dir": "biological-assets-service"
+    },
+    {
+      "path": "/data-warehouse",
+      "name": "data-warehouse-service",
+      "dir": "data-warehouse-service"
+    },
+    {
+      "path": "/fixed-assets",
+      "name": "fixed-assets-service",
+      "dir": "fixed-assets-service"
+    },
+    {
+      "path": "/fixed-assets-register",
+      "name": "fixed-assets-register-service",
+      "dir": "fixed-assets-register-service"
+    },
+    {
+      "path": "/inventory-valuation",
+      "name": "inventory-valuation-service",
+      "dir": "inventory-valuation-service"
+    },
+    {
+      "path": "/order-acceptance",
+      "name": "order-acceptance-service",
+      "dir": "order-acceptance-service"
+    },
+    {
+      "path": "/project-accounting",
+      "name": "project-accounting-service",
+      "dir": "project-accounting-service"
+    },
+    {
+      "path": "/project-appraisal",
+      "name": "project-appraisal-service",
+      "dir": "project-appraisal-service"
+    },
+    {
+      "path": "/subscription-plans",
+      "name": "subscription-plans-service",
+      "dir": "subscription-plans-service"
+    }
+  ]
+}

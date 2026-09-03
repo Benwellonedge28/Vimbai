@@ -5,6 +5,7 @@ Manages preference share issuance and dividends.
 
 import os
 import uuid
+from enum import Enum
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -40,7 +41,7 @@ app.add_middleware(
 )
 
 
-class DividendPriority(str):
+class DividendPriority(str, Enum):
     PREFERENCE = "preference"
     MIXED = "mixed"
 

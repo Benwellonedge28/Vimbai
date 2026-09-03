@@ -1,0 +1,76 @@
+{
+  "bracket": "ratios-analytics-bracket",
+  "port": 9007,
+  "members": [
+    {
+      "path": "/accounting-rate-return",
+      "name": "accounting-rate-return-service",
+      "dir": "accounting-rate-return-service"
+    },
+    {
+      "path": "/ai-readiness",
+      "name": "ai-readiness-service",
+      "dir": "ai-readiness-service"
+    },
+    {
+      "path": "/analytical-procedures",
+      "name": "analytical-procedures-service",
+      "dir": "analytical-procedures-service"
+    },
+    {
+      "path": "/analytics",
+      "name": "analytics-service",
+      "dir": "analytics-service"
+    },
+    {
+      "path": "/asset-allocation",
+      "name": "asset-allocation-service",
+      "dir": "asset-allocation-service"
+    },
+    {
+      "path": "/asset-turnover",
+      "name": "asset-turnover-service",
+      "dir": "asset-turnover-service"
+    },
+    {
+      "path": "/distributed-workflow-orchestration",
+      "name": "distributed-workflow-orchestration-service",
+      "dir": "distributed-workflow-orchestration-service"
+    },
+    {
+      "path": "/financial-distress-prediction",
+      "name": "financial-distress-prediction-service",
+      "dir": "financial-distress-prediction-service"
+    },
+    {
+      "path": "/financial-forecasting",
+      "name": "financial-forecasting-service",
+      "dir": "financial-forecasting-service"
+    },
+    {
+      "path": "/internal-rate-return",
+      "name": "internal-rate-return-service",
+      "dir": "internal-rate-return-service"
+    },
+    {
+      "path": "/kpi-tracking",
+      "name": "kpi-tracking-service",
+      "dir": "kpi-tracking-service"
+    },
+    {
+      "path": "/performance-benchmarking",
+      "name": "performance-benchmarking-service",
+      "dir": "performance-benchmarking-service"
+    },
+    {
+      "path": "/ratio-analysis",
+      "name": "ratio-analysis-service",
+      "dir": "ratio-analysis-service"
+    },
+    {
+      "path": "/regulatory-ratio",
+      "name": "regulatory-ratio-service",
+      "dir": "regulatory-ratio-service"
+    }
+  ]
+}

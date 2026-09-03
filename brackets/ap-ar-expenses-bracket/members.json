@@ -1,0 +1,41 @@
+{
+  "bracket": "ap-ar-expenses-bracket",
+  "port": 9006,
+  "members": [
+    {
+      "path": "/accounts-payable",
+      "name": "accounts-payable-service",
+      "dir": "accounts-payable-service"
+    },
+    {
+      "path": "/accounts-receivable",
+      "name": "accounts-receivable-service",
+      "dir": "accounts-receivable-service"
+    },
+    {
+      "path": "/benefits-admin",
+      "name": "benefits-admin-service",
+      "dir": "benefits-admin-service"
+    },
+    {
+      "path": "/expense-tracking",
+      "name": "expense-tracking-service",
+      "dir": "expense-tracking-service"
+    },
+    {
+      "path": "/payroll",
+      "name": "payroll-service",
+      "dir": "payroll-service"
+    },
+    {
+      "path": "/payroll-accounting",
+      "name": "payroll-accounting-service",
+      "dir": "payroll-accounting-service"
+    },
+    {
+      "path": "/pension-accounting",
+      "name": "pension-accounting-service",
+      "dir": "pension-accounting-service"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ Optimizes production when resources are scarce.
 
 import os
 import uuid
+from enum import Enum
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -40,7 +41,7 @@ app.add_middleware(
 )
 
 
-class LimitingFactorType(str):
+class LimitingFactorType(str, Enum):
     MACHINE_HOURS = "machine_hours"
     LABOR_HOURS = "labor_hours"
     MATERIAL_KG = "material_kg"

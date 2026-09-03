@@ -5,6 +5,7 @@ Manages redemption of shares including legal requirements and procedures.
 
 import os
 import uuid
+from enum import Enum
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -40,7 +41,7 @@ app.add_middleware(
 )
 
 
-class RedemptionMethod(str):
+class RedemptionMethod(str, Enum):
     OUT_OF_PROCEEDS = "proceeds"
     OUT_OF_FRRESH_ISSUE = "fresh_issue"
     OUT_OF_EXISTING_ASSETS = "existing_assets"

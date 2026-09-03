@@ -1,0 +1,211 @@
+{
+  "bracket": "treasury-banking-bracket",
+  "port": 9003,
+  "members": [
+    {
+      "path": "/acquisition-financing",
+      "name": "acquisition-financing-service",
+      "dir": "acquisition-financing-service"
+    },
+    {
+      "path": "/amortization",
+      "name": "amortization-service",
+      "dir": "amortization-service"
+    },
+    {
+      "path": "/authorized-share-capital",
+      "name": "authorized-share-capital-service",
+      "dir": "authorized-share-capital-service"
+    },
+    {
+      "path": "/bad-debts-recovery",
+      "name": "bad-debts-recovery-service",
+      "dir": "bad-debts-recovery-service"
+    },
+    {
+      "path": "/bank-fee-analysis",
+      "name": "bank-fee-analysis-service",
+      "dir": "bank-fee-analysis-service"
+    },
+    {
+      "path": "/bank-feed",
+      "name": "bank-feed-service",
+      "dir": "bank-feed-service"
+    },
+    {
+      "path": "/bank-reconciliation",
+      "name": "bank-reconciliation-service",
+      "dir": "bank-reconciliation-service"
+    },
+    {
+      "path": "/bank-relationship",
+      "name": "bank-relationship-service",
+      "dir": "bank-relationship-service"
+    },
+    {
+      "path": "/cash-flow",
+      "name": "cash-flow-service",
+      "dir": "cash-flow-service"
+    },
+    {
+      "path": "/cash-flow-forecasting",
+      "name": "cash-flow-forecasting-service",
+      "dir": "cash-flow-forecasting-service"
+    },
+    {
+      "path": "/credit-derivatives",
+      "name": "credit-derivatives-service",
+      "dir": "credit-derivatives-service"
+    },
+    {
+      "path": "/credit-risk-analysis",
+      "name": "credit-risk-analysis-service",
+      "dir": "credit-risk-analysis-service"
+    },
+    {
+      "path": "/cross-currency-swap",
+      "name": "cross-currency-swap-service",
+      "dir": "cross-currency-swap-service"
+    },
+    {
+      "path": "/currency",
+      "name": "currency-service",
+      "dir": "currency-service"
+    },
+    {
+      "path": "/currency-hedging",
+      "name": "currency-hedging-service",
+      "dir": "currency-hedging-service"
+    },
+    {
+      "path": "/debt-covenants",
+      "name": "debt-covenants-service",
+      "dir": "debt-covenants-service"
+    },
+    {
+      "path": "/debt-management",
+      "name": "debt-management-service",
+      "dir": "debt-management-service"
+    },
+    {
+      "path": "/foreign-currency-translation",
+      "name": "foreign-currency-translation-service",
+      "dir": "foreign-currency-translation-service"
+    },
+    {
+      "path": "/ifrs-2-share-based-payment",
+      "name": "ifrs-2-share-based-payment-service",
+      "dir": "ifrs-2-share-based-payment-service"
+    },
+    {
+      "path": "/initial-investment",
+      "name": "initial-investment-service",
+      "dir": "initial-investment-service"
+    },
+    {
+      "path": "/interest-rate-hedging",
+      "name": "interest-rate-hedging-service",
+      "dir": "interest-rate-hedging-service"
+    },
+    {
+      "path": "/interest-rate-risk",
+      "name": "interest-rate-risk-service",
+      "dir": "interest-rate-risk-service"
+    },
+    {
+      "path": "/investment-appraisal",
+      "name": "investment-appraisal-service",
+      "dir": "investment-appraisal-service"
+    },
+    {
+      "path": "/investment-monitoring",
+      "name": "investment-monitoring-service",
+      "dir": "investment-monitoring-service"
+    },
+    {
+      "path": "/investment-portfolio",
+      "name": "investment-portfolio-service",
+      "dir": "investment-portfolio-service"
+    },
+    {
+      "path": "/investment-property",
+      "name": "investment-property-service",
+      "dir": "investment-property-service"
+    },
+    {
+      "path": "/issued-share-capital",
+      "name": "issued-share-capital-service",
+      "dir": "issued-share-capital-service"
+    },
+    {
+      "path": "/multi-currency",
+      "name": "multi-currency-service",
+      "dir": "multi-currency-service"
+    },
+    {
+      "path": "/payment-gateway",
+      "name": "payment-gateway-service",
+      "dir": "payment-gateway-service"
+    },
+    {
+      "path": "/payment-optimization",
+      "name": "payment-optimization-service",
+      "dir": "payment-optimization-service"
+    },
+    {
+      "path": "/provision-bad-debts",
+      "name": "provision-bad-debts-service",
+      "dir": "provision-bad-debts-service"
+    },
+    {
+      "path": "/provision-doubtful-debts",
+      "name": "provision-doubtful-debts-service",
+      "dir": "provision-doubtful-debts-service"
+    },
+    {
+      "path": "/sovereign-treasury",
+      "name": "sovereign-treasury-service",
+      "dir": "sovereign-treasury-service"
+    },
+    {
+      "path": "/times-interest-earned",
+      "name": "times-interest-earned-service",
+      "dir": "times-interest-earned-service"
+    },
+    {
+      "path": "/treasury-analytics",
+      "name": "treasury-analytics-service",
+      "dir": "treasury-analytics-service"
+    },
+    {
+      "path": "/treasury-cash",
+      "name": "treasury-cash-service",
+      "dir": "treasury-cash-service"
+    },
+    {
+      "path": "/treasury-compliance",
+      "name": "treasury-compliance-service",
+      "dir": "treasury-compliance-service"
+    },
+    {
+      "path": "/treasury-management",
+      "name": "treasury-management-service",
+      "dir": "treasury-management-service"
+    },
+    {
+      "path": "/treasury-operations",
+      "name": "treasury-operations-service",
+      "dir": "treasury-operations-service"
+    },
+    {
+      "path": "/treasury-policy",
+      "name": "treasury-policy-service",
+      "dir": "treasury-policy-service"
+    },
+    {
+      "path": "/treasury-risk",
+      "name": "treasury-risk-service",
+      "dir": "treasury-risk-service"
+    }
+  ]
+}

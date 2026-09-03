@@ -1,0 +1,131 @@
+{
+  "bracket": "statements-reporting-bracket",
+  "port": 9002,
+  "members": [
+    {
+      "path": "/annual-report",
+      "name": "annual-report-service",
+      "dir": "annual-report-service"
+    },
+    {
+      "path": "/balance-sheet",
+      "name": "balance-sheet-service",
+      "dir": "balance-sheet-service"
+    },
+    {
+      "path": "/cash-flow-statement",
+      "name": "cash-flow-statement-service",
+      "dir": "cash-flow-statement-service"
+    },
+    {
+      "path": "/comparative-financial-statements",
+      "name": "comparative-financial-statements-service",
+      "dir": "comparative-financial-statements-service"
+    },
+    {
+      "path": "/esg-reporting",
+      "name": "esg-reporting-service",
+      "dir": "esg-reporting-service"
+    },
+    {
+      "path": "/events-after-reporting",
+      "name": "events-after-reporting-service",
+      "dir": "events-after-reporting-service"
+    },
+    {
+      "path": "/financial-reporting",
+      "name": "financial-reporting-service",
+      "dir": "financial-reporting-service"
+    },
+    {
+      "path": "/financial-statements",
+      "name": "financial-statements-service",
+      "dir": "financial-statements-service"
+    },
+    {
+      "path": "/general-ledger",
+      "name": "general-ledger-service",
+      "dir": "general-ledger-service"
+    },
+    {
+      "path": "/ifrs-reporting",
+      "name": "ifrs-reporting-service",
+      "dir": "ifrs-reporting-service"
+    },
+    {
+      "path": "/income-statement",
+      "name": "income-statement-service",
+      "dir": "income-statement-service"
+    },
+    {
+      "path": "/interim-financial-reporting",
+      "name": "interim-financial-reporting-service",
+      "dir": "interim-financial-reporting-service"
+    },
+    {
+      "path": "/management-reporting",
+      "name": "management-reporting-service",
+      "dir": "management-reporting-service"
+    },
+    {
+      "path": "/purchases-ledger-control",
+      "name": "purchases-ledger-control-service",
+      "dir": "purchases-ledger-control-service"
+    },
+    {
+      "path": "/regulatory-reporting",
+      "name": "regulatory-reporting-service",
+      "dir": "regulatory-reporting-service"
+    },
+    {
+      "path": "/report-automation",
+      "name": "report-automation-service",
+      "dir": "report-automation-service"
+    },
+    {
+      "path": "/report-distribution",
+      "name": "report-distribution-service",
+      "dir": "report-distribution-service"
+    },
+    {
+      "path": "/reporting",
+      "name": "reporting-service",
+      "dir": "reporting-service"
+    },
+    {
+      "path": "/risk-reporting",
+      "name": "risk-reporting-service",
+      "dir": "risk-reporting-service"
+    },
+    {
+      "path": "/sales-ledger-control",
+      "name": "sales-ledger-control-service",
+      "dir": "sales-ledger-control-service"
+    },
+    {
+      "path": "/segment-reporting",
+      "name": "segment-reporting-service",
+      "dir": "segment-reporting-service"
+    },
+    {
+      "path": "/treasury-reporting",
+      "name": "treasury-reporting-service",
+      "dir": "treasury-reporting-service"
+    },
+    {
+      "path": "/trial-balance",
+      "name": "trial-balance-service",
+      "dir": "trial-balance-service"
+    },
+    {
+      "path": "/vat-reporting",
+      "name": "vat-reporting-service",
+      "dir": "vat-reporting-service"
+    },
+    {
+      "path": "/xbrl-reporting",
+      "name": "xbrl-reporting-service",
+      "dir": "xbrl-reporting-service"
+    }
+  ]
+}

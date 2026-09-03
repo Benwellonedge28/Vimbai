@@ -176,6 +176,12 @@ jobs:
             --ignore=tests/test_banking_service.py \
             --ignore=tests/test_notifications_service.py
 
+      - name: Smoke test bracket services (324 merged services, 13 brackets)
+        run: |
+          pip install structlog "python-jose[cryptography]" croniter \
+            python-multipart python-dotenv strawberry-graphql[fastapi] scipy numpy
+          python scripts/test_brackets.py
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -311,6 +317,22 @@ jobs:
                 -t ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}/${SERVICE}:latest \
                 --push \
                 "./${SERVICE}"
+            fi
+          done
+
+          # Bracket services consolidate 324 microservices into 13 containers.
+          # They require the repo root as build context.
+          BRACKET_SERVICES=(brackets/*)
+          for SERVICE in "${BRACKET_SERVICES[@]}"; do
+            if [ -f "${SERVICE}/Dockerfile" ]; then
+              echo "Building bracket ${SERVICE}..."
+              docker buildx build \
+                --platform linux/amd64 \
+                -t ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}/$(basename ${SERVICE}):${{ github.sha }} \
+                -t ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_PREFIX }}/$(basename ${SERVICE}):latest \
+                --push \
+                -f "${SERVICE}/Dockerfile" \
+                "."
             fi
           done
 

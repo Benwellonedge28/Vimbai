@@ -1,0 +1,136 @@
+{
+  "bracket": "platform-infrastructure-bracket",
+  "port": 9013,
+  "members": [
+    {
+      "path": "/cache",
+      "name": "cache-service",
+      "dir": "cache-service"
+    },
+    {
+      "path": "/cqrs-event-sourcing",
+      "name": "cqrs-event-sourcing-service",
+      "dir": "cqrs-event-sourcing-service"
+    },
+    {
+      "path": "/dashboard",
+      "name": "dashboard-service",
+      "dir": "dashboard-service"
+    },
+    {
+      "path": "/data-sovereignty",
+      "name": "data-sovereignty-service",
+      "dir": "data-sovereignty-service"
+    },
+    {
+      "path": "/disaster-recovery",
+      "name": "disaster-recovery-service",
+      "dir": "disaster-recovery-service"
+    },
+    {
+      "path": "/edge-computing",
+      "name": "edge-computing-service",
+      "dir": "edge-computing-service"
+    },
+    {
+      "path": "/encrypted-backup",
+      "name": "encrypted-backup-service",
+      "dir": "encrypted-backup-service"
+    },
+    {
+      "path": "/enterprise-sso",
+      "name": "enterprise-sso-service",
+      "dir": "enterprise-sso-service"
+    },
+    {
+      "path": "/etl",
+      "name": "etl-service",
+      "dir": "etl-service"
+    },
+    {
+      "path": "/event-streaming",
+      "name": "event-streaming-service",
+      "dir": "event-streaming-service"
+    },
+    {
+      "path": "/federated-network",
+      "name": "federated-network-service",
+      "dir": "federated-network-service"
+    },
+    {
+      "path": "/financial-state-machine",
+      "name": "financial-state-machine-service",
+      "dir": "financial-state-machine-service"
+    },
+    {
+      "path": "/graphql",
+      "name": "graphql-service",
+      "dir": "graphql-service"
+    },
+    {
+      "path": "/grpc",
+      "name": "grpc-service",
+      "dir": "grpc-service"
+    },
+    {
+      "path": "/high-availability",
+      "name": "high-availability-service",
+      "dir": "high-availability-service"
+    },
+    {
+      "path": "/infrastructure-as-code",
+      "name": "infrastructure-as-code-service",
+      "dir": "infrastructure-as-code-service"
+    },
+    {
+      "path": "/management-dashboard",
+      "name": "management-dashboard-service",
+      "dir": "management-dashboard-service"
+    },
+    {
+      "path": "/mfa-auth",
+      "name": "mfa-auth-service",
+      "dir": "mfa-auth-service"
+    },
+    {
+      "path": "/multi-cloud",
+      "name": "multi-cloud-service",
+      "dir": "multi-cloud-service"
+    },
+    {
+      "path": "/multi-tenant",
+      "name": "multi-tenant-service",
+      "dir": "multi-tenant-service"
+    },
+    {
+      "path": "/observability",
+      "name": "observability-service",
+      "dir": "observability-service"
+    },
+    {
+      "path": "/plugin-extension",
+      "name": "plugin-extension-service",
+      "dir": "plugin-extension-service"
+    },
+    {
+      "path": "/policy",
+      "name": "policy-engine-service",
+      "dir": "policy-engine-service"
+    },
+    {
+      "path": "/realtime-calculation",
+      "name": "realtime-calculation-engine",
+      "dir": "realtime-calculation-engine"
+    },
+    {
+      "path": "/websocket",
+      "name": "websocket-service",
+      "dir": "websocket-service"
+    },
+    {
+      "path": "/zero-trust-data",
+      "name": "zero-trust-data-service",
+      "dir": "zero-trust-data-service"
+    }
+  ]
+}

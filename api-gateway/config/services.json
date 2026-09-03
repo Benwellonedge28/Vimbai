@@ -1,2342 +1,2666 @@
 {
-    "services": [
-        {
-            "name": "absorption-costing-service",
-            "path": "/absorption-costing",
-            "url": "http://localhost:8010",
-            "port": 8010,
-            "auth_required": true
-        },
-        {
-            "name": "absorption-costing-statement-service",
-            "path": "/absorption-costing-statement",
-            "url": "http://localhost:8011",
-            "port": 8011,
-            "auth_required": true
-        },
-        {
-            "name": "accounting-rate-return-service",
-            "path": "/accounting-rate-return",
-            "url": "http://localhost:8012",
-            "port": 8012,
-            "auth_required": true
-        },
-        {
-            "name": "accounting-service",
-            "path": "/accounting",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "accounting-standards-service",
-            "path": "/accounting-standards",
-            "url": "http://localhost:8095",
-            "port": 8095,
-            "auth_required": true
-        },
-        {
-            "name": "accounts-payable-service",
-            "path": "/accounts-payable",
-            "url": "http://localhost:8327",
-            "port": 8327,
-            "auth_required": true
-        },
-        {
-            "name": "accounts-receivable-service",
-            "path": "/accounts-receivable",
-            "url": "http://localhost:8328",
-            "port": 8328,
-            "auth_required": true
-        },
-        {
-            "name": "acquisition-financing-service",
-            "path": "/acquisition-financing",
-            "url": "http://localhost:8245",
-            "port": 8245,
-            "auth_required": true
-        },
-        {
-            "name": "activity-based-budget-service",
-            "path": "/activity-based-budget",
-            "url": "http://localhost:8177",
-            "port": 8177,
-            "auth_required": true
-        },
-        {
-            "name": "activity-based-costing-service",
-            "path": "/activity-based-costing",
-            "url": "http://localhost:8179",
-            "port": 8179,
-            "auth_required": true
-        },
-        {
-            "name": "actual-cost-service",
-            "path": "/actual-cost",
-            "url": "http://localhost:8013",
-            "port": 8013,
-            "auth_required": true
-        },
-        {
-            "name": "admin-service",
-            "path": "/admin",
-            "url": "http://localhost:8099",
-            "port": 8099,
-            "auth_required": true
-        },
-        {
-            "name": "ai-readiness-service",
-            "path": "/ai-readiness",
-            "url": "http://localhost:8014",
-            "port": 8014,
-            "auth_required": true
-        },
-        {
-            "name": "alerts-service",
-            "path": "/alerts",
-            "url": "http://localhost:8090",
-            "port": 8090,
-            "auth_required": true
-        },
-        {
-            "name": "amortization-service",
-            "path": "/amortization",
-            "url": "http://localhost:8357",
-            "port": 8357,
-            "auth_required": true
-        },
-        {
-            "name": "analytical-procedures-service",
-            "path": "/analytical-procedures",
-            "url": "http://localhost:8197",
-            "port": 8197,
-            "auth_required": true
-        },
-        {
-            "name": "analytics-service",
-            "path": "/analytics",
-            "url": "http://localhost:8364",
-            "port": 8364,
-            "auth_required": true
-        },
-        {
-            "name": "annual-report-service",
-            "path": "/annual-report",
-            "url": "http://localhost:8210",
-            "port": 8210,
-            "auth_required": true
-        },
-        {
-            "name": "appropriation-control-service",
-            "path": "/appropriation-control",
-            "url": "http://localhost:8015",
-            "port": 8015,
-            "auth_required": true
-        },
-        {
-            "name": "asset-allocation-service",
-            "path": "/asset-allocation",
-            "url": "http://localhost:8235",
-            "port": 8235,
-            "auth_required": true
-        },
-        {
-            "name": "asset-turnover-service",
-            "path": "/asset-turnover",
-            "url": "http://localhost:8216",
-            "port": 8216,
-            "auth_required": true
-        },
-        {
-            "name": "audit-compliance-service",
-            "path": "/audit-compliance",
-            "url": "http://localhost:8016",
-            "port": 8016,
-            "auth_required": true
-        },
-        {
-            "name": "audit-evidence-service",
-            "path": "/audit-evidence",
-            "url": "http://localhost:8201",
-            "port": 8201,
-            "auth_required": true
-        },
-        {
-            "name": "audit-sampling-service",
-            "path": "/audit-sampling",
-            "url": "http://localhost:8196",
-            "port": 8196,
-            "auth_required": true
-        },
-        {
-            "name": "authorized-share-capital-service",
-            "path": "/authorized-share-capital",
-            "url": "http://localhost:8017",
-            "port": 8017,
-            "auth_required": true
-        },
-        {
-            "name": "automation-engine",
-            "path": "/automation",
-            "url": "http://localhost:8098",
-            "port": 8098,
-            "auth_required": true
-        },
-        {
-            "name": "automation-engine-service",
-            "path": "/automation",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "bad-debts-recovery-service",
-            "path": "/bad-debts-recovery",
-            "url": "http://localhost:8018",
-            "port": 8018,
-            "auth_required": true
-        },
-        {
-            "name": "balance-sheet-service",
-            "path": "/balance-sheet",
-            "url": "http://localhost:8019",
-            "port": 8019,
-            "auth_required": true
-        },
-        {
-            "name": "balanced-scorecard-service",
-            "path": "/balanced-scorecard",
-            "url": "http://localhost:8279",
-            "port": 8279,
-            "auth_required": true
-        },
-        {
-            "name": "bank-fee-analysis-service",
-            "path": "/bank-fee-analysis",
-            "url": "http://localhost:8189",
-            "port": 8189,
-            "auth_required": true
-        },
-        {
-            "name": "bank-feed-service",
-            "path": "/bank-feed",
-            "url": "http://localhost:8097",
-            "port": 8097,
-            "auth_required": true
-        },
-        {
-            "name": "bank-reconciliation-service",
-            "path": "/bank-reconciliation",
-            "url": "http://localhost:8020",
-            "port": 8020,
-            "auth_required": true
-        },
-        {
-            "name": "bank-relationship-service",
-            "path": "/bank-relationship",
-            "url": "http://localhost:8021",
-            "port": 8021,
-            "auth_required": true
-        },
-        {
-            "name": "banking-integration-service",
-            "path": "/banking-integration",
-            "url": "http://localhost:8386",
-            "port": 8386,
-            "auth_required": true
-        },
-        {
-            "name": "basis-apportionment-service",
-            "path": "/basis-apportionment",
-            "url": "http://localhost:8022",
-            "port": 8022,
-            "auth_required": true
-        },
-        {
-            "name": "benefits-admin-service",
-            "path": "/benefits-admin",
-            "url": "http://localhost:8360",
-            "port": 8360,
-            "auth_required": true
-        },
-        {
-            "name": "biological-assets-service",
-            "path": "/biological-assets",
-            "url": "http://localhost:8146",
-            "port": 8146,
-            "auth_required": true
-        },
-        {
-            "name": "bonus-shares-service",
-            "path": "/bonus-shares",
-            "url": "http://localhost:8023",
-            "port": 8023,
-            "auth_required": true
-        },
-        {
-            "name": "budget-service",
-            "path": "/budget",
-            "url": "http://localhost:8024",
-            "port": 8024,
-            "auth_required": true
-        },
-        {
-            "name": "budgeted-cost-service",
-            "path": "/budgeted-cost",
-            "url": "http://localhost:8025",
-            "port": 8025,
-            "auth_required": true
-        },
-        {
-            "name": "business-combination-service",
-            "path": "/business-combination",
-            "url": "http://localhost:8384",
-            "port": 8384,
-            "auth_required": true
-        },
-        {
-            "name": "business-documents-service",
-            "path": "/business-documents",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "business-valuation-service",
-            "path": "/business-valuation",
-            "url": "http://localhost:8155",
-            "port": 8155,
-            "auth_required": true
-        },
-        {
-            "name": "cache-service",
-            "path": "/cache",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "capital-allocation-service",
-            "path": "/capital-allocation",
-            "url": "http://localhost:8289",
-            "port": 8289,
-            "auth_required": true
-        },
-        {
-            "name": "capital-budgeting-service",
-            "path": "/capital-budgeting",
-            "url": "http://localhost:8232",
-            "port": 8232,
-            "auth_required": true
-        },
-        {
-            "name": "capital-expenditure-budget-service",
-            "path": "/capital-expenditure-budget",
-            "url": "http://localhost:8178",
-            "port": 8178,
-            "auth_required": true
-        },
-        {
-            "name": "capital-reconstruction-service",
-            "path": "/capital-reconstruction",
-            "url": "http://localhost:8026",
-            "port": 8026,
-            "auth_required": true
-        },
-        {
-            "name": "capital-redemption-reserve-service",
-            "path": "/capital-redemption-reserve",
-            "url": "http://localhost:8027",
-            "port": 8027,
-            "auth_required": true
-        },
-        {
-            "name": "cash-budget-service",
-            "path": "/cash-budget",
-            "url": "http://localhost:8171",
-            "port": 8171,
-            "auth_required": true
-        },
-        {
-            "name": "cash-flow-forecasting-service",
-            "path": "/cash-flow-forecasting",
-            "url": "http://localhost:8238",
-            "port": 8238,
-            "auth_required": true
-        },
-        {
-            "name": "cash-flow-service",
-            "path": "/cash-flow",
-            "url": "http://localhost:8028",
-            "port": 8028,
-            "auth_required": true
-        },
-        {
-            "name": "cash-flow-statement-service",
-            "path": "/cash-flow-statement",
-            "url": "http://localhost:8029",
-            "port": 8029,
-            "auth_required": true
-        },
-        {
-            "name": "cash-management-service",
-            "path": "/cash-management",
-            "url": "http://localhost:8264",
-            "port": 8264,
-            "auth_required": true
-        },
-        {
-            "name": "cash-optimization-service",
-            "path": "/cash-optimization",
-            "url": "http://localhost:8030",
-            "port": 8030,
-            "auth_required": true
-        },
-        {
-            "name": "cash-pooling-service",
-            "path": "/cash-pooling",
-            "url": "http://localhost:8258",
-            "port": 8258,
-            "auth_required": true
-        },
-        {
-            "name": "cashbook-service",
-            "path": "/cashbook",
-            "url": "http://localhost:8098",
-            "port": 8098,
-            "auth_required": true
-        },
-        {
-            "name": "commodity-hedging-service",
-            "path": "/commodity-hedging",
-            "url": "http://localhost:8253",
-            "port": 8253,
-            "auth_required": true
-        },
-        {
-            "name": "company-accounting-service",
-            "path": "/company-accounting",
-            "url": "http://localhost:8101",
-            "port": 8101,
-            "auth_required": true
-        },
-        {
-            "name": "comparative-financial-statements-service",
-            "path": "/comparative-financial-statements",
-            "url": "http://localhost:8142",
-            "port": 8142,
-            "auth_required": true
-        },
-        {
-            "name": "consolidation-service",
-            "path": "/consolidation",
-            "url": "http://localhost:8031",
-            "port": 8031,
-            "auth_required": true
-        },
-        {
-            "name": "construction-contracts-service",
-            "path": "/construction-contracts",
-            "url": "http://localhost:8219",
-            "port": 8219,
-            "auth_required": true
-        },
-        {
-            "name": "continue-shutdown-decision-service",
-            "path": "/continue-shutdown-decision",
-            "url": "http://localhost:8032",
-            "port": 8032,
-            "auth_required": true
-        },
-        {
-            "name": "control-account-reconciliation-service",
-            "path": "/control-account-reconciliation",
-            "url": "http://localhost:8033",
-            "port": 8033,
-            "auth_required": true
-        },
-        {
-            "name": "corporate-governance-service",
-            "path": "/corporate-governance",
-            "url": "http://localhost:8209",
-            "port": 8209,
-            "auth_required": true
-        },
-        {
-            "name": "corporate-tax-service",
-            "path": "/corporate-tax",
-            "url": "http://localhost:8034",
-            "port": 8034,
-            "auth_required": true
-        },
-        {
-            "name": "cost-accounting-service",
-            "path": "/cost-accounting",
-            "url": "http://localhost:8035",
-            "port": 8035,
-            "auth_required": true
-        },
-        {
-            "name": "cost-centre-service",
-            "path": "/cost-centre",
-            "url": "http://localhost:8036",
-            "port": 8036,
-            "auth_required": true
-        },
-        {
-            "name": "cost-of-capital-service",
-            "path": "/cost-of-capital",
-            "url": "http://localhost:8037",
-            "port": 8037,
-            "auth_required": true
-        },
-        {
-            "name": "cqrs-event-sourcing-service",
-            "path": "/cqrs-event-sourcing",
-            "url": "http://localhost:8038",
-            "port": 8038,
-            "auth_required": true
-        },
-        {
-            "name": "credit-derivatives-service",
-            "path": "/credit-derivatives",
-            "url": "http://localhost:8254",
-            "port": 8254,
-            "auth_required": true
-        },
-        {
-            "name": "credit-risk-analysis-service",
-            "path": "/credit-risk-analysis",
-            "url": "http://localhost:8163",
-            "port": 8163,
-            "auth_required": true
-        },
-        {
-            "name": "croic-service",
-            "path": "/croic",
-            "url": "http://localhost:8214",
-            "port": 8214,
-            "auth_required": true
-        },
-        {
-            "name": "cross-currency-swap-service",
-            "path": "/cross-currency-swap",
-            "url": "http://localhost:8256",
-            "port": 8256,
-            "auth_required": true
-        },
-        {
-            "name": "currency-hedging-service",
-            "path": "/currency-hedging",
-            "url": "http://localhost:8251",
-            "port": 8251,
-            "auth_required": true
-        },
-        {
-            "name": "currency-service",
-            "path": "/currency",
-            "url": "http://localhost:8092",
-            "port": 8092,
-            "auth_required": true
-        },
-        {
-            "name": "cvp-analysis-service",
-            "path": "/cvp-analysis",
-            "url": "http://localhost:8039",
-            "port": 8039,
-            "auth_required": true
-        },
-        {
-            "name": "dashboard-service",
-            "path": "/dashboard",
-            "url": "http://localhost:8365",
-            "port": 8365,
-            "auth_required": true
-        },
-        {
-            "name": "data-sovereignty-service",
-            "path": "/data-sovereignty",
-            "url": "http://localhost:8040",
-            "port": 8040,
-            "auth_required": true
-        },
-        {
-            "name": "data-warehouse-service",
-            "path": "/data-warehouse",
-            "url": "http://localhost:8362",
-            "port": 8362,
-            "auth_required": true
-        },
-        {
-            "name": "deal-structuring-service",
-            "path": "/deal-structuring",
-            "url": "http://localhost:8246",
-            "port": 8246,
-            "auth_required": true
-        },
-        {
-            "name": "debentures-service",
-            "path": "/debentures",
-            "url": "http://localhost:8041",
-            "port": 8041,
-            "auth_required": true
-        },
-        {
-            "name": "debt-covenants-service",
-            "path": "/debt-covenants",
-            "url": "http://localhost:8240",
-            "port": 8240,
-            "auth_required": true
-        },
-        {
-            "name": "debt-management-service",
-            "path": "/debt-management",
-            "url": "http://localhost:8194",
-            "port": 8194,
-            "auth_required": true
-        },
-        {
-            "name": "departmental-accounting-service",
-            "path": "/departmental-accounting",
-            "url": "http://localhost:8100",
-            "port": 8100,
-            "auth_required": true
-        },
-        {
-            "name": "depreciation-service",
-            "path": "/depreciation",
-            "url": "http://localhost:8356",
-            "port": 8356,
-            "auth_required": true
-        },
-        {
-            "name": "director-emoluments-service",
-            "path": "/director-emoluments",
-            "url": "http://localhost:8208",
-            "port": 8208,
-            "auth_required": true
-        },
-        {
-            "name": "disaster-recovery-service",
-            "path": "/disaster-recovery",
-            "url": "http://localhost:8042",
-            "port": 8042,
-            "auth_required": true
-        },
-        {
-            "name": "discount-factor-service",
-            "path": "/discount-factor",
-            "url": "http://localhost:8043",
-            "port": 8043,
-            "auth_required": true
-        },
-        {
-            "name": "discounted-payback-period-service",
-            "path": "/discounted-payback-period",
-            "url": "http://localhost:8044",
-            "port": 8044,
-            "auth_required": true
-        },
-        {
-            "name": "disposal-account-service",
-            "path": "/disposal-account",
-            "url": "http://localhost:8045",
-            "port": 8045,
-            "auth_required": true
-        },
-        {
-            "name": "disposal-group-service",
-            "path": "/disposal-group",
-            "url": "http://localhost:8226",
-            "port": 8226,
-            "auth_required": true
-        },
-        {
-            "name": "distributed-workflow-orchestration-service",
-            "path": "/distributed-workflow-orchestration",
-            "url": "http://localhost:8046",
-            "port": 8046,
-            "auth_required": true
-        },
-        {
-            "name": "divestiture-service",
-            "path": "/divestiture",
-            "url": "http://localhost:8385",
-            "port": 8385,
-            "auth_required": true
-        },
-        {
-            "name": "document-service",
-            "path": "/document",
-            "url": "http://localhost:8096",
-            "port": 8096,
-            "auth_required": true
-        },
-        {
-            "name": "double-entry-principles-service",
-            "path": "/double-entry-principles",
-            "url": "http://localhost:8047",
-            "port": 8047,
-            "auth_required": true
-        },
-        {
-            "name": "du-pont-service",
-            "path": "/du-pont",
-            "url": "http://localhost:8211",
-            "port": 8211,
-            "auth_required": true
-        },
-        {
-            "name": "due-diligence-service",
-            "path": "/due-diligence",
-            "url": "http://localhost:8242",
-            "port": 8242,
-            "auth_required": true
-        },
-        {
-            "name": "edge-computing-service",
-            "path": "/edge-computing",
-            "url": "http://localhost:8048",
-            "port": 8048,
-            "auth_required": true
-        },
-        {
-            "name": "encrypted-backup-service",
-            "path": "/encrypted-backup",
-            "url": "http://localhost:8006",
-            "port": 8006,
-            "auth_required": true
-        },
-        {
-            "name": "enterprise-sso-service",
-            "path": "/enterprise-sso",
-            "url": "http://localhost:8004",
-            "port": 8004,
-            "auth_required": true
-        },
-        {
-            "name": "eps-service",
-            "path": "/eps",
-            "url": "http://localhost:8207",
-            "port": 8207,
-            "auth_required": true
-        },
-        {
-            "name": "equity-changes-service",
-            "path": "/equity-changes",
-            "url": "http://localhost:8049",
-            "port": 8049,
-            "auth_required": true
-        },
-        {
-            "name": "equivalent-units-service",
-            "path": "/equivalent-units",
-            "url": "http://localhost:8186",
-            "port": 8186,
-            "auth_required": true
-        },
-        {
-            "name": "esg-reporting-service",
-            "path": "/esg-reporting",
-            "url": "http://localhost:8230",
-            "port": 8230,
-            "auth_required": true
-        },
-        {
-            "name": "etl-service",
-            "path": "/etl",
-            "url": "http://localhost:8363",
-            "port": 8363,
-            "auth_required": true
-        },
-        {
-            "name": "eva-service",
-            "path": "/eva",
-            "url": "http://localhost:8212",
-            "port": 8212,
-            "auth_required": true
-        },
-        {
-            "name": "event-streaming-service",
-            "path": "/event-streaming",
-            "url": "http://localhost:8050",
-            "port": 8050,
-            "auth_required": true
-        },
-        {
-            "name": "events-after-reporting-service",
-            "path": "/events-after-reporting",
-            "url": "http://localhost:8206",
-            "port": 8206,
-            "auth_required": true
-        },
-        {
-            "name": "exotic-derivatives-service",
-            "path": "/exotic-derivatives",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "expense-tracking-service",
-            "path": "/expense-tracking",
-            "url": "http://localhost:8051",
-            "port": 8051,
-            "auth_required": true
-        },
-        {
-            "name": "family-community-group-service",
-            "path": "/family-community-group",
-            "url": "http://localhost:8005",
-            "port": 8005,
-            "auth_required": true
-        },
-        {
-            "name": "federated-network-service",
-            "path": "/federated-network",
-            "url": "http://localhost:8052",
-            "port": 8052,
-            "auth_required": true
-        },
-        {
-            "name": "financial-distress-prediction-service",
-            "path": "/financial-distress-prediction",
-            "url": "http://localhost:8169",
-            "port": 8169,
-            "auth_required": true
-        },
-        {
-            "name": "financial-forecasting-service",
-            "path": "/financial-forecasting",
-            "url": "http://localhost:8287",
-            "port": 8287,
-            "auth_required": true
-        },
-        {
-            "name": "financial-identity-service",
-            "path": "/financial-identity",
-            "url": "http://localhost:8053",
-            "port": 8053,
-            "auth_required": true
-        },
-        {
-            "name": "financial-integrity-service",
-            "path": "/financial-integrity",
-            "url": "http://localhost:8054",
-            "port": 8054,
-            "auth_required": true
-        },
-        {
-            "name": "financial-planning-service",
-            "path": "/financial-planning",
-            "url": "http://localhost:8231",
-            "port": 8231,
-            "auth_required": true
-        },
-        {
-            "name": "financial-reporting-service",
-            "path": "/financial-reporting",
-            "url": "http://localhost:8267",
-            "port": 8267,
-            "auth_required": true
-        },
-        {
-            "name": "financial-state-machine-service",
-            "path": "/financial-state-machine",
-            "url": "http://localhost:8055",
-            "port": 8055,
-            "auth_required": true
-        },
-        {
-            "name": "financial-statements-service",
-            "path": "/financial-statements",
-            "url": "http://localhost:8332",
-            "port": 8332,
-            "auth_required": true
-        },
-        {
-            "name": "fixed-assets-register-service",
-            "path": "/fixed-assets-register",
-            "url": "http://localhost:8355",
-            "port": 8355,
-            "auth_required": true
-        },
-        {
-            "name": "fixed-assets-schedule-service",
-            "path": "/fixed-assets-schedule",
-            "url": "http://localhost:8056",
-            "port": 8056,
-            "auth_required": true
-        },
-        {
-            "name": "fixed-assets-service",
-            "path": "/fixed-assets",
-            "url": "http://localhost:8329",
-            "port": 8329,
-            "auth_required": true
-        },
-        {
-            "name": "fixed-cost-service",
-            "path": "/fixed-cost",
-            "url": "http://localhost:8057",
-            "port": 8057,
-            "auth_required": true
-        },
-        {
-            "name": "flexible-budget-service",
-            "path": "/flexible-budget",
-            "url": "http://localhost:8058",
-            "port": 8058,
-            "auth_required": true
-        },
-        {
-            "name": "foreign-currency-translation-service",
-            "path": "/foreign-currency-translation",
-            "url": "http://localhost:8373",
-            "port": 8373,
-            "auth_required": true
-        },
-        {
-            "name": "foreign-exchange-service",
-            "path": "/foreign-exchange",
-            "url": "http://localhost:8192",
-            "port": 8192,
-            "auth_required": true
-        },
-        {
-            "name": "forensic-accounting-service",
-            "path": "/forensic-accounting",
-            "url": "http://localhost:8059",
-            "port": 8059,
-            "auth_required": true
-        },
-        {
-            "name": "forward-contracts-service",
-            "path": "/forward-contracts",
-            "url": "http://localhost:8247",
-            "port": 8247,
-            "auth_required": true
-        },
-        {
-            "name": "fraud-risk-assessment-service",
-            "path": "/fraud-risk-assessment",
-            "url": "http://localhost:8199",
-            "port": 8199,
-            "auth_required": true
-        },
-        {
-            "name": "fund-accounting-service",
-            "path": "/fund-accounting",
-            "url": "http://localhost:8060",
-            "port": 8060,
-            "auth_required": true
-        },
-        {
-            "name": "fund-management-service",
-            "path": "/fund-management",
-            "url": "http://localhost:8266",
-            "port": 8266,
-            "auth_required": true
-        },
-        {
-            "name": "futures-hedging-service",
-            "path": "/futures-hedging",
-            "url": "http://localhost:8250",
-            "port": 8250,
-            "auth_required": true
-        },
-        {
-            "name": "general-ledger-service",
-            "path": "/general-ledger",
-            "url": "http://localhost:8330",
-            "port": 8330,
-            "auth_required": true
-        },
-        {
-            "name": "general-reserve-service",
-            "path": "/general-reserve",
-            "url": "http://localhost:8061",
-            "port": 8061,
-            "auth_required": true
-        },
-        {
-            "name": "going-concern-service",
-            "path": "/going-concern",
-            "url": "http://localhost:8203",
-            "port": 8203,
-            "auth_required": true
-        },
-        {
-            "name": "goodwill-service",
-            "path": "/goodwill",
-            "url": "http://localhost:8359",
-            "port": 8359,
-            "auth_required": true
-        },
-        {
-            "name": "government-grants-service",
-            "path": "/government-grants",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "graphql-service",
-            "path": "/graphql",
-            "url": "http://localhost:8095",
-            "port": 8095,
-            "auth_required": true
-        },
-        {
-            "name": "group-tax-service",
-            "path": "/group-tax",
-            "url": "http://localhost:8062",
-            "port": 8062,
-            "auth_required": true
-        },
-        {
-            "name": "grpc-service",
-            "path": "/grpc",
-            "url": "http://localhost:8063",
-            "port": 8063,
-            "auth_required": true
-        },
-        {
-            "name": "high-availability-service",
-            "path": "/high-availability",
-            "url": "http://localhost:8064",
-            "port": 8064,
-            "auth_required": true
-        },
-        {
-            "name": "household-finance-service",
-            "path": "/household-finance",
-            "url": "http://localhost:8065",
-            "port": 8065,
-            "auth_required": true
-        },
-        {
-            "name": "ifrs-15-revenue-recognition-service",
-            "path": "/ifrs-15-revenue-recognition",
-            "url": "http://localhost:8148",
-            "port": 8148,
-            "auth_required": true
-        },
-        {
-            "name": "ifrs-16-lease-accounting-service",
-            "path": "/ifrs-16-lease-accounting",
-            "url": "http://localhost:8147",
-            "port": 8147,
-            "auth_required": true
-        },
-        {
-            "name": "ifrs-2-share-based-payment-service",
-            "path": "/ifrs-2-share-based-payment",
-            "url": "http://localhost:8150",
-            "port": 8150,
-            "auth_required": true
-        },
-        {
-            "name": "ifrs-9-financial-instruments-service",
-            "path": "/ifrs-9-financial-instruments",
-            "url": "http://localhost:8149",
-            "port": 8149,
-            "auth_required": true
-        },
-        {
-            "name": "ifrs-reporting-service",
-            "path": "/ifrs-reporting",
-            "url": "http://localhost:8268",
-            "port": 8268,
-            "auth_required": true
-        },
-        {
-            "name": "income-statement-service",
-            "path": "/income-statement",
-            "url": "http://localhost:8334",
-            "port": 8334,
-            "auth_required": true
-        },
-        {
-            "name": "infrastructure-as-code-service",
-            "path": "/infrastructure-as-code",
-            "url": "http://localhost:8066",
-            "port": 8066,
-            "auth_required": true
-        },
-        {
-            "name": "initial-investment-service",
-            "path": "/initial-investment",
-            "url": "http://localhost:8067",
-            "port": 8067,
-            "auth_required": true
-        },
-        {
-            "name": "insurance-claims-service",
-            "path": "/insurance-claims",
-            "url": "http://localhost:8367",
-            "port": 8367,
-            "auth_required": true
-        },
-        {
-            "name": "intangible-assets-service",
-            "path": "/intangible-assets",
-            "url": "http://localhost:8358",
-            "port": 8358,
-            "auth_required": true
-        },
-        {
-            "name": "intercompany-service",
-            "path": "/intercompany",
-            "url": "http://localhost:8350",
-            "port": 8350,
-            "auth_required": true
-        },
-        {
-            "name": "interest-rate-hedging-service",
-            "path": "/interest-rate-hedging",
-            "url": "http://localhost:8252",
-            "port": 8252,
-            "auth_required": true
-        },
-        {
-            "name": "interest-rate-risk-service",
-            "path": "/interest-rate-risk",
-            "url": "http://localhost:8170",
-            "port": 8170,
-            "auth_required": true
-        },
-        {
-            "name": "interim-financial-reporting-service",
-            "path": "/interim-financial-reporting",
-            "url": "http://localhost:8141",
-            "port": 8141,
-            "auth_required": true
-        },
-        {
-            "name": "internal-control-evaluation-service",
-            "path": "/internal-control-evaluation",
-            "url": "http://localhost:8200",
-            "port": 8200,
-            "auth_required": true
-        },
-        {
-            "name": "internal-controls-testing-service",
-            "path": "/internal-controls-testing",
-            "url": "http://localhost:8284",
-            "port": 8284,
-            "auth_required": true
-        },
-        {
-            "name": "internal-rate-return-service",
-            "path": "/internal-rate-return",
-            "url": "http://localhost:8068",
-            "port": 8068,
-            "auth_required": true
-        },
-        {
-            "name": "inventory-valuation-service",
-            "path": "/inventory-valuation",
-            "url": "http://localhost:8377",
-            "port": 8377,
-            "auth_required": true
-        },
-        {
-            "name": "investigation-service",
-            "path": "/investigation",
-            "url": "http://localhost:8069",
-            "port": 8069,
-            "auth_required": true
-        },
-        {
-            "name": "investment-appraisal-service",
-            "path": "/investment-appraisal",
-            "url": "http://localhost:8233",
-            "port": 8233,
-            "auth_required": true
-        },
-        {
-            "name": "investment-monitoring-service",
-            "path": "/investment-monitoring",
-            "url": "http://localhost:8290",
-            "port": 8290,
-            "auth_required": true
-        },
-        {
-            "name": "investment-portfolio-service",
-            "path": "/investment-portfolio",
-            "url": "http://localhost:8265",
-            "port": 8265,
-            "auth_required": true
-        },
-        {
-            "name": "investment-property-service",
-            "path": "/investment-property",
-            "url": "http://localhost:8145",
-            "port": 8145,
-            "auth_required": true
-        },
-        {
-            "name": "invoicing-service",
-            "path": "/invoicing",
-            "url": "http://localhost:8070",
-            "port": 8070,
-            "auth_required": true
-        },
-        {
-            "name": "issued-share-capital-service",
-            "path": "/issued-share-capital",
-            "url": "http://localhost:8071",
-            "port": 8071,
-            "auth_required": true
-        },
-        {
-            "name": "it-audit-service",
-            "path": "/it-audit",
-            "url": "http://localhost:8072",
-            "port": 8072,
-            "auth_required": true
-        },
-        {
-            "name": "job-costing-service",
-            "path": "/job-costing",
-            "url": "http://localhost:8073",
-            "port": 8073,
-            "auth_required": true
-        },
-        {
-            "name": "journal-entries-service",
-            "path": "/journal-entries",
-            "url": "http://localhost:8331",
-            "port": 8331,
-            "auth_required": true
-        },
-        {
-            "name": "kpi-tracking-service",
-            "path": "/kpi-tracking",
-            "url": "http://localhost:8278",
-            "port": 8278,
-            "auth_required": true
-        },
-        {
-            "name": "labour-cost-variance-service",
-            "path": "/labour-cost-variance",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "labour-efficiency-variance-service",
-            "path": "/labour-efficiency-variance",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "labour-rate-variance-service",
-            "path": "/labour-rate-variance",
-            "url": "http://localhost:8074",
-            "port": 8074,
-            "auth_required": true
-        },
-        {
-            "name": "lease-management-service",
-            "path": "/lease-management",
-            "url": "http://localhost:8353",
-            "port": 8353,
-            "auth_required": true
-        },
-        {
-            "name": "lease-termination-service",
-            "path": "/lease-termination",
-            "url": "http://localhost:8224",
-            "port": 8224,
-            "auth_required": true
-        },
-        {
-            "name": "lifecycle-costing-service",
-            "path": "/lifecycle-costing",
-            "url": "http://localhost:8182",
-            "port": 8182,
-            "auth_required": true
-        },
-        {
-            "name": "limiting-factor-service",
-            "path": "/limiting-factor",
-            "url": "http://localhost:8075",
-            "port": 8075,
-            "auth_required": true
-        },
-        {
-            "name": "liquidity-forecast-service",
-            "path": "/liquidity-forecast",
-            "url": "http://localhost:8260",
-            "port": 8260,
-            "auth_required": true
-        },
-        {
-            "name": "liquidity-management-service",
-            "path": "/liquidity-management",
-            "url": "http://localhost:8239",
-            "port": 8239,
-            "auth_required": true
-        },
-        {
-            "name": "liquidity-risk-service",
-            "path": "/liquidity-risk",
-            "url": "http://localhost:8164",
-            "port": 8164,
-            "auth_required": true
-        },
-        {
-            "name": "make-or-buy-decision-service",
-            "path": "/make-or-buy-decision",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "management-accounts-service",
-            "path": "/management-accounts",
-            "url": "http://localhost:8281",
-            "port": 8281,
-            "auth_required": true
-        },
-        {
-            "name": "management-dashboard-service",
-            "path": "/management-dashboard",
-            "url": "http://localhost:8271",
-            "port": 8271,
-            "auth_required": true
-        },
-        {
-            "name": "management-reporting-service",
-            "path": "/management-reporting",
-            "url": "http://localhost:8269",
-            "port": 8269,
-            "auth_required": true
-        },
-        {
-            "name": "margin-safety-service",
-            "path": "/margin-safety",
-            "url": "http://localhost:8076",
-            "port": 8076,
-            "auth_required": true
-        },
-        {
-            "name": "marginal-costing-service",
-            "path": "/marginal-costing",
-            "url": "http://localhost:8077",
-            "port": 8077,
-            "auth_required": true
-        },
-        {
-            "name": "market-risk-service",
-            "path": "/market-risk",
-            "url": "http://localhost:8165",
-            "port": 8165,
-            "auth_required": true
-        },
-        {
-            "name": "master-budget-service",
-            "path": "/master-budget",
-            "url": "http://localhost:8172",
-            "port": 8172,
-            "auth_required": true
-        },
-        {
-            "name": "material-cost-variance-service",
-            "path": "/material-cost-variance",
-            "url": "http://localhost:8078",
-            "port": 8078,
-            "auth_required": true
-        },
-        {
-            "name": "material-price-variance-service",
-            "path": "/material-price-variance",
-            "url": "http://localhost:8079",
-            "port": 8079,
-            "auth_required": true
-        },
-        {
-            "name": "material-usage-variance-service",
-            "path": "/material-usage-variance",
-            "url": "http://localhost:8080",
-            "port": 8080,
-            "auth_required": true
-        },
-        {
-            "name": "merger-valuation-service",
-            "path": "/merger-valuation",
-            "url": "http://localhost:8241",
-            "port": 8241,
-            "auth_required": true
-        },
-        {
-            "name": "message-bus-service",
-            "path": "/message-bus",
-            "url": "http://localhost:8097",
-            "port": 8097,
-            "auth_required": true
-        },
-        {
-            "name": "mfa-auth-service",
-            "path": "/mfa-auth",
-            "url": "http://localhost:8007",
-            "port": 8007,
-            "auth_required": true
-        },
-        {
-            "name": "multi-cloud-service",
-            "path": "/multi-cloud",
-            "url": "http://localhost:8081",
-            "port": 8081,
-            "auth_required": true
-        },
-        {
-            "name": "multi-currency-service",
-            "path": "/multi-currency",
-            "url": "http://localhost:8349",
-            "port": 8349,
-            "auth_required": true
-        },
-        {
-            "name": "multi-tenant-service",
-            "path": "/multi-tenant",
-            "url": "http://localhost:8082",
-            "port": 8082,
-            "auth_required": true
-        },
-        {
-            "name": "multimodal-pipeline-service",
-            "path": "/multimodal",
-            "url": "http://localhost:8002",
-            "port": 8002,
-            "auth_required": true
-        },
-        {
-            "name": "mva-service",
-            "path": "/mva",
-            "url": "http://localhost:8213",
-            "port": 8213,
-            "auth_required": true
-        },
-        {
-            "name": "net-present-value-service",
-            "path": "/net-present-value",
-            "url": "http://localhost:8083",
-            "port": 8083,
-            "auth_required": true
-        },
-        {
-            "name": "net-realizable-value-service",
-            "path": "/net-realizable-value",
-            "url": "http://localhost:8084",
-            "port": 8084,
-            "auth_required": true
-        },
-        {
-            "name": "notifications-service",
-            "path": "/notifications",
-            "url": "http://localhost:8091",
-            "port": 8091,
-            "auth_required": true
-        },
-        {
-            "name": "npo-service",
-            "path": "/npo",
-            "url": "http://localhost:8085",
-            "port": 8085,
-            "auth_required": true
-        },
-        {
-            "name": "observability-service",
-            "path": "/observability",
-            "url": "http://localhost:8086",
-            "port": 8086,
-            "auth_required": true
-        },
-        {
-            "name": "offline-sync-service",
-            "path": "/offline-sync",
-            "url": "http://localhost:8087",
-            "port": 8087,
-            "auth_required": true
-        },
-        {
-            "name": "operational-audit-service",
-            "path": "/operational-audit",
-            "url": "http://localhost:8088",
-            "port": 8088,
-            "auth_required": true
-        },
-        {
-            "name": "operational-risk-service",
-            "path": "/operational-risk",
-            "url": "http://localhost:8166",
-            "port": 8166,
-            "auth_required": true
-        },
-        {
-            "name": "options-pricing-service",
-            "path": "/options-pricing",
-            "url": "http://localhost:8248",
-            "port": 8248,
-            "auth_required": true
-        },
-        {
-            "name": "order-acceptance-service",
-            "path": "/order-acceptance",
-            "url": "http://localhost:8089",
-            "port": 8089,
-            "auth_required": true
-        },
-        {
-            "name": "ordinary-shares-service",
-            "path": "/ordinary-shares",
-            "url": "http://localhost:8090",
-            "port": 8090,
-            "auth_required": true
-        },
-        {
-            "name": "org-authorization-engine",
-            "path": "/org-authorization",
-            "url": "http://localhost:8008",
-            "port": 8008,
-            "auth_required": true
-        },
-        {
-            "name": "over-under-absorption-service",
-            "path": "/over-under-absorption",
-            "url": "http://localhost:8091",
-            "port": 8091,
-            "auth_required": true
-        },
-        {
-            "name": "overhead-absorption-rate-service",
-            "path": "/overhead-absorption-rate",
-            "url": "http://localhost:8092",
-            "port": 8092,
-            "auth_required": true
-        },
-        {
-            "name": "overhead-apportionment-service",
-            "path": "/overhead-apportionment",
-            "url": "http://localhost:8093",
-            "port": 8093,
-            "auth_required": true
-        },
-        {
-            "name": "partnership-accounting-service",
-            "path": "/partnership-accounting",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "partnership-agreement-service",
-            "path": "/partnership-agreement",
-            "url": "http://localhost:8094",
-            "port": 8094,
-            "auth_required": true
-        },
-        {
-            "name": "partnership-changes-service",
-            "path": "/partnership-changes",
-            "url": "http://localhost:8095",
-            "port": 8095,
-            "auth_required": true
-        },
-        {
-            "name": "partnership-dissolution-service",
-            "path": "/partnership-dissolution",
-            "url": "http://localhost:8096",
-            "port": 8096,
-            "auth_required": true
-        },
-        {
-            "name": "partnership-revaluation-service",
-            "path": "/partnership-revaluation",
-            "url": "http://localhost:8097",
-            "port": 8097,
-            "auth_required": true
-        },
-        {
-            "name": "partnership-sale-service",
-            "path": "/partnership-sale",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "payback-period-service",
-            "path": "/payback-period",
-            "url": "http://localhost:8098",
-            "port": 8098,
-            "auth_required": true
-        },
-        {
-            "name": "payment-gateway-service",
-            "path": "/payment-gateway",
-            "url": "http://localhost:8098",
-            "port": 8098,
-            "auth_required": true
-        },
-        {
-            "name": "payment-optimization-service",
-            "path": "/payment-optimization",
-            "url": "http://localhost:8261",
-            "port": 8261,
-            "auth_required": true
-        },
-        {
-            "name": "payroll-accounting-service",
-            "path": "/payroll-accounting",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "payroll-service",
-            "path": "/payroll",
-            "url": "http://localhost:8354",
-            "port": 8354,
-            "auth_required": true
-        },
-        {
-            "name": "pension-accounting-service",
-            "path": "/pension-accounting",
-            "url": "http://localhost:8368",
-            "port": 8368,
-            "auth_required": true
-        },
-        {
-            "name": "performance-benchmarking-service",
-            "path": "/performance-benchmarking",
-            "url": "http://localhost:8280",
-            "port": 8280,
-            "auth_required": true
-        },
-        {
-            "name": "personal-finance-service",
-            "path": "/personal-finance",
-            "url": "http://localhost:8099",
-            "port": 8099,
-            "auth_required": true
-        },
-        {
-            "name": "petty-cash-service",
-            "path": "/petty-cash",
-            "url": "http://localhost:8097",
-            "port": 8097,
-            "auth_required": true
-        },
-        {
-            "name": "plugin-extension-service",
-            "path": "/plugin-extension",
-            "url": "http://localhost:8100",
-            "port": 8100,
-            "auth_required": true
-        },
-        {
-            "name": "policy-engine-service",
-            "path": "/policy",
-            "url": "http://localhost:8101",
-            "port": 8101,
-            "auth_required": true
-        },
-        {
-            "name": "portfolio-optimization-service",
-            "path": "/portfolio-optimization",
-            "url": "http://localhost:8234",
-            "port": 8234,
-            "auth_required": true
-        },
-        {
-            "name": "pos-integration-service",
-            "path": "/pos-integration",
-            "url": "http://localhost:8095",
-            "port": 8095,
-            "auth_required": true
-        },
-        {
-            "name": "post-merger-service",
-            "path": "/post-merger",
-            "url": "http://localhost:8244",
-            "port": 8244,
-            "auth_required": true
-        },
-        {
-            "name": "preference-shares-service",
-            "path": "/preference-shares",
-            "url": "http://localhost:8102",
-            "port": 8102,
-            "auth_required": true
-        },
-        {
-            "name": "present-value-service",
-            "path": "/present-value",
-            "url": "http://localhost:8103",
-            "port": 8103,
-            "auth_required": true
-        },
-        {
-            "name": "prime-cost-service",
-            "path": "/prime-cost",
-            "url": "http://localhost:8104",
-            "port": 8104,
-            "auth_required": true
-        },
-        {
-            "name": "privacy-admin-dashboard-service",
-            "path": "/privacy-admin-dashboard",
-            "url": "http://localhost:8003",
-            "port": 8003,
-            "auth_required": true
-        },
-        {
-            "name": "process-costing-service",
-            "path": "/process-costing",
-            "url": "http://localhost:8105",
-            "port": 8105,
-            "auth_required": true
-        },
-        {
-            "name": "product-costing-service",
-            "path": "/product-costing",
-            "url": "http://localhost:8106",
-            "port": 8106,
-            "auth_required": true
-        },
-        {
-            "name": "profit-loss-account-service",
-            "path": "/profit-loss-account",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "profit-service",
-            "path": "/profit",
-            "url": "http://localhost:8107",
-            "port": 8107,
-            "auth_required": true
-        },
-        {
-            "name": "profitability-index-service",
-            "path": "/profitability-index",
-            "url": "http://localhost:8217",
-            "port": 8217,
-            "auth_required": true
-        },
-        {
-            "name": "project-accounting-service",
-            "path": "/project-accounting",
-            "url": "http://localhost:8352",
-            "port": 8352,
-            "auth_required": true
-        },
-        {
-            "name": "project-appraisal-service",
-            "path": "/project-appraisal",
-            "url": "http://localhost:8288",
-            "port": 8288,
-            "auth_required": true
-        },
-        {
-            "name": "provision-bad-debts-service",
-            "path": "/provision-bad-debts",
-            "url": "http://localhost:8108",
-            "port": 8108,
-            "auth_required": true
-        },
-        {
-            "name": "provision-doubtful-debts-service",
-            "path": "/provision-doubtful-debts",
-            "url": "http://localhost:8109",
-            "port": 8109,
-            "auth_required": true
-        },
-        {
-            "name": "provisions-contingencies-service",
-            "path": "/provisions-contingencies",
-            "url": "http://localhost:8205",
-            "port": 8205,
-            "auth_required": true
-        },
-        {
-            "name": "purchases-ledger-control-service",
-            "path": "/purchases-ledger-control",
-            "url": "http://localhost:8110",
-            "port": 8110,
-            "auth_required": true
-        },
-        {
-            "name": "r-and-d-tax-service",
-            "path": "/r-and-d-tax",
-            "url": "http://localhost:8111",
-            "port": 8111,
-            "auth_required": true
-        },
-        {
-            "name": "ratio-analysis-service",
-            "path": "/ratio-analysis",
-            "url": "http://localhost:8348",
-            "port": 8348,
-            "auth_required": true
-        },
-        {
-            "name": "realtime-calculation-engine",
-            "path": "/realtime-calculation",
-            "url": "http://localhost:8112",
-            "port": 8112,
-            "auth_required": true
-        },
-        {
-            "name": "regulatory-compliance-service",
-            "path": "/regulatory-compliance",
-            "url": "http://localhost:8285",
-            "port": 8285,
-            "auth_required": true
-        },
-        {
-            "name": "regulatory-ratio-service",
-            "path": "/regulatory-ratio",
-            "url": "http://localhost:8229",
-            "port": 8229,
-            "auth_required": true
-        },
-        {
-            "name": "regulatory-reporting-service",
-            "path": "/regulatory-reporting",
-            "url": "http://localhost:8351",
-            "port": 8351,
-            "auth_required": true
-        },
-        {
-            "name": "related-party-service",
-            "path": "/related-party",
-            "url": "http://localhost:8204",
-            "port": 8204,
-            "auth_required": true
-        },
-        {
-            "name": "report-automation-service",
-            "path": "/report-automation",
-            "url": "http://localhost:8272",
-            "port": 8272,
-            "auth_required": true
-        },
-        {
-            "name": "report-distribution-service",
-            "path": "/report-distribution",
-            "url": "http://localhost:8273",
-            "port": 8273,
-            "auth_required": true
-        },
-        {
-            "name": "reporting-service",
-            "path": "/reporting",
-            "url": "http://localhost:8361",
-            "port": 8361,
-            "auth_required": true
-        },
-        {
-            "name": "retained-profits-service",
-            "path": "/retained-profits",
-            "url": "http://localhost:8113",
-            "port": 8113,
-            "auth_required": true
-        },
-        {
-            "name": "revaluation-model-service",
-            "path": "/revaluation-model",
-            "url": "http://localhost:8144",
-            "port": 8144,
-            "auth_required": true
-        },
-        {
-            "name": "revaluation-reserve-service",
-            "path": "/revaluation-reserve",
-            "url": "http://localhost:8114",
-            "port": 8114,
-            "auth_required": true
-        },
-        {
-            "name": "revenue-recognition-service",
-            "path": "/revenue-recognition",
-            "url": "http://localhost:8115",
-            "port": 8115,
-            "auth_required": true
-        },
-        {
-            "name": "right-issues-service",
-            "path": "/right-issues",
-            "url": "http://localhost:8116",
-            "port": 8116,
-            "auth_required": true
-        },
-        {
-            "name": "risk-assessment-service",
-            "path": "/risk-assessment",
-            "url": "http://localhost:8117",
-            "port": 8117,
-            "auth_required": true
-        },
-        {
-            "name": "risk-mitigation-service",
-            "path": "/risk-mitigation",
-            "url": "http://localhost:8118",
-            "port": 8118,
-            "auth_required": true
-        },
-        {
-            "name": "risk-reporting-service",
-            "path": "/risk-reporting",
-            "url": "http://localhost:8119",
-            "port": 8119,
-            "auth_required": true
-        },
-        {
-            "name": "risk-return-analysis-service",
-            "path": "/risk-return-analysis",
-            "url": "http://localhost:8236",
-            "port": 8236,
-            "auth_required": true
-        },
-        {
-            "name": "rolling-forecast-service",
-            "path": "/rolling-forecast",
-            "url": "http://localhost:8173",
-            "port": 8173,
-            "auth_required": true
-        },
-        {
-            "name": "sales-ledger-control-service",
-            "path": "/sales-ledger-control",
-            "url": "http://localhost:8120",
-            "port": 8120,
-            "auth_required": true
-        },
-        {
-            "name": "sales-price-variance-service",
-            "path": "/sales-price-variance",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "sales-volume-variance-service",
-            "path": "/sales-volume-variance",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "scenario-analysis-service",
-            "path": "/scenario-analysis",
-            "url": "http://localhost:8121",
-            "port": 8121,
-            "auth_required": true
-        },
-        {
-            "name": "scenario-budget-service",
-            "path": "/scenario-budget",
-            "url": "http://localhost:8175",
-            "port": 8175,
-            "auth_required": true
-        },
-        {
-            "name": "scenario-modeling-service",
-            "path": "/scenario-modeling",
-            "url": "http://localhost:8122",
-            "port": 8122,
-            "auth_required": true
-        },
-        {
-            "name": "segment-reporting-service",
-            "path": "/segment-reporting",
-            "url": "http://localhost:8374",
-            "port": 8374,
-            "auth_required": true
-        },
-        {
-            "name": "selling-price-reduction-service",
-            "path": "/selling-price-reduction",
-            "url": "http://localhost:8123",
-            "port": 8123,
-            "auth_required": true
-        },
-        {
-            "name": "sensitivity-analysis-service",
-            "path": "/sensitivity-analysis",
-            "url": "http://localhost:8124",
-            "port": 8124,
-            "auth_required": true
-        },
-        {
-            "name": "share-options-service",
-            "path": "/share-options",
-            "url": "http://localhost:8223",
-            "port": 8223,
-            "auth_required": true
-        },
-        {
-            "name": "share-premium-service",
-            "path": "/share-premium",
-            "url": "http://localhost:8125",
-            "port": 8125,
-            "auth_required": true
-        },
-        {
-            "name": "share-redemption-service",
-            "path": "/share-redemption",
-            "url": "http://localhost:8126",
-            "port": 8126,
-            "auth_required": true
-        },
-        {
-            "name": "sovereign-treasury-service",
-            "path": "/sovereign-treasury",
-            "url": "http://localhost:8127",
-            "port": 8127,
-            "auth_required": true
-        },
-        {
-            "name": "sox-compliance-service",
-            "path": "/sox-compliance",
-            "url": "http://localhost:8286",
-            "port": 8286,
-            "auth_required": true
-        },
-        {
-            "name": "standard-cost-service",
-            "path": "/standard-cost",
-            "url": "http://localhost:8128",
-            "port": 8128,
-            "auth_required": true
-        },
-        {
-            "name": "statutory-filing-service",
-            "path": "/statutory-filing",
-            "url": "http://localhost:8227",
-            "port": 8227,
-            "auth_required": true
-        },
-        {
-            "name": "subscription-plans-service",
-            "path": "/subscription-plans",
-            "url": "http://localhost:8001",
-            "port": 8001,
-            "auth_required": true
-        },
-        {
-            "name": "substantive-testing-service",
-            "path": "/substantive-testing",
-            "url": "http://localhost:8198",
-            "port": 8198,
-            "auth_required": true
-        },
-        {
-            "name": "suspense-error-service",
-            "path": "/suspense-error",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "sustainable-growth-service",
-            "path": "/sustainable-growth",
-            "url": "http://localhost:8215",
-            "port": 8215,
-            "auth_required": true
-        },
-        {
-            "name": "swap-valuation-service",
-            "path": "/swap-valuation",
-            "url": "http://localhost:8249",
-            "port": 8249,
-            "auth_required": true
-        },
-        {
-            "name": "synergy-analysis-service",
-            "path": "/synergy-analysis",
-            "url": "http://localhost:8243",
-            "port": 8243,
-            "auth_required": true
-        },
-        {
-            "name": "target-costing-service",
-            "path": "/target-costing",
-            "url": "http://localhost:8183",
-            "port": 8183,
-            "auth_required": true
-        },
-        {
-            "name": "tax-accounting-service",
-            "path": "/tax-accounting",
-            "url": "http://localhost:8129",
-            "port": 8129,
-            "auth_required": true
-        },
-        {
-            "name": "tax-audit-service",
-            "path": "/tax-audit",
-            "url": "http://localhost:8130",
-            "port": 8130,
-            "auth_required": true
-        },
-        {
-            "name": "tax-calculation-service",
-            "path": "/tax-calculation",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "tax-compliance-service",
-            "path": "/tax-compliance",
-            "url": "http://localhost:8293",
-            "port": 8293,
-            "auth_required": true
-        },
-        {
-            "name": "tax-planning-service",
-            "path": "/tax-planning",
-            "url": "http://localhost:8292",
-            "port": 8292,
-            "auth_required": true
-        },
-        {
-            "name": "tax-provision-service",
-            "path": "/tax-provision",
-            "url": "http://localhost:8131",
-            "port": 8131,
-            "auth_required": true
-        },
-        {
-            "name": "tax-return-preparation-service",
-            "path": "/tax-return-preparation",
-            "url": "http://localhost:8228",
-            "port": 8228,
-            "auth_required": true
-        },
-        {
-            "name": "tax-risk-service",
-            "path": "/tax-risk",
-            "url": "http://localhost:8296",
-            "port": 8296,
-            "auth_required": true
-        },
-        {
-            "name": "tax-service",
-            "path": "/tax",
-            "url": "http://localhost:8346",
-            "port": 8346,
-            "auth_required": true
-        },
-        {
-            "name": "throughput-accounting-service",
-            "path": "/throughput-accounting",
-            "url": "http://localhost:8184",
-            "port": 8184,
-            "auth_required": true
-        },
-        {
-            "name": "time-value-of-money-service",
-            "path": "/time-value-of-money",
-            "url": "http://localhost:8132",
-            "port": 8132,
-            "auth_required": true
-        },
-        {
-            "name": "times-interest-earned-service",
-            "path": "/times-interest-earned",
-            "url": "http://localhost:8218",
-            "port": 8218,
-            "auth_required": true
-        },
-        {
-            "name": "total-production-cost-service",
-            "path": "/total-production-cost",
-            "url": "http://localhost:8133",
-            "port": 8133,
-            "auth_required": true
-        },
-        {
-            "name": "trade-finance-service",
-            "path": "/trade-finance",
-            "url": "http://localhost:8191",
-            "port": 8191,
-            "auth_required": true
-        },
-        {
-            "name": "trading-account-service",
-            "path": "/trading-account",
-            "url": "http://localhost:8000",
-            "port": 8000,
-            "auth_required": true
-        },
-        {
-            "name": "transfer-pricing-service",
-            "path": "/transfer-pricing",
-            "url": "http://localhost:8294",
-            "port": 8294,
-            "auth_required": true
-        },
-        {
-            "name": "treasury-analytics-service",
-            "path": "/treasury-analytics",
-            "url": "http://localhost:8134",
-            "port": 8134,
-            "auth_required": true
-        },
-        {
-            "name": "treasury-cash-service",
-            "path": "/treasury-cash",
-            "url": "http://localhost:8345",
-            "port": 8345,
-            "auth_required": true
-        },
-        {
-            "name": "treasury-compliance-service",
-            "path": "/treasury-compliance",
-            "url": "http://localhost:8135",
-            "port": 8135,
-            "auth_required": true
-        },
-        {
-            "name": "treasury-management-service",
-            "path": "/treasury-management",
-            "url": "http://localhost:8136",
-            "port": 8136,
-            "auth_required": true
-        },
-        {
-            "name": "treasury-operations-service",
-            "path": "/treasury-operations",
-            "url": "http://localhost:8257",
-            "port": 8257,
-            "auth_required": true
-        },
-        {
-            "name": "treasury-policy-service",
-            "path": "/treasury-policy",
-            "url": "http://localhost:8263",
-            "port": 8263,
-            "auth_required": true
-        },
-        {
-            "name": "treasury-reporting-service",
-            "path": "/treasury-reporting",
-            "url": "http://localhost:8262",
-            "port": 8262,
-            "auth_required": true
-        },
-        {
-            "name": "treasury-risk-service",
-            "path": "/treasury-risk",
-            "url": "http://localhost:8259",
-            "port": 8259,
-            "auth_required": true
-        },
-        {
-            "name": "trial-balance-service",
-            "path": "/trial-balance",
-            "url": "http://localhost:8137",
-            "port": 8137,
-            "auth_required": true
-        },
-        {
-            "name": "variable-cost-service",
-            "path": "/variable-cost",
-            "url": "http://localhost:8138",
-            "port": 8138,
-            "auth_required": true
-        },
-        {
-            "name": "variance-service",
-            "path": "/variance",
-            "url": "http://localhost:8139",
-            "port": 8139,
-            "auth_required": true
-        },
-        {
-            "name": "vat-reporting-service",
-            "path": "/vat-reporting",
-            "url": "http://localhost:8295",
-            "port": 8295,
-            "auth_required": true
-        },
-        {
-            "name": "webhook-service",
-            "path": "/webhook",
-            "url": "http://localhost:8140",
-            "port": 8140,
-            "auth_required": true
-        },
-        {
-            "name": "websocket-service",
-            "path": "/websocket",
-            "url": "http://localhost:8141",
-            "port": 8141,
-            "auth_required": true
-        },
-        {
-            "name": "workflow-service",
-            "path": "/workflow",
-            "url": "http://localhost:8142",
-            "port": 8142,
-            "auth_required": true
-        },
-        {
-            "name": "working-capital-finance-service",
-            "path": "/working-capital-finance",
-            "url": "http://localhost:8190",
-            "port": 8190,
-            "auth_required": true
-        },
-        {
-            "name": "working-capital-optimization-service",
-            "path": "/working-capital-optimization",
-            "url": "http://localhost:8168",
-            "port": 8168,
-            "auth_required": true
-        },
-        {
-            "name": "working-capital-service",
-            "path": "/working-capital",
-            "url": "http://localhost:8237",
-            "port": 8237,
-            "auth_required": true
-        },
-        {
-            "name": "xbrl-reporting-service",
-            "path": "/xbrl-reporting",
-            "url": "http://localhost:8274",
-            "port": 8274,
-            "auth_required": true
-        },
-        {
-            "name": "zero-based-budget-service",
-            "path": "/zero-based-budget",
-            "url": "http://localhost:8176",
-            "port": 8176,
-            "auth_required": true
-        },
-        {
-            "name": "zero-based-budgeting-service",
-            "path": "/zero-based-budgeting",
-            "url": "http://localhost:8143",
-            "port": 8143,
-            "auth_required": true
-        },
-        {
-            "name": "zero-trust-data-service",
-            "path": "/zero-trust-data",
-            "url": "http://localhost:8002",
-            "port": 8002,
-            "auth_required": true
-        }
-    ]
+  "services": [
+    {
+      "name": "absorption-costing-service",
+      "path": "/absorption-costing",
+      "url": "http://localhost:9001",
+      "port": 8010,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "absorption-costing-statement-service",
+      "path": "/absorption-costing-statement",
+      "url": "http://localhost:9001",
+      "port": 8011,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "accounting-rate-return-service",
+      "path": "/accounting-rate-return",
+      "url": "http://localhost:9007",
+      "port": 8012,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "accounting-service",
+      "path": "/accounting",
+      "url": "http://localhost:8000",
+      "port": 8000,
+      "auth_required": true
+    },
+    {
+      "name": "accounting-standards-service",
+      "path": "/accounting-standards",
+      "url": "http://localhost:9011",
+      "port": 8095,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "accounts-payable-service",
+      "path": "/accounts-payable",
+      "url": "http://localhost:9006",
+      "port": 8327,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "accounts-receivable-service",
+      "path": "/accounts-receivable",
+      "url": "http://localhost:9006",
+      "port": 8328,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "acquisition-financing-service",
+      "path": "/acquisition-financing",
+      "url": "http://localhost:9003",
+      "port": 8245,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "activity-based-budget-service",
+      "path": "/activity-based-budget",
+      "url": "http://localhost:9001",
+      "port": 8177,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "activity-based-costing-service",
+      "path": "/activity-based-costing",
+      "url": "http://localhost:9001",
+      "port": 8179,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "actual-cost-service",
+      "path": "/actual-cost",
+      "url": "http://localhost:9001",
+      "port": 8013,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "admin-service",
+      "path": "/admin",
+      "url": "http://localhost:9008",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "ai-readiness-service",
+      "path": "/ai-readiness",
+      "url": "http://localhost:9007",
+      "port": 8014,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "alerts-service",
+      "path": "/alerts",
+      "url": "http://localhost:9008",
+      "port": 8090,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "amortization-service",
+      "path": "/amortization",
+      "url": "http://localhost:9003",
+      "port": 8357,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "analytical-procedures-service",
+      "path": "/analytical-procedures",
+      "url": "http://localhost:9007",
+      "port": 8197,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "analytics-service",
+      "path": "/analytics",
+      "url": "http://localhost:9007",
+      "port": 8364,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "annual-report-service",
+      "path": "/annual-report",
+      "url": "http://localhost:9002",
+      "port": 8210,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "appropriation-control-service",
+      "path": "/appropriation-control",
+      "url": "http://localhost:9001",
+      "port": 8015,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "asset-allocation-service",
+      "path": "/asset-allocation",
+      "url": "http://localhost:9007",
+      "port": 8235,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "asset-turnover-service",
+      "path": "/asset-turnover",
+      "url": "http://localhost:9007",
+      "port": 8216,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "audit-compliance-service",
+      "path": "/audit-compliance",
+      "url": "http://localhost:9004",
+      "port": 8016,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "audit-evidence-service",
+      "path": "/audit-evidence",
+      "url": "http://localhost:9004",
+      "port": 8201,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "audit-sampling-service",
+      "path": "/audit-sampling",
+      "url": "http://localhost:9004",
+      "port": 8196,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "authorized-share-capital-service",
+      "path": "/authorized-share-capital",
+      "url": "http://localhost:9003",
+      "port": 8017,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "automation-engine",
+      "path": "/automation",
+      "url": "http://localhost:9008",
+      "port": 8098,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "automation-engine-service",
+      "path": "/automation",
+      "url": "http://localhost:9008",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "bad-debts-recovery-service",
+      "path": "/bad-debts-recovery",
+      "url": "http://localhost:9003",
+      "port": 8018,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "balance-sheet-service",
+      "path": "/balance-sheet",
+      "url": "http://localhost:9002",
+      "port": 8019,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "balanced-scorecard-service",
+      "path": "/balanced-scorecard",
+      "url": "http://localhost:9001",
+      "port": 8279,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "bank-fee-analysis-service",
+      "path": "/bank-fee-analysis",
+      "url": "http://localhost:9003",
+      "port": 8189,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "bank-feed-service",
+      "path": "/bank-feed",
+      "url": "http://localhost:9003",
+      "port": 8097,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "bank-reconciliation-service",
+      "path": "/bank-reconciliation",
+      "url": "http://localhost:9003",
+      "port": 8020,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "bank-relationship-service",
+      "path": "/bank-relationship",
+      "url": "http://localhost:9003",
+      "port": 8021,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "banking-integration-service",
+      "path": "/banking-integration",
+      "url": "http://localhost:8386",
+      "port": 8386,
+      "auth_required": true
+    },
+    {
+      "name": "basis-apportionment-service",
+      "path": "/basis-apportionment",
+      "url": "http://localhost:9011",
+      "port": 8022,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "benefits-admin-service",
+      "path": "/benefits-admin",
+      "url": "http://localhost:9006",
+      "port": 8360,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "biological-assets-service",
+      "path": "/biological-assets",
+      "url": "http://localhost:9009",
+      "port": 8146,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "bonus-shares-service",
+      "path": "/bonus-shares",
+      "url": "http://localhost:9011",
+      "port": 8023,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "budget-service",
+      "path": "/budget",
+      "url": "http://localhost:9001",
+      "port": 8024,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "budgeted-cost-service",
+      "path": "/budgeted-cost",
+      "url": "http://localhost:9001",
+      "port": 8025,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "business-combination-service",
+      "path": "/business-combination",
+      "url": "http://localhost:9010",
+      "port": 8384,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "business-documents-service",
+      "path": "/business-documents",
+      "url": "http://localhost:9010",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "business-valuation-service",
+      "path": "/business-valuation",
+      "url": "http://localhost:9012",
+      "port": 8155,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cache-service",
+      "path": "/cache",
+      "url": "http://localhost:9013",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "capital-allocation-service",
+      "path": "/capital-allocation",
+      "url": "http://localhost:9012",
+      "port": 8289,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "capital-budgeting-service",
+      "path": "/capital-budgeting",
+      "url": "http://localhost:9001",
+      "port": 8232,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "capital-expenditure-budget-service",
+      "path": "/capital-expenditure-budget",
+      "url": "http://localhost:9001",
+      "port": 8178,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "capital-reconstruction-service",
+      "path": "/capital-reconstruction",
+      "url": "http://localhost:9012",
+      "port": 8026,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "capital-redemption-reserve-service",
+      "path": "/capital-redemption-reserve",
+      "url": "http://localhost:9012",
+      "port": 8027,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cash-budget-service",
+      "path": "/cash-budget",
+      "url": "http://localhost:9001",
+      "port": 8171,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cash-flow-forecasting-service",
+      "path": "/cash-flow-forecasting",
+      "url": "http://localhost:9003",
+      "port": 8238,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cash-flow-service",
+      "path": "/cash-flow",
+      "url": "http://localhost:9003",
+      "port": 8028,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cash-flow-statement-service",
+      "path": "/cash-flow-statement",
+      "url": "http://localhost:9002",
+      "port": 8029,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cash-management-service",
+      "path": "/cash-management",
+      "url": "http://localhost:9012",
+      "port": 8264,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cash-optimization-service",
+      "path": "/cash-optimization",
+      "url": "http://localhost:9012",
+      "port": 8030,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cash-pooling-service",
+      "path": "/cash-pooling",
+      "url": "http://localhost:9012",
+      "port": 8258,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cashbook-service",
+      "path": "/cashbook",
+      "url": "http://localhost:9011",
+      "port": 8098,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "commodity-hedging-service",
+      "path": "/commodity-hedging",
+      "url": "http://localhost:9012",
+      "port": 8253,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "company-accounting-service",
+      "path": "/company-accounting",
+      "url": "http://localhost:9011",
+      "port": 8101,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "comparative-financial-statements-service",
+      "path": "/comparative-financial-statements",
+      "url": "http://localhost:9002",
+      "port": 8142,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "consolidation-service",
+      "path": "/consolidation",
+      "url": "http://localhost:9011",
+      "port": 8031,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "construction-contracts-service",
+      "path": "/construction-contracts",
+      "url": "http://localhost:9011",
+      "port": 8219,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "continue-shutdown-decision-service",
+      "path": "/continue-shutdown-decision",
+      "url": "http://localhost:9011",
+      "port": 8032,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "control-account-reconciliation-service",
+      "path": "/control-account-reconciliation",
+      "url": "http://localhost:9011",
+      "port": 8033,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "corporate-governance-service",
+      "path": "/corporate-governance",
+      "url": "http://localhost:9005",
+      "port": 8209,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "corporate-tax-service",
+      "path": "/corporate-tax",
+      "url": "http://localhost:9004",
+      "port": 8034,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cost-accounting-service",
+      "path": "/cost-accounting",
+      "url": "http://localhost:9011",
+      "port": 8035,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cost-centre-service",
+      "path": "/cost-centre",
+      "url": "http://localhost:9011",
+      "port": 8036,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cost-of-capital-service",
+      "path": "/cost-of-capital",
+      "url": "http://localhost:9012",
+      "port": 8037,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cqrs-event-sourcing-service",
+      "path": "/cqrs-event-sourcing",
+      "url": "http://localhost:9013",
+      "port": 8038,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "credit-derivatives-service",
+      "path": "/credit-derivatives",
+      "url": "http://localhost:9003",
+      "port": 8254,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "credit-risk-analysis-service",
+      "path": "/credit-risk-analysis",
+      "url": "http://localhost:9003",
+      "port": 8163,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "croic-service",
+      "path": "/croic",
+      "url": "http://localhost:9012",
+      "port": 8214,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cross-currency-swap-service",
+      "path": "/cross-currency-swap",
+      "url": "http://localhost:9003",
+      "port": 8256,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "currency-hedging-service",
+      "path": "/currency-hedging",
+      "url": "http://localhost:9003",
+      "port": 8251,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "currency-service",
+      "path": "/currency",
+      "url": "http://localhost:9003",
+      "port": 8092,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "cvp-analysis-service",
+      "path": "/cvp-analysis",
+      "url": "http://localhost:9012",
+      "port": 8039,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "dashboard-service",
+      "path": "/dashboard",
+      "url": "http://localhost:9013",
+      "port": 8365,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "data-sovereignty-service",
+      "path": "/data-sovereignty",
+      "url": "http://localhost:9013",
+      "port": 8040,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "data-warehouse-service",
+      "path": "/data-warehouse",
+      "url": "http://localhost:9009",
+      "port": 8362,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "deal-structuring-service",
+      "path": "/deal-structuring",
+      "url": "http://localhost:9012",
+      "port": 8246,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "debentures-service",
+      "path": "/debentures",
+      "url": "http://localhost:9012",
+      "port": 8041,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "debt-covenants-service",
+      "path": "/debt-covenants",
+      "url": "http://localhost:9003",
+      "port": 8240,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "debt-management-service",
+      "path": "/debt-management",
+      "url": "http://localhost:9003",
+      "port": 8194,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "departmental-accounting-service",
+      "path": "/departmental-accounting",
+      "url": "http://localhost:9011",
+      "port": 8100,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "depreciation-service",
+      "path": "/depreciation",
+      "url": "http://localhost:9011",
+      "port": 8356,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "director-emoluments-service",
+      "path": "/director-emoluments",
+      "url": "http://localhost:9011",
+      "port": 8208,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "disaster-recovery-service",
+      "path": "/disaster-recovery",
+      "url": "http://localhost:9013",
+      "port": 8042,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "discount-factor-service",
+      "path": "/discount-factor",
+      "url": "http://localhost:9012",
+      "port": 8043,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "discounted-payback-period-service",
+      "path": "/discounted-payback-period",
+      "url": "http://localhost:9012",
+      "port": 8044,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "disposal-account-service",
+      "path": "/disposal-account",
+      "url": "http://localhost:9011",
+      "port": 8045,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "disposal-group-service",
+      "path": "/disposal-group",
+      "url": "http://localhost:9011",
+      "port": 8226,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "distributed-workflow-orchestration-service",
+      "path": "/distributed-workflow-orchestration",
+      "url": "http://localhost:9007",
+      "port": 8046,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "divestiture-service",
+      "path": "/divestiture",
+      "url": "http://localhost:9012",
+      "port": 8385,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "document-service",
+      "path": "/document",
+      "url": "http://localhost:8096",
+      "port": 8096,
+      "auth_required": true
+    },
+    {
+      "name": "double-entry-principles-service",
+      "path": "/double-entry-principles",
+      "url": "http://localhost:9011",
+      "port": 8047,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "du-pont-service",
+      "path": "/du-pont",
+      "url": "http://localhost:9010",
+      "port": 8211,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "due-diligence-service",
+      "path": "/due-diligence",
+      "url": "http://localhost:9012",
+      "port": 8242,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "edge-computing-service",
+      "path": "/edge-computing",
+      "url": "http://localhost:9013",
+      "port": 8048,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "encrypted-backup-service",
+      "path": "/encrypted-backup",
+      "url": "http://localhost:9013",
+      "port": 8006,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "enterprise-sso-service",
+      "path": "/enterprise-sso",
+      "url": "http://localhost:9013",
+      "port": 8004,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "eps-service",
+      "path": "/eps",
+      "url": "http://localhost:9012",
+      "port": 8207,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "equity-changes-service",
+      "path": "/equity-changes",
+      "url": "http://localhost:9011",
+      "port": 8049,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "equivalent-units-service",
+      "path": "/equivalent-units",
+      "url": "http://localhost:9011",
+      "port": 8186,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "esg-reporting-service",
+      "path": "/esg-reporting",
+      "url": "http://localhost:9002",
+      "port": 8230,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "etl-service",
+      "path": "/etl",
+      "url": "http://localhost:9013",
+      "port": 8363,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "eva-service",
+      "path": "/eva",
+      "url": "http://localhost:9012",
+      "port": 8212,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "event-streaming-service",
+      "path": "/event-streaming",
+      "url": "http://localhost:9013",
+      "port": 8050,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "events-after-reporting-service",
+      "path": "/events-after-reporting",
+      "url": "http://localhost:9002",
+      "port": 8206,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "exotic-derivatives-service",
+      "path": "/exotic-derivatives",
+      "url": "http://localhost:9012",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "expense-tracking-service",
+      "path": "/expense-tracking",
+      "url": "http://localhost:9006",
+      "port": 8051,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "family-community-group-service",
+      "path": "/family-community-group",
+      "url": "http://localhost:9010",
+      "port": 8005,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "federated-network-service",
+      "path": "/federated-network",
+      "url": "http://localhost:9013",
+      "port": 8052,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "financial-distress-prediction-service",
+      "path": "/financial-distress-prediction",
+      "url": "http://localhost:9007",
+      "port": 8169,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "financial-forecasting-service",
+      "path": "/financial-forecasting",
+      "url": "http://localhost:9007",
+      "port": 8287,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "financial-identity-service",
+      "path": "/financial-identity",
+      "url": "http://localhost:9011",
+      "port": 8053,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "financial-integrity-service",
+      "path": "/financial-integrity",
+      "url": "http://localhost:9011",
+      "port": 8054,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "financial-planning-service",
+      "path": "/financial-planning",
+      "url": "http://localhost:9012",
+      "port": 8231,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "financial-reporting-service",
+      "path": "/financial-reporting",
+      "url": "http://localhost:9002",
+      "port": 8267,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "financial-state-machine-service",
+      "path": "/financial-state-machine",
+      "url": "http://localhost:9013",
+      "port": 8055,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "financial-statements-service",
+      "path": "/financial-statements",
+      "url": "http://localhost:9002",
+      "port": 8332,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "fixed-assets-register-service",
+      "path": "/fixed-assets-register",
+      "url": "http://localhost:9009",
+      "port": 8355,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "fixed-assets-schedule-service",
+      "path": "/fixed-assets-schedule",
+      "url": "http://localhost:9008",
+      "port": 8056,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "fixed-assets-service",
+      "path": "/fixed-assets",
+      "url": "http://localhost:9009",
+      "port": 8329,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "fixed-cost-service",
+      "path": "/fixed-cost",
+      "url": "http://localhost:9001",
+      "port": 8057,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "flexible-budget-service",
+      "path": "/flexible-budget",
+      "url": "http://localhost:9001",
+      "port": 8058,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "foreign-currency-translation-service",
+      "path": "/foreign-currency-translation",
+      "url": "http://localhost:9003",
+      "port": 8373,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "foreign-exchange-service",
+      "path": "/foreign-exchange",
+      "url": "http://localhost:9012",
+      "port": 8192,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "forensic-accounting-service",
+      "path": "/forensic-accounting",
+      "url": "http://localhost:9004",
+      "port": 8059,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "forward-contracts-service",
+      "path": "/forward-contracts",
+      "url": "http://localhost:9010",
+      "port": 8247,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "fraud-risk-assessment-service",
+      "path": "/fraud-risk-assessment",
+      "url": "http://localhost:9005",
+      "port": 8199,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "fund-accounting-service",
+      "path": "/fund-accounting",
+      "url": "http://localhost:9011",
+      "port": 8060,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "fund-management-service",
+      "path": "/fund-management",
+      "url": "http://localhost:9012",
+      "port": 8266,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "futures-hedging-service",
+      "path": "/futures-hedging",
+      "url": "http://localhost:9012",
+      "port": 8250,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "general-ledger-service",
+      "path": "/general-ledger",
+      "url": "http://localhost:9002",
+      "port": 8330,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "general-reserve-service",
+      "path": "/general-reserve",
+      "url": "http://localhost:9011",
+      "port": 8061,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "going-concern-service",
+      "path": "/going-concern",
+      "url": "http://localhost:9011",
+      "port": 8203,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "goodwill-service",
+      "path": "/goodwill",
+      "url": "http://localhost:9011",
+      "port": 8359,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "government-grants-service",
+      "path": "/government-grants",
+      "url": "http://localhost:9011",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "graphql-service",
+      "path": "/graphql",
+      "url": "http://localhost:9013",
+      "port": 8095,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "group-tax-service",
+      "path": "/group-tax",
+      "url": "http://localhost:9004",
+      "port": 8062,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "grpc-service",
+      "path": "/grpc",
+      "url": "http://localhost:9013",
+      "port": 8063,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "high-availability-service",
+      "path": "/high-availability",
+      "url": "http://localhost:9013",
+      "port": 8064,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "household-finance-service",
+      "path": "/household-finance",
+      "url": "http://localhost:9012",
+      "port": 8065,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "ifrs-15-revenue-recognition-service",
+      "path": "/ifrs-15-revenue-recognition",
+      "url": "http://localhost:9011",
+      "port": 8148,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "ifrs-16-lease-accounting-service",
+      "path": "/ifrs-16-lease-accounting",
+      "url": "http://localhost:9011",
+      "port": 8147,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "ifrs-2-share-based-payment-service",
+      "path": "/ifrs-2-share-based-payment",
+      "url": "http://localhost:9003",
+      "port": 8150,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "ifrs-9-financial-instruments-service",
+      "path": "/ifrs-9-financial-instruments",
+      "url": "http://localhost:9011",
+      "port": 8149,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "ifrs-reporting-service",
+      "path": "/ifrs-reporting",
+      "url": "http://localhost:9002",
+      "port": 8268,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "income-statement-service",
+      "path": "/income-statement",
+      "url": "http://localhost:9002",
+      "port": 8334,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "infrastructure-as-code-service",
+      "path": "/infrastructure-as-code",
+      "url": "http://localhost:9013",
+      "port": 8066,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "initial-investment-service",
+      "path": "/initial-investment",
+      "url": "http://localhost:9003",
+      "port": 8067,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "insurance-claims-service",
+      "path": "/insurance-claims",
+      "url": "http://localhost:9012",
+      "port": 8367,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "intangible-assets-service",
+      "path": "/intangible-assets",
+      "url": "http://localhost:9011",
+      "port": 8358,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "intercompany-service",
+      "path": "/intercompany",
+      "url": "http://localhost:9011",
+      "port": 8350,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "interest-rate-hedging-service",
+      "path": "/interest-rate-hedging",
+      "url": "http://localhost:9003",
+      "port": 8252,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "interest-rate-risk-service",
+      "path": "/interest-rate-risk",
+      "url": "http://localhost:9003",
+      "port": 8170,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "interim-financial-reporting-service",
+      "path": "/interim-financial-reporting",
+      "url": "http://localhost:9002",
+      "port": 8141,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "internal-control-evaluation-service",
+      "path": "/internal-control-evaluation",
+      "url": "http://localhost:9005",
+      "port": 8200,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "internal-controls-testing-service",
+      "path": "/internal-controls-testing",
+      "url": "http://localhost:9005",
+      "port": 8284,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "internal-rate-return-service",
+      "path": "/internal-rate-return",
+      "url": "http://localhost:9007",
+      "port": 8068,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "inventory-valuation-service",
+      "path": "/inventory-valuation",
+      "url": "http://localhost:9009",
+      "port": 8377,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "investigation-service",
+      "path": "/investigation",
+      "url": "http://localhost:9004",
+      "port": 8069,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "investment-appraisal-service",
+      "path": "/investment-appraisal",
+      "url": "http://localhost:9003",
+      "port": 8233,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "investment-monitoring-service",
+      "path": "/investment-monitoring",
+      "url": "http://localhost:9003",
+      "port": 8290,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "investment-portfolio-service",
+      "path": "/investment-portfolio",
+      "url": "http://localhost:9003",
+      "port": 8265,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "investment-property-service",
+      "path": "/investment-property",
+      "url": "http://localhost:9003",
+      "port": 8145,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "invoicing-service",
+      "path": "/invoicing",
+      "url": "http://localhost:8070",
+      "port": 8070,
+      "auth_required": true
+    },
+    {
+      "name": "issued-share-capital-service",
+      "path": "/issued-share-capital",
+      "url": "http://localhost:9003",
+      "port": 8071,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "it-audit-service",
+      "path": "/it-audit",
+      "url": "http://localhost:9004",
+      "port": 8072,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "job-costing-service",
+      "path": "/job-costing",
+      "url": "http://localhost:9001",
+      "port": 8073,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "journal-entries-service",
+      "path": "/journal-entries",
+      "url": "http://localhost:9011",
+      "port": 8331,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "kpi-tracking-service",
+      "path": "/kpi-tracking",
+      "url": "http://localhost:9007",
+      "port": 8278,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "labour-cost-variance-service",
+      "path": "/labour-cost-variance",
+      "url": "http://localhost:9001",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "labour-efficiency-variance-service",
+      "path": "/labour-efficiency-variance",
+      "url": "http://localhost:9001",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "labour-rate-variance-service",
+      "path": "/labour-rate-variance",
+      "url": "http://localhost:9001",
+      "port": 8074,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "lease-management-service",
+      "path": "/lease-management",
+      "url": "http://localhost:9011",
+      "port": 8353,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "lease-termination-service",
+      "path": "/lease-termination",
+      "url": "http://localhost:9011",
+      "port": 8224,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "lifecycle-costing-service",
+      "path": "/lifecycle-costing",
+      "url": "http://localhost:9001",
+      "port": 8182,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "limiting-factor-service",
+      "path": "/limiting-factor",
+      "url": "http://localhost:9012",
+      "port": 8075,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "liquidity-forecast-service",
+      "path": "/liquidity-forecast",
+      "url": "http://localhost:9012",
+      "port": 8260,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "liquidity-management-service",
+      "path": "/liquidity-management",
+      "url": "http://localhost:9012",
+      "port": 8239,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "liquidity-risk-service",
+      "path": "/liquidity-risk",
+      "url": "http://localhost:9005",
+      "port": 8164,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "make-or-buy-decision-service",
+      "path": "/make-or-buy-decision",
+      "url": "http://localhost:9012",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "management-accounts-service",
+      "path": "/management-accounts",
+      "url": "http://localhost:9011",
+      "port": 8281,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "management-dashboard-service",
+      "path": "/management-dashboard",
+      "url": "http://localhost:9013",
+      "port": 8271,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "management-reporting-service",
+      "path": "/management-reporting",
+      "url": "http://localhost:9002",
+      "port": 8269,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "margin-safety-service",
+      "path": "/margin-safety",
+      "url": "http://localhost:9012",
+      "port": 8076,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "marginal-costing-service",
+      "path": "/marginal-costing",
+      "url": "http://localhost:9001",
+      "port": 8077,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "market-risk-service",
+      "path": "/market-risk",
+      "url": "http://localhost:9005",
+      "port": 8165,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "master-budget-service",
+      "path": "/master-budget",
+      "url": "http://localhost:9001",
+      "port": 8172,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "material-cost-variance-service",
+      "path": "/material-cost-variance",
+      "url": "http://localhost:9001",
+      "port": 8078,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "material-price-variance-service",
+      "path": "/material-price-variance",
+      "url": "http://localhost:9001",
+      "port": 8079,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "material-usage-variance-service",
+      "path": "/material-usage-variance",
+      "url": "http://localhost:9001",
+      "port": 8080,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "merger-valuation-service",
+      "path": "/merger-valuation",
+      "url": "http://localhost:9012",
+      "port": 8241,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "message-bus-service",
+      "path": "/message-bus",
+      "url": "http://localhost:8097",
+      "port": 8097,
+      "auth_required": true
+    },
+    {
+      "name": "mfa-auth-service",
+      "path": "/mfa-auth",
+      "url": "http://localhost:9013",
+      "port": 8007,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "multi-cloud-service",
+      "path": "/multi-cloud",
+      "url": "http://localhost:9013",
+      "port": 8081,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "multi-currency-service",
+      "path": "/multi-currency",
+      "url": "http://localhost:9003",
+      "port": 8349,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "multi-tenant-service",
+      "path": "/multi-tenant",
+      "url": "http://localhost:9013",
+      "port": 8082,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "multimodal-pipeline-service",
+      "path": "/multimodal",
+      "url": "http://localhost:8002",
+      "port": 8002,
+      "auth_required": true
+    },
+    {
+      "name": "mva-service",
+      "path": "/mva",
+      "url": "http://localhost:9012",
+      "port": 8213,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "net-present-value-service",
+      "path": "/net-present-value",
+      "url": "http://localhost:9012",
+      "port": 8083,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "net-realizable-value-service",
+      "path": "/net-realizable-value",
+      "url": "http://localhost:9011",
+      "port": 8084,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "notifications-service",
+      "path": "/notifications",
+      "url": "http://localhost:9008",
+      "port": 8091,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "npo-service",
+      "path": "/npo",
+      "url": "http://localhost:8085",
+      "port": 8085,
+      "auth_required": true
+    },
+    {
+      "name": "observability-service",
+      "path": "/observability",
+      "url": "http://localhost:9013",
+      "port": 8086,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "offline-sync-service",
+      "path": "/offline-sync",
+      "url": "http://localhost:9008",
+      "port": 8087,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "operational-audit-service",
+      "path": "/operational-audit",
+      "url": "http://localhost:9004",
+      "port": 8088,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "operational-risk-service",
+      "path": "/operational-risk",
+      "url": "http://localhost:9005",
+      "port": 8166,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "options-pricing-service",
+      "path": "/options-pricing",
+      "url": "http://localhost:9012",
+      "port": 8248,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "order-acceptance-service",
+      "path": "/order-acceptance",
+      "url": "http://localhost:9009",
+      "port": 8089,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "ordinary-shares-service",
+      "path": "/ordinary-shares",
+      "url": "http://localhost:9011",
+      "port": 8090,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "org-authorization-engine",
+      "path": "/org-authorization",
+      "url": "http://localhost:9010",
+      "port": 8008,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "over-under-absorption-service",
+      "path": "/over-under-absorption",
+      "url": "http://localhost:9011",
+      "port": 8091,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "overhead-absorption-rate-service",
+      "path": "/overhead-absorption-rate",
+      "url": "http://localhost:9011",
+      "port": 8092,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "overhead-apportionment-service",
+      "path": "/overhead-apportionment",
+      "url": "http://localhost:9011",
+      "port": 8093,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "partnership-accounting-service",
+      "path": "/partnership-accounting",
+      "url": "http://localhost:9011",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "partnership-agreement-service",
+      "path": "/partnership-agreement",
+      "url": "http://localhost:9011",
+      "port": 8094,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "partnership-changes-service",
+      "path": "/partnership-changes",
+      "url": "http://localhost:9011",
+      "port": 8095,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "partnership-dissolution-service",
+      "path": "/partnership-dissolution",
+      "url": "http://localhost:9011",
+      "port": 8096,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "partnership-revaluation-service",
+      "path": "/partnership-revaluation",
+      "url": "http://localhost:9011",
+      "port": 8097,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "partnership-sale-service",
+      "path": "/partnership-sale",
+      "url": "http://localhost:9011",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "payback-period-service",
+      "path": "/payback-period",
+      "url": "http://localhost:9012",
+      "port": 8098,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "payment-gateway-service",
+      "path": "/payment-gateway",
+      "url": "http://localhost:9003",
+      "port": 8098,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "payment-optimization-service",
+      "path": "/payment-optimization",
+      "url": "http://localhost:9003",
+      "port": 8261,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "payroll-accounting-service",
+      "path": "/payroll-accounting",
+      "url": "http://localhost:9006",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "payroll-service",
+      "path": "/payroll",
+      "url": "http://localhost:9006",
+      "port": 8354,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "pension-accounting-service",
+      "path": "/pension-accounting",
+      "url": "http://localhost:9006",
+      "port": 8368,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "performance-benchmarking-service",
+      "path": "/performance-benchmarking",
+      "url": "http://localhost:9007",
+      "port": 8280,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "personal-finance-service",
+      "path": "/personal-finance",
+      "url": "http://localhost:9012",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "petty-cash-service",
+      "path": "/petty-cash",
+      "url": "http://localhost:9011",
+      "port": 8097,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "plugin-extension-service",
+      "path": "/plugin-extension",
+      "url": "http://localhost:9013",
+      "port": 8100,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "policy-engine-service",
+      "path": "/policy",
+      "url": "http://localhost:9013",
+      "port": 8101,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "portfolio-optimization-service",
+      "path": "/portfolio-optimization",
+      "url": "http://localhost:9012",
+      "port": 8234,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "pos-integration-service",
+      "path": "/pos-integration",
+      "url": "http://localhost:8095",
+      "port": 8095,
+      "auth_required": true
+    },
+    {
+      "name": "post-merger-service",
+      "path": "/post-merger",
+      "url": "http://localhost:9012",
+      "port": 8244,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "preference-shares-service",
+      "path": "/preference-shares",
+      "url": "http://localhost:9011",
+      "port": 8102,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "present-value-service",
+      "path": "/present-value",
+      "url": "http://localhost:9012",
+      "port": 8103,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "prime-cost-service",
+      "path": "/prime-cost",
+      "url": "http://localhost:9001",
+      "port": 8104,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "privacy-admin-dashboard-service",
+      "path": "/privacy-admin-dashboard",
+      "url": "http://localhost:9008",
+      "port": 8003,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "process-costing-service",
+      "path": "/process-costing",
+      "url": "http://localhost:9001",
+      "port": 8105,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "product-costing-service",
+      "path": "/product-costing",
+      "url": "http://localhost:9001",
+      "port": 8106,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "profit-loss-account-service",
+      "path": "/profit-loss-account",
+      "url": "http://localhost:9011",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "profit-service",
+      "path": "/profit",
+      "url": "http://localhost:9011",
+      "port": 8107,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "profitability-index-service",
+      "path": "/profitability-index",
+      "url": "http://localhost:9012",
+      "port": 8217,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "project-accounting-service",
+      "path": "/project-accounting",
+      "url": "http://localhost:9009",
+      "port": 8352,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "project-appraisal-service",
+      "path": "/project-appraisal",
+      "url": "http://localhost:9009",
+      "port": 8288,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "provision-bad-debts-service",
+      "path": "/provision-bad-debts",
+      "url": "http://localhost:9003",
+      "port": 8108,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "provision-doubtful-debts-service",
+      "path": "/provision-doubtful-debts",
+      "url": "http://localhost:9003",
+      "port": 8109,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "provisions-contingencies-service",
+      "path": "/provisions-contingencies",
+      "url": "http://localhost:9011",
+      "port": 8205,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "purchases-ledger-control-service",
+      "path": "/purchases-ledger-control",
+      "url": "http://localhost:9002",
+      "port": 8110,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "r-and-d-tax-service",
+      "path": "/r-and-d-tax",
+      "url": "http://localhost:9004",
+      "port": 8111,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "ratio-analysis-service",
+      "path": "/ratio-analysis",
+      "url": "http://localhost:9007",
+      "port": 8348,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "realtime-calculation-engine",
+      "path": "/realtime-calculation",
+      "url": "http://localhost:9013",
+      "port": 8112,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "regulatory-compliance-service",
+      "path": "/regulatory-compliance",
+      "url": "http://localhost:9004",
+      "port": 8285,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "regulatory-ratio-service",
+      "path": "/regulatory-ratio",
+      "url": "http://localhost:9007",
+      "port": 8229,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "regulatory-reporting-service",
+      "path": "/regulatory-reporting",
+      "url": "http://localhost:9002",
+      "port": 8351,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "related-party-service",
+      "path": "/related-party",
+      "url": "http://localhost:9011",
+      "port": 8204,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "report-automation-service",
+      "path": "/report-automation",
+      "url": "http://localhost:9002",
+      "port": 8272,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "report-distribution-service",
+      "path": "/report-distribution",
+      "url": "http://localhost:9002",
+      "port": 8273,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "reporting-service",
+      "path": "/reporting",
+      "url": "http://localhost:9002",
+      "port": 8361,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "retained-profits-service",
+      "path": "/retained-profits",
+      "url": "http://localhost:9011",
+      "port": 8113,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "revaluation-model-service",
+      "path": "/revaluation-model",
+      "url": "http://localhost:9011",
+      "port": 8144,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "revaluation-reserve-service",
+      "path": "/revaluation-reserve",
+      "url": "http://localhost:9011",
+      "port": 8114,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "revenue-recognition-service",
+      "path": "/revenue-recognition",
+      "url": "http://localhost:9011",
+      "port": 8115,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "right-issues-service",
+      "path": "/right-issues",
+      "url": "http://localhost:9011",
+      "port": 8116,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "risk-assessment-service",
+      "path": "/risk-assessment",
+      "url": "http://localhost:9005",
+      "port": 8117,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "risk-mitigation-service",
+      "path": "/risk-mitigation",
+      "url": "http://localhost:9005",
+      "port": 8118,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "risk-reporting-service",
+      "path": "/risk-reporting",
+      "url": "http://localhost:9002",
+      "port": 8119,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "risk-return-analysis-service",
+      "path": "/risk-return-analysis",
+      "url": "http://localhost:9005",
+      "port": 8236,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "rolling-forecast-service",
+      "path": "/rolling-forecast",
+      "url": "http://localhost:9012",
+      "port": 8173,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "sales-ledger-control-service",
+      "path": "/sales-ledger-control",
+      "url": "http://localhost:9002",
+      "port": 8120,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "sales-price-variance-service",
+      "path": "/sales-price-variance",
+      "url": "http://localhost:9001",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "sales-volume-variance-service",
+      "path": "/sales-volume-variance",
+      "url": "http://localhost:9001",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "scenario-analysis-service",
+      "path": "/scenario-analysis",
+      "url": "http://localhost:9012",
+      "port": 8121,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "scenario-budget-service",
+      "path": "/scenario-budget",
+      "url": "http://localhost:9001",
+      "port": 8175,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "scenario-modeling-service",
+      "path": "/scenario-modeling",
+      "url": "http://localhost:8122",
+      "port": 8122,
+      "auth_required": true
+    },
+    {
+      "name": "segment-reporting-service",
+      "path": "/segment-reporting",
+      "url": "http://localhost:9002",
+      "port": 8374,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "selling-price-reduction-service",
+      "path": "/selling-price-reduction",
+      "url": "http://localhost:9010",
+      "port": 8123,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "sensitivity-analysis-service",
+      "path": "/sensitivity-analysis",
+      "url": "http://localhost:9012",
+      "port": 8124,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "share-options-service",
+      "path": "/share-options",
+      "url": "http://localhost:9011",
+      "port": 8223,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "share-premium-service",
+      "path": "/share-premium",
+      "url": "http://localhost:9011",
+      "port": 8125,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "share-redemption-service",
+      "path": "/share-redemption",
+      "url": "http://localhost:9011",
+      "port": 8126,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "sovereign-treasury-service",
+      "path": "/sovereign-treasury",
+      "url": "http://localhost:9003",
+      "port": 8127,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "sox-compliance-service",
+      "path": "/sox-compliance",
+      "url": "http://localhost:9004",
+      "port": 8286,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "standard-cost-service",
+      "path": "/standard-cost",
+      "url": "http://localhost:9001",
+      "port": 8128,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "statutory-filing-service",
+      "path": "/statutory-filing",
+      "url": "http://localhost:9011",
+      "port": 8227,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "subscription-plans-service",
+      "path": "/subscription-plans",
+      "url": "http://localhost:9009",
+      "port": 8001,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "substantive-testing-service",
+      "path": "/substantive-testing",
+      "url": "http://localhost:9011",
+      "port": 8198,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "suspense-error-service",
+      "path": "/suspense-error",
+      "url": "http://localhost:9011",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "sustainable-growth-service",
+      "path": "/sustainable-growth",
+      "url": "http://localhost:9012",
+      "port": 8215,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "swap-valuation-service",
+      "path": "/swap-valuation",
+      "url": "http://localhost:9012",
+      "port": 8249,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "synergy-analysis-service",
+      "path": "/synergy-analysis",
+      "url": "http://localhost:9012",
+      "port": 8243,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "target-costing-service",
+      "path": "/target-costing",
+      "url": "http://localhost:9001",
+      "port": 8183,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "tax-accounting-service",
+      "path": "/tax-accounting",
+      "url": "http://localhost:9004",
+      "port": 8129,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "tax-audit-service",
+      "path": "/tax-audit",
+      "url": "http://localhost:9004",
+      "port": 8130,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "tax-calculation-service",
+      "path": "/tax-calculation",
+      "url": "http://localhost:9004",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "tax-compliance-service",
+      "path": "/tax-compliance",
+      "url": "http://localhost:9004",
+      "port": 8293,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "tax-planning-service",
+      "path": "/tax-planning",
+      "url": "http://localhost:9004",
+      "port": 8292,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "tax-provision-service",
+      "path": "/tax-provision",
+      "url": "http://localhost:9004",
+      "port": 8131,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "tax-return-preparation-service",
+      "path": "/tax-return-preparation",
+      "url": "http://localhost:9004",
+      "port": 8228,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "tax-risk-service",
+      "path": "/tax-risk",
+      "url": "http://localhost:9004",
+      "port": 8296,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "tax-service",
+      "path": "/tax",
+      "url": "http://localhost:9004",
+      "port": 8346,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "throughput-accounting-service",
+      "path": "/throughput-accounting",
+      "url": "http://localhost:9011",
+      "port": 8184,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "time-value-of-money-service",
+      "path": "/time-value-of-money",
+      "url": "http://localhost:9012",
+      "port": 8132,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "times-interest-earned-service",
+      "path": "/times-interest-earned",
+      "url": "http://localhost:9003",
+      "port": 8218,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "total-production-cost-service",
+      "path": "/total-production-cost",
+      "url": "http://localhost:9001",
+      "port": 8133,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "trade-finance-service",
+      "path": "/trade-finance",
+      "url": "http://localhost:9012",
+      "port": 8191,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "trading-account-service",
+      "path": "/trading-account",
+      "url": "http://localhost:9011",
+      "port": 8000,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "transfer-pricing-service",
+      "path": "/transfer-pricing",
+      "url": "http://localhost:9011",
+      "port": 8294,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "treasury-analytics-service",
+      "path": "/treasury-analytics",
+      "url": "http://localhost:9003",
+      "port": 8134,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "treasury-cash-service",
+      "path": "/treasury-cash",
+      "url": "http://localhost:9003",
+      "port": 8345,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "treasury-compliance-service",
+      "path": "/treasury-compliance",
+      "url": "http://localhost:9003",
+      "port": 8135,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "treasury-management-service",
+      "path": "/treasury-management",
+      "url": "http://localhost:9003",
+      "port": 8136,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "treasury-operations-service",
+      "path": "/treasury-operations",
+      "url": "http://localhost:9003",
+      "port": 8257,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "treasury-policy-service",
+      "path": "/treasury-policy",
+      "url": "http://localhost:9003",
+      "port": 8263,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "treasury-reporting-service",
+      "path": "/treasury-reporting",
+      "url": "http://localhost:9002",
+      "port": 8262,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "treasury-risk-service",
+      "path": "/treasury-risk",
+      "url": "http://localhost:9003",
+      "port": 8259,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "trial-balance-service",
+      "path": "/trial-balance",
+      "url": "http://localhost:9002",
+      "port": 8137,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "variable-cost-service",
+      "path": "/variable-cost",
+      "url": "http://localhost:9001",
+      "port": 8138,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "variance-service",
+      "path": "/variance",
+      "url": "http://localhost:9001",
+      "port": 8139,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "vat-reporting-service",
+      "path": "/vat-reporting",
+      "url": "http://localhost:9002",
+      "port": 8295,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "webhook-service",
+      "path": "/webhook",
+      "url": "http://localhost:9008",
+      "port": 8140,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "websocket-service",
+      "path": "/websocket",
+      "url": "http://localhost:9013",
+      "port": 8141,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "workflow-service",
+      "path": "/workflow",
+      "url": "http://localhost:8142",
+      "port": 8142,
+      "auth_required": true
+    },
+    {
+      "name": "working-capital-finance-service",
+      "path": "/working-capital-finance",
+      "url": "http://localhost:9012",
+      "port": 8190,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "working-capital-optimization-service",
+      "path": "/working-capital-optimization",
+      "url": "http://localhost:9012",
+      "port": 8168,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "working-capital-service",
+      "path": "/working-capital",
+      "url": "http://localhost:9012",
+      "port": 8237,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "xbrl-reporting-service",
+      "path": "/xbrl-reporting",
+      "url": "http://localhost:9002",
+      "port": 8274,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "zero-based-budget-service",
+      "path": "/zero-based-budget",
+      "url": "http://localhost:9001",
+      "port": 8176,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "zero-based-budgeting-service",
+      "path": "/zero-based-budgeting",
+      "url": "http://localhost:9001",
+      "port": 8143,
+      "auth_required": true,
+      "strip_prefix": false
+    },
+    {
+      "name": "zero-trust-data-service",
+      "path": "/zero-trust-data",
+      "url": "http://localhost:9013",
+      "port": 8002,
+      "auth_required": true,
+      "strip_prefix": false
+    }
+  ]
 }

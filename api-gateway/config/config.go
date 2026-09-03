@@ -15,6 +15,10 @@ type Route struct {
 	AuthRequired       bool
 	RateLimitPerSecond int // Per-route rate limit override (0 = use default)
 	RateLimitBurst     int // Per-route burst override (0 = use default)
+	// StripPrefix controls whether the route path prefix is stripped before
+	// proxying (legacy single-service behavior). Bracket services mount
+	// sub-apps at their full prefix, so their routes set strip_prefix=false.
+	StripPrefix bool
 }
 
 // RateLimitConfig holds global rate limiting configuration
@@ -182,6 +186,9 @@ func LoadRoutesFromFile(filePath string) []Route {
         URL          string `json:"url"`
         Port         int    `json:"port"`
         AuthRequired bool   `json:"auth_required"`
+        // StripPrefix defaults to true (legacy behavior) when the field is
+        // absent in services.json.
+        StripPrefix *bool `json:"strip_prefix"`
     }
 
     var config struct {
@@ -195,12 +202,17 @@ func LoadRoutesFromFile(filePath string) []Route {
 
     routes := make([]Route, 0, len(config.Services))
     for _, svc := range config.Services {
+        stripPrefix := true
+        if svc.StripPrefix != nil {
+            stripPrefix = *svc.StripPrefix
+        }
         routes = append(routes, Route{
             Path:               svc.Path,
             TargetURL:          svc.URL,
             AuthRequired:       svc.AuthRequired,
             RateLimitPerSecond: 0,
             RateLimitBurst:      0,
+            StripPrefix:        stripPrefix,
         })
     }
 

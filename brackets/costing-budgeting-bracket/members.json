@@ -1,0 +1,191 @@
+{
+  "bracket": "costing-budgeting-bracket",
+  "port": 9001,
+  "members": [
+    {
+      "path": "/absorption-costing",
+      "name": "absorption-costing-service",
+      "dir": "absorption-costing-service"
+    },
+    {
+      "path": "/absorption-costing-statement",
+      "name": "absorption-costing-statement-service",
+      "dir": "absorption-costing-statement-service"
+    },
+    {
+      "path": "/activity-based-budget",
+      "name": "activity-based-budget-service",
+      "dir": "activity-based-budget-service"
+    },
+    {
+      "path": "/activity-based-costing",
+      "name": "activity-based-costing-service",
+      "dir": "activity-based-costing-service"
+    },
+    {
+      "path": "/actual-cost",
+      "name": "actual-cost-service",
+      "dir": "actual-cost-service"
+    },
+    {
+      "path": "/appropriation-control",
+      "name": "appropriation-control-service",
+      "dir": "appropriation-control-service"
+    },
+    {
+      "path": "/balanced-scorecard",
+      "name": "balanced-scorecard-service",
+      "dir": "balanced-scorecard-service"
+    },
+    {
+      "path": "/budget",
+      "name": "budget-service",
+      "dir": "budget-service"
+    },
+    {
+      "path": "/budgeted-cost",
+      "name": "budgeted-cost-service",
+      "dir": "budgeted-cost-service"
+    },
+    {
+      "path": "/capital-budgeting",
+      "name": "capital-budgeting-service",
+      "dir": "capital-budgeting-service"
+    },
+    {
+      "path": "/capital-expenditure-budget",
+      "name": "capital-expenditure-budget-service",
+      "dir": "capital-expenditure-budget-service"
+    },
+    {
+      "path": "/cash-budget",
+      "name": "cash-budget-service",
+      "dir": "cash-budget-service"
+    },
+    {
+      "path": "/fixed-cost",
+      "name": "fixed-cost-service",
+      "dir": "fixed-cost-service"
+    },
+    {
+      "path": "/flexible-budget",
+      "name": "flexible-budget-service",
+      "dir": "flexible-budget-service"
+    },
+    {
+      "path": "/job-costing",
+      "name": "job-costing-service",
+      "dir": "job-costing-service"
+    },
+    {
+      "path": "/labour-cost-variance",
+      "name": "labour-cost-variance-service",
+      "dir": "labour-cost-variance-service"
+    },
+    {
+      "path": "/labour-efficiency-variance",
+      "name": "labour-efficiency-variance-service",
+      "dir": "labour-efficiency-variance-service"
+    },
+    {
+      "path": "/labour-rate-variance",
+      "name": "labour-rate-variance-service",
+      "dir": "labour-rate-variance-service"
+    },
+    {
+      "path": "/lifecycle-costing",
+      "name": "lifecycle-costing-service",
+      "dir": "lifecycle-costing-service"
+    },
+    {
+      "path": "/marginal-costing",
+      "name": "marginal-costing-service",
+      "dir": "marginal-costing-service"
+    },
+    {
+      "path": "/master-budget",
+      "name": "master-budget-service",
+      "dir": "master-budget-service"
+    },
+    {
+      "path": "/material-cost-variance",
+      "name": "material-cost-variance-service",
+      "dir": "material-cost-variance-service"
+    },
+    {
+      "path": "/material-price-variance",
+      "name": "material-price-variance-service",
+      "dir": "material-price-variance-service"
+    },
+    {
+      "path": "/material-usage-variance",
+      "name": "material-usage-variance-service",
+      "dir": "material-usage-variance-service"
+    },
+    {
+      "path": "/prime-cost",
+      "name": "prime-cost-service",
+      "dir": "prime-cost-service"
+    },
+    {
+      "path": "/process-costing",
+      "name": "process-costing-service",
+      "dir": "process-costing-service"
+    },
+    {
+      "path": "/product-costing",
+      "name": "product-costing-service",
+      "dir": "product-costing-service"
+    },
+    {
+      "path": "/sales-price-variance",
+      "name": "sales-price-variance-service",
+      "dir": "sales-price-variance-service"
+    },
+    {
+      "path": "/sales-volume-variance",
+      "name": "sales-volume-variance-service",
+      "dir": "sales-volume-variance-service"
+    },
+    {
+      "path": "/scenario-budget",
+      "name": "scenario-budget-service",
+      "dir": "scenario-budget-service"
+    },
+    {
+      "path": "/standard-cost",
+      "name": "standard-cost-service",
+      "dir": "standard-cost-service"
+    },
+    {
+      "path": "/target-costing",
+      "name": "target-costing-service",
+      "dir": "target-costing-service"
+    },
+    {
+      "path": "/total-production-cost",
+      "name": "total-production-cost-service",
+      "dir": "total-production-cost-service"
+    },
+    {
+      "path": "/variable-cost",
+      "name": "variable-cost-service",
+      "dir": "variable-cost-service"
+    },
+    {
+      "path": "/variance",
+      "name": "variance-service",
+      "dir": "variance-service"
+    },
+    {
+      "path": "/zero-based-budget",
+      "name": "zero-based-budget-service",
+      "dir": "zero-based-budget-service"
+    },
+    {
+      "path": "/zero-based-budgeting",
+      "name": "zero-based-budgeting-service",
+      "dir": "zero-based-budgeting-service"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ Tracks and records recovery of previously written-off bad debts.
 
 import os
 import uuid
+from enum import Enum
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -40,7 +41,7 @@ app.add_middleware(
 )
 
 
-class RecoveryStatus(str):
+class RecoveryStatus(str, Enum):
     PENDING = "pending"
     PARTIAL = "partial"
     COMPLETED = "completed"

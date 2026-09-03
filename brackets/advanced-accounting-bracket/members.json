@@ -1,0 +1,336 @@
+{
+  "bracket": "advanced-accounting-bracket",
+  "port": 9011,
+  "members": [
+    {
+      "path": "/accounting-standards",
+      "name": "accounting-standards-service",
+      "dir": "accounting-standards-service"
+    },
+    {
+      "path": "/basis-apportionment",
+      "name": "basis-apportionment-service",
+      "dir": "basis-apportionment-service"
+    },
+    {
+      "path": "/bonus-shares",
+      "name": "bonus-shares-service",
+      "dir": "bonus-shares-service"
+    },
+    {
+      "path": "/cashbook",
+      "name": "cashbook-service",
+      "dir": "cashbook-service"
+    },
+    {
+      "path": "/company-accounting",
+      "name": "company-accounting-service",
+      "dir": "company-accounting-service"
+    },
+    {
+      "path": "/consolidation",
+      "name": "consolidation-service",
+      "dir": "consolidation-service"
+    },
+    {
+      "path": "/construction-contracts",
+      "name": "construction-contracts-service",
+      "dir": "construction-contracts-service"
+    },
+    {
+      "path": "/continue-shutdown-decision",
+      "name": "continue-shutdown-decision-service",
+      "dir": "continue-shutdown-decision-service"
+    },
+    {
+      "path": "/control-account-reconciliation",
+      "name": "control-account-reconciliation-service",
+      "dir": "control-account-reconciliation-service"
+    },
+    {
+      "path": "/cost-accounting",
+      "name": "cost-accounting-service",
+      "dir": "cost-accounting-service"
+    },
+    {
+      "path": "/cost-centre",
+      "name": "cost-centre-service",
+      "dir": "cost-centre-service"
+    },
+    {
+      "path": "/departmental-accounting",
+      "name": "departmental-accounting-service",
+      "dir": "departmental-accounting-service"
+    },
+    {
+      "path": "/depreciation",
+      "name": "depreciation-service",
+      "dir": "depreciation-service"
+    },
+    {
+      "path": "/director-emoluments",
+      "name": "director-emoluments-service",
+      "dir": "director-emoluments-service"
+    },
+    {
+      "path": "/disposal-account",
+      "name": "disposal-account-service",
+      "dir": "disposal-account-service"
+    },
+    {
+      "path": "/disposal-group",
+      "name": "disposal-group-service",
+      "dir": "disposal-group-service"
+    },
+    {
+      "path": "/double-entry-principles",
+      "name": "double-entry-principles-service",
+      "dir": "double-entry-principles-service"
+    },
+    {
+      "path": "/equity-changes",
+      "name": "equity-changes-service",
+      "dir": "equity-changes-service"
+    },
+    {
+      "path": "/equivalent-units",
+      "name": "equivalent-units-service",
+      "dir": "equivalent-units-service"
+    },
+    {
+      "path": "/financial-identity",
+      "name": "financial-identity-service",
+      "dir": "financial-identity-service"
+    },
+    {
+      "path": "/financial-integrity",
+      "name": "financial-integrity-service",
+      "dir": "financial-integrity-service"
+    },
+    {
+      "path": "/fund-accounting",
+      "name": "fund-accounting-service",
+      "dir": "fund-accounting-service"
+    },
+    {
+      "path": "/general-reserve",
+      "name": "general-reserve-service",
+      "dir": "general-reserve-service"
+    },
+    {
+      "path": "/going-concern",
+      "name": "going-concern-service",
+      "dir": "going-concern-service"
+    },
+    {
+      "path": "/goodwill",
+      "name": "goodwill-service",
+      "dir": "goodwill-service"
+    },
+    {
+      "path": "/government-grants",
+      "name": "government-grants-service",
+      "dir": "government-grants-service"
+    },
+    {
+      "path": "/ifrs-15-revenue-recognition",
+      "name": "ifrs-15-revenue-recognition-service",
+      "dir": "ifrs-15-revenue-recognition-service"
+    },
+    {
+      "path": "/ifrs-16-lease-accounting",
+      "name": "ifrs-16-lease-accounting-service",
+      "dir": "ifrs-16-lease-accounting-service"
+    },
+    {
+      "path": "/ifrs-9-financial-instruments",
+      "name": "ifrs-9-financial-instruments-service",
+      "dir": "ifrs-9-financial-instruments-service"
+    },
+    {
+      "path": "/intangible-assets",
+      "name": "intangible-assets-service",
+      "dir": "intangible-assets-service"
+    },
+    {
+      "path": "/intercompany",
+      "name": "intercompany-service",
+      "dir": "intercompany-service"
+    },
+    {
+      "path": "/journal-entries",
+      "name": "journal-entries-service",
+      "dir": "journal-entries-service"
+    },
+    {
+      "path": "/lease-management",
+      "name": "lease-management-service",
+      "dir": "lease-management-service"
+    },
+    {
+      "path": "/lease-termination",
+      "name": "lease-termination-service",
+      "dir": "lease-termination-service"
+    },
+    {
+      "path": "/management-accounts",
+      "name": "management-accounts-service",
+      "dir": "management-accounts-service"
+    },
+    {
+      "path": "/net-realizable-value",
+      "name": "net-realizable-value-service",
+      "dir": "net-realizable-value-service"
+    },
+    {
+      "path": "/ordinary-shares",
+      "name": "ordinary-shares-service",
+      "dir": "ordinary-shares-service"
+    },
+    {
+      "path": "/over-under-absorption",
+      "name": "over-under-absorption-service",
+      "dir": "over-under-absorption-service"
+    },
+    {
+      "path": "/overhead-absorption-rate",
+      "name": "overhead-absorption-rate-service",
+      "dir": "overhead-absorption-rate-service"
+    },
+    {
+      "path": "/overhead-apportionment",
+      "name": "overhead-apportionment-service",
+      "dir": "overhead-apportionment-service"
+    },
+    {
+      "path": "/partnership-accounting",
+      "name": "partnership-accounting-service",
+      "dir": "partnership-accounting-service"
+    },
+    {
+      "path": "/partnership-agreement",
+      "name": "partnership-agreement-service",
+      "dir": "partnership-agreement-service"
+    },
+    {
+      "path": "/partnership-changes",
+      "name": "partnership-changes-service",
+      "dir": "partnership-changes-service"
+    },
+    {
+      "path": "/partnership-dissolution",
+      "name": "partnership-dissolution-service",
+      "dir": "partnership-dissolution-service"
+    },
+    {
+      "path": "/partnership-revaluation",
+      "name": "partnership-revaluation-service",
+      "dir": "partnership-revaluation-service"
+    },
+    {
+      "path": "/partnership-sale",
+      "name": "partnership-sale-service",
+      "dir": "partnership-sale-service"
+    },
+    {
+      "path": "/petty-cash",
+      "name": "petty-cash-service",
+      "dir": "petty-cash-service"
+    },
+    {
+      "path": "/preference-shares",
+      "name": "preference-shares-service",
+      "dir": "preference-shares-service"
+    },
+    {
+      "path": "/profit",
+      "name": "profit-service",
+      "dir": "profit-service"
+    },
+    {
+      "path": "/profit-loss-account",
+      "name": "profit-loss-account-service",
+      "dir": "profit-loss-account-service"
+    },
+    {
+      "path": "/provisions-contingencies",
+      "name": "provisions-contingencies-service",
+      "dir": "provisions-contingencies-service"
+    },
+    {
+      "path": "/related-party",
+      "name": "related-party-service",
+      "dir": "related-party-service"
+    },
+    {
+      "path": "/retained-profits",
+      "name": "retained-profits-service",
+      "dir": "retained-profits-service"
+    },
+    {
+      "path": "/revaluation-model",
+      "name": "revaluation-model-service",
+      "dir": "revaluation-model-service"
+    },
+    {
+      "path": "/revaluation-reserve",
+      "name": "revaluation-reserve-service",
+      "dir": "revaluation-reserve-service"
+    },
+    {
+      "path": "/revenue-recognition",
+      "name": "revenue-recognition-service",
+      "dir": "revenue-recognition-service"
+    },
+    {
+      "path": "/right-issues",
+      "name": "right-issues-service",
+      "dir": "right-issues-service"
+    },
+    {
+      "path": "/share-options",
+      "name": "share-options-service",
+      "dir": "share-options-service"
+    },
+    {
+      "path": "/share-premium",
+      "name": "share-premium-service",
+      "dir": "share-premium-service"
+    },
+    {
+      "path": "/share-redemption",
+      "name": "share-redemption-service",
+      "dir": "share-redemption-service"
+    },
+    {
+      "path": "/statutory-filing",
+      "name": "statutory-filing-service",
+      "dir": "statutory-filing-service"
+    },
+    {
+      "path": "/substantive-testing",
+      "name": "substantive-testing-service",
+      "dir": "substantive-testing-service"
+    },
+    {
+      "path": "/suspense-error",
+      "name": "suspense-error-service",
+      "dir": "suspense-error-service"
+    },
+    {
+      "path": "/throughput-accounting",
+      "name": "throughput-accounting-service",
+      "dir": "throughput-accounting-service"
+    },
+    {
+      "path": "/trading-account",
+      "name": "trading-account-service",
+      "dir": "trading-account-service"
+    },
+    {
+      "path": "/transfer-pricing",
+      "name": "transfer-pricing-service",
+      "dir": "transfer-pricing-service"
+    }
+  ]
+}

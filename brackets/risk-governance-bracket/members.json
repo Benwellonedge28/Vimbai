@@ -1,0 +1,56 @@
+{
+  "bracket": "risk-governance-bracket",
+  "port": 9005,
+  "members": [
+    {
+      "path": "/corporate-governance",
+      "name": "corporate-governance-service",
+      "dir": "corporate-governance-service"
+    },
+    {
+      "path": "/fraud-risk-assessment",
+      "name": "fraud-risk-assessment-service",
+      "dir": "fraud-risk-assessment-service"
+    },
+    {
+      "path": "/internal-control-evaluation",
+      "name": "internal-control-evaluation-service",
+      "dir": "internal-control-evaluation-service"
+    },
+    {
+      "path": "/internal-controls-testing",
+      "name": "internal-controls-testing-service",
+      "dir": "internal-controls-testing-service"
+    },
+    {
+      "path": "/liquidity-risk",
+      "name": "liquidity-risk-service",
+      "dir": "liquidity-risk-service"
+    },
+    {
+      "path": "/market-risk",
+      "name": "market-risk-service",
+      "dir": "market-risk-service"
+    },
+    {
+      "path": "/operational-risk",
+      "name": "operational-risk-service",
+      "dir": "operational-risk-service"
+    },
+    {
+      "path": "/risk-assessment",
+      "name": "risk-assessment-service",
+      "dir": "risk-assessment-service"
+    },
+    {
+      "path": "/risk-mitigation",
+      "name": "risk-mitigation-service",
+      "dir": "risk-mitigation-service"
+    },
+    {
+      "path": "/risk-return-analysis",
+      "name": "risk-return-analysis-service",
+      "dir": "risk-return-analysis-service"
+    }
+  ]
+}

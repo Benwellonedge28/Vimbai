@@ -5,6 +5,7 @@ Manages purchases ledger control account and creditor transactions.
 
 import os
 import uuid
+from enum import Enum
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -40,7 +41,7 @@ app.add_middleware(
 )
 
 
-class TransactionType(str):
+class TransactionType(str, Enum):
     PURCHASE_INVOICE = "purchase_invoice"
     DEBIT_NOTE = "debit_note"
     PAYMENT = "payment"

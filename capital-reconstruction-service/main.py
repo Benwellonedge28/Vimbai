@@ -5,6 +5,7 @@ Manages capital reduction and reconstruction schemes.
 
 import os
 import uuid
+from enum import Enum
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -40,7 +41,7 @@ app.add_middleware(
 )
 
 
-class ReconstructionType(str):
+class ReconstructionType(str, Enum):
     SIMPLIFICATION = "simplification"
     FINANCIAL_RESTRUCTURING = "financial_restructuring"
     WRITE_OFF_EXCESS_CAPITAL = "write_off_excess_capital"

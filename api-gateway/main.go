@@ -230,7 +230,9 @@ func main() {
 			req.URL.Scheme = targetURL.Scheme
 			req.URL.Host = targetURL.Host
 			req.Host = targetURL.Host
-			req.URL.Path = strings.TrimPrefix(req.URL.Path, route.Path)
+			if route.StripPrefix {
+				req.URL.Path = strings.TrimPrefix(req.URL.Path, route.Path)
+			}
 			if _, ok := req.Header["User-Agent"]; !ok {
 				req.Header.Set("User-Agent", "Vimbai-API-Gateway")
 			}

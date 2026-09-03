@@ -1,0 +1,266 @@
+{
+  "bracket": "corporate-finance-bracket",
+  "port": 9012,
+  "members": [
+    {
+      "path": "/business-valuation",
+      "name": "business-valuation-service",
+      "dir": "business-valuation-service"
+    },
+    {
+      "path": "/capital-allocation",
+      "name": "capital-allocation-service",
+      "dir": "capital-allocation-service"
+    },
+    {
+      "path": "/capital-reconstruction",
+      "name": "capital-reconstruction-service",
+      "dir": "capital-reconstruction-service"
+    },
+    {
+      "path": "/capital-redemption-reserve",
+      "name": "capital-redemption-reserve-service",
+      "dir": "capital-redemption-reserve-service"
+    },
+    {
+      "path": "/cash-management",
+      "name": "cash-management-service",
+      "dir": "cash-management-service"
+    },
+    {
+      "path": "/cash-optimization",
+      "name": "cash-optimization-service",
+      "dir": "cash-optimization-service"
+    },
+    {
+      "path": "/cash-pooling",
+      "name": "cash-pooling-service",
+      "dir": "cash-pooling-service"
+    },
+    {
+      "path": "/commodity-hedging",
+      "name": "commodity-hedging-service",
+      "dir": "commodity-hedging-service"
+    },
+    {
+      "path": "/cost-of-capital",
+      "name": "cost-of-capital-service",
+      "dir": "cost-of-capital-service"
+    },
+    {
+      "path": "/croic",
+      "name": "croic-service",
+      "dir": "croic-service"
+    },
+    {
+      "path": "/cvp-analysis",
+      "name": "cvp-analysis-service",
+      "dir": "cvp-analysis-service"
+    },
+    {
+      "path": "/deal-structuring",
+      "name": "deal-structuring-service",
+      "dir": "deal-structuring-service"
+    },
+    {
+      "path": "/debentures",
+      "name": "debentures-service",
+      "dir": "debentures-service"
+    },
+    {
+      "path": "/discount-factor",
+      "name": "discount-factor-service",
+      "dir": "discount-factor-service"
+    },
+    {
+      "path": "/discounted-payback-period",
+      "name": "discounted-payback-period-service",
+      "dir": "discounted-payback-period-service"
+    },
+    {
+      "path": "/divestiture",
+      "name": "divestiture-service",
+      "dir": "divestiture-service"
+    },
+    {
+      "path": "/due-diligence",
+      "name": "due-diligence-service",
+      "dir": "due-diligence-service"
+    },
+    {
+      "path": "/eps",
+      "name": "eps-service",
+      "dir": "eps-service"
+    },
+    {
+      "path": "/eva",
+      "name": "eva-service",
+      "dir": "eva-service"
+    },
+    {
+      "path": "/exotic-derivatives",
+      "name": "exotic-derivatives-service",
+      "dir": "exotic-derivatives-service"
+    },
+    {
+      "path": "/financial-planning",
+      "name": "financial-planning-service",
+      "dir": "financial-planning-service"
+    },
+    {
+      "path": "/foreign-exchange",
+      "name": "foreign-exchange-service",
+      "dir": "foreign-exchange-service"
+    },
+    {
+      "path": "/fund-management",
+      "name": "fund-management-service",
+      "dir": "fund-management-service"
+    },
+    {
+      "path": "/futures-hedging",
+      "name": "futures-hedging-service",
+      "dir": "futures-hedging-service"
+    },
+    {
+      "path": "/household-finance",
+      "name": "household-finance-service",
+      "dir": "household-finance-service"
+    },
+    {
+      "path": "/insurance-claims",
+      "name": "insurance-claims-service",
+      "dir": "insurance-claims-service"
+    },
+    {
+      "path": "/limiting-factor",
+      "name": "limiting-factor-service",
+      "dir": "limiting-factor-service"
+    },
+    {
+      "path": "/liquidity-forecast",
+      "name": "liquidity-forecast-service",
+      "dir": "liquidity-forecast-service"
+    },
+    {
+      "path": "/liquidity-management",
+      "name": "liquidity-management-service",
+      "dir": "liquidity-management-service"
+    },
+    {
+      "path": "/make-or-buy-decision",
+      "name": "make-or-buy-decision-service",
+      "dir": "make-or-buy-decision-service"
+    },
+    {
+      "path": "/margin-safety",
+      "name": "margin-safety-service",
+      "dir": "margin-safety-service"
+    },
+    {
+      "path": "/merger-valuation",
+      "name": "merger-valuation-service",
+      "dir": "merger-valuation-service"
+    },
+    {
+      "path": "/mva",
+      "name": "mva-service",
+      "dir": "mva-service"
+    },
+    {
+      "path": "/net-present-value",
+      "name": "net-present-value-service",
+      "dir": "net-present-value-service"
+    },
+    {
+      "path": "/options-pricing",
+      "name": "options-pricing-service",
+      "dir": "options-pricing-service"
+    },
+    {
+      "path": "/payback-period",
+      "name": "payback-period-service",
+      "dir": "payback-period-service"
+    },
+    {
+      "path": "/personal-finance",
+      "name": "personal-finance-service",
+      "dir": "personal-finance-service"
+    },
+    {
+      "path": "/portfolio-optimization",
+      "name": "portfolio-optimization-service",
+      "dir": "portfolio-optimization-service"
+    },
+    {
+      "path": "/post-merger",
+      "name": "post-merger-service",
+      "dir": "post-merger-service"
+    },
+    {
+      "path": "/present-value",
+      "name": "present-value-service",
+      "dir": "present-value-service"
+    },
+    {
+      "path": "/profitability-index",
+      "name": "profitability-index-service",
+      "dir": "profitability-index-service"
+    },
+    {
+      "path": "/rolling-forecast",
+      "name": "rolling-forecast-service",
+      "dir": "rolling-forecast-service"
+    },
+    {
+      "path": "/scenario-analysis",
+      "name": "scenario-analysis-service",
+      "dir": "scenario-analysis-service"
+    },
+    {
+      "path": "/sensitivity-analysis",
+      "name": "sensitivity-analysis-service",
+      "dir": "sensitivity-analysis-service"
+    },
+    {
+      "path": "/sustainable-growth",
+      "name": "sustainable-growth-service",
+      "dir": "sustainable-growth-service"
+    },
+    {
+      "path": "/swap-valuation",
+      "name": "swap-valuation-service",
+      "dir": "swap-valuation-service"
+    },
+    {
+      "path": "/synergy-analysis",
+      "name": "synergy-analysis-service",
+      "dir": "synergy-analysis-service"
+    },
+    {
+      "path": "/time-value-of-money",
+      "name": "time-value-of-money-service",
+      "dir": "time-value-of-money-service"
+    },
+    {
+      "path": "/trade-finance",
+      "name": "trade-finance-service",
+      "dir": "trade-finance-service"
+    },
+    {
+      "path": "/working-capital",
+      "name": "working-capital-service",
+      "dir": "working-capital-service"
+    },
+    {
+      "path": "/working-capital-finance",
+      "name": "working-capital-finance-service",
+      "dir": "working-capital-finance-service"
+    },
+    {
+      "path": "/working-capital-optimization",
+      "name": "working-capital-optimization-service",
+      "dir": "working-capital-optimization-service"
+    }
+  ]
+}

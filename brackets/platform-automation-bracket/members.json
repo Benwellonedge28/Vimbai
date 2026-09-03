@@ -1,0 +1,51 @@
+{
+  "bracket": "platform-automation-bracket",
+  "port": 9008,
+  "members": [
+    {
+      "path": "/admin",
+      "name": "admin-service",
+      "dir": "admin-service"
+    },
+    {
+      "path": "/alerts",
+      "name": "alerts-service",
+      "dir": "alerts-service"
+    },
+    {
+      "path": "/automation",
+      "name": "automation-engine",
+      "dir": "automation-engine"
+    },
+    {
+      "path": "/automation",
+      "name": "automation-engine-service",
+      "dir": "automation-engine-service"
+    },
+    {
+      "path": "/fixed-assets-schedule",
+      "name": "fixed-assets-schedule-service",
+      "dir": "fixed-assets-schedule-service"
+    },
+    {
+      "path": "/notifications",
+      "name": "notifications-service",
+      "dir": "notifications-service"
+    },
+    {
+      "path": "/offline-sync",
+      "name": "offline-sync-service",
+      "dir": "offline-sync-service"
+    },
+    {
+      "path": "/privacy-admin-dashboard",
+      "name": "privacy-admin-dashboard-service",
+      "dir": "privacy-admin-dashboard-service"
+    },
+    {
+      "path": "/webhook",
+      "name": "webhook-service",
+      "dir": "webhook-service"
+    }
+  ]
+}
