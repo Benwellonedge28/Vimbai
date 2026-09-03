@@ -1,7 +1,8 @@
 """
 Vimbai NPO Scale Service
 Lifecycle, scaling and donor-grade reporting for non-profits, plus
-size-banding for commercial organizations (sole trader -> enterprise).
+size-banding for commercial (sole trader -> enterprise) and
+partnership organizations (partner capital accounts, profit sharing).
 
 One service for every size of non-profit:
   * small          - community trust, savings club charity arm
@@ -69,7 +70,15 @@ app.add_middleware(
 
 SIZE_BANDS = ["small", "medium", "large", "extra_large"]
 
-ORG_TYPES = ["nonprofit", "commercial"]
+ORG_TYPES = ["nonprofit", "commercial", "partnership"]
+
+# Partnership revenue (USD) thresholds: small firm -> international LLP.
+BAND_REVENUE_THRESHOLDS_PARTNERSHIP = [
+    ("small", 500_000),
+    ("medium", 5_000_000),
+    ("large", 50_000_000),
+    ("extra_large", float("inf")),
+]
 
 # Commercial revenue (USD) thresholds: sole trader -> enterprise.
 BAND_REVENUE_THRESHOLDS_COMMERCIAL = [
@@ -153,6 +162,59 @@ APPROVAL_LIMITS: Dict[str, float] = {
 # the full business stack; non-profits keep their fund-accounting set.
 FEATURES: Dict[str, Dict[str, List[str]]] = {
     "nonprofit": FEATURES_BY_BAND,
+    # Partnerships: partner equity at every size, business stack as they grow
+    "partnership": {
+        "small": [
+            "partner_capital_accounts",
+            "profit_sharing",
+            "partner_draws",
+            "cash_book",
+            "sales_receipting",
+            "tax_calendar",
+        ],
+        "medium": [
+            "partner_capital_accounts",
+            "profit_sharing",
+            "partner_draws",
+            "cash_book",
+            "sales_receipting",
+            "tax_calendar",
+            "inventory_lite",
+            "payroll",
+            "multi_currency",
+        ],
+        "large": [
+            "partner_capital_accounts",
+            "profit_sharing",
+            "partner_draws",
+            "sales_receipting",
+            "inventory_lite",
+            "payroll",
+            "multi_currency",
+            "multi_entity",
+            "branch_hierarchy",
+            "consolidated_reporting",
+            "dual_approval_expenses",
+            "ifrs_reports",
+        ],
+        "extra_large": [
+            "partner_capital_accounts",
+            "profit_sharing",
+            "partner_draws",
+            "sales_receipting",
+            "inventory_lite",
+            "payroll",
+            "multi_currency",
+            "multi_entity",
+            "branch_hierarchy",
+            "consolidated_reporting",
+            "dual_approval_expenses",
+            "ifrs_reports",
+            "intercompany",
+            "group_consolidation",
+            "joint_venture_accounts",
+        ],
+    },
     "commercial": {
         "sole_trader": FEATURES_BY_BAND["sole_trader"],
         "small": FEATURES_BY_BAND["small"] + ["sales_receipting", "inventory_lite"],
@@ -185,7 +247,12 @@ def classify_band(
     Revenue is the primary signal; headcount and branch count push an
     organization up a band so growth is never blocked by classification.
     """
-    ladder = BAND_REVENUE_THRESHOLDS_COMMERCIAL if org_type == "commercial" else BAND_REVENUE_THRESHOLDS
+    ladder = BAND_REVENUE_THRESHOLDS
+    if org_type == "partnership":
+        # partnerships start at small: two or more partners by definition
+        ladder = BAND_REVENUE_THRESHOLDS_PARTNERSHIP
+    elif org_type == "commercial":
+        ladder = BAND_REVENUE_THRESHOLDS_COMMERCIAL
     band = ladder[0][0]
     for name, threshold in ladder:
         if annual_revenue < threshold:
@@ -236,6 +303,22 @@ CREATE TABLE IF NOT EXISTS donors (
     type TEXT DEFAULT 'individual',
     is_recurring INTEGER DEFAULT 0,
     created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS partners (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    capital_contribution REAL DEFAULT 0,
+    profit_share REAL DEFAULT 0,
+    status TEXT DEFAULT 'active',
+    joined_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS partner_draws (
+    id TEXT PRIMARY KEY,
+    org_id TEXT NOT NULL,
+    partner_id TEXT NOT NULL,
+    amount REAL NOT NULL,
+    drawn_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS revenues (
     id TEXT PRIMARY KEY,
@@ -505,6 +588,10 @@ def root():
             "GET  /orgs/{id}/branches",
             "POST /orgs/{id}/donors",
             "GET  /orgs/{id}/donors",
+            "POST /orgs/{id}/partners",
+            "GET  /orgs/{id}/partners",
+            "POST /orgs/{id}/partners/{pid}/draws",
+            "GET  /orgs/{id}/reports/capital-accounts",
             "POST /orgs/{id}/revenues",
             "GET  /orgs/{id}/revenues",
             "POST /orgs/{id}/donations",
@@ -540,7 +627,7 @@ def create_org(body: OrgCreate, user: str = Depends(current_user)):
     if body.org_type not in ORG_TYPES:
         raise HTTPException(
             status_code=400,
-            detail="org_type must be 'nonprofit' or 'commercial'",
+            detail="org_type must be nonprofit, commercial or partnership",
         )
     band = classify_band(body.annual_revenue, body.headcount, 0, body.org_type)
     with db() as conn:
@@ -675,10 +762,10 @@ def record_revenue(org_id: str, body: RevenueEntryCreate, user: str = Depends(cu
     revenue_id = str(uuid.uuid4())
     with db() as conn:
         org = require_org(conn, org_id)
-        if org["org_type"] != "commercial":
+        if org["org_type"] not in ("commercial", "partnership"):
             raise HTTPException(
                 status_code=400,
-                detail="Revenue entries are for commercial organizations",
+                detail="Revenue entries are for commercial/partnership orgs",
             )
         conn.execute(
             "INSERT INTO revenues (id, org_id, branch_id, source, customer,"
@@ -722,6 +809,132 @@ def list_revenues(org_id: str, user: str = Depends(current_user)):
             )
         )
     return {"service": SERVICE_NAME, "revenues": revenue_rows}
+
+
+# ---------------------------------------------------------------------------
+# Partnership equity: partners, draws, capital accounts
+# ---------------------------------------------------------------------------
+
+
+class PartnerCreate(BaseModel):
+    name: str
+    capital_contribution: float = 0
+    profit_share: float = 0
+
+
+class PartnerDrawCreate(BaseModel):
+    amount: float
+
+
+@app.post("/orgs/{org_id}/partners")
+def add_partner(org_id: str, body: PartnerCreate, user: str = Depends(current_user)):
+    with db() as conn:
+        org = require_org(conn, org_id)
+        if org["org_type"] != "partnership":
+            raise HTTPException(
+                status_code=400,
+                detail="Partners can only be added to partnership orgs",
+            )
+        if not 0 <= body.profit_share <= 100:
+            raise HTTPException(status_code=400, detail="profit_share must be 0-100")
+        partner_id = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO partners (id, org_id, name, capital_contribution,"
+            " profit_share, status, joined_at) VALUES (?,?,?,?,?, 'active',?)",
+            (partner_id, org_id, body.name, body.capital_contribution, body.profit_share, time.time()),
+        )
+    return {"service": SERVICE_NAME, "partner_id": partner_id}
+
+
+@app.get("/orgs/{org_id}/partners")
+def list_partners(org_id: str, user: str = Depends(current_user)):
+    with db() as conn:
+        require_org(conn, org_id)
+        partner_rows = rows(
+            conn.execute(
+                "SELECT * FROM partners WHERE org_id=? ORDER BY joined_at",
+                (org_id,),
+            )
+        )
+    return {"service": SERVICE_NAME, "partners": partner_rows}
+
+
+@app.post("/orgs/{org_id}/partners/{partner_id}/draws")
+def partner_draw(org_id: str, partner_id: str, body: PartnerDrawCreate, user: str = Depends(current_user)):
+    """A partner withdraws from their capital/profit share."""
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="amount must be positive")
+    with db() as conn:
+        require_org(conn, org_id)
+        p = conn.execute(
+            "SELECT * FROM partners WHERE id=? AND org_id=?",
+            (partner_id, org_id),
+        ).fetchone()
+        if p is None:
+            raise HTTPException(status_code=404, detail="Unknown partner")
+        conn.execute(
+            "INSERT INTO partner_draws (id, org_id, partner_id, amount," " drawn_at) VALUES (?,?,?,?,?)",
+            (str(uuid.uuid4()), org_id, partner_id, body.amount, time.time()),
+        )
+    return {"service": SERVICE_NAME, "status": "drawn"}
+
+
+@app.get("/orgs/{org_id}/reports/capital-accounts")
+def report_capital_accounts(org_id: str, user: str = Depends(current_user)):
+    """Statement of partners' capital accounts: contribution + share of
+    net income - draws, per partner. The report partners care about."""
+    with db() as conn:
+        org = require_org(conn, org_id)
+        if org["org_type"] != "partnership":
+            raise HTTPException(
+                status_code=400,
+                detail="Capital accounts are for partnership orgs",
+            )
+        partners = rows(
+            conn.execute(
+                "SELECT * FROM partners WHERE org_id=? AND status='active'",
+                (org_id,),
+            )
+        )
+        income = (
+            conn.execute(
+                "SELECT COALESCE(SUM(amount),0) t FROM revenues WHERE org_id=?",
+                (org_id,),
+            ).fetchone()["t"]
+            + conn.execute(
+                "SELECT COALESCE(SUM(amount),0) t FROM donations WHERE org_id=?",
+                (org_id,),
+            ).fetchone()["t"]
+            - conn.execute(
+                "SELECT COALESCE(SUM(amount),0) t FROM expenses WHERE org_id=?",
+                (org_id,),
+            ).fetchone()["t"]
+        )
+        total_share = sum(p["profit_share"] for p in partners)
+        # shares not summing to 100 are allocated proportionally
+        norm = total_share if total_share > 0 else 1.0
+        accounts = []
+        for p in partners:
+            draws = conn.execute(
+                "SELECT COALESCE(SUM(amount),0) t FROM partner_draws" " WHERE partner_id=?",
+                (p["id"],),
+            ).fetchone()["t"]
+            alloc = income * (p["profit_share"] / norm)
+            accounts.append(
+                {
+                    "partner": p["name"],
+                    "contribution": p["capital_contribution"],
+                    "profit_share_pct": p["profit_share"],
+                    "allocated_income": round(alloc, 2),
+                    "draws": draws,
+                    "capital_account": p["capital_contribution"] + alloc - draws,
+                }
+            )
+    return {
+        "service": SERVICE_NAME,
+        "net_income": income,
+        "accounts": accounts,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1056,7 +1269,7 @@ def report_activities(org_id: str, user: str = Depends(current_user), fiscal_yea
     with db() as conn:
         org = require_org(conn, org_id)
         w, args = _fy_where(fiscal_year)
-        if org["org_type"] == "commercial":
+        if org["org_type"] in ("commercial", "partnership"):
             revenue = conn.execute(
                 "SELECT source fund, SUM(amount) total FROM revenues" " WHERE org_id=?" + w + " GROUP BY source",
                 [org_id] + args,

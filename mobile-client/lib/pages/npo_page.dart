@@ -85,6 +85,12 @@ class _NpoPageState extends State<NpoPage> {
                   onChanged: (v) => setDialog(() => orgType = v ?? orgType),
                   title: const Text('Business'),
                 ),
+                RadioListTile<String>(
+                  value: 'partnership',
+                  groupValue: orgType,
+                  onChanged: (v) => setDialog(() => orgType = v ?? orgType),
+                  title: const Text('Partnership'),
+                ),
                 TextField(
                   controller: revenueCtrl,
                   keyboardType: TextInputType.number,

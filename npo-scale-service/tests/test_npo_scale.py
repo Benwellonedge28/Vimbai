@@ -364,3 +364,119 @@ def test_commercial_activities_report(biz):
     funds = {f["fund"]: f for f in r.json()["funds"]}
     assert funds["sale"]["revenue"] == 45.5
     assert r.json()["total_net"] == 45.5 - 250000
+
+
+# ---------------------------------------------------------------------------
+# Partnerships: small firm -> international LLP
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def firm():
+    r = client.post(
+        "/orgs",
+        json={
+            "name": "Mhlanga & Dube Legal Practice",
+            "org_type": "partnership",
+            "annual_revenue": 250_000,
+            "headcount": 6,
+        },
+        headers=hdr(),
+    )
+    assert r.status_code == 200, r.text
+    return r.json()["org"]["id"]
+
+
+def test_partnership_classified_small(firm):
+    f = client.get("/orgs/%s/features" % firm, headers=hdr()).json()
+    assert f["size_band"] == "small"
+    assert f["org_type"] == "partnership"
+    assert "partner_capital_accounts" in f["features"]
+    assert "profit_sharing" in f["features"]
+
+
+def test_partners_capital_and_profit_sharing(firm):
+    p1 = client.post(
+        "/orgs/%s/partners" % firm,
+        json={"name": "Mai Mhlanga", "capital_contribution": 10000, "profit_share": 60},
+        headers=hdr(),
+    ).json()["partner_id"]
+    p2 = client.post(
+        "/orgs/%s/partners" % firm,
+        json={"name": "Baba Dube", "capital_contribution": 5000, "profit_share": 40},
+        headers=hdr(),
+    ).json()["partner_id"]
+    partners = client.get("/orgs/%s/partners" % firm, headers=hdr()).json()["partners"]
+    assert len(partners) == 2
+
+    # revenue in, expenses out, then a draw
+    client.post(
+        "/orgs/%s/revenues" % firm,
+        json={"amount": 20000, "source": "service"},
+        headers=hdr(),
+    )
+    client.post(
+        "/orgs/%s/expenses" % firm,
+        json={"amount": 5000, "fund": "general", "approver1": "mhangapartner"},
+        headers=hdr(),
+    )
+    client.post(
+        "/orgs/%s/partners/%s/draws" % (firm, p1),
+        json={"amount": 3000},
+        headers=hdr(),
+    )
+
+    # capital accounts: net income 15000 split 60/40
+    r = client.get("/orgs/%s/reports/capital-accounts" % firm, headers=hdr()).json()
+    assert r["net_income"] == 15000
+    by_name = {a["partner"]: a for a in r["accounts"]}
+    mai = by_name["Mai Mhlanga"]
+    assert mai["allocated_income"] == 9000
+    assert mai["draws"] == 3000
+    assert mai["capital_account"] == 10000 + 9000 - 3000
+    dube = by_name["Baba Dube"]
+    assert dube["capital_account"] == 5000 + 6000
+
+
+def test_partner_rejected_for_commercial(biz):
+    r = client.post(
+        "/orgs/%s/partners" % biz,
+        json={"name": "Not A Partner"},
+        headers=hdr(),
+    )
+    assert r.status_code == 400
+
+
+def test_partnership_growth_to_large(firm):
+    r = client.patch(
+        "/orgs/%s" % firm,
+        json={"annual_revenue": 20_000_000},
+        headers=hdr(),
+    )
+    assert r.json()["size_band"] == "large"
+    f = client.get("/orgs/%s/features" % firm, headers=hdr()).json()
+    assert "joint_venture_accounts" not in f["features"]
+    r2 = client.patch(
+        "/orgs/%s" % firm,
+        json={"annual_revenue": 90_000_000},
+        headers=hdr(),
+    )
+    assert r2.json()["size_band"] == "extra_large"
+    f2 = client.get("/orgs/%s/features" % firm, headers=hdr()).json()
+    assert "joint_venture_accounts" in f2["features"]
+    assert "group_consolidation" in f2["features"]
+
+
+def test_invalid_profit_share_rejected(firm):
+    r = client.post(
+        "/orgs/%s/partners" % firm,
+        json={"name": "Greedy", "profit_share": 150},
+        headers=hdr(),
+    )
+    assert r.status_code == 400
+
+
+def test_partnership_activities_report(firm):
+    r = client.get("/orgs/%s/reports/activities" % firm, headers=hdr())
+    funds = {f["fund"]: f for f in r.json()["funds"]}
+    assert funds["service"]["revenue"] == 20000
