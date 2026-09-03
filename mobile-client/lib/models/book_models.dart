@@ -1,7 +1,7 @@
 // Book models for the Vimbai multi-audience Book system.
 //
 // A Book (Space) is the atomic unit for one audience: personal,
-// household, group or business. A user can hold different roles in
+// household, group, business or nonprofit (fund accounting). A user can hold different roles in
 // many Books on the same device - privileges are per-membership,
 // never global (book-design.md Ch. 35).
 
@@ -100,4 +100,5 @@ const List<String> kBookTiers = [
   'household',
   'group',
   'business',
+  'nonprofit',
 ];

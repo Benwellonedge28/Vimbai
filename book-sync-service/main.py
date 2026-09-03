@@ -59,7 +59,10 @@ VALID_ROLES = {
 WRITER_ROLES = {ROLE_OWNER, ROLE_ADMIN, ROLE_TREASURER, ROLE_BOOKKEEPER}
 
 # Audience tiers - configure which features a Book unlocks
-VALID_TIERS = {"personal", "household", "group", "business"}
+# (nonprofit = fund accounting / npo-service: restricted funds, donor
+# reporting, grants;  household = family/community shared budgets;
+# group = savings clubs & societies; business = full ~300-service stack)
+VALID_TIERS = {"personal", "household", "group", "business", "nonprofit"}
 
 app = FastAPI(
     title="Vimbai Book Sync Service",

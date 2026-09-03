@@ -236,6 +236,20 @@ def test_audit_log_records_actions(household_book):
     assert expected <= actions
 
 
+def test_nonprofit_book_tier(household_book):
+    r = client.post(
+        "/books",
+        json={
+            "name": "Tariro Community Trust",
+            "tier": "nonprofit",
+            "wrapped_book_key": "wrapped-for-npo",
+        },
+        headers=hdr(ALICE),
+    )
+    assert r.status_code == 200
+    assert r.json()["book"]["tier"] == "nonprofit"
+
+
 def test_personal_book_needs_no_key(household_book):
     r = client.post(
         "/books",

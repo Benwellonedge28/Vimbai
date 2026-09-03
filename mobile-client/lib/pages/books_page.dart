@@ -30,6 +30,7 @@ class _BooksPageState extends State<BooksPage> {
     'household': Icons.home,
     'group': Icons.groups,
     'business': Icons.business_center,
+    'nonprofit': Icons.volunteer_activism,
   };
 
   @override
