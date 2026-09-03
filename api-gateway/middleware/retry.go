@@ -43,7 +43,7 @@ func RetryMiddleware(config RetryConfig) echo.MiddlewareFunc {
 				// without significant custom implementations. This means if a non-idempotent request
 				// fails after partial writing, retrying might send a duplicate.
 				// For a true transparent retry with Echo, a custom HTTP client and RoundTripper would be better.
-				
+
 				err := next(c)
 				if err != nil {
 					lastErr = err

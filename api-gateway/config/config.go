@@ -38,21 +38,21 @@ type RouteRateLimit struct {
 
 // Config holds the entire application configuration
 type Config struct {
-	Port                          int
-	JwtSecret                     string
-	IdentityServiceURL            string
-	AccountingServiceURL          string
-	FinanceServiceURL             string
-	MultimodalServiceURL          string
-	BankingIntegrationServiceURL  string
-	SupplyChainServiceURL         string // RENAMED FROM InvoicingServiceURL
+	Port                         int
+	JwtSecret                    string
+	IdentityServiceURL           string
+	AccountingServiceURL         string
+	FinanceServiceURL            string
+	MultimodalServiceURL         string
+	BankingIntegrationServiceURL string
+	SupplyChainServiceURL        string // RENAMED FROM InvoicingServiceURL
 	FraudDetectionServiceURL     string
-	Routes                        []Route
-	RateLimit                     RateLimitConfig
+	Routes                       []Route
+	RateLimit                    RateLimitConfig
 }
 
 // LoadConfig loads configuration from environment variables
-// 
+//
 // Production services (330+) are loaded dynamically from config/services.json
 // via LoadRoutesFromFile(). The statically-defined routes below are for the
 // core services that have fixed URLs. New services are automatically proxied
@@ -70,10 +70,10 @@ func LoadConfig() *Config {
 	rateLimitBurst := getEnvInt("RATE_LIMIT_BURST", 200)
 
 	cfg := &Config{
-		Port:                          port,
-		JwtSecret:                     os.Getenv("JWT_SECRET"),
-		IdentityServiceURL:            getEnv("IDENTITY_SERVICE_URL", "http://localhost:8080"),
-		AccountingServiceURL:          getEnv("ACCOUNTING_SERVICE_URL", "http://localhost:8000"),
+		Port:                         port,
+		JwtSecret:                    os.Getenv("JWT_SECRET"),
+		IdentityServiceURL:           getEnv("IDENTITY_SERVICE_URL", "http://localhost:8080"),
+		AccountingServiceURL:         getEnv("ACCOUNTING_SERVICE_URL", "http://localhost:8000"),
 		FinanceServiceURL:            getEnv("FINANCE_SERVICE_URL", "http://localhost:8001"),
 		MultimodalServiceURL:         getEnv("MULTIMODAL_SERVICE_URL", "http://localhost:8002"),
 		BankingIntegrationServiceURL: getEnv("BANKING_INTEGRATION_SERVICE_URL", "http://localhost:8003"),
@@ -105,9 +105,9 @@ func LoadConfig() *Config {
 		{Path: "/banking-integration", TargetURL: cfg.BankingIntegrationServiceURL, AuthRequired: true},
 		{Path: "/banks", TargetURL: cfg.BankingIntegrationServiceURL, AuthRequired: true},
 		{Path: "/transactions", TargetURL: cfg.BankingIntegrationServiceURL, AuthRequired: true},
-		{Path: "/customers", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true}, // ROUTED TO NEW SERVICE
-		{Path: "/sales-invoices", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true}, // RENAMED ROUTE
-		{Path: "/suppliers", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true}, // NEW ROUTE
+		{Path: "/customers", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true},       // ROUTED TO NEW SERVICE
+		{Path: "/sales-invoices", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true},  // RENAMED ROUTE
+		{Path: "/suppliers", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true},       // NEW ROUTE
 		{Path: "/inventory-items", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true}, // NEW ROUTE
 		{Path: "/purchase-orders", TargetURL: cfg.SupplyChainServiceURL, AuthRequired: true}, // NEW ROUTE
 		{Path: "/fraud-detection", TargetURL: cfg.FraudDetectionServiceURL, AuthRequired: true},
@@ -170,52 +170,53 @@ func sanitizeEnvKey(key string) string {
 	result = strings.ToUpper(result)
 	return result
 }
+
 // LoadRoutesFromFile loads additional routes from a services.json configuration file.
 // This allows dynamic service registration without recompiling the gateway.
 // The file should be located at config/services.json relative to the gateway binary.
 func LoadRoutesFromFile(filePath string) []Route {
-    data, err := os.ReadFile(filePath)
-    if err != nil {
-        log.Printf("Warning: could not read services.json at %s: %v", filePath, err)
-        return nil
-    }
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		log.Printf("Warning: could not read services.json at %s: %v", filePath, err)
+		return nil
+	}
 
-    type serviceDef struct {
-        Name         string `json:"name"`
-        Path         string `json:"path"`
-        URL          string `json:"url"`
-        Port         int    `json:"port"`
-        AuthRequired bool   `json:"auth_required"`
-        // StripPrefix defaults to true (legacy behavior) when the field is
-        // absent in services.json.
-        StripPrefix *bool `json:"strip_prefix"`
-    }
+	type serviceDef struct {
+		Name         string `json:"name"`
+		Path         string `json:"path"`
+		URL          string `json:"url"`
+		Port         int    `json:"port"`
+		AuthRequired bool   `json:"auth_required"`
+		// StripPrefix defaults to true (legacy behavior) when the field is
+		// absent in services.json.
+		StripPrefix *bool `json:"strip_prefix"`
+	}
 
-    var config struct {
-        Services []serviceDef `json:"services"`
-    }
+	var config struct {
+		Services []serviceDef `json:"services"`
+	}
 
-    if err := json.Unmarshal(data, &config); err != nil {
-        log.Printf("Error parsing services.json: %v", err)
-        return nil
-    }
+	if err := json.Unmarshal(data, &config); err != nil {
+		log.Printf("Error parsing services.json: %v", err)
+		return nil
+	}
 
-    routes := make([]Route, 0, len(config.Services))
-    for _, svc := range config.Services {
-        stripPrefix := true
-        if svc.StripPrefix != nil {
-            stripPrefix = *svc.StripPrefix
-        }
-        routes = append(routes, Route{
-            Path:               svc.Path,
-            TargetURL:          svc.URL,
-            AuthRequired:       svc.AuthRequired,
-            RateLimitPerSecond: 0,
-            RateLimitBurst:      0,
-            StripPrefix:        stripPrefix,
-        })
-    }
+	routes := make([]Route, 0, len(config.Services))
+	for _, svc := range config.Services {
+		stripPrefix := true
+		if svc.StripPrefix != nil {
+			stripPrefix = *svc.StripPrefix
+		}
+		routes = append(routes, Route{
+			Path:               svc.Path,
+			TargetURL:          svc.URL,
+			AuthRequired:       svc.AuthRequired,
+			RateLimitPerSecond: 0,
+			RateLimitBurst:     0,
+			StripPrefix:        stripPrefix,
+		})
+	}
 
-    log.Printf("Loaded %d routes from services.json", len(routes))
-    return routes
+	log.Printf("Loaded %d routes from services.json", len(routes))
+	return routes
 }

@@ -1,10 +1,8 @@
 package handlers
 
 import (
-	"context" // NEW
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 

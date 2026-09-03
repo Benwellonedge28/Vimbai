@@ -23,7 +23,7 @@ type RateLimitConfig struct {
 // DefaultRateLimitConfig provides sensible defaults for rate limiting
 var DefaultRateLimitConfig = RateLimitConfig{
 	RequestsPerSecond: 100,
-	BurstSize:        200,
+	BurstSize:         200,
 	Enabled:           true,
 }
 
@@ -227,8 +227,8 @@ func RateLimitMiddleware(config RateLimitConfig) echo.MiddlewareFunc {
 				c.Response().Header().Set("Retry-After", strconv.Itoa(retryAfter))
 
 				return echo.NewHTTPError(http.StatusTooManyRequests, map[string]interface{}{
-					"detail":     "Rate limit exceeded. Please slow down your requests.",
-					"code":       "RATE_LIMIT_EXCEEDED",
+					"detail":      "Rate limit exceeded. Please slow down your requests.",
+					"code":        "RATE_LIMIT_EXCEEDED",
 					"retry_after": retryAfter,
 				})
 			}
@@ -281,10 +281,10 @@ func indexByte(s string, c byte) int {
 
 // RouteRateLimitConfig holds per-route rate limit overrides
 type RouteRateLimitConfig struct {
-	Path         string
+	Path              string
 	RequestsPerSecond int
-	BurstSize    int
-	Enabled      bool
+	BurstSize         int
+	Enabled           bool
 }
 
 // CustomRateLimitMiddleware creates rate limiting middleware with per-route overrides
@@ -296,8 +296,8 @@ func CustomRateLimitMiddleware(defaultConfig RateLimitConfig, routeOverrides []R
 		if override.Enabled {
 			routeLimiters[override.Path] = NewRateLimitConfig(RateLimitConfig{
 				RequestsPerSecond: override.RequestsPerSecond,
-				BurstSize:        override.BurstSize,
-				Enabled:          true,
+				BurstSize:         override.BurstSize,
+				Enabled:           true,
 			})
 		}
 	}

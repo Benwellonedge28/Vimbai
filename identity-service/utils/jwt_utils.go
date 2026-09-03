@@ -15,7 +15,7 @@ var jwtSecret = []byte(os.Getenv("JWT_SECRET")) // Must be set via environment v
 // Claims struct to hold custom claims for the JWT.
 type Claims struct {
 	UserID      string   `json:"user_id"`
-	Username    string `json:"username"`
+	Username    string   `json:"username"`
 	Role        string   `json:"role"`
 	Permissions []string `json:"permissions"`
 	jwt.StandardClaims

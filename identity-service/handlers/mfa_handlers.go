@@ -1,24 +1,18 @@
 package handlers
 
 import (
-	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base32"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"image/png"
-	"math/big"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/Benwellonedge28/Vimbai/identity-service/database"
-	"github.com/Benwellonedge28/Vimbai/identity-service/models"
 	"github.com/Benwellonedge28/Vimbai/identity-service/utils"
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 	"golang.org/x/crypto/bcrypt"
@@ -27,15 +21,15 @@ import (
 // MFA Configuration
 const (
 	// TOTP parameters
-	TOTPDigits     = 6
-	TOTPPeriod     = 30
-	TOTPSkew       = 1 // Allow 1 period before/after for clock drift
+	TOTPDigits = 6
+	TOTPPeriod = 30
+	TOTPSkew   = 1 // Allow 1 period before/after for clock drift
 )
 
 // MFAStore in-memory store (use Redis in production)
 var mfaStore = &MFAStore{
-	sessions:    make(map[string]*MFAEnrollmentSession),
-	attempts:    make(map[string]*AttemptTracker),
+	sessions: make(map[string]*MFAEnrollmentSession),
+	attempts: make(map[string]*AttemptTracker),
 }
 
 type MFAStore struct {
@@ -44,13 +38,13 @@ type MFAStore struct {
 }
 
 type MFAEnrollmentSession struct {
-	UserID        string
-	Secret        string
-	Method        string // "totp" or "sms"
-	PhoneNumber   string
-	BackupCodes   []string
-	CreatedAt     time.Time
-	ExpiresAt     time.Time
+	UserID      string
+	Secret      string
+	Method      string // "totp" or "sms"
+	PhoneNumber string
+	BackupCodes []string
+	CreatedAt   time.Time
+	ExpiresAt   time.Time
 }
 
 type AttemptTracker struct {
@@ -92,11 +86,11 @@ func GenerateMFASetup(w http.ResponseWriter, r *http.Request) {
 	// Return setup data
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"session_token":   sessionToken,
-		"secret":          secret,
-		"otp_auth_url":    otpAuthURL,
-		"backup_codes":    backupCodes,
-		"expires_in":      600, // 10 minutes
+		"session_token": sessionToken,
+		"secret":        secret,
+		"otp_auth_url":  otpAuthURL,
+		"backup_codes":  backupCodes,
+		"expires_in":    600, // 10 minutes
 	})
 }
 
@@ -127,10 +121,10 @@ func VerifyMFASetup(w http.ResponseWriter, r *http.Request) {
 	userID := session.UserID
 
 	// Save MFA data to database
-	session := database.Driver.NewSession(neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
-	defer session.Close()
+	dbSession := database.Driver.NewSession(neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	defer dbSession.Close()
 
-	_, err := session.WriteTransaction(func(tx neo4j.Transaction) (interface{}, error) {
+	_, err := dbSession.WriteTransaction(func(tx neo4j.Transaction) (interface{}, error) {
 		query := `
 			MATCH (u:User {id: $userID})
 			SET u.mfa_enabled = true,
@@ -142,9 +136,9 @@ func VerifyMFASetup(w http.ResponseWriter, r *http.Request) {
 			RETURN u.id
 		`
 		_, err := tx.Run(query, map[string]interface{}{
-			"userID":       userID,
-			"secret":       session.Secret,
-			"backupCodes":  strings.Join(session.BackupCodes, ","),
+			"userID":      userID,
+			"secret":      session.Secret,
+			"backupCodes": strings.Join(session.BackupCodes, ","),
 		})
 		return nil, err
 	})
@@ -209,13 +203,13 @@ func VerifyMFA(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		return map[string]interface{}{
-			"id":             record.GetByIndex(0),
-			"password_hash":  record.GetByIndex(1),
-			"mfa_enabled":    record.GetByIndex(2),
-			"mfa_secret":     record.GetByIndex(3),
+			"id":               record.GetByIndex(0),
+			"password_hash":    record.GetByIndex(1),
+			"mfa_enabled":      record.GetByIndex(2),
+			"mfa_secret":       record.GetByIndex(3),
 			"mfa_backup_codes": record.GetByIndex(4),
-			"roleName":       record.GetByIndex(5),
-			"permissions":    permissions,
+			"roleName":         record.GetByIndex(5),
+			"permissions":      permissions,
 		}, nil
 	})
 	dbSession.Close()
@@ -280,7 +274,7 @@ func VerifyMFA(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"token":       token,
+		"token":        token,
 		"mfa_verified": userMap["mfa_enabled"] == true,
 		"expires_in":   86400,
 	})
@@ -491,8 +485,8 @@ func updateBackupCodes(userID string, codes []string) {
 			SET u.mfa_backup_codes = $backupCodes
 		`
 		_, err := tx.Run(query, map[string]interface{}{
-			"userID":       userID,
-			"backupCodes":  strings.Join(codes, ","),
+			"userID":      userID,
+			"backupCodes": strings.Join(codes, ","),
 		})
 		return nil, err
 	})

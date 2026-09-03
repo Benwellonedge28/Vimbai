@@ -87,9 +87,19 @@ jobs:
             cd ${{ matrix.service }}
             PYTHONPATH=. python -m pytest tests/ -v --tb=short --cov=. --cov-report=xml --cov-report=term-missing || true
           else
-            # At least verify the module imports cleanly
+            # At least verify every .py file in the dir parses cleanly
+            # (covers non-service dirs like scripts/ and brackets/)
             cd ${{ matrix.service }}
-            python -c "import ast; ast.parse(open('main.py').read()); print('Syntax OK')"
+            python -c "
+import ast, pathlib, sys
+checked = 0
+for f in pathlib.Path('.').rglob('*.py'):
+    if '__pycache__' in f.parts:
+        continue
+    ast.parse(f.read_text(), filename=str(f))
+    checked += 1
+print(f'Syntax OK ({checked} files)')
+"
           fi
       - name: Upload Coverage
         if: always()

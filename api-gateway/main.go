@@ -75,7 +75,7 @@ func (prh *ProxyResilienceHandler) Handle(c echo.Context) error {
 
 	// --- Circuit Breaker & Retry Logic ---
 	var finalRecordedResp *responseRecorder // Stores the response from the successful/final retry
-	var lastErr error                        // Stores the last error from a retry attempt
+	var lastErr error                       // Stores the last error from a retry attempt
 
 	// Function that executes the actual proxy call, potentially retrying
 	resilientProxyCall := func() (interface{}, error) {
@@ -105,7 +105,7 @@ func (prh *ProxyResilienceHandler) Handle(c echo.Context) error {
 
 			// For non-retryable errors (e.g., 4xx, or non-retryable 5xx)
 			if recorder.Status >= 400 {
-				finalRecordedResp = recorder // Capture response for immediate return
+				finalRecordedResp = recorder                                                         // Capture response for immediate return
 				return backoff.Permanent(echo.NewHTTPError(recorder.Status, recorder.Body.String())) // Permanent error, stop retrying
 			}
 
@@ -122,7 +122,7 @@ func (prh *ProxyResilienceHandler) Handle(c echo.Context) error {
 
 		err := backoff.Retry(singleAttempt, backoff.WithMaxRetries(b, prh.retryCfg.MaxAttempts))
 		if err != nil {
-			lastErr = err // Capture the error that caused retry to stop
+			lastErr = err   // Capture the error that caused retry to stop
 			return nil, err // Return to circuit breaker to mark failure
 		}
 		return nil, nil // Successful response after possible retries
@@ -184,8 +184,8 @@ func main() {
 	if cfg.RateLimit.Enabled {
 		rateLimitConfig := middleware.RateLimitConfig{
 			RequestsPerSecond: cfg.RateLimit.RequestsPerSecond,
-			BurstSize:        cfg.RateLimit.BurstSize,
-			Enabled:          true,
+			BurstSize:         cfg.RateLimit.BurstSize,
+			Enabled:           true,
 		}
 		e.Use(middleware.RateLimitMiddleware(rateLimitConfig))
 		log.Printf("Rate limiting enabled: %d req/s, burst: %d\n", cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.BurstSize)

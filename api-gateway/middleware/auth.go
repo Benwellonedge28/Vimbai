@@ -1,10 +1,10 @@
 package middleware
 
 import (
-	"vimbai/api-gateway/config"
-	"vimbai/api-gateway/utils"
 	"net/http"
 	"strings"
+	"vimbai/api-gateway/config"
+	"vimbai/api-gateway/utils"
 
 	"github.com/labstack/echo/v4"
 )

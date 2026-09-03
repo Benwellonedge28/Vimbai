@@ -2,18 +2,15 @@ package handlers
 
 import (
 	"crypto/rand"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Benwellonedge28/Vimbai/identity-service/database"
@@ -242,7 +239,7 @@ func upsertOAuthUser(provider string, userInfo *models.OAuthUserInfo) (*models.U
 		`
 		res, err := tx.Run(query, map[string]interface{}{
 			"provider":   provider,
-			"providerID":  userInfo.ProviderID,
+			"providerID": userInfo.ProviderID,
 		})
 		if err != nil {
 			return nil, err
@@ -358,15 +355,15 @@ func OIDCDiscovery(w http.ResponseWriter, r *http.Request) {
 	issuer := getEnv("OIDC_ISSUER", "http://localhost:8080")
 
 	discovery := models.OIDCDiscovery{
-		Issuer:                           issuer,
+		Issuer:                            issuer,
 		AuthorizationEndpoint:             issuer + "/authorize",
-		TokenEndpoint:                    issuer + "/oauth/token",
-		UserInfoEndpoint:                 issuer + "/oauth/userinfo",
-		JwksURI:                          issuer + "/.well-known/jwks.json",
-		ResponseTypesSupported:           []string{"code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token"},
+		TokenEndpoint:                     issuer + "/oauth/token",
+		UserInfoEndpoint:                  issuer + "/oauth/userinfo",
+		JwksURI:                           issuer + "/.well-known/jwks.json",
+		ResponseTypesSupported:            []string{"code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token"},
 		SubjectTypesSupported:             []string{"public"},
-		IDTokenSigningAlgValuesSupported: []string{"RS256", "HS256"},
-		ScopesSupported:                  []string{"openid", "profile", "email"},
+		IDTokenSigningAlgValuesSupported:  []string{"RS256", "HS256"},
+		ScopesSupported:                   []string{"openid", "profile", "email"},
 		TokenEndpointAuthMethodsSupported: []string{"client_secret_post", "client_secret_basic"},
 		ClaimsSupported: []string{
 			"sub", "name", "given_name", "family_name", "preferred_username",
@@ -388,7 +385,7 @@ func JWKS(w http.ResponseWriter, r *http.Request) {
 				Kid: "vimbai-key-1",
 				Alg: "RS256",
 				N:   "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw",
-				E: "AQAB",
+				E:   "AQAB",
 			},
 		},
 	}
@@ -407,9 +404,9 @@ func generateSecureToken(length int) string {
 
 func getProviderDisplayName(name string) string {
 	names := map[string]string{
-		"google":     "Google",
-		"github":     "GitHub",
-		"microsoft":  "Microsoft",
+		"google":    "Google",
+		"github":    "GitHub",
+		"microsoft": "Microsoft",
 	}
 	if displayName, ok := names[name]; ok {
 		return displayName
@@ -475,5 +472,3 @@ func (s *OAuthSessionStore) Delete(token string) {
 	defer s.mu.Unlock()
 	delete(s.sessions, token)
 }
-
-import "sync"
