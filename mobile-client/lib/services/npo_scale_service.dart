@@ -209,6 +209,16 @@ class NpoScaleService {
     return _decode<Map<String, dynamic>>(r);
   }
 
+  /// Shareholders of a company/PLC org, with their public verify codes.
+  Future<List<Map<String, dynamic>>> getShareholders(String orgId) async {
+    final r = await _client.get(
+      _u('/orgs/$orgId/shareholders'),
+      headers: _headers,
+    );
+    final j = _decode<Map<String, dynamic>>(r);
+    return (j['shareholders'] as List).cast<Map<String, dynamic>>();
+  }
+
   /// Public receipt verification - lets a donor confirm a receipt.
   Future<bool> verifyReceipt(String token) async {
     final r = await _client.get(_u('/receipts/verify/$token'));

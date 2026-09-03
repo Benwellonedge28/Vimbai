@@ -320,6 +320,52 @@ class _NpoPageState extends State<NpoPage> {
     }
   }
 
+  Future<void> _showShareholders(NpoOrg org) async {
+    try {
+      final holders = await _npo.getShareholders(org.id);
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('${org.name} - shareholders'),
+          content: holders.isEmpty
+              ? const Text('No shareholders yet.')
+              : SizedBox(
+                  width: 320,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final h in holders)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Text(
+                              '${h['name']}: ${h['shares']} shares '
+                              '(${h['amount_paid']} paid in)\n'
+                              'Investor verify code: ${h['verify_code'] ?? 'not issued'}',
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Shareholders failed: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _addDonation(NpoOrg org) async {
     final nameCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
@@ -500,6 +546,9 @@ class _NpoPageState extends State<NpoPage> {
                                 if (v == 'purchase') _addPurchase(org);
                                 if (v == 'reports') _showReports(org);
                                 if (v == 'creditors') _showCreditors(org);
+                                if (v == 'shareholders') {
+                                  _showShareholders(org);
+                                }
                               },
                               itemBuilder: (ctx) => [
                                 if (org.orgType == 'commercial')
@@ -531,6 +580,12 @@ class _NpoPageState extends State<NpoPage> {
                                   value: 'creditors',
                                   child: Text('Creditors (owed)'),
                                 ),
+                                if (org.orgType == 'company' ||
+                                    org.orgType == 'plc')
+                                  const PopupMenuItem(
+                                    value: 'shareholders',
+                                    child: Text('Shareholders'),
+                                  ),
                               ],
                             ),
                           ),

@@ -774,3 +774,56 @@ def test_partnership_still_rejected_for_shareholders(firm):
         headers=hdr(),
     )
     assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# PDF receipts and the public investor view
+# ---------------------------------------------------------------------------
+
+
+def test_receipt_pdf_download(org):
+    receipts = client.get("/orgs/%s/receipts" % org, headers=hdr()).json()["receipts"]
+    rcp = receipts[0]
+    r = client.get("/orgs/%s/receipts/%s/pdf" % (org, rcp["id"]), headers=hdr())
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/pdf")
+    assert r.headers["content-disposition"].startswith("attachment")
+    assert r.content.startswith(b"%PDF-1.4")
+    assert b"endstream" in r.content and b"%%EOF" in r.content
+    assert b"/receipts/verify/%s" % str(rcp["token"]).encode() in r.content
+
+
+def test_public_investor_view(ltd):
+    """A shareholder verifies their own holding with a code only."""
+    sh = client.get("/orgs/%s/shareholders" % ltd, headers=hdr()).json()["shareholders"]
+    rudo = [s for s in sh if s["name"] == "Rudo Tariro"][0]
+    # shareholder created before verify codes existed: no code yet
+    assert rudo["verify_code"] is not None  # fixtures create fresh rows
+    v = client.get("/public/holdings/%s" % rudo["verify_code"])
+    assert v.status_code == 200, v.text
+    j = v.json()
+    assert j["valid"] is True
+    assert j["shareholder"] == "Rudo Tariro"
+    assert j["shares"] == 6000
+    assert j["percentage"] == 60.0  # 6000 of 10,000 shares
+    # dividends from the 1.00/share declaration (ltd fixture declared one)
+    assert j["total_dividends"] == 6000.0
+
+
+def test_public_investor_bad_code(plc):
+    r = client.get("/public/holdings/not-a-real-code")
+    assert r.status_code == 404
+
+
+def test_new_shareholder_gets_verify_code(plc):
+    r = client.post(
+        "/orgs/%s/shareholders" % plc,
+        json={"name": "Minority Holder", "shares": 5000, "amount_paid": 5000},
+        headers=hdr(),
+    )
+    assert r.status_code == 200
+    code = r.json()["verify_code"]
+    assert len(code) == 32
+    v = client.get("/public/holdings/%s" % code).json()
+    assert v["shareholder"] == "Minority Holder"
+    assert v["shares"] == 5000

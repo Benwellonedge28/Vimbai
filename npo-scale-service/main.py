@@ -5,7 +5,8 @@ size-banding for commercial (sole trader -> enterprise) and
 partnership organizations (partner capital accounts, profit sharing) and
 private limited companies (shareholders, directors, dividends, equity),
 public limited companies (listed-entity compliance),
-plus vendors/purchases/creditors for every organization type.
+plus vendors/purchases/creditors for every organization type, PDF
+receipts and a public investor view for shareholders.
 
 One service for every size of non-profit:
   * small          - community trust, savings club charity arm
@@ -35,7 +36,7 @@ from contextlib import contextmanager
 from typing import Dict, List, Optional
 
 import structlog
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -410,6 +411,7 @@ CREATE TABLE IF NOT EXISTS shareholders (
     shares INTEGER DEFAULT 0,
     share_class TEXT DEFAULT 'ordinary',
     amount_paid REAL DEFAULT 0,
+    verify_code TEXT,
     joined_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS dividends (
@@ -550,6 +552,10 @@ def init_db():
         conn.executescript(SCHEMA)
         try:
             conn.execute("ALTER TABLE orgs ADD COLUMN org_type TEXT NOT NULL" " DEFAULT 'nonprofit'")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+        try:
+            conn.execute("ALTER TABLE shareholders ADD COLUMN verify_code TEXT")
         except sqlite3.OperationalError:
             pass  # column already exists
 
@@ -709,6 +715,8 @@ def root():
             "POST /orgs/{id}/purchases",
             "POST /orgs/{id}/purchases/{pid}/pay",
             "GET  /orgs/{id}/reports/creditors",
+            "GET  /orgs/{id}/receipts/{rid}/pdf",
+            "GET  /public/holdings/{verify_code}",
             "POST /orgs/{id}/directors",
             "GET  /orgs/{id}/directors",
             "POST /orgs/{id}/shareholders",
@@ -1095,12 +1103,13 @@ def add_shareholder(org_id: str, body: ShareholderCreate, user: str = Depends(cu
                 detail="Shareholders are for company/PLC orgs",
             )
         sid = str(uuid.uuid4())
+        verify_code = uuid.uuid4().hex
         conn.execute(
             "INSERT INTO shareholders (id, org_id, name, shares, share_class,"
-            " amount_paid, joined_at) VALUES (?,?,?,?,?,?,?)",
-            (sid, org_id, body.name, body.shares, body.share_class, body.amount_paid, time.time()),
+            " amount_paid, verify_code, joined_at) VALUES (?,?,?,?,?,?,?,?)",
+            (sid, org_id, body.name, body.shares, body.share_class, body.amount_paid, verify_code, time.time()),
         )
-    return {"service": SERVICE_NAME, "shareholder_id": sid}
+    return {"service": SERVICE_NAME, "shareholder_id": sid, "verify_code": verify_code}
 
 
 class DirectorCreate(BaseModel):
@@ -1560,6 +1569,121 @@ def verify_receipt(token: str):
     if r is None:
         raise HTTPException(status_code=404, detail="Invalid receipt token")
     return {"service": SERVICE_NAME, "valid": True, "receipt": row(r)}
+
+
+def _pdf_escape(text: str) -> str:
+    """Make a string safe for a PDF literal."""
+    return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)").encode("ascii", "replace").decode("ascii")
+
+
+def _receipt_pdf(org_name: str, receipt) -> bytes:
+    """Build a real, dependency-free PDF for a receipt."""
+    issued = time.strftime("%Y-%m-%d", time.localtime(receipt["issued_at"]))
+    lines = [
+        (20, "OFFICIAL RECEIPT"),
+        (14, org_name),
+        (12, ""),
+        (12, "Receipt No: %s" % receipt["receipt_no"]),
+        (12, "Amount: %s %.2f" % (receipt["currency"], receipt["amount"])),
+        (12, "Date issued: %s" % issued),
+        (12, ""),
+        (12, "Verify this receipt at:"),
+        (10, "/receipts/verify/%s" % receipt["token"]),
+        (12, ""),
+        (10, "This receipt was issued by %s." % org_name),
+    ]
+    content = ["BT", "50 770 Td", "14 TL"]
+    for size, text in lines:
+        content.append("/F1 %d Tf" % size)
+        content.append("(%s) Tj" % _pdf_escape(text))
+        content.append("T*")
+    content.append("ET")
+    stream = "\n".join(content).encode("ascii")
+
+    objs = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]"
+        b" /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+        b"<< /Length %d >>\nstream\n%s\nendstream" % (len(stream), stream),
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for i, body in enumerate(objs, start=1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % i + body + b"\nendobj\n"
+    xref_at = len(out)
+    out += b"xref\n0 %d\n" % (len(objs) + 1)
+    out += b"0000000000 65535 f \n"
+    for off in offsets:
+        out += b"%010d 00000 n \n" % off
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF" % (len(objs) + 1, xref_at)
+    return bytes(out)
+
+
+@app.get("/orgs/{org_id}/receipts/{receipt_id}/pdf")
+def receipt_pdf(org_id: str, receipt_id: str, user: str = Depends(current_user)):
+    """Download a receipt as a real PDF the donor can keep or print."""
+    with db() as conn:
+        require_org(conn, org_id)
+        r = conn.execute(
+            "SELECT r.receipt_no, r.amount, r.currency, r.issued_at, r.token"
+            " FROM receipts r WHERE r.id=? AND r.org_id=?",
+            (receipt_id, org_id),
+        ).fetchone()
+        if r is None:
+            raise HTTPException(status_code=404, detail="Unknown receipt")
+        org_name = conn.execute("SELECT name FROM orgs WHERE id=?", (org_id,)).fetchone()["name"]
+    pdf = _receipt_pdf(org_name, r)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="%s.pdf"' % r["receipt_no"]},
+    )
+
+
+@app.get("/public/holdings/{verify_code}")
+def public_holdings(verify_code: str):
+    """Public investor view: a shareholder verifies their own holding -
+    shares, share class, capital and every dividend due - without seeing
+    the company's books. Same trust model as receipt verification."""
+    with db() as conn:
+        s = conn.execute(
+            "SELECT s.*, o.name org_name FROM shareholders s" " JOIN orgs o ON o.id = s.org_id WHERE s.verify_code=?",
+            (verify_code,),
+        ).fetchone()
+        if s is None:
+            raise HTTPException(status_code=404, detail="Invalid holding code")
+        total_shares = conn.execute(
+            "SELECT COALESCE(SUM(shares),0) t FROM shareholders" " WHERE org_id=?",
+            (s["org_id"],),
+        ).fetchone()["t"]
+        div_rows = conn.execute(
+            "SELECT per_share, total, declared_at FROM dividends" " WHERE org_id=? ORDER BY declared_at",
+            (s["org_id"],),
+        ).fetchall()
+        dividends = [
+            {
+                "per_share": d["per_share"],
+                "amount": d["per_share"] * s["shares"],
+                "declared_at": d["declared_at"],
+            }
+            for d in div_rows
+        ]
+    pct = (s["shares"] / total_shares * 100) if total_shares else 0.0
+    return {
+        "service": SERVICE_NAME,
+        "valid": True,
+        "org_name": s["org_name"],
+        "shareholder": s["name"],
+        "shares": s["shares"],
+        "share_class": s["share_class"],
+        "capital_paid": s["amount_paid"],
+        "percentage": round(pct, 2),
+        "total_dividends": sum(d["amount"] for d in dividends),
+        "dividends": dividends,
+    }
 
 
 # ---------------------------------------------------------------------------
