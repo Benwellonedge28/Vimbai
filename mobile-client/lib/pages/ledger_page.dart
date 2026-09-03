@@ -1,1 +1,123 @@
-import \'package:flutter/material.dart\';\nimport \'package:vimbai_mobile_client/services/accounting_api_service.dart\';\nimport \'package:vimbai_mobile_client/models/accounting_models.dart\';\n\nclass LedgerPage extends StatefulWidget {\n  const LedgerPage({super.key});\n\n  @override\n  State<LedgerPage> createState() => _LedgerPageState();\n}\n\nclass _LedgerPageState extends State<LedgerPage> {\n  final TextEditingController _accountNumberController = TextEditingController();\n  final AccountingApiService _apiService = AccountingApiService();\n  LedgerAccountBalance? _ledgerBalance;\n  bool _isLoading = false;\n  String? _errorMessage;\n\n  Future<void> _fetchLedgerBalance() async {\n    if (_accountNumberController.text.isEmpty) {\n      setState(() {\n        _errorMessage = \'Please enter an account number.\';\n        _ledgerBalance = null;\n      });\n      return;\n    }\n\n    setState(() {\n      _isLoading = true;\n      _errorMessage = null;\n      _ledgerBalance = null;\n    });\n\n    try {\n      final balance = await _apiService.getLedgerAccountBalance(_accountNumberController.text);\n      setState(() {\n        _ledgerBalance = balance;\n      });\n    } catch (e) {\n      setState(() {\n        _errorMessage = \'Error fetching ledger: ${e.toString()}\';\n      });\n    } finally {\n      setState(() {\n        _isLoading = false;\n      });\n    }\n  }\n\n  @override\n  Widget build(BuildContext context) {\n    return Scaffold(\n          appBar: AppBar(\n            title: const Text(\'Ledger Account Balance\'),\n          ),\n          body: Padding(\n            padding: const EdgeInsets.all(16.0),\n            child: Column(\n              children: [\n                TextField(\n                  controller: _accountNumberController,\n                  decoration: InputDecoration(\n                    labelText: \'Account Number\',\n                    suffixIcon: _isLoading\n                        ? const Padding(\n                            padding: EdgeInsets.all(8.0),\n                            child: CircularProgressIndicator(strokeWidth: 2),\n                          )\n                        : IconButton(\n                            icon: const Icon(Icons.search),\n                            onPressed: _fetchLedgerBalance,\n                          ),\n                  ),\n                  keyboardType: TextInputType.number,\n                ),\n                const SizedBox(height: 20),\n                if (_errorMessage != null)\n                  Text(_errorMessage!, style: const TextStyle(color: Colors.red)),\n                if (_ledgerBalance != null)\n                  Card(\n                    margin: const EdgeInsets.symmetric(vertical: 10),\n                    child: Padding(\n                      padding: const EdgeInsets.all(16.0),\n                      child: Column(\n                        crossAxisAlignment: CrossAxisAlignment.start,\n                        children: [\n                          Text(\'Account: ${_ledgerBalance!.accountNumber} - ${_ledgerBalance!.accountName}\',\n                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),\n                          Text(\'Type: ${_ledgerBalance!.accountType}\'),\n                          Text(\'Normal Balance: ${_ledgerBalance!.normalBalance}\'),\n                          Text(\'Current Balance: \$${_ledgerBalance!.currentBalance.toStringAsFixed(2)}\',\n                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),\n                        ],\n                      ),\n                    ),\n                  ),\n                const Spacer(),\n                ElevatedButton(\n                  onPressed: _fetchLedgerBalance,\n                  child: const Text(\'Fetch Balance\'),\n                ),\n              ],\n            ),\n          ),\n        );\n      }\n    }\n
+// mobile-client/lib/pages/ledger_page.dart
+
+import 'package:flutter/material.dart';
+import 'package:vimbai_mobile_client/services/accounting_api_service.dart';
+import 'package:vimbai_mobile_client/models/accounting_models.dart';
+
+class LedgerPage extends StatefulWidget {
+  const LedgerPage({super.key});
+
+  @override
+  State<LedgerPage> createState() => _LedgerPageState();
+}
+
+class _LedgerPageState extends State<LedgerPage> {
+  final TextEditingController _accountNumberController = TextEditingController();
+  final AccountingApiService _apiService = AccountingApiService();
+  LedgerAccountBalance? _ledgerBalance;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _accountNumberController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchLedgerBalance() async {
+    if (_accountNumberController.text.isEmpty) {
+      setState(() {
+        _errorMessage = 'Please enter an account number.';
+        _ledgerBalance = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _ledgerBalance = null;
+    });
+
+    try {
+      final balance = await _apiService.getLedgerAccountBalance(_accountNumberController.text.trim());
+      setState(() {
+        _ledgerBalance = balance;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error fetching ledger: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Ledger Account Balance'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _accountNumberController,
+              decoration: InputDecoration(
+                labelText: 'Account Number',
+                suffixIcon: _isLoading
+                    ? const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.search),
+                        onPressed: _fetchLedgerBalance,
+                      ),
+              ),
+              keyboardType: TextInputType.number,
+              onSubmitted: (_) => _fetchLedgerBalance(),
+            ),
+            const SizedBox(height: 20),
+            if (_errorMessage != null)
+              Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+            if (_ledgerBalance != null)
+              Card(
+                margin: const EdgeInsets.symmetric(vertical: 10),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Account: ${_ledgerBalance!.accountNumber} - ${_ledgerBalance!.accountName}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      Text('Type: ${_ledgerBalance!.accountType}'),
+                      Text('Normal Balance: ${_ledgerBalance!.normalBalance}'),
+                      Text(
+                        'Current Balance: \$${_ledgerBalance!.currentBalance.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _fetchLedgerBalance,
+                child: const Text('Fetch Balance'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

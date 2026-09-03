@@ -103,7 +103,7 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
                     validator: (value) => value!.isEmpty ? 'Required' : null,
                   ),
                   DropdownButtonFormField<String>(
-                    value: _accountType,
+                    initialValue: _accountType,
                     decoration: const InputDecoration(labelText: 'Account Type'),
                     items: <String>['checking', 'savings', 'credit_card', 'loan'].map((String value) {
                       return DropdownMenuItem<String>(value: value, child: Text(value));
@@ -170,7 +170,7 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
                       child: ListTile(
                         title: Text('${account.bankName} - ${account.accountName}'),
                         subtitle: Text('${account.accountType.toUpperCase()} | Balance: ${account.currency} ${account.currentBalance.toStringAsFixed(2)}'),
-                        trailing: Icon(account.isSynced ? Icons.sync_enabled : Icons.sync_disabled),
+                        trailing: Icon(account.isSynced ? Icons.sync : Icons.sync_disabled),
                         onTap: () {
                           Navigator.of(context).push(MaterialPageRoute(
                             builder: (context) => BankAccountDetailPage(bankAccount: account),

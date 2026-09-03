@@ -1,162 +1,94 @@
 // mobile-client/lib/services/sync_service.dart
+//
+// Periodic background sync between the local SQLite store and the
+// backend services. Pushes locally-created records first (so nothing
+// is lost), then pulls fresh server data to refresh the offline cache.
 
 import 'dart:async';
-import 'package:vimbai_mobile_client/local_db/local_database.dart'; // Assuming this exists
-import 'package:vimbai_mobile_client/services/auth_service.dart';
+import 'package:vimbai_mobile_client/local_db/database_helper.dart';
 import 'package:vimbai_mobile_client/services/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/services/multimodal_api_service.dart';
-// Import other API services as needed
+import 'package:vimbai_mobile_client/models/multimodal_models.dart';
 
 class SyncService {
-  final LocalDatabase _localDb;
-  final AuthService _authService;
-  final AccountingApiService _accountingApiService;
-  final MultimodalApiService _multimodalApiService;
-  // Add other API services
+  final DatabaseHelper _localDb = DatabaseHelper();
+  final AccountingApiService _accountingApiService = AccountingApiService();
+  final MultimodalApiService _multimodalApiService = MultimodalApiService();
 
   Timer? _syncTimer;
   bool _isSyncing = false;
 
-  // Configuration for sync
-  static const Duration _syncInterval = Duration(minutes: 5); // Sync every 5 minutes
+  static const Duration _syncInterval = Duration(minutes: 5);
 
-  SyncService({
-    required LocalDatabase localDb,
-    required AuthService authService,
-    required AccountingApiService accountingApiService,
-    required MultimodalApiService multimodalApiService,
-    // Add other services
-  }) : _localDb = localDb,
-       _authService = authService,
-       _accountingApiService = accountingApiService,
-       _multimodalApiService = multimodalApiService;
-
+  /// Starts the periodic sync timer.
   void startPeriodicSync() {
-    _syncTimer?.cancel(); // Cancel any existing timer
-    _syncTimer = Timer.periodic(_syncInterval, (timer) => syncAll());
-    print('Periodic sync started. Interval: ${_syncInterval.inMinutes} minutes.');
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(_syncInterval, (_) => syncAll());
   }
 
+  /// Stops the periodic sync timer.
   void stopPeriodicSync() {
     _syncTimer?.cancel();
     _syncTimer = null;
-    print('Periodic sync stopped.');
   }
 
+  /// Whether a sync cycle is currently running.
+  bool get isSyncing => _isSyncing;
+
+  /// Runs a full push-then-pull sync cycle. Safe to call repeatedly;
+  /// concurrent cycles are ignored while one is in flight.
   Future<void> syncAll() async {
-    if (_isSyncing) {
-      print('Sync already in progress. Skipping this cycle.');
-      return;
-    }
-    if (!await _authService.isAuthenticated()) {
-      print('User not authenticated. Skipping sync.');
-      return;
-    }
-
+    if (_isSyncing) return;
     _isSyncing = true;
-    print('Starting all data synchronization...');
-
     try {
       await _syncAccountingData();
       await _syncMultimodalData();
-      // Add other data sync methods here
-      print('All data synchronization completed successfully.');
     } catch (e) {
-      print('Error during full synchronization: $e');
-      // Implement robust error reporting/retry mechanisms
+      // Sync failures are expected while offline; the next cycle retries.
+      print('Sync cycle skipped: $e');
     } finally {
       _isSyncing = false;
     }
   }
 
   Future<void> _syncAccountingData() async {
-    print('Syncing Accounting data...');
-    // 1. Push local changes (e.g., new journal entries created offline)
-    final localJournalEntries = await _localDb.getUnsyncedJournalEntries();
-    for (var entry in localJournalEntries) {
+    // 1. Push local-only journal entries created while offline.
+    final unsynced = await _localDb.getUnsyncedJournalEntries();
+    for (final entry in unsynced) {
       try {
-        await _accountingApiService.createJournalEntry(entry);
-        await _localDb.markJournalEntryAsSynced(entry.id); // Assuming entry has an ID
-        print('Pushed local Journal Entry: ${entry.id}');
+        await _accountingApiService.pushJournalEntryToServer(entry);
       } catch (e) {
-        print('Failed to push Journal Entry ${entry.id}: $e');
-        // Handle conflicts or network issues: queue for retry, notify user
+        print('Failed to push journal entry ${entry.id}: $e');
       }
     }
 
-    // 2. Pull remote changes
-    final remoteJournalEntries = await _accountingApiService.getAllJournalEntries();
-    for (var remoteEntry in remoteJournalEntries) {
-      final localEntry = await _localDb.getJournalEntry(remoteEntry.id);
-      if (localEntry == null || remoteEntry.updatedAt.isAfter(localEntry.updatedAt)) {
-        await _localDb.saveJournalEntry(remoteEntry); // Overwrite or insert
-        print('Pulled remote Journal Entry: ${remoteEntry.id}');
-      } else if (localEntry.updatedAt.isAfter(remoteEntry.updatedAt) && !localEntry.isSynced) {
-        // Conflict: local is newer, remote is older, local not yet pushed
-        // Implement conflict resolution logic here (e.g., last-write-wins, merge, user choice)
-        print('Conflict detected for Journal Entry ${remoteEntry.id}. Local is newer.');
-        // For now, let's assume local takes precedence if unsynced, and it will be pushed in next cycle.
-      }
+    // 2. Pull remote journal entries (also refreshes the local cache).
+    try {
+      await _accountingApiService.getJournalEntries();
+    } catch (e) {
+      print('Failed to pull journal entries: $e');
     }
-    print('Accounting data sync finished.');
   }
 
   Future<void> _syncMultimodalData() async {
-    print('Syncing Multimodal data...');
-    // 1. Push local changes (e.g., new multimodal inputs, user corrections)
-    final localTasks = await _localDb.getUnsyncedMultimodalTasks();
-    for (var task in localTasks) {
+    final unsyncedTasks = await _localDb.getUnsyncedMultimodalTasks();
+    for (final task in unsyncedTasks) {
       try {
-        // Logic to decide between create or update
-        if (task.status == MultimodalProcessingStatus.received) { // Or another indicator for new task
-          await _multimodalApiService.createTask(MultimodalProcessingTaskCreate(
-            userId: task.userId,
-            inputType: task.inputType,
-            inputUrl: task.inputUrl,
-            inputRawText: task.inputRawText,
-            metadata: task.metadata,
-          ));
-        } else { // Assume it's an update if already exists locally and is not 'received'
-          await _multimodalApiService.updateTask(task.id, MultimodalProcessingTaskUpdate(
-            status: task.status, // Update status, e.g., 'user_corrected'
-            documentResult: task.documentResult, // Push user corrections
-            // ... other fields from update model
-          ));
-        }
+        await _multimodalApiService.createTask(MultimodalProcessingTaskCreate(
+          userId: task.userId,
+          inputType: task.inputType,
+          inputUrl: task.dataUrl,
+          inputRawText: task.rawText,
+          metadata: task.metadata,
+        ));
         await _localDb.markMultimodalTaskAsSynced(task.id);
-        print('Pushed local Multimodal Task: ${task.id}');
       } catch (e) {
-        print('Failed to push Multimodal Task ${task.id}: $e');
+        print('Failed to push multimodal task ${task.id}: $e');
       }
     }
-
-    final localCorrections = await _localDb.getUnsyncedUserCorrections();
-    for (var correction in localCorrections) {
-      try {
-        await _multimodalApiService.submitUserCorrection(correction.taskId, correction);
-        await _localDb.markUserCorrectionAsSynced(correction.id);
-        print('Pushed local User Correction: ${correction.id}');
-      } catch (e) {
-        print('Failed to push User Correction ${correction.id}: $e');
-      }
-    }
-
-    // 2. Pull remote changes
-    final remoteTasks = await _multimodalApiService.getAllTasks();
-    for (var remoteTask in remoteTasks) {
-      final localTask = await _localDb.getMultimodalTask(remoteTask.id);
-      if (localTask == null || remoteTask.updatedAt.isAfter(localTask.updatedAt)) {
-        await _localDb.saveMultimodalTask(remoteTask);
-        print('Pulled remote Multimodal Task: ${remoteTask.id}');
-      } // Conflict resolution for multimodal tasks would also go here
-    }
-    print('Multimodal data sync finished.');
   }
 
-  // Add other specific sync methods here
-
-  // Optional: manual trigger
-  Future<void> triggerManualSync() async {
-    await syncAll();
+  void dispose() {
+    stopPeriodicSync();
   }
 }

@@ -1,0 +1,456 @@
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
+MultimodalInput _$MultimodalInputFromJson(Map<String, dynamic> json) =>
+    MultimodalInput(
+      id: json['id'] as String,
+      userId: json['userId'] as String,
+      inputType: $enumDecode(_$MultimodalInputTypeEnumMap, json['inputType']),
+      dataUrl: json['dataUrl'] as String?,
+      rawText: json['rawText'] as String?,
+      status:
+          $enumDecodeNullable(
+            _$MultimodalProcessingStatusEnumMap,
+            json['status'],
+          ) ??
+          MultimodalProcessingStatus.received,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      metadata: json['metadata'] as Map<String, dynamic>? ?? const {},
+      processingTaskId: json['processingTaskId'] as String?,
+    );
+
+Map<String, dynamic> _$MultimodalInputToJson(MultimodalInput instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'userId': instance.userId,
+      'inputType': _$MultimodalInputTypeEnumMap[instance.inputType]!,
+      'dataUrl': instance.dataUrl,
+      'rawText': instance.rawText,
+      'status': _$MultimodalProcessingStatusEnumMap[instance.status]!,
+      'createdAt': instance.createdAt.toIso8601String(),
+      'updatedAt': instance.updatedAt.toIso8601String(),
+      'metadata': instance.metadata,
+      'processingTaskId': instance.processingTaskId,
+    };
+
+const _$MultimodalInputTypeEnumMap = {
+  MultimodalInputType.document: 'document',
+  MultimodalInputType.audio: 'audio',
+  MultimodalInputType.image: 'image',
+  MultimodalInputType.text: 'text',
+  MultimodalInputType.video: 'video',
+};
+
+const _$MultimodalProcessingStatusEnumMap = {
+  MultimodalProcessingStatus.received: 'received',
+  MultimodalProcessingStatus.processing: 'processing',
+  MultimodalProcessingStatus.aiExtracted: 'ai_extracted',
+  MultimodalProcessingStatus.reviewPending: 'review_pending',
+  MultimodalProcessingStatus.userCorrected: 'user_corrected',
+  MultimodalProcessingStatus.completed: 'completed',
+  MultimodalProcessingStatus.failed: 'failed',
+};
+
+ExtractedDataField _$ExtractedDataFieldFromJson(Map<String, dynamic> json) =>
+    ExtractedDataField(
+      name: json['name'] as String,
+      value: json['value'] as String,
+      confidence: (json['confidence'] as num?)?.toDouble(),
+      dataType: json['dataType'] as String? ?? 'string',
+      unit: json['unit'] as String?,
+      boundingBox: (json['boundingBox'] as List<dynamic>?)
+          ?.map((e) => (e as num).toDouble())
+          .toList(),
+      originalValue: json['originalValue'] as String?,
+    );
+
+Map<String, dynamic> _$ExtractedDataFieldToJson(ExtractedDataField instance) =>
+    <String, dynamic>{
+      'name': instance.name,
+      'value': instance.value,
+      'confidence': instance.confidence,
+      'dataType': instance.dataType,
+      'unit': instance.unit,
+      'boundingBox': instance.boundingBox,
+      'originalValue': instance.originalValue,
+    };
+
+DocumentParseResult _$DocumentParseResultFromJson(
+  Map<String, dynamic> json,
+) => DocumentParseResult(
+  rawText: json['rawText'] as String?,
+  extractedData:
+      (json['extractedData'] as List<dynamic>?)
+          ?.map((e) => ExtractedDataField.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const [],
+  aiConfidence: (json['aiConfidence'] as num?)?.toDouble(),
+  errors:
+      (json['errors'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      const [],
+);
+
+Map<String, dynamic> _$DocumentParseResultToJson(
+  DocumentParseResult instance,
+) => <String, dynamic>{
+  'rawText': instance.rawText,
+  'extractedData': instance.extractedData,
+  'aiConfidence': instance.aiConfidence,
+  'errors': instance.errors,
+};
+
+AudioParseResult _$AudioParseResultFromJson(
+  Map<String, dynamic> json,
+) => AudioParseResult(
+  transcribedText: json['transcribedText'] as String?,
+  extractedCommands:
+      (json['extractedCommands'] as List<dynamic>?)
+          ?.map((e) => ExtractedDataField.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const [],
+  aiConfidence: (json['aiConfidence'] as num?)?.toDouble(),
+  errors:
+      (json['errors'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      const [],
+);
+
+Map<String, dynamic> _$AudioParseResultToJson(AudioParseResult instance) =>
+    <String, dynamic>{
+      'transcribedText': instance.transcribedText,
+      'extractedCommands': instance.extractedCommands,
+      'aiConfidence': instance.aiConfidence,
+      'errors': instance.errors,
+    };
+
+ImageParseResult _$ImageParseResultFromJson(
+  Map<String, dynamic> json,
+) => ImageParseResult(
+  description: json['description'] as String?,
+  extractedObjects:
+      (json['extractedObjects'] as List<dynamic>?)
+          ?.map((e) => ExtractedDataField.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const [],
+  aiConfidence: (json['aiConfidence'] as num?)?.toDouble(),
+  errors:
+      (json['errors'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      const [],
+);
+
+Map<String, dynamic> _$ImageParseResultToJson(ImageParseResult instance) =>
+    <String, dynamic>{
+      'description': instance.description,
+      'extractedObjects': instance.extractedObjects,
+      'aiConfidence': instance.aiConfidence,
+      'errors': instance.errors,
+    };
+
+MultimodalProcessingTaskBase _$MultimodalProcessingTaskBaseFromJson(
+  Map<String, dynamic> json,
+) => MultimodalProcessingTaskBase(
+  userId: json['userId'] as String,
+  inputType: $enumDecode(_$MultimodalInputTypeEnumMap, json['inputType']),
+  inputUrl: json['inputUrl'] as String?,
+  inputRawText: json['inputRawText'] as String?,
+  status:
+      $enumDecodeNullable(
+        _$MultimodalProcessingStatusEnumMap,
+        json['status'],
+      ) ??
+      MultimodalProcessingStatus.received,
+  processingStartTime: json['processingStartTime'] == null
+      ? null
+      : DateTime.parse(json['processingStartTime'] as String),
+  processingEndTime: json['processingEndTime'] == null
+      ? null
+      : DateTime.parse(json['processingEndTime'] as String),
+  lastReviewRequestTime: json['lastReviewRequestTime'] == null
+      ? null
+      : DateTime.parse(json['lastReviewRequestTime'] as String),
+  documentResult: json['documentResult'] == null
+      ? null
+      : DocumentParseResult.fromJson(
+          json['documentResult'] as Map<String, dynamic>,
+        ),
+  audioResult: json['audioResult'] == null
+      ? null
+      : AudioParseResult.fromJson(json['audioResult'] as Map<String, dynamic>),
+  imageResult: json['imageResult'] == null
+      ? null
+      : ImageParseResult.fromJson(json['imageResult'] as Map<String, dynamic>),
+  suggestedJournalEntry: json['suggestedJournalEntry'] as Map<String, dynamic>?,
+  linkedFinaccEntityId: json['linkedFinaccEntityId'] as String?,
+  errors:
+      (json['errors'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      const [],
+  metadata: json['metadata'] as Map<String, dynamic>? ?? const {},
+  aiModelVersion: json['aiModelVersion'] as String? ?? "1.0",
+);
+
+Map<String, dynamic> _$MultimodalProcessingTaskBaseToJson(
+  MultimodalProcessingTaskBase instance,
+) => <String, dynamic>{
+  'userId': instance.userId,
+  'inputType': _$MultimodalInputTypeEnumMap[instance.inputType]!,
+  'inputUrl': instance.inputUrl,
+  'inputRawText': instance.inputRawText,
+  'status': _$MultimodalProcessingStatusEnumMap[instance.status]!,
+  'processingStartTime': instance.processingStartTime?.toIso8601String(),
+  'processingEndTime': instance.processingEndTime?.toIso8601String(),
+  'lastReviewRequestTime': instance.lastReviewRequestTime?.toIso8601String(),
+  'documentResult': instance.documentResult,
+  'audioResult': instance.audioResult,
+  'imageResult': instance.imageResult,
+  'suggestedJournalEntry': instance.suggestedJournalEntry,
+  'linkedFinaccEntityId': instance.linkedFinaccEntityId,
+  'errors': instance.errors,
+  'metadata': instance.metadata,
+  'aiModelVersion': instance.aiModelVersion,
+};
+
+MultimodalProcessingTaskCreate _$MultimodalProcessingTaskCreateFromJson(
+  Map<String, dynamic> json,
+) => MultimodalProcessingTaskCreate(
+  userId: json['userId'] as String,
+  inputType: $enumDecode(_$MultimodalInputTypeEnumMap, json['inputType']),
+  inputUrl: json['inputUrl'] as String?,
+  inputRawText: json['inputRawText'] as String?,
+  status:
+      $enumDecodeNullable(
+        _$MultimodalProcessingStatusEnumMap,
+        json['status'],
+      ) ??
+      MultimodalProcessingStatus.received,
+  processingStartTime: json['processingStartTime'] == null
+      ? null
+      : DateTime.parse(json['processingStartTime'] as String),
+  processingEndTime: json['processingEndTime'] == null
+      ? null
+      : DateTime.parse(json['processingEndTime'] as String),
+  lastReviewRequestTime: json['lastReviewRequestTime'] == null
+      ? null
+      : DateTime.parse(json['lastReviewRequestTime'] as String),
+  documentResult: json['documentResult'] == null
+      ? null
+      : DocumentParseResult.fromJson(
+          json['documentResult'] as Map<String, dynamic>,
+        ),
+  audioResult: json['audioResult'] == null
+      ? null
+      : AudioParseResult.fromJson(json['audioResult'] as Map<String, dynamic>),
+  imageResult: json['imageResult'] == null
+      ? null
+      : ImageParseResult.fromJson(json['imageResult'] as Map<String, dynamic>),
+  suggestedJournalEntry: json['suggestedJournalEntry'] as Map<String, dynamic>?,
+  linkedFinaccEntityId: json['linkedFinaccEntityId'] as String?,
+  errors:
+      (json['errors'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      const [],
+  metadata: json['metadata'] as Map<String, dynamic>? ?? const {},
+  aiModelVersion: json['aiModelVersion'] as String? ?? "1.0",
+);
+
+Map<String, dynamic> _$MultimodalProcessingTaskCreateToJson(
+  MultimodalProcessingTaskCreate instance,
+) => <String, dynamic>{
+  'userId': instance.userId,
+  'inputType': _$MultimodalInputTypeEnumMap[instance.inputType]!,
+  'inputUrl': instance.inputUrl,
+  'inputRawText': instance.inputRawText,
+  'status': _$MultimodalProcessingStatusEnumMap[instance.status]!,
+  'processingStartTime': instance.processingStartTime?.toIso8601String(),
+  'processingEndTime': instance.processingEndTime?.toIso8601String(),
+  'lastReviewRequestTime': instance.lastReviewRequestTime?.toIso8601String(),
+  'documentResult': instance.documentResult,
+  'audioResult': instance.audioResult,
+  'imageResult': instance.imageResult,
+  'suggestedJournalEntry': instance.suggestedJournalEntry,
+  'linkedFinaccEntityId': instance.linkedFinaccEntityId,
+  'errors': instance.errors,
+  'metadata': instance.metadata,
+  'aiModelVersion': instance.aiModelVersion,
+};
+
+MultimodalProcessingTaskUpdate _$MultimodalProcessingTaskUpdateFromJson(
+  Map<String, dynamic> json,
+) => MultimodalProcessingTaskUpdate(
+  status: $enumDecodeNullable(
+    _$MultimodalProcessingStatusEnumMap,
+    json['status'],
+  ),
+  processingStartTime: json['processingStartTime'] == null
+      ? null
+      : DateTime.parse(json['processingStartTime'] as String),
+  processingEndTime: json['processingEndTime'] == null
+      ? null
+      : DateTime.parse(json['processingEndTime'] as String),
+  lastReviewRequestTime: json['lastReviewRequestTime'] == null
+      ? null
+      : DateTime.parse(json['lastReviewRequestTime'] as String),
+  documentResult: json['documentResult'] == null
+      ? null
+      : DocumentParseResult.fromJson(
+          json['documentResult'] as Map<String, dynamic>,
+        ),
+  audioResult: json['audioResult'] == null
+      ? null
+      : AudioParseResult.fromJson(json['audioResult'] as Map<String, dynamic>),
+  imageResult: json['imageResult'] == null
+      ? null
+      : ImageParseResult.fromJson(json['imageResult'] as Map<String, dynamic>),
+  suggestedJournalEntry: json['suggestedJournalEntry'] as Map<String, dynamic>?,
+  linkedFinaccEntityId: json['linkedFinaccEntityId'] as String?,
+  errors: (json['errors'] as List<dynamic>?)?.map((e) => e as String).toList(),
+  metadata: json['metadata'] as Map<String, dynamic>?,
+  aiModelVersion: json['aiModelVersion'] as String?,
+);
+
+Map<String, dynamic> _$MultimodalProcessingTaskUpdateToJson(
+  MultimodalProcessingTaskUpdate instance,
+) => <String, dynamic>{
+  'status': _$MultimodalProcessingStatusEnumMap[instance.status],
+  'processingStartTime': instance.processingStartTime?.toIso8601String(),
+  'processingEndTime': instance.processingEndTime?.toIso8601String(),
+  'lastReviewRequestTime': instance.lastReviewRequestTime?.toIso8601String(),
+  'documentResult': instance.documentResult,
+  'audioResult': instance.audioResult,
+  'imageResult': instance.imageResult,
+  'suggestedJournalEntry': instance.suggestedJournalEntry,
+  'linkedFinaccEntityId': instance.linkedFinaccEntityId,
+  'errors': instance.errors,
+  'metadata': instance.metadata,
+  'aiModelVersion': instance.aiModelVersion,
+};
+
+MultimodalProcessingTaskInDB _$MultimodalProcessingTaskInDBFromJson(
+  Map<String, dynamic> json,
+) => MultimodalProcessingTaskInDB(
+  id: json['id'] as String,
+  userId: json['userId'] as String,
+  inputType: $enumDecode(_$MultimodalInputTypeEnumMap, json['inputType']),
+  inputUrl: json['inputUrl'] as String?,
+  inputRawText: json['inputRawText'] as String?,
+  status:
+      $enumDecodeNullable(
+        _$MultimodalProcessingStatusEnumMap,
+        json['status'],
+      ) ??
+      MultimodalProcessingStatus.received,
+  processingStartTime: json['processingStartTime'] == null
+      ? null
+      : DateTime.parse(json['processingStartTime'] as String),
+  processingEndTime: json['processingEndTime'] == null
+      ? null
+      : DateTime.parse(json['processingEndTime'] as String),
+  lastReviewRequestTime: json['lastReviewRequestTime'] == null
+      ? null
+      : DateTime.parse(json['lastReviewRequestTime'] as String),
+  documentResult: json['documentResult'] == null
+      ? null
+      : DocumentParseResult.fromJson(
+          json['documentResult'] as Map<String, dynamic>,
+        ),
+  audioResult: json['audioResult'] == null
+      ? null
+      : AudioParseResult.fromJson(json['audioResult'] as Map<String, dynamic>),
+  imageResult: json['imageResult'] == null
+      ? null
+      : ImageParseResult.fromJson(json['imageResult'] as Map<String, dynamic>),
+  suggestedJournalEntry: json['suggestedJournalEntry'] as Map<String, dynamic>?,
+  linkedFinaccEntityId: json['linkedFinaccEntityId'] as String?,
+  errors:
+      (json['errors'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      const [],
+  metadata: json['metadata'] as Map<String, dynamic>? ?? const {},
+  aiModelVersion: json['aiModelVersion'] as String? ?? "1.0",
+  createdAt: DateTime.parse(json['createdAt'] as String),
+  updatedAt: DateTime.parse(json['updatedAt'] as String),
+);
+
+Map<String, dynamic> _$MultimodalProcessingTaskInDBToJson(
+  MultimodalProcessingTaskInDB instance,
+) => <String, dynamic>{
+  'userId': instance.userId,
+  'inputType': _$MultimodalInputTypeEnumMap[instance.inputType]!,
+  'inputUrl': instance.inputUrl,
+  'inputRawText': instance.inputRawText,
+  'status': _$MultimodalProcessingStatusEnumMap[instance.status]!,
+  'processingStartTime': instance.processingStartTime?.toIso8601String(),
+  'processingEndTime': instance.processingEndTime?.toIso8601String(),
+  'lastReviewRequestTime': instance.lastReviewRequestTime?.toIso8601String(),
+  'documentResult': instance.documentResult,
+  'audioResult': instance.audioResult,
+  'imageResult': instance.imageResult,
+  'suggestedJournalEntry': instance.suggestedJournalEntry,
+  'linkedFinaccEntityId': instance.linkedFinaccEntityId,
+  'errors': instance.errors,
+  'metadata': instance.metadata,
+  'aiModelVersion': instance.aiModelVersion,
+  'id': instance.id,
+  'createdAt': instance.createdAt.toIso8601String(),
+  'updatedAt': instance.updatedAt.toIso8601String(),
+};
+
+UserCorrection _$UserCorrectionFromJson(Map<String, dynamic> json) =>
+    UserCorrection(
+      taskId: json['taskId'] as String,
+      userId: json['userId'] as String,
+      fieldName: json['fieldName'] as String,
+      originalValue: json['originalValue'] as String?,
+      correctedValue: json['correctedValue'] as String,
+      feedbackType: $enumDecode(
+        _$UserCorrectionTypeEnumMap,
+        json['feedbackType'],
+      ),
+      comment: json['comment'] as String?,
+      submittedAt: DateTime.parse(json['submittedAt'] as String),
+    );
+
+Map<String, dynamic> _$UserCorrectionToJson(UserCorrection instance) =>
+    <String, dynamic>{
+      'taskId': instance.taskId,
+      'userId': instance.userId,
+      'fieldName': instance.fieldName,
+      'originalValue': instance.originalValue,
+      'correctedValue': instance.correctedValue,
+      'feedbackType': _$UserCorrectionTypeEnumMap[instance.feedbackType]!,
+      'comment': instance.comment,
+      'submittedAt': instance.submittedAt.toIso8601String(),
+    };
+
+const _$UserCorrectionTypeEnumMap = {
+  UserCorrectionType.valueCorrection: 'value_correction',
+  UserCorrectionType.missingField: 'missing_field',
+  UserCorrectionType.incorrectCategory: 'incorrect_category',
+};
+
+UserCorrectionInDB _$UserCorrectionInDBFromJson(Map<String, dynamic> json) =>
+    UserCorrectionInDB(
+      id: json['id'] as String,
+      taskId: json['taskId'] as String,
+      userId: json['userId'] as String,
+      fieldName: json['fieldName'] as String,
+      originalValue: json['originalValue'] as String?,
+      correctedValue: json['correctedValue'] as String,
+      feedbackType: $enumDecode(
+        _$UserCorrectionTypeEnumMap,
+        json['feedbackType'],
+      ),
+      comment: json['comment'] as String?,
+      submittedAt: DateTime.parse(json['submittedAt'] as String),
+    );
+
+Map<String, dynamic> _$UserCorrectionInDBToJson(UserCorrectionInDB instance) =>
+    <String, dynamic>{
+      'taskId': instance.taskId,
+      'userId': instance.userId,
+      'fieldName': instance.fieldName,
+      'originalValue': instance.originalValue,
+      'correctedValue': instance.correctedValue,
+      'feedbackType': _$UserCorrectionTypeEnumMap[instance.feedbackType]!,
+      'comment': instance.comment,
+      'submittedAt': instance.submittedAt.toIso8601String(),
+      'id': instance.id,
+    };

@@ -7,7 +7,7 @@ import 'package:vimbai_mobile_client/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/services/multimodal_api_service.dart';
 import 'package:vimbai_mobile_client/services/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/local_db/local_database.dart';
-import 'package:decimal/decimal.dart'; // For Decimal type
+import 'package:vimbai_mobile_client/services/sync_service.dart';
 import 'package:uuid/uuid.dart'; // For generating unique IDs
 
 class MultimodalEntryWindow extends StatefulWidget {
@@ -112,6 +112,7 @@ class _MultimodalEntryWindowState extends State<MultimodalEntryWindow> {
       for (var field in _editableFields) {
         final correctedValue = _controllers[field.name]?.text;
         if (correctedValue != null && correctedValue != field.value) {
+          final correctionId = const Uuid().v4();
           final correction = UserCorrection(
             taskId: _task!.id,
             userId: _task!.userId,
@@ -123,7 +124,7 @@ class _MultimodalEntryWindowState extends State<MultimodalEntryWindow> {
           );
           // Save to local DB first (for offline support)
           await localDatabase.saveUserCorrection(UserCorrectionInDB(
-            id: Uuid().v4(), // Generate ID for local storage
+            id: correctionId, // Generate ID for local storage
             taskId: correction.taskId,
             userId: correction.userId,
             fieldName: correction.fieldName,
@@ -134,7 +135,7 @@ class _MultimodalEntryWindowState extends State<MultimodalEntryWindow> {
           ));
           // Attempt to submit to API. SyncService will handle if offline.
           await multimodalApiService.submitUserCorrection(_task!.id, correction);
-          await localDatabase.markUserCorrectionAsSynced(correction.id); // Mark as synced if successful
+          await localDatabase.markUserCorrectionAsSynced(correctionId); // Mark as synced if successful
         }
       }
 
@@ -168,28 +169,29 @@ class _MultimodalEntryWindowState extends State<MultimodalEntryWindow> {
 
     // Create Journal Lines (mock for now, need actual accounts)
     final entryDate = DateTime.parse(_controllers['date']?.text ?? _task!.suggestedJournalEntry!['date']);
-    final amount = Decimal.parse(_controllers['total_amount']?.text ?? _task!.suggestedJournalEntry!['amount']);
+    final amount = double.tryParse(_controllers['total_amount']?.text ?? '') ?? double.tryParse(_task!.suggestedJournalEntry!['amount']?.toString() ?? '') ?? 0.0;
     final description = _controllers['description']?.text ?? _task!.suggestedJournalEntry!['description'];
 
     // Simplified example: Debit an expense, Credit Cash/Bank
-    final journalEntryCreate = JournalEntryCreate(
+    final journalEntry = JournalEntry(
+      id: const Uuid().v4(),
       entryDate: entryDate,
       description: description,
       sourceModule: 'Multimodal', // Indicates origin
       lines: [
-        JournalLineCreate(accountNumber: '5000-Groceries', debit: amount, credit: Decimal.zero, description: description),
-        JournalLineCreate(accountNumber: '1010-Cash', debit: Decimal.zero, credit: amount, description: description),
+        JournalLine(accountNumber: '5000-Groceries', debit: amount, credit: 0.0, description: description),
+        JournalLine(accountNumber: '1010-Cash', debit: 0.0, credit: amount, description: description),
       ],
     );
 
     // Save to local DB first
     final localEntry = JournalEntryInDB(
       id: Uuid().v4(),
-      entryDate: journalEntryCreate.entryDate,
-      description: journalEntryCreate.description,
-      sourceModule: journalEntryCreate.sourceModule,
-      referenceNumber: journalEntryCreate.referenceNumber,
-      lines: journalEntryCreate.lines.map((e) => JournalLineInDB(
+      entryDate: journalEntry.entryDate,
+      description: journalEntry.description,
+      sourceModule: journalEntry.sourceModule,
+      referenceNumber: journalEntry.referenceNumber,
+      lines: journalEntry.lines.map((e) => JournalLineInDB(
         id: Uuid().v4(),
         accountNumber: e.accountNumber,
         debit: e.debit,
@@ -203,7 +205,7 @@ class _MultimodalEntryWindowState extends State<MultimodalEntryWindow> {
 
     // Then attempt to push to backend
     try {
-      final createdEntry = await accountingApiService.createJournalEntry(journalEntryCreate);
+      final createdEntry = await accountingApiService.createJournalEntry(journalEntry);
       await localDatabase.markJournalEntryAsSynced(localEntry.id); // Mark local as synced if successful
       print('Journal Entry created via API: ${createdEntry.id}');
       

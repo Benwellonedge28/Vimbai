@@ -52,7 +52,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       child: ListTile(
                         title: Text(budget.name),
-                        subtitle: Text('${budget.period} ${budget.fiscalYear} - Status: ${budget.status}'),
+                        subtitle: Text('${budget.startDate.toLocal().toString().split(' ')[0]} to ${budget.endDate.toLocal().toString().split(' ')[0]} (${budget.currency})'),
                         onTap: () {
                           // Navigate to budget detail page
                           Navigator.of(context).push(MaterialPageRoute(

@@ -1,23 +1,23 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:vimbai_mobile_client/models/user.dart';
+import 'package:vimbai_mobile_client/services/api_client.dart';
 import 'package:vimbai_mobile_client/local_db/user_local_data.dart';
 import 'package:vimbai_mobile_client/config.dart'; // For API URL
 
 class AuthService {
+  final ApiClient _client = ApiClient();
   // final String _baseUrl = AppConfig.apiUrl; // Old: Was identity service base URL
   final String _baseUrl = AppConfig.apiUrl; // NEW: Now it's the API Gateway URL
 
-  Future<Map<String, String>> _getHeaders() async {
-    final token = await UserLocalData.getAuthToken();
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
+  /// Auth token for outgoing API requests (null when logged out).
+  Future<String?> getToken() async {
+    return await UserLocalData.getAuthToken();
   }
 
   Future<bool> register(String username, String email, String password, String roleName) async {
-    final connectivityResult = await (Connectivity().checkConnectivity());
-    if (connectivityResult == ConnectivityResult.none) {
+    final connectivityResults = await Connectivity().checkConnectivity();
+    if (connectivityResults.contains(ConnectivityResult.none) || connectivityResults.isEmpty) {
       // Offline registration: Store locally and queue for sync
       print('Offline registration attempt: $username. Will sync later.');
       final tempUser = User(id: 'temp-${DateTime.now().millisecondsSinceEpoch}', username: username, email: email, role: roleName);
@@ -25,7 +25,7 @@ class AuthService {
       return true;
     } else {
       // Online registration
-      final response = await http.post(
+      final response = await _client.post(
         // Uri.parse('$_baseUrl/register'), // Old: direct identity service
         Uri.parse('$_baseUrl/identity/register'), // NEW: via API Gateway
         headers: {'Content-Type': 'application/json'},
@@ -50,9 +50,9 @@ class AuthService {
   }
 
   Future<bool> login(String username, String password) async {
-    final connectivityResult = await (Connectivity().checkConnectivity());
+    final connectivityResults = await Connectivity().checkConnectivity();
 
-    if (connectivityResult == ConnectivityResult.none) {
+    if (connectivityResults.contains(ConnectivityResult.none) || connectivityResults.isEmpty) {
       final localUser = await UserLocalData.getUser();
       if (localUser != null && localUser.username == username) {
         print('Offline login successful for $username.');
@@ -62,7 +62,7 @@ class AuthService {
       return false;
     }
 
-    final response = await http.post(
+    final response = await _client.post(
       // Uri.parse('$_baseUrl/login'), // Old: direct identity service
       Uri.parse('$_baseUrl/identity/login'), // NEW: via API Gateway
       headers: {'Content-Type': 'application/json'},

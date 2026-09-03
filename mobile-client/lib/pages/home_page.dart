@@ -3,18 +3,13 @@ import 'package:vimbai_mobile_client/services/auth_service.dart';
 import 'package:vimbai_mobile_client/pages/login_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/services/accounting_api_service.dart'; // NEW
-import 'package:vimbai_mobile_client/pages/chart_of_accounts_page.dart';
 import 'package:vimbai_mobile_client/pages/journal_entry_form_page.dart';
-import 'package:vimbai_mobile_client/pages/journal_entries_list_page.dart';
 import 'package:vimbai_mobile_client/pages/budgets_page.dart';
-import 'package:vimbai_mobile_client/pages/ledger_page.dart';
 import 'package:vimbai_mobile_client/pages/trial_balance_page.dart';
-import 'package:vimbai_mobile_client/pages/income_statement_page.dart';
 import 'package:vimbai_mobile_client/pages/balance_sheet_page.dart';
-import 'package:vimbai_mobile_client/pages/cash_flow_statement_page.dart';
 import 'package:vimbai_mobile_client/pages/multimodal_input_page.dart';
-import 'package:vimbai_mobile_client/pages/financial_ratios_page.dart';
 import 'package:vimbai_mobile_client/pages/bank_accounts_page.dart';
+import 'package:vimbai_mobile_client/pages/financial_ratios_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,18 +27,19 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _checkConnectivity();
-    Connectivity().onConnectivityChanged.listen((ConnectivityResult result) {
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
       setState(() {
-        _connectivityResult = result;
+        _connectivityResult = results.isEmpty ? ConnectivityResult.none : results.last;
       });
-      if (result != ConnectivityResult.none) { // NEW: Attempt sync when online
+      if (!results.contains(ConnectivityResult.none)) { // NEW: Attempt sync when online
         _syncOfflineData();
       }
     });
   }
 
   Future<void> _checkConnectivity() async {
-    _connectivityResult = await (Connectivity().checkConnectivity());
+    final results = await Connectivity().checkConnectivity();
+    _connectivityResult = results.isEmpty ? ConnectivityResult.none : results.last;
     setState(() {});
   }
 

@@ -27,7 +27,7 @@ class _RegisterPageState extends State<RegisterPage> {
     final email = _emailController.text;
     final password = _passwordController.text;
 
-    final success = await _authService.register(username, email, password);
+    final success = await _authService.register(username, email, password, 'user');
 
     setState(() {
       _isLoading = false;

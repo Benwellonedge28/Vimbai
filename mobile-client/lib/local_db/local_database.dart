@@ -2,7 +2,6 @@
 
 import 'package:vimbai_mobile_client/models/accounting_models.dart'; // Import Accounting models
 import 'package:vimbai_mobile_client/models/multimodal_models.dart'; // Import Multimodal models
-import 'package:flutter/foundation.dart'; // For @required if not null safety
 
 // Assume a local database package like Isar, Hive, or Sqflite is used.
 // This abstract class defines the interface for local data access.
@@ -35,6 +34,7 @@ abstract class LocalDatabase {
   Future<UserCorrectionInDB?> getUserCorrection(String id);
   Future<void> saveUserCorrection(UserCorrectionInDB correction);
   Future<void> markUserCorrectionAsSynced(String id);
+  Future<void> markAccountAsSynced(String accountNumber);
   // Future<void> deleteUserCorrection(String id);
 
   // Add methods for other entity types (e.g., BankConnection, etc.)

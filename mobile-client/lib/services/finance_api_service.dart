@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:vimbai_mobile_client/services/api_client.dart';
 import 'package:vimbai_mobile_client/local_db/user_local_data.dart';
 import 'package:vimbai_mobile_client/config.dart'; // For API URL
 import 'package:vimbai_mobile_client/models/finance_models.dart'; // Import Finance Models
@@ -8,6 +9,7 @@ import 'package:vimbai_mobile_client/local_db/database_helper.dart'; // For loca
 import 'package:uuid/uuid.dart'; // For generating UUIDs
 
 class FinanceApiService {
+  final ApiClient _client = ApiClient();
   final String _financeServiceUrl = '${AppConfig.apiUrl}/budgets'; // Use API Gateway path prefix for budgets
   final String _financialRatiosUrl = '${AppConfig.apiUrl}/financial-ratios'; // Use API Gateway path prefix for financial ratios
 
@@ -44,7 +46,7 @@ class FinanceApiService {
     // Try to send to remote
     try {
       final headers = await _getHeaders();
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$_financeServiceUrl/'),
         headers: headers,
         body: json.encode(budgetCreate.toJson()),
@@ -83,7 +85,7 @@ class FinanceApiService {
     }
 
     final headers = await _getHeaders();
-    final response = await http.get(Uri.parse('$_financeServiceUrl/'), headers: headers);
+    final response = await _client.get(Uri.parse('$_financeServiceUrl/'), headers: headers);
 
     if (response.statusCode == 200) {
       List<dynamic> budgetsJson = json.decode(response.body);
@@ -113,7 +115,7 @@ class FinanceApiService {
     }
 
     final headers = await _getHeaders();
-    final response = await http.get(Uri.parse('$_financeServiceUrl/$budgetId'), headers: headers);
+    final response = await _client.get(Uri.parse('$_financeServiceUrl/$budgetId'), headers: headers);
 
     if (response.statusCode == 200) {
       final remoteBudget = Budget.fromJson(json.decode(response.body));
@@ -129,7 +131,7 @@ class FinanceApiService {
   //   // For now, update operations require online connection.
   //   // Offline updates would require more complex conflict resolution logic.
   //   final headers = await _getHeaders();
-  //   final response = await http.put(
+  //   final response = await _client.put(
   //     Uri.parse('$_financeServiceUrl/$budgetId'),
   //     headers: headers,
   //     body: json.encode(budget.toJson()),
@@ -145,7 +147,7 @@ class FinanceApiService {
   // Future<void> deleteBudget(String budgetId) async {
   //   // For now, delete operations require online connection.
   //   final headers = await _getHeaders();
-  //   final response = await http.delete(
+  //   final response = await _client.delete(
   //     Uri.parse('$_financeServiceUrl/$budgetId'),
   //     headers: headers,
   //   );
@@ -176,7 +178,7 @@ class FinanceApiService {
 
     try {
       final headers = await _getHeaders();
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse('$_financeServiceUrl/$budgetId/items/'),
         headers: headers,
         body: json.encode(itemCreate.toJson()),
@@ -209,7 +211,7 @@ class FinanceApiService {
   // Future<BudgetItem> updateBudgetItem(String budgetId, String itemId, BudgetItemUpdate item) async {
   //   // For now, update operations require online connection.
   //   final headers = await _getHeaders();
-  //   final response = await http.put(
+  //   final response = await _client.put(
   //     Uri.parse('$_financeServiceUrl/$budgetId/items/$itemId'),
   //     headers: headers,
   //     body: json.encode(item.toJson()),
@@ -225,7 +227,7 @@ class FinanceApiService {
   // Future<void> deleteBudgetItem(String budgetId, String itemId) async {
   //   // For now, delete operations require online connection.
   //   final headers = await _getHeaders();
-  //   final response = await http.delete(
+  //   final response = await _client.delete(
   //     Uri.parse('$_financeServiceUrl/$budgetId/items/$itemId'),
   //     headers: headers,
   //   );
@@ -264,13 +266,34 @@ class FinanceApiService {
           )
         );
         // Mark the local budget as synced
-        await _dbHelper.markBudgetAsSynced(budget.id!);\n        print('Successfully synced offline budget: ${budget.name}');\n\n        // Then sync its items. Assumes remoteBudget.id is the new canonical ID\n        for (var item in budget.items) {\n          await createBudgetItem(remoteBudget.id!, BudgetItemCreate(\n            category: item.category,\n            accountNumber: item.accountNumber,\n            budgetedAmount: item.budgetedAmount,\n            budgetType: item.budgetType,\n          ));\n          // No need to mark budget item as synced separately, as they are part of the budget's sync lifecycle\n        }\n      } on http.ClientException catch (e) {\n        print('Network error during sync for budget ${budget.id}: $e');\n      } catch (e) {\n        print('Failed to sync budget ${budget.id}: $e');\n      }\n    }\n    print('Offline budget sync complete.');\n  }\n
+        await _dbHelper.markBudgetAsSynced(budget.id!);
+        print('Successfully synced offline budget: ${budget.name}');
+
+        // Then sync its items. Assumes remoteBudget.id is the new canonical ID
+        for (var item in budget.items) {
+          await createBudgetItem(remoteBudget.id!, BudgetItemCreate(
+            category: item.category,
+            accountNumber: item.accountNumber,
+            budgetedAmount: item.budgetedAmount,
+            budgetType: item.budgetType,
+          ));
+          // No need to mark budget item as synced separately, as they are part of the budget's sync lifecycle
+        }
+      } on http.ClientException catch (e) {
+        print('Network error during sync for budget ${budget.id}: $e');
+      } catch (e) {
+        print('Failed to sync budget ${budget.id}: $e');
+      }
+    }
+    print('Offline budget sync complete.');
+  }
+
 
   // --- Variance Analysis API Calls ---
   Future<BudgetVarianceReport> getBudgetVarianceReport(String budgetId) async {
     // For now, variance reports require online connection as they aggregate live data.
     final headers = await _getHeaders();
-    final response = await http.get(Uri.parse('$_financeServiceUrl/$budgetId/variance-report'), headers: headers);
+    final response = await _client.get(Uri.parse('$_financeServiceUrl/$budgetId/variance-report'), headers: headers);
 
     if (response.statusCode == 200) {
       return BudgetVarianceReport.fromJson(json.decode(response.body));
@@ -283,7 +306,7 @@ class FinanceApiService {
   Future<FinancialRatiosReport> getFinancialRatios(DateTime startDate, DateTime endDate) async {
     // For now, financial ratios require online connection as they aggregate live data.
     final headers = await _getHeaders();
-    final response = await http.get(
+    final response = await _client.get(
       Uri.parse('$_financialRatiosUrl?start_date=${startDate.toIso8601String()}&end_date=${endDate.toIso8601String()}'),
       headers: headers,
     );

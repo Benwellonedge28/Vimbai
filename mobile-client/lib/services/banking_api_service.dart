@@ -1,10 +1,11 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:vimbai_mobile_client/services/api_client.dart';
 import 'package:vimbai_mobile_client/local_db/user_local_data.dart';
 import 'package:vimbai_mobile_client/config.dart'; // For API URL
 import 'package:vimbai_mobile_client/models/banking_models.dart'; // Import Banking Models
 
 class BankingApiService {
+  final ApiClient _client = ApiClient();
   final String _bankingServiceUrl = '${AppConfig.apiUrl}/banking/accounts'; // Via API Gateway
 
   Future<Map<String, String>> _getHeaders() async {
@@ -18,7 +19,7 @@ class BankingApiService {
   // --- Bank Account API Calls ---
   Future<BankAccount> createBankAccount(BankAccount newAccount) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$_bankingServiceUrl/'),
       headers: headers,
       body: json.encode(newAccount.toJson()),
@@ -33,7 +34,7 @@ class BankingApiService {
 
   Future<List<BankAccount>> getBankAccounts() async {
     final headers = await _getHeaders();
-    final response = await http.get(Uri.parse('$_bankingServiceUrl/'), headers: headers);
+    final response = await _client.get(Uri.parse('$_bankingServiceUrl/'), headers: headers);
 
     if (response.statusCode == 200) {
       List<dynamic> accountsJson = json.decode(response.body);
@@ -46,7 +47,7 @@ class BankingApiService {
   // --- Bank Transaction API Calls ---
   Future<List<BankTransaction>> fetchAndStoreTransactions(String accountId) async {
     final headers = await _getHeaders();
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$_bankingServiceUrl/$accountId/fetch-transactions'),
       headers: headers,
     );
@@ -61,7 +62,7 @@ class BankingApiService {
 
   Future<List<BankTransaction>> getTransactionsForAccount(String accountId) async {
     final headers = await _getHeaders();
-    final response = await http.get(Uri.parse('$_bankingServiceUrl/$accountId/transactions'), headers: headers);
+    final response = await _client.get(Uri.parse('$_bankingServiceUrl/$accountId/transactions'), headers: headers);
 
     if (response.statusCode == 200) {
       List<dynamic> transactionsJson = json.decode(response.body);

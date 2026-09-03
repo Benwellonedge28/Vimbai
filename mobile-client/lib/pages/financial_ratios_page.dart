@@ -59,6 +59,13 @@ class _FinancialRatiosPageState extends State<FinancialRatiosPage> {
     return Scaffold(
           appBar: AppBar(
             title: const Text('Financial Ratios'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.date_range),
+                tooltip: 'Select reporting period',
+                onPressed: () => _selectDateRange(context),
+              ),
+            ],
           ),
           body: FutureBuilder<FinancialRatiosReport>(
             future: _ratiosReportFuture,

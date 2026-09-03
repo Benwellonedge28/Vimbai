@@ -1,0 +1,425 @@
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
+JournalLineCreate _$JournalLineCreateFromJson(Map<String, dynamic> json) =>
+    JournalLineCreate(
+      accountNumber: json['accountNumber'] as String,
+      debit: (json['debit'] as num).toDouble(),
+      credit: (json['credit'] as num).toDouble(),
+      description: json['description'] as String?,
+    );
+
+Map<String, dynamic> _$JournalLineCreateToJson(JournalLineCreate instance) =>
+    <String, dynamic>{
+      'accountNumber': instance.accountNumber,
+      'debit': instance.debit,
+      'credit': instance.credit,
+      'description': instance.description,
+    };
+
+JournalEntryCreate _$JournalEntryCreateFromJson(Map<String, dynamic> json) =>
+    JournalEntryCreate(
+      entryDate: DateTime.parse(json['entryDate'] as String),
+      description: json['description'] as String,
+      sourceModule: json['sourceModule'] as String,
+      referenceNumber: json['referenceNumber'] as String?,
+      lines: (json['lines'] as List<dynamic>)
+          .map((e) => JournalLineCreate.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$JournalEntryCreateToJson(JournalEntryCreate instance) =>
+    <String, dynamic>{
+      'entryDate': instance.entryDate.toIso8601String(),
+      'description': instance.description,
+      'sourceModule': instance.sourceModule,
+      'referenceNumber': instance.referenceNumber,
+      'lines': instance.lines.map((e) => e.toJson()).toList(),
+    };
+
+JournalEntryUpdate _$JournalEntryUpdateFromJson(Map<String, dynamic> json) =>
+    JournalEntryUpdate(
+      entryDate: json['entryDate'] == null
+          ? null
+          : DateTime.parse(json['entryDate'] as String),
+      description: json['description'] as String?,
+      sourceModule: json['sourceModule'] as String?,
+      referenceNumber: json['referenceNumber'] as String?,
+      lines: (json['lines'] as List<dynamic>?)
+          ?.map((e) => JournalLineCreate.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$JournalEntryUpdateToJson(JournalEntryUpdate instance) =>
+    <String, dynamic>{
+      'entryDate': instance.entryDate?.toIso8601String(),
+      'description': instance.description,
+      'sourceModule': instance.sourceModule,
+      'referenceNumber': instance.referenceNumber,
+      'lines': instance.lines?.map((e) => e.toJson()).toList(),
+    };
+
+JournalEntryInDB _$JournalEntryInDBFromJson(Map<String, dynamic> json) =>
+    JournalEntryInDB(
+      id: json['id'] as String,
+      entryDate: DateTime.parse(json['entryDate'] as String),
+      description: json['description'] as String,
+      sourceModule: json['sourceModule'] as String,
+      referenceNumber: json['referenceNumber'] as String?,
+      lines: (json['lines'] as List<dynamic>)
+          .map((e) => JournalLineInDB.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+    );
+
+Map<String, dynamic> _$JournalEntryInDBToJson(JournalEntryInDB instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'entryDate': instance.entryDate.toIso8601String(),
+      'description': instance.description,
+      'sourceModule': instance.sourceModule,
+      'referenceNumber': instance.referenceNumber,
+      'lines': instance.lines.map((e) => e.toJson()).toList(),
+      'createdAt': instance.createdAt.toIso8601String(),
+      'updatedAt': instance.updatedAt.toIso8601String(),
+    };
+
+JournalLineInDB _$JournalLineInDBFromJson(Map<String, dynamic> json) =>
+    JournalLineInDB(
+      id: json['id'] as String,
+      accountNumber: json['accountNumber'] as String,
+      debit: (json['debit'] as num).toDouble(),
+      credit: (json['credit'] as num).toDouble(),
+      description: json['description'] as String?,
+    );
+
+Map<String, dynamic> _$JournalLineInDBToJson(JournalLineInDB instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'accountNumber': instance.accountNumber,
+      'debit': instance.debit,
+      'credit': instance.credit,
+      'description': instance.description,
+    };
+
+AccountCreate _$AccountCreateFromJson(Map<String, dynamic> json) =>
+    AccountCreate(
+      accountNumber: json['accountNumber'] as String,
+      accountName: json['accountName'] as String,
+      accountType: json['accountType'] as String,
+      currentBalance: (json['currentBalance'] as num).toDouble(),
+      description: json['description'] as String?,
+    );
+
+Map<String, dynamic> _$AccountCreateToJson(AccountCreate instance) =>
+    <String, dynamic>{
+      'accountNumber': instance.accountNumber,
+      'accountName': instance.accountName,
+      'accountType': instance.accountType,
+      'currentBalance': instance.currentBalance,
+      'description': instance.description,
+    };
+
+AccountUpdate _$AccountUpdateFromJson(Map<String, dynamic> json) =>
+    AccountUpdate(
+      accountName: json['accountName'] as String?,
+      accountType: json['accountType'] as String?,
+      currentBalance: (json['currentBalance'] as num?)?.toDouble(),
+      description: json['description'] as String?,
+    );
+
+Map<String, dynamic> _$AccountUpdateToJson(AccountUpdate instance) =>
+    <String, dynamic>{
+      'accountName': instance.accountName,
+      'accountType': instance.accountType,
+      'currentBalance': instance.currentBalance,
+      'description': instance.description,
+    };
+
+AccountInDB _$AccountInDBFromJson(Map<String, dynamic> json) => AccountInDB(
+  id: json['id'] as String,
+  accountNumber: json['accountNumber'] as String,
+  accountName: json['accountName'] as String,
+  accountType: json['accountType'] as String,
+  currentBalance: (json['currentBalance'] as num).toDouble(),
+  description: json['description'] as String?,
+  createdAt: DateTime.parse(json['createdAt'] as String),
+  updatedAt: DateTime.parse(json['updatedAt'] as String),
+);
+
+Map<String, dynamic> _$AccountInDBToJson(AccountInDB instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'accountNumber': instance.accountNumber,
+      'accountName': instance.accountName,
+      'accountType': instance.accountType,
+      'currentBalance': instance.currentBalance,
+      'description': instance.description,
+      'createdAt': instance.createdAt.toIso8601String(),
+      'updatedAt': instance.updatedAt.toIso8601String(),
+    };
+
+JournalLine _$JournalLineFromJson(Map<String, dynamic> json) => JournalLine(
+  accountNumber: json['accountNumber'] as String,
+  description: json['description'] as String?,
+  debit: (json['debit'] as num?)?.toDouble() ?? 0.0,
+  credit: (json['credit'] as num?)?.toDouble() ?? 0.0,
+);
+
+Map<String, dynamic> _$JournalLineToJson(JournalLine instance) =>
+    <String, dynamic>{
+      'accountNumber': instance.accountNumber,
+      'description': instance.description,
+      'debit': instance.debit,
+      'credit': instance.credit,
+    };
+
+JournalEntry _$JournalEntryFromJson(Map<String, dynamic> json) => JournalEntry(
+  id: json['id'] as String,
+  entryDate: DateTime.parse(json['entry_date'] as String),
+  description: json['description'] as String,
+  referenceNumber: json['reference_number'] as String?,
+  sourceModule: json['source_module'] as String,
+  status: json['status'] as String?,
+  lines: (json['lines'] as List<dynamic>)
+      .map((e) => JournalLine.fromJson(e as Map<String, dynamic>))
+      .toList(),
+  createdAt: json['created_at'] == null
+      ? null
+      : DateTime.parse(json['created_at'] as String),
+  updatedAt: json['updated_at'] == null
+      ? null
+      : DateTime.parse(json['updated_at'] as String),
+  isSynced: json['is_synced'] as bool?,
+);
+
+Map<String, dynamic> _$JournalEntryToJson(JournalEntry instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'entry_date': instance.entryDate.toIso8601String(),
+      'description': instance.description,
+      'reference_number': instance.referenceNumber,
+      'source_module': instance.sourceModule,
+      'status': instance.status,
+      'lines': instance.lines.map((e) => e.toJson()).toList(),
+      'created_at': instance.createdAt?.toIso8601String(),
+      'updated_at': instance.updatedAt?.toIso8601String(),
+      'is_synced': ?instance.isSynced,
+    };
+
+Account _$AccountFromJson(Map<String, dynamic> json) => Account(
+  id: json['id'] as String?,
+  accountNumber: json['account_number'] as String,
+  accountName: json['name'] as String,
+  accountType: json['account_type'] as String,
+  normalBalance: json['normal_balance'] as String,
+  description: json['description'] as String?,
+  parentAccountNumber: json['parent_account_number'] as String?,
+  createdAt: json['created_at'] == null
+      ? null
+      : DateTime.parse(json['created_at'] as String),
+  updatedAt: json['updated_at'] == null
+      ? null
+      : DateTime.parse(json['updated_at'] as String),
+);
+
+Map<String, dynamic> _$AccountToJson(Account instance) => <String, dynamic>{
+  'id': instance.id,
+  'account_number': instance.accountNumber,
+  'name': instance.accountName,
+  'account_type': instance.accountType,
+  'normal_balance': instance.normalBalance,
+  'description': instance.description,
+  'parent_account_number': instance.parentAccountNumber,
+  'created_at': instance.createdAt?.toIso8601String(),
+  'updated_at': instance.updatedAt?.toIso8601String(),
+};
+
+TrialBalanceEntry _$TrialBalanceEntryFromJson(Map<String, dynamic> json) =>
+    TrialBalanceEntry(
+      accountNumber: json['account_number'] as String,
+      accountName: json['account_name'] as String,
+      accountType: json['account_type'] as String,
+      debitTotal: (json['debit'] as num?)?.toDouble() ?? 0.0,
+      creditTotal: (json['credit'] as num?)?.toDouble() ?? 0.0,
+    );
+
+Map<String, dynamic> _$TrialBalanceEntryToJson(TrialBalanceEntry instance) =>
+    <String, dynamic>{
+      'account_number': instance.accountNumber,
+      'account_name': instance.accountName,
+      'account_type': instance.accountType,
+      'debit': instance.debitTotal,
+      'credit': instance.creditTotal,
+    };
+
+TrialBalance _$TrialBalanceFromJson(Map<String, dynamic> json) => TrialBalance(
+  reportDate: DateTime.parse(json['report_date'] as String),
+  entries: (json['entries'] as List<dynamic>)
+      .map((e) => TrialBalanceEntry.fromJson(e as Map<String, dynamic>))
+      .toList(),
+  totalDebits: (json['total_debits'] as num?)?.toDouble() ?? 0.0,
+  totalCredits: (json['total_credits'] as num?)?.toDouble() ?? 0.0,
+  isBalanced: json['is_balanced'] as bool? ?? false,
+);
+
+Map<String, dynamic> _$TrialBalanceToJson(TrialBalance instance) =>
+    <String, dynamic>{
+      'report_date': instance.reportDate.toIso8601String(),
+      'entries': instance.entries.map((e) => e.toJson()).toList(),
+      'total_debits': instance.totalDebits,
+      'total_credits': instance.totalCredits,
+      'is_balanced': instance.isBalanced,
+    };
+
+IncomeStatementItem _$IncomeStatementItemFromJson(Map<String, dynamic> json) =>
+    IncomeStatementItem(
+      category: json['category'] as String,
+      amount: (json['amount'] as num).toDouble(),
+    );
+
+Map<String, dynamic> _$IncomeStatementItemToJson(
+  IncomeStatementItem instance,
+) => <String, dynamic>{
+  'category': instance.category,
+  'amount': instance.amount,
+};
+
+IncomeStatement _$IncomeStatementFromJson(Map<String, dynamic> json) =>
+    IncomeStatement(
+      startDate: DateTime.parse(json['start_date'] as String),
+      endDate: DateTime.parse(json['end_date'] as String),
+      revenues: (json['revenues'] as List<dynamic>)
+          .map((e) => IncomeStatementItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      expenses: (json['expenses'] as List<dynamic>)
+          .map((e) => IncomeStatementItem.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      netIncome: (json['net_income'] as num).toDouble(),
+    );
+
+Map<String, dynamic> _$IncomeStatementToJson(IncomeStatement instance) =>
+    <String, dynamic>{
+      'start_date': instance.startDate.toIso8601String(),
+      'end_date': instance.endDate.toIso8601String(),
+      'revenues': instance.revenues.map((e) => e.toJson()).toList(),
+      'expenses': instance.expenses.map((e) => e.toJson()).toList(),
+      'net_income': instance.netIncome,
+    };
+
+BalanceSheetItem _$BalanceSheetItemFromJson(Map<String, dynamic> json) =>
+    BalanceSheetItem(
+      category: json['category'] as String,
+      amount: (json['amount'] as num).toDouble(),
+    );
+
+Map<String, dynamic> _$BalanceSheetItemToJson(BalanceSheetItem instance) =>
+    <String, dynamic>{'category': instance.category, 'amount': instance.amount};
+
+BalanceSheet _$BalanceSheetFromJson(Map<String, dynamic> json) => BalanceSheet(
+  asOfDate: DateTime.parse(json['as_of_date'] as String),
+  assets: (json['assets'] as List<dynamic>)
+      .map((e) => BalanceSheetItem.fromJson(e as Map<String, dynamic>))
+      .toList(),
+  liabilities: (json['liabilities'] as List<dynamic>)
+      .map((e) => BalanceSheetItem.fromJson(e as Map<String, dynamic>))
+      .toList(),
+  equity: (json['equity'] as List<dynamic>)
+      .map((e) => BalanceSheetItem.fromJson(e as Map<String, dynamic>))
+      .toList(),
+  totalAssets: (json['total_assets'] as num).toDouble(),
+  totalLiabilitiesEquity: (json['total_liabilities_equity'] as num).toDouble(),
+);
+
+Map<String, dynamic> _$BalanceSheetToJson(BalanceSheet instance) =>
+    <String, dynamic>{
+      'as_of_date': instance.asOfDate.toIso8601String(),
+      'assets': instance.assets.map((e) => e.toJson()).toList(),
+      'liabilities': instance.liabilities.map((e) => e.toJson()).toList(),
+      'equity': instance.equity.map((e) => e.toJson()).toList(),
+      'total_assets': instance.totalAssets,
+      'total_liabilities_equity': instance.totalLiabilitiesEquity,
+    };
+
+CashFlowActivity _$CashFlowActivityFromJson(Map<String, dynamic> json) =>
+    CashFlowActivity(
+      description: json['description'] as String,
+      amount: (json['amount'] as num).toDouble(),
+    );
+
+Map<String, dynamic> _$CashFlowActivityToJson(CashFlowActivity instance) =>
+    <String, dynamic>{
+      'description': instance.description,
+      'amount': instance.amount,
+    };
+
+CashFlowSection _$CashFlowSectionFromJson(Map<String, dynamic> json) =>
+    CashFlowSection(
+      title: json['title'] as String,
+      activities: (json['activities'] as List<dynamic>)
+          .map((e) => CashFlowActivity.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$CashFlowSectionToJson(CashFlowSection instance) =>
+    <String, dynamic>{
+      'title': instance.title,
+      'activities': instance.activities.map((e) => e.toJson()).toList(),
+    };
+
+CashFlowStatement _$CashFlowStatementFromJson(Map<String, dynamic> json) =>
+    CashFlowStatement(
+      startDate: DateTime.parse(json['start_date'] as String),
+      endDate: DateTime.parse(json['end_date'] as String),
+      reportDate: DateTime.parse(json['report_date'] as String),
+      operatingActivities: CashFlowSection.fromJson(
+        json['operating_activities'] as Map<String, dynamic>,
+      ),
+      investingActivities: CashFlowSection.fromJson(
+        json['investing_activities'] as Map<String, dynamic>,
+      ),
+      financingActivities: CashFlowSection.fromJson(
+        json['financing_activities'] as Map<String, dynamic>,
+      ),
+      netIncreaseDecreaseInCash: (json['net_increase_decrease_in_cash'] as num)
+          .toDouble(),
+      beginningCashBalance: (json['beginning_cash_balance'] as num).toDouble(),
+      endingCashBalance: (json['ending_cash_balance'] as num).toDouble(),
+      netIncome: (json['net_income'] as num).toDouble(),
+    );
+
+Map<String, dynamic> _$CashFlowStatementToJson(CashFlowStatement instance) =>
+    <String, dynamic>{
+      'start_date': instance.startDate.toIso8601String(),
+      'end_date': instance.endDate.toIso8601String(),
+      'report_date': instance.reportDate.toIso8601String(),
+      'operating_activities': instance.operatingActivities.toJson(),
+      'investing_activities': instance.investingActivities.toJson(),
+      'financing_activities': instance.financingActivities.toJson(),
+      'net_increase_decrease_in_cash': instance.netIncreaseDecreaseInCash,
+      'beginning_cash_balance': instance.beginningCashBalance,
+      'ending_cash_balance': instance.endingCashBalance,
+      'net_income': instance.netIncome,
+    };
+
+LedgerAccountBalance _$LedgerAccountBalanceFromJson(
+  Map<String, dynamic> json,
+) => LedgerAccountBalance(
+  accountNumber: json['account_number'] as String,
+  accountName: json['account_name'] as String,
+  accountType: json['account_type'] as String? ?? 'unknown',
+  normalBalance: json['normal_balance'] as String,
+  currentBalance: (json['end_balance'] as num).toDouble(),
+);
+
+Map<String, dynamic> _$LedgerAccountBalanceToJson(
+  LedgerAccountBalance instance,
+) => <String, dynamic>{
+  'account_number': instance.accountNumber,
+  'account_name': instance.accountName,
+  'account_type': instance.accountType,
+  'normal_balance': instance.normalBalance,
+  'end_balance': instance.currentBalance,
+};

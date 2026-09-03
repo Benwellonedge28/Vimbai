@@ -69,6 +69,6 @@ class _JournalEntriesListPageState extends State<JournalEntriesListPage> {
               }
             },
           ),
-        );를
+        );
       }
     }

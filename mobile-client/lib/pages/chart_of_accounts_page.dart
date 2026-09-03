@@ -11,7 +11,7 @@ class ChartOfAccountsPage extends StatefulWidget {
 }
 
 class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
-  late Future<List<AccountInDB>> _accountsFuture;
+  late Future<List<Account>> _accountsFuture;
   final AccountingApiService _apiService = AccountingApiService();
   ConnectivityResult _connectivityResult = ConnectivityResult.none;
 
@@ -19,9 +19,9 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
   void initState() {
     super.initState();
     _checkConnectivity();
-    Connectivity().onConnectivityChanged.listen((ConnectivityResult result) {
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
       setState(() {
-        _connectivityResult = result;
+        _connectivityResult = results.isEmpty ? ConnectivityResult.none : results.last;
         _loadAccounts();
       });
     });
@@ -29,7 +29,8 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
   }
 
   Future<void> _checkConnectivity() async {
-    _connectivityResult = await (Connectivity().checkConnectivity());
+    final results = await Connectivity().checkConnectivity();
+    _connectivityResult = results.isEmpty ? ConnectivityResult.none : results.last;
     setState(() {});
   }
 
@@ -122,7 +123,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
             ),
           ),
           Expanded(
-            child: FutureBuilder<List<AccountInDB>>(
+            child: FutureBuilder<List<Account>>(
               future: _accountsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -153,7 +154,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
                   return const Center(child: Text('No accounts found.'));
                 } else {
                   final accounts = snapshot.data!;
-                  final groupedAccounts = <String, List<AccountInDB>>{};
+                  final groupedAccounts = <String, List<Account>>{};
 
                   for (var account in accounts) {
                     final type = account.accountType;
@@ -168,7 +169,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            color: _getAccountTypeColor(entry.key).withOpacity(0.1),
+                            color: _getAccountTypeColor(entry.key).withValues(alpha: 0.1),
                             child: Row(
                               children: [
                                 Icon(
@@ -189,7 +190,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
                                   '${entry.value.length} accounts',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: _getAccountTypeColor(entry.key).withOpacity(0.7),
+                                    color: _getAccountTypeColor(entry.key).withValues(alpha: 0.7),
                                   ),
                                 ),
                               ],
@@ -197,7 +198,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
                           ),
                           ...entry.value.map((account) => ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: _getAccountTypeColor(entry.key).withOpacity(0.2),
+                              backgroundColor: _getAccountTypeColor(entry.key).withValues(alpha: 0.2),
                               child: Icon(
                                 _getAccountTypeIcon(entry.key),
                                 color: _getAccountTypeColor(entry.key),

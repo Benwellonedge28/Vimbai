@@ -15,7 +15,7 @@ class MultimodalInputPage extends StatefulWidget {
 class _MultimodalInputPageState extends State<MultimodalInputPage> {
   final MultimodalApiService _apiService = MultimodalApiService();
   final ImagePicker _picker = ImagePicker();
-  final Record _audioRecorder = Record();
+  final AudioRecorder _audioRecorder = AudioRecorder();
 
   String? _pickedImagePath;
   String? _recordedAudioPath;
@@ -43,8 +43,8 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
     try {
       if (await _audioRecorder.hasPermission()) {
         await _audioRecorder.start(
+          const RecordConfig(encoder: AudioEncoder.aacLc),
           path: '${(await _getAppDirectory())}/audio.m4a', // Using a temporary path
-          encoder: AudioEncoder.aacLc, // or other suitable encoder
         );
         setState(() {
           _isRecording = true;
@@ -102,8 +102,7 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
       }
     } catch (e) {
       setState(() { _errorMessage = 'Processing failed: $e'; });
-    }
-  } finally {
+    } finally {
       setState(() { _isProcessing = false; });
     }
   }
@@ -202,17 +201,18 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Document Type: ${results.documentType}', style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text('Status: ${results.status} (Time: ${results.processingTimeMs ?? 'N/A'}ms)'),
+              const Text('Document Result', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('AI Confidence: ${((results.aiConfidence ?? 0) * 100).toStringAsFixed(1)}%'),
               const Divider(),
               const Text('Extracted Data:', style: TextStyle(fontWeight: FontWeight.bold)),
-              ...results.extractedData.map((field) => Text('${field.fieldName}: ${field.value} (Conf: ${field.confidence?.toStringAsFixed(2)}) ')),
-              if (results.rawText != null) ...[
+              ...results.extractedData.map((field) => Text('${field.name}: ${field.value} (Conf: ${(field.confidence ?? 0).toStringAsFixed(2)}) ')),
+              if (results.rawText != null && results.rawText!.isNotEmpty) ...[
                 const Divider(),
                 const Text('Raw Text:', style: TextStyle(fontWeight: FontWeight.bold)),
                 Text(results.rawText!),
               ],
-              if (results.errorMessage != null) Text('Error: ${results.errorMessage!}', style: const TextStyle(color: Colors.red)),
+              if (results.errors.isNotEmpty)
+                Text('Errors: ${results.errors.join('; ')}', style: const TextStyle(color: Colors.red)),
             ],
           ),
         ),
@@ -225,14 +225,15 @@ class _MultimodalInputPageState extends State<MultimodalInputPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Transcription:', style: TextStyle(fontWeight: FontWeight.bold)),
-              Text(results.transcription),
+              Text(results.transcribedText ?? '(no transcription available)'),
               const Divider(),
-              if (results.extractedEntities != null && results.extractedEntities!.isNotEmpty) ...[
-                const Text('Extracted Entities:', style: TextStyle(fontWeight: FontWeight.bold)),
-                ...results.extractedEntities!.map((field) => Text('${field.fieldName}: ${field.value} (Conf: ${field.confidence?.toStringAsFixed(2)}) ')),
+              if (results.extractedCommands.isNotEmpty) ...[
+                const Text('Extracted Commands:', style: TextStyle(fontWeight: FontWeight.bold)),
+                ...results.extractedCommands.map((field) => Text('${field.name}: ${field.value} (Conf: ${(field.confidence ?? 0).toStringAsFixed(2)}) ')),
               ],
-              Text('Status: ${results.status} (Time: ${results.processingTimeMs ?? 'N/A'}ms)'),
-              if (results.errorMessage != null) Text('Error: ${results.errorMessage!}', style: const TextStyle(color: Colors.red)),
+              Text('AI Confidence: ${((results.aiConfidence ?? 0) * 100).toStringAsFixed(1)}%'),
+              if (results.errors.isNotEmpty)
+                Text('Errors: ${results.errors.join('; ')}', style: const TextStyle(color: Colors.red)),
             ],
           ),
         ),

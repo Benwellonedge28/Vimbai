@@ -5,7 +5,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.8.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -20,12 +20,16 @@ dependencies:
   record: ^7.0.0 # For audio recording
   sqflite: ^2.3.2 # NEW: SQLite database for local persistence
   path_provider: ^2.1.3 # NEW: For finding path to store database
+  provider: ^6.1.2 # For dependency injection (multimodal entry window)
   uuid: ^4.4.0 # NEW: For generating UUIDs
+  json_annotation: ^4.9.0 # For model serialization
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  json_serializable: ^6.8.0 # Codegen for model serialization
+  build_runner: ^2.4.12 # Runs json_serializable codegen
 
 flutter:
   uses-material-design: true

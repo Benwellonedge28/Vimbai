@@ -26,15 +26,16 @@ class _JournalEntryFormPageState extends State<JournalEntryFormPage> {
   void initState() {
     super.initState();
     _checkConnectivity(); // NEW
-    Connectivity().onConnectivityChanged.listen((ConnectivityResult result) { // NEW
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) { // NEW
       setState(() {
-        _connectivityResult = result;
+        _connectivityResult = results.isEmpty ? ConnectivityResult.none : results.last;
       });
     });
   }
 
   Future<void> _checkConnectivity() async { // NEW
-    _connectivityResult = await (Connectivity().checkConnectivity());
+    final results = await Connectivity().checkConnectivity();
+    _connectivityResult = results.isEmpty ? ConnectivityResult.none : results.last;
     setState(() {});
   }
 

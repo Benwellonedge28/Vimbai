@@ -11,6 +11,12 @@ class UserLocalData {
     await prefs.setString(_userKey, json.encode(user.toJson()));
   }
 
+  /// The ID of the locally stored (logged-in) user, if any.
+  static Future<String?> getUserId() async {
+    final user = await getUser();
+    return user?.id;
+  }
+
   static Future<User?> getUser() async {
     final prefs = await SharedPreferences.getInstance();
     final userJson = prefs.getString(_userKey);

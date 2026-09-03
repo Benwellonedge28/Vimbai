@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:vimbai_mobile_client/models/accounting_models.dart';
 
 class JournalEntryDetailPage extends StatelessWidget {
-  final JournalEntryInDB entry;
+  final JournalEntry entry;
   const JournalEntryDetailPage({super.key, required this.entry});
 
   @override
@@ -69,7 +69,7 @@ class JournalEntryDetailPage extends StatelessWidget {
             else
               ...entry.lines.asMap().entries.map((entryMap) {
                 int idx = entryMap.key;
-                JournalLineInDB line = entryMap.value;
+                JournalLine line = entryMap.value;
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 4),
                   child: Padding(

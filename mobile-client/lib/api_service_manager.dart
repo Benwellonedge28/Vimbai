@@ -1,4 +1,3 @@
-import 'package:vimbai_mobile_client/config.dart'; // For API URL
 import 'package:vimbai_mobile_client/services/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/services/finance_api_service.dart';
 import 'package:vimbai_mobile_client/services/multimodal_api_service.dart';

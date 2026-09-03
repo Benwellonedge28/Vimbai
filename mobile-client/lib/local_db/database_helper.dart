@@ -142,15 +142,15 @@ class DatabaseHelper {
   Future<int> insertAccount(Account account) async {
     final db = await database;
     return await db.insert('accounts', {
-      'id': account.id,
+      'id': account.id ?? uuid.v4(),
       'account_number': account.accountNumber,
       'account_name': account.accountName,
       'account_type': account.accountType,
       'normal_balance': account.normalBalance,
       'description': account.description,
       'parent_account_number': account.parentAccountNumber,
-      'created_at': account.createdAt.toIso8601String(),
-      'updated_at': account.updatedAt.toIso8601String(),
+      'created_at': (account.createdAt ?? DateTime.now()).toIso8601String(),
+      'updated_at': (account.updatedAt ?? DateTime.now()).toIso8601String(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -170,7 +170,7 @@ class DatabaseHelper {
   // --- Journal Entry CRUD ---
   Future<int> insertJournalEntry(JournalEntry entry, {bool isSynced = false}) async {
     final db = await database;
-    final entryId = entry.id ?? uuid.v4(); // Generate UUID if not already present
+    final entryId = entry.id;
     final result = await db.insert('journal_entries', {
       'id': entryId,
       'entry_date': entry.entryDate.toIso8601String(),
@@ -206,8 +206,36 @@ class DatabaseHelper {
       List<JournalLine> lines = List.generate(lineMaps.length, (i) {
         return JournalLine.fromJson(lineMaps[i]);
       });
-      unsyncedEntries.add(JournalEntry.fromJson({...entryMap, 'lines': lines}));
-    }\n    return unsyncedEntries;
+      unsyncedEntries.add(JournalEntry.fromJson({...entryMap, 'lines': lines.map((l) => l.toJson()).toList()}));
+    }
+    return unsyncedEntries;
+  }
+
+
+  Future<JournalEntry?> getJournalEntry(String entryId) async {
+    final db = await database;
+    final List<Map<String, dynamic>> entryMaps =
+        await db.query('journal_entries', where: 'id = ?', whereArgs: [entryId], limit: 1);
+    if (entryMaps.isEmpty) return null;
+    final entryMap = entryMaps.first;
+    final List<Map<String, dynamic>> lineMaps =
+        await db.query('journal_lines', where: 'journal_entry_id = ?', whereArgs: [entryId]);
+    final lines = lineMaps.map((m) => JournalLine.fromJson(m)).toList();
+    return JournalEntry.fromJson({...entryMap, 'lines': lines.map((l) => l.toJson()).toList()});
+  }
+
+  /// All journal entries currently cached locally (offline list view).
+  Future<List<JournalEntry>> getAllJournalEntriesFromLocal() async {
+    final db = await database;
+    final List<Map<String, dynamic>> entryMaps = await db.query('journal_entries', orderBy: 'entry_date DESC');
+    List<JournalEntry> entries = [];
+    for (var entryMap in entryMaps) {
+      final List<Map<String, dynamic>> lineMaps = await db
+          .query('journal_lines', where: 'journal_entry_id = ?', whereArgs: [entryMap['id']]);
+      final lines = lineMaps.map((m) => JournalLine.fromJson(m)).toList();
+      entries.add(JournalEntry.fromJson({...entryMap, 'lines': lines.map((l) => l.toJson()).toList()}));
+    }
+    return entries;
   }
 
   Future<int> markJournalEntryAsSynced(String entryId) async {
@@ -267,8 +295,9 @@ class DatabaseHelper {
     List<Budget> unsyncedBudgets = [];
     for (var budgetMap in budgetMaps) {
       final items = await getBudgetItemsForBudget(budgetMap['id']);
-      unsyncedBudgets.add(Budget.fromJson({...budgetMap, 'items': items}));
-    })
+      unsyncedBudgets.add(Budget.fromJson(
+          {...budgetMap, 'items': items.map((i) => i.toJson()).toList()}));
+    }
     return unsyncedBudgets;
   }
 
@@ -335,8 +364,8 @@ class DatabaseHelper {
     final result = await db.insert('multimodal_tasks', {
       'id': taskId,
       'input_type': task.inputType,
-      'data': task.data, // This should be base64 for files or raw URL for URL inputs
-      'source_context': task.sourceContext,
+      'data': task.dataUrl ?? task.rawText, // base64 for files or raw URL for URL inputs
+      'source_context': task.metadata['source_context'],
       'is_synced': isSynced ? 1 : 0,
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),

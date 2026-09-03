@@ -83,17 +83,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         updatedAt: DateTime.now(),
       )).toList();
 
-      final newBudget = Budget(
-        name: _nameController.text,
-        startDate: _startDate,
-        endDate: _endDate,
-        currency: _currencyController.text,
-        description: _descriptionController.text.isEmpty ? null : _descriptionController.text,
-        items: items,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
       try {
         await _apiService.createBudget(
           BudgetCreate(
@@ -200,6 +189,8 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
               ..._budgetItems.asMap().entries.map((entry) {
                 int idx = entry.key;
                 BudgetItemFormData item = entry.value;
+                // ignore: unused_local_variable
+                final _ = item;
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   child: Padding(
@@ -247,7 +238,7 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
-                          value: _budgetItems[idx].budgetType,
+                          initialValue: _budgetItems[idx].budgetType,
                           decoration: const InputDecoration(labelText: 'Budget Type'),
                           items: <String>['expense', 'revenue', 'asset', 'liability'].map((String value) {
                             return DropdownMenuItem<String>(
