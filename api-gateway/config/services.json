@@ -2669,6 +2669,14 @@
       "port": 9020,
       "auth_required": true,
       "strip_prefix": false
+    },
+    {
+      "name": "npo-scale-service",
+      "path": "/npo-scale",
+      "url": "http://localhost:9021",
+      "port": 9021,
+      "auth_required": true,
+      "strip_prefix": false
     }
   ]
 }

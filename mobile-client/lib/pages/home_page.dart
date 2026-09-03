@@ -9,6 +9,7 @@ import 'package:vimbai_mobile_client/pages/trial_balance_page.dart';
 import 'package:vimbai_mobile_client/pages/balance_sheet_page.dart';
 import 'package:vimbai_mobile_client/pages/multimodal_input_page.dart';
 import 'package:vimbai_mobile_client/pages/books_page.dart';
+import 'package:vimbai_mobile_client/pages/npo_page.dart';
 import 'package:vimbai_mobile_client/pages/bank_accounts_page.dart';
 import 'package:vimbai_mobile_client/pages/financial_ratios_page.dart';
 
@@ -115,6 +116,15 @@ class _HomePageState extends State<HomePage> {
                       );
                     },
                     child: const Text('Your Books'),
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const NpoPage()),
+                      );
+                    },
+                    child: const Text('Non-profit Organizations'),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(

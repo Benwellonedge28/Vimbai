@@ -281,7 +281,22 @@ services:
     - neo4j-data:/data
     networks:
     - vimbai-net
+  npo_scale_service:
+    build:
+      context: ./npo-scale-service
+      dockerfile: Dockerfile
+    ports:
+    - 9021:9021
+    environment:
+    - JWT_SECRET=${JWT_SECRET:-dev-secret}
+    - NPO_SCALE_DB=/data/vimbai_npo_scale.db
+    volumes:
+    - npo_scale_data:/data
+    restart: unless-stopped
+    networks:
+    - vimbai-net
   npo_service:
+
     build:
       context: ./npo-service
       dockerfile: Dockerfile
@@ -509,6 +524,7 @@ volumes:
   neo4j-data: null
   redis-data: null
   book_sync_data: null
+  npo_scale_data: null
 networks:
   vimbai-net:
     driver: bridge
