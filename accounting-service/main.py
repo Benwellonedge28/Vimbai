@@ -135,7 +135,9 @@ async def startup_event():
         Neo4jConnector.get_driver()
         await Neo4jConnector.initialize_schema()
     except Exception as exc:  # pragma: no cover - startup resilience
-        logger.warning("Neo4j not ready at startup; will retry on first query: %s", exc)
+        logging.getLogger(__name__).warning(
+            "Neo4j not ready at startup; will retry on first query: %s", exc
+        )
 
 
 @app.on_event("shutdown")
