@@ -1,4 +1,5 @@
 import os
+from contextvars import ContextVar
 from datetime import datetime
 from typing import Optional
 
@@ -9,6 +10,10 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from neo4j import AsyncSession
 
 security = HTTPBearer(auto_error=False)
+
+# Request-scoped Book context (X-Book-ID verified by the API gateway).
+# None means personal / unscoped requests.
+book_id_var: ContextVar[Optional[str]] = ContextVar("book_id", default=None)
 
 # Environment configuration
 IDENTITY_SERVICE_URL = os.getenv("IDENTITY_SERVICE_URL", "http://identity-service:8080")

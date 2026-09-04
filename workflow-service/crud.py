@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from neo4j import AsyncSession
 from pydantic import BaseModel
+from workflow_service.dependencies import book_id_var
 from workflow_service.models import (
     WorkflowDefinitionCreate,
     WorkflowDefinitionInDB,
@@ -17,14 +18,22 @@ from workflow_service.models import (
 )
 
 
+async def _run(session, query, params=None, **kw):
+    """Run a Cypher query with the Book context parameter always bound."""
+    merged = dict(params or {})
+    merged.update(kw)
+    merged.setdefault("book_id", book_id_var.get())
+    return await session.run(query, merged)
+
+
 # Helper function to convert Pydantic models to Neo4j-compatible dictionary (handles nested models)
 def _to_neo4j_props(model_instance: BaseModel) -> Dict[str, Any]:
     data = model_instance.model_dump()
     # Convert nested Pydantic models to JSON strings for Neo4j storage
     for key, value in data.items():
-        if isinstance(value, list) and all(isinstance(item, WorkflowStep) for item in value):
+        if isinstance(value, list) and value and all(isinstance(item, WorkflowStep) for item in value):
             data[key] = json.dumps([item.model_dump() for item in value])
-        elif isinstance(value, list) and all(isinstance(item, WorkflowTaskStatus) for item in value):
+        elif isinstance(value, list) and value and all(isinstance(item, WorkflowTaskStatus) for item in value):
             data[key] = json.dumps([item.model_dump() for item in value])
         elif isinstance(value, datetime):
             data[key] = value.isoformat()
@@ -50,6 +59,8 @@ def _from_neo4j_props(node_props: Dict[str, Any], model_class: BaseModel) -> Bas
         props["steps"] = [WorkflowStep(**item) for item in json.loads(props["steps"])]
     if "tasks" in props and isinstance(props["tasks"], str):
         props["tasks"] = [WorkflowTaskStatus(**item) for item in json.loads(props["tasks"])]
+    if "current_step_ids" in props and isinstance(props["current_step_ids"], str):
+        props["current_step_ids"] = json.loads(props["current_step_ids"])
 
     return model_class(**props)
 
@@ -64,6 +75,7 @@ async def create_workflow_definition(
 
     props = _to_neo4j_props(definition_data)
     props["id"] = definition_id
+    props["book_id"] = book_id_var.get()
     props["created_at"] = created_at.isoformat()
     props["updated_at"] = updated_at.isoformat()
 
@@ -71,7 +83,7 @@ async def create_workflow_definition(
     CREATE (wd:WorkflowDefinition $props)
     RETURN wd
     """
-    result = await session.run(query, props=props)
+    result = await _run(session, query, props=props)
     record = await result.single()
 
     return _from_neo4j_props(record["wd"], WorkflowDefinitionInDB)
@@ -80,9 +92,10 @@ async def create_workflow_definition(
 async def get_workflow_definition(session: AsyncSession, definition_id: str) -> Optional[WorkflowDefinitionInDB]:
     query = """
     MATCH (wd:WorkflowDefinition {id: $definition_id})
+    WHERE $book_id IS NULL OR wd.book_id = $book_id
     RETURN wd
     """
-    result = await session.run(query, definition_id=definition_id)
+    result = await _run(session, query, definition_id=definition_id)
     record = await result.single()
 
     if record:
@@ -93,9 +106,10 @@ async def get_workflow_definition(session: AsyncSession, definition_id: str) -> 
 async def get_workflow_definition_by_trigger(session: AsyncSession, trigger_event: str) -> List[WorkflowDefinitionInDB]:
     query = """
     MATCH (wd:WorkflowDefinition {trigger_event: $trigger_event, is_active: true})
+    WHERE $book_id IS NULL OR wd.book_id = $book_id
     RETURN wd
     """
-    result = await session.run(query, trigger_event=trigger_event)
+    result = await _run(session, query, trigger_event=trigger_event)
     definitions = []
     async for record in result:
         definitions.append(_from_neo4j_props(record["wd"], WorkflowDefinitionInDB))
@@ -105,10 +119,11 @@ async def get_workflow_definition_by_trigger(session: AsyncSession, trigger_even
 async def get_all_workflow_definitions(session: AsyncSession) -> List[WorkflowDefinitionInDB]:
     query = """
     MATCH (wd:WorkflowDefinition)
+    WHERE $book_id IS NULL OR wd.book_id = $book_id
     RETURN wd
     ORDER BY wd.name
     """
-    result = await session.run(query)
+    result = await _run(session, query)
     definitions = []
     async for record in result:
         definitions.append(_from_neo4j_props(record["wd"], WorkflowDefinitionInDB))
@@ -135,11 +150,12 @@ async def update_workflow_definition(
 
     query = f"""
     MATCH (wd:WorkflowDefinition {{id: $definition_id}})
+    WHERE $book_id IS NULL OR wd.book_id = $book_id
     SET {set_query_part}
     RETURN wd
     """
     params = {"definition_id": definition_id, **update_fields}
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
 
     if record:
@@ -150,9 +166,10 @@ async def update_workflow_definition(
 async def delete_workflow_definition(session: AsyncSession, definition_id: str) -> bool:
     query = """
     MATCH (wd:WorkflowDefinition {id: $definition_id})
+    WHERE $book_id IS NULL OR wd.book_id = $book_id
     DETACH DELETE wd
     """
-    result = await session.run(query, definition_id=definition_id)
+    result = await _run(session, query, definition_id=definition_id)
     return result.consume().counters.nodes_deleted > 0
 
 
@@ -170,25 +187,30 @@ async def create_workflow_instance(
     props["updated_at"] = updated_at.isoformat()
     # Initialize tasks list for the new instance
     props["tasks"] = json.dumps([])  # Start with no tasks
+    props["book_id"] = book_id_var.get()
 
     query = """
     MATCH (wd:WorkflowDefinition {id: $workflow_definition_id})
+    WHERE $book_id IS NULL OR wd.book_id = $book_id
     CREATE (wi:WorkflowInstance $props)
     CREATE (wi)-[:BASED_ON]->(wd)
     RETURN wi
     """
-    result = await session.run(query, workflow_definition_id=instance_data.workflow_definition_id, props=props)
+    result = await _run(session, query, workflow_definition_id=instance_data.workflow_definition_id, props=props)
     record = await result.single()
 
+    if not record:
+        return None  # definition not visible in this Book context
     return _from_neo4j_props(record["wi"], WorkflowInstanceInDB)
 
 
 async def get_workflow_instance(session: AsyncSession, instance_id: str) -> Optional[WorkflowInstanceInDB]:
     query = """
     MATCH (wi:WorkflowInstance {id: $instance_id})
+    WHERE $book_id IS NULL OR wi.book_id = $book_id
     RETURN wi
     """
-    result = await session.run(query, instance_id=instance_id)
+    result = await _run(session, query, instance_id=instance_id)
     record = await result.single()
 
     if record:
@@ -199,10 +221,11 @@ async def get_workflow_instance(session: AsyncSession, instance_id: str) -> Opti
 async def get_workflow_instances_by_definition(session: AsyncSession, definition_id: str) -> List[WorkflowInstanceInDB]:
     query = """
     MATCH (wi:WorkflowInstance)-[:BASED_ON]->(wd:WorkflowDefinition {id: $definition_id})
+    WHERE $book_id IS NULL OR wi.book_id = $book_id
     RETURN wi
     ORDER BY wi.start_date DESC
     """
-    result = await session.run(query, definition_id=definition_id)
+    result = await _run(session, query, definition_id=definition_id)
     instances = []
     async for record in result:
         instances.append(_from_neo4j_props(record["wi"], WorkflowInstanceInDB))
@@ -229,11 +252,12 @@ async def update_workflow_instance(
 
     query = f"""
     MATCH (wi:WorkflowInstance {{id: $instance_id}})
+    WHERE $book_id IS NULL OR wi.book_id = $book_id
     SET {set_query_part}
     RETURN wi
     """
     params = {"instance_id": instance_id, **update_fields}
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
 
     if record:
@@ -244,7 +268,8 @@ async def update_workflow_instance(
 async def delete_workflow_instance(session: AsyncSession, instance_id: str) -> bool:
     query = """
     MATCH (wi:WorkflowInstance {id: $instance_id})
+    WHERE $book_id IS NULL OR wi.book_id = $book_id
     DETACH DELETE wi
     """
-    result = await session.run(query, instance_id=instance_id)
+    result = await _run(session, query, instance_id=instance_id)
     return result.consume().counters.nodes_deleted > 0

@@ -2,12 +2,12 @@ import os
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from neo4j import AsyncSession
 from workflow_service import crud, models
 from workflow_service.database import Neo4jConnector, init_db_schema
-from workflow_service.dependencies import get_db_session  # Assuming get_db_session is defined
+from workflow_service.dependencies import book_id_var, get_db_session  # Assuming get_db_session is defined
 from workflow_service.exceptions import (  # Assuming custom exceptions are defined
     ConflictError,
     ForbiddenError,
@@ -25,6 +25,16 @@ app = FastAPI(
     description="Manages workflow definitions, orchestrates workflow instances, and handles approvals.",
     version="0.1.0",
 )
+
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Bind the gateway-verified X-Book-ID into the request-scoped contextvar."""
+    token = book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        book_id_var.reset(token)
 
 
 # Distributed tracing
@@ -151,7 +161,10 @@ async def delete_workflow_definition(definition_id: str, db_session: AsyncSessio
 async def create_workflow_instance(
     instance: models.WorkflowInstanceCreate, db_session: AsyncSession = Depends(get_db_session)
 ):
-    return await crud.create_workflow_instance(db_session, instance)
+    created = await crud.create_workflow_instance(db_session, instance)
+    if created is None:
+        raise NotFoundError(detail="Workflow Definition not found.")
+    return created
 
 
 @app.get(

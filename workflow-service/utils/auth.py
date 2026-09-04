@@ -53,7 +53,7 @@ def check_permission(permission: str):
         except jwt.InvalidTokenError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    return Depends(permission_checker)
+    return permission_checker
 
 
 async def get_jwt_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
