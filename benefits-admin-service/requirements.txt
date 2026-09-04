@@ -4,3 +4,5 @@ pydantic>=2.5.0
 httpx>=0.26.0
 structlog>=24.1.0
 python-dateutil>=2.8.2
+neo4j==5.19.0
+python-dotenv>=1.0.0

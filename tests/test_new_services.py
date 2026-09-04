@@ -993,7 +993,21 @@ class TestActivityBasedBudgetService:
 
 class TestBenefitsAdminService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("benefits-admin-service"))
+        # Load first: main.py self-bootstraps the benefits_admin_service package.
+        app = load_service_app("benefits-admin-service")
+        pkg = sys.modules["benefits_admin_service"]
+        if not hasattr(pkg, "_ci_fake_session"):
+            fake_path = os.path.join(REPO_ROOT, "benefits-admin-service", "fake_neo4j.py")
+            spec = importlib.util.spec_from_file_location("benefits_fake_neo4j", fake_path)
+            fake_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(fake_mod)
+            sys.modules["benefits_fake_neo4j"] = fake_mod
+            pkg._ci_fake_session = fake_mod.FakeSession()
+            import benefits_admin_service.database as db
+
+            db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(pkg._ci_fake_session))
+        self.client = TestClient(app)
+        self.headers = {"X-User-Id": "ci-user"}
 
     def test_health(self):
         resp = self.client.get("/health")
@@ -1009,10 +1023,12 @@ class TestBenefitsAdminService:
                 "employer_contribution_pct": 5.0,
                 "employee_contribution_pct": 3.0,
             },
+            headers=self.headers,
         )
+        assert plan.status_code == 200, plan.text
         plan_id = plan.json()["id"]
 
-        enr = self.client.post("/enroll", params={"employee_id": "emp001", "plan_id": plan_id})
+        enr = self.client.post("/enroll", params={"employee_id": "emp001", "plan_id": plan_id}, headers=self.headers)
         assert enr.status_code == 200
 
         leave = self.client.post(
@@ -1024,6 +1040,7 @@ class TestBenefitsAdminService:
                 "accrued_days": 2.0,
                 "taken_days": 0.5,
             },
+            headers=self.headers,
         )
         data = leave.json()
         assert leave.status_code == 200
