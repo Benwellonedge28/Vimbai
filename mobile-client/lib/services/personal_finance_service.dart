@@ -3,6 +3,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:vimbai_mobile_client/services/book_context.dart';
 
 class PersonalFinanceService {
   PersonalFinanceService._();
@@ -19,6 +20,7 @@ class PersonalFinanceService {
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
         if (_token != null) 'Authorization': 'Bearer $_token',
+        ...BookContext.instance.headers(),
       };
 
   http.Client _client = http.Client();

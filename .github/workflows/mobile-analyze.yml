@@ -1,0 +1,37 @@
+name: Mobile Analyze
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile-client/**"
+      - ".github/workflows/mobile-analyze.yml"
+  pull_request:
+    paths:
+      - "mobile-client/**"
+
+concurrency:
+  group: mobile-analyze-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subos/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+        working-directory: mobile-client
+
+      - name: Analyze Dart code
+        run: flutter analyze --fatal-infos
+        working-directory: mobile-client

@@ -14,6 +14,7 @@ import 'package:vimbai_mobile_client/services/api_client.dart';
 import 'package:vimbai_mobile_client/models/accounting_models.dart';
 import 'package:vimbai_mobile_client/services/auth_service.dart';
 import 'package:vimbai_mobile_client/local_db/database_helper.dart';
+import 'package:vimbai_mobile_client/services/book_context.dart';
 
 class AccountingApiService {
   final String _baseUrl = AppConfig.accountingRoute;
@@ -26,6 +27,7 @@ class AccountingApiService {
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
+      ...BookContext.instance.headers(),
     };
   }
 

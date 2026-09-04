@@ -10,6 +10,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:vimbai_mobile_client/services/book_context.dart';
 
 class NpoOrg {
   final String id;
@@ -55,6 +56,7 @@ class NpoScaleService {
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
         if (_token != null) 'Authorization': 'Bearer $_token',
+        ...BookContext.instance.headers(),
       };
 
   http.Client _client = http.Client();
@@ -93,6 +95,16 @@ class NpoScaleService {
       }),
     );
     return _decode<Map<String, dynamic>>(r);
+  }
+
+  /// The org's Book (id, name, tier, your role) - org Books are real
+  /// book-sync Books wired to the org, selectable as an active context.
+  Future<Map<String, dynamic>?> orgBook(String orgId) async {
+    final r = await _client.get(_u('/orgs/$orgId/book'), headers: _headers);
+    if (r.statusCode == 404) return null;
+    final j = _decode<Map<String, dynamic>>(r);
+    final b = j['book'];
+    return b is Map<String, dynamic> ? b : null;
   }
 
   Future<Map<String, dynamic>> orgFeatures(String orgId) async {

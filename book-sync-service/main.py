@@ -613,6 +613,55 @@ def _book_seq_row(conn: sqlite3.Connection, book_id: str) -> int:
     return r["seq"] if r else 0
 
 
+@app.get("/books/{book_id}/membership")
+def get_membership(book_id: str, user_id: str = Depends(current_user)):
+    """Lightweight membership check used by the gateway Book-context
+    middleware: confirms the caller is an active member and returns their
+    role (403 otherwise)."""
+    with db() as conn:
+        m = require_membership(conn, user_id, book_id, None)
+        b = conn.execute("SELECT tier FROM books WHERE id=?", (book_id,)).fetchone()
+    return {
+        "service": SERVICE_NAME,
+        "book_id": book_id,
+        "user_id": user_id,
+        "role": m["role"],
+        "tier": b["tier"] if b else None,
+    }
+
+
+@app.post("/books/default")
+def default_book(user_id: str = Depends(current_user)):
+    """Get-or-create the caller's personal Book. Guarantees every user has
+    a personal-level Book from their very first request."""
+    with db() as conn:
+        b = conn.execute(
+            "SELECT b.*, m.role FROM books b JOIN memberships m"
+            " ON m.book_id=b.id WHERE m.user_id=? AND b.tier='personal'"
+            " AND m.status='active' ORDER BY b.created_at ASC LIMIT 1",
+            (user_id,),
+        ).fetchone()
+        if b is not None:
+            return {"service": SERVICE_NAME, "book": dict(b), "created": False}
+        book_id = str(uuid.uuid4())
+        now = time.time()
+        conn.execute(
+            "INSERT INTO books (id, name, tier, description, created_by, created_at, seq)" " VALUES (?,?,?,?,?,?,0)",
+            (book_id, "My Book", "personal", "", user_id, now),
+        )
+        conn.execute(
+            "INSERT INTO memberships (id, book_id, user_id, role, display_name, status, invited_by, created_at)"
+            " VALUES (?,?,?,?,?,'active','',?)",
+            (str(uuid.uuid4()), book_id, user_id, ROLE_OWNER, "", now),
+        )
+        audit(conn, book_id, user_id, "book.created", "personal (auto-provisioned)")
+        b = conn.execute(
+            "SELECT b.*, m.role FROM books b JOIN memberships m" " ON m.book_id=b.id WHERE b.id=?",
+            (book_id,),
+        ).fetchone()
+    return {"service": SERVICE_NAME, "book": dict(b), "created": True}
+
+
 @app.get("/health")
 def health():
     return {"service": SERVICE_NAME, "status": "healthy", "version": SERVICE_VERSION}

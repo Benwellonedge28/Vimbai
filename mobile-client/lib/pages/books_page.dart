@@ -9,7 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:vimbai_mobile_client/models/book_models.dart';
+import 'package:vimbai_mobile_client/services/book_context.dart';
 import 'package:vimbai_mobile_client/services/book_sync_service.dart';
+import 'package:vimbai_mobile_client/services/npo_scale_service.dart';
 
 class BooksPage extends StatefulWidget {
   const BooksPage({super.key});
@@ -20,7 +22,9 @@ class BooksPage extends StatefulWidget {
 
 class _BooksPageState extends State<BooksPage> {
   final BookSyncService _sync = BookSyncService.instance;
+  final NpoScaleService _scale = NpoScaleService.instance;
   List<VBook> _books = [];
+  List<BookContextBook> _orgBooks = [];
   bool _loading = true;
   String? _error;
   String? _activeBookId;
@@ -46,13 +50,16 @@ class _BooksPageState extends State<BooksPage> {
     });
     try {
       final books = await _sync.refreshBooksFromServer();
+      final orgBooks = await _loadOrgBooks();
       final prefs = await SharedPreferences.getInstance();
       if (!mounted) return;
       setState(() {
         _books = books;
+        _orgBooks = orgBooks;
         _activeBookId = prefs.getString('active_book_id');
         _loading = false;
       });
+      _hydrateContext();
     } catch (e) {
       final local = await _sync.localBooks();
       if (!mounted) return;
@@ -64,11 +71,61 @@ class _BooksPageState extends State<BooksPage> {
     }
   }
 
+  /// Organization Books: real Books wired to each of the user's orgs
+  /// (company, partnership, sole trader, NPO - any scale band). Fetched
+  /// independently so a scale-service outage never hides personal Books.
+  Future<List<BookContextBook>> _loadOrgBooks() async {
+    try {
+      final orgs = await _scale.myOrgs();
+      final out = <BookContextBook>[];
+      for (final org in orgs) {
+        final b = await _scale.orgBook(org.id);
+        if (b != null) {
+          b['name'] = (b['name'] as String?) ?? org.name;
+          out.add(BookContextBook.fromJson(b, source: 'org'));
+        }
+      }
+      return out;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Keep the app-wide BookContext in sync with the active selection so
+  /// every service client sends X-Book-ID for the right context.
+  void _hydrateContext() {
+    final id = _activeBookId;
+    if (id == null) {
+      BookContext.instance.clear();
+      return;
+    }
+    for (final b in _books) {
+      if (b.id == id && b.membershipStatus == 'active') {
+        BookContext.instance.setBook(BookContextBook(
+          id: b.id,
+          name: b.name,
+          tier: b.tier,
+          yourRole: b.yourRole,
+          source: 'sync',
+        ));
+        return;
+      }
+    }
+    for (final b in _orgBooks) {
+      if (b.id == id) {
+        BookContext.instance.setBook(b);
+        return;
+      }
+    }
+    BookContext.instance.clear();
+  }
+
   Future<void> _setActive(String bookId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('active_book_id', bookId);
     if (!mounted) return;
     setState(() => _activeBookId = bookId);
+    _hydrateContext();
   }
 
   Future<void> _createBook() async {
@@ -265,37 +322,72 @@ class _BooksPageState extends State<BooksPage> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
-              child: ListView.builder(
-                itemCount: _books.length,
-                itemBuilder: (ctx, i) {
-                  final b = _books[i];
-                  final isActive = b.id == _activeBookId;
-                  final invited = b.membershipStatus == 'invited';
-                  return Card(
-                    color: isActive
-                        ? Theme.of(context).colorScheme.primaryContainer
-                        : null,
-                    child: ListTile(
-                      leading: Icon(_tierIcons[b.tier] ?? Icons.book),
-                      title: Text(b.name),
-                      subtitle: Text(
-                        '${b.tier} - you are ${b.yourRole}'
-                        '${invited ? ' (invited)' : ''}',
+              child: ListView(
+                children: [
+                  ..._books.map(
+                    (b) {
+                      final isActive = b.id == _activeBookId;
+                      final invited = b.membershipStatus == 'invited';
+                      return Card(
+                        color: isActive
+                            ? Theme.of(context).colorScheme.primaryContainer
+                            : null,
+                        child: ListTile(
+                          leading: Icon(_tierIcons[b.tier] ?? Icons.book),
+                          title: Text(b.name),
+                          subtitle: Text(
+                            '${b.tier} - you are ${b.yourRole}'
+                            '${invited ? ' (invited)' : ''}',
+                          ),
+                          trailing: invited
+                              ? TextButton(
+                                  onPressed: () => _accept(b),
+                                  child: const Text('Accept'),
+                                )
+                              : (isActive
+                                  ? const Icon(Icons.check_circle)
+                                  : null),
+                          onTap: invited ? null : () => _setActive(b.id),
+                          onLongPress: b.yourRole == 'owner' ||
+                                  b.yourRole == 'admin'
+                              ? () => _invite(b.id)
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
+                  if (_orgBooks.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+                      child: Text(
+                        'ORGANIZATION BOOKS',
+                        style: Theme.of(context).textTheme.labelSmall,
                       ),
-                      trailing: invited
-                          ? TextButton(
-                              onPressed: () => _accept(b),
-                              child: const Text('Accept'),
-                            )
-                          : (isActive ? const Icon(Icons.check_circle) : null),
-                      onTap: invited ? null : () => _setActive(b.id),
-                      onLongPress: b.yourRole == 'owner' ||
-                              b.yourRole == 'admin'
-                          ? () => _invite(b.id)
-                          : null,
                     ),
-                  );
-                },
+                    ..._orgBooks.map(
+                      (b) {
+                        final isActive = b.id == _activeBookId;
+                        return Card(
+                          color: isActive
+                              ? Theme.of(context).colorScheme.primaryContainer
+                              : null,
+                          child: ListTile(
+                            leading: const Icon(Icons.corporate_fare),
+                            title: Text(b.name),
+                            subtitle: Text(
+                              'org book - ${b.tier} - you are ${b.yourRole}',
+                            ),
+                            trailing: isActive
+                                ? const Icon(Icons.check_circle)
+                                : null,
+                            onTap: () => _setActive(b.id),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
     );

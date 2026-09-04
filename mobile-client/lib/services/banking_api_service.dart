@@ -3,6 +3,7 @@ import 'package:vimbai_mobile_client/services/api_client.dart';
 import 'package:vimbai_mobile_client/local_db/user_local_data.dart';
 import 'package:vimbai_mobile_client/config.dart'; // For API URL
 import 'package:vimbai_mobile_client/models/banking_models.dart'; // Import Banking Models
+import 'package:vimbai_mobile_client/services/book_context.dart';
 
 class BankingApiService {
   final ApiClient _client = ApiClient();
@@ -13,6 +14,7 @@ class BankingApiService {
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
+      ...BookContext.instance.headers(),
     };
   }
 

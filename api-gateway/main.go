@@ -177,7 +177,7 @@ func main() {
 	e.Use(echoMiddleware.CORSWithConfig(echoMiddleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
-		AllowHeaders: []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-User-ID", "X-Username", "X-User-Role", "X-User-Permissions"},
+		AllowHeaders: []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-User-ID", "X-Username", "X-User-Role", "X-User-Permissions", "X-Book-ID", "X-Book-Role", "X-Book-Tier"},
 	}))
 
 	// Rate limiting middleware (applied before auth)
@@ -193,6 +193,25 @@ func main() {
 
 	// Global JWT Authentication Middleware
 	e.Use(middleware.AuthMiddleware(cfg))
+
+	// Book-context middleware: when a request carries X-Book-ID, verify the
+	// caller's membership in that Book (personal, household, group, business,
+	// nonprofit or an organization's Book) and inject X-Book-ID/X-Book-Role/
+	// X-Book-Tier downstream so every service can act in Book context.
+	bookSyncURL := ""
+	for _, route := range cfg.Routes {
+		if route.Path == "/book-sync" {
+			bookSyncURL = route.TargetURL
+			break
+		}
+	}
+	if bookSyncURL != "" {
+		e.Use(middleware.BookContextMiddleware(middleware.BookContextConfig{
+			BookSyncURL: bookSyncURL,
+			Timeout:     3 * time.Second,
+		}))
+		log.Printf("Book-context middleware enabled (book-sync at %s)\n", bookSyncURL)
+	}
 
 	e.GET("/", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"message": "Vimbai API Gateway is running!"})

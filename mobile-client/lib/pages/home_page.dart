@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/services/auth_service.dart';
+import 'package:vimbai_mobile_client/services/book_context.dart';
+import 'package:vimbai_mobile_client/models/book_models.dart';
+import 'package:vimbai_mobile_client/services/book_sync_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vimbai_mobile_client/pages/login_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/services/accounting_api_service.dart'; // NEW
@@ -24,11 +28,15 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final AuthService _authService = AuthService();
   final AccountingApiService _accountingApiService = AccountingApiService(); // NEW
+  final BookSyncService _bookSync = BookSyncService.instance;
+  final ValueNotifier<int> _contextTicker = ValueNotifier<int>(0);
   ConnectivityResult _connectivityResult = ConnectivityResult.none;
 
   @override
   void initState() {
     super.initState();
+    _hydrateBookContext();
+    BookContext.instance.addListener(() => _contextTicker.value++);
     _checkConnectivity();
     Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
       setState(() {
@@ -66,6 +74,36 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  /// Hydrate the app-wide Book context from the persisted active book so
+  /// service clients send X-Book-ID from the moment the app opens.
+  Future<void> _hydrateBookContext() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeId = prefs.getString('active_book_id');
+      if (activeId == null) return;
+      List<VBook> books;
+      try {
+        books = await _bookSync.refreshBooksFromServer();
+      } catch (_) {
+        books = await _bookSync.localBooks();
+      }
+      for (final b in books) {
+        if (b.id == activeId && b.membershipStatus == 'active') {
+          BookContext.instance.setBook(BookContextBook(
+            id: b.id,
+            name: b.name,
+            tier: b.tier,
+            yourRole: b.yourRole,
+            source: 'sync',
+          ));
+          return;
+        }
+      }
+    } catch (_) {
+      // offline or not logged in yet - BooksPage will hydrate later
+    }
+  }
+
   Widget build(BuildContext context) {
     return Scaffold(
           appBar: AppBar(
@@ -96,6 +134,38 @@ class _HomePageState extends State<HomePage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // ... (existing widgets) ...
+                  ValueListenableBuilder<int>(
+                    valueListenable: _contextTicker,
+                    builder: (context, _, __) {
+                      final b = BookContext.instance.current;
+                      return Card(
+                        color: b == null
+                            ? null
+                            : Theme.of(context).colorScheme.primaryContainer,
+                        child: ListTile(
+                          leading: Icon(
+                            b == null ? Icons.person : Icons.book,
+                          ),
+                          title: Text(
+                            b == null ? 'Personal context' : b.name,
+                          ),
+                          subtitle: Text(
+                            b == null
+                                ? 'tap to choose a Book context'
+                                : '${b.tier} - you are ${b.yourRole}',
+                          ),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const BooksPage(),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
                   const Text(
                     'Multimodal Input:',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),

@@ -258,3 +258,39 @@ def test_personal_book_needs_no_key(household_book):
     )
     assert r.status_code == 200
     assert r.json()["book"]["tier"] == "personal"
+
+
+def test_membership_check_endpoint(household_book):
+    # invited member can check their membership and sees their role
+    client.post(
+        "/books/%s/members" % household_book,
+        json={"user_id": "member-two", "role": "bookkeeper", "wrapped_book_key": "aW52aXRlLXdyYXB="},
+        headers=hdr(ALICE),
+    )
+    client.post(
+        "/books/%s/members/accept" % household_book,
+        json={"user_id": "member-two"},
+        headers=hdr("member-two"),
+    )
+    r = client.get("/books/%s/membership" % household_book, headers=hdr("member-two"))
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["role"] == "bookkeeper"
+    assert j["tier"] == "household"
+    # a non-member gets 403
+    r = client.get("/books/%s/membership" % household_book, headers=hdr("intruder"))
+    assert r.status_code == 403
+
+
+def test_default_book_get_or_create():
+    hdrs = hdr("fresh-user")
+    r1 = client.post("/books/default", headers=hdrs)
+    assert r1.status_code == 200, r1.text
+    first = r1.json()
+    assert first["created"] is True
+    assert first["book"]["tier"] == "personal"
+    assert first["book"]["name"] == "My Book"
+    # second call returns the same book, no duplicate
+    r2 = client.post("/books/default", headers=hdrs)
+    assert r2.json()["created"] is False
+    assert r2.json()["book"]["id"] == first["book"]["id"]

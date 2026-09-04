@@ -7,6 +7,7 @@ import 'package:vimbai_mobile_client/models/finance_models.dart'; // Import Fina
 import 'package:connectivity_plus/connectivity_plus.dart'; // For offline detection
 import 'package:vimbai_mobile_client/local_db/database_helper.dart'; // For local DB access
 import 'package:uuid/uuid.dart'; // For generating UUIDs
+import 'package:vimbai_mobile_client/services/book_context.dart';
 
 class FinanceApiService {
   final ApiClient _client = ApiClient();
@@ -20,6 +21,7 @@ class FinanceApiService {
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
+      ...BookContext.instance.headers(),
     };
   }
 

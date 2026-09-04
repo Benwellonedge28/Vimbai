@@ -30,6 +30,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:vimbai_mobile_client/models/book_models.dart';
+import 'package:vimbai_mobile_client/services/book_context.dart';
 
 class BookSyncService {
   BookSyncService._();
@@ -113,6 +114,7 @@ class BookSyncService {
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
         if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+        ...BookContext.instance.headers(),
       };
 
   Uri _u(String path, [Map<String, String>? q]) =>

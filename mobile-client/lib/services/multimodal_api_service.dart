@@ -6,6 +6,7 @@ import 'package:vimbai_mobile_client/config.dart';
 import 'package:vimbai_mobile_client/services/api_client.dart';
 import 'package:vimbai_mobile_client/models/multimodal_models.dart'; // Ensure these models exist or are defined
 import 'package:vimbai_mobile_client/services/auth_service.dart'; // For getting authentication token
+import 'package:vimbai_mobile_client/services/book_context.dart';
 
 class MultimodalApiService {
   final String _baseUrl = AppConfig.multimodalRoute; // Via API Gateway (offline-aware client below)
@@ -17,6 +18,7 @@ class MultimodalApiService {
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
+      ...BookContext.instance.headers(),
     };
   }
 
