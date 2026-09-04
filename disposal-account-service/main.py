@@ -5,8 +5,8 @@ Manages disposal of fixed assets and calculation of profit/loss on disposal.
 
 import os
 import uuid
-from enum import Enum
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import httpx

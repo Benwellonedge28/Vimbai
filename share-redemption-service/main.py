@@ -5,8 +5,8 @@ Manages redemption of shares including legal requirements and procedures.
 
 import os
 import uuid
-from enum import Enum
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import httpx

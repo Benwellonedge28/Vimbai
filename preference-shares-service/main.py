@@ -5,8 +5,8 @@ Manages preference share issuance and dividends.
 
 import os
 import uuid
-from enum import Enum
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import httpx
