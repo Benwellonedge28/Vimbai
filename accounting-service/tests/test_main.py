@@ -361,9 +361,7 @@ class TestBookContext:
             "liabilities": [{"liability_name": "Loan", "liability_value": 200.00}],
         }
         headers = {**auth_headers, "X-Book-ID": "book-789"}
-        response = client.post(
-            "/statements-of-affairs/?as_of_date=2026-01-31T00:00:00", json=payload, headers=headers
-        )
+        response = client.post("/statements-of-affairs/?as_of_date=2026-01-31T00:00:00", json=payload, headers=headers)
         assert response.status_code == 201, response.text
 
         query, params = override_deps.run.call_args_list[0].args

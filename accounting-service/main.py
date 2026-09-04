@@ -97,6 +97,7 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
+
 # Bind the gateway-verified Book context to the request scope so every
 # query executed on behalf of this request filters by Book.
 @app.middleware("http")
@@ -106,8 +107,6 @@ async def book_context_middleware(request: Request, call_next):
         return await call_next(request)
     finally:
         book_id_var.reset(token)
-
-
 
 
 # Distributed tracing

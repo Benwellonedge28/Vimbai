@@ -19,6 +19,8 @@ async def _run(session, query, params=None, **kw):
     merged.update(kw)
     merged.setdefault("book_id", book_id_var.get())
     return await session.run(query, merged)
+
+
 from accounting_service.models import (  # New Special Journals; Subsidiary Ledgers; Petty Cash; Bank Reconciliation; Incomplete Records / Single Entry System; Audit Trail; Dimensional Accounting
     AccountCreate,
     AccountInDB,
@@ -2450,8 +2452,8 @@ async def create_bank_reconciliation(
     RETURN je, jl
     ORDER BY je.entry_date ASC
     """
-    result = await _run(session, 
-        query, user_id=user_id, bank_account=bank_account, statement_date=statement_date.isoformat()
+    result = await _run(
+        session, query, user_id=user_id, bank_account=bank_account, statement_date=statement_date.isoformat()
     )
 
     bank_entries = []
@@ -4228,8 +4230,8 @@ async def link_journal_entry_to_dimension(
     CREATE (je)-[:LINKED_TO]->(d)
     RETURN true as linked
     """
-    result = await _run(session, 
-        query, journal_entry_id=journal_entry_id, dimension_type=dimension_type, dimension_id=dimension_id
+    result = await _run(
+        session, query, journal_entry_id=journal_entry_id, dimension_type=dimension_type, dimension_id=dimension_id
     )
     record = await result.single()
     return record is not None and record.get("linked", False)
