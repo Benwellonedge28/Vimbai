@@ -73,8 +73,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         );
         return;
       }
-
-      final items = _budgetItems.map((item) => BudgetItem(
         category: item.category,
         accountNumber: item.accountNumber,
         budgetedAmount: item.budgetedAmount,

@@ -324,6 +324,14 @@ class _BooksPageState extends State<BooksPage> {
               onRefresh: _load,
               child: ListView(
                 children: [
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      ),
+                    ),
                   ..._books.map(
                     (b) {
                       final isActive = b.id == _activeBookId;

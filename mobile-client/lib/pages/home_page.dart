@@ -7,10 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vimbai_mobile_client/pages/login_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/services/accounting_api_service.dart'; // NEW
-import 'package:vimbai_mobile_client/pages/journal_entry_form_page.dart';
-import 'package:vimbai_mobile_client/pages/budgets_page.dart';
-import 'package:vimbai_mobile_client/pages/trial_balance_page.dart';
-import 'package:vimbai_mobile_client/pages/balance_sheet_page.dart';
 import 'package:vimbai_mobile_client/pages/multimodal_input_page.dart';
 import 'package:vimbai_mobile_client/pages/books_page.dart';
 import 'package:vimbai_mobile_client/pages/npo_page.dart';
@@ -73,7 +69,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  @override
   /// Hydrate the app-wide Book context from the persisted active book so
   /// service clients send X-Book-ID from the moment the app opens.
   Future<void> _hydrateBookContext() async {
@@ -104,6 +99,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
           appBar: AppBar(

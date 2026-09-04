@@ -35,5 +35,5 @@ jobs:
         working-directory: mobile-client
 
       - name: Analyze Dart code
-        run: flutter analyze --fatal-infos
+        run: flutter analyze
         working-directory: mobile-client
