@@ -29,7 +29,6 @@ jobs:
           version: latest
           cache: true
           cache-sdk: true
-          cache: true
 
       - name: Pub get
         run: flutter pub get
