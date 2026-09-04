@@ -73,14 +73,6 @@ class _BudgetFormPageState extends State<BudgetFormPage> {
         );
         return;
       }
-        category: item.category,
-        accountNumber: item.accountNumber,
-        budgetedAmount: item.budgetedAmount,
-        budgetType: item.budgetType,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      )).toList();
-
       try {
         await _apiService.createBudget(
           BudgetCreate(

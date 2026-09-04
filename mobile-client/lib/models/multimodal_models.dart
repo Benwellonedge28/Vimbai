@@ -1,7 +1,6 @@
 // mobile-client/lib/models/multimodal_models.dart
 
 import 'package:json_annotation/json_annotation.dart';
-import 'package:uuid/uuid.dart'; // For generating UUIDs if needed
 
 part 'multimodal_models.g.dart'; // Generated file for json_serializable
 
