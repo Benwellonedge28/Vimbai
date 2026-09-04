@@ -4,8 +4,8 @@ from decimal import Decimal  # Added Decimal for response type
 from typing import Dict, List, Optional  # Added Dict for response model
 
 from accounting_service import crud, models
-from accounting_service.database import Neo4jConnector, init_db_schema
-from accounting_service.dependencies import get_db_session, get_jwt_token, get_user_id
+from accounting_service.database import Neo4jConnector
+from accounting_service.dependencies import book_id_var, get_db_session, get_jwt_token, get_user_id
 from accounting_service.exceptions import (
     ConflictError,
     ForbiddenError,
@@ -15,7 +15,7 @@ from accounting_service.exceptions import (
 )
 from accounting_service.utils.auth import check_permission
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from neo4j import AsyncSession
@@ -97,6 +97,18 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
+# Bind the gateway-verified Book context to the request scope so every
+# query executed on behalf of this request filters by Book.
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    token = book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        book_id_var.reset(token)
+
+
+
 
 # Distributed tracing
 try:
@@ -120,8 +132,11 @@ async def startup_event():
         user=os.getenv("NEO4J_USER", "neo4j"),
         password=os.getenv("NEO4J_PASSWORD", "neo4j"),
     )
-    Neo4jConnector.get_driver()
-    await init_db_schema()
+    try:
+        Neo4jConnector.get_driver()
+        await Neo4jConnector.initialize_schema()
+    except Exception as exc:  # pragma: no cover - startup resilience
+        logger.warning("Neo4j not ready at startup; will retry on first query: %s", exc)
 
 
 @app.on_event("shutdown")
@@ -270,6 +285,12 @@ async def get_account_activity_for_period(
         db_session, user_id, account_number, start_date, end_date
     )
     return {"total_debits": total_debits, "total_credits": total_credits}
+
+
+@app.get("/", tags=["Health"])
+async def root():
+    """Root health probe."""
+    return {"status": "ok", "service": "accounting-service"}
 
 
 # --- Journal Entry Endpoints ---

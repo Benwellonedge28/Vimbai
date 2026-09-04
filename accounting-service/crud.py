@@ -5,7 +5,20 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
+from accounting_service.dependencies import book_id_var
 from accounting_service.exceptions import ConflictError, NotFoundError, ValidationError
+
+
+async def _run(session, query, params=None, **kw):
+    """Run a Cypher query with the Book context parameter always bound.
+
+    ``book_id`` comes from the request-scoped X-Book-ID header (verified by
+    the gateway); it is None for personal/unscoped calls.
+    """
+    merged = dict(params or {})
+    merged.update(kw)
+    merged.setdefault("book_id", book_id_var.get())
+    return await session.run(query, merged)
 from accounting_service.models import (  # New Special Journals; Subsidiary Ledgers; Petty Cash; Bank Reconciliation; Incomplete Records / Single Entry System; Audit Trail; Dimensional Accounting
     AccountCreate,
     AccountInDB,
@@ -103,6 +116,7 @@ async def create_account(session: AsyncSession, user_id: str, account_data: Acco
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (a:Account {
+        book_id: $book_id,
         id: $id,
         name: $name,
         account_number: $account_number,
@@ -122,7 +136,7 @@ async def create_account(session: AsyncSession, user_id: str, account_data: Acco
     params["created_at"] = created_at.isoformat()
     params["updated_at"] = updated_at.isoformat()
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     account_node = record["a"]
 
@@ -143,9 +157,10 @@ async def create_account(session: AsyncSession, user_id: str, account_data: Acco
 async def get_account(session: AsyncSession, user_id: str, account_number: str) -> Optional[AccountInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_ACCOUNT]->(a:Account {account_number: $account_number})
+    WHERE ($book_id IS NULL OR a.book_id = $book_id)
     RETURN a
     """
-    result = await session.run(query, user_id=user_id, account_number=account_number)
+    result = await _run(session, query, user_id=user_id, account_number=account_number)
     record = await result.single()
 
     if record:
@@ -168,10 +183,11 @@ async def get_account(session: AsyncSession, user_id: str, account_number: str) 
 async def get_all_accounts(session: AsyncSession, user_id: str) -> List[AccountInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_ACCOUNT]->(a:Account)
+    WHERE ($book_id IS NULL OR a.book_id = $book_id)
     RETURN a
     ORDER BY a.account_number
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     accounts = []
     async for record in result:
         account_node = record["a"]
@@ -206,12 +222,13 @@ async def update_account(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_ACCOUNT]->(a:Account {{account_number: $account_number}})
+    WHERE ($book_id IS NULL OR a.book_id = $book_id)
     SET {set_query_part}
     RETURN a
     """
 
     params = {"user_id": user_id, "account_number": account_number, **update_fields}
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
 
     if record:
@@ -223,9 +240,10 @@ async def delete_account(session: AsyncSession, user_id: str, account_number: st
     # Check if any journal lines are linked to this account
     check_query = """
     MATCH (u:User {id: $user_id})-[:OWNS_ACCOUNT]->(a:Account {account_number: $account_number})<-[:IMPACTS]-(:JournalLine)
+    WHERE ($book_id IS NULL OR a.book_id = $book_id)
     RETURN a LIMIT 1
     """
-    check_result = await session.run(check_query, user_id=user_id, account_number=account_number)
+    check_result = await _run(session, check_query, user_id=user_id, account_number=account_number)
     if await check_result.single():
         raise ConflictError(
             detail="Account is linked to existing journal entries and cannot be deleted.", code="ACCOUNT_LINKED"
@@ -233,9 +251,10 @@ async def delete_account(session: AsyncSession, user_id: str, account_number: st
 
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_ACCOUNT]->(a:Account {account_number: $account_number})
+    WHERE ($book_id IS NULL OR a.book_id = $book_id)
     DETACH DELETE a
     """
-    result = await session.run(query, user_id=user_id, account_number=account_number)
+    result = await _run(session, query, user_id=user_id, account_number=account_number)
     return result.consume().counters.nodes_deleted > 0
 
 
@@ -257,14 +276,14 @@ async def get_account_balance(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account {{account_number: $account_number}})
-    WHERE je.status = 'posted' {date_filter}
+    WHERE ($book_id IS NULL OR je.book_id = $book_id) AND je.status = 'posted' {date_filter}
     RETURN SUM(jl.debit) AS total_debits, SUM(jl.credit) AS total_credits
     """
     params = {"user_id": user_id, "account_number": account_number}
     if as_of_date:
         params["as_of_date"] = as_of_date.isoformat()
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     total_debits = Decimal(str(record["total_debits"])) if record and record["total_debits"] else Decimal("0.00")
     total_credits = Decimal(str(record["total_credits"])) if record and record["total_credits"] else Decimal("0.00")
@@ -287,7 +306,7 @@ async def get_account_period_activity(
 
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account {account_number: $account_number})
-    WHERE je.status = 'posted' AND je.entry_date >= datetime($start_date) AND je.entry_date <= datetime($end_date)
+    WHERE ($book_id IS NULL OR je.book_id = $book_id) AND je.status = 'posted' AND je.entry_date >= datetime($start_date) AND je.entry_date <= datetime($end_date)
     RETURN SUM(jl.debit) AS total_debits, SUM(jl.credit) AS total_credits
     """
     params = {
@@ -297,7 +316,7 @@ async def get_account_period_activity(
         "end_date": end_date.isoformat(),
     }
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
 
     total_debits = Decimal(str(record["total_debits"])) if record and record["total_debits"] else Decimal("0.00")
@@ -360,6 +379,7 @@ async def create_journal_entry(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (je:JournalEntry {
+        book_id: $book_id,
         id: $id,
         entry_date: datetime($entry_date),
         description: $description,
@@ -416,7 +436,7 @@ async def create_journal_entry(
         **{f"line_{i}_description": line.description for i, line in enumerate(journal_entry_data.lines)},
     }
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     je_node = record["je"]
 
@@ -442,10 +462,11 @@ async def create_journal_entry(
 async def get_journal_entry(session: AsyncSession, user_id: str, entry_id: str) -> Optional[JournalEntryInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry {id: $entry_id})
+    WHERE ($book_id IS NULL OR je.book_id = $book_id)
     OPTIONAL MATCH (je)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account)
     RETURN je, COLLECT({line: jl, account: a}) AS lines_data
     """
-    result = await session.run(query, user_id=user_id, entry_id=entry_id)
+    result = await _run(session, query, user_id=user_id, entry_id=entry_id)
     record = await result.single()
 
     if record:
@@ -486,9 +507,10 @@ async def get_journal_entry_by_reference(
 ) -> Optional[JournalEntryInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry {reference_number: $reference_number, source_module: $source_module})
+    WHERE ($book_id IS NULL OR je.book_id = $book_id)
     RETURN je
     """
-    result = await session.run(query, user_id=user_id, reference_number=reference_number, source_module=source_module)
+    result = await _run(session, query, user_id=user_id, reference_number=reference_number, source_module=source_module)
     record = await result.single()
 
     if record:
@@ -524,12 +546,13 @@ async def get_all_journal_entries(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)
+    WHERE ($book_id IS NULL OR je.book_id = $book_id)
     OPTIONAL MATCH (je)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account)
     WHERE true {date_filter}
     RETURN je, COLLECT({{line: jl, account: a}}) AS lines_data
     ORDER BY je.entry_date DESC, je.created_at DESC
     """
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
 
     journal_entries_map: Dict[str, JournalEntryInDB] = {}
 
@@ -584,12 +607,13 @@ async def update_journal_entry(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry {{id: $entry_id}})
+    WHERE ($book_id IS NULL OR je.book_id = $book_id)
     SET {set_query_part}
     RETURN je
     """
 
     params = {"user_id": user_id, "entry_id": entry_id, **update_fields}
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
 
     if record:
@@ -600,10 +624,11 @@ async def update_journal_entry(
 async def delete_journal_entry(session: AsyncSession, user_id: str, entry_id: str) -> bool:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry {id: $entry_id})
+    WHERE ($book_id IS NULL OR je.book_id = $book_id)
     OPTIONAL MATCH (je)-[:HAS_LINE]->(jl:JournalLine)
     DETACH DELETE je, jl
     """
-    result = await session.run(query, user_id=user_id, entry_id=entry_id)
+    result = await _run(session, query, user_id=user_id, entry_id=entry_id)
     return result.consume().counters.nodes_deleted > 0
 
 
@@ -689,6 +714,7 @@ async def create_vendor_bill(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (vb:VendorBill {
+        book_id: $book_id,
         id: $id,
         vendor_id: $vendor_id,
         bill_number: $bill_number,
@@ -763,7 +789,7 @@ async def create_vendor_bill(
     """
     params["journal_entry_id"] = created_je.id
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     vb_node = record["vb"]
 
@@ -813,11 +839,11 @@ async def get_ledger_report(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account {{account_number: $account_number}})
-    WHERE je.status = 'posted' {date_filter}
+    WHERE ($book_id IS NULL OR je.book_id = $book_id) AND je.status = 'posted' {date_filter}
     RETURN je, jl
     ORDER BY je.entry_date ASC, je.created_at ASC
     """
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
 
     entries = []
     current_balance = initial_balance
@@ -958,10 +984,11 @@ async def get_income_statement(
 async def get_all_accounts_by_type(session: AsyncSession, user_id: str, account_type: str) -> List[AccountInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_ACCOUNT]->(a:Account {account_type: $account_type})
+    WHERE ($book_id IS NULL OR a.book_id = $book_id)
     RETURN a
     ORDER BY a.account_number
     """
-    result = await session.run(query, user_id=user_id, account_type=account_type)
+    result = await _run(session, query, user_id=user_id, account_type=account_type)
     accounts = []
     async for record in result:
         account_node = record["a"]
@@ -1037,6 +1064,7 @@ async def create_vendor_bill(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (vb:VendorBill {
+        book_id: $book_id,
         id: $id,
         vendor_id: $vendor_id,
         bill_number: $bill_number,
@@ -1111,7 +1139,7 @@ async def create_vendor_bill(
     """
     params["journal_entry_id"] = created_je.id
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     vb_node = record["vb"]
 
@@ -1155,6 +1183,7 @@ async def create_sales_journal_entry(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (sj:SalesJournalEntry {
+        book_id: $book_id,
         id: $id,
         invoice_number: $invoice_number,
         customer_id: $customer_id,
@@ -1227,7 +1256,7 @@ async def create_sales_journal_entry(
     CREATE (sj_match)-[:GENERATED_JOURNAL_ENTRY]->(je_match)
     """
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     sj_node = record["sj"]
 
@@ -1270,12 +1299,12 @@ async def get_sales_journal_entries(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_SALES_JOURNAL_ENTRY]->(sj:SalesJournalEntry)
-    WHERE true {date_filter}
+    WHERE ($book_id IS NULL OR sj.book_id = $book_id) AND true {date_filter}
     OPTIONAL MATCH (sj)-[:GENERATED_JOURNAL_ENTRY]->(je:JournalEntry)
     RETURN sj, je.id as journal_entry_id
     ORDER BY sj.invoice_date DESC
     """
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     entries = []
     async for record in result:
         sj = record["sj"]
@@ -1304,10 +1333,11 @@ async def get_sales_journal_entries(
 async def get_sales_journal_entry(session: AsyncSession, user_id: str, entry_id: str) -> SalesJournalEntryInDB:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_SALES_JOURNAL_ENTRY]->(sj:SalesJournalEntry {id: $entry_id})
+    WHERE ($book_id IS NULL OR sj.book_id = $book_id)
     OPTIONAL MATCH (sj)-[:GENERATED_JOURNAL_ENTRY]->(je:JournalEntry)
     RETURN sj, je.id as journal_entry_id
     """
-    result = await session.run(query, user_id=user_id, entry_id=entry_id)
+    result = await _run(session, query, user_id=user_id, entry_id=entry_id)
     record = await result.single()
     if not record:
         raise NotFoundError(detail="Sales journal entry not found")
@@ -1341,6 +1371,7 @@ async def create_purchases_journal_entry(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (pj:PurchasesJournalEntry {
+        book_id: $book_id,
         id: $id,
         purchase_order_number: $purchase_order_number,
         vendor_id: $vendor_id,
@@ -1413,7 +1444,7 @@ async def create_purchases_journal_entry(
     CREATE (pj_match)-[:GENERATED_JOURNAL_ENTRY]->(je_match)
     """
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     pj_node = record["pj"]
 
@@ -1456,12 +1487,12 @@ async def get_purchases_journal_entries(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_PURCHASES_JOURNAL_ENTRY]->(pj:PurchasesJournalEntry)
-    WHERE true {date_filter}
+    WHERE ($book_id IS NULL OR pj.book_id = $book_id) AND true {date_filter}
     OPTIONAL MATCH (pj)-[:GENERATED_JOURNAL_ENTRY]->(je:JournalEntry)
     RETURN pj, je.id as journal_entry_id
     ORDER BY pj.purchase_date DESC
     """
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     entries = []
     async for record in result:
         pj = record["pj"]
@@ -1497,6 +1528,7 @@ async def create_cash_receipts_entry(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (cr:CashReceiptsJournalEntry {
+        book_id: $book_id,
         id: $id,
         receipt_number: $receipt_number,
         customer_id: $customer_id,
@@ -1562,7 +1594,7 @@ async def create_cash_receipts_entry(
     CREATE (cr_match)-[:GENERATED_JOURNAL_ENTRY]->(je_match)
     """
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     cr_node = record["cr"]
 
@@ -1599,12 +1631,12 @@ async def get_cash_receipts_entries(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_CASH_RECEIPTS_JOURNAL_ENTRY]->(cr:CashReceiptsJournalEntry)
-    WHERE true {date_filter}
+    WHERE ($book_id IS NULL OR cr.book_id = $book_id) AND true {date_filter}
     OPTIONAL MATCH (cr)-[:GENERATED_JOURNAL_ENTRY]->(je:JournalEntry)
     RETURN cr, je.id as journal_entry_id
     ORDER BY cr.receipt_date DESC
     """
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     entries = []
     async for record in result:
         cr = record["cr"]
@@ -1640,6 +1672,7 @@ async def create_cash_disbursements_entry(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (cd:CashDisbursementsJournalEntry {
+        book_id: $book_id,
         id: $id,
         payment_number: $payment_number,
         vendor_id: $vendor_id,
@@ -1709,7 +1742,7 @@ async def create_cash_disbursements_entry(
     CREATE (cd_match)-[:GENERATED_JOURNAL_ENTRY]->(je_match)
     """
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     cd_node = record["cd"]
 
@@ -1748,12 +1781,12 @@ async def get_cash_disbursements_entries(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_CASH_DISBURSEMENTS_JOURNAL_ENTRY]->(cd:CashDisbursementsJournalEntry)
-    WHERE true {date_filter}
+    WHERE ($book_id IS NULL OR cd.book_id = $book_id) AND true {date_filter}
     OPTIONAL MATCH (cd)-[:GENERATED_JOURNAL_ENTRY]->(je:JournalEntry)
     RETURN cd, je.id as journal_entry_id
     ORDER BY cd.payment_date DESC
     """
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     entries = []
     async for record in result:
         cd = record["cd"]
@@ -1791,6 +1824,7 @@ async def create_sales_return_entry(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (sr:SalesReturnsJournalEntry {
+        book_id: $book_id,
         id: $id,
         return_number: $return_number,
         original_invoice_number: $original_invoice_number,
@@ -1861,7 +1895,7 @@ async def create_sales_return_entry(
     CREATE (sr_match)-[:GENERATED_JOURNAL_ENTRY]->(je_match)
     """
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     sr_node = record["sr"]
 
@@ -1893,6 +1927,7 @@ async def create_purchases_return_entry(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (pr:PurchasesReturnsJournalEntry {
+        book_id: $book_id,
         id: $id,
         return_number: $return_number,
         original_po_number: $original_po_number,
@@ -1963,7 +1998,7 @@ async def create_purchases_return_entry(
     CREATE (pr_match)-[:GENERATED_JOURNAL_ENTRY]->(je_match)
     """
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     pr_node = record["pr"]
 
@@ -2005,11 +2040,11 @@ async def get_ar_ledger_report(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_SALES_JOURNAL_ENTRY]->(sj:SalesJournalEntry)
-    WHERE true {date_filter}
+    WHERE ($book_id IS NULL OR sj.book_id = $book_id) AND true {date_filter}
     RETURN sj
     ORDER BY sj.invoice_date DESC
     """
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     entries = []
     total_invoice = Decimal("0.00")
     total_balance = Decimal("0.00")
@@ -2070,11 +2105,11 @@ async def get_ap_ledger_report(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_PURCHASES_JOURNAL_ENTRY]->(pj:PurchasesJournalEntry)
-    WHERE true {date_filter}
+    WHERE ($book_id IS NULL OR pj.book_id = $book_id) AND true {date_filter}
     RETURN pj
     ORDER BY pj.purchase_date DESC
     """
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     entries = []
     total_bill = Decimal("0.00")
     total_balance = Decimal("0.00")
@@ -2161,6 +2196,7 @@ async def create_petty_cash_fund(session: AsyncSession, user_id: str, fund: Pett
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (pcf:PettyCashFund {
+        book_id: $book_id,
         id: $id,
         fund_name: $fund_name,
         fund_number: $fund_number,
@@ -2186,7 +2222,7 @@ async def create_petty_cash_fund(session: AsyncSession, user_id: str, fund: Pett
         "created_at": created_at.isoformat(),
         "updated_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     pcf = record["pcf"]
 
@@ -2208,10 +2244,11 @@ async def get_petty_cash_funds(session: AsyncSession, user_id: str) -> List[Pett
     """Get all Petty Cash Funds"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_PETTY_CASH_FUND]->(pcf:PettyCashFund)
+    WHERE ($book_id IS NULL OR pcf.book_id = $book_id)
     RETURN pcf
     ORDER BY pcf.fund_number
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     funds = []
     async for record in result:
         pcf = record["pcf"]
@@ -2242,6 +2279,7 @@ async def create_petty_cash_entry(
     query = """
     MATCH (u:User {id: $user_id}), (pcf:PettyCashFund {id: $petty_cash_fund_id})
     CREATE (pce:PettyCashEntry {
+        book_id: $book_id,
         id: $id,
         voucher_number: $voucher_number,
         voucher_date: datetime($voucher_date),
@@ -2318,7 +2356,7 @@ async def create_petty_cash_entry(
     CREATE (pce_match)-[:GENERATED_JOURNAL_ENTRY]->(je_match)
     """
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     pce = record["pce"]
 
@@ -2358,12 +2396,12 @@ async def get_petty_cash_entries(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_PETTY_CASH_ENTRY]->(pce:PettyCashEntry)-[:FROM_FUND]->(pcf:PettyCashFund)
-    WHERE true {date_filter}
+    WHERE ($book_id IS NULL OR pce.book_id = $book_id) AND true {date_filter}
     OPTIONAL MATCH (pce)-[:GENERATED_JOURNAL_ENTRY]->(je:JournalEntry)
     RETURN pce, pcf.id as petty_cash_fund_id, je.id as journal_entry_id
     ORDER BY pce.voucher_date DESC
     """
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     entries = []
     async for record in result:
         pce = record["pce"]
@@ -2408,11 +2446,11 @@ async def create_bank_reconciliation(
     # Get bank account transactions from journal entries
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)-[:HAS_LINE]->(jl:JournalLine)-[:IMPACTS]->(a:Account {account_number: $bank_account})
-    WHERE je.status = 'posted' AND je.entry_date <= datetime($statement_date)
+    WHERE ($book_id IS NULL OR je.book_id = $book_id) AND je.status = 'posted' AND je.entry_date <= datetime($statement_date)
     RETURN je, jl
     ORDER BY je.entry_date ASC
     """
-    result = await session.run(
+    result = await _run(session, 
         query, user_id=user_id, bank_account=bank_account, statement_date=statement_date.isoformat()
     )
 
@@ -2483,6 +2521,7 @@ async def create_bank_reconciliation(
     store_query = """
     MATCH (u:User {id: $user_id})
     CREATE (br:BankReconciliation {
+        book_id: $book_id,
         id: $id,
         bank_account_number: $bank_account,
         statement_date: datetime($statement_date),
@@ -2510,7 +2549,7 @@ async def create_bank_reconciliation(
         "is_reconciled": difference == Decimal("0.00"),
         "created_at": created_at.isoformat(),
     }
-    await session.run(store_query, store_params)
+    await _run(session, store_query, store_params)
 
     return reconciliation
 
@@ -2533,11 +2572,11 @@ async def get_bank_reconciliations(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_BANK_RECONCILIATION]->(br:BankReconciliation)
-    WHERE true {date_filter}
+    WHERE ($book_id IS NULL OR br.book_id = $book_id) AND true {date_filter}
     RETURN br
     ORDER BY br.statement_date DESC
     """
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     reconciliations = []
     async for record in result:
         br = record["br"]
@@ -2572,11 +2611,12 @@ async def get_latest_bank_reconciliation(
     """Get Latest Bank Reconciliation for an account"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_BANK_RECONCILIATION]->(br:BankReconciliation {bank_account_number: $bank_account})
+    WHERE ($book_id IS NULL OR br.book_id = $book_id)
     RETURN br
     ORDER BY br.statement_date DESC
     LIMIT 1
     """
-    result = await session.run(query, user_id=user_id, bank_account=bank_account)
+    result = await _run(session, query, user_id=user_id, bank_account=bank_account)
     record = await result.single()
     if not record:
         raise NotFoundError(detail=f"No bank reconciliation found for account {bank_account}")
@@ -2632,6 +2672,7 @@ async def create_statement_of_affairs(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (soa:StatementOfAffairs {
+        book_id: $book_id,
         id: $id,
         as_of_date: datetime($as_of_date),
         prepared_by: $prepared_by,
@@ -2657,7 +2698,7 @@ async def create_statement_of_affairs(
         "notes": None,
         "created_at": created_at.isoformat(),
     }
-    await session.run(query, params)
+    await _run(session, query, params)
 
     return StatementOfAffairsInDB(
         id=statement_id,
@@ -2678,10 +2719,10 @@ async def get_statement_of_affairs(session: AsyncSession, user_id: str, as_of_da
     """Get Statement of Affairs as of a specific date"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_STATEMENT_OF_AFFAIRS]->(soa:StatementOfAffairs)
-    WHERE soa.as_of_date = datetime($as_of_date)
+    WHERE ($book_id IS NULL OR soa.book_id = $book_id) AND soa.as_of_date = datetime($as_of_date)
     RETURN soa
     """
-    result = await session.run(query, user_id=user_id, as_of_date=as_of_date.isoformat())
+    result = await _run(session, query, user_id=user_id, as_of_date=as_of_date.isoformat())
     record = await result.single()
     if not record:
         raise NotFoundError(detail=f"No Statement of Affairs found for date {as_of_date}")
@@ -2705,10 +2746,11 @@ async def get_all_statements_of_affairs(session: AsyncSession, user_id: str) -> 
     """Get all Statements of Affairs for a user"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_STATEMENT_OF_AFFAIRS]->(soa:StatementOfAffairs)
+    WHERE ($book_id IS NULL OR soa.book_id = $book_id)
     RETURN soa
     ORDER BY soa.as_of_date DESC
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     statements = []
     async for record in result:
         soa = record["soa"]
@@ -2766,6 +2808,7 @@ async def create_capital_calculation(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (cc:CapitalCalculation {
+        book_id: $book_id,
         id: $id,
         as_of_date: datetime($as_of_date),
         period_start: datetime($period_start),
@@ -2801,7 +2844,7 @@ async def create_capital_calculation(
         "notes": calc.notes,
         "created_at": created_at.isoformat(),
     }
-    await session.run(query, params)
+    await _run(session, query, params)
 
     # Create capital entry nodes
     entries_in_db = []
@@ -2831,7 +2874,7 @@ async def create_capital_calculation(
             "reference_number": entry.reference_number,
             "created_at": created_at.isoformat(),
         }
-        await session.run(entry_query, entry_params)
+        await _run(session, entry_query, entry_params)
         entries_in_db.append(
             CapitalCalculationEntryInDB(
                 id=entry_id,
@@ -2868,10 +2911,11 @@ async def get_capital_calculation(session: AsyncSession, user_id: str, calc_id: 
     """Get Capital Calculation by ID"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_CAPITAL_CALCULATION]->(cc:CapitalCalculation {id: $calc_id})
+    WHERE ($book_id IS NULL OR cc.book_id = $book_id)
     OPTIONAL MATCH (cc)-[:HAS_ENTRY]->(e:CapitalCalculationEntry)
     RETURN cc, collect(e) as entries
     """
-    result = await session.run(query, user_id=user_id, calc_id=calc_id)
+    result = await _run(session, query, user_id=user_id, calc_id=calc_id)
     record = await result.single()
     if not record:
         raise NotFoundError(detail=f"Capital Calculation {calc_id} not found")
@@ -2916,10 +2960,11 @@ async def get_all_capital_calculations(session: AsyncSession, user_id: str) -> L
     """Get all Capital Calculations"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_CAPITAL_CALCULATION]->(cc:CapitalCalculation)
+    WHERE ($book_id IS NULL OR cc.book_id = $book_id)
     RETURN cc
     ORDER BY cc.as_of_date DESC
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     calcs = []
     async for record in result:
         cc = record["cc"]
@@ -2984,6 +3029,7 @@ async def create_control_account(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (ca:ControlAccount {
+        book_id: $book_id,
         id: $id,
         account_type: $account_type,
         account_name: $account_name,
@@ -3013,7 +3059,7 @@ async def create_control_account(
         "notes": account.notes,
         "created_at": created_at.isoformat(),
     }
-    await session.run(query, params)
+    await _run(session, query, params)
 
     # Create entries
     entries_in_db = []
@@ -3051,7 +3097,7 @@ async def create_control_account(
             "running_balance": float(running),
             "created_at": created_at.isoformat(),
         }
-        await session.run(entry_query, entry_params)
+        await _run(session, entry_query, entry_params)
         entries_in_db.append(
             ControlAccountEntryInDB(
                 id=entry_id,
@@ -3104,7 +3150,7 @@ async def get_control_accounts(
     type_filter = "AND ca.account_type = $account_type" if account_type else ""
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_CONTROL_ACCOUNT]->(ca:ControlAccount)
-    WHERE true {type_filter}
+    WHERE ($book_id IS NULL OR ca.book_id = $book_id) AND true {type_filter}
     RETURN ca
     ORDER BY ca.as_of_date DESC
     """
@@ -3112,7 +3158,7 @@ async def get_control_accounts(
     if account_type:
         params["account_type"] = account_type
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     accounts = []
     async for record in result:
         ca = record["ca"]
@@ -3179,6 +3225,7 @@ async def create_receipts_payments_account(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (rap:ReceiptsPaymentsAccount {
+        book_id: $book_id,
         id: $id,
         account_name: $account_name,
         period_start: datetime($period_start),
@@ -3224,7 +3271,7 @@ async def create_receipts_payments_account(
         "notes": rp.notes,
         "created_at": created_at.isoformat(),
     }
-    await session.run(query, params)
+    await _run(session, query, params)
 
     # Create entries
     entries_in_db = []
@@ -3259,7 +3306,7 @@ async def create_receipts_payments_account(
             "is_contra": entry.isContra,
             "created_at": created_at.isoformat(),
         }
-        await session.run(entry_query, entry_params)
+        await _run(session, entry_query, entry_params)
         entries_in_db.append(
             ReceiptsPaymentsEntryInDB(
                 id=entry_id,
@@ -3303,10 +3350,11 @@ async def get_receipts_payments_accounts(session: AsyncSession, user_id: str) ->
     """Get all Receipts and Payments Accounts"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_RECEIPTS_PAYMENTS]->(rap:ReceiptsPaymentsAccount)
+    WHERE ($book_id IS NULL OR rap.book_id = $book_id)
     RETURN rap
     ORDER BY rap.period_end DESC
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     accounts = []
     async for record in result:
         rap = record["rap"]
@@ -3365,6 +3413,7 @@ async def create_single_entry_conversion(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (sec:SingleEntryConversion {
+        book_id: $book_id,
         id: $id,
         as_of_date: datetime($as_of_date),
         source_type: $source_type,
@@ -3418,7 +3467,7 @@ async def create_single_entry_conversion(
         "notes": conversion.notes,
         "created_at": created_at.isoformat(),
     }
-    await session.run(query, params)
+    await _run(session, query, params)
 
     return SingleEntryConversionInDB(
         id=conv_id,
@@ -3451,10 +3500,11 @@ async def get_single_entry_conversions(session: AsyncSession, user_id: str) -> L
     """Get all Single Entry Conversions"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_SINGLE_ENTRY_CONVERSION]->(sec:SingleEntryConversion)
+    WHERE ($book_id IS NULL OR sec.book_id = $book_id)
     RETURN sec
     ORDER BY sec.as_of_date DESC
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     conversions = []
     async for record in result:
         sec = record["sec"]
@@ -3517,6 +3567,7 @@ async def create_profit_estimation(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (pe:ProfitEstimation {
+        book_id: $book_id,
         id: $id,
         as_of_date: datetime($as_of_date),
         period_start: datetime($period_start),
@@ -3554,7 +3605,7 @@ async def create_profit_estimation(
         "notes": estimation.notes,
         "created_at": created_at.isoformat(),
     }
-    await session.run(query, params)
+    await _run(session, query, params)
 
     return ProfitEstimationInDB(
         id=est_id,
@@ -3579,10 +3630,11 @@ async def get_profit_estimations(session: AsyncSession, user_id: str) -> List[Pr
     """Get all Profit Estimations"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_PROFIT_ESTIMATION]->(pe:ProfitEstimation)
+    WHERE ($book_id IS NULL OR pe.book_id = $book_id)
     RETURN pe
     ORDER BY pe.as_of_date DESC
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     estimations = []
     async for record in result:
         pe = record["pe"]
@@ -3633,6 +3685,7 @@ async def create_audit_event(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (ae:AuditEvent {
+        book_id: $book_id,
         id: $id,
         event_type: $event_type,
         resource_type: $resource_type,
@@ -3659,7 +3712,7 @@ async def create_audit_event(
         "user_agent": user_agent,
         "timestamp": timestamp.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     ae = record["ae"]
 
@@ -3688,7 +3741,7 @@ async def get_audit_trail(
     ORDER BY ae.timestamp DESC
     LIMIT $limit
     """
-    result = await session.run(query, resource_type=resource_type, resource_id=resource_id, limit=limit)
+    result = await _run(session, query, resource_type=resource_type, resource_id=resource_id, limit=limit)
 
     events = []
     async for record in result:
@@ -3721,7 +3774,7 @@ async def get_user_audit_history(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:PERFORMED]->(ae:AuditEvent)
-    WHERE true {type_filter}
+    WHERE ($book_id IS NULL OR ae.book_id = $book_id) AND true {type_filter}
     RETURN ae
     ORDER BY ae.timestamp DESC
     LIMIT $limit
@@ -3730,7 +3783,7 @@ async def get_user_audit_history(
     if event_type:
         params["event_type"] = event_type
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     events = []
     async for record in result:
         ae = record["ae"]
@@ -3769,6 +3822,7 @@ async def create_project_dimension(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (p:Project {
+        book_id: $book_id,
         id: $id,
         project_code: $project_code,
         project_name: $project_name,
@@ -3800,7 +3854,7 @@ async def create_project_dimension(
         "created_at": created_at.isoformat(),
         "updated_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     p = record["p"]
 
@@ -3826,7 +3880,7 @@ async def get_projects(session: AsyncSession, user_id: str, status: Optional[str
     status_filter = "AND p.status = $status" if status else ""
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_PROJECT]->(p:Project)
-    WHERE true {status_filter}
+    WHERE ($book_id IS NULL OR p.book_id = $book_id) AND true {status_filter}
     RETURN p
     ORDER BY p.project_code
     """
@@ -3834,7 +3888,7 @@ async def get_projects(session: AsyncSession, user_id: str, status: Optional[str
     if status:
         params["status"] = status
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     projects = []
     async for record in result:
         p = record["p"]
@@ -3869,6 +3923,7 @@ async def create_fund_dimension(session: AsyncSession, user_id: str, fund: FundD
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (f:Fund {
+        book_id: $book_id,
         id: $id,
         fund_code: $fund_code,
         fund_name: $fund_name,
@@ -3898,7 +3953,7 @@ async def create_fund_dimension(session: AsyncSession, user_id: str, fund: FundD
         "created_at": created_at.isoformat(),
         "updated_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     f = record["f"]
 
@@ -3923,7 +3978,7 @@ async def get_funds(session: AsyncSession, user_id: str, fund_type: Optional[str
     type_filter = "AND f.fund_type = $fund_type" if fund_type else ""
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_FUND]->(f:Fund)
-    WHERE true {type_filter}
+    WHERE ($book_id IS NULL OR f.book_id = $book_id) AND true {type_filter}
     RETURN f
     ORDER BY f.fund_code
     """
@@ -3931,7 +3986,7 @@ async def get_funds(session: AsyncSession, user_id: str, fund_type: Optional[str
     if fund_type:
         params["fund_type"] = fund_type
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     funds = []
     async for record in result:
         f = record["f"]
@@ -3967,6 +4022,7 @@ async def create_department_dimension(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (d:Department {
+        book_id: $book_id,
         id: $id,
         department_code: $department_code,
         department_name: $department_name,
@@ -3994,7 +4050,7 @@ async def create_department_dimension(
         "created_at": created_at.isoformat(),
         "updated_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     d = record["d"]
 
@@ -4017,10 +4073,11 @@ async def get_departments(session: AsyncSession, user_id: str) -> List[Departmen
     """Get all departments"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_DEPARTMENT]->(d:Department)
+    WHERE ($book_id IS NULL OR d.book_id = $book_id)
     RETURN d
     ORDER BY d.department_code
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     departments = []
     async for record in result:
         d = record["d"]
@@ -4055,6 +4112,7 @@ async def create_location_dimension(
     query = """
     MATCH (u:User {id: $user_id})
     CREATE (l:Location {
+        book_id: $book_id,
         id: $id,
         location_code: $location_code,
         location_name: $location_name,
@@ -4084,7 +4142,7 @@ async def create_location_dimension(
         "created_at": created_at.isoformat(),
         "updated_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     l = record["l"]
 
@@ -4111,7 +4169,7 @@ async def get_locations(
     region_filter = "AND l.region = $region" if region else ""
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_LOCATION]->(l:Location)
-    WHERE true {region_filter}
+    WHERE ($book_id IS NULL OR l.book_id = $book_id) AND true {region_filter}
     RETURN l
     ORDER BY l.location_code
     """
@@ -4119,7 +4177,7 @@ async def get_locations(
     if region:
         params["region"] = region
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     locations = []
     async for record in result:
         l = record["l"]
@@ -4170,7 +4228,7 @@ async def link_journal_entry_to_dimension(
     CREATE (je)-[:LINKED_TO]->(d)
     RETURN true as linked
     """
-    result = await session.run(
+    result = await _run(session, 
         query, journal_entry_id=journal_entry_id, dimension_type=dimension_type, dimension_id=dimension_id
     )
     record = await result.single()

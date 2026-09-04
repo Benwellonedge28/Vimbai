@@ -84,6 +84,10 @@ def auth_headers():
                 "accounting.read.journal",
                 "accounting.write.journal",
                 "accounting.post.journal",
+                "accounting.read.journal_entries",
+                "accounting.write.journal_entries",
+                "accounting.read.incomplete_records",
+                "accounting.write.incomplete_records",
             ],
             "exp": datetime.now(timezone.utc) + timedelta(hours=1),
         },
@@ -111,30 +115,18 @@ class TestHealthCheck:
 
 
 class TestAccountCreation:
-    @patch("main.get_user_id", return_value="test-user-id")
-    @patch("main.get_db_session")
-    def test_create_account_success(self, mock_db, mock_user, valid_account, auth_headers):
-        """Test successful account creation."""
-        mock_session = AsyncMock()
+    def test_create_account_success(self, valid_account, auth_headers, override_deps):
+        """Test successful account creation (dependency overrides keep the
+        mocked session in play; module patching does not survive route
+        registration)."""
         mock_result = AsyncMock()
-        mock_result.single = AsyncMock(
-            return_value={
-                "id": "test-uuid",
-                "user_id": "test-user-id",
-                "name": valid_account["name"],
-                "account_number": valid_account["account_number"],
-                "account_type": valid_account["account_type"],
-                "normal_balance": valid_account["normal_balance"],
-                "description": valid_account["description"],
-                "created_at": "2026-01-15T10:00:00",
-                "updated_at": "2026-01-15T10:00:00",
-            }
-        )
-        mock_session.run = AsyncMock(return_value=mock_result)
-        mock_db.return_value = mock_session
+        mock_result.single = AsyncMock(side_effect=[None, {"a": _account_node()}])
+        override_deps.run = AsyncMock(return_value=mock_result)
 
         response = client.post("/accounts/", json=valid_account, headers=auth_headers)
-        assert response.status_code in [201, 200, 500]  # 500 if mock not fully wired
+        assert response.status_code == 201, response.text
+        body = response.json()
+        assert body["account_number"] == valid_account["account_number"]
 
     def test_create_account_no_auth(self, valid_account):
         """Test account creation without auth is rejected."""
@@ -277,3 +269,104 @@ class TestModelValidation:
             ],
         )
         assert len(entry.lines) == 2
+
+
+@pytest.fixture
+def override_deps(mock_db_session):
+    """Reliably override FastAPI dependencies (module patching does not
+    affect routes that captured the original callables at registration)."""
+    import main as main_module
+
+    app.dependency_overrides[main_module.get_db_session] = lambda: mock_db_session
+    app.dependency_overrides[main_module.get_user_id] = lambda: "test-user-id"
+    yield mock_db_session
+    app.dependency_overrides.pop(main_module.get_db_session, None)
+    app.dependency_overrides.pop(main_module.get_user_id, None)
+
+
+def _account_node(account_number="1000"):
+    from neo4j.time import DateTime
+
+    now = DateTime.now()
+    return {
+        "id": "test-uuid",
+        "user_id": "test-user-id",
+        "name": "Cash Account",
+        "account_number": account_number,
+        "account_type": "asset",
+        "normal_balance": "debit",
+        "description": "Main cash account",
+        "parent_account_number": None,
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
+# ============================================================================
+# Book Context (X-Book-ID request scoping)
+# ============================================================================
+
+
+class TestBookContext:
+    """Every Cypher query must carry the Book context: writes stamp records
+    with book_id and reads filter by it. Without X-Book-ID the request is
+    personal/unscoped (book_id is None)."""
+
+    def test_create_account_stamps_book_id(self, valid_account, auth_headers, override_deps):
+        mock_result = AsyncMock()
+        mock_result.single = AsyncMock(side_effect=[None, {"a": _account_node()}])
+        override_deps.run = AsyncMock(return_value=mock_result)
+
+        headers = {**auth_headers, "X-Book-ID": "book-123"}
+        response = client.post("/accounts/", json=valid_account, headers=headers)
+        assert response.status_code == 201
+
+        # call 0 = existence check (read-scoped), call 1 = the CREATE itself
+        query, params = override_deps.run.call_args_list[1].args
+        assert "book_id: $book_id" in query
+        assert params["book_id"] == "book-123"
+
+    def test_create_account_without_book_id_is_unscoped(self, valid_account, auth_headers, override_deps):
+        mock_result = AsyncMock()
+        mock_result.single = AsyncMock(side_effect=[None, {"a": _account_node()}])
+        override_deps.run = AsyncMock(return_value=mock_result)
+
+        response = client.post("/accounts/", json=valid_account, headers=auth_headers)
+        assert response.status_code == 201
+
+        _, params = override_deps.run.call_args_list[0].args
+        assert params["book_id"] is None
+
+    def test_read_accounts_filters_by_book_id(self, auth_headers, override_deps):
+        mock_result = AsyncMock()
+        mock_result.single = AsyncMock(return_value=None)
+        override_deps.run = AsyncMock(return_value=mock_result)
+
+        headers = {**auth_headers, "X-Book-ID": "book-456"}
+        response = client.get("/accounts/", headers=headers)
+        assert response.status_code == 200
+
+        query, params = override_deps.run.call_args_list[0].args
+        assert "WHERE ($book_id IS NULL OR a.book_id = $book_id)" in query
+        assert params["book_id"] == "book-456"
+
+    def test_statement_of_affairs_write_scoped_to_book(self, auth_headers, override_deps):
+        mock_result = AsyncMock()
+        mock_result.single = AsyncMock(return_value=None)
+        mock_result.data = AsyncMock(return_value=[])
+        override_deps.run = AsyncMock(return_value=mock_result)
+
+        payload = {
+            "assets": [{"asset_name": "Cash", "asset_value": 500.00}],
+            "liabilities": [{"liability_name": "Loan", "liability_value": 200.00}],
+        }
+        headers = {**auth_headers, "X-Book-ID": "book-789"}
+        response = client.post(
+            "/statements-of-affairs/?as_of_date=2026-01-31T00:00:00", json=payload, headers=headers
+        )
+        assert response.status_code == 201, response.text
+
+        query, params = override_deps.run.call_args_list[0].args
+        assert "book_id: $book_id" in query
+        assert params["book_id"] == "book-789"
+        assert params["user_id"] == "test-user-id"

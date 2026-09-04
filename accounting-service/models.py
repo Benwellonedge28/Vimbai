@@ -15,7 +15,7 @@ class AccountBase(BaseModel):
         description="Name of the account (e.g., 'Cash', 'Accounts Receivable', 'Salaries Expense').",
     )
     account_number: str = Field(
-        ..., min_length=4, max_length=10, regex=r"^\d+$", description="Unique identifier for the account."
+        ..., min_length=4, max_length=10, pattern=r"^\d+$", description="Unique identifier for the account."
     )
     account_type: Literal["asset", "liability", "equity", "revenue", "expense"] = Field(
         ..., description="Type of the account based on accounting equation."
