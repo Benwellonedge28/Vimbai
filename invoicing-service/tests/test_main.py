@@ -92,7 +92,8 @@ class FakeSession:
             customers = [
                 c
                 for c in self.customers
-                if c["customer_id"] == merged["customer_id"] and c["user_id"] == merged["user_id"]
+                if c["customer_id"] == merged["customer_id"]
+                and c["user_id"] == merged["user_id"]
                 and self._visible(c, merged)
             ]
             if not customers:
@@ -132,7 +133,8 @@ class FakeSession:
             matches = [
                 c
                 for c in self.customers
-                if c["customer_id"] == merged["customer_id"] and c["user_id"] == merged["user_id"]
+                if c["customer_id"] == merged["customer_id"]
+                and c["user_id"] == merged["user_id"]
                 and self._visible(c, merged)
             ]
             if "DETACH DELETE c" in query:
@@ -151,20 +153,14 @@ class FakeSession:
             return FakeResult()
 
         if "MATCH (c:Customer {user_id: $user_id})" in query and "ORDER BY c.name" in query:
-            matches = [
-                c
-                for c in self.customers
-                if c["user_id"] == merged["user_id"] and self._visible(c, merged)
-            ]
+            matches = [c for c in self.customers if c["user_id"] == merged["user_id"] and self._visible(c, merged)]
             matches.sort(key=lambda c: c.get("name", ""))
             return FakeResult([{"c": c} for c in matches])
 
         # --- Invoice CRUD ---
         if "DETACH DELETE i, ii" in query:
             invs = [
-                i
-                for i in self.invoices
-                if i["invoice_number"] == merged["invoice_number"] and self._visible(i, merged)
+                i for i in self.invoices if i["invoice_number"] == merged["invoice_number"] and self._visible(i, merged)
             ]
             deleted = len(invs)
             for inv in invs:
@@ -172,11 +168,13 @@ class FakeSession:
                 self.items = [it for it in self.items if it["invoice_id"] != inv["id"]]
             return FakeResult(nodes_deleted=deleted)
 
-        if "MATCH (c:Customer {user_id: $user_id})-[:HAS_INVOICE]->(i:Invoice {invoice_number: $invoice_number})" in query and "OPTIONAL MATCH (i)-[:HAS_ITEM]->(ii:InvoiceItem)" in query:
+        if (
+            "MATCH (c:Customer {user_id: $user_id})-[:HAS_INVOICE]->(i:Invoice {invoice_number: $invoice_number})"
+            in query
+            and "OPTIONAL MATCH (i)-[:HAS_ITEM]->(ii:InvoiceItem)" in query
+        ):
             invs = [
-                i
-                for i in self.invoices
-                if i["invoice_number"] == merged["invoice_number"] and self._visible(i, merged)
+                i for i in self.invoices if i["invoice_number"] == merged["invoice_number"] and self._visible(i, merged)
             ]
             if not invs:
                 return FakeResult()
@@ -192,12 +190,11 @@ class FakeSession:
             items = [it for it in self.items if it["invoice_id"] == inv["id"]]
             return FakeResult([{"i": inv, "items": items, "customer_id": customer_id}])
 
-        if "MATCH (c:Customer {user_id: $user_id})-[:HAS_INVOICE]->(i:Invoice)" in query and "ORDER BY i.invoice_date" in query:
-            invs = [
-                i
-                for i in self.invoices
-                if self._visible(i, merged)
-            ]
+        if (
+            "MATCH (c:Customer {user_id: $user_id})-[:HAS_INVOICE]->(i:Invoice)" in query
+            and "ORDER BY i.invoice_date" in query
+        ):
+            invs = [i for i in self.invoices if self._visible(i, merged)]
             records = []
             for inv in invs:
                 edge = next(
@@ -212,12 +209,14 @@ class FakeSession:
                 records.append({"i": inv, "items": items, "customer_id": customer_id})
             return FakeResult(records)
 
-        if "SET {set_query_part}".format(set_query_part="") in query or "SET i." in query or ("SET" in query and "RETURN i" in query):
+        if (
+            "SET {set_query_part}".format(set_query_part="") in query
+            or "SET i." in query
+            or ("SET" in query and "RETURN i" in query)
+        ):
             # update_invoice: dynamic SET clause
             invs = [
-                i
-                for i in self.invoices
-                if i["invoice_number"] == merged["invoice_number"] and self._visible(i, merged)
+                i for i in self.invoices if i["invoice_number"] == merged["invoice_number"] and self._visible(i, merged)
             ]
             if not invs:
                 return FakeResult()
@@ -342,6 +341,7 @@ class TestInvoiceCRUD:
         body = r.json()
         assert body["invoice_number"] == "INV-001"
         from decimal import Decimal
+
         assert Decimal(body["total_amount"]) == Decimal("150.00")
         assert len(body["items"]) == 1
 
@@ -413,9 +413,7 @@ class TestBookIsolation:
     def test_invoice_lists_scoped_to_book(self, auth_headers):
         client.post("/customers/", json=_customer_payload(), headers={**auth_headers, **BOOK_A})
         client.post("/customers/", json=_customer_payload("CUST-002"), headers={**auth_headers, **BOOK_B})
-        client.post(
-            "/invoices/", json=_invoice_payload(invoice_number="INV-A"), headers={**auth_headers, **BOOK_A}
-        )
+        client.post("/invoices/", json=_invoice_payload(invoice_number="INV-A"), headers={**auth_headers, **BOOK_A})
         client.post(
             "/invoices/",
             json=_invoice_payload(customer_id="CUST-002", invoice_number="INV-B"),

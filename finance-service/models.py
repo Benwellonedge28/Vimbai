@@ -313,9 +313,7 @@ class ScenarioParametersCreate(BaseModel):
     expense_reduction_rate: Optional[float] = Field(
         None, description="e.g. 0.05 for 5%% expense reduction applied to each period."
     )
-    fixed_expense_increase: Optional[float] = Field(
-        None, description="Absolute amount added to expenses each period."
-    )
+    fixed_expense_increase: Optional[float] = Field(None, description="Absolute amount added to expenses each period.")
 
 
 class ErrorResponse(BaseModel):
