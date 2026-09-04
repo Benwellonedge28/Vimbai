@@ -8,7 +8,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, s
 from fastapi.responses import JSONResponse
 from multimodal_pipeline_service import crud, models
 from multimodal_pipeline_service.database import Neo4jConnector, init_db_schema
-from multimodal_pipeline_service.dependencies import get_db_session, get_user_id
+from multimodal_pipeline_service.dependencies import book_id_var, get_db_session, get_user_id
 from multimodal_pipeline_service.exceptions import (
     ConflictError,
     ForbiddenError,
@@ -19,6 +19,7 @@ from multimodal_pipeline_service.exceptions import (
 from multimodal_pipeline_service.services.ai_processor import AIProcessor  # NEW: Will define this soon
 from multimodal_pipeline_service.utils.auth import check_permission
 from neo4j import AsyncSession
+from neo4j.exceptions import ServiceUnavailable
 
 # Load environment variables
 load_dotenv()
@@ -28,6 +29,16 @@ app = FastAPI(
     description="Processes multimodal inputs (documents, audio, images) to extract financial data.",
     version="0.1.0",
 )
+
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Bind the gateway-verified X-Book-ID into the request-scoped contextvar."""
+    token = book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        book_id_var.reset(token)
 
 
 # Distributed tracing
@@ -59,6 +70,15 @@ async def shutdown_event():
 
 
 # --- Global Exception Handlers ---
+@app.exception_handler(ServiceUnavailable)
+async def neo4j_unavailable_exception_handler(request, exc):
+    """Return a clean 503 when the Neo4j backend is unreachable."""
+    import logging
+
+    logging.getLogger(__name__).error("Neo4j unavailable: %s", exc)
+    return JSONResponse(status_code=503, content={"detail": "Database temporarily unavailable"})
+
+
 @app.exception_handler(NotFoundError)
 async def not_found_exception_handler(request, exc: NotFoundError):
     return JSONResponse(status_code=exc.status_code, content=exc.detail)

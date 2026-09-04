@@ -5,6 +5,7 @@ Handles bank connections, transaction sync, and reconciliation.
 
 import os
 import uuid
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -32,10 +33,30 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
+# Request-scoped Book context (X-Book-ID verified by the API gateway).
+# None means personal / unscoped requests.
+_book_id_var = ContextVar("book_id", default=None)
+
+
+def current_book_id() -> Optional[str]:
+    return _book_id_var.get()
+
+
 app = FastAPI(title="Vimbai Banking Integration Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
+
+
+@app.middleware("http")
+async def book_context_middleware(request, call_next):
+    """Bind the gateway-verified X-Book-ID into the request-scoped contextvar."""
+    token = _book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        _book_id_var.reset(token)
+
 
 # Distributed tracing
 try:
@@ -56,6 +77,7 @@ class BankConnection(BaseModel):
     account_type: str = "checking"
     api_key: str
     status: str = "active"
+    book_id: Optional[str] = None
     last_sync: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -70,6 +92,7 @@ class BankTransaction(BaseModel):
     balance_after: float = 0.0
     reconciled: bool = False
     reference: str = ""
+    book_id: Optional[str] = None
 
 
 class ReconcileRequest(BaseModel):
@@ -91,7 +114,15 @@ async def health_check():
 @app.post("/connect", response_model=BankConnection)
 async def connect_bank(bank_name: str, account_number: str, api_key: str, account_type: str = "checking"):
     """Establish a connection to a bank account."""
-    existing = next((c for c in connections if c.account_number == account_number and c.bank_name == bank_name), None)
+    book_id = current_book_id()
+    existing = next(
+        (
+            c
+            for c in connections
+            if c.account_number == account_number and c.bank_name == bank_name and c.book_id == book_id
+        ),
+        None,
+    )
     if existing:
         raise HTTPException(
             status_code=409, detail=f"Connection to {bank_name} account {account_number} already exists"
@@ -102,6 +133,7 @@ async def connect_bank(bank_name: str, account_number: str, api_key: str, accoun
         account_number=account_number,
         api_key=api_key,
         account_type=account_type,
+        book_id=book_id,
     )
     connections.append(conn)
     logger.info("Bank connection established", connection_id=conn.id, bank=bank_name)
@@ -110,14 +142,16 @@ async def connect_bank(bank_name: str, account_number: str, api_key: str, accoun
 
 @app.get("/connections", response_model=List[BankConnection])
 async def list_connections():
-    """List all bank connections."""
-    return connections
+    """List bank connections in the current Book context."""
+    book_id = current_book_id()
+    return [c for c in connections if c.book_id == book_id]
 
 
 @app.post("/sync/{connection_id}")
 async def sync_transactions(connection_id: str):
     """Sync transactions from a bank connection."""
-    conn = next((c for c in connections if c.id == connection_id), None)
+    book_id = current_book_id()
+    conn = next((c for c in connections if c.id == connection_id and c.book_id == book_id), None)
     if not conn:
         raise HTTPException(status_code=404, detail="Bank connection not found")
     if conn.status != "active":
@@ -130,15 +164,27 @@ async def sync_transactions(connection_id: str):
 
 @app.get("/transactions/{connection_id}", response_model=List[BankTransaction])
 async def list_transactions(connection_id: str, limit: int = 50, offset: int = 0):
-    """List transactions for a specific bank connection."""
-    conn_txns = [t for t in transactions if t.connection_id == connection_id]
+    """List transactions for a specific bank connection in the current Book context."""
+    book_id = current_book_id()
+    conn = next((c for c in connections if c.id == connection_id and c.book_id == book_id), None)
+    if not conn:
+        raise HTTPException(status_code=404, detail="Bank connection not found")
+    conn_txns = [t for t in transactions if t.connection_id == connection_id and t.book_id == book_id]
     return conn_txns[offset : offset + limit]
 
 
 @app.post("/transactions/{connection_id}/reconcile")
 async def reconcile_transaction(connection_id: str, request: ReconcileRequest):
     """Reconcile a bank transaction with an accounting entry."""
-    txn = next((t for t in transactions if t.id == request.transaction_id and t.connection_id == connection_id), None)
+    book_id = current_book_id()
+    txn = next(
+        (
+            t
+            for t in transactions
+            if t.id == request.transaction_id and t.connection_id == connection_id and t.book_id == book_id
+        ),
+        None,
+    )
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
@@ -151,7 +197,8 @@ async def reconcile_transaction(connection_id: str, request: ReconcileRequest):
 async def disconnect_bank(connection_id: str):
     """Disconnect a bank connection."""
     global connections
-    conn = next((c for c in connections if c.id == connection_id), None)
+    book_id = current_book_id()
+    conn = next((c for c in connections if c.id == connection_id and c.book_id == book_id), None)
     if not conn:
         raise HTTPException(status_code=404, detail="Bank connection not found")
 

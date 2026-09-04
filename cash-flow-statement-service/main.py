@@ -3,6 +3,7 @@
 import os
 import uuid
 from collections import defaultdict
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -65,11 +66,29 @@ class CashFlowStatement(BaseModel):
     ending_cash: float = 0
 
 
-_statements: Dict[str, List[CashFlowStatement]] = defaultdict(list)
+# Statements are stored per (Book, company): Book context comes from the
+# gateway-verified X-Book-ID header; None means personal / unscoped calls.
+_statements: Dict[tuple, List[CashFlowStatement]] = defaultdict(list)
+
+_book_id_var = ContextVar("book_id", default=None)
+
+
+def _statements_key(company_id: str) -> tuple:
+    return (_book_id_var.get(), company_id)
 
 
 def calc_net(lines: List[CashFlowLine]) -> float:
     return sum(l.amount if l.is_inflow else -l.amount for l in lines)
+
+
+@app.middleware("http")
+async def book_context_middleware(request, call_next):
+    """Bind the gateway-verified X-Book-ID into the request-scoped contextvar."""
+    token = _book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        _book_id_var.reset(token)
 
 
 @app.get("/")
@@ -84,14 +103,14 @@ async def generate_statement(stmt: CashFlowStatement):
     stmt.net_financing = calc_net(stmt.financing_activities)
     stmt.net_change = stmt.net_operating + stmt.net_investing + stmt.net_financing
     stmt.ending_cash = stmt.beginning_cash + stmt.net_change
-    _statements[stmt.company_id].append(stmt)
+    _statements[_statements_key(stmt.company_id)].append(stmt)
     logger.info("cash_flow_generated", company_id=stmt.company_id, net_change=stmt.net_change, method=stmt.method.value)
     return stmt
 
 
 @app.get("/latest/{company_id}")
 async def get_latest(company_id: str):
-    stmts = _statements.get(company_id, [])
+    stmts = _statements.get(_statements_key(company_id), [])
     if not stmts:
         raise HTTPException(status_code=404, detail="No cash flow statements found")
     return stmts[-1]
@@ -99,10 +118,11 @@ async def get_latest(company_id: str):
 
 @app.get("/history/{company_id}")
 async def get_history(company_id: str):
+    stmts = _statements.get(_statements_key(company_id), [])
     return {
         "company_id": company_id,
-        "statements": _statements.get(company_id, []),
-        "total": len(_statements.get(company_id, [])),
+        "statements": stmts,
+        "total": len(stmts),
     }
 
 

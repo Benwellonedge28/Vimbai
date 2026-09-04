@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from multimodal_pipeline_service.dependencies import book_id_var
 from multimodal_pipeline_service.models import (
     AudioParseResult,
     DocumentParseResult,
@@ -16,6 +17,18 @@ from multimodal_pipeline_service.models import (
 )
 from neo4j import AsyncSession
 from pydantic import BaseModel
+
+
+async def _run(session, query, params=None, **kw):
+    """Run a Cypher query with the Book context parameter always bound.
+
+    ``book_id`` comes from the request-scoped X-Book-ID header (verified by
+    the gateway); it is None for personal/unscoped calls.
+    """
+    merged = dict(params or {})
+    merged.update(kw)
+    merged.setdefault("book_id", book_id_var.get())
+    return await session.run(query, merged)
 
 
 # Helper function to convert Pydantic models to Neo4j-compatible dictionary (handles nested models)
@@ -35,6 +48,7 @@ def _to_neo4j_props(model_instance: BaseModel) -> Dict[str, Any]:
 # Helper function to reconstruct Pydantic models from Neo4j properties
 def _from_neo4j_props(node_props: Dict[str, Any], model_class: BaseModel) -> BaseModel:
     props = node_props.copy()
+    props.pop("book_id", None)  # Book scoping marker, not part of the API models
     if "created_at" in props and isinstance(props["created_at"], str):
         props["created_at"] = datetime.fromisoformat(props["created_at"])
     if "updated_at" in props and isinstance(props["updated_at"], str):
@@ -75,6 +89,7 @@ async def create_multimodal_processing_task(
 
     props = _to_neo4j_props(task_data)
     props["id"] = task_id
+    props["book_id"] = book_id_var.get()
     props["created_at"] = created_at.isoformat()
     props["updated_at"] = updated_at.isoformat()
 
@@ -93,9 +108,10 @@ async def create_multimodal_processing_task(
 async def get_multimodal_processing_task(session: AsyncSession, task_id: str) -> Optional[MultimodalProcessingTaskInDB]:
     query = """
     MATCH (mpt:MultimodalProcessingTask {id: $task_id})
+    WHERE $book_id IS NULL OR mpt.book_id = $book_id
     RETURN mpt
     """
-    result = await session.run(query, task_id=task_id)
+    result = await _run(session, query, task_id=task_id)
     record = await result.single()
 
     if record:
@@ -108,10 +124,11 @@ async def get_all_multimodal_processing_tasks(
 ) -> List[MultimodalProcessingTaskInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_MULTIMODAL_TASK]->(mpt:MultimodalProcessingTask)
+    WHERE $book_id IS NULL OR mpt.book_id = $book_id
     RETURN mpt
     ORDER BY mpt.created_at DESC
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     tasks = []
     async for record in result:
         tasks.append(_from_neo4j_props(record["mpt"], MultimodalProcessingTaskInDB))
@@ -140,11 +157,12 @@ async def update_multimodal_processing_task(
 
     query = f"""
     MATCH (mpt:MultimodalProcessingTask {{id: $task_id}})
+    WHERE $book_id IS NULL OR mpt.book_id = $book_id
     SET {set_query_part}
     RETURN mpt
     """
     params = {"task_id": task_id, **update_fields}
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
 
     if record:
@@ -155,9 +173,10 @@ async def update_multimodal_processing_task(
 async def delete_multimodal_processing_task(session: AsyncSession, task_id: str) -> bool:
     query = """
     MATCH (mpt:MultimodalProcessingTask {id: $task_id})
+    WHERE $book_id IS NULL OR mpt.book_id = $book_id
     DETACH DELETE mpt
     """
-    result = await session.run(query, task_id=task_id)
+    result = await _run(session, query, task_id=task_id)
     return result.consume().counters.nodes_deleted > 0
 
 
@@ -168,15 +187,17 @@ async def create_user_correction(session: AsyncSession, correction_data: UserCor
 
     props = correction_data.model_dump()
     props["id"] = correction_id
+    props["book_id"] = book_id_var.get()
     props["submitted_at"] = submitted_at.isoformat()
 
     query = """
     MATCH (mpt:MultimodalProcessingTask {id: $task_id})
+    WHERE $book_id IS NULL OR mpt.book_id = $book_id
     CREATE (uc:UserCorrection $props)
     CREATE (mpt)-[:HAS_CORRECTION]->(uc)
     RETURN uc
     """
-    result = await session.run(query, task_id=correction_data.task_id, props=props)
+    result = await _run(session, query, task_id=correction_data.task_id, props=props)
     record = await result.single()
 
     return _from_neo4j_props(record["uc"], UserCorrectionInDB)
@@ -185,10 +206,11 @@ async def create_user_correction(session: AsyncSession, correction_data: UserCor
 async def get_user_corrections_for_task(session: AsyncSession, task_id: str) -> List[UserCorrectionInDB]:
     query = """
     MATCH (mpt:MultimodalProcessingTask {id: $task_id})-[:HAS_CORRECTION]->(uc:UserCorrection)
+    WHERE $book_id IS NULL OR mpt.book_id = $book_id
     RETURN uc
     ORDER BY uc.submitted_at DESC
     """
-    result = await session.run(query, task_id=task_id)
+    result = await _run(session, query, task_id=task_id)
     corrections = []
     async for record in result:
         corrections.append(_from_neo4j_props(record["uc"], UserCorrectionInDB))
