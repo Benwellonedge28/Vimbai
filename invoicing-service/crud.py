@@ -19,11 +19,106 @@ from invoicing_service.models import (
     JournalEntryCreate,
     JournalLineBase,
 )
+from invoicing_service.dependencies import book_id_var
 from neo4j import AsyncSession
 
 API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
 
-# ... (Customer CRUD unchanged) ...
+
+async def _run(session, query, params=None, **kw):
+    """Run a Cypher query with the Book context parameter always bound.
+
+    ``book_id`` comes from the request-scoped X-Book-ID header (verified by
+    the gateway); it is None for personal/unscoped calls.
+    """
+    merged = dict(params or {})
+    merged.update(kw)
+    merged.setdefault("book_id", book_id_var.get())
+    return await session.run(query, merged)
+
+
+# --- Customer CRUD ---
+async def create_customer(session: AsyncSession, user_id: str, customer_data: CustomerCreate) -> CustomerInDB:
+    customer_neo4j_id = str(uuid.uuid4())
+    created_at = datetime.now(timezone.utc)
+
+    props = customer_data.model_dump()
+    props["id"] = customer_neo4j_id
+    props["user_id"] = user_id
+    props["book_id"] = book_id_var.get()
+    props["created_at"] = created_at.isoformat()
+    props["updated_at"] = created_at.isoformat()
+
+    query = """
+    CREATE (c:Customer $props)
+    RETURN c
+    """
+    result = await session.run(query, props=props)
+    node = (await result.single())["c"]
+    return _customer_from_node(node)
+
+
+async def get_customer_by_id(session: AsyncSession, customer_id: str, user_id: str) -> Optional[CustomerInDB]:
+    query = """
+    MATCH (c:Customer {customer_id: $customer_id, user_id: $user_id})
+    WHERE $book_id IS NULL OR c.book_id = $book_id
+    RETURN c
+    """
+    result = await _run(session, query, customer_id=customer_id, user_id=user_id)
+    record = await result.single()
+    if record:
+        return _customer_from_node(record["c"])
+    return None
+
+
+async def get_all_customers(session: AsyncSession, user_id: str) -> List[CustomerInDB]:
+    query = """
+    MATCH (c:Customer {user_id: $user_id})
+    WHERE $book_id IS NULL OR c.book_id = $book_id
+    RETURN c
+    ORDER BY c.name
+    """
+    result = await _run(session, query, user_id=user_id)
+    customers = []
+    async for record in result:
+        customers.append(_customer_from_node(record["c"]))
+    return customers
+
+
+async def update_customer(
+    session: AsyncSession, customer_id: str, user_id: str, customer_data: CustomerUpdate
+) -> Optional[CustomerInDB]:
+    update_fields = customer_data.model_dump(exclude_unset=True)
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+    set_query_part = ", ".join(f"c.{k} = ${k}" for k in update_fields)
+
+    query = f"""
+    MATCH (c:Customer {{customer_id: $customer_id, user_id: $user_id}})
+    WHERE $book_id IS NULL OR c.book_id = $book_id
+    SET {set_query_part}
+    RETURN c
+    """
+    result = await _run(session, query, customer_id=customer_id, user_id=user_id, **update_fields)
+    record = await result.single()
+    if record:
+        return _customer_from_node(record["c"])
+    return None
+
+
+async def delete_customer(session: AsyncSession, customer_id: str, user_id: str) -> bool:
+    query = """
+    MATCH (c:Customer {customer_id: $customer_id, user_id: $user_id})
+    WHERE $book_id IS NULL OR c.book_id = $book_id
+    DETACH DELETE c
+    """
+    result = await _run(session, query, customer_id=customer_id, user_id=user_id)
+    return result.consume().counters.nodes_deleted > 0
+
+
+def _customer_from_node(node) -> CustomerInDB:
+    props = dict(node)
+    props.pop("book_id", None)  # Book scoping marker, not part of the API model
+    return CustomerInDB(**props)
 
 
 # --- Invoice CRUD ---
@@ -35,9 +130,11 @@ async def create_invoice(session: AsyncSession, user_id: str, invoice_data: Invo
     # Create Invoice node and link to Customer
     invoice_query = """
     MATCH (c:Customer {customer_id: $customer_id, user_id: $user_id})
+    WHERE $book_id IS NULL OR c.book_id = $book_id
     CREATE (i:Invoice {
         id: $id,
         invoice_number: $invoice_number,
+        book_id: $book_id,
         invoice_date: datetime($invoice_date),
         due_date: datetime($due_date),
         total_amount: toFloat($total_amount),
@@ -55,8 +152,10 @@ async def create_invoice(session: AsyncSession, user_id: str, invoice_data: Invo
     invoice_params["invoice_date"] = invoice_params["invoice_date"].isoformat()
     invoice_params["due_date"] = invoice_params["due_date"].isoformat()
     invoice_params["total_amount"] = float(invoice_params["total_amount"])
+    invoice_params["created_at"] = created_at.isoformat()
+    invoice_params["updated_at"] = updated_at.isoformat()
 
-    result = await session.run(invoice_query, invoice_params)
+    result = await _run(session, invoice_query, invoice_params)
     record = await result.single()
     invoice_node = record["i"]
 
@@ -86,7 +185,9 @@ async def create_invoice(session: AsyncSession, user_id: str, invoice_data: Invo
         item_params["quantity"] = float(item_params["quantity"])
         item_params["unit_price"] = float(item_params["unit_price"])
         item_params["amount"] = float(item_params["amount"])
-        # created_at and updated_at are set by default factory on the model
+        # InvoiceItemCreate has no timestamp fields; stamp with the invoice's
+        item_params["created_at"] = created_at.isoformat()
+        item_params["updated_at"] = updated_at.isoformat()
 
         item_result = await session.run(item_query, item_params)
         item_node = (await item_result.single())["ii"]
@@ -121,10 +222,11 @@ async def create_invoice(session: AsyncSession, user_id: str, invoice_data: Invo
 async def get_invoice_by_number(session: AsyncSession, invoice_number: str, user_id: str) -> Optional[InvoiceInDB]:
     query = """
     MATCH (c:Customer {user_id: $user_id})-[:HAS_INVOICE]->(i:Invoice {invoice_number: $invoice_number})
+    WHERE $book_id IS NULL OR i.book_id = $book_id
     OPTIONAL MATCH (i)-[:HAS_ITEM]->(ii:InvoiceItem)
     RETURN i, COLLECT(ii) AS items, c.customer_id AS customer_id
     """
-    result = await session.run(query, invoice_number=invoice_number, user_id=user_id)
+    result = await _run(session, query, invoice_number=invoice_number, user_id=user_id)
     record = await result.single()
 
     if record:
@@ -167,11 +269,12 @@ async def get_invoice_by_number(session: AsyncSession, invoice_number: str, user
 async def get_all_invoices(session: AsyncSession, user_id: str) -> List[InvoiceInDB]:
     query = """
     MATCH (c:Customer {user_id: $user_id})-[:HAS_INVOICE]->(i:Invoice)
+    WHERE $book_id IS NULL OR i.book_id = $book_id
     OPTIONAL MATCH (i)-[:HAS_ITEM]->(ii:InvoiceItem)
     RETURN i, COLLECT(ii) AS items, c.customer_id AS customer_id
     ORDER BY i.invoice_date DESC
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
 
     invoices = []
     # Group items by invoice
@@ -234,12 +337,13 @@ async def update_invoice(
 
     query = f"""
     MATCH (c:Customer {{user_id: $user_id}})-[:HAS_INVOICE]->(i:Invoice {{invoice_number: $invoice_number}})
+    WHERE $book_id IS NULL OR i.book_id = $book_id
     SET {set_query_part}
     RETURN i
     """
 
     params = {"invoice_number": invoice_number, "user_id": user_id, **update_fields}
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
 
     if record:
@@ -250,10 +354,11 @@ async def update_invoice(
 async def delete_invoice(session: AsyncSession, invoice_number: str, user_id: str) -> bool:
     query = """
     MATCH (c:Customer {user_id: $user_id})-[:HAS_INVOICE]->(i:Invoice {invoice_number: $invoice_number})
+    WHERE $book_id IS NULL OR i.book_id = $book_id
     OPTIONAL MATCH (i)-[:HAS_ITEM]->(ii:InvoiceItem)
     DETACH DELETE i, ii
     """
-    result = await session.run(query, invoice_number=invoice_number, user_id=user_id)
+    result = await _run(session, query, invoice_number=invoice_number, user_id=user_id)
     return result.consume().counters.nodes_deleted > 0
 
 

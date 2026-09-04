@@ -4,11 +4,11 @@ from decimal import Decimal
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse  # NEW
 from invoicing_service import crud, models
 from invoicing_service.database import Neo4jConnector, init_db_schema
-from invoicing_service.dependencies import get_db_session, get_jwt_token, get_user_id
+from invoicing_service.dependencies import book_id_var, get_db_session, get_jwt_token, get_user_id
 from invoicing_service.exceptions import (  # NEW
     ConflictError,
     ForbiddenError,
@@ -28,6 +28,16 @@ app = FastAPI(
     description="Manages customers, invoices, and payments.",
     version="0.1.0",
 )
+
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Bind the gateway-verified X-Book-ID into the request-scoped contextvar."""
+    token = book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        book_id_var.reset(token)
 
 
 @app.on_event("startup")

@@ -1,9 +1,11 @@
+import json
 import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from finance_service.models import FinancialForecastInDB  # NEW
+from finance_service.models import ForecastInDB, ForecastUpdate, ForecastValue  # scenario-engine family
 from finance_service.models import ScenarioInDB  # NEW
 from finance_service.models import ScenarioParameter  # NEW
 from finance_service.models import (
@@ -19,7 +21,20 @@ from finance_service.models import (
     ScenarioCreate,
     ScenarioUpdate,
 )
+from finance_service.dependencies import book_id_var
 from neo4j import AsyncSession
+
+
+async def _run(session, query, params=None, **kw):
+    """Run a Cypher query with the Book context parameter always bound.
+
+    ``book_id`` comes from the request-scoped X-Book-ID header (verified by
+    the gateway); it is None for personal/unscoped calls.
+    """
+    merged = dict(params or {})
+    merged.update(kw)
+    merged.setdefault("book_id", book_id_var.get())
+    return await session.run(query, merged)
 
 
 # --- Budget CRUD ---
@@ -32,6 +47,7 @@ async def create_budget(session: AsyncSession, budget_data: BudgetCreate, user_i
     MATCH (u:User {id: $user_id})
     CREATE (b:Budget {
         id: $id,
+        book_id: $book_id,
         name: $name,
         start_date: date($start_date),
         end_date: date($end_date),
@@ -51,7 +67,7 @@ async def create_budget(session: AsyncSession, budget_data: BudgetCreate, user_i
     params["created_at"] = created_at.isoformat()
     params["updated_at"] = updated_at.isoformat()
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     b_node = record["b"]
 
@@ -71,10 +87,11 @@ async def create_budget(session: AsyncSession, budget_data: BudgetCreate, user_i
 async def get_budget(session: AsyncSession, budget_id: str) -> Optional[BudgetInDB]:
     query = """
     MATCH (b:Budget {id: $budget_id})
+    WHERE $book_id IS NULL OR b.book_id = $book_id
     OPTIONAL MATCH (b)-[:HAS_ITEM]->(bi:BudgetItem)
     RETURN b, COLLECT(bi) AS budget_items
     """
-    result = await session.run(query, budget_id=budget_id)
+    result = await _run(session, query, budget_id=budget_id)
     record = await result.single()
 
     if record:
@@ -111,11 +128,12 @@ async def get_budget(session: AsyncSession, budget_id: str) -> Optional[BudgetIn
 async def get_budgets_by_user(session: AsyncSession, user_id: str) -> List[BudgetInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_BUDGET]->(b:Budget)
+    WHERE $book_id IS NULL OR b.book_id = $book_id
     OPTIONAL MATCH (b)-[:HAS_ITEM]->(bi:BudgetItem)
     RETURN b, COLLECT(bi) AS budget_items
     ORDER BY b.start_date DESC
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     budgets = []
     async for record in result:
         b_node = record["b"]
@@ -165,11 +183,12 @@ async def update_budget(session: AsyncSession, budget_id: str, budget_data: Budg
 
     query = f"""
     MATCH (b:Budget {{id: $budget_id}})
+    WHERE $book_id IS NULL OR b.book_id = $book_id
     SET {set_query_part}
     RETURN b
     """
     params = {"budget_id": budget_id, **update_fields}
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
 
     if record:
@@ -180,9 +199,10 @@ async def update_budget(session: AsyncSession, budget_id: str, budget_data: Budg
 async def delete_budget(session: AsyncSession, budget_id: str) -> bool:
     query = """
     MATCH (b:Budget {id: $budget_id})
+    WHERE $book_id IS NULL OR b.book_id = $book_id
     DETACH DELETE b
     """
-    result = await session.run(query, budget_id=budget_id)
+    result = await _run(session, query, budget_id=budget_id)
     return result.consume().counters.nodes_deleted > 0
 
 
@@ -194,6 +214,7 @@ async def create_budget_item(session: AsyncSession, budget_id: str, item_data: B
 
     query = """
     MATCH (b:Budget {id: $budget_id})
+    WHERE $book_id IS NULL OR b.book_id = $book_id
     CREATE (bi:BudgetItem {
         id: $id,
         budget_id: $budget_id,
@@ -214,7 +235,7 @@ async def create_budget_item(session: AsyncSession, budget_id: str, item_data: B
     params["created_at"] = created_at.isoformat()
     params["updated_at"] = updated_at.isoformat()
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     bi_node = record["bi"]
 
@@ -245,21 +266,23 @@ async def update_budget_item(
     set_query_part = ", ".join(set_clauses)
 
     query = f"""
-    MATCH (bi:BudgetItem {{id: $item_id}})
+    MATCH (b:Budget)-[:HAS_ITEM]->(bi:BudgetItem {{id: $item_id}})
+    WHERE $book_id IS NULL OR b.book_id = $book_id
     SET {set_query_part}
     RETURN bi
     """
     params = {"item_id": item_id, **update_fields}
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
 
     if record:
         # Re-fetch to get parent budget_id
         fetch_query = """
         MATCH (b:Budget)-[:HAS_ITEM]->(bi:BudgetItem {id: $item_id})
+        WHERE $book_id IS NULL OR b.book_id = $book_id
         RETURN b, bi
         """
-        fetch_result = await session.run(fetch_query, item_id=item_id)
+        fetch_result = await _run(session, fetch_query, item_id=item_id)
         fetch_record = await fetch_result.single()
         if fetch_record:
             b_node = fetch_record["b"]
@@ -280,9 +303,10 @@ async def update_budget_item(
 async def get_budget_item(session: AsyncSession, item_id: str) -> Optional[BudgetItemInDB]:
     query = """
     MATCH (b:Budget)-[:HAS_ITEM]->(bi:BudgetItem {id: $item_id})
+    WHERE $book_id IS NULL OR b.book_id = $book_id
     RETURN b, bi
     """
-    result = await session.run(query, item_id=item_id)
+    result = await _run(session, query, item_id=item_id)
     record = await result.single()
 
     if record:
@@ -303,10 +327,11 @@ async def get_budget_item(session: AsyncSession, item_id: str) -> Optional[Budge
 
 async def delete_budget_item(session: AsyncSession, item_id: str) -> bool:
     query = """
-    MATCH (bi:BudgetItem {id: $item_id})
+    MATCH (b:Budget)-[:HAS_ITEM]->(bi:BudgetItem {id: $item_id})
+    WHERE $book_id IS NULL OR b.book_id = $book_id
     DETACH DELETE bi
     """
-    result = await session.run(query, item_id=item_id)
+    result = await _run(session, query, item_id=item_id)
     return result.consume().counters.nodes_deleted > 0
 
 
@@ -328,6 +353,7 @@ async def create_financial_forecast(
     MATCH (u:User {id: $owner_user_id})
     CREATE (ff:FinancialForecast {
         id: $id,
+        book_id: $book_id,
         name: $name,
         description: $description,
         start_date: date($start_date),
@@ -350,7 +376,7 @@ async def create_financial_forecast(
     params["created_at"] = created_at.isoformat()
     params["updated_at"] = updated_at.isoformat()
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     ff_node = record["ff"]
 
@@ -383,9 +409,10 @@ async def create_financial_forecast(
 async def get_financial_forecast(session: AsyncSession, forecast_id: str) -> Optional[FinancialForecastInDB]:
     query = """
     MATCH (ff:FinancialForecast {id: $forecast_id})
+    WHERE $book_id IS NULL OR ff.book_id = $book_id
     RETURN ff
     """
-    result = await session.run(query, forecast_id=forecast_id)
+    result = await _run(session, query, forecast_id=forecast_id)
     record = await result.single()
 
     if record:
@@ -419,10 +446,11 @@ async def get_financial_forecast(session: AsyncSession, forecast_id: str) -> Opt
 async def get_all_financial_forecasts_by_user(session: AsyncSession, user_id: str) -> List[FinancialForecastInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_FORECAST]->(ff:FinancialForecast)
+    WHERE $book_id IS NULL OR ff.book_id = $book_id
     RETURN ff
     ORDER BY ff.name
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     forecasts = []
     async for record in result:
         ff_node = record["ff"]
@@ -478,11 +506,12 @@ async def update_financial_forecast(
 
     query = f"""
     MATCH (ff:FinancialForecast {{id: $forecast_id}})
+    WHERE $book_id IS NULL OR ff.book_id = $book_id
     SET {set_query_part}
     RETURN ff
     """
     params = {"forecast_id": forecast_id, **update_fields}
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
 
     if record:
@@ -493,9 +522,10 @@ async def update_financial_forecast(
 async def delete_financial_forecast(session: AsyncSession, forecast_id: str) -> bool:
     query = """
     MATCH (ff:FinancialForecast {id: $forecast_id})
+    WHERE $book_id IS NULL OR ff.book_id = $book_id
     DETACH DELETE ff
     """
-    result = await session.run(query, forecast_id=forecast_id)
+    result = await _run(session, query, forecast_id=forecast_id)
     return result.consume().counters.nodes_deleted > 0
 
 
@@ -511,8 +541,10 @@ async def create_scenario(session: AsyncSession, scenario_data: ScenarioCreate) 
     query = """
     MATCH (u:User {id: $owner_user_id})
     OPTIONAL MATCH (ff:FinancialForecast {id: $base_forecast_id})
+    WHERE $book_id IS NULL OR ff.book_id = $book_id
     CREATE (s:Scenario {
         id: $id,
+        book_id: $book_id,
         name: $name,
         description: $description,
         base_forecast_id: $base_forecast_id,
@@ -533,7 +565,7 @@ async def create_scenario(session: AsyncSession, scenario_data: ScenarioCreate) 
     params["created_at"] = created_at.isoformat()
     params["updated_at"] = updated_at.isoformat()
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     s_node = record["s"]
 
@@ -557,9 +589,10 @@ async def create_scenario(session: AsyncSession, scenario_data: ScenarioCreate) 
 async def get_scenario(session: AsyncSession, scenario_id: str) -> Optional[ScenarioInDB]:
     query = """
     MATCH (s:Scenario {id: $scenario_id})
+    WHERE $book_id IS NULL OR s.book_id = $book_id
     RETURN s
     """
-    result = await session.run(query, scenario_id=scenario_id)
+    result = await _run(session, query, scenario_id=scenario_id)
     record = await result.single()
 
     if record:
@@ -584,10 +617,11 @@ async def get_scenario(session: AsyncSession, scenario_id: str) -> Optional[Scen
 async def get_all_scenarios_by_user(session: AsyncSession, user_id: str) -> List[ScenarioInDB]:
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_SCENARIO]->(s:Scenario)
+    WHERE $book_id IS NULL OR s.book_id = $book_id
     RETURN s
     ORDER BY s.name
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     scenarios = []
     async for record in result:
         s_node = record["s"]
@@ -626,11 +660,12 @@ async def update_scenario(
 
     query = f"""
     MATCH (s:Scenario {{id: $scenario_id}})
+    WHERE $book_id IS NULL OR s.book_id = $book_id
     SET {set_query_part}
     RETURN s
     """
     params = {"scenario_id": scenario_id, **update_fields}
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
 
     if record:
@@ -641,7 +676,154 @@ async def update_scenario(
 async def delete_scenario(session: AsyncSession, scenario_id: str) -> bool:
     query = """
     MATCH (s:Scenario {id: $scenario_id})
+    WHERE $book_id IS NULL OR s.book_id = $book_id
     DETACH DELETE s
     """
-    result = await session.run(query, scenario_id=scenario_id)
+    result = await _run(session, query, scenario_id=scenario_id)
+    return result.consume().counters.nodes_deleted > 0
+
+
+# Alias used by main.py's list endpoint
+get_all_budgets = get_budgets_by_user
+
+
+# --- Forecast (scenario engine family) CRUD ---
+def _forecast_node_to_indb(f_node) -> ForecastInDB:
+    values = []
+    if f_node.get("values"):
+        for v in json.loads(f_node["values"]):
+            values.append(
+                ForecastValue(
+                    date=date.fromisoformat(v["date"]),
+                    revenue=v["revenue"],
+                    expenses=v["expenses"],
+                    profit=v["profit"],
+                    cash_flow=v["cash_flow"],
+                )
+            )
+    return ForecastInDB(
+        id=f_node["id"],
+        user_id=f_node["user_id"],
+        name=f_node["name"],
+        description=f_node.get("description"),
+        start_date=date.fromisoformat(f_node["start_date"]),
+        end_date=date.fromisoformat(f_node["end_date"]),
+        interval=f_node["interval"],
+        values=values,
+        is_baseline=bool(f_node["is_baseline"]),
+        parent_forecast_id=f_node.get("parent_forecast_id"),
+        created_at=datetime.fromisoformat(f_node["created_at"].iso_format()),
+        updated_at=datetime.fromisoformat(f_node["updated_at"].iso_format()),
+    )
+
+
+async def create_forecast(session: AsyncSession, forecast_data) -> ForecastInDB:
+    forecast_id = str(uuid.uuid4())
+    created_at = datetime.now(timezone.utc)
+    updated_at = datetime.now(timezone.utc)
+
+    values_json = json.dumps([v.model_dump(mode="json") for v in forecast_data.values])
+
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (f:Forecast {
+        id: $id,
+        book_id: $book_id,
+        user_id: $user_id,
+        name: $name,
+        description: $description,
+        start_date: date($start_date),
+        end_date: date($end_date),
+        interval: $interval,
+        values: $values,
+        is_baseline: $is_baseline,
+        parent_forecast_id: $parent_forecast_id,
+        created_at: datetime($created_at),
+        updated_at: datetime($updated_at)
+    })
+    CREATE (u)-[:OWNS_FORECAST]->(f)
+    RETURN f
+    """
+    params = forecast_data.model_dump(mode="json")
+    params.update(
+        {
+            "id": forecast_id,
+            "values": values_json,
+            "created_at": created_at.isoformat(),
+            "updated_at": updated_at.isoformat(),
+        }
+    )
+
+    result = await _run(session, query, params)
+    record = await result.single()
+    return _forecast_node_to_indb(record["f"])
+
+
+async def get_forecast(session: AsyncSession, forecast_id: str) -> Optional[ForecastInDB]:
+    query = """
+    MATCH (f:Forecast {id: $forecast_id})
+    WHERE $book_id IS NULL OR f.book_id = $book_id
+    RETURN f
+    """
+    result = await _run(session, query, forecast_id=forecast_id)
+    record = await result.single()
+    if record:
+        return _forecast_node_to_indb(record["f"])
+    return None
+
+
+async def get_all_forecasts(session: AsyncSession, user_id: str) -> List[ForecastInDB]:
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_FORECAST]->(f:Forecast)
+    WHERE $book_id IS NULL OR f.book_id = $book_id
+    RETURN f
+    ORDER BY f.name
+    """
+    result = await _run(session, query, user_id=user_id)
+    forecasts = []
+    async for record in result:
+        forecasts.append(_forecast_node_to_indb(record["f"]))
+    return forecasts
+
+
+async def update_forecast(
+    session: AsyncSession, forecast_id: str, forecast_data: ForecastUpdate
+) -> Optional[ForecastInDB]:
+    update_fields = forecast_data.model_dump(exclude_unset=True)
+    if not update_fields:
+        return await get_forecast(session, forecast_id)
+
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+    if "start_date" in update_fields and update_fields["start_date"]:
+        update_fields["start_date"] = date.fromisoformat(str(update_fields["start_date"])).isoformat()
+    if "end_date" in update_fields and update_fields["end_date"]:
+        update_fields["end_date"] = date.fromisoformat(str(update_fields["end_date"])).isoformat()
+    if "values" in update_fields and update_fields["values"]:
+        update_fields["values"] = json.dumps(update_fields["values"])
+
+    set_clauses = [f"f.{k} = ${k}" for k in update_fields.keys()]
+    set_query_part = ", ".join(set_clauses)
+
+    query = f"""
+    MATCH (f:Forecast {{id: $forecast_id}})
+    WHERE $book_id IS NULL OR f.book_id = $book_id
+    SET {set_query_part}
+    RETURN f
+    """
+    params = {"forecast_id": forecast_id, **update_fields}
+    result = await _run(session, query, params)
+    record = await result.single()
+
+    if record:
+        return await get_forecast(session, forecast_id)
+    return None
+
+
+async def delete_forecast(session: AsyncSession, forecast_id: str) -> bool:
+    query = """
+    MATCH (f:Forecast {id: $forecast_id})
+    WHERE $book_id IS NULL OR f.book_id = $book_id
+    DETACH DELETE f
+    """
+    result = await _run(session, query, forecast_id=forecast_id)
     return result.consume().counters.nodes_deleted > 0

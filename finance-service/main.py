@@ -3,11 +3,11 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from finance_service import crud, models
 from finance_service.database import Neo4jConnector, init_db_schema
-from finance_service.dependencies import get_db_session, get_user_id
+from finance_service.dependencies import book_id_var, get_db_session, get_user_id
 from finance_service.exceptions import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError
 from finance_service.services.scenario_engine import ScenarioEngine  # NEW
 from finance_service.utils.auth import check_permission
@@ -21,6 +21,16 @@ app = FastAPI(
     description="Provides financial planning, budgeting, forecasting, and scenario analysis capabilities.",
     version="0.1.0",
 )
+
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Bind the gateway-verified X-Book-ID into the request-scoped contextvar."""
+    token = book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        book_id_var.reset(token)
 
 
 # Distributed tracing
@@ -87,8 +97,7 @@ async def forbidden_exception_handler(request, exc: ForbiddenError):
 async def create_budget(
     budget: models.BudgetCreate, user_id: str = Depends(get_user_id), db_session: AsyncSession = Depends(get_db_session)
 ):
-    budget.user_id = user_id
-    return await crud.create_budget(db_session, budget)
+    return await crud.create_budget(db_session, budget, user_id)
 
 
 @app.get(

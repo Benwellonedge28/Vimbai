@@ -1,8 +1,9 @@
+import datetime as dt
 from datetime import date, datetime  # NEW: Import date for scenario parameters
 from decimal import Decimal
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, condecimal, validator
+from pydantic import BaseModel, Field, condecimal, field_validator
 
 
 # --- Budget Item Models (refining validation) ---
@@ -14,7 +15,7 @@ class BudgetItemBase(BaseModel):
         description="Category of the budget item (e.g., 'Salaries', 'Rent', 'Marketing').",
     )
     account_number: str = Field(
-        ..., min_length=4, max_length=10, regex=r"^\\d+$", description="Associated accounting account number."
+        ..., min_length=4, max_length=10, pattern=r"^\\d+$", description="Associated accounting account number."
     )
     budgeted_amount: condecimal(decimal_places=2, ge=Decimal("0.00")) = Field(
         ..., description="Budgeted amount for this item."
@@ -23,7 +24,7 @@ class BudgetItemBase(BaseModel):
         ..., description="Whether this is an expense or revenue budget item."
     )
 
-    @validator("budgeted_amount", pre=True)
+    @field_validator("budgeted_amount", mode="before")
     def convert_to_decimal(cls, v):
         if isinstance(v, float):
             return Decimal(str(v))
@@ -36,11 +37,11 @@ class BudgetItemCreate(BudgetItemBase):
 
 class BudgetItemUpdate(BaseModel):
     category: Optional[str] = Field(None, min_length=3, max_length=100)
-    account_number: Optional[str] = Field(None, min_length=4, max_length=10, regex=r"^\\d+$")
+    account_number: Optional[str] = Field(None, min_length=4, max_length=10, pattern=r"^\\d+$")
     budgeted_amount: Optional[condecimal(decimal_places=2, ge=Decimal("0.00"))] = None
     budget_type: Optional[Literal["expense", "revenue"]] = None
 
-    @validator("budgeted_amount", pre=True)
+    @field_validator("budgeted_amount", mode="before")
     def convert_to_decimal(cls, v):
         if isinstance(v, float):
             return Decimal(str(v))
@@ -68,9 +69,9 @@ class BudgetBase(BaseModel):
     description: Optional[str] = Field(None, max_length=500, description="Description of the budget.")
     # Removed items from here, they will be linked via relationship in Neo4j
 
-    @validator("end_date")
-    def validate_end_date(cls, v, values):
-        if "start_date" in values and v < values["start_date"]:
+    @field_validator("end_date")
+    def validate_end_date(cls, v, info):
+        if "start_date" in info.data and v < info.data["start_date"]:
             raise ValueError("End date cannot be before start date.")
         return v
 
@@ -103,7 +104,7 @@ class FinancialForecastDataPoint(BaseModel):
     value_type: str = Field(..., description="Type of value (e.g., 'revenue', 'expenses', 'profit').")
     amount: condecimal(max_digits=18, decimal_places=2) = Field(..., description="Forecasted amount for the period.")
 
-    @validator("amount", pre=True)
+    @field_validator("amount", mode="before")
     def convert_to_decimal(cls, v):
         if isinstance(v, float):
             return Decimal(str(v))
@@ -124,9 +125,9 @@ class FinancialForecastBase(BaseModel):
     owner_user_id: str = Field(..., description="User ID who created/owns this forecast.")
     data_points: List[FinancialForecastDataPoint] = Field([], description="List of forecasted data points.")
 
-    @validator("end_date")
-    def validate_forecast_end_date(cls, v, values):
-        if "start_date" in values and v < values["start_date"]:
+    @field_validator("end_date")
+    def validate_forecast_end_date(cls, v, info):
+        if "start_date" in info.data and v < info.data["start_date"]:
             raise ValueError("Forecast end date cannot be before start date.")
         return v
 
@@ -256,6 +257,65 @@ class MarketRatios(BaseModel):
 class FinancialRatiosReport(BaseModel):
     # ... (unchanged) ...
     pass
+
+
+# --- Forecast Simulation Models (Scenario Engine) ---
+class ForecastValue(BaseModel):
+    date: "dt.date" = Field(..., description="Date of the forecast period.")
+    revenue: float = Field(0.0, description="Forecasted revenue.")
+    expenses: float = Field(0.0, description="Forecasted expenses.")
+    profit: float = Field(0.0, description="Forecasted profit.")
+    cash_flow: float = Field(0.0, description="Forecasted cash flow.")
+
+
+class ForecastBase(BaseModel):
+    user_id: str = Field(..., description="User ID who owns the forecast.")
+    name: str = Field(..., min_length=3, max_length=100, description="Name of the forecast.")
+    description: Optional[str] = Field(None, max_length=500)
+    start_date: date = Field(..., description="Start date of the forecast period.")
+    end_date: date = Field(..., description="End date of the forecast period.")
+    interval: str = Field("monthly", description="Interval: monthly, quarterly, yearly.")
+    values: List[ForecastValue] = Field([], description="Forecasted values per period.")
+    is_baseline: bool = Field(True, description="Whether this is a baseline (non-scenario) forecast.")
+    parent_forecast_id: Optional[str] = Field(None, description="Baseline forecast this scenario derives from.")
+
+
+class ForecastCreate(ForecastBase):
+    pass
+
+
+class ForecastUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    interval: Optional[str] = None
+    values: Optional[List[ForecastValue]] = None
+    is_baseline: Optional[bool] = None
+    parent_forecast_id: Optional[str] = None
+
+
+class ForecastInDB(ForecastBase):
+    id: str = Field(..., example="uuid-string-for-node")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        from_attributes = True
+
+
+class ScenarioParametersCreate(BaseModel):
+    name: Optional[str] = Field(None, description="Name for the scenario forecast.")
+    description: Optional[str] = Field(None, max_length=500)
+    revenue_growth_rate: Optional[float] = Field(
+        None, description="e.g. 0.10 for 10%% revenue growth applied to each period."
+    )
+    expense_reduction_rate: Optional[float] = Field(
+        None, description="e.g. 0.05 for 5%% expense reduction applied to each period."
+    )
+    fixed_expense_increase: Optional[float] = Field(
+        None, description="Absolute amount added to expenses each period."
+    )
 
 
 class ErrorResponse(BaseModel):

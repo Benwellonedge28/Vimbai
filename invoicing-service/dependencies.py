@@ -1,8 +1,15 @@
+from contextvars import ContextVar
+from typing import Optional
+
 from fastapi import Depends, Request, status
 from invoicing_service.database import Neo4jConnector
 from invoicing_service.exceptions import UnauthorizedError  # NEW
 from invoicing_service.utils.auth import get_current_user_claims
 from neo4j import AsyncSession
+
+# Request-scoped Book context (X-Book-ID verified by the API gateway).
+# None means personal / unscoped requests.
+book_id_var: ContextVar[Optional[str]] = ContextVar("book_id", default=None)
 
 
 async def get_db_session() -> AsyncSession:

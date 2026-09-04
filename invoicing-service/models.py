@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Literal, Optional  # NEW: import Literal
 
-from pydantic import BaseModel, Field, condecimal, validator  # NEW: import condecimal, validator
+from pydantic import BaseModel, Field, condecimal, field_validator  # NEW
 
 
 # --- Customer Models ---
@@ -16,7 +16,7 @@ class CustomerBase(BaseModel):
     phone: Optional[str] = Field(None, max_length=20, description="Customer's phone number.")  # ADDED VALIDATION
     address: Optional[str] = Field(None, max_length=255, description="Customer's billing address.")  # ADDED VALIDATION
     customer_id: str = Field(
-        ..., min_length=3, max_length=50, regex=r"^[A-Z0-9-]+$", description="Unique identifier for the customer."
+        ..., min_length=3, max_length=50, pattern=r"^[A-Z0-9-]+$", description="Unique identifier for the customer."
     )  # ADDED VALIDATION
 
 
@@ -58,20 +58,20 @@ class InvoiceItemBase(BaseModel):
         None,
         min_length=4,
         max_length=10,
-        regex=r"^\d+$",
+        pattern=r"^\d+$",
         description="Associated revenue account number from Accounting Service.",
     )  # ADDED VALIDATION
 
-    @validator("quantity", "unit_price", "amount", pre=True)
+    @field_validator("quantity", "unit_price", "amount", mode="before")
     def convert_to_decimal(cls, v):
         if isinstance(v, float):
             return Decimal(str(v))
         return v
 
-    @validator("amount")
-    def validate_amount(cls, v, values):
-        quantity = values.get("quantity")
-        unit_price = values.get("unit_price")
+    @field_validator("amount")
+    def validate_amount(cls, v, info):
+        quantity = info.data.get("quantity")
+        unit_price = info.data.get("unit_price")
         if quantity is not None and unit_price is not None:
             calculated_amount = quantity * unit_price
             if v != calculated_amount:
@@ -102,7 +102,7 @@ class InvoiceBase(BaseModel):
         ..., min_length=3, description="ID of the customer this invoice is for."
     )  # ADDED VALIDATION
     invoice_number: str = Field(
-        ..., min_length=3, max_length=50, regex=r"^[A-Z0-9-]+$", description="Unique invoice number."
+        ..., min_length=3, max_length=50, pattern=r"^[A-Z0-9-]+$", description="Unique invoice number."
     )  # ADDED VALIDATION
     invoice_date: datetime = Field(default_factory=datetime.utcnow, description="Date the invoice was issued.")
     due_date: datetime = Field(..., description="Date the payment is due.")
@@ -119,9 +119,9 @@ class InvoiceBase(BaseModel):
         ..., min_length=1, description="List of items included in the invoice."
     )  # ADDED VALIDATION
 
-    @validator("total_amount")
-    def validate_total_amount(cls, v, values):
-        items = values.get("items")
+    @field_validator("total_amount")
+    def validate_total_amount(cls, v, info):
+        items = info.data.get("items")
         if items:
             calculated_total = sum(item.amount for item in items)
             if v != calculated_total:
@@ -129,9 +129,9 @@ class InvoiceBase(BaseModel):
                     raise ValueError(f"Total amount ({v}) does not match sum of item amounts ({calculated_total})")
         return v
 
-    @validator("due_date")
-    def validate_due_date(cls, v, values):
-        invoice_date = values.get("invoice_date")
+    @field_validator("due_date")
+    def validate_due_date(cls, v, info):
+        invoice_date = info.data.get("invoice_date")
         if invoice_date and v < invoice_date:
             raise ValueError("Due date cannot be before invoice date.")
         return v
