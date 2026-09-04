@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 import httpx
+from invoicing_service.dependencies import book_id_var
 from invoicing_service.exceptions import ValidationError  # NEW
 from invoicing_service.models import (
     CreateJournalEntryResponse,
@@ -19,7 +20,6 @@ from invoicing_service.models import (
     JournalEntryCreate,
     JournalLineBase,
 )
-from invoicing_service.dependencies import book_id_var
 from neo4j import AsyncSession
 
 API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")

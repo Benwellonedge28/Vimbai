@@ -4,11 +4,11 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
+from finance_service.dependencies import book_id_var
 from finance_service.models import FinancialForecastInDB  # NEW
-from finance_service.models import ForecastInDB, ForecastUpdate, ForecastValue  # scenario-engine family
 from finance_service.models import ScenarioInDB  # NEW
 from finance_service.models import ScenarioParameter  # NEW
-from finance_service.models import (
+from finance_service.models import (  # scenario-engine family
     BudgetCreate,
     BudgetInDB,
     BudgetItemCreate,
@@ -18,10 +18,12 @@ from finance_service.models import (
     FinancialForecastCreate,
     FinancialForecastDataPoint,
     FinancialForecastUpdate,
+    ForecastInDB,
+    ForecastUpdate,
+    ForecastValue,
     ScenarioCreate,
     ScenarioUpdate,
 )
-from finance_service.dependencies import book_id_var
 from neo4j import AsyncSession
 
 

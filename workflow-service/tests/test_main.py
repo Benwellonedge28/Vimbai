@@ -12,8 +12,8 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("JWT_SECRET", "test-secret-key-for-testing-only")
 
 import workflow_service.dependencies as deps
-from workflow_service.dependencies import get_db_session
 from main import app
+from workflow_service.dependencies import get_db_session
 
 client = TestClient(app)
 
