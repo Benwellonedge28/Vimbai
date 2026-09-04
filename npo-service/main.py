@@ -19,13 +19,13 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from neo4j import AsyncSession
 from npo_service import crud, models
 from npo_service.database import Neo4jConnector, init_db_schema
-from npo_service.dependencies import get_jwt_token, get_user_id
+from npo_service.dependencies import book_id_var, get_jwt_token, get_user_id
 from npo_service.exceptions import (
     ConflictError,
     ForbiddenError,
@@ -125,6 +125,17 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
+
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Bind the gateway-verified X-Book-ID into the request-scoped contextvar."""
+    token = book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        book_id_var.reset(token)
+
 
 # Apply custom OpenAPI schema
 app.openapi = custom_openapi
@@ -295,8 +306,7 @@ async def create_donation(donation: models.DonationCreate, user_id: str = Depend
 async def get_donations(user_id: str = Depends(get_user_id)):
     """Get all donations"""
     async with Neo4jConnector.get_driver().session() as session:
-        # Note: Add get_donations function to crud if needed
-        return []
+        return await crud.get_donations(session, user_id)
 
 
 @app.post("/grants/", response_model=models.GrantInDB, status_code=status.HTTP_201_CREATED)

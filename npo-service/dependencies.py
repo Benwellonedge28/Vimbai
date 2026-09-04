@@ -1,6 +1,7 @@
 """FastAPI dependencies for NPO Service"""
 
 import os
+from contextvars import ContextVar
 from typing import Optional
 
 import httpx
@@ -8,6 +9,10 @@ from fastapi import Header, HTTPException, status
 
 # API Gateway URL for auth validation
 API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
+
+# Request-scoped Book context (X-Book-ID verified by the API gateway).
+# None means personal / unscoped requests.
+book_id_var: ContextVar[Optional[str]] = ContextVar("book_id", default=None)
 
 
 async def get_user_id(x_user_id: str = Header(...)) -> str:

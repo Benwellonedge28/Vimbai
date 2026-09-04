@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 from neo4j import AsyncSession
+from npo_service.dependencies import book_id_var
 from npo_service.exceptions import ConflictError, NotFoundError, RestrictionViolationError, ValidationError
 from npo_service.models import (
     AccruedExpenseBase,
@@ -91,6 +92,14 @@ API_GATEWAY_URL = os.getenv("API_GATEWAY_URL", "http://api-gateway:8081")
 # =============================================================================
 
 
+async def _run(session, query, params=None, **kw):
+    """Run a Cypher query with the Book context parameter always bound."""
+    merged = dict(params or {})
+    merged.update(kw)
+    merged.setdefault("book_id", book_id_var.get())
+    return await session.run(query, merged)
+
+
 async def create_fund(session: AsyncSession, user_id: str, fund: FundCreate) -> FundInDB:
     """Create a new NPO fund"""
     fund_id = str(uuid.uuid4())
@@ -106,6 +115,7 @@ async def create_fund(session: AsyncSession, user_id: str, fund: FundCreate) -> 
     MATCH (u:User {id: $user_id})
     CREATE (f:NPOFund {
         id: $id,
+        book_id: $book_id,
         fund_code: $fund_code,
         fund_name: $fund_name,
         fund_type: $fund_type,
@@ -143,7 +153,7 @@ async def create_fund(session: AsyncSession, user_id: str, fund: FundCreate) -> 
         "updated_at": updated_at.isoformat(),
     }
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     f = record["f"]
 
@@ -171,9 +181,10 @@ async def get_fund(session: AsyncSession, user_id: str, fund_id: str) -> FundInD
     """Get fund by ID"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_NPO_FUND]->(f:NPOFund {id: $fund_id})
+    WHERE $book_id IS NULL OR f.book_id = $book_id
     RETURN f
     """
-    result = await session.run(query, user_id=user_id, fund_id=fund_id)
+    result = await _run(session, query, user_id=user_id, fund_id=fund_id)
     record = await result.single()
     if not record:
         raise NotFoundError(detail=f"Fund {fund_id} not found", code="FUND_NOT_FOUND")
@@ -202,9 +213,10 @@ async def get_fund_by_code(session: AsyncSession, user_id: str, fund_code: str) 
     """Get fund by fund code"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_NPO_FUND]->(f:NPOFund {fund_code: $fund_code})
+    WHERE $book_id IS NULL OR f.book_id = $book_id
     RETURN f
     """
-    result = await session.run(query, user_id=user_id, fund_code=fund_code)
+    result = await _run(session, query, user_id=user_id, fund_code=fund_code)
     try:
         record = await result.single()
         if record:
@@ -237,7 +249,7 @@ async def get_all_funds(session: AsyncSession, user_id: str, fund_type: Optional
     type_filter = "AND f.fund_type = $fund_type" if fund_type else ""
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_NPO_FUND]->(f:NPOFund)
-    WHERE true {type_filter}
+    WHERE true {type_filter} AND ($book_id IS NULL OR f.book_id = $book_id)
     RETURN f
     ORDER BY f.fund_code
     """
@@ -245,7 +257,7 @@ async def get_all_funds(session: AsyncSession, user_id: str, fund_type: Optional
     if fund_type:
         params["fund_type"] = fund_type
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     funds = []
     async for record in result:
         f = record["f"]
@@ -277,6 +289,7 @@ async def update_fund_balance(session: AsyncSession, fund_id: str, amount: Decim
     if is_contribution:
         query = """
         MATCH (f:NPOFund {id: $fund_id})
+        WHERE $book_id IS NULL OR f.book_id = $book_id
         SET f.current_balance = f.current_balance + toFloat($amount),
             f.total_contributions = f.total_contributions + toFloat($amount),
             f.updated_at = datetime($updated_at)
@@ -284,11 +297,12 @@ async def update_fund_balance(session: AsyncSession, fund_id: str, amount: Decim
     else:
         query = """
         MATCH (f:NPOFund {id: $fund_id})
+        WHERE $book_id IS NULL OR f.book_id = $book_id
         SET f.current_balance = f.current_balance - toFloat($amount),
             f.total_disbursements = f.total_disbursements + toFloat($amount),
             f.updated_at = datetime($updated_at)
         """
-    await session.run(query, fund_id=fund_id, amount=float(amount), updated_at=datetime.now(timezone.utc).isoformat())
+    await _run(session, query, fund_id=fund_id, amount=float(amount), updated_at=datetime.now(timezone.utc).isoformat())
 
 
 async def create_fund_transaction(
@@ -319,8 +333,10 @@ async def create_fund_transaction(
     # Create transaction
     query = """
     MATCH (u:User {id: $user_id}), (f:NPOFund {id: $fund_id})
+    WHERE $book_id IS NULL OR f.book_id = $book_id
     CREATE (tx:NPOFundTransaction {
         id: $id,
+        book_id: $book_id,
         transaction_date: date($transaction_date),
         transaction_type: $transaction_type,
         amount: toFloat($amount),
@@ -356,7 +372,7 @@ async def create_fund_transaction(
         "created_at": created_at.isoformat(),
     }
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     tx = record["tx"]
 
@@ -396,11 +412,11 @@ async def get_fund_transactions(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_NPO_FUND_TRANSACTION]->(tx:NPOFundTransaction)-[:TRANSACTION_IN_FUND]->(f:NPOFund {{id: $fund_id}})
-    WHERE true {date_filter}
+    WHERE true {date_filter} AND ($book_id IS NULL OR tx.book_id = $book_id)
     RETURN tx
     ORDER BY tx.transaction_date DESC
     """
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     transactions = []
     async for record in result:
         tx = record["tx"]
@@ -434,8 +450,10 @@ async def create_fund_restriction(
 
     query = """
     MATCH (u:User {id: $user_id}), (f:NPOFund {id: $fund_id})
+    WHERE $book_id IS NULL OR f.book_id = $book_id
     CREATE (r:FundRestriction {
         id: $id,
+        book_id: $book_id,
         restriction_type: $restriction_type,
         description: $description,
         start_date: $start_date,
@@ -460,8 +478,10 @@ async def create_fund_restriction(
         "terms_conditions": restriction.terms_conditions,
         "created_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
+    if not record:
+        raise NotFoundError(detail=f"Fund {fund_id} not found", code="FUND_NOT_FOUND")
     r = record["r"]
 
     return FundRestrictionInDB(
@@ -492,10 +512,10 @@ async def create_net_assets(
     # Calculate totals from funds
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_NPO_FUND]->(f:NPOFund)
-    WHERE f.status = 'active'
+    WHERE f.status = 'active' AND ($book_id IS NULL OR f.book_id = $book_id)
     RETURN f
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
 
     net_assets_without = Decimal("0.00")
     net_assets_with = Decimal("0.00")
@@ -518,6 +538,7 @@ async def create_net_assets(
     MATCH (u:User {id: $user_id})
     CREATE (na:NetAssets {
         id: $id,
+        book_id: $book_id,
         as_of_date: date($as_of_date),
         period_start: date($period_start),
         period_end: date($period_end),
@@ -556,7 +577,7 @@ async def create_net_assets(
         "change": float(change),
         "created_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     na = record["na"]
 
@@ -585,10 +606,10 @@ async def get_net_assets(session: AsyncSession, user_id: str, as_of_date: date) 
     """Get net assets as of date"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_NET_ASSETS]->(na:NetAssets)
-    WHERE na.as_of_date = date($as_of_date)
+    WHERE na.as_of_date = date($as_of_date) AND ($book_id IS NULL OR na.book_id = $book_id)
     RETURN na
     """
-    result = await session.run(query, user_id=user_id, as_of_date=as_of_date.isoformat())
+    result = await _run(session, query, user_id=user_id, as_of_date=as_of_date.isoformat())
     record = await result.single()
     if not record:
         raise NotFoundError(detail=f"No net assets found for date {as_of_date}")
@@ -644,6 +665,7 @@ async def create_donation(session: AsyncSession, user_id: str, donation: Donatio
     MATCH (u:User {id: $user_id})
     CREATE (d:Donation {
         id: $id,
+        book_id: $book_id,
         donation_date: date($donation_date),
         amount: toFloat($amount),
         donor_id: $donor_id,
@@ -678,7 +700,7 @@ async def create_donation(session: AsyncSession, user_id: str, donation: Donatio
         "receipt_number": receipt_number,
         "created_at": created_at.isoformat(),
     }
-    await session.run(query, params)
+    await _run(session, query, params)
 
     # Update fund balance
     if target_fund_id:
@@ -710,6 +732,40 @@ async def create_donation(session: AsyncSession, user_id: str, donation: Donatio
     )
 
 
+async def get_donations(session: AsyncSession, user_id: str) -> List[DonationInDB]:
+    """Get all donations for the user, scoped to the active Book"""
+    query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_DONATION]->(d:Donation)
+    WHERE $book_id IS NULL OR d.book_id = $book_id
+    RETURN d
+    ORDER BY d.donation_date DESC
+    """
+    result = await _run(session, query, user_id=user_id)
+    donations = []
+    async for record in result:
+        d = record["d"]
+        donations.append(
+            DonationInDB(
+                id=d["id"],
+                user_id=user_id,
+                donation_date=datetime.fromisoformat(d["donation_date"].iso_format()).date(),
+                amount=Decimal(str(d["amount"])),
+                donor_id=d["donor_id"],
+                donation_type=d["donation_type"],
+                payment_method=d.get("payment_method"),
+                campaign=d.get("campaign"),
+                appeal=d.get("appeal"),
+                is_anonymous=d.get("is_anonymous", False),
+                acknowledgement_sent=d.get("acknowledgement_sent", False),
+                tax_deductible=d.get("tax_deductible", True),
+                notes=d.get("notes"),
+                receipt_number=d["receipt_number"],
+                created_at=datetime.fromisoformat(d["created_at"].iso_format()),
+            )
+        )
+    return donations
+
+
 async def create_grant(session: AsyncSession, user_id: str, grant: GrantCreate) -> GrantInDB:
     """Create grant"""
     grant_id = str(uuid.uuid4())
@@ -718,8 +774,10 @@ async def create_grant(session: AsyncSession, user_id: str, grant: GrantCreate) 
 
     query = """
     MATCH (u:User {id: $user_id}), (f:NPOFund {id: $fund_id})
+    WHERE $book_id IS NULL OR f.book_id = $book_id
     CREATE (g:Grant {
         id: $id,
+        book_id: $book_id,
         grant_code: $grant_code,
         grant_name: $grant_name,
         grantor_name: $grantor_name,
@@ -768,8 +826,10 @@ async def create_grant(session: AsyncSession, user_id: str, grant: GrantCreate) 
         "performance_indicators": "{}",
         "created_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
+    if not record:
+        raise NotFoundError(detail=f"Fund {grant.fund_id} not found", code="FUND_NOT_FOUND")
     g = record["g"]
 
     return GrantInDB(
@@ -805,7 +865,7 @@ async def get_grants(session: AsyncSession, user_id: str, status: Optional[Grant
     status_filter = "AND g.status = $status" if status else ""
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_GRANT]->(g:Grant)-[:GRANT_IN_FUND]->(f:NPOFund)
-    WHERE true {status_filter}
+    WHERE true {status_filter} AND ($book_id IS NULL OR g.book_id = $book_id)
     RETURN g, f.id as fund_id
     ORDER BY g.grant_code
     """
@@ -813,7 +873,7 @@ async def get_grants(session: AsyncSession, user_id: str, status: Optional[Grant
     if status:
         params["status"] = status.value
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     grants = []
     async for record in result:
         g = record["g"]
@@ -864,6 +924,7 @@ async def create_project(session: AsyncSession, user_id: str, project: ProjectCr
     MATCH (u:User {id: $user_id})
     CREATE (p:Project {
         id: $id,
+        book_id: $book_id,
         project_name: $project_name,
         project_code: $project_code,
         description: $description,
@@ -908,7 +969,7 @@ async def create_project(session: AsyncSession, user_id: str, project: ProjectCr
         "risks": "[]",
         "created_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     p = record["p"]
 
@@ -941,7 +1002,7 @@ async def get_projects(
     status_filter = "AND p.status = $status" if status else ""
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_PROJECT]->(p:Project)
-    WHERE true {status_filter}
+    WHERE true {status_filter} AND ($book_id IS NULL OR p.book_id = $book_id)
     RETURN p
     ORDER BY p.project_code
     """
@@ -949,7 +1010,7 @@ async def get_projects(
     if status:
         params["status"] = status.value
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     projects = []
     async for record in result:
         p = record["p"]
@@ -987,6 +1048,7 @@ async def create_program(session: AsyncSession, user_id: str, program: ProgramCr
     MATCH (u:User {id: $user_id})
     CREATE (p:Program {
         id: $id,
+        book_id: $book_id,
         program_name: $program_name,
         program_code: $program_code,
         description: $description,
@@ -1021,7 +1083,7 @@ async def create_program(session: AsyncSession, user_id: str, program: ProgramCr
         "outcomes_achieved": "[]",
         "created_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     p = record["p"]
 
@@ -1048,10 +1110,11 @@ async def get_programs(session: AsyncSession, user_id: str) -> List[ProgramInDB]
     """Get all programs"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_PROGRAM]->(p:Program)
+    WHERE $book_id IS NULL OR p.book_id = $book_id
     RETURN p
     ORDER BY p.program_code
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     programs = []
     async for record in result:
         p = record["p"]
@@ -1092,6 +1155,7 @@ async def create_donor(session: AsyncSession, user_id: str, donor: DonorCreate) 
     MATCH (u:User {id: $user_id})
     CREATE (d:Donor {
         id: $id,
+        book_id: $book_id,
         donor_code: $donor_code,
         donor_name: $donor_name,
         donor_type: $donor_type,
@@ -1130,7 +1194,7 @@ async def create_donor(session: AsyncSession, user_id: str, donor: DonorCreate) 
         "preferred_fund": None,
         "created_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     d = record["d"]
 
@@ -1162,10 +1226,11 @@ async def get_donors(session: AsyncSession, user_id: str) -> List[DonorInDB]:
     """Get all donors"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_DONOR]->(d:Donor)
+    WHERE $book_id IS NULL OR d.book_id = $book_id
     RETURN d
     ORDER BY d.donor_name
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     donors = []
     async for record in result:
         d = record["d"]
@@ -1213,6 +1278,7 @@ async def create_budget(session: AsyncSession, user_id: str, budget: BudgetCreat
     MATCH (u:User {id: $user_id})
     CREATE (b:Budget {
         id: $id,
+        book_id: $book_id,
         budget_code: $budget_code,
         budget_name: $budget_name,
         fiscal_year: $fiscal_year,
@@ -1249,7 +1315,7 @@ async def create_budget(session: AsyncSession, user_id: str, budget: BudgetCreat
         "remaining_balance": float(budget.total_budget),
         "created_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     b = record["b"]
 
@@ -1283,10 +1349,13 @@ async def create_budget_line(
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_BUDGET]->(b:Budget {id: $budget_id})
     OPTIONAL MATCH (b)-[:HAS_LINE]->(l:BudgetLine)
+    WHERE $book_id IS NULL OR b.book_id = $book_id
     RETURN count(l) as line_count
     """
-    result = await session.run(query, user_id=user_id, budget_id=budget_id)
+    result = await _run(session, query, user_id=user_id, budget_id=budget_id)
     record = await result.single()
+    if not record:
+        raise NotFoundError(detail=f"Budget {budget_id} not found", code="BUDGET_NOT_FOUND")
     line_number = (record["line_count"] or 0) + 1
 
     variance = line.budgeted_amount - line.spent_amount
@@ -1294,8 +1363,10 @@ async def create_budget_line(
 
     query = """
     MATCH (u:User {id: $user_id}), (b:Budget {id: $budget_id})
+    WHERE $book_id IS NULL OR b.book_id = $book_id
     CREATE (l:BudgetLine {
         id: $id,
+        book_id: $book_id,
         line_number: $line_number,
         line_description: $line_description,
         category: $category,
@@ -1328,18 +1399,25 @@ async def create_budget_line(
         "notes": line.notes,
         "is_over_budget": line.spent_amount > line.budgeted_amount,
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
+    if not record:
+        raise NotFoundError(detail=f"Budget {budget_id} not found", code="BUDGET_NOT_FOUND")
     l = record["l"]
 
     # Update budget totals
     update_query = """
     MATCH (b:Budget {id: $budget_id})
+    WHERE $book_id IS NULL OR b.book_id = $book_id
     SET b.total_allocated = b.total_allocated + toFloat($allocated),
         b.remaining_balance = b.total_budget - (b.total_allocated + toFloat($spent))
     """
-    await session.run(
-        update_query, budget_id=budget_id, allocated=float(line.allocated_amount), spent=float(line.spent_amount)
+    await _run(
+        session,
+        update_query,
+        budget_id=budget_id,
+        allocated=float(line.allocated_amount),
+        spent=float(line.spent_amount),
     )
 
     return BudgetLineInDB(
@@ -1362,7 +1440,7 @@ async def get_budgets(session: AsyncSession, user_id: str, fiscal_year: Optional
     year_filter = "AND b.fiscal_year = $fiscal_year" if fiscal_year else ""
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_BUDGET]->(b:Budget)
-    WHERE true {year_filter}
+    WHERE true {year_filter} AND ($book_id IS NULL OR b.book_id = $book_id)
     RETURN b
     ORDER BY b.fiscal_year DESC, b.budget_name
     """
@@ -1370,7 +1448,7 @@ async def get_budgets(session: AsyncSession, user_id: str, fiscal_year: Optional
     if fiscal_year:
         params["fiscal_year"] = fiscal_year
 
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     budgets = []
     async for record in result:
         b = record["b"]
@@ -1413,6 +1491,7 @@ async def create_internal_control(
     MATCH (u:User {id: $user_id})
     CREATE (c:InternalControl {
         id: $id,
+        book_id: $book_id,
         control_name: $control_name,
         control_type: $control_type,
         category: $category,
@@ -1449,7 +1528,7 @@ async def create_internal_control(
         "remediation_date": control.remediation_date.isoformat() if control.remediation_date else None,
         "created_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     c = record["c"]
 
@@ -1481,10 +1560,11 @@ async def get_internal_controls(session: AsyncSession, user_id: str) -> List[Int
     """Get all internal controls"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_INTERNAL_CONTROL]->(c:InternalControl)
+    WHERE $book_id IS NULL OR c.book_id = $book_id
     RETURN c
     ORDER BY c.control_name
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     controls = []
     async for record in result:
         c = record["c"]
@@ -1527,6 +1607,7 @@ async def create_audit_report(session: AsyncSession, user_id: str, audit: AuditR
     MATCH (u:User {id: $user_id})
     CREATE (a:AuditReport {
         id: $id,
+        book_id: $book_id,
         report_number: $report_number,
         audit_type: $audit_type,
         audit_name: $audit_name,
@@ -1569,7 +1650,7 @@ async def create_audit_report(session: AsyncSession, user_id: str, audit: AuditR
         "significant_findings": 0,
         "created_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     a = record["a"]
 
@@ -1600,10 +1681,11 @@ async def get_audit_reports(session: AsyncSession, user_id: str) -> List[AuditRe
     """Get all audit reports"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_AUDIT_REPORT]->(a:AuditReport)
+    WHERE $book_id IS NULL OR a.book_id = $book_id
     RETURN a
     ORDER BY a.start_date DESC
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     reports = []
     async for record in result:
         a = record["a"]
@@ -1648,8 +1730,10 @@ async def create_program_metric(
 
     query = """
     MATCH (u:User {id: $user_id}), (p:Program {id: $program_id})
+    WHERE $book_id IS NULL OR p.book_id = $book_id
     CREATE (m:ProgramMetric {
         id: $id,
+        book_id: $book_id,
         metric_name: $metric_name,
         metric_type: $metric_type,
         measurement_unit: $measurement_unit,
@@ -1678,7 +1762,7 @@ async def create_program_metric(
         "methodology": metric.methodology,
         "notes": metric.notes,
     }
-    await session.run(query, params)
+    await _run(session, query, params)
     return metric
 
 
@@ -1699,6 +1783,7 @@ async def create_impact_measurement(
     MATCH (u:User {id: $user_id})
     CREATE (m:ImpactMeasurement {
         id: $id,
+        book_id: $book_id,
         measurement_name: $measurement_name,
         program_id: $program_id,
         project_id: $project_id,
@@ -1731,7 +1816,7 @@ async def create_impact_measurement(
         "change_percent": float(change_percent),
         "methodology": measurement.methodology,
     }
-    await session.run(query, params)
+    await _run(session, query, params)
     return measurement
 
 
@@ -1750,6 +1835,7 @@ async def create_volunteer_record(
     MATCH (u:User {id: $user_id})
     CREATE (v:VolunteerRecord {
         id: $id,
+        book_id: $book_id,
         volunteer_name: $volunteer_name,
         volunteer_id: $volunteer_id,
         activity_date: date($activity_date),
@@ -1784,7 +1870,7 @@ async def create_volunteer_record(
         "value_of_service": float(value_of_service),
         "created_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record_db = result.single()["v"]
 
     return VolunteerRecordInDB(
@@ -1821,11 +1907,11 @@ async def get_volunteer_records(
 
     query = f"""
     MATCH (u:User {{id: $user_id}})-[:OWNS_VOLUNTEER_RECORD]->(v:VolunteerRecord)
-    WHERE true {date_filter}
+    WHERE true {date_filter} AND ($book_id IS NULL OR v.book_id = $book_id)
     RETURN v
     ORDER BY v.activity_date DESC
     """
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     records = []
     async for record in result:
         v = record["v"]
@@ -1866,11 +1952,15 @@ async def create_statement_of_activities(
     # Calculate from donations, grants, and transactions
     donations_query = """
     MATCH (u:User {id: $user_id})-[:OWNS_DONATION]->(d:Donation)
-    WHERE d.donation_date >= date($period_start) AND d.donation_date <= date($period_end)
+    WHERE d.donation_date >= date($period_start) AND d.donation_date <= date($period_end) AND ($book_id IS NULL OR d.book_id = $book_id)
     RETURN sum(d.amount) as total_donations, count(d) as donation_count
     """
-    donations_result = await session.run(
-        donations_query, user_id=user_id, period_start=period_start.isoformat(), period_end=period_end.isoformat()
+    donations_result = await _run(
+        session,
+        donations_query,
+        user_id=user_id,
+        period_start=period_start.isoformat(),
+        period_end=period_end.isoformat(),
     )
     donations_record = await donations_result.single()
     total_contributions = (
@@ -1880,22 +1970,26 @@ async def create_statement_of_activities(
     # Get grants received
     grants_query = """
     MATCH (u:User {id: $user_id})-[:OWNS_GRANT]->(g:Grant)
-    WHERE g.status IN ['active', 'completed']
+    WHERE g.status IN ['active', 'completed'] AND ($book_id IS NULL OR g.book_id = $book_id)
     RETURN sum(g.amount_received) as total_grants
     """
-    grants_result = await session.run(grants_query, user_id=user_id)
+    grants_result = await _run(session, grants_query, user_id=user_id)
     grants_record = await grants_result.single()
     grant_revenue = Decimal(str(grants_record["total_grants"] or 0)) if grants_record else Decimal("0.00")
 
     # Calculate expenses from fund transactions
     expense_query = """
     MATCH (u:User {id: $user_id})-[:OWNS_NPO_FUND_TRANSACTION]->(t:NPOFundTransaction)
-    WHERE t.transaction_type IN ['disbursement', 'expense']
+    WHERE t.transaction_type IN ['disbursement', 'expense'] AND ($book_id IS NULL OR t.book_id = $book_id)
     AND t.transaction_date >= date($period_start) AND t.transaction_date <= date($period_end)
     RETURN sum(t.amount) as total_expenses
     """
-    expense_result = await session.run(
-        expense_query, user_id=user_id, period_start=period_start.isoformat(), period_end=period_end.isoformat()
+    expense_result = await _run(
+        session,
+        expense_query,
+        user_id=user_id,
+        period_start=period_start.isoformat(),
+        period_end=period_end.isoformat(),
     )
     expense_record = await expense_result.single()
     total_expenses = Decimal(str(expense_record["total_expenses"] or 0)) if expense_record else Decimal("0.00")
@@ -1903,11 +1997,12 @@ async def create_statement_of_activities(
     # Calculate net assets
     net_assets_query = """
     MATCH (u:User {id: $user_id})-[:OWNS_NET_ASSETS]->(na:NetAssets)
+    WHERE $book_id IS NULL OR na.book_id = $book_id
     RETURN na.total_net_assets as total
     ORDER BY na.as_of_date DESC
     LIMIT 1
     """
-    net_result = await session.run(net_assets_query, user_id=user_id)
+    net_result = await _run(session, net_assets_query, user_id=user_id)
     net_record = await net_result.single()
     beginning_net = Decimal(str(net_record["total"] or 0)) if net_record else Decimal("0.00")
 
@@ -1918,6 +2013,7 @@ async def create_statement_of_activities(
     MATCH (u:User {id: $user_id})
     CREATE (s:StatementOfActivities {
         id: $id,
+        book_id: $book_id,
         period_start: date($period_start),
         period_end: date($period_end),
         contributions_without_restrictions: toFloat($without),
@@ -1966,7 +2062,7 @@ async def create_statement_of_activities(
         "lines": "[]",
         "created_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     s = record["s"]
 
@@ -2006,10 +2102,10 @@ async def create_statement_of_financial_position(
     # Get totals from funds
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_NPO_FUND]->(f:NPOFund)
-    WHERE f.status = 'active'
+    WHERE f.status = 'active' AND ($book_id IS NULL OR f.book_id = $book_id)
     RETURN sum(f.current_balance) as total_funds
     """
-    result = await session.run(query, user_id=user_id)
+    result = await _run(session, query, user_id=user_id)
     record = await result.single()
     total_assets = Decimal(str(record["total_funds"] or 0)) if record else Decimal("0.00")
 
@@ -2020,6 +2116,7 @@ async def create_statement_of_financial_position(
     MATCH (u:User {id: $user_id})
     CREATE (s:StatementOfFinancialPosition {
         id: $id,
+        book_id: $book_id,
         as_of_date: date($as_of_date),
         current_assets: toFloat($current),
         fixed_assets: toFloat($fixed),
@@ -2058,7 +2155,7 @@ async def create_statement_of_financial_position(
         "total": float(total_assets),
         "created_at": created_at.isoformat(),
     }
-    result = await session.run(query, params)
+    result = await _run(session, query, params)
     record = await result.single()
     s = record["s"]
 
@@ -2089,11 +2186,11 @@ async def get_statement_of_activities(
     """Get Statement of Activities for period"""
     query = """
     MATCH (u:User {id: $user_id})-[:OWNS_STATEMENT_OF_ACTIVITIES]->(s:StatementOfActivities)
-    WHERE s.period_start = date($period_start) AND s.period_end = date($period_end)
+    WHERE s.period_start = date($period_start) AND s.period_end = date($period_end) AND ($book_id IS NULL OR s.book_id = $book_id)
     RETURN s
     """
-    result = await session.run(
-        query, user_id=user_id, period_start=period_start.isoformat(), period_end=period_end.isoformat()
+    result = await _run(
+        session, query, user_id=user_id, period_start=period_start.isoformat(), period_end=period_end.isoformat()
     )
     record = await result.single()
     if not record:
