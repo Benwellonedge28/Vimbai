@@ -24,7 +24,6 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:pointycastle/export.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';

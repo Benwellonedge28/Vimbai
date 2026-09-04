@@ -512,7 +512,18 @@ class _NpoPageState extends State<NpoPage> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
-              child: _orgs.isEmpty
+              child: Column(
+                children: [
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      ),
+                    ),
+                  Expanded(
+                    child: _orgs.isEmpty
                   ? ListView(
                       children: const [
                         Padding(
@@ -592,6 +603,9 @@ class _NpoPageState extends State<NpoPage> {
                         );
                       },
                     ),
+                  ),
+                ],
+              ),
             ),
     );
   }
