@@ -774,7 +774,21 @@ class TestRollingForecastService:
 
 class TestAuthorizedShareCapitalService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("authorized-share-capital-service"))
+        # Load first: main.py self-bootstraps the authorized_share_capital_service package.
+        app = load_service_app("authorized-share-capital-service")
+        pkg = sys.modules["authorized_share_capital_service"]
+        if not hasattr(pkg, "_ci_fake_session"):
+            fake_path = os.path.join(REPO_ROOT, "authorized-share-capital-service", "fake_neo4j.py")
+            spec = importlib.util.spec_from_file_location("asc_fake_neo4j_ci", fake_path)
+            fake_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(fake_mod)
+            sys.modules["asc_fake_neo4j_ci"] = fake_mod
+            pkg._ci_fake_session = fake_mod.FakeSession()
+            import authorized_share_capital_service.database as db
+
+            db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(pkg._ci_fake_session))
+        self.client = TestClient(app)
+        self.headers = {"X-User-Id": "ci-user"}
 
     def test_health(self):
         resp = self.client.get("/health")
@@ -790,17 +804,19 @@ class TestAuthorizedShareCapitalService:
                 "par_value": 1.0,
                 "voting_rights": "ordinary",
             },
+            headers=self.headers,
         )
         cls_id = cls_resp.json()["id"]
 
         issue_resp = self.client.post(
             f"/share-classes/{cls_id}/issue",
             params={"number_of_shares": 100000, "issue_price": 5.0},
+            headers=self.headers,
         )
         assert issue_resp.status_code == 200
         assert issue_resp.json()["total_proceeds"] == 500000.0
 
-        summary = self.client.get("/summary")
+        summary = self.client.get("/summary", headers=self.headers)
         assert summary.json()["total_issued"] == 100000
 
 

@@ -1,23 +1,44 @@
+# This file may be imported bare (Docker `uvicorn main:app`, bracket mounts), so it
+# bootstraps its own package alias before importing sibling modules.
+import importlib.util as _ilu
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+_PKG = "bonus_shares_service"
+if _PKG not in _sys.modules or not hasattr(_sys.modules.get(_PKG), "__path__"):
+    _spec = _ilu.spec_from_file_location(_PKG, _os.path.join(_HERE, "__init__.py"))
+    _pkg = _ilu.module_from_spec(_spec)
+    _pkg.__path__ = [_HERE]
+    _sys.modules[_PKG] = _pkg
+
 """
 Vimbai Bonus Shares Service
-Manages capitalization of reserves into bonus shares.
+Issues bonus shares from reserves.
+
+Record-keeping only: this service records bonus share issuances and
+journal-entry references (user-owned, Book-scoped via X-User-Id /
+X-Book-ID); it never moves money. Corrections use reversing entries.
 """
 
 import os
-import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from bonus_shares_service import crud, models
+from bonus_shares_service.database import Neo4jConnector
+from bonus_shares_service.dependencies import book_id_var, get_db_session, get_user_id
+from bonus_shares_service.exceptions import ConflictError, NotFoundError, ValidationError
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from neo4j import AsyncSession
 
 SERVICE_NAME = "bonus-shares-service"
 SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8050"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
@@ -40,25 +61,46 @@ app.add_middleware(
 )
 
 
-class BonusIssue(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    issue_date: datetime
-    shares_issued: int
-    nominal_value: float
-    total_nominal_value: float = 0
-    source_reserve: str  # share_premium, retained_earnings, general_reserve
-    amount_utilized: float = 0
-    shareholder_allocations: Dict[str, int] = {}  # shareholder_id -> shares
-    journal_entry_id: Optional[str] = None
-    status: str = "approved"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Capture the Book context for the duration of the request."""
+    token = book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        book_id_var.reset(token)
 
 
-bonus_issues: List[BonusIssue] = []
+@app.on_event("startup")
+async def startup():
+    Neo4jConnector.configure(
+        os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        os.getenv("NEO4J_USER", "neo4j"),
+        os.getenv("NEO4J_PASSWORD", "password"),
+    )
 
 
-async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+@app.on_event("shutdown")
+async def shutdown():
+    await Neo4jConnector.close_driver()
+
+
+@app.exception_handler(NotFoundError)
+async def not_found_exception_handler(request: Request, exc: NotFoundError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
+
+
+@app.exception_handler(ConflictError)
+async def conflict_exception_handler(request: Request, exc: ConflictError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
+
+
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request: Request, exc: ValidationError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
+
+
+async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{ACCOUNTING_SERVICE_URL}{endpoint}"
@@ -89,9 +131,11 @@ async def issue_bonus_shares(
     nominal_value: float,
     source_reserve: str,
     shareholder_allocations: Dict[str, int],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Issue bonus shares from reserves."""
-    issue = BonusIssue(
+    issue = models.BonusIssue(
         company_id=company_id,
         issue_date=issue_date,
         shares_issued=shares_issued,
@@ -101,11 +145,9 @@ async def issue_bonus_shares(
     )
     issue.total_nominal_value = shares_issued * nominal_value
     issue.amount_utilized = issue.total_nominal_value
-
     reserve_account = {"share_premium": "3210", "retained_earnings": "3300", "general_reserve": "3310"}.get(
         source_reserve, "3300"
     )
-
     journal_entry = {
         "date": issue_date,
         "description": f"Issue of {shares_issued} bonus shares from {source_reserve}",
@@ -122,14 +164,17 @@ async def issue_bonus_shares(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     issue.journal_entry_id = result.get("id")
-    bonus_issues.append(issue)
-    return issue
+    return await crud.create_bonus_issue(db_session, user_id, issue)
 
 
 @app.get("/issues")
-async def list_bonus_issues(company_id: Optional[str] = None):
+async def list_bonus_issues(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List bonus issues."""
-    result = bonus_issues
+    result = await crud.list_bonus_issues(db_session, user_id)
     if company_id:
         result = [i for i in result if i.company_id == company_id]
     return {"issues": result}
