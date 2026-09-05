@@ -1,37 +1,65 @@
+# This file may be imported bare (Docker `uvicorn main:app`, bracket mounts), so it
+# bootstraps its own package alias before importing sibling modules.
+import importlib.util as _ilu
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+_PKG = "tax_accounting_service"
+if _PKG not in _sys.modules or not hasattr(_sys.modules.get(_PKG), "__path__"):
+    _spec = _ilu.spec_from_file_location(_PKG, _os.path.join(_HERE, "__init__.py"))
+    _pkg = _ilu.module_from_spec(_spec)
+    _pkg.__path__ = [_HERE]
+    _sys.modules[_PKG] = _pkg
+
 """
 Vimbai Tax Accounting Service
-Tax calculation, compliance, reporting, and planning for multiple jurisdictions.
-Supports VAT/GST, income tax, withholding tax, and indirect taxes.
+Tax calculation, compliance, reporting, and planning.
+
+Record-keeping only: this service records tax positions and journal-entry
+references (user-owned, Book-scoped via X-User-Id / X-Book-ID); it never
+moves money. Corrections use reversing entries.
 """
 
 import os
-import uuid
-from datetime import datetime, timedelta
-from enum import Enum
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-
-# ============================================================================
-# Configuration
-# ============================================================================
+from fastapi.responses import JSONResponse
+from neo4j import AsyncSession
+from tax_accounting_service import crud, models
+from tax_accounting_service.database import Neo4jConnector
+from tax_accounting_service.dependencies import book_id_var, get_db_session, get_user_id
+from tax_accounting_service.exceptions import (
+    ConflictError,
+    NotFoundError,
+    TaxAccountingError,
+    ValidationError,
+)
+from tax_accounting_service.models import (
+    DeferredTax,
+    FilingFrequency,
+    RateType,
+    TaxRate,
+    TaxRegime,
+    TaxRegistration,
+    TaxReport,
+    TaxReturn,
+    TaxTransaction,
+    TaxType,
+    TransactionType,
+    WithholdingTaxEntry,
+)
 
 SERVICE_NAME = "tax-accounting-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8022"))
-
-# Internal service URLs
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
+PORT = int(os.getenv("PORT", "8060"))
 AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ADMIN_SERVICE_URL = os.getenv("ADMIN_SERVICE_URL", "http://localhost:8001")
-
-# ============================================================================
-# Logging Configuration
-# ============================================================================
+ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
     processors=[
@@ -45,254 +73,51 @@ structlog.configure(
     logger_factory=structlog.stdlib.LoggerFactory(),
     cache_logger_on_first_use=True,
 )
-
 logger = structlog.get_logger(SERVICE_NAME)
 
-# ============================================================================
-# FastAPI Application
-# ============================================================================
-
-app = FastAPI(
-    title="Vimbai Tax Accounting Service",
-    description="Tax calculation, compliance, reporting, and planning for multiple jurisdictions",
-    version=SERVICE_VERSION,
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
-
+app = FastAPI(title="Vimbai Tax Accounting Service", version=SERVICE_VERSION)
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
 
 
-# ============================================================================
-# Enums
-# ============================================================================
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Capture the Book context for the duration of the request."""
+    token = book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        book_id_var.reset(token)
 
 
-class TaxType(str, Enum):
-    VAT = "vat"  # Value Added Tax
-    GST = "gst"  # Goods and Services Tax
-    SALES_TAX = "sales_tax"
-    INCOME_TAX = "income_tax"
-    CORPORATE_TAX = "corporate_tax"
-    WITHHOLDING_TAX = "withholding_tax"
-    PAYROLL_TAX = "payroll_tax"
-    EXCISE_DUTY = "excise_duty"
-    CUSTOMS_DUTY = "customs_duty"
-    PROPERTY_TAX = "property_tax"
-    CAPITAL_GAINS_TAX = "capital_gains_tax"
-    DIVIDEND_TAX = "dividend_tax"
-    ROYALTY_TAX = "royalty_tax"
-    SERVICE_TAX = "service_tax"
-    ENVIRONMENTAL_TAX = "environmental_tax"
-    STAMP_DUTY = "stamp_duty"
-    TRANSFER_TAX = "transfer_tax"
+@app.on_event("startup")
+async def startup():
+    Neo4jConnector.configure(
+        os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        os.getenv("NEO4J_USER", "neo4j"),
+        os.getenv("NEO4J_PASSWORD", "password"),
+    )
 
 
-class TaxRegime(str, Enum):
-    STANDARD = "standard"
-    CASH_BASIS = "cash_basis"
-    ACCRUAL_BASIS = "accrual_basis"
-    COMPOSITE = "composite"
-    FLAT_RATE = "flat_rate"
-    SIMPLIFIED = "simplified"
-    EXEMPT = "exempt"
+@app.on_event("shutdown")
+async def shutdown():
+    await Neo4jConnector.close_driver()
 
 
-class FilingFrequency(str, Enum):
-    MONTHLY = "monthly"
-    QUARTERLY = "quarterly"
-    ANNUALLY = "annually"
-    BIANNUAL = "biannual"
+@app.exception_handler(NotFoundError)
+async def not_found_exception_handler(request: Request, exc: NotFoundError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
 
-class TransactionType(str, Enum):
-    SALE = "sale"
-    PURCHASE = "purchase"
-    EXPENSE = "expense"
-    REVENUE = "revenue"
-    IMPORT = "import"
-    EXPORT = "export"
-    INTERCOMPANY = "intercompany"
-    DIVIDEND = "dividend"
-    INTEREST = "interest"
-    ROYALTY = "royalty"
-    SERVICE = "service"
+@app.exception_handler(ConflictError)
+async def conflict_exception_handler(request: Request, exc: ConflictError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
 
-class JurisdictionType(str, Enum):
-    FEDERAL = "federal"
-    STATE = "state"
-    PROVINCE = "province"
-    COUNTY = "county"
-    CITY = "city"
-    MUNICIPAL = "municipal"
-    REGIONAL = "regional"
-
-
-class RateType(str, Enum):
-    STANDARD = "standard"
-    REDUCED = "reduced"
-    ZERO = "zero"
-    EXEMPT = "exempt"
-    NEGATIVE = "negative"
-
-
-# ============================================================================
-# Pydantic Models
-# ============================================================================
-
-
-class TaxRate(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    tax_type: TaxType
-    jurisdiction: str
-    jurisdiction_type: JurisdictionType
-    rate_type: RateType
-    rate_percentage: float
-    effective_from: datetime
-    effective_to: Optional[datetime] = None
-    description: Optional[str] = None
-    is_active: bool = True
-
-
-class TaxRegistration(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    tax_type: TaxType
-    registration_number: str
-    jurisdiction: str
-    registration_date: datetime
-    effective_date: datetime
-    cancellation_date: Optional[datetime] = None
-    is_active: bool = True
-    filing_frequency: FilingFrequency = FilingFrequency.MONTHLY
-    threshold_amount: Optional[float] = None
-    notes: Optional[str] = None
-
-
-class TaxConfig(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    tax_type: TaxType
-    regime: TaxRegime = TaxRegime.STANDARD
-    default_rate: float
-    reduced_rate: Optional[float] = None
-    zero_rated_categories: List[str] = []
-    exempt_categories: List[str] = []
-    reverse_charge_enabled: bool = False
-    is_active: bool = True
-
-
-class TaxTransaction(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    transaction_date: datetime
-    transaction_type: TransactionType
-    tax_type: TaxType
-    jurisdiction: str
-    gross_amount: float
-    net_amount: float
-    tax_amount: float
-    rate_used: float
-    rate_type: RateType
-    is_reversed: bool = False
-    reverse_journal_entry_id: Optional[str] = None
-    reference: Optional[str] = None
-    description: Optional[str] = None
-    linked_transaction_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class TaxReturn(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    tax_type: TaxType
-    jurisdiction: str
-    period_start: datetime
-    period_end: datetime
-    filing_frequency: FilingFrequency
-    gross_sales: float = 0
-    gross_purchases: float = 0
-    tax_collected: float = 0
-    tax_paid: float = 0
-    input_tax_credit: float = 0
-    tax_adjustments: float = 0
-    net_tax_due: float = 0
-    status: str = "draft"  # draft, filed, paid, overdue
-    due_date: Optional[datetime] = None
-    filed_date: Optional[datetime] = None
-    paid_date: Optional[datetime] = None
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class WithholdingTaxEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    payment_date: datetime
-    recipient_id: str
-    recipient_name: str
-    recipient_country: str
-    payment_type: TransactionType
-    gross_amount: float
-    withholding_rate: float
-    withholding_amount: float
-    net_amount_paid: float
-    tax_certificate_number: Optional[str] = None
-    is_reconciled: bool = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class DeferredTax(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    period_end: datetime
-    deferred_tax_asset: float = 0
-    deferred_tax_liability: float = 0
-    tax_rate: float
-    temporary_differences: List[Dict[str, Any]] = []
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class TaxReport(BaseModel):
-    report_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    report_type: str
-    tax_type: TaxType
-    jurisdiction: str
-    period_start: datetime
-    period_end: datetime
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
-    summary: Dict[str, Any] = {}
-    details: List[Dict[str, Any]] = []
-    total_tax: float = 0
-
-
-class TaxLiabilitySchedule(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    tax_type: TaxType
-    jurisdiction: str
-    period: str
-    total_liability: float = 0
-    paid_amount: float = 0
-    outstanding_amount: float = 0
-    due_date: datetime
-    status: str = "pending"
-    entries: List[Dict[str, Any]] = []
-
-
-# ============================================================================
-# In-Memory Storage
-# ============================================================================
-
-tax_rates: Dict[str, TaxRate] = {}
-tax_registrations: Dict[str, TaxRegistration] = {}
-tax_configs: Dict[str, TaxConfig] = {}
-tax_transactions: List[TaxTransaction] = []
-tax_returns: List[TaxReturn] = []
-withholding_entries: List[WithholdingTaxEntry] = []
-deferred_taxes: List[DeferredTax] = []
-tax_reports: List[TaxReport] = []
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request: Request, exc: ValidationError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
 
 # ============================================================================
@@ -343,21 +168,15 @@ async def call_audit_service(action: str, resource_type: str, resource_id: str, 
 # ============================================================================
 
 
-def get_applicable_rate(tax_type: TaxType, jurisdiction: str, transaction_type: TransactionType) -> Optional[TaxRate]:
+def get_applicable_rate(rates: List[TaxRate], tax_type: TaxType, jurisdiction: str) -> Optional[TaxRate]:
     """Get the applicable tax rate for a transaction."""
-    for rate in tax_rates.values():
+    now = datetime.now(timezone.utc)
+    for rate in rates:
         if rate.tax_type == tax_type and rate.jurisdiction == jurisdiction and rate.is_active:
-            if rate.effective_from <= datetime.utcnow():
-                if rate.effective_to is None or rate.effective_to >= datetime.utcnow():
+            if rate.effective_from <= now:
+                if rate.effective_to is None or rate.effective_to >= now:
                     return rate
     return None
-
-
-def calculate_vat_gst(amount: float, rate: float) -> tuple[float, float]:
-    """Calculate VAT/GST from gross or net amount."""
-    tax_amount = amount * (rate / 100)
-    net_amount = amount - tax_amount if amount > 0 else 0
-    return net_amount, tax_amount
 
 
 def get_default_rates() -> Dict[str, float]:
@@ -405,26 +224,32 @@ async def root():
 # ============================================================================
 
 
-@app.post("/tax-rates", response_model=TaxRate, status_code=status.HTTP_201_CREATED)
-async def create_tax_rate(data: TaxRate):
+@app.post("/tax-rates", response_model=models.TaxRate, status_code=status.HTTP_201_CREATED)
+async def create_tax_rate(
+    data: models.TaxRate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Create a new tax rate."""
-    rate_id = str(uuid.uuid4())
-    data.id = rate_id
-    tax_rates[rate_id] = data
+    rate = await crud.create_tax_rate(db_session, user_id, data)
 
     await call_audit_service(
-        "CREATE", "tax_rate", rate_id, {"rate": data.rate_percentage, "jurisdiction": data.jurisdiction}
+        "CREATE", "tax_rate", rate.id, {"rate": rate.rate_percentage, "jurisdiction": rate.jurisdiction}
     )
-    logger.info("tax_rate_created", rate_id=rate_id, rate=data.rate_percentage)
-    return data
+    logger.info("tax_rate_created", rate_id=rate.id, rate=rate.rate_percentage)
+    return rate
 
 
 @app.get("/tax-rates")
 async def list_tax_rates(
-    tax_type: Optional[TaxType] = None, jurisdiction: Optional[str] = None, is_active: Optional[bool] = None
+    tax_type: Optional[TaxType] = None,
+    jurisdiction: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List tax rates with filters."""
-    result = list(tax_rates.values())
+    result = await crud.list_tax_rates(db_session, user_id)
 
     if tax_type:
         result = [r for r in result if r.tax_type == tax_type]
@@ -437,24 +262,35 @@ async def list_tax_rates(
 
 
 @app.get("/tax-rates/{rate_id}")
-async def get_tax_rate(rate_id: str):
+async def get_tax_rate(
+    rate_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get tax rate details."""
-    rate = tax_rates.get(rate_id)
+    rate = await crud.get_tax_rate(db_session, user_id, rate_id)
     if not rate:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tax rate {rate_id} not found")
     return rate
 
 
 @app.put("/tax-rates/{rate_id}")
-async def update_tax_rate(rate_id: str, data: Dict[str, Any]):
+async def update_tax_rate(
+    rate_id: str,
+    data: Dict[str, Any],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Update tax rate."""
-    rate = tax_rates.get(rate_id)
+    rate = await crud.get_tax_rate(db_session, user_id, rate_id)
     if not rate:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tax rate {rate_id} not found")
 
     for key, value in data.items():
         if hasattr(rate, key) and key not in ["id"]:
             setattr(rate, key, value)
+
+    await crud.save_tax_rate(db_session, user_id, rate)
 
     await call_audit_service("UPDATE", "tax_rate", rate_id, {"updated_fields": list(data.keys())})
     return rate
@@ -465,25 +301,34 @@ async def update_tax_rate(rate_id: str, data: Dict[str, Any]):
 # ============================================================================
 
 
-@app.post("/tax-registrations", response_model=TaxRegistration, status_code=status.HTTP_201_CREATED)
-async def create_tax_registration(data: TaxRegistration):
+@app.post("/tax-registrations", response_model=models.TaxRegistration, status_code=status.HTTP_201_CREATED)
+async def create_tax_registration(
+    data: models.TaxRegistration,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Register for a tax type in a jurisdiction."""
-    reg_id = str(uuid.uuid4())
-    data.id = reg_id
-    tax_registrations[reg_id] = data
+    registration = await crud.create_tax_registration(db_session, user_id, data)
 
     await call_audit_service(
-        "CREATE", "tax_registration", reg_id, {"tax_type": data.tax_type, "jurisdiction": data.jurisdiction}
+        "CREATE",
+        "tax_registration",
+        registration.id,
+        {"tax_type": registration.tax_type, "jurisdiction": registration.jurisdiction},
     )
-    return data
+    return registration
 
 
 @app.get("/tax-registrations")
 async def list_tax_registrations(
-    tax_type: Optional[TaxType] = None, jurisdiction: Optional[str] = None, is_active: Optional[bool] = None
+    tax_type: Optional[TaxType] = None,
+    jurisdiction: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List tax registrations."""
-    result = list(tax_registrations.values())
+    result = await crud.list_tax_registrations(db_session, user_id)
 
     if tax_type:
         result = [r for r in result if r.tax_type == tax_type]
@@ -500,7 +345,7 @@ async def list_tax_registrations(
 # ============================================================================
 
 
-@app.post("/calculate", response_model=TaxTransaction)
+@app.post("/calculate", response_model=models.TaxTransaction)
 async def calculate_tax(
     transaction_date: datetime,
     transaction_type: TransactionType,
@@ -508,9 +353,12 @@ async def calculate_tax(
     jurisdiction: str,
     gross_amount: float,
     is_net: bool = False,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Calculate tax on a transaction."""
-    rate = get_applicable_rate(tax_type, jurisdiction, transaction_type)
+    rates = await crud.list_tax_rates(db_session, user_id)
+    rate = get_applicable_rate(rates, tax_type, jurisdiction)
 
     if not rate:
         defaults = get_default_rates()
@@ -529,7 +377,7 @@ async def calculate_tax(
         tax_amount = gross_amount * (rate_percentage / 100) / (1 + rate_percentage / 100)
         net_amount = gross_amount - tax_amount
 
-    transaction = TaxTransaction(
+    transaction = models.TaxTransaction(
         transaction_date=transaction_date,
         transaction_type=transaction_type,
         tax_type=tax_type,
@@ -542,9 +390,9 @@ async def calculate_tax(
         description=f"Tax calculation for {transaction_type.value} in {jurisdiction}",
     )
 
-    tax_transactions.append(transaction)
+    transaction = await crud.create_tax_transaction(db_session, user_id, transaction)
 
-    # Create journal entry for tax
+    # Create journal entry for tax (record only — posted to accounting service)
     if transaction_type == TransactionType.SALE:
         journal_entry = {
             "date": transaction_date,
@@ -590,8 +438,12 @@ async def calculate_tax(
     return transaction
 
 
-@app.post("/calculate-batch", response_model=List[TaxTransaction])
-async def calculate_tax_batch(transactions: List[Dict[str, Any]]):
+@app.post("/calculate-batch", response_model=List[models.TaxTransaction])
+async def calculate_tax_batch(
+    transactions: List[Dict[str, Any]],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Calculate tax on multiple transactions."""
     results = []
     for txn in transactions:
@@ -602,6 +454,8 @@ async def calculate_tax_batch(transactions: List[Dict[str, Any]]):
             jurisdiction=txn["jurisdiction"],
             gross_amount=txn["gross_amount"],
             is_net=txn.get("is_net", False),
+            user_id=user_id,
+            db_session=db_session,
         )
         results.append(result)
     return results
@@ -612,17 +466,19 @@ async def calculate_tax_batch(transactions: List[Dict[str, Any]]):
 # ============================================================================
 
 
-@app.post("/tax-returns", response_model=TaxReturn, status_code=status.HTTP_201_CREATED)
-async def create_tax_return(data: TaxReturn):
+@app.post("/tax-returns", response_model=models.TaxReturn, status_code=status.HTTP_201_CREATED)
+async def create_tax_return(
+    data: models.TaxReturn,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Create a tax return for a period."""
-    tax_return_id = str(uuid.uuid4())
-    data.id = tax_return_id
-    data.created_at = datetime.utcnow()
+    all_transactions = await crud.list_tax_transactions(db_session, user_id)
 
     # Calculate from transactions
     period_transactions = [
         t
-        for t in tax_transactions
+        for t in all_transactions
         if t.tax_type == data.tax_type
         and t.jurisdiction == data.jurisdiction
         and data.period_start <= t.transaction_date <= data.period_end
@@ -640,12 +496,12 @@ async def create_tax_return(data: TaxReturn):
     # Net tax due
     data.net_tax_due = data.tax_collected - data.tax_paid + data.tax_adjustments
 
-    tax_returns.append(data)
+    tax_return = await crud.create_tax_return(db_session, user_id, data)
 
     await call_audit_service(
         "CREATE",
         "tax_return",
-        tax_return_id,
+        tax_return.id,
         {
             "tax_type": data.tax_type,
             "period": f"{data.period_start} to {data.period_end}",
@@ -653,7 +509,7 @@ async def create_tax_return(data: TaxReturn):
         },
     )
 
-    return data
+    return tax_return
 
 
 @app.get("/tax-returns")
@@ -662,9 +518,11 @@ async def list_tax_returns(
     jurisdiction: Optional[str] = None,
     status: Optional[str] = None,
     period_start: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List tax returns."""
-    result = list(tax_returns)
+    result = await crud.list_tax_returns(db_session, user_id)
 
     if tax_type:
         result = [r for r in result if r.tax_type == tax_type]
@@ -679,23 +537,32 @@ async def list_tax_returns(
 
 
 @app.post("/tax-returns/{return_id}/file")
-async def file_tax_return(return_id: str):
+async def file_tax_return(
+    return_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Mark a tax return as filed."""
-    tax_return = next((r for r in tax_returns if r.id == return_id), None)
+    tax_return = await crud.get_tax_return(db_session, user_id, return_id)
     if not tax_return:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tax return {return_id} not found")
 
     tax_return.status = "filed"
     tax_return.filed_date = datetime.utcnow()
+    await crud.save_tax_return(db_session, user_id, tax_return)
 
-    await call_audit_service("FILE", "tax_return", return_id, {"filed_date": tax_return.filed_date.isoformat()})
+    await call_audit_service("FILE", "tax_return", return_id, {"status": "filed"})
     return tax_return
 
 
 @app.post("/tax-returns/{return_id}/pay")
-async def pay_tax_return(return_id: str):
-    """Record payment of tax due."""
-    tax_return = next((r for r in tax_returns if r.id == return_id), None)
+async def pay_tax_return(
+    return_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Record payment of tax due (records the payment + journal entry; moves no money)."""
+    tax_return = await crud.get_tax_return(db_session, user_id, return_id)
     if not tax_return:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tax return {return_id} not found")
 
@@ -719,6 +586,7 @@ async def pay_tax_return(return_id: str):
 
     tax_return.status = "paid"
     tax_return.paid_date = datetime.utcnow()
+    await crud.save_tax_return(db_session, user_id, tax_return)
 
     await call_audit_service("PAY", "tax_return", return_id, {"amount": tax_return.net_tax_due})
     return tax_return
@@ -729,40 +597,40 @@ async def pay_tax_return(return_id: str):
 # ============================================================================
 
 
-@app.post("/withholding-tax", response_model=WithholdingTaxEntry, status_code=status.HTTP_201_CREATED)
-async def record_withholding_tax(data: WithholdingTaxEntry):
+@app.post("/withholding-tax", response_model=models.WithholdingTaxEntry, status_code=status.HTTP_201_CREATED)
+async def record_withholding_tax(
+    data: models.WithholdingTaxEntry,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Record withholding tax on payments."""
-    entry_id = str(uuid.uuid4())
-    data.id = entry_id
-    data.created_at = datetime.utcnow()
-
-    withholding_entries.append(data)
+    entry = await crud.create_withholding_entry(db_session, user_id, data)
 
     # Create journal entry
     journal_entry = {
-        "date": data.payment_date,
-        "description": f"Withholding tax on payment to {data.recipient_name}",
+        "date": entry.payment_date,
+        "description": f"Withholding tax on payment to {entry.recipient_name}",
         "entries": [
             {
                 "account_code": "5100",
                 "description": "Expense/Service",
-                "debit": data.gross_amount - data.withholding_amount,
+                "debit": entry.gross_amount - entry.withholding_amount,
                 "credit": 0,
             },
             {
                 "account_code": "2200",
                 "description": "Withholding Tax Payable",
                 "debit": 0,
-                "credit": data.withholding_amount,
+                "credit": entry.withholding_amount,
             },
-            {"account_code": "1000", "description": "Bank", "debit": 0, "credit": data.net_amount_paid},
+            {"account_code": "1000", "description": "Bank", "debit": 0, "credit": entry.net_amount_paid},
         ],
-        "reference": f"WHT-{entry_id[:8]}",
+        "reference": f"WHT-{entry.id[:8]}",
     }
     await call_accounting_service("POST", "/journal-entries", journal_entry)
 
-    await call_audit_service("CREATE", "withholding_tax", entry_id, {"amount": data.withholding_amount})
-    return data
+    await call_audit_service("CREATE", "withholding_tax", entry.id, {"amount": entry.withholding_amount})
+    return entry
 
 
 @app.get("/withholding-tax")
@@ -771,9 +639,11 @@ async def list_withholding_entries(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     is_reconciled: Optional[bool] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List withholding tax entries."""
-    result = list(withholding_entries)
+    result = await crud.list_withholding_entries(db_session, user_id)
 
     if recipient_id:
         result = [e for e in result if e.recipient_id == recipient_id]
@@ -793,17 +663,20 @@ async def list_withholding_entries(
 # ============================================================================
 
 
-@app.post("/reports/tax-summary", response_model=TaxReport)
+@app.post("/reports/tax-summary", response_model=models.TaxReport)
 async def generate_tax_summary_report(
     tax_type: TaxType,
     jurisdiction: str,
     period_start: datetime,
     period_end: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Generate a tax summary report."""
+    all_transactions = await crud.list_tax_transactions(db_session, user_id)
     transactions = [
         t
-        for t in tax_transactions
+        for t in all_transactions
         if t.tax_type == tax_type
         and t.jurisdiction == jurisdiction
         and period_start <= t.transaction_date <= period_end
@@ -813,7 +686,7 @@ async def generate_tax_summary_report(
     sales = [t for t in transactions if t.transaction_type == TransactionType.SALE]
     purchases = [t for t in transactions if t.transaction_type == TransactionType.PURCHASE]
 
-    report = TaxReport(
+    report = models.TaxReport(
         report_type="tax_summary",
         tax_type=tax_type,
         jurisdiction=jurisdiction,
@@ -842,16 +715,21 @@ async def generate_tax_summary_report(
         total_tax=sum(t.tax_amount for t in transactions),
     )
 
-    tax_reports.append(report)
-    return report
+    return await crud.create_tax_report(db_session, user_id, report)
 
 
 @app.get("/reports/vat-by-jurisdiction")
-async def get_vat_by_jurisdiction(period_start: datetime, period_end: datetime):
+async def get_vat_by_jurisdiction(
+    period_start: datetime,
+    period_end: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get VAT breakdown by jurisdiction."""
+    all_transactions = await crud.list_tax_transactions(db_session, user_id)
     transactions = [
         t
-        for t in tax_transactions
+        for t in all_transactions
         if t.tax_type in [TaxType.VAT, TaxType.GST]
         and period_start <= t.transaction_date <= period_end
         and not t.is_reversed
@@ -878,10 +756,16 @@ async def get_vat_by_jurisdiction(period_start: datetime, period_end: datetime):
 # ============================================================================
 
 
-@app.post("/deferred-tax", response_model=DeferredTax, status_code=status.HTTP_201_CREATED)
-async def calculate_deferred_tax(period_end: datetime, tax_rate: float, temporary_differences: List[Dict[str, Any]]):
+@app.post("/deferred-tax", response_model=models.DeferredTax, status_code=status.HTTP_201_CREATED)
+async def calculate_deferred_tax(
+    period_end: datetime,
+    tax_rate: float,
+    temporary_differences: List[Dict[str, Any]],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Calculate deferred tax assets and liabilities."""
-    deferred_tax = DeferredTax(
+    deferred_tax = models.DeferredTax(
         period_end=period_end,
         tax_rate=tax_rate,
         temporary_differences=temporary_differences,
@@ -894,7 +778,7 @@ async def calculate_deferred_tax(period_end: datetime, tax_rate: float, temporar
         else:
             deferred_tax.deferred_tax_liability += amount * (tax_rate / 100)
 
-    # Create journal entry
+    # Create journal entry (record only)
     journal_entry = {
         "date": period_end,
         "description": "Deferred tax provision",
@@ -923,7 +807,7 @@ async def calculate_deferred_tax(period_end: datetime, tax_rate: float, temporar
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     deferred_tax.journal_entry_id = result.get("id")
 
-    deferred_taxes.append(deferred_tax)
+    deferred_tax = await crud.create_deferred_tax(db_session, user_id, deferred_tax)
     await call_audit_service(
         "CALCULATE",
         "deferred_tax",
@@ -944,9 +828,12 @@ async def get_tax_liability_schedule(
     tax_type: Optional[TaxType] = None,
     jurisdiction: Optional[str] = None,
     status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Get tax liability schedule."""
-    returns = [r for r in tax_returns if r.status in ["draft", "filed"]]
+    all_returns = await crud.list_tax_returns(db_session, user_id)
+    returns = [r for r in all_returns if r.status in ["draft", "filed"]]
 
     if tax_type:
         returns = [r for r in returns if r.tax_type == tax_type]
@@ -972,5 +859,5 @@ async def get_tax_liability_schedule(
 if __name__ == "__main__":
     import uvicorn
 
-    logger.info("starting_tax_accounting_service", port=PORT)
+    logger.info("starting_service", service=SERVICE_NAME, port=PORT)
     uvicorn.run(app, host="0.0.0.0", port=PORT)
