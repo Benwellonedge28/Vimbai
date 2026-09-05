@@ -254,8 +254,29 @@ class TestTransferPricingService:
 
 
 class TestTradeFinanceService:
-    def setup_method(self):
+    """trade-finance is now Neo4j-backed with X-User-Id auth + Book scoping."""
+
+    H = {"X-User-Id": "upg-tf-user"}
+
+    @pytest.fixture(autouse=True)
+    def _patch_fake_db(self):
+        # load the app first so the package alias is registered, then patch the driver
         self.client = TestClient(load_app("trade-finance-service"))
+        import trade_finance_service.database as db_mod
+
+        fake_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "trade-finance-service",
+            "fake_neo4j.py",
+        )
+        spec = importlib.util.spec_from_file_location("upg_tf_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+        session = fake.FakeSession()
+        db_mod.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
+        yield
+        session.nodes.clear()
+        session.edges.clear()
 
     def test_lc_lifecycle(self):
         inst = self.client.post(
@@ -268,6 +289,7 @@ class TestTradeFinanceService:
                 "currency": "USD",
                 "issuing_bank": "Stanbic",
             },
+            headers=self.H,
         )
         data = inst.json()
         assert inst.status_code == 200
@@ -275,10 +297,10 @@ class TestTradeFinanceService:
         assert data["risk_assessment"] == "medium"
         inst_id = data["id"]
 
-        presented = self.client.post(f"/instruments/{inst_id}/present", params={"company_id": "comp-1"})
+        presented = self.client.post(f"/instruments/{inst_id}/present", params={"company_id": "comp-1"}, headers=self.H)
         assert presented.json()["status"] == "presented"
 
-        settled = self.client.post(f"/instruments/{inst_id}/settle", params={"company_id": "comp-1"})
+        settled = self.client.post(f"/instruments/{inst_id}/settle", params={"company_id": "comp-1"}, headers=self.H)
         assert settled.json()["status"] == "paid"
 
 

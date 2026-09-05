@@ -860,3 +860,70 @@ def test_debt_management_accessible_in_book(debt_client):
         "/debt-management/loans", params={"company_id": "co-book-access"}, headers=H_PERSONAL
     ).json()
     assert len(personal) == 1
+
+
+# --------------------------------------------------------------------------
+# Trade finance (corporate-finance bracket member)
+# --------------------------------------------------------------------------
+
+TF_PAYLOAD = {
+    "company_id": "co-book-access",
+    "instrument_type": "letter_of_credit",
+    "counterparty": "Overseas Supplier",
+    "amount": 200000,
+    "currency": "USD",
+    "issuing_bank": "Stanbic",
+}
+
+
+@pytest.fixture(scope="module")
+def trade_finance_client():
+    bracket = _load_bracket("corporate-finance-bracket")
+    _patch_fake("trade_finance_service", "tf_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_trade_finance_accessible_in_book(trade_finance_client):
+    resp = trade_finance_client.post("/trade-finance/instruments", json=TF_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    result = resp.json()
+    assert result["fee_estimate"] == 400.0
+    assert result["risk_assessment"] == "medium"
+    inst_id = result["id"]
+
+    listed = trade_finance_client.get(
+        "/trade-finance/instruments", params={"company_id": "co-book-access"}, headers=H
+    ).json()
+    assert len(listed) == 1
+    assert listed[0]["book_id"] == BOOK
+
+    presented = trade_finance_client.post(
+        f"/trade-finance/instruments/{inst_id}/present", params={"company_id": "co-book-access"}, headers=H
+    )
+    assert presented.json()["status"] == "presented"
+    settled = trade_finance_client.post(
+        f"/trade-finance/instruments/{inst_id}/settle", params={"company_id": "co-book-access"}, headers=H
+    )
+    assert settled.json()["status"] == "paid"
+
+    # Other Book sees nothing and cannot act on the instrument
+    other = trade_finance_client.get(
+        "/trade-finance/instruments", params={"company_id": "co-book-access"}, headers=H_OTHER
+    ).json()
+    assert other == []
+    assert (
+        trade_finance_client.post(
+            f"/trade-finance/instruments/{inst_id}/settle",
+            params={"company_id": "co-book-access"},
+            headers=H_OTHER,
+        ).status_code
+        == 404
+    )
+
+    # Personal view still sees own records across Books
+    personal = trade_finance_client.get(
+        "/trade-finance/instruments", params={"company_id": "co-book-access"}, headers=H_PERSONAL
+    ).json()
+    assert len(personal) == 1
+    assert personal[0]["status"] == "paid"
