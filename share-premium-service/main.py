@@ -1,23 +1,44 @@
+# This file may be imported bare (Docker `uvicorn main:app`, bracket mounts), so it
+# bootstraps its own package alias before importing sibling modules.
+import importlib.util as _ilu
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+_PKG = "share_premium_service"
+if _PKG not in _sys.modules or not hasattr(_sys.modules.get(_PKG), "__path__"):
+    _spec = _ilu.spec_from_file_location(_PKG, _os.path.join(_HERE, "__init__.py"))
+    _pkg = _ilu.module_from_spec(_spec)
+    _pkg.__path__ = [_HERE]
+    _sys.modules[_PKG] = _pkg
+
 """
 Vimbai Share Premium Service
-Manages share premium account operations.
+Records share premium received, utilized, and adjusted.
+
+Record-keeping only: this service records share premium movements and
+journal-entry references (user-owned, Book-scoped via X-User-Id /
+X-Book-ID); it never moves money. Corrections use reversing entries.
 """
 
 import os
-import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from neo4j import AsyncSession
+from share_premium_service import crud, models
+from share_premium_service.database import Neo4jConnector
+from share_premium_service.dependencies import book_id_var, get_db_session, get_user_id
+from share_premium_service.exceptions import ConflictError, NotFoundError, ValidationError
 
 SERVICE_NAME = "share-premium-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8056"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
+PORT = int(os.getenv("PORT", "8052"))
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
@@ -40,47 +61,43 @@ app.add_middleware(
 )
 
 
-class SharePremiumEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    entry_type: str  # issue, conversion, reorganization, write_off
-    shares_issued: int = 0
-    nominal_value: float = 0
-    issue_price: float = 0
-    premium_amount: float = 0
-    share_class: str = "ordinary"
-    reference_id: str  # ID of the related share issue
-    journal_entry_id: Optional[str] = None
-    entry_date: datetime
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Capture the Book context for the duration of the request."""
+    token = book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        book_id_var.reset(token)
 
 
-class PremiumUtilization(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    amount: float
-    utilization_type: str  # bonus_issue, write_off, merger_expenses, legal_costs
-    description: str
-    journal_entry_id: Optional[str] = None
-    utilization_date: datetime
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.on_event("startup")
+async def startup():
+    Neo4jConnector.configure(
+        os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        os.getenv("NEO4J_USER", "neo4j"),
+        os.getenv("NEO4J_PASSWORD", "password"),
+    )
 
 
-class PremiumAdjustment(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    adjustment_type: str  # correction, reclassification
-    original_amount: float
-    adjustment_amount: float
-    description: str
-    journal_entry_id: Optional[str] = None
-    adjustment_date: datetime
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.on_event("shutdown")
+async def shutdown():
+    await Neo4jConnector.close_driver()
 
 
-share_premium_entries: List[SharePremiumEntry] = []
-premium_utilizations: List[PremiumUtilization] = []
-premium_adjustments: List[PremiumAdjustment] = []
+@app.exception_handler(NotFoundError)
+async def not_found_exception_handler(request: Request, exc: NotFoundError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
+
+
+@app.exception_handler(ConflictError)
+async def conflict_exception_handler(request: Request, exc: ConflictError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
+
+
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request: Request, exc: ValidationError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -116,14 +133,14 @@ async def record_share_premium(
     share_class: str,
     reference_id: str,
     entry_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Record share premium from share issuance."""
     if entry_date is None:
-        entry_date = datetime.utcnow()
-
+        entry_date = datetime.now(timezone.utc)
     premium_amount = (issue_price - nominal_value) * shares_issued
-
-    entry = SharePremiumEntry(
+    entry = models.SharePremiumEntry(
         company_id=company_id,
         entry_type=entry_type,
         shares_issued=shares_issued,
@@ -134,7 +151,6 @@ async def record_share_premium(
         reference_id=reference_id,
         entry_date=entry_date,
     )
-
     journal_entry = {
         "date": entry_date,
         "description": f"Share premium from issue of {shares_issued} {share_class} shares",
@@ -152,27 +168,29 @@ async def record_share_premium(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     entry.journal_entry_id = result.get("id")
-    share_premium_entries.append(entry)
-
-    return entry
+    return await crud.create_entry(db_session, user_id, entry)
 
 
 @app.post("/utilizations/record")
 async def utilize_premium(
-    company_id: str, amount: float, utilization_type: str, description: str, utilization_date: Optional[datetime] = None
+    company_id: str,
+    amount: float,
+    utilization_type: str,
+    description: str,
+    utilization_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Utilize share premium account."""
     if utilization_date is None:
-        utilization_date = datetime.utcnow()
-
-    utilization = PremiumUtilization(
+        utilization_date = datetime.now(timezone.utc)
+    utilization = models.PremiumUtilization(
         company_id=company_id,
         amount=amount,
         utilization_type=utilization_type,
         description=description,
         utilization_date=utilization_date,
     )
-
     if utilization_type == "bonus_issue":
         journal_entry = {
             "date": utilization_date,
@@ -213,12 +231,9 @@ async def utilize_premium(
             ],
             "reference": f"SP-UTIL-{utilization.id[:8]}",
         }
-
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     utilization.journal_entry_id = result.get("id")
-    premium_utilizations.append(utilization)
-
-    return utilization
+    return await crud.create_utilization(db_session, user_id, utilization)
 
 
 @app.post("/adjustments/create")
@@ -229,12 +244,13 @@ async def adjust_premium(
     adjustment_amount: float,
     description: str,
     adjustment_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Adjust share premium (correction or reclassification)."""
     if adjustment_date is None:
-        adjustment_date = datetime.utcnow()
-
-    adjustment = PremiumAdjustment(
+        adjustment_date = datetime.now(timezone.utc)
+    adjustment = models.PremiumAdjustment(
         company_id=company_id,
         adjustment_type=adjustment_type,
         original_amount=original_amount,
@@ -242,7 +258,6 @@ async def adjust_premium(
         description=description,
         adjustment_date=adjustment_date,
     )
-
     journal_entry = {
         "date": adjustment_date,
         "description": f"Share premium adjustment: {description}",
@@ -264,40 +279,51 @@ async def adjust_premium(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     adjustment.journal_entry_id = result.get("id")
-    premium_adjustments.append(adjustment)
-
-    return adjustment
+    return await crud.create_adjustment(db_session, user_id, adjustment)
 
 
 @app.get("/entries")
-async def list_entries(company_id: Optional[str] = None):
+async def list_entries(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List share premium entries."""
-    result = share_premium_entries
+    result = await crud.list_entries(db_session, user_id)
     if company_id:
         result = [e for e in result if e.company_id == company_id]
     return {"entries": result}
 
 
 @app.get("/utilizations")
-async def list_utilizations(company_id: Optional[str] = None):
+async def list_utilizations(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List premium utilizations."""
-    result = premium_utilizations
+    result = await crud.list_utilizations(db_session, user_id)
     if company_id:
         result = [u for u in result if u.company_id == company_id]
     return {"utilizations": result}
 
 
 @app.get("/summary/{company_id}")
-async def get_premium_summary(company_id: str):
+async def get_premium_summary(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get share premium summary."""
-    company_entries = [e for e in share_premium_entries if e.company_id == company_id]
-    company_utilizations = [u for u in premium_utilizations if u.company_id == company_id]
-    company_adjustments = [a for a in premium_adjustments if a.company_id == company_id]
-
+    entries = await crud.list_entries(db_session, user_id)
+    utilizations = await crud.list_utilizations(db_session, user_id)
+    adjustments = await crud.list_adjustments(db_session, user_id)
+    company_entries = [e for e in entries if e.company_id == company_id]
+    company_utilizations = [u for u in utilizations if u.company_id == company_id]
+    company_adjustments = [a for a in adjustments if a.company_id == company_id]
     total_received = sum(e.premium_amount for e in company_entries)
     total_utilized = sum(u.amount for u in company_utilizations)
     total_adjusted = sum(a.adjustment_amount for a in company_adjustments)
-
     return {
         "company_id": company_id,
         "total_premium_received": total_received,
