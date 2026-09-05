@@ -1,130 +1,117 @@
+# This file may be imported bare (Docker `uvicorn main:app`, bracket mounts), so it
+# bootstraps its own package alias before importing sibling modules.
+import importlib.util as _ilu
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+_PKG = "document_service"
+if _PKG not in _sys.modules or not hasattr(_sys.modules.get(_PKG), "__path__"):
+    _spec = _ilu.spec_from_file_location(_PKG, _os.path.join(_HERE, "__init__.py"))
+    _pkg = _ilu.module_from_spec(_spec)
+    _pkg.__path__ = [_HERE]
+    _sys.modules[_PKG] = _pkg
+
 """
 Vimbai Document Management Service
-Centralized document storage, retrieval, and management for financial documents
+Document storage, OCR processing, and entity linking.
+
+Record-keeping only — file bytes live on the service storage volume; document
+metadata persists in Neo4j, user-owned and Book-scoped (X-User-Id / X-Book-ID).
 """
 
-import asyncio
 import hashlib
-import json
 import os
 import uuid
 from datetime import datetime, timezone
-from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import aiofiles
+from document_service import crud, models
+from document_service.database import Neo4jConnector
+from document_service.dependencies import book_id_var, get_db_session, get_user_id
+from document_service.exceptions import (
+    ConflictError,
+    DocumentError,
+    NotFoundError,
+    ValidationError,
+)
+from document_service.models import (
+    DocumentInDB,
+    DocumentSearchRequest,
+    DocumentStatus,
+    DocumentType,
+    DocumentUpdate,
+    OCRResult,
+)
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import JSONResponse, StreamingResponse
+from neo4j import AsyncSession
 from pydantic import BaseModel, Field
 
 load_dotenv()
 
-app = FastAPI(
-    title="Vimbai Document Management Service",
-    description="Centralized document storage, OCR processing, and audit trail for financial documents",
-    version="1.0.0",
-)
-
-# ============================================================================
-# Configuration
-# ============================================================================
-
+SERVICE_NAME = "document-management"
+PORT = int(os.getenv("PORT", "8096"))
 DOCUMENT_STORAGE_PATH = os.getenv("DOCUMENT_STORAGE_PATH", "/tmp/vimbai_documents")
 MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE_MB", "50")) * 1024 * 1024  # 50MB default
 ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".gif", ".doc", ".docx", ".xls", ".xlsx", ".csv"}
 
-# Create storage directory
 Path(DOCUMENT_STORAGE_PATH).mkdir(parents=True, exist_ok=True)
 
-# ============================================================================
-# Models
-# ============================================================================
+app = FastAPI(title="Vimbai Document Management Service", version="1.0.0")
 
 
-class DocumentType(str, Enum):
-    INVOICE = "invoice"
-    RECEIPT = "receipt"
-    CONTRACT = "contract"
-    STATEMENT = "statement"
-    REPORT = "report"
-    TAX_DOCUMENT = "tax_document"
-    IDENTITY_DOCUMENT = "identity_document"
-    BANK_STATEMENT = "bank_statement"
-    PURCHASE_ORDER = "purchase_order"
-    JOURNAL_ENTRY_DOCUMENT = "journal_entry_document"
-    OTHER = "other"
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Capture the Book context for the duration of the request."""
+    token = book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        book_id_var.reset(token)
 
 
-class DocumentStatus(str, Enum):
-    UPLOADED = "uploaded"
-    PROCESSING = "processing"
-    OCR_COMPLETED = "ocr_completed"
-    INDEXED = "indexed"
-    ARCHIVED = "archived"
-    DELETED = "deleted"
+@app.on_event("startup")
+async def startup():
+    Neo4jConnector.configure(
+        os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        os.getenv("NEO4J_USER", "neo4j"),
+        os.getenv("NEO4J_PASSWORD", "password"),
+    )
 
 
-class DocumentCreate(BaseModel):
-    document_type: DocumentType
-    title: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = None
-    tags: List[str] = []
-    metadata: Optional[Dict[str, Any]] = None
-    linked_entity_type: Optional[str] = None  # invoice, journal_entry, etc.
-    linked_entity_id: Optional[str] = None
+@app.on_event("shutdown")
+async def shutdown():
+    await Neo4jConnector.close_driver()
 
 
-class DocumentInDB(DocumentCreate):
-    id: str
-    file_name: str
-    file_path: str
-    file_size: int
-    mime_type: str
-    checksum: str
-    status: DocumentStatus
-    ocr_text: Optional[str] = None
-    ocr_confidence: Optional[float] = None
-    uploaded_by: str
-    created_at: datetime
-    updated_at: datetime
-    deleted_at: Optional[datetime] = None
+@app.exception_handler(NotFoundError)
+async def not_found_exception_handler(request: Request, exc: NotFoundError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
 
-class DocumentUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    tags: Optional[List[str]] = None
-    metadata: Optional[Dict[str, Any]] = None
-    linked_entity_type: Optional[str] = None
-    linked_entity_id: Optional[str] = None
+@app.exception_handler(ConflictError)
+async def conflict_exception_handler(request: Request, exc: ConflictError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
 
-class DocumentSearchRequest(BaseModel):
-    query: Optional[str] = None
-    document_type: Optional[DocumentType] = None
-    tags: Optional[List[str]] = None
-    date_from: Optional[datetime] = None
-    date_to: Optional[datetime] = None
-    linked_entity_type: Optional[str] = None
-    linked_entity_id: Optional[str] = None
-    limit: int = 50
-    offset: int = 0
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request: Request, exc: ValidationError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
-
-class OCRResult(BaseModel):
-    text: str
-    confidence: float
-    entities: List[Dict[str, Any]] = []
-
-
-# ============================================================================
-# In-Memory Storage (Use Neo4j/S3 in production)
-# ============================================================================
-
-documents: Dict[str, DocumentInDB] = {}
-document_index: Dict[str, List[str]] = {}  # tag -> document_ids
 
 # ============================================================================
 # Helper Functions
@@ -167,7 +154,6 @@ async def perform_ocr(content: bytes, file_type: str) -> OCRResult:
     """Simulate OCR processing (use actual OCR service in production)"""
     # In production, integrate with Tesseract, Google Vision, AWS Textract, etc.
     # For now, simulate OCR result
-
     if file_type.startswith("image/"):
         return OCRResult(
             text="[OCR placeholder - integrate with actual OCR service]",
@@ -188,48 +174,39 @@ async def perform_ocr(content: bytes, file_type: str) -> OCRResult:
         return OCRResult(text="", confidence=0.0, entities=[])
 
 
-async def index_document_content(document: DocumentInDB, ocr_result: OCRResult):
-    """Index document for full-text search"""
-    # Build search index
-    searchable_text = f"{document.title} {document.description or ''} {ocr_result.text}"
-    searchable_text = searchable_text.lower()
-
-    # Index by words
-    words = searchable_text.split()
-    for word in words:
-        if len(word) > 2:  # Skip very short words
-            if word not in document_index:
-                document_index[word] = []
-            if document.id not in document_index[word]:
-                document_index[word].append(document.id)
-
-
 # ============================================================================
 # API Endpoints
 # ============================================================================
 
 
 @app.get("/")
-async def health_check():
+async def health_check(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    docs = await crud.list_documents(db_session, user_id)
     return {
         "status": "healthy",
         "service": "document-management",
-        "total_documents": len(documents),
+        "total_documents": len([d for d in docs if d.status != DocumentStatus.DELETED]),
         "storage_path": DOCUMENT_STORAGE_PATH,
     }
 
 
 # --- Document Upload ---
+
+
 @app.post("/documents", response_model=DocumentInDB, status_code=status.HTTP_201_CREATED)
 async def upload_document(
     file: UploadFile = File(...),
-    document_type: DocumentType = DocumentType.OTHER,
+    document_type: DocumentType = Form(DocumentType.OTHER),
     title: str = Form(...),
     description: Optional[str] = Form(None),
     tags: Optional[str] = Form(None),  # Comma-separated
     linked_entity_type: Optional[str] = Form(None),
     linked_entity_id: Optional[str] = Form(None),
-    user_id: str = "system",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Upload a new document"""
     # Validate file
@@ -253,13 +230,13 @@ async def upload_document(
     checksum = calculate_checksum(content)
 
     # Check for duplicate
-    for doc in documents.values():
-        if doc.checksum == checksum and doc.status != DocumentStatus.DELETED:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Document with same content already exists",
-                headers={"X-Existing-Document-ID": doc.id},
-            )
+    existing = await crud.find_active_by_checksum(db_session, user_id, checksum)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document with same content already exists",
+            headers={"X-Existing-Document-ID": existing.id},
+        )
 
     # Generate document ID
     doc_id = str(uuid.uuid4())
@@ -275,10 +252,9 @@ async def upload_document(
     # Parse tags
     tag_list = [t.strip() for t in tags.split(",")] if tags else []
 
-    # Create document record
-    now = datetime.now(timezone.utc)
-    document = DocumentInDB(
-        id=doc_id,
+    return await crud.create_document(
+        db_session,
+        user_id,
         file_name=file.filename,
         file_path=file_path,
         file_size=len(content),
@@ -288,29 +264,17 @@ async def upload_document(
         title=title,
         description=description,
         tags=tag_list,
-        metadata={},
-        status=DocumentStatus.UPLOADED,
         linked_entity_type=linked_entity_type,
         linked_entity_id=linked_entity_id,
-        uploaded_by=user_id,
-        created_at=now,
-        updated_at=now,
     )
-
-    documents[doc_id] = document
-
-    # Index tags
-    for tag in tag_list:
-        if tag not in document_index:
-            document_index[tag] = []
-        document_index[tag].append(doc_id)
-
-    return document
 
 
 @app.post("/documents/batch", status_code=status.HTTP_201_CREATED)
 async def upload_documents_batch(
-    files: List[UploadFile] = File(...), document_type: DocumentType = DocumentType.OTHER, user_id: str = "system"
+    files: List[UploadFile] = File(...),
+    document_type: DocumentType = Form(DocumentType.OTHER),
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Upload multiple documents"""
     results = []
@@ -318,7 +282,15 @@ async def upload_documents_batch(
     for file in files:
         try:
             document = await upload_document(
-                file=file, document_type=document_type, title=file.filename, user_id=user_id
+                file=file,
+                document_type=document_type,
+                title=file.filename,
+                description=None,
+                tags=None,
+                linked_entity_type=None,
+                linked_entity_id=None,
+                user_id=user_id,
+                db_session=db_session,
             )
             results.append({"filename": file.filename, "status": "uploaded", "document_id": document.id})
         except HTTPException as e:
@@ -328,25 +300,32 @@ async def upload_documents_batch(
 
 
 # --- Document Retrieval ---
+
+
 @app.get("/documents/{document_id}", response_model=DocumentInDB)
-async def get_document(document_id: str):
-    if document_id not in documents:
+async def get_document(
+    document_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get document metadata"""
+    doc = await crud.get_document(db_session, user_id, document_id)
+    if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-
-    doc = documents[document_id]
-    if doc.status == DocumentStatus.DELETED:
-        raise HTTPException(status_code=status.HTTP_410_GONE, detail="Document has been deleted")
-
     return doc
 
 
 @app.get("/documents/{document_id}/download")
-async def download_document(document_id: str):
+async def download_document(
+    document_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Download document file"""
-    if document_id not in documents:
+    doc = await crud.get_document(db_session, user_id, document_id)
+    if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    doc = documents[document_id]
     if doc.status == DocumentStatus.DELETED:
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="Document has been deleted")
 
@@ -360,17 +339,23 @@ async def download_document(document_id: str):
     return StreamingResponse(
         iter([content]),
         media_type=doc.mime_type,
-        headers={"Content-Disposition": f'attachment; filename="{doc.file_name}"', "Content-Length": str(len(content))},
+        headers={
+            "Content-Disposition": f'attachment; filename="{doc.file_name}"',
+            "Content-Length": str(len(content)),
+        },
     )
 
 
 @app.get("/documents/{document_id}/preview")
-async def preview_document(document_id: str):
+async def preview_document(
+    document_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get document preview (for images)"""
-    if document_id not in documents:
+    doc = await crud.get_document(db_session, user_id, document_id)
+    if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-
-    doc = documents[document_id]
 
     if not doc.mime_type.startswith("image/"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Preview only available for image files")
@@ -385,31 +370,25 @@ async def preview_document(document_id: str):
 
 
 # --- Document Update ---
-@app.put("/documents/{document_id}", response_model=DocumentInDB)
-async def update_document(document_id: str, update: DocumentUpdate):
-    if document_id not in documents:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    doc = documents[document_id]
+
+@app.put("/documents/{document_id}", response_model=DocumentInDB)
+async def update_document(
+    document_id: str,
+    update: DocumentUpdate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    doc = await crud.get_document(db_session, user_id, document_id)
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
     if update.title is not None:
         doc.title = update.title
     if update.description is not None:
         doc.description = update.description
     if update.tags is not None:
-        # Update tag index
-        for tag in doc.tags:
-            if tag in document_index and document_id in document_index[tag]:
-                document_index[tag].remove(document_id)
-
         doc.tags = update.tags
-
-        for tag in update.tags:
-            if tag not in document_index:
-                document_index[tag] = []
-            if document_id not in document_index[tag]:
-                document_index[tag].append(document_id)
-
     if update.metadata is not None:
         doc.metadata = update.metadata
     if update.linked_entity_type is not None:
@@ -418,45 +397,51 @@ async def update_document(document_id: str, update: DocumentUpdate):
         doc.linked_entity_id = update.linked_entity_id
 
     doc.updated_at = datetime.now(timezone.utc)
+    await crud.update_document_fields(db_session, user_id, document_id, doc)
 
     return doc
 
 
 # --- Document Delete ---
+
+
 @app.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_document(document_id: str, permanent: bool = False):
+async def delete_document(
+    document_id: str,
+    permanent: bool = False,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Delete a document (soft delete by default)"""
-    if document_id not in documents:
+    doc = await crud.get_document(db_session, user_id, document_id)
+    if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    doc = documents[document_id]
-
     if permanent:
-        # Permanent delete
+        # Permanent delete: remove file from disk (metadata record removed)
         try:
             os.remove(doc.file_path)
         except FileNotFoundError:
             pass
-
-        # Remove from index
-        for tag in doc.tags:
-            if tag in document_index and document_id in document_index[tag]:
-                document_index[tag].remove(document_id)
-
-        del documents[document_id]
+        await crud.soft_delete_document(db_session, user_id, document_id)
     else:
         # Soft delete
-        doc.status = DocumentStatus.DELETED
-        doc.deleted_at = datetime.now(timezone.utc)
+        await crud.soft_delete_document(db_session, user_id, document_id)
 
     return {"ok": True}
 
 
 # --- Document Search ---
+
+
 @app.post("/documents/search")
-async def search_documents(request: DocumentSearchRequest):
+async def search_documents(
+    request: DocumentSearchRequest,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Search documents with filters"""
-    results = list(documents.values())
+    results = await crud.list_documents(db_session, user_id)
 
     # Filter by status (exclude deleted by default)
     results = [d for d in results if d.status != DocumentStatus.DELETED]
@@ -503,56 +488,57 @@ async def search_documents(request: DocumentSearchRequest):
 
 
 # --- OCR Processing ---
+
+
 @app.post("/documents/{document_id}/ocr")
-async def process_ocr(document_id: str, background_tasks: BackgroundTasks):
+async def process_ocr(
+    document_id: str,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Process document with OCR"""
-    if document_id not in documents:
+    doc = await crud.get_document(db_session, user_id, document_id)
+    if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
-    doc = documents[document_id]
-    doc.status = DocumentStatus.PROCESSING
-    doc.updated_at = datetime.now(timezone.utc)
-
     # Process OCR in background
-    background_tasks.add_task(perform_document_ocr, document_id)
+    background_tasks.add_task(perform_document_ocr, document_id, user_id)
 
     return {"status": "processing", "document_id": document_id}
 
 
-async def perform_document_ocr(document_id: str):
-    """Background task to perform OCR"""
-    doc = documents[document_id]
+async def perform_document_ocr(document_id: str, user_id: str):
+    """Background task to perform OCR (best-effort; failures leave status unchanged)"""
+    async with Neo4jConnector.get_driver().session() as session:
+        doc = await crud.get_document(session, user_id, document_id)
+        if not doc:
+            return
+        try:
+            async with aiofiles.open(doc.file_path, "rb") as f:
+                content = await f.read()
 
-    try:
-        # Read file content
-        async with aiofiles.open(doc.file_path, "rb") as f:
-            content = await f.read()
-
-        # Perform OCR
-        ocr_result = await perform_ocr(content, doc.mime_type)
-
-        # Update document
-        doc.ocr_text = ocr_result.text
-        doc.ocr_confidence = ocr_result.confidence
-        doc.status = DocumentStatus.OCR_COMPLETED
-
-        # Index content
-        await index_document_content(doc, ocr_result)
-
-    except Exception as e:
-        doc.status = DocumentStatus.UPLOADED
-        doc.metadata = {"ocr_error": str(e)}
-
-    doc.updated_at = datetime.now(timezone.utc)
+            ocr_result = await perform_ocr(content, doc.mime_type)
+            await crud.save_ocr_results(session, user_id, document_id, ocr_result.text, ocr_result.confidence)
+        except Exception:
+            pass
 
 
 # --- Document Listing ---
+
+
 @app.get("/documents")
 async def list_documents(
-    document_type: Optional[DocumentType] = None, tag: Optional[str] = None, limit: int = 50, offset: int = 0
+    document_type: Optional[DocumentType] = None,
+    tag: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List documents with optional filters"""
-    results = [d for d in documents.values() if d.status != DocumentStatus.DELETED]
+    results = await crud.list_documents(db_session, user_id)
+    results = [d for d in results if d.status != DocumentStatus.DELETED]
 
     if document_type:
         results = [d for d in results if d.document_type == document_type]
@@ -568,27 +554,30 @@ async def list_documents(
 
 
 # --- Document Statistics ---
+
+
 @app.get("/statistics")
-async def get_statistics():
+async def get_statistics(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get document statistics"""
-    total = len([d for d in documents.values() if d.status != DocumentStatus.DELETED])
+    docs = [d for d in await crud.list_documents(db_session, user_id) if d.status != DocumentStatus.DELETED]
+
     by_type = {}
     by_status = {}
 
-    for doc in documents.values():
-        if doc.status == DocumentStatus.DELETED:
-            continue
-
+    for doc in docs:
         type_key = doc.document_type.value
         by_type[type_key] = by_type.get(type_key, 0) + 1
 
         status_key = doc.status.value
         by_status[status_key] = by_status.get(status_key, 0) + 1
 
-    total_size = sum(d.file_size for d in documents.values() if d.status != DocumentStatus.DELETED)
+    total_size = sum(d.file_size for d in docs)
 
     return {
-        "total_documents": total,
+        "total_documents": len(docs),
         "total_size_bytes": total_size,
         "total_size_mb": round(total_size / (1024 * 1024), 2),
         "by_type": by_type,
@@ -596,44 +585,66 @@ async def get_statistics():
     }
 
 
-# --- Link Document to Entity ---
-@app.post("/documents/{document_id}/link")
-async def link_document(document_id: str, entity_type: str, entity_id: str):
-    """Link a document to another entity (invoice, journal entry, etc.)"""
-    if document_id not in documents:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-
-    doc = documents[document_id]
-    doc.linked_entity_type = entity_type
-    doc.linked_entity_id = entity_id
-    doc.updated_at = datetime.now(timezone.utc)
-
-    return {"status": "linked", "document_id": document_id, "entity_type": entity_type, "entity_id": entity_id}
+# --- Batch Operations (registered before dynamic routes to avoid path shadowing) ---
 
 
-# --- Batch Operations ---
+class BatchLinkRequest(BaseModel):
+    document_ids: List[str]
+    entity_type: str
+    entity_id: str
+
+
 @app.post("/documents/batch/link")
-async def batch_link_documents(document_ids: List[str], entity_type: str, entity_id: str):
+async def batch_link_documents(
+    request: BatchLinkRequest,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Link multiple documents to an entity"""
     results = []
 
-    for doc_id in document_ids:
+    for doc_id in request.document_ids:
         try:
-            if doc_id in documents:
-                doc = documents[doc_id]
-                doc.linked_entity_type = entity_type
-                doc.linked_entity_id = entity_id
+            doc = await crud.get_document(db_session, user_id, doc_id)
+            if doc:
+                doc.linked_entity_type = request.entity_type
+                doc.linked_entity_id = request.entity_id
                 doc.updated_at = datetime.now(timezone.utc)
+                await crud.update_document_fields(db_session, user_id, doc_id, doc)
                 results.append({"document_id": doc_id, "status": "linked"})
             else:
                 results.append({"document_id": doc_id, "status": "not_found"})
         except Exception as e:
             results.append({"document_id": doc_id, "status": "error", "error": str(e)})
 
-    return {"total": len(document_ids), "results": results}
+    return {"total": len(request.document_ids), "results": results}
+
+
+# --- Link Document to Entity ---
+
+
+@app.post("/documents/{document_id}/link")
+async def link_document(
+    document_id: str,
+    entity_type: str,
+    entity_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Link a document to another entity (invoice, journal entry, etc.)"""
+    doc = await crud.get_document(db_session, user_id, document_id)
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    doc.linked_entity_type = entity_type
+    doc.linked_entity_id = entity_id
+    doc.updated_at = datetime.now(timezone.utc)
+    await crud.update_document_fields(db_session, user_id, document_id, doc)
+
+    return {"status": "linked", "document_id": document_id, "entity_type": entity_type, "entity_id": entity_id}
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8096)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
