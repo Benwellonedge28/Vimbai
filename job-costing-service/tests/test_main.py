@@ -3,10 +3,12 @@
 import importlib.util
 import os
 
+import main
 import pytest
 from fastapi.testclient import TestClient
 from job_costing_service.database import Neo4jConnector
-from main import app
+
+app = main.app
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _spec = importlib.util.spec_from_file_location("job_costing_fake", os.path.join(_HERE, "fake_neo4j.py"))
