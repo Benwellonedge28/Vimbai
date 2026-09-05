@@ -1,17 +1,32 @@
-"""Vimbai Cash Flow Statement Service - Generate cash flow statements (direct/indirect). Port: 8346"""
+"""Vimbai Cash Flow Statement Service - Generate cash flow statements. Port: 8346
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "cash_flow_statement_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("cash_flow_statement_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("cash_flow_statement_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["cash_flow_statement_service"] = _pkg
+    _sys.modules["cash_flow_statement_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from collections import defaultdict
-from contextvars import ContextVar
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from cash_flow_statement_service import crud, models
+from cash_flow_statement_service.dependencies import book_id_var, get_db_session, get_user_id
+from cash_flow_statement_service.exceptions import NotFoundError
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "cash-flow-statement-service"
 PORT = int(os.getenv("PORT", "8346"))
@@ -38,57 +53,11 @@ except ImportError:
     TRACER = None
 
 
-class CashFlowMethod(str, Enum):
-    DIRECT = "direct"
-    INDIRECT = "indirect"
-
-
-class CashFlowLine(BaseModel):
-    description: str
-    amount: float
-    is_inflow: bool = True
-
-
-class CashFlowStatement(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    period_start: datetime
-    period_end: datetime
-    method: CashFlowMethod = CashFlowMethod.INDIRECT
-    operating_activities: List[CashFlowLine] = []
-    investing_activities: List[CashFlowLine] = []
-    financing_activities: List[CashFlowLine] = []
-    net_operating: float = 0
-    net_investing: float = 0
-    net_financing: float = 0
-    net_change: float = 0
-    beginning_cash: float = 0
-    ending_cash: float = 0
-
-
-# Statements are stored per (Book, company): Book context comes from the
-# gateway-verified X-Book-ID header; None means personal / unscoped calls.
-_statements: Dict[tuple, List[CashFlowStatement]] = defaultdict(list)
-
-_book_id_var = ContextVar("book_id", default=None)
-
-
-def _statements_key(company_id: str) -> tuple:
-    return (_book_id_var.get(), company_id)
-
-
-def calc_net(lines: List[CashFlowLine]) -> float:
-    return sum(l.amount if l.is_inflow else -l.amount for l in lines)
-
-
 @app.middleware("http")
-async def book_context_middleware(request, call_next):
-    """Bind the gateway-verified X-Book-ID into the request-scoped contextvar."""
-    token = _book_id_var.set(request.headers.get("x-book-id"))
-    try:
-        return await call_next(request)
-    finally:
-        _book_id_var.reset(token)
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -96,34 +65,49 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME}
 
 
-@app.post("/generate", response_model=CashFlowStatement)
-async def generate_statement(stmt: CashFlowStatement):
-    stmt.net_operating = calc_net(stmt.operating_activities)
-    stmt.net_investing = calc_net(stmt.investing_activities)
-    stmt.net_financing = calc_net(stmt.financing_activities)
-    stmt.net_change = stmt.net_operating + stmt.net_investing + stmt.net_financing
-    stmt.ending_cash = stmt.beginning_cash + stmt.net_change
-    _statements[_statements_key(stmt.company_id)].append(stmt)
-    logger.info("cash_flow_generated", company_id=stmt.company_id, net_change=stmt.net_change, method=stmt.method.value)
-    return stmt
+@app.post("/generate", response_model=models.CashFlowStatement)
+async def generate_statement(
+    stmt: models.CashFlowStatementCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.generate_statement(db_session, user_id, stmt)
+    logger.info(
+        "cash_flow_generated",
+        company_id=item.company_id,
+        net_change=item.net_change,
+        method=item.method.value,
+    )
+    return item
 
 
-@app.get("/latest/{company_id}")
-async def get_latest(company_id: str):
-    stmts = _statements.get(_statements_key(company_id), [])
-    if not stmts:
-        raise HTTPException(status_code=404, detail="No cash flow statements found")
-    return stmts[-1]
+@app.get("/latest/{company_id}", response_model=models.CashFlowStatement)
+async def get_latest(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.get_latest(db_session, user_id, company_id)
+    if item is None:
+        raise NotFoundError(detail="No cash flow statements found")
+    return item
 
 
 @app.get("/history/{company_id}")
-async def get_history(company_id: str):
-    stmts = _statements.get(_statements_key(company_id), [])
-    return {
-        "company_id": company_id,
-        "statements": stmts,
-        "total": len(stmts),
-    }
+async def get_history(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    statements = await crud.get_history(db_session, user_id, company_id)
+    return {"company_id": company_id, "statements": statements, "total": len(statements)}
+
+
+@app.exception_handler(NotFoundError)
+async def not_found_handler(request: Request, exc: NotFoundError):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(status_code=404, content={"detail": exc.detail})
 
 
 if __name__ == "__main__":

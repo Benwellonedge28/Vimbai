@@ -46,6 +46,7 @@ def balance_sheet_client():
 
 @pytest.fixture
 def cash_flow_client():
+    _patch_fake("cash_flow_statement_service", "cash_flow_root_fake")
     app = load_service("cash-flow-statement-service").main.app
     return TestClient(app)
 
@@ -194,6 +195,7 @@ class TestCashFlowStatement:
                 ],
                 "beginning_cash": 30000,
             },
+            headers=_H,
         )
         assert resp.status_code == 200
         data = resp.json()

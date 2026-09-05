@@ -587,3 +587,47 @@ def test_balance_sheet_accessible_in_book(balance_sheet_client):
     # Personal view still sees own records across Books
     personal = balance_sheet_client.get("/balance-sheet/history/co-book-access", headers=H_PERSONAL)
     assert personal.json()["total"] == 1
+
+
+# --------------------------------------------------------------------------
+# Cash flow statement (statements-reporting bracket member)
+# --------------------------------------------------------------------------
+
+CASH_FLOW_PAYLOAD = {
+    "company_id": "co-book-access",
+    "method": "direct",
+    "beginning_cash": 100.0,
+    "operating_activities": [
+        {"description": "Customer receipts", "amount": 400.0, "is_inflow": True},
+    ],
+    "investing_activities": [],
+    "financing_activities": [],
+}
+
+
+@pytest.fixture(scope="module")
+def cash_flow_stmt_client():
+    bracket = _load_bracket("statements-reporting-bracket")
+    _patch_fake("cash_flow_statement_service", "cfs_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_cash_flow_statement_accessible_in_book(cash_flow_stmt_client):
+    resp = cash_flow_stmt_client.post("/cash-flow-statement/generate", json=CASH_FLOW_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["net_change"] == 400.0
+    assert body["ending_cash"] == 500.0
+    assert body["book_id"] == BOOK
+
+    latest = cash_flow_stmt_client.get("/cash-flow-statement/latest/co-book-access", headers=H).json()
+    assert latest["ending_cash"] == 500.0
+    assert latest["book_id"] == BOOK
+
+    # Other Book cannot see it
+    assert cash_flow_stmt_client.get("/cash-flow-statement/latest/co-book-access", headers=H_OTHER).status_code == 404
+
+    # Personal view still sees own records across Books
+    personal = cash_flow_stmt_client.get("/cash-flow-statement/history/co-book-access", headers=H_PERSONAL)
+    assert personal.json()["total"] == 1
