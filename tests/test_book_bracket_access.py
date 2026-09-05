@@ -631,3 +631,53 @@ def test_cash_flow_statement_accessible_in_book(cash_flow_stmt_client):
     # Personal view still sees own records across Books
     personal = cash_flow_stmt_client.get("/cash-flow-statement/history/co-book-access", headers=H_PERSONAL)
     assert personal.json()["total"] == 1
+
+
+# --------------------------------------------------------------------------
+# Job costing (costing-budgeting bracket member)
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def job_costing_client():
+    bracket = _load_bracket("costing-budgeting-bracket")
+    _patch_fake("job_costing_service", "jc_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_job_costing_accessible_in_book(job_costing_client):
+    resp = job_costing_client.post(
+        "/job-costing/jobs",
+        json={"company_id": "co-book-access", "job_name": "Book Access Build", "contract_value": 5000.0},
+        headers=H,
+    )
+    assert resp.status_code == 200, resp.text
+    job = resp.json()
+    assert job["book_id"] == BOOK
+
+    cost = job_costing_client.post(
+        f"/job-costing/jobs/{job['id']}/costs",
+        json={"cost_type": "materials", "amount": 1000.0},
+        headers=H,
+    )
+    assert cost.status_code == 200, cost.text
+    assert cost.json()["total_cost"] == 1000.0
+
+    in_book = job_costing_client.get("/job-costing/jobs/co-book-access", headers=H).json()
+    assert in_book["total"] == 1
+    assert in_book["jobs"][0]["job_name"] == "Book Access Build"
+
+    # Other Book cannot see it, and cannot add costs to it
+    other = job_costing_client.get("/job-costing/jobs/co-book-access", headers=H_OTHER).json()
+    assert other["total"] == 0
+    blocked = job_costing_client.post(
+        f"/job-costing/jobs/{job['id']}/costs",
+        json={"cost_type": "labor", "amount": 10.0},
+        headers=H_OTHER,
+    )
+    assert blocked.status_code == 404
+
+    # Personal view still sees own records across Books
+    personal = job_costing_client.get("/job-costing/jobs/co-book-access", headers=H_PERSONAL).json()
+    assert personal["total"] == 1

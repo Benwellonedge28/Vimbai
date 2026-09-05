@@ -10,6 +10,35 @@ from fastapi.testclient import TestClient
 
 from tests.conftest import load_service
 
+_H = {"X-User-Id": "root-audit-user"}
+
+
+def _patch_fake(pkg_name, fake_name):
+    """Patch a converted service's Neo4j connector onto the fake harness.
+
+    Binds ONE shared fake session (a fresh session per request would lose
+    writes between calls).
+    """
+    import importlib
+    import importlib.util
+    import os
+    import sys
+    from types import ModuleType
+
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    fake_path = os.path.join(repo_root, pkg_name.replace("_", "-"), "fake_neo4j.py")
+    spec = importlib.util.spec_from_file_location(fake_name, fake_path)
+    fake = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fake)
+    sys.modules[fake_name] = fake
+    if pkg_name not in sys.modules or not hasattr(sys.modules.get(pkg_name), "__path__"):
+        alias = ModuleType(pkg_name)
+        alias.__path__ = [os.path.join(repo_root, pkg_name.replace("_", "-"))]
+        sys.modules[pkg_name] = alias
+    db = importlib.import_module(f"{pkg_name}.database")
+    session = fake.FakeSession()
+    db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
+
 
 @pytest.fixture
 def forensic_client():
@@ -49,6 +78,7 @@ def product_costing_client():
 
 @pytest.fixture
 def job_costing_client():
+    _patch_fake("job_costing_service", "job_costing_root_fake")
     app = load_service("job-costing-service").main.app
     return TestClient(app)
 
@@ -234,6 +264,7 @@ class TestJobCosting:
         create = job_costing_client.post(
             "/jobs",
             json={"company_id": "comp-1", "job_name": "Custom Build", "customer": "Client A", "contract_value": 100000},
+            headers=_H,
         )
         job_id = create.json()["id"]
 
@@ -241,17 +272,21 @@ class TestJobCosting:
         job_costing_client.post(
             f"/jobs/{job_id}/costs",
             json={"cost_type": "materials", "amount": 30000, "description": "Building materials"},
+            headers=_H,
         )
         job_costing_client.post(
-            f"/jobs/{job_id}/costs", json={"cost_type": "labor", "amount": 20000, "description": "Construction labor"}
+            f"/jobs/{job_id}/costs",
+            json={"cost_type": "labor", "amount": 20000, "description": "Construction labor"},
+            headers=_H,
         )
         job_costing_client.post(
             f"/jobs/{job_id}/costs",
             json={"cost_type": "overhead", "amount": 10000, "description": "Overhead allocation"},
+            headers=_H,
         )
 
         # Check profitability
-        resp = job_costing_client.get("/jobs/comp-1/profitability")
+        resp = job_costing_client.get("/jobs/comp-1/profitability", headers=_H)
         assert resp.status_code == 200
         data = resp.json()
         assert data["total_cost"] == 60000
