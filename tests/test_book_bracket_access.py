@@ -542,3 +542,48 @@ def test_investigation_accessible_in_book(investigation_client):
         if r["name"] == "Book Access Investigation"
     ]
     assert len(other) == 0
+
+
+# --------------------------------------------------------------------------
+# Balance sheet (statements-reporting bracket member)
+# --------------------------------------------------------------------------
+
+BALANCE_SHEET_PAYLOAD = {
+    "company_id": "co-book-access",
+    "assets": [
+        {"name": "Cash", "amount": 6000.0, "category": "current", "is_liquid": True},
+    ],
+    "liabilities": [
+        {"name": "Payables", "amount": 1000.0, "category": "current"},
+    ],
+    "equity": [
+        {"name": "Share capital", "amount": 5000.0},
+    ],
+}
+
+
+@pytest.fixture(scope="module")
+def balance_sheet_client():
+    bracket = _load_bracket("statements-reporting-bracket")
+    _patch_fake("balance_sheet_service", "bs_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_balance_sheet_accessible_in_book(balance_sheet_client):
+    resp = balance_sheet_client.post("/balance-sheet/generate", json=BALANCE_SHEET_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["is_balanced"] is True
+    assert body["book_id"] == BOOK
+
+    latest = balance_sheet_client.get("/balance-sheet/latest/co-book-access", headers=H).json()
+    assert latest["total_assets"] == 6000.0
+    assert latest["book_id"] == BOOK
+
+    # Other Book cannot see it
+    assert balance_sheet_client.get("/balance-sheet/latest/co-book-access", headers=H_OTHER).status_code == 404
+
+    # Personal view still sees own records across Books
+    personal = balance_sheet_client.get("/balance-sheet/history/co-book-access", headers=H_PERSONAL)
+    assert personal.json()["total"] == 1

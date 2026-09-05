@@ -3,17 +3,43 @@ Integration tests for Balance Sheet, Cash Flow Statement, Cost Accounting,
 Expense Tracking, Revenue Recognition, and Tax services.
 """
 
+import importlib
+import importlib.util
+import os
 import sys
 from datetime import datetime, timezone
+from types import ModuleType
 
 import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import load_service
 
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_H = {"X-User-Id": "root-bs-user"}
+
+
+def _patch_fake(pkg_name, fake_alias):
+    """Give the service's Neo4j connector a fake in-memory driver."""
+    fake_path = os.path.join(_ROOT, pkg_name.replace("_", "-"), "fake_neo4j.py")
+    spec = importlib.util.spec_from_file_location(fake_alias, fake_path)
+    fake = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fake)
+
+    cached = sys.modules.get(pkg_name)
+    if cached is None or not hasattr(cached, "__path__"):
+        pkg_mod = ModuleType(pkg_name)
+        pkg_mod.__path__ = [os.path.join(_ROOT, pkg_name.replace("_", "-"))]
+        sys.modules[pkg_name] = pkg_mod
+
+    db = importlib.import_module(f"{pkg_name}.database")
+    session = fake.FakeSession()
+    db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
+
 
 @pytest.fixture
 def balance_sheet_client():
+    _patch_fake("balance_sheet_service", "balance_sheet_root_fake")
     app = load_service("balance-sheet-service").main.app
     return TestClient(app)
 
@@ -96,6 +122,7 @@ class TestBalanceSheet:
                     {"name": "Retained Earnings", "amount": 20000},
                 ],
             },
+            headers=_H,
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -113,6 +140,7 @@ class TestBalanceSheet:
                 "liabilities": [{"name": "Loan", "amount": 50000}],
                 "equity": [{"name": "Capital", "amount": 40000}],
             },
+            headers=_H,
         )
         assert resp.json()["is_balanced"] == False
 
@@ -132,8 +160,9 @@ class TestBalanceSheet:
                 ],
                 "equity": [{"name": "Capital", "amount": 50000}],
             },
+            headers=_H,
         )
-        resp = balance_sheet_client.get("/ratios/comp-ratios")
+        resp = balance_sheet_client.get("/ratios/comp-ratios", headers=_H)
         assert resp.status_code == 200
         data = resp.json()
         assert data["current_ratio"] == 4.0  # 80000 / 20000

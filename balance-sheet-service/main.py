@@ -1,15 +1,30 @@
-"""Vimbai Balance Sheet Service - Generate and manage balance sheets. Port: 8345"""
+"""Vimbai Balance Sheet Service - Generate and manage balance sheets. Port: 8345
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "balance_sheet_service" not in _sys.modules or not hasattr(_sys.modules.get("balance_sheet_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("balance_sheet_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["balance_sheet_service"] = _pkg
+    _sys.modules["balance_sheet_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from balance_sheet_service import crud, models
+from balance_sheet_service.dependencies import book_id_var, get_db_session, get_user_id
+from balance_sheet_service.exceptions import NotFoundError
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "balance-sheet-service"
 PORT = int(os.getenv("PORT", "8345"))
@@ -36,39 +51,11 @@ except ImportError:
     TRACER = None
 
 
-class AssetItem(BaseModel):
-    name: str
-    amount: float
-    category: str = "current"  # current, non_current
-    is_liquid: bool = False
-
-
-class LiabilityItem(BaseModel):
-    name: str
-    amount: float
-    category: str = "current"  # current, non_current
-    due_date: Optional[datetime] = None
-
-
-class EquityItem(BaseModel):
-    name: str
-    amount: float
-
-
-class BalanceSheet(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    as_of_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    assets: List[AssetItem] = []
-    liabilities: List[LiabilityItem] = []
-    equity: List[EquityItem] = []
-    total_assets: float = 0
-    total_liabilities: float = 0
-    total_equity: float = 0
-    is_balanced: bool = False
-
-
-_sheets: Dict[str, List[BalanceSheet]] = defaultdict(list)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -76,51 +63,70 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME}
 
 
-@app.post("/generate", response_model=BalanceSheet)
-async def generate_balance_sheet(sheet: BalanceSheet):
-    sheet.total_assets = sum(a.amount for a in sheet.assets)
-    sheet.total_liabilities = sum(l.amount for l in sheet.liabilities)
-    sheet.total_equity = sum(e.amount for e in sheet.equity)
-    sheet.is_balanced = abs(sheet.total_assets - (sheet.total_liabilities + sheet.total_equity)) < 0.01
-    _sheets[sheet.company_id].append(sheet)
-    if not sheet.is_balanced:
+@app.post("/generate", response_model=models.BalanceSheet)
+async def generate_balance_sheet(
+    sheet: models.BalanceSheetCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.generate_sheet(db_session, user_id, sheet)
+    if not item.is_balanced:
         logger.warning(
             "balance_sheet_unbalanced",
-            company_id=sheet.company_id,
-            diff=sheet.total_assets - (sheet.total_liabilities + sheet.total_equity),
+            company_id=item.company_id,
+            diff=item.total_assets - (item.total_liabilities + item.total_equity),
         )
-    return sheet
+    return item
 
 
-@app.get("/latest/{company_id}")
-async def get_latest(company_id: str):
-    sheets = _sheets.get(company_id, [])
-    if not sheets:
-        raise HTTPException(status_code=404, detail="No balance sheets found")
-    return sheets[-1]
+@app.get("/latest/{company_id}", response_model=models.BalanceSheet)
+async def get_latest(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.get_latest(db_session, user_id, company_id)
+    if item is None:
+        raise NotFoundError(detail="No balance sheets found")
+    return item
 
 
 @app.get("/history/{company_id}")
-async def get_history(company_id: str):
-    return {"company_id": company_id, "sheets": _sheets.get(company_id, []), "total": len(_sheets.get(company_id, []))}
+async def get_history(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    sheets = await crud.get_history(db_session, user_id, company_id)
+    return {"company_id": company_id, "sheets": sheets, "total": len(sheets)}
 
 
 @app.get("/ratios/{company_id}")
-async def get_ratios(company_id: str):
-    sheets = _sheets.get(company_id, [])
-    if not sheets:
-        raise HTTPException(status_code=404, detail="No balance sheets found")
-    s = sheets[-1]
-    current_assets = sum(a.amount for a in s.assets if a.category == "current")
-    current_liabilities = sum(l.amount for l in s.liabilities if l.category == "current")
-    liquid_assets = sum(a.amount for a in s.assets if a.is_liquid)
+async def get_ratios(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.get_latest(db_session, user_id, company_id)
+    if item is None:
+        raise NotFoundError(detail="No balance sheets found")
+    current_assets = sum(a.amount for a in item.assets if a.category == "current")
+    current_liabilities = sum(l.amount for l in item.liabilities if l.category == "current")
+    liquid_assets = sum(a.amount for a in item.assets if a.is_liquid)
     return {
         "current_ratio": current_assets / max(1, current_liabilities),
         "quick_ratio": liquid_assets / max(1, current_liabilities),
-        "debt_to_equity": s.total_liabilities / max(1, s.total_equity),
-        "debt_to_assets": s.total_liabilities / max(1, s.total_assets),
-        "equity_ratio": s.total_equity / max(1, s.total_assets),
+        "debt_to_equity": item.total_liabilities / max(1, item.total_equity),
+        "debt_to_assets": item.total_liabilities / max(1, item.total_assets),
+        "equity_ratio": item.total_equity / max(1, item.total_assets),
     }
+
+
+@app.exception_handler(NotFoundError)
+async def not_found_handler(request: Request, exc: NotFoundError):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(status_code=404, content={"detail": exc.detail})
 
 
 if __name__ == "__main__":

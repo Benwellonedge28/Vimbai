@@ -119,8 +119,7 @@ async def get_risks(
     level: Optional[str] = None,
 ) -> List[RiskItem]:
     query = f"""
-    MATCH (u:User {{id: $user_id}})-[:OWNS_RISK]->(x:RiskItem)
-    WHERE x.company_id = $company_id
+    MATCH (u:User {{id: $user_id}})-[:OWNS_RISK]->(x:RiskItem {{company_id: $company_id}})
     {BOOK_FILTER}
     RETURN x
     ORDER BY x.created_at DESC
