@@ -737,3 +737,57 @@ def test_equity_changes_accessible_in_book(equity_client):
     # Personal view still sees own records across Books
     personal = equity_client.get("/equity-changes/transactions/co-book-access", headers=H_PERSONAL).json()
     assert personal["total"] == 1
+
+
+# --------------------------------------------------------------------------
+# Fund accounting (advanced-accounting bracket member)
+# --------------------------------------------------------------------------
+
+FUND_PAYLOAD = {
+    "company_id": "co-book-access",
+    "fund_name": "Book Access Fund",
+    "fund_type": "restricted",
+    "balance": 400.0,
+}
+
+
+@pytest.fixture(scope="module")
+def fund_client():
+    bracket = _load_bracket("advanced-accounting-bracket")
+    _patch_fake("fund_accounting_service", "fa_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_fund_accounting_accessible_in_book(fund_client):
+    resp = fund_client.post("/fund-accounting/funds", json=FUND_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    fund = resp.json()
+    assert fund["book_id"] == BOOK
+    assert fund["net_assets"] == 400.0
+
+    tx = fund_client.post(
+        "/fund-accounting/transactions",
+        json={"fund_id": fund["id"], "description": "grant income", "amount": 260.0, "is_income": True},
+        headers=H,
+    )
+    assert tx.status_code == 200, tx.text
+
+    in_book = fund_client.get("/fund-accounting/funds/co-book-access", headers=H).json()
+    assert in_book["total_net_assets"] == 660.0
+    assert fund_client.get(f"/fund-accounting/transactions/{fund['id']}", headers=H).json()["total"] == 1
+
+    # Other Book cannot see the fund, inject transactions, or read them
+    other_funds = fund_client.get("/fund-accounting/funds/co-book-access", headers=H_OTHER).json()
+    assert other_funds["funds"] == []
+    blocked = fund_client.post(
+        "/fund-accounting/transactions",
+        json={"fund_id": fund["id"], "description": "cross-book", "amount": 1.0, "is_income": True},
+        headers=H_OTHER,
+    )
+    assert blocked.status_code == 404
+    assert fund_client.get(f"/fund-accounting/transactions/{fund['id']}", headers=H_OTHER).json()["total"] == 0
+
+    # Personal view still sees own records across Books
+    personal = fund_client.get("/fund-accounting/funds/co-book-access", headers=H_PERSONAL).json()
+    assert personal["total_net_assets"] == 660.0
