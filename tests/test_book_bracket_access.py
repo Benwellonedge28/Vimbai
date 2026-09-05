@@ -469,3 +469,76 @@ def test_risk_mitigation_accessible_in_book(risk_client):
         if r["name"] == "Book Access Mitigation"
     ]
     assert len(other) == 0
+
+
+# --------------------------------------------------------------------------
+# Risk-reporting (statements-reporting bracket) / investigation (tax-audit bracket)
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def statements_risk_client():
+    bracket = _load_bracket("statements-reporting-bracket")
+    _patch_fake("risk_reporting_service", "rrpt_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_risk_reporting_accessible_in_book(statements_risk_client):
+    payload = {
+        "company_id": "co-book-access",
+        "category": "compliance",
+        "name": "Book Access Report Risk",
+        "likelihood": 4,
+        "impact": 4,
+    }
+    resp = statements_risk_client.post("/risk-reporting/risks", json=payload, headers=H)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["level"] == "high"
+
+    in_book = [
+        r
+        for r in statements_risk_client.get("/risk-reporting/risks/co-book-access", headers=H).json()["risks"]
+        if r["name"] == "Book Access Report Risk"
+    ]
+    assert len(in_book) == 1
+    other = [
+        r
+        for r in statements_risk_client.get("/risk-reporting/risks/co-book-access", headers=H_OTHER).json()["risks"]
+        if r["name"] == "Book Access Report Risk"
+    ]
+    assert len(other) == 0
+
+
+@pytest.fixture(scope="module")
+def investigation_client():
+    bracket = _load_bracket("tax-audit-investigation-bracket")
+    _patch_fake("investigation_service", "inv_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_investigation_accessible_in_book(investigation_client):
+    payload = {
+        "company_id": "co-book-access",
+        "category": "financial",
+        "name": "Book Access Investigation",
+        "likelihood": 2,
+        "impact": 3,
+    }
+    resp = investigation_client.post("/investigation/risks", json=payload, headers=H)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["level"] == "moderate"
+
+    in_book = [
+        r
+        for r in investigation_client.get("/investigation/risks/co-book-access", headers=H).json()["risks"]
+        if r["name"] == "Book Access Investigation"
+    ]
+    assert len(in_book) == 1
+    other = [
+        r
+        for r in investigation_client.get("/investigation/risks/co-book-access", headers=H_OTHER).json()["risks"]
+        if r["name"] == "Book Access Investigation"
+    ]
+    assert len(other) == 0

@@ -60,13 +60,17 @@ def mitigation_client():
 
 @pytest.fixture
 def reporting_client():
-    app = load_service("risk-reporting-service").main.app
+    pkg = load_service("risk-reporting-service")
+    app = pkg.main.app
+    _patch_fake("risk_reporting_service", "risk_reporting_root_fake")
     return TestClient(app)
 
 
 @pytest.fixture
 def investigation_client():
-    app = load_service("investigation-service").main.app
+    pkg = load_service("investigation-service")
+    app = pkg.main.app
+    _patch_fake("investigation_service", "investigation_root_fake")
     return TestClient(app)
 
 
@@ -198,8 +202,9 @@ class TestRiskReporting:
         reporting_client.post(
             "/risks",
             json={"company_id": "comp-rpt", "category": "compliance", "name": "Reg Risk", "likelihood": 4, "impact": 3},
+            headers=_H,
         )
-        resp = reporting_client.get("/dashboard/comp-rpt")
+        resp = reporting_client.get("/dashboard/comp-rpt", headers=_H)
         assert resp.status_code == 200
         assert resp.json()["total_risks"] >= 1
 
@@ -218,9 +223,10 @@ class TestInvestigation:
                 "likelihood": 4,
                 "impact": 5,
             },
+            headers=_H,
         )
         risk_id = create.json()["id"]
-        update = investigation_client.put(f"/risks/{risk_id}?status=assessing")
+        update = investigation_client.put(f"/risks/{risk_id}?status=assessing", headers=_H)
         assert update.json()["status"] == "assessing"
-        close = investigation_client.delete(f"/risks/{risk_id}")
+        close = investigation_client.delete(f"/risks/{risk_id}", headers=_H)
         assert close.status_code == 200

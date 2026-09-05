@@ -1,16 +1,33 @@
-"""Vimbai Risk Reporting Service - Risk management and investigation. Port: 8332"""
+"""Vimbai Risk Reporting Service - Risk management and investigation. Port: 8332
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "risk_reporting_service" not in _sys.modules or not hasattr(_sys.modules.get("risk_reporting_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("risk_reporting_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["risk_reporting_service"] = _pkg
+    _sys.modules["risk_reporting_service"].__path__ = [_HERE]
 
 import os
 import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from risk_reporting_service import crud, models
+from risk_reporting_service.dependencies import book_id_var, get_db_session, get_user_id
+from risk_reporting_service.exceptions import NotFoundError
+from risk_reporting_service.models import RiskCategory, RiskLevel
 
 SERVICE_NAME = "risk-reporting-service"
 PORT = int(os.getenv("PORT", "8332"))
@@ -37,52 +54,11 @@ except ImportError:
     TRACER = None
 
 
-class RiskCategory(str, Enum):
-    FINANCIAL = "financial"
-    OPERATIONAL = "operational"
-    STRATEGIC = "strategic"
-    COMPLIANCE = "compliance"
-    CYBER = "cyber"
-    MARKET = "market"
-    CREDIT = "credit"
-    LIQUIDITY = "liquidity"
-
-
-class RiskLevel(str, Enum):
-    LOW = "low"
-    MODERATE = "moderate"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
-class RiskItem(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    category: RiskCategory
-    name: str
-    description: str = ""
-    likelihood: int = 1  # 1-5
-    impact: int = 1  # 1-5
-    risk_score: float = 0  # likelihood * impact
-    level: RiskLevel = RiskLevel.LOW
-    owner: str = ""
-    mitigation: str = ""
-    status: str = "identified"  # identified, assessing, mitigating, monitoring, closed
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-def calc_level(score: float) -> RiskLevel:
-    if score <= 4:
-        return RiskLevel.LOW
-    if score <= 9:
-        return RiskLevel.MODERATE
-    if score <= 16:
-        return RiskLevel.HIGH
-    return RiskLevel.CRITICAL
-
-
-_risks: Dict[str, List[RiskItem]] = defaultdict(list)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -91,26 +67,30 @@ async def health():
 
 
 @app.post("/risks")
-async def create_risk(risk: RiskItem):
-    risk.risk_score = risk.likelihood * risk.impact
-    risk.level = calc_level(risk.risk_score)
-    _risks[risk.company_id].append(risk)
-    logger.info("risk_created", company_id=risk.company_id, category=risk.category, level=risk.level.value)
-    return {"id": risk.id, "risk_score": risk.risk_score, "level": risk.level.value}
+async def create_risk(
+    risk: models.RiskItemCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.create_risk(db_session, user_id, risk)
+    logger.info("risk_created", company_id=item.company_id, category=item.category.value, level=item.level.value)
+    return {"id": item.id, "risk_score": item.risk_score, "level": item.level.value}
 
 
 @app.get("/risks/{company_id}")
-async def get_risks(company_id: str, category: Optional[str] = None, level: Optional[str] = None):
-    risks = _risks.get(company_id, [])
-    if category:
-        risks = [r for r in risks if r.category.value == category]
-    if level:
-        risks = [r for r in risks if r.level.value == level]
+async def get_risks(
+    company_id: str,
+    category: Optional[str] = None,
+    level: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    risks = await crud.get_risks(db_session, user_id, company_id, category, level)
     return {
         "company_id": company_id,
         "risks": risks,
         "total": len(risks),
-        "by_level": {l: sum(1 for r in risks if r.level.value == l) for l in RiskLevel},
+        "by_level": {l.value: sum(1 for r in risks if r.level == l) for l in RiskLevel},
     }
 
 
@@ -121,28 +101,20 @@ async def update_risk(
     impact: Optional[int] = None,
     mitigation: Optional[str] = None,
     status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    for risks in _risks.values():
-        for r in risks:
-            if r.id == risk_id:
-                if likelihood is not None:
-                    r.likelihood = likelihood
-                if impact is not None:
-                    r.impact = impact
-                if mitigation is not None:
-                    r.mitigation = mitigation
-                if status is not None:
-                    r.status = status
-                r.risk_score = r.likelihood * r.impact
-                r.level = calc_level(r.risk_score)
-                r.updated_at = datetime.now(timezone.utc)
-                return {"id": r.id, "risk_score": r.risk_score, "level": r.level.value, "status": r.status}
-    raise HTTPException(status_code=404, detail="Risk not found")
+    item = await crud.update_risk(db_session, user_id, risk_id, likelihood, impact, mitigation, status)
+    return {"id": item.id, "risk_score": item.risk_score, "level": item.level.value, "status": item.status}
 
 
 @app.get("/dashboard/{company_id}")
-async def risk_dashboard(company_id: str):
-    risks = _risks.get(company_id, [])
+async def risk_dashboard(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    risks = await crud.get_risks(db_session, user_id, company_id)
     if not risks:
         return {
             "company_id": company_id,
@@ -167,13 +139,20 @@ async def risk_dashboard(company_id: str):
 
 
 @app.delete("/risks/{risk_id}")
-async def close_risk(risk_id: str):
-    for risks in _risks.values():
-        for r in risks:
-            if r.id == risk_id:
-                r.status = "closed"
-                return {"id": risk_id, "status": "closed"}
-    raise HTTPException(status_code=404, detail="Risk not found")
+async def close_risk(
+    risk_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.close_risk(db_session, user_id, risk_id)
+    return {"id": item.id, "status": item.status}
+
+
+@app.exception_handler(NotFoundError)
+async def not_found_handler(request: Request, exc: NotFoundError):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(status_code=404, content={"detail": exc.detail})
 
 
 if __name__ == "__main__":
