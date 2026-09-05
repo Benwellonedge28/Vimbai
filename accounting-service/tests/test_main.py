@@ -1,3 +1,4 @@
+import main  # noqa: F401  (must come first: bootstraps the accounting_service package)
 from accounting_service.models import JournalLineBase
 
 """

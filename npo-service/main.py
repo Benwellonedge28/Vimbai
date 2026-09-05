@@ -1,3 +1,17 @@
+# This file may be imported bare (Docker `uvicorn main:app`, bracket mounts), so it
+# bootstraps its own package alias before importing sibling modules.
+import importlib.util as _ilu
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+_PKG = "npo_service"
+if _PKG not in _sys.modules or not hasattr(_sys.modules.get(_PKG), "__path__"):
+    _spec = _ilu.spec_from_file_location(_PKG, _os.path.join(_HERE, "__init__.py"))
+    _pkg = _ilu.module_from_spec(_spec)
+    _pkg.__path__ = [_HERE]
+    _sys.modules[_PKG] = _pkg
+
 """
 NPO Service - Non-Profit Organization Accounting Service
 
