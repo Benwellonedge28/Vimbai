@@ -681,3 +681,59 @@ def test_job_costing_accessible_in_book(job_costing_client):
     # Personal view still sees own records across Books
     personal = job_costing_client.get("/job-costing/jobs/co-book-access", headers=H_PERSONAL).json()
     assert personal["total"] == 1
+
+
+# --------------------------------------------------------------------------
+# Equity changes (advanced-accounting bracket member)
+# --------------------------------------------------------------------------
+
+EQUITY_TX_PAYLOAD = {
+    "company_id": "co-book-access",
+    "transaction_type": "issuance",
+    "shareholder": "Book Holder",
+    "shares": 100,
+    "price_per_share": 10.0,
+}
+
+
+@pytest.fixture(scope="module")
+def equity_client():
+    bracket = _load_bracket("advanced-accounting-bracket")
+    _patch_fake("equity_changes_service", "eq_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_equity_changes_accessible_in_book(equity_client):
+    resp = equity_client.post("/equity-changes/transactions", json=EQUITY_TX_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    tx = resp.json()
+    assert tx["book_id"] == BOOK
+    assert tx["amount"] == 1000.0
+
+    # Statement from those transactions
+    stmt = equity_client.post(
+        "/equity-changes/statement",
+        json={
+            "company_id": "co-book-access",
+            "period": "2026-Q3",
+            "beginning_equity": 5000.0,
+            "transactions": [EQUITY_TX_PAYLOAD],
+        },
+        headers=H,
+    )
+    assert stmt.status_code == 200, stmt.text
+    assert stmt.json()["ending_equity"] == 6000.0
+
+    in_book = equity_client.get("/equity-changes/transactions/co-book-access", headers=H).json()
+    assert in_book["total"] == 1
+
+    # Other Book cannot see it
+    other = equity_client.get("/equity-changes/transactions/co-book-access", headers=H_OTHER).json()
+    assert other["total"] == 0
+    other_stmts = equity_client.get("/equity-changes/statements/co-book-access", headers=H_OTHER).json()
+    assert other_stmts["total"] == 0
+
+    # Personal view still sees own records across Books
+    personal = equity_client.get("/equity-changes/transactions/co-book-access", headers=H_PERSONAL).json()
+    assert personal["total"] == 1

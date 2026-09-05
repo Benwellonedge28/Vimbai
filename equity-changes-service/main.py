@@ -1,19 +1,33 @@
-"""Vimbai Equity Changes Service - Track equity movements and shareholder changes. Port: 8366"""
+"""Vimbai Equity Changes Service - Track equity changes. Port: 8344
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "equity_changes_service" not in _sys.modules or not hasattr(_sys.modules.get("equity_changes_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("equity_changes_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["equity_changes_service"] = _pkg
+    _sys.modules["equity_changes_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from equity_changes_service import crud, models
+from equity_changes_service.dependencies import book_id_var, get_db_session, get_user_id
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "equity-changes-service"
-PORT = int(os.getenv("PORT", "8366"))
+PORT = int(os.getenv("PORT", "8344"))
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
@@ -37,43 +51,11 @@ except ImportError:
     TRACER = None
 
 
-class EquityTransactionType(str, Enum):
-    ISSUANCE = "issuance"
-    BUYBACK = "buyback"
-    DIVIDEND = "dividend"
-    SPLIT = "split"
-    TRANSFER = "transfer"
-    RETAINED = "retained_earnings"
-
-
-class EquityTransaction(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    transaction_type: EquityTransactionType
-    shareholder: str = ""
-    shares: int = 0
-    price_per_share: float = 0
-    amount: float = 0
-    description: str = ""
-    date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class EquityStatement(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    period: str
-    beginning_equity: float
-    share_issuances: float = 0
-    share_buybacks: float = 0
-    dividends_paid: float = 0
-    retained_earnings_change: float = 0
-    other_changes: float = 0
-    ending_equity: float = 0
-    transactions: List[EquityTransaction] = []
-
-
-_transactions: Dict[str, List[EquityTransaction]] = defaultdict(list)
-_statements: Dict[str, List[EquityStatement]] = defaultdict(list)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -81,59 +63,57 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME}
 
 
-@app.post("/transactions", response_model=EquityTransaction)
-async def create_transaction(tx: EquityTransaction):
-    tx.amount = tx.shares * tx.price_per_share if tx.amount == 0 and tx.shares > 0 else tx.amount
-    _transactions[tx.company_id].append(tx)
-    return tx
+@app.post("/transactions", response_model=models.EquityTransaction)
+async def create_transaction(
+    tx: models.EquityTransactionCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.create_transaction(db_session, user_id, tx)
+    logger.info(
+        "equity_transaction_created",
+        company_id=item.company_id,
+        transaction_type=item.transaction_type.value,
+        amount=item.amount,
+    )
+    return item
 
 
 @app.get("/transactions/{company_id}")
-async def get_transactions(company_id: str, tx_type: Optional[str] = None):
-    txs = _transactions.get(company_id, [])
-    if tx_type:
-        txs = [t for t in txs if t.transaction_type.value == tx_type]
+async def get_transactions(
+    company_id: str,
+    tx_type: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    txs = await crud.get_transactions(db_session, user_id, company_id, tx_type)
     return {"company_id": company_id, "transactions": txs, "total": len(txs)}
 
 
-@app.post("/statement", response_model=EquityStatement)
-async def generate_statement(stmt: EquityStatement):
-    stmt.share_issuances = sum(
-        t.amount for t in stmt.transactions if t.transaction_type == EquityTransactionType.ISSUANCE
+@app.post("/statement", response_model=models.EquityStatement)
+async def generate_statement(
+    stmt: models.EquityStatementCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.generate_statement(db_session, user_id, stmt)
+    logger.info(
+        "equity_statement_generated",
+        company_id=item.company_id,
+        period=item.period,
+        ending_equity=item.ending_equity,
     )
-    stmt.share_buybacks = sum(
-        t.amount for t in stmt.transactions if t.transaction_type == EquityTransactionType.BUYBACK
-    )
-    stmt.dividends_paid = sum(
-        t.amount for t in stmt.transactions if t.transaction_type == EquityTransactionType.DIVIDEND
-    )
-    stmt.retained_earnings_change = sum(
-        t.amount for t in stmt.transactions if t.transaction_type == EquityTransactionType.RETAINED
-    )
-    stmt.other_changes = sum(
-        t.amount
-        for t in stmt.transactions
-        if t.transaction_type in (EquityTransactionType.SPLIT, EquityTransactionType.TRANSFER)
-    )
-    stmt.ending_equity = (
-        stmt.beginning_equity
-        + stmt.share_issuances
-        - stmt.share_buybacks
-        - stmt.dividends_paid
-        + stmt.retained_earnings_change
-        + stmt.other_changes
-    )
-    _statements[stmt.company_id].append(stmt)
-    return stmt
+    return item
 
 
 @app.get("/statements/{company_id}")
-async def get_statements(company_id: str):
-    return {
-        "company_id": company_id,
-        "statements": _statements.get(company_id, []),
-        "total": len(_statements.get(company_id, [])),
-    }
+async def get_statements(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    statements = await crud.get_statements(db_session, user_id, company_id)
+    return {"company_id": company_id, "statements": statements, "total": len(statements)}
 
 
 if __name__ == "__main__":
