@@ -1,17 +1,36 @@
+# This file may be imported bare (Docker `uvicorn main:app`, bracket mounts), so it
+# bootstraps its own package alias before importing sibling modules.
+import importlib.util as _ilu
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+_PKG = "cashbook_service"
+if _PKG not in _sys.modules or not hasattr(_sys.modules.get(_PKG), "__path__"):
+    _spec = _ilu.spec_from_file_location(_PKG, _os.path.join(_HERE, "__init__.py"))
+    _pkg = _ilu.module_from_spec(_spec)
+    _pkg.__path__ = [_HERE]
+    _sys.modules[_PKG] = _pkg
+
 """
 Vimbai Cash Book Service
 Complete cash book management with multi-currency support,
-bank reconciliation, and cash flow tracking
+bank reconciliation, and cash flow tracking.
+
+Neo4j-backed, user-owned and Book-scoped (X-User-Id / X-Book-ID headers).
 """
 
-import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query
-from pydantic import BaseModel, Field
+from cashbook_service import crud, models
+from cashbook_service.database import Neo4jConnector
+from cashbook_service.dependencies import book_id_var, get_db_session, get_user_id
+from cashbook_service.exceptions import CashBookError, ConflictError, NotFoundError, ValidationError
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from neo4j import AsyncSession
 
 app = FastAPI(
     title="Vimbai Cash Book Service",
@@ -19,134 +38,44 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# ============================================================================
-# Enums
-# ============================================================================
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Capture the Book context for the duration of the request."""
+    token = book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        book_id_var.reset(token)
 
 
-class CashBookType(str, Enum):
-    RECEIPTS = "receipts"
-    PAYMENTS = "payments"
-    CASH_JOURNAL = "cash_journal"
+@app.on_event("startup")
+async def startup():
+    Neo4jConnector.configure(
+        _os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        _os.getenv("NEO4J_USER", "neo4j"),
+        _os.getenv("NEO4J_PASSWORD", "password"),
+    )
 
 
-class TransactionStatus(str, Enum):
-    PENDING = "pending"
-    POSTED = "posted"
-    RECONCILED = "reconciled"
-    VOIDED = "voided"
+@app.on_event("shutdown")
+async def shutdown():
+    await Neo4jConnector.close_driver()
 
 
-class BankAccountType(str, Enum):
-    CASH = "cash"
-    BANK = "bank"
-    SAVINGS = "savings"
-    CURRENT = "current"
+@app.exception_handler(NotFoundError)
+async def not_found_exception_handler(request: Request, exc: NotFoundError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
 
-# ============================================================================
-# Pydantic Models
-# ============================================================================
+@app.exception_handler(ConflictError)
+async def conflict_exception_handler(request: Request, exc: ConflictError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
 
-class BankAccount(BaseModel):
-    id: str
-    account_code: str
-    account_name: str
-    account_type: BankAccountType
-    bank_name: Optional[str] = None
-    account_number: Optional[str] = None
-    currency: str = "USD"
-    opening_balance: Decimal
-    current_balance: Decimal
-    is_active: bool = True
-    reconciliation_enabled: bool = True
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class CashBookEntry(BaseModel):
-    id: str
-    book_type: CashBookType
-    entry_date: datetime
-    voucher_number: str
-    description: str
-    account_code: str
-    amount: Decimal
-    is_debit: bool  # True for receipts/cash in, False for payments/cash out
-    reference: Optional[str] = None
-    cheque_number: Optional[str] = None
-    bank_account: Optional[str] = None
-    currency: str = "USD"
-    exchange_rate: Decimal = Decimal("1.0")
-    base_amount: Decimal  # Amount in base currency
-    narration: Optional[str] = None
-    posted_by: str
-    status: TransactionStatus = TransactionStatus.PENDING
-    reconciled: bool = False
-    reconciliation_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class CashBookSummary(BaseModel):
-    account_code: str
-    account_name: str
-    opening_balance: Decimal
-    total_debits: Decimal
-    total_credits: Decimal
-    closing_balance: Decimal
-    transaction_count: int
-    last_transaction_date: Optional[datetime] = None
-
-
-class BankReconciliation(BaseModel):
-    id: str
-    bank_account: str
-    statement_date: datetime
-    statement_balance: Decimal
-    book_balance: Decimal
-    adjustments: List[Dict[str, Any]] = []
-    adjusted_balance: Decimal
-    differences: List[Dict[str, Any]] = []
-    status: str = "in_progress"  # in_progress, completed, reviewed
-    prepared_by: str
-    reviewed_by: Optional[str] = None
-    completed_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class CashFlowEntry(BaseModel):
-    id: str
-    entry_date: datetime
-    category: str
-    subcategory: Optional[str] = None
-    description: str
-    expected_amount: Optional[Decimal] = None
-    actual_amount: Optional[Decimal] = None
-    variance: Optional[Decimal] = None
-    cash_flow_type: str  # operating, investing, financing
-    source: str  # cash_receipts, cash_payments, bank
-    reference_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class CashPosition(BaseModel):
-    as_of_date: datetime
-    total_cash: Decimal
-    total_bank: Decimal
-    total_savings: Decimal
-    total_current: Decimal
-    by_currency: Dict[str, Decimal]
-    by_account: List[Dict[str, Any]]
-
-
-# ============================================================================
-# Storage
-# ============================================================================
-
-bank_accounts: Dict[str, BankAccount] = {}
-cash_book_entries: Dict[str, CashBookEntry] = {}
-reconciliations: Dict[str, BankReconciliation] = {}
-cash_flow_entries: Dict[str, CashFlowEntry] = {}
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request: Request, exc: ValidationError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
 
 # ============================================================================
@@ -157,38 +86,36 @@ cash_flow_entries: Dict[str, CashFlowEntry] = {}
 @app.get("/")
 async def health_check():
     """Health check endpoint"""
-    total_accounts = len(bank_accounts)
-    total_entries = len(cash_book_entries)
-
     return {
         "status": "healthy",
         "service": "cashbook",
         "version": "1.0.0",
-        "total_accounts": total_accounts,
-        "total_entries": total_entries,
     }
 
 
 # --- Bank Account Management ---
 
 
-@app.post("/accounts")
-async def create_bank_account(account: BankAccount):
+@app.post("/accounts", response_model=models.BankAccount)
+async def create_bank_account(
+    account: models.BankAccount,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Create a new bank/cash account"""
-    account.id = str(uuid.uuid4())
-    account.created_at = datetime.now(timezone.utc)
-    account.current_balance = account.opening_balance
-
-    bank_accounts[account.id] = account
-    return account
+    return await crud.create_bank_account(db_session, user_id, account)
 
 
-@app.get("/accounts")
+@app.get("/accounts", response_model=List[models.BankAccount])
 async def list_bank_accounts(
-    account_type: Optional[BankAccountType] = None, currency: Optional[str] = None, is_active: Optional[bool] = None
+    account_type: Optional[models.BankAccountType] = None,
+    currency: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List all bank accounts"""
-    results = list(bank_accounts.values())
+    results = await crud.list_bank_accounts(db_session, user_id)
 
     if account_type:
         results = [a for a in results if a.account_type == account_type]
@@ -200,66 +127,57 @@ async def list_bank_accounts(
     return results
 
 
-@app.get("/accounts/{account_id}")
-async def get_bank_account(account_id: str):
+@app.get("/accounts/{account_id}", response_model=models.BankAccount)
+async def get_bank_account(
+    account_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get bank account details"""
-    if account_id not in bank_accounts:
+    account = await crud.get_bank_account(db_session, user_id, account_id)
+    if not account:
         raise HTTPException(status_code=404, detail="Account not found")
-    return bank_accounts[account_id]
-
-
-@app.put("/accounts/{account_id}")
-async def update_bank_account(account_id: str, account: BankAccount):
-    """Update bank account"""
-    if account_id not in bank_accounts:
-        raise HTTPException(status_code=404, detail="Account not found")
-
-    account.id = account_id
-    bank_accounts[account_id] = account
     return account
+
+
+@app.put("/accounts/{account_id}", response_model=models.BankAccount)
+async def update_bank_account(
+    account_id: str,
+    account: models.BankAccount,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Update bank account"""
+    return await crud.update_bank_account(db_session, user_id, account_id, account)
 
 
 # --- Cash Book Entry Management ---
 
 
-@app.post("/entries")
-async def create_cash_book_entry(entry: CashBookEntry):
+@app.post("/entries", response_model=models.CashBookEntry)
+async def create_cash_book_entry(
+    entry: models.CashBookEntry,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Create a cash book entry"""
-    entry.id = str(uuid.uuid4())
-    entry.created_at = datetime.now(timezone.utc)
-
-    # Calculate base amount if multi-currency
-    if entry.currency != "USD":
-        entry.base_amount = entry.amount * entry.exchange_rate
-    else:
-        entry.base_amount = entry.amount
-
-    # Update bank account balance
-    if entry.bank_account:
-        for account in bank_accounts.values():
-            if account.account_code == entry.bank_account:
-                if entry.is_debit:
-                    account.current_balance += entry.base_amount
-                else:
-                    account.current_balance -= entry.base_amount
-                break
-
-    cash_book_entries[entry.id] = entry
-    return entry
+    return await crud.create_cash_book_entry(db_session, user_id, entry)
 
 
-@app.get("/entries")
+@app.get("/entries", response_model=List[models.CashBookEntry])
 async def list_cash_book_entries(
-    book_type: Optional[CashBookType] = None,
+    book_type: Optional[models.CashBookType] = None,
     bank_account: Optional[str] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    status: Optional[TransactionStatus] = None,
+    status: Optional[models.TransactionStatus] = None,
     reconciled: Optional[bool] = None,
     limit: int = 100,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List cash book entries with filters"""
-    results = list(cash_book_entries.values())
+    results = await crud.list_cash_book_entries(db_session, user_id, limit=limit)
 
     if book_type:
         results = [e for e in results if e.book_type == book_type]
@@ -275,47 +193,61 @@ async def list_cash_book_entries(
         results = [e for e in results if e.reconciled == reconciled]
 
     results.sort(key=lambda x: x.entry_date, reverse=True)
-    return results[:limit]
+    return results
 
 
-@app.get("/entries/{entry_id}")
-async def get_cash_book_entry(entry_id: str):
+@app.get("/entries/{entry_id}", response_model=models.CashBookEntry)
+async def get_cash_book_entry(
+    entry_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get cash book entry details"""
-    if entry_id not in cash_book_entries:
+    entry = await crud.get_cash_book_entry(db_session, user_id, entry_id)
+    if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
-    return cash_book_entries[entry_id]
-
-
-@app.put("/entries/{entry_id}/post")
-async def post_cash_book_entry(entry_id: str, posted_by: str):
-    """Post a cash book entry"""
-    if entry_id not in cash_book_entries:
-        raise HTTPException(status_code=404, detail="Entry not found")
-
-    entry = cash_book_entries[entry_id]
-    entry.status = TransactionStatus.POSTED
-
     return entry
 
 
-@app.put("/entries/{entry_id}/void")
-async def void_cash_book_entry(entry_id: str, voided_by: str, reason: str):
-    """Void a cash book entry"""
-    if entry_id not in cash_book_entries:
+@app.put("/entries/{entry_id}/post", response_model=models.CashBookEntry)
+async def post_cash_book_entry(
+    entry_id: str,
+    posted_by: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Post a cash book entry"""
+    entry = await crud.get_cash_book_entry(db_session, user_id, entry_id)
+    if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
 
-    entry = cash_book_entries[entry_id]
-    entry.status = TransactionStatus.VOIDED
+    return await crud.set_entry_status(db_session, user_id, entry_id, models.TransactionStatus.POSTED)
+
+
+@app.put("/entries/{entry_id}/void")
+async def void_cash_book_entry(
+    entry_id: str,
+    voided_by: str,
+    reason: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Void a cash book entry"""
+    entry = await crud.get_cash_book_entry(db_session, user_id, entry_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
 
     # Reverse the balance change
     if entry.bank_account:
-        for account in bank_accounts.values():
-            if account.account_code == entry.bank_account:
-                if entry.is_debit:
-                    account.current_balance -= entry.base_amount
-                else:
-                    account.current_balance += entry.base_amount
-                break
+        account = await crud.get_bank_account_by_code(db_session, user_id, entry.bank_account)
+        if account:
+            if entry.is_debit:
+                account.current_balance -= entry.base_amount
+            else:
+                account.current_balance += entry.base_amount
+            await crud.adjust_account_balance(db_session, user_id, account.id, account.current_balance)
+
+    await crud.set_entry_status(db_session, user_id, entry_id, models.TransactionStatus.VOIDED)
 
     return {"status": "voided", "entry_id": entry_id, "reason": reason}
 
@@ -323,28 +255,36 @@ async def void_cash_book_entry(entry_id: str, voided_by: str, reason: str):
 # --- Cash Book Summary ---
 
 
-@app.get("/summary/{account_code}")
+@app.get("/summary/{account_code}", response_model=models.CashBookSummary)
 async def get_cash_book_summary(
-    account_code: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None
+    account_code: str,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Get cash book summary for an account"""
-    if account_code not in [a.account_code for a in bank_accounts.values()]:
+    account = await crud.get_bank_account_by_code(db_session, user_id, account_code)
+    if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    account = next(a for a in bank_accounts.values() if a.account_code == account_code)
-    entries = [e for e in cash_book_entries.values() if e.bank_account == account_code]
+    entries = [
+        e for e in await crud.list_cash_book_entries(db_session, user_id, limit=10000) if e.bank_account == account_code
+    ]
 
     if start_date:
         entries = [e for e in entries if e.entry_date >= start_date]
     if end_date:
         entries = [e for e in entries if e.entry_date <= end_date]
 
-    total_debits = sum(e.base_amount for e in entries if e.is_debit and e.status == TransactionStatus.POSTED)
-    total_credits = sum(e.base_amount for e in entries if not e.is_debit and e.status == TransactionStatus.POSTED)
+    total_debits = sum(e.base_amount for e in entries if e.is_debit and e.status == models.TransactionStatus.POSTED)
+    total_credits = sum(
+        e.base_amount for e in entries if not e.is_debit and e.status == models.TransactionStatus.POSTED
+    )
 
     last_transaction = max((e.entry_date for e in entries), default=None)
 
-    return CashBookSummary(
+    return models.CashBookSummary(
         account_code=account_code,
         account_name=account.account_name,
         opening_balance=account.opening_balance,
@@ -359,40 +299,25 @@ async def get_cash_book_summary(
 # --- Bank Reconciliation ---
 
 
-@app.post("/reconciliations")
-async def create_reconciliation(reconciliation: BankReconciliation):
+@app.post("/reconciliations", response_model=models.BankReconciliation)
+async def create_reconciliation(
+    reconciliation: models.BankReconciliation,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Create bank reconciliation"""
-    reconciliation.id = str(uuid.uuid4())
-    reconciliation.created_at = datetime.now(timezone.utc)
-
-    # Calculate book balance
-    entries = [
-        e
-        for e in cash_book_entries.values()
-        if e.bank_account == reconciliation.bank_account and e.status == TransactionStatus.POSTED
-    ]
-    book_balance = sum(e.base_amount if e.is_debit else -e.base_amount for e in entries)
-
-    # Get account opening balance
-    account = next((a for a in bank_accounts.values() if a.account_code == reconciliation.bank_account), None)
-    if account:
-        book_balance = account.opening_balance + book_balance
-
-    reconciliation.book_balance = book_balance
-
-    # Calculate adjusted balance
-    total_adjustments = sum(a.get("amount", 0) for a in reconciliation.adjustments)
-    reconciliation.adjusted_balance = reconciliation.statement_balance + total_adjustments
-
-    reconciliations[reconciliation.id] = reconciliation
-
-    return reconciliation
+    return await crud.create_reconciliation(db_session, user_id, reconciliation)
 
 
-@app.get("/reconciliations")
-async def list_reconciliations(bank_account: Optional[str] = None, status: Optional[str] = None):
+@app.get("/reconciliations", response_model=List[models.BankReconciliation])
+async def list_reconciliations(
+    bank_account: Optional[str] = None,
+    status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List bank reconciliations"""
-    results = list(reconciliations.values())
+    results = await crud.list_reconciliations(db_session, user_id)
 
     if bank_account:
         results = [r for r in results if r.bank_account == bank_account]
@@ -403,49 +328,47 @@ async def list_reconciliations(bank_account: Optional[str] = None, status: Optio
     return results
 
 
-@app.get("/reconciliations/{reconciliation_id}")
-async def get_reconciliation(reconciliation_id: str):
+@app.get("/reconciliations/{reconciliation_id}", response_model=models.BankReconciliation)
+async def get_reconciliation(
+    reconciliation_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get reconciliation details"""
-    if reconciliation_id not in reconciliations:
+    reconciliation = await crud.get_reconciliation(db_session, user_id, reconciliation_id)
+    if not reconciliation:
         raise HTTPException(status_code=404, detail="Reconciliation not found")
-    return reconciliations[reconciliation_id]
-
-
-@app.put("/reconciliations/{reconciliation_id}/complete")
-async def complete_reconciliation(reconciliation_id: str, reviewed_by: str):
-    """Complete a reconciliation"""
-    if reconciliation_id not in reconciliations:
-        raise HTTPException(status_code=404, detail="Reconciliation not found")
-
-    reconciliation = reconciliations[reconciliation_id]
-    reconciliation.status = "completed"
-    reconciliation.reviewed_by = reviewed_by
-    reconciliation.completed_at = datetime.now(timezone.utc)
-
-    # Mark entries as reconciled
-    for adjustment in reconciliation.adjustments:
-        if "entry_id" in adjustment:
-            entry = cash_book_entries.get(adjustment["entry_id"])
-            if entry:
-                entry.reconciled = True
-                entry.reconciliation_id = reconciliation_id
-
     return reconciliation
 
 
+@app.put("/reconciliations/{reconciliation_id}/complete", response_model=models.BankReconciliation)
+async def complete_reconciliation(
+    reconciliation_id: str,
+    reviewed_by: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Complete a reconciliation"""
+    return await crud.complete_reconciliation(db_session, user_id, reconciliation_id, reviewed_by)
+
+
 @app.get("/reconciliations/{reconciliation_id}/outstanding")
-async def get_outstanding_items(reconciliation_id: str):
+async def get_outstanding_items(
+    reconciliation_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get outstanding items for reconciliation"""
-    if reconciliation_id not in reconciliations:
+    reconciliation = await crud.get_reconciliation(db_session, user_id, reconciliation_id)
+    if not reconciliation:
         raise HTTPException(status_code=404, detail="Reconciliation not found")
 
-    reconciliation = reconciliations[reconciliation_id]
-
-    # Get unreconciled entries
     entries = [
         e
-        for e in cash_book_entries.values()
-        if e.bank_account == reconciliation.bank_account and not e.reconciled and e.status == TransactionStatus.POSTED
+        for e in await crud.list_cash_book_entries(db_session, user_id, limit=10000)
+        if e.bank_account == reconciliation.bank_account
+        and not e.reconciled
+        and e.status == models.TransactionStatus.POSTED
     ]
 
     total_debits = sum(e.base_amount for e in entries if e.is_debit)
@@ -457,37 +380,35 @@ async def get_outstanding_items(reconciliation_id: str):
         "total_debits": str(total_debits),
         "total_credits": str(total_credits),
         "difference": str(total_debits - total_credits),
-        "entries": [e.model_dump() for e in entries],
+        "entries": [e.model_dump(mode="json") for e in entries],
     }
 
 
 # --- Cash Flow ---
 
 
-@app.post("/cash-flow")
-async def create_cash_flow_entry(entry: CashFlowEntry):
+@app.post("/cash-flow", response_model=models.CashFlowEntry)
+async def create_cash_flow_entry(
+    entry: models.CashFlowEntry,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Create cash flow entry"""
-    entry.id = str(uuid.uuid4())
-    entry.created_at = datetime.now(timezone.utc)
-
-    # Calculate variance if actual amount provided
-    if entry.expected_amount and entry.actual_amount:
-        entry.variance = entry.actual_amount - entry.expected_amount
-
-    cash_flow_entries[entry.id] = entry
-    return entry
+    return await crud.create_cash_flow_entry(db_session, user_id, entry)
 
 
-@app.get("/cash-flow")
+@app.get("/cash-flow", response_model=List[models.CashFlowEntry])
 async def list_cash_flow_entries(
     cash_flow_type: Optional[str] = None,
     category: Optional[str] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     limit: int = 100,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List cash flow entries"""
-    results = list(cash_flow_entries.values())
+    results = await crud.list_cash_flow_entries(db_session, user_id, limit=limit)
 
     if cash_flow_type:
         results = [e for e in results if e.cash_flow_type == cash_flow_type]
@@ -499,14 +420,22 @@ async def list_cash_flow_entries(
         results = [e for e in results if e.entry_date <= end_date]
 
     results.sort(key=lambda x: x.entry_date, reverse=True)
-    return results[:limit]
+    return results
 
 
 @app.get("/cash-flow/summary")
-async def get_cash_flow_summary(start_date: datetime, end_date: datetime):
+async def get_cash_flow_summary(
+    start_date: datetime,
+    end_date: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get cash flow summary for period"""
-    entries = list(cash_flow_entries.values())
-    entries = [e for e in entries if start_date <= e.entry_date <= end_date]
+    entries = [
+        e
+        for e in await crud.list_cash_flow_entries(db_session, user_id, limit=10000)
+        if start_date <= e.entry_date <= end_date
+    ]
 
     operating = [e for e in entries if e.cash_flow_type == "operating"]
     investing = [e for e in entries if e.cash_flow_type == "investing"]
@@ -534,8 +463,12 @@ async def get_cash_flow_summary(start_date: datetime, end_date: datetime):
 # --- Cash Position ---
 
 
-@app.get("/cash-position")
-async def get_cash_position(as_of_date: Optional[datetime] = None):
+@app.get("/cash-position", response_model=models.CashPosition)
+async def get_cash_position(
+    as_of_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get current cash position"""
     if as_of_date is None:
         as_of_date = datetime.now(timezone.utc)
@@ -547,34 +480,32 @@ async def get_cash_position(as_of_date: Optional[datetime] = None):
     by_currency: Dict[str, Decimal] = {}
     by_account = []
 
-    for account in bank_accounts.values():
+    for account in await crud.list_bank_accounts(db_session, user_id):
         balance = account.current_balance
 
-        account_data = {
-            "account_code": account.account_code,
-            "account_name": account.account_name,
-            "account_type": account.account_type.value,
-            "balance": str(balance),
-            "currency": account.currency,
-        }
-        by_account.append(account_data)
+        by_account.append(
+            {
+                "account_code": account.account_code,
+                "account_name": account.account_name,
+                "account_type": account.account_type.value,
+                "balance": str(balance),
+                "currency": account.currency,
+            }
+        )
 
-        # Accumulate by type
-        if account.account_type == BankAccountType.CASH:
+        if account.account_type == models.BankAccountType.CASH:
             total_cash += balance
-        elif account.account_type == BankAccountType.BANK:
+        elif account.account_type == models.BankAccountType.BANK:
             total_bank += balance
-        elif account.account_type == BankAccountType.SAVINGS:
+        elif account.account_type == models.BankAccountType.SAVINGS:
             total_savings += balance
-        elif account.account_type == BankAccountType.CURRENT:
+        elif account.account_type == models.BankAccountType.CURRENT:
             total_current += balance
 
-        # Accumulate by currency
-        if account.currency not in by_currency:
-            by_currency[account.currency] = Decimal("0")
+        by_currency.setdefault(account.currency, Decimal("0"))
         by_currency[account.currency] += balance
 
-    return CashPosition(
+    return models.CashPosition(
         as_of_date=as_of_date,
         total_cash=total_cash,
         total_bank=total_bank,
@@ -586,10 +517,18 @@ async def get_cash_position(as_of_date: Optional[datetime] = None):
 
 
 @app.get("/cash-position/history")
-async def get_cash_position_history(start_date: datetime, end_date: datetime):
+async def get_cash_position_history(
+    start_date: datetime,
+    end_date: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get cash position history"""
-    entries = list(cash_book_entries.values())
-    entries = [e for e in entries if start_date <= e.entry_date <= end_date]
+    entries = [
+        e
+        for e in await crud.list_cash_book_entries(db_session, user_id, limit=10000)
+        if start_date <= e.entry_date <= end_date
+    ]
 
     daily_positions = {}
     for entry in entries:
@@ -602,71 +541,20 @@ async def get_cash_position_history(start_date: datetime, end_date: datetime):
         else:
             daily_positions[date_key]["credits"] += entry.base_amount
 
-    return {
-        "period": {"start": start_date, "end": end_date},
-        "daily_positions": [
-            {"date": k, "debits": str(v["debits"]), "credits": str(v["credits"])}
-            for k, v in sorted(daily_positions.items())
-        ],
-    }
+    history = []
+    running_balance = Decimal("0")
+    for date_key in sorted(daily_positions.keys()):
+        day = daily_positions[date_key]
+        net = day["debits"] - day["credits"]
+        running_balance += net
+        history.append(
+            {
+                "date": date_key,
+                "total_debits": str(day["debits"]),
+                "total_credits": str(day["credits"]),
+                "net_change": str(net),
+                "running_balance": str(running_balance),
+            }
+        )
 
-
-# --- Reports ---
-
-
-@app.get("/reports/cash-receipts-register")
-async def get_cash_receipts_register(
-    start_date: Optional[datetime] = None, end_date: Optional[datetime] = None, bank_account: Optional[str] = None
-):
-    """Generate cash receipts register"""
-    entries = list(cash_book_entries.values())
-    entries = [e for e in entries if e.book_type == CashBookType.RECEIPTS]
-
-    if start_date:
-        entries = [e for e in entries if e.entry_date >= start_date]
-    if end_date:
-        entries = [e for e in entries if e.entry_date <= end_date]
-    if bank_account:
-        entries = [e for e in entries if e.bank_account == bank_account]
-
-    entries.sort(key=lambda x: x.entry_date)
-
-    total = sum(e.base_amount for e in entries if e.status == TransactionStatus.POSTED)
-
-    return {
-        "total_receipts": len(entries),
-        "total_amount": str(total),
-        "entries": [e.model_dump() for e in entries],
-    }
-
-
-@app.get("/reports/cash-payments-register")
-async def get_cash_payments_register(
-    start_date: Optional[datetime] = None, end_date: Optional[datetime] = None, bank_account: Optional[str] = None
-):
-    """Generate cash payments register"""
-    entries = list(cash_book_entries.values())
-    entries = [e for e in entries if e.book_type == CashBookType.PAYMENTS]
-
-    if start_date:
-        entries = [e for e in entries if e.entry_date >= start_date]
-    if end_date:
-        entries = [e for e in entries if e.entry_date <= end_date]
-    if bank_account:
-        entries = [e for e in entries if e.bank_account == bank_account]
-
-    entries.sort(key=lambda x: x.entry_date)
-
-    total = sum(e.base_amount for e in entries if e.status == TransactionStatus.POSTED)
-
-    return {
-        "total_payments": len(entries),
-        "total_amount": str(total),
-        "entries": [e.model_dump() for e in entries],
-    }
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8098)
+    return {"start_date": start_date, "end_date": end_date, "history": history}

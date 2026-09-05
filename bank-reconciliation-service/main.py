@@ -1,19 +1,44 @@
+# This file may be imported bare (Docker `uvicorn main:app`, bracket mounts), so it
+# bootstraps its own package alias before importing sibling modules.
+import importlib.util as _ilu
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+_PKG = "bank_reconciliation_service"
+if _PKG not in _sys.modules or not hasattr(_sys.modules.get(_PKG), "__path__"):
+    _spec = _ilu.spec_from_file_location(_PKG, _os.path.join(_HERE, "__init__.py"))
+    _pkg = _ilu.module_from_spec(_spec)
+    _pkg.__path__ = [_HERE]
+    _sys.modules[_PKG] = _pkg
+
 """
 Vimbai Bank Reconciliation Service
 Complete bank reconciliation process including statement import, matching, and adjustments.
+
+Neo4j-backed, user-owned and Book-scoped (X-User-Id / X-Book-ID headers).
 """
 
 import os
 import uuid
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI, HTTPException, status
+from bank_reconciliation_service import crud, models
+from bank_reconciliation_service.database import Neo4jConnector
+from bank_reconciliation_service.dependencies import book_id_var, get_db_session, get_user_id
+from bank_reconciliation_service.exceptions import (
+    BankReconciliationError,
+    ConflictError,
+    NotFoundError,
+    ValidationError,
+)
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from neo4j import AsyncSession
 
 SERVICE_NAME = "bank-reconciliation-service"
 SERVICE_VERSION = "1.0.0"
@@ -41,110 +66,43 @@ app.add_middleware(
 )
 
 
-class TransactionType(str, Enum):
-    DEPOSIT = "deposit"
-    WITHDRAWAL = "withdrawal"
-    CHEQUE = "cheque"
-    DIRECT_DEBIT = "direct_debit"
-    DIRECT_CREDIT = "direct_credit"
-    TRANSFER = "transfer"
-    BANK_CHARGE = "bank_charge"
-    INTEREST = "interest"
-    STANDING_ORDER = "standing_order"
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Capture the Book context for the duration of the request."""
+    token = book_id_var.set(request.headers.get("x-book-id"))
+    try:
+        return await call_next(request)
+    finally:
+        book_id_var.reset(token)
 
 
-class MatchStatus(str, Enum):
-    MATCHED = "matched"
-    UNMATCHED = "unmatched"
-    PARTIAL_MATCH = "partial_match"
-    DISPUTED = "disputed"
+@app.on_event("startup")
+async def startup():
+    Neo4jConnector.configure(
+        os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        os.getenv("NEO4J_USER", "neo4j"),
+        os.getenv("NEO4J_PASSWORD", "password"),
+    )
 
 
-class BankStatementLine(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    statement_id: str
-    date: datetime
-    description: str
-    reference: Optional[str] = None
-    transaction_type: TransactionType
-    amount: float
-    balance: float
-    is_debit: bool
-    matched: bool = False
-    matched_transaction_id: Optional[str] = None
+@app.on_event("shutdown")
+async def shutdown():
+    await Neo4jConnector.close_driver()
 
 
-class BankStatement(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    bank_account: str
-    statement_number: str
-    statement_start_date: datetime
-    statement_end_date: datetime
-    opening_balance: float
-    closing_balance: float
-    total_credits: float = 0
-    total_debits: float = 0
-    lines: List[BankStatementLine] = []
-    status: str = "imported"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.exception_handler(NotFoundError)
+async def not_found_exception_handler(request: Request, exc: NotFoundError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
 
-class CashBookEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    date: datetime
-    description: str
-    reference: str
-    transaction_type: str
-    amount: float
-    is_debit: bool
-    bank_reconciliation_id: Optional[str] = None
-    matched: bool = False
-    matched_statement_id: Optional[str] = None
+@app.exception_handler(ConflictError)
+async def conflict_exception_handler(request: Request, exc: ConflictError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
 
-class ReconciliationItem(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    item_type: str  # "bank_only" or "cash_book_only"
-    date: datetime
-    description: str
-    reference: Optional[str] = None
-    amount: float
-    match_status: MatchStatus = MatchStatus.UNMATCHED
-    suggested_match_id: Optional[str] = None
-    notes: Optional[str] = None
-
-
-class BankReconciliation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    bank_account: str
-    reconciliation_date: datetime
-    statement_balance: float
-    cash_book_balance: float
-    difference: float = 0
-
-    # Adjustments
-    outstanding_deposits: float = 0
-    outstanding_cheques: float = 0
-    bank_errors: float = 0
-    cash_book_errors: float = 0
-    unpresented_cheques: float = 0
-    uncredited_deposits: float = 0
-
-    # Final balances
-    adjusted_statement_balance: float = 0
-    adjusted_cash_book_balance: float = 0
-
-    items: List[ReconciliationItem] = []
-    status: str = "in_progress"
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    completed_at: Optional[datetime] = None
-
-
-# In-memory storage
-bank_statements: List[BankStatement] = []
-cash_book_entries: List[CashBookEntry] = []
-reconciliations: List[BankReconciliation] = []
+@app.exception_handler(ValidationError)
+async def validation_exception_handler(request: Request, exc: ValidationError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail, "code": exc.code})
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -193,33 +151,38 @@ async def root():
 
 
 @app.post("/statements")
-async def import_statement(data: BankStatement):
+async def import_statement(
+    data: models.BankStatement,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Import bank statement."""
-    data.id = str(uuid.uuid4())
-    data.created_at = datetime.utcnow()
-
-    # Calculate totals
-    data.total_credits = sum(l.amount for l in data.lines if not l.is_debit)
-    data.total_debits = sum(l.amount for l in data.lines if l.is_debit)
-
-    bank_statements.append(data)
-    await call_audit_service("IMPORT", "statement", data.id, {"lines": len(data.lines)})
-    return data
+    statement = await crud.create_statement(db_session, user_id, data)
+    await call_audit_service("IMPORT", "statement", statement.id, {"lines": len(statement.lines)})
+    return statement
 
 
 @app.get("/statements")
-async def list_statements(bank_account: Optional[str] = None):
+async def list_statements(
+    bank_account: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List bank statements."""
-    result = bank_statements
+    result = await crud.list_statements(db_session, user_id)
     if bank_account:
         result = [s for s in result if s.bank_account == bank_account]
     return {"statements": result}
 
 
 @app.get("/statements/{statement_id}")
-async def get_statement(statement_id: str):
+async def get_statement(
+    statement_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get statement details."""
-    stmt = next((s for s in bank_statements if s.id == statement_id), None)
+    stmt = await crud.get_statement(db_session, user_id, statement_id)
     if not stmt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Statement not found")
     return stmt
@@ -231,12 +194,15 @@ async def get_statement(statement_id: str):
 
 
 @app.post("/cash-book")
-async def add_cash_book_entry(data: CashBookEntry):
+async def add_cash_book_entry(
+    data: models.CashBookEntry,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Add cash book entry."""
-    data.id = str(uuid.uuid4())
-    cash_book_entries.append(data)
-    await call_audit_service("CREATE", "cash_book", data.id, {"amount": data.amount})
-    return data
+    entry = await crud.create_cash_book_entry(db_session, user_id, data)
+    await call_audit_service("CREATE", "cash_book", entry.id, {"amount": entry.amount})
+    return entry
 
 
 @app.get("/cash-book")
@@ -245,9 +211,11 @@ async def list_cash_book_entries(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     matched: Optional[bool] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List cash book entries."""
-    result = [e for e in cash_book_entries if e.date.year == datetime.utcnow().year]
+    result = await crud.list_cash_book_entries(db_session, user_id)
     if start_date:
         result = [e for e in result if e.date >= start_date]
     if end_date:
@@ -272,9 +240,13 @@ async def create_reconciliation(
     outstanding_cheques: float = 0,
     bank_errors: float = 0,
     cash_book_errors: float = 0,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Create bank reconciliation."""
-    reconciliation = BankReconciliation(
+    reconciliation = await crud.create_reconciliation(
+        db_session,
+        user_id,
         bank_account=bank_account,
         reconciliation_date=reconciliation_date,
         statement_balance=statement_balance,
@@ -284,39 +256,35 @@ async def create_reconciliation(
         bank_errors=bank_errors,
         cash_book_errors=cash_book_errors,
     )
-
-    # Calculate adjusted balances
-    reconciliation.adjusted_statement_balance = (
-        statement_balance - outstanding_cheques + outstanding_deposits - bank_errors
-    )
-    reconciliation.adjusted_cash_book_balance = cash_book_balance - bank_errors + cash_book_errors
-    reconciliation.difference = reconciliation.adjusted_statement_balance - reconciliation.adjusted_cash_book_balance
-
-    reconciliations.append(reconciliation)
     await call_audit_service("CREATE", "reconciliation", reconciliation.id, {"difference": reconciliation.difference})
     return reconciliation
 
 
 @app.post("/reconcile/{reconciliation_id}/auto-match")
-async def auto_match_transactions(reconciliation_id: str, statement_id: str):
+async def auto_match_transactions(
+    reconciliation_id: str,
+    statement_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Auto-match transactions between statement and cash book."""
-    reconciliation = next((r for r in reconciliations if r.id == reconciliation_id), None)
+    reconciliation = await crud.get_reconciliation(db_session, user_id, reconciliation_id)
     if not reconciliation:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reconciliation not found")
 
-    statement = next((s for s in bank_statements if s.id == statement_id), None)
+    statement = await crud.get_statement(db_session, user_id, statement_id)
     if not statement:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Statement not found")
 
-    # Simple matching by reference and amount
-    unmatched_items = []
+    entries = await crud.list_cash_book_entries(db_session, user_id)
 
+    # Simple matching by reference and amount
     for line in statement.lines:
         if line.matched:
             continue
 
         # Try to find matching cash book entry
-        for entry in cash_book_entries:
+        for entry in entries:
             if entry.matched:
                 continue
 
@@ -327,22 +295,38 @@ async def auto_match_transactions(reconciliation_id: str, statement_id: str):
                     line.matched_transaction_id = entry.id
                     entry.matched = True
                     entry.matched_statement_id = line.id
+                    entry.bank_reconciliation_id = reconciliation.id
+
+    # Persist match mutations
+    await crud.save_statement_lines(db_session, user_id, statement)
+    for entry in entries:
+        if entry.matched:
+            await crud.save_cash_book_entry(db_session, user_id, entry)
 
     # Identify unmatched items
-    unmatched_bank = [l for l in statement.lines if not l.matched]
-    unmatched_cash = [e for e in cash_book_entries if not e.matched]
+    unmatched_bank = [line for line in statement.lines if not line.matched]
+    unmatched_cash = [entry for entry in entries if not entry.matched]
 
     reconciliation.items = [
-        ReconciliationItem(
-            item_type="bank_only", date=l.date, description=l.description, reference=l.reference, amount=l.amount
+        models.ReconciliationItem(
+            item_type="bank_only",
+            date=line.date,
+            description=line.description,
+            reference=line.reference,
+            amount=line.amount,
         )
-        for l in unmatched_bank
+        for line in unmatched_bank
     ] + [
-        ReconciliationItem(
-            item_type="cash_book_only", date=e.date, description=e.description, reference=e.reference, amount=e.amount
+        models.ReconciliationItem(
+            item_type="cash_book_only",
+            date=entry.date,
+            description=entry.description,
+            reference=entry.reference,
+            amount=entry.amount,
         )
-        for e in unmatched_cash
+        for entry in unmatched_cash
     ]
+    await crud.save_reconciliation(db_session, user_id, reconciliation)
 
     return {
         "reconciliation": reconciliation,
@@ -353,9 +337,13 @@ async def auto_match_transactions(reconciliation_id: str, statement_id: str):
 
 
 @app.post("/reconcile/{reconciliation_id}/post-adjustments")
-async def post_adjustments(reconciliation_id: str):
+async def post_adjustments(
+    reconciliation_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Post adjustment journal entries."""
-    reconciliation = next((r for r in reconciliations if r.id == reconciliation_id), None)
+    reconciliation = await crud.get_reconciliation(db_session, user_id, reconciliation_id)
     if not reconciliation:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reconciliation not found")
 
@@ -384,14 +372,21 @@ async def post_adjustments(reconciliation_id: str):
     reconciliation.status = "completed"
     reconciliation.completed_at = datetime.utcnow()
 
+    await crud.save_reconciliation(db_session, user_id, reconciliation)
+
     await call_audit_service("COMPLETE", "reconciliation", reconciliation_id, {"journal_id": result.get("id")})
     return reconciliation
 
 
 @app.get("/reconciliations")
-async def list_reconciliations(bank_account: Optional[str] = None, status: Optional[str] = None):
+async def list_reconciliations(
+    bank_account: Optional[str] = None,
+    status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List reconciliations."""
-    result = reconciliations
+    result = await crud.list_reconciliations(db_session, user_id)
     if bank_account:
         result = [r for r in result if r.bank_account == bank_account]
     if status:
@@ -400,9 +395,13 @@ async def list_reconciliations(bank_account: Optional[str] = None, status: Optio
 
 
 @app.get("/reconciliations/{reconciliation_id}")
-async def get_reconciliation(reconciliation_id: str):
+async def get_reconciliation(
+    reconciliation_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get reconciliation details."""
-    recon = next((r for r in reconciliations if r.id == reconciliation_id), None)
+    recon = await crud.get_reconciliation(db_session, user_id, reconciliation_id)
     if not recon:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reconciliation not found")
     return recon
@@ -414,12 +413,18 @@ async def get_reconciliation(reconciliation_id: str):
 
 
 @app.get("/outstanding-items")
-async def get_outstanding_items(bank_account: str, as_of_date: Optional[datetime] = None):
+async def get_outstanding_items(
+    bank_account: str,
+    as_of_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get outstanding cheques and deposits."""
     as_of_date = as_of_date or datetime.utcnow()
 
-    # Get latest reconciliation
-    latest = next((r for r in reversed(reconciliations) if r.bank_account == bank_account), None)
+    # Get latest reconciliation for this account
+    all_recons = await crud.list_reconciliations(db_session, user_id)
+    latest = next((r for r in reversed(all_recons) if r.bank_account == bank_account), None)
 
     if not latest:
         return {"outstanding_cheques": [], "outstanding_deposits": [], "total_cheques": 0, "total_deposits": 0}
