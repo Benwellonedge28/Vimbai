@@ -315,8 +315,27 @@ class TestMFAService:
 
 
 class TestDebtManagementService:
-    def setup_method(self):
+    """debt-management is now Neo4j-backed with X-User-Id auth + Book scoping."""
+
+    H = {"X-User-Id": "upg-debt-user"}
+
+    @pytest.fixture(autouse=True)
+    def _patch_fake_db(self):
+        # load the app first so the package alias is registered, then patch the driver
         self.client = TestClient(load_app("debt-management-service"))
+        import debt_management_service.database as db_mod
+
+        fake_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "debt-management-service", "fake_neo4j.py"
+        )
+        spec = importlib.util.spec_from_file_location("upg_debt_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+        session = fake.FakeSession()
+        db_mod.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
+        yield
+        session.nodes.clear()
+        session.edges.clear()
 
     def test_loan_and_schedule(self):
         loan = self.client.post(
@@ -330,11 +349,12 @@ class TestDebtManagementService:
                 "term_months": 36,
                 "disbursement_date": "2026-01-01",
             },
+            headers=self.H,
         )
         assert loan.status_code == 200
         loan_id = loan.json()["id"]
 
-        schedule = self.client.post(f"/loans/{loan_id}/schedule", params={"company_id": "comp-1"})
+        schedule = self.client.post(f"/loans/{loan_id}/schedule", params={"company_id": "comp-1"}, headers=self.H)
         data = schedule.json()
         assert len(data) == 36
         # First payment should have highest interest, lowest principal
@@ -352,8 +372,9 @@ class TestDebtManagementService:
                 "term_months": 24,
                 "disbursement_date": "2026-01-01",
             },
+            headers=self.H,
         )
-        resp = self.client.get("/summary", params={"company_id": "comp-2", "equity": 200000})
+        resp = self.client.get("/summary", params={"company_id": "comp-2", "equity": 200000}, headers=self.H)
         data = resp.json()
         assert resp.status_code == 200
         assert data["total_debt"] > 0

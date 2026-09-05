@@ -1,18 +1,33 @@
-"""
-Vimbai Debt Management Service
-Loan tracking, amortization schedules, debt restructuring, and covenant monitoring.
-Port: 8370
+"""Vimbai Debt Management Service - Loan tracking, amortization schedules, debt restructuring, and covenant monitoring. Port: 8370
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import math
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "debt_management_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("debt_management_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("debt_management_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["debt_management_service"] = _pkg
+    _sys.modules["debt_management_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from datetime import date, datetime, timezone
-from typing import Dict, List, Optional
+from typing import List
 
 import structlog
-from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from debt_management_service import crud, models
+from debt_management_service.dependencies import book_id_var, get_db_session, get_user_id
+from debt_management_service.exceptions import DebtManagementError, NotFoundError
+from fastapi import Depends, FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from neo4j import AsyncSession
 
 SERVICE_NAME = "debt-management-service"
 PORT = int(os.getenv("PORT", "8370"))
@@ -21,59 +36,38 @@ structlog.configure(
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.JSONRenderer(),
-    ]
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 app = FastAPI(title="Vimbai Debt Management Service", version="2.0.0", docs_url="/docs")
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 try:
     from shared.tracing import setup_tracing
 
-    setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
-    pass
+    TRACER = None
 
 
-class Loan(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    loan_name: str
-    lender: str
-    principal: float
-    interest_rate: float
-    term_months: int
-    disbursement_date: date
-    payment_frequency: str = "monthly"
-    remaining_balance: float = 0
-    status: str = "active"  # active, paid, defaulted, restructured
+@app.exception_handler(NotFoundError)
+@app.exception_handler(DebtManagementError)
+async def _debt_management_error(request: Request, exc: DebtManagementError):
+    from fastapi.responses import JSONResponse
+
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
-class AmortizationScheduleItem(BaseModel):
-    period: int
-    payment: float
-    principal_component: float
-    interest_component: float
-    balance: float
-
-
-class DebtSummary(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    total_debt: float
-    total_interest: float
-    total_monthly_payments: float
-    debt_to_equity: float = 0
-    weighted_avg_rate: float
-    loans: List[Dict] = []
-
-
-_loans: Dict[str, List[Loan]] = {}
-
-
-def _calc_payment(principal: float, rate: float, months: int) -> float:
-    if rate == 0:
-        return principal / months
-    r = rate / 12
-    return principal * r * (1 + r) ** months / ((1 + r) ** months - 1)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -82,76 +76,50 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
 
-@app.post("/loans", response_model=Loan)
-async def create_loan(loan: Loan):
-    loan.remaining_balance = loan.principal
-    _loans.setdefault(loan.company_id, []).append(loan)
-    return loan
-
-
-@app.get("/loans", response_model=List[Loan])
-async def list_loans(company_id: str):
-    return _loans.get(company_id, [])
-
-
-@app.post("/loans/{loan_id}/schedule", response_model=List[AmortizationScheduleItem])
-async def get_amortization_schedule(company_id: str, loan_id: str):
-    loans = _loans.get(company_id, [])
-    loan = next((l for l in loans if l.id == loan_id), None)
-    if not loan:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail="Loan not found")
-
-    payment = _calc_payment(loan.principal, loan.interest_rate, loan.term_months)
-    balance = loan.principal
-    schedule = []
-
-    for i in range(1, loan.term_months + 1):
-        interest = balance * (loan.interest_rate / 12)
-        principal_comp = payment - interest
-        balance -= principal_comp
-        schedule.append(
-            AmortizationScheduleItem(
-                period=i,
-                payment=round(payment, 2),
-                principal_component=round(principal_comp, 2),
-                interest_component=round(interest, 2),
-                balance=round(max(balance, 0), 2),
-            )
-        )
-    return schedule
-
-
-@app.get("/summary", response_model=DebtSummary)
-async def get_debt_summary(company_id: str, equity: float = 0):
-    loans = _loans.get(company_id, [])
-    total_debt = sum(l.remaining_balance for l in loans)
-    total_monthly = sum(_calc_payment(l.principal, l.interest_rate, l.term_months) for l in loans)
-    total_interest = sum(
-        _calc_payment(l.principal, l.interest_rate, l.term_months) * l.term_months - l.principal for l in loans
+@app.post("/loans", response_model=models.Loan)
+async def create_loan(
+    loan: models.LoanCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.create_loan(db_session, user_id, loan)
+    logger.info(
+        "loan_created",
+        company_id=item.company_id,
+        loan_name=item.loan_name,
+        principal=item.principal,
     )
-    weighted_rate = sum(l.interest_rate * l.remaining_balance for l in loans) / total_debt if total_debt else 0
-    d2e = total_debt / equity if equity else 0
+    return item
 
-    return DebtSummary(
-        company_id=company_id,
-        total_debt=round(total_debt, 2),
-        total_interest=round(total_interest, 2),
-        total_monthly_payments=round(total_monthly, 2),
-        debt_to_equity=round(d2e, 4),
-        weighted_avg_rate=round(weighted_rate, 4),
-        loans=[
-            {
-                "id": l.id,
-                "name": l.loan_name,
-                "balance": l.remaining_balance,
-                "rate": l.interest_rate,
-                "status": l.status,
-            }
-            for l in loans
-        ],
-    )
+
+@app.get("/loans", response_model=List[models.Loan])
+async def list_loans(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.list_loans(db_session, user_id, company_id)
+
+
+@app.post("/loans/{loan_id}/schedule", response_model=List[models.AmortizationScheduleItem])
+async def get_amortization_schedule(
+    loan_id: str,
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    loan = await crud.get_loan(db_session, user_id, company_id, loan_id)
+    return crud.build_schedule(loan)
+
+
+@app.get("/summary", response_model=models.DebtSummary)
+async def get_debt_summary(
+    company_id: str,
+    equity: float = 0,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.get_debt_summary(db_session, user_id, company_id, equity)
 
 
 if __name__ == "__main__":

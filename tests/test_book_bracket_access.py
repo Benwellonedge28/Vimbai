@@ -791,3 +791,72 @@ def test_fund_accounting_accessible_in_book(fund_client):
     # Personal view still sees own records across Books
     personal = fund_client.get("/fund-accounting/funds/co-book-access", headers=H_PERSONAL).json()
     assert personal["total_net_assets"] == 660.0
+
+
+# --------------------------------------------------------------------------
+# Debt management (treasury-banking bracket member)
+# --------------------------------------------------------------------------
+
+DEBT_LOAN_PAYLOAD = {
+    "company_id": "co-book-access",
+    "loan_name": "Book Access Loan",
+    "lender": "Stanbic",
+    "principal": 100000,
+    "interest_rate": 0.10,
+    "term_months": 36,
+    "disbursement_date": "2026-01-01",
+}
+
+
+@pytest.fixture(scope="module")
+def debt_client():
+    bracket = _load_bracket("treasury-banking-bracket")
+    _patch_fake("debt_management_service", "dm_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_debt_management_accessible_in_book(debt_client):
+    resp = debt_client.post("/debt-management/loans", json=DEBT_LOAN_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    loan = resp.json()
+    assert loan["book_id"] == BOOK
+    assert loan["remaining_balance"] == 100000.0
+
+    in_book = debt_client.get("/debt-management/loans", params={"company_id": "co-book-access"}, headers=H).json()
+    assert len(in_book) == 1
+
+    schedule = debt_client.post(
+        f"/debt-management/loans/{loan['id']}/schedule",
+        params={"company_id": "co-book-access"},
+        headers=H,
+    )
+    assert schedule.status_code == 200
+    assert len(schedule.json()) == 36
+
+    summary = debt_client.get(
+        "/debt-management/summary", params={"company_id": "co-book-access", "equity": 400000}, headers=H
+    ).json()
+    assert summary["total_debt"] == 100000.0
+
+    # Other Book cannot see the loan, its schedule, or the summary
+    other = debt_client.get("/debt-management/loans", params={"company_id": "co-book-access"}, headers=H_OTHER).json()
+    assert other == []
+    assert (
+        debt_client.post(
+            f"/debt-management/loans/{loan['id']}/schedule",
+            params={"company_id": "co-book-access"},
+            headers=H_OTHER,
+        ).status_code
+        == 404
+    )
+    other_summary = debt_client.get(
+        "/debt-management/summary", params={"company_id": "co-book-access"}, headers=H_OTHER
+    ).json()
+    assert other_summary["total_debt"] == 0
+
+    # Personal view still sees own records across Books
+    personal = debt_client.get(
+        "/debt-management/loans", params={"company_id": "co-book-access"}, headers=H_PERSONAL
+    ).json()
+    assert len(personal) == 1
