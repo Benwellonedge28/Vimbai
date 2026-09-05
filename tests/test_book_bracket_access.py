@@ -403,3 +403,69 @@ def test_document_service_accessible_in_book(document_client):
         if d["title"] == "Book Access Doc"
     ]
     assert len(other) == 0
+
+
+# --------------------------------------------------------------------------
+# Risk-governance bracket members (risk-assessment / risk-mitigation)
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def risk_client():
+    bracket = _load_bracket("risk-governance-bracket")
+    _patch_fake("risk_assessment_service", "rasm_bookaccess_fake")
+    _patch_fake("risk_mitigation_service", "rmit_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_risk_assessment_accessible_in_book(risk_client):
+    payload = {
+        "company_id": "co-book-access",
+        "category": "financial",
+        "name": "Book Access Risk",
+        "likelihood": 4,
+        "impact": 4,
+    }
+    resp = risk_client.post("/risk-assessment/risks", json=payload, headers=H)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["level"] == "high"
+
+    in_book = [
+        r
+        for r in risk_client.get("/risk-assessment/risks/co-book-access", headers=H).json()["risks"]
+        if r["name"] == "Book Access Risk"
+    ]
+    assert len(in_book) == 1
+    other = [
+        r
+        for r in risk_client.get("/risk-assessment/risks/co-book-access", headers=H_OTHER).json()["risks"]
+        if r["name"] == "Book Access Risk"
+    ]
+    assert len(other) == 0
+
+
+def test_risk_mitigation_accessible_in_book(risk_client):
+    payload = {
+        "company_id": "co-book-access",
+        "category": "operational",
+        "name": "Book Access Mitigation",
+        "likelihood": 2,
+        "impact": 2,
+    }
+    resp = risk_client.post("/risk-mitigation/risks", json=payload, headers=H)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["level"] == "low"
+
+    in_book = [
+        r
+        for r in risk_client.get("/risk-mitigation/risks/co-book-access", headers=H).json()["risks"]
+        if r["name"] == "Book Access Mitigation"
+    ]
+    assert len(in_book) == 1
+    other = [
+        r
+        for r in risk_client.get("/risk-mitigation/risks/co-book-access", headers=H_OTHER).json()["risks"]
+        if r["name"] == "Book Access Mitigation"
+    ]
+    assert len(other) == 0
