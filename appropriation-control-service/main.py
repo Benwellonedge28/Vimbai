@@ -1,18 +1,35 @@
-"""Vimbai Appropriation Control Service - Budget appropriation and spending control. Port: 8367"""
+"""Vimbai Appropriation Control Service - departmental budget controls. Port: 8370
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "appropriation_control_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("appropriation_control_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("appropriation_control_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["appropriation_control_service"] = _pkg
+    _sys.modules["appropriation_control_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from appropriation_control_service import crud, models
+from appropriation_control_service.dependencies import book_id_var, get_db_session, get_user_id
+from appropriation_control_service.exceptions import AppropriationControlError
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "appropriation-control-service"
-PORT = int(os.getenv("PORT", "8367"))
+PORT = int(os.getenv("PORT", "8370"))
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
@@ -31,34 +48,24 @@ app.add_middleware(
 try:
     from shared.tracing import setup_tracing
 
-    TRACER = setup_tracing(service_name="appropriation-control-service", instrument_app=app)
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
     TRACER = None
 
 
-class Appropriation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    department: str
-    fiscal_year: str
-    approved_amount: float
-    spent_amount: float = 0
-    committed_amount: float = 0
-    available_amount: float = 0
-    status: str = "active"  # active, exhausted, closed
+@app.exception_handler(AppropriationControlError)
+async def _appropriation_error(request: Request, exc: AppropriationControlError):
+    from fastapi.responses import JSONResponse
+
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
-class AppropriationTransaction(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    appropriation_id: str
-    type: str = "commit"  # commit, spend, uncommit, refund
-    amount: float
-    description: str = ""
-    date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-_appropriations: Dict[str, List[Appropriation]] = defaultdict(list)
-_transactions: Dict[str, List[AppropriationTransaction]] = defaultdict(list)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -66,56 +73,51 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME}
 
 
-@app.post("/appropriations", response_model=Appropriation)
-async def create_appropriation(appr: Appropriation):
-    appr.available_amount = appr.approved_amount - appr.committed_amount - appr.spent_amount
-    _appropriations[appr.company_id].append(appr)
-    return appr
+@app.post("/appropriations", response_model=models.Appropriation)
+async def create_appropriation(
+    appr: models.AppropriationCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.create_appropriation(db_session, user_id, appr)
+    logger.info("appropriation_created", company_id=item.company_id, department=item.department)
+    return item
 
 
 @app.get("/appropriations/{company_id}")
-async def get_appropriations(company_id: str, department: Optional[str] = None):
-    apprs = _appropriations.get(company_id, [])
-    if department:
-        apprs = [a for a in apprs if a.department == department]
+async def get_appropriations(
+    company_id: str,
+    department: str = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    apprs = await crud.list_appropriations(db_session, user_id, company_id, department or "")
     return {"company_id": company_id, "appropriations": apprs, "total": len(apprs)}
 
 
 @app.post("/transactions")
-async def create_transaction(tx: AppropriationTransaction):
-    _transactions[tx.appropriation_id].append(tx)
-    for apprs in _appropriations.values():
-        for a in apprs:
-            if a.id == tx.appropriation_id:
-                if tx.type == "commit":
-                    a.committed_amount += tx.amount
-                elif tx.type == "spend":
-                    a.spent_amount += tx.amount
-                    a.committed_amount -= tx.amount
-                elif tx.type == "uncommit":
-                    a.committed_amount -= tx.amount
-                elif tx.type == "refund":
-                    a.spent_amount -= tx.amount
-                a.available_amount = a.approved_amount - a.committed_amount - a.spent_amount
-                if a.available_amount <= 0:
-                    a.status = "exhausted"
-                return {"id": tx.id, "available": a.available_amount, "status": a.status}
-    raise HTTPException(status_code=404, detail="Appropriation not found")
+async def create_transaction(
+    tx: models.AppropriationTransactionCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await crud.create_transaction(db_session, user_id, tx)
+    except AppropriationControlError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
 @app.get("/check/{appropriation_id}")
-async def check_available(appropriation_id: str, amount: float):
-    for apprs in _appropriations.values():
-        for a in apprs:
-            if a.id == appropriation_id:
-                can_spend = a.available_amount >= amount
-                return {
-                    "appropriation_id": appropriation_id,
-                    "available": a.available_amount,
-                    "requested": amount,
-                    "allowed": can_spend,
-                }
-    raise HTTPException(status_code=404, detail="Appropriation not found")
+async def check_available(
+    appropriation_id: str,
+    amount: float,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await crud.check_available(db_session, user_id, appropriation_id, amount)
+    except AppropriationControlError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
 if __name__ == "__main__":

@@ -1366,3 +1366,78 @@ def test_tax_audit_accessible_in_book(tax_audit_client):
     # Personal view still sees own engagements across Books
     personal = tax_audit_client.get("/tax-audit/engagements/co-book-access", headers=H_PERSONAL).json()
     assert any(e["id"] == eng["id"] for e in personal["engagements"])
+
+
+# --------------------------------------------------------------------------
+# Appropriation control (costing-budgeting bracket member)
+# --------------------------------------------------------------------------
+
+AC_APPROPRIATION_PAYLOAD = {
+    "company_id": "co-book-access",
+    "department": "IT",
+    "fiscal_year": "2026",
+    "approved_amount": 100000,
+}
+
+
+@pytest.fixture(scope="module")
+def appropriation_client():
+    bracket = _load_bracket("costing-budgeting-bracket")
+    _patch_fake("appropriation_control_service", "ac_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_appropriation_control_accessible_in_book(appropriation_client):
+    resp = appropriation_client.post("/appropriation-control/appropriations", json=AC_APPROPRIATION_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    appr = resp.json()
+    assert appr["book_id"] == BOOK
+    assert appr["available_amount"] == 100000
+
+    # appropriation visible in the Book, invisible to the other Book
+    mine = appropriation_client.get("/appropriation-control/appropriations/co-book-access", headers=H).json()
+    assert any(a["id"] == appr["id"] for a in mine["appropriations"])
+    other = appropriation_client.get("/appropriation-control/appropriations/co-book-access", headers=H_OTHER).json()
+    assert all(a["id"] != appr["id"] for a in other["appropriations"])
+
+    # transact within the Book
+    commit = appropriation_client.post(
+        "/appropriation-control/transactions",
+        json={"appropriation_id": appr["id"], "type": "commit", "amount": 30000},
+        headers=H,
+    )
+    assert commit.status_code == 200, commit.text
+    assert commit.json()["available"] == 70000
+
+    # other Book cannot transact or check
+    blocked_tx = appropriation_client.post(
+        "/appropriation-control/transactions",
+        json={"appropriation_id": appr["id"], "type": "spend", "amount": 30000},
+        headers=H_OTHER,
+    )
+    assert blocked_tx.status_code == 404
+    blocked_check = appropriation_client.get(
+        f"/appropriation-control/check/{appr['id']}", params={"amount": 1000}, headers=H_OTHER
+    )
+    assert blocked_check.status_code == 404
+
+    # spend within the Book, availability reflects it
+    spend = appropriation_client.post(
+        "/appropriation-control/transactions",
+        json={"appropriation_id": appr["id"], "type": "spend", "amount": 30000},
+        headers=H,
+    )
+    assert spend.json()["available"] == 70000
+    check = appropriation_client.get(
+        f"/appropriation-control/check/{appr['id']}", params={"amount": 80000}, headers=H
+    ).json()
+    assert check["allowed"] is False
+
+    # Personal view still sees own appropriations across Books
+    personal = appropriation_client.get(
+        "/appropriation-control/appropriations/co-book-access", headers=H_PERSONAL
+    ).json()
+    assert any(a["id"] == appr["id"] for a in personal["appropriations"])
+    idx = [a["id"] for a in personal["appropriations"]].index(appr["id"])
+    assert personal["appropriations"][idx]["available_amount"] == 70000
