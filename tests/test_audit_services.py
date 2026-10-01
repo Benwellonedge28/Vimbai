@@ -60,8 +60,11 @@ def operational_audit_client():
 
 @pytest.fixture
 def tax_audit_client():
+    _patch_fake("tax_audit_service", "tax_audit_root_fake")
     app = load_service("tax-audit-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture

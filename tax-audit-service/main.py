@@ -1,19 +1,33 @@
-"""Vimbai Tax Audit Service - Audit and forensic analysis. Port: 8353"""
+"""Vimbai Tax Audit Service - audit engagements, findings and remediation. Port: 8370
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "tax_audit_service" not in _sys.modules or not hasattr(_sys.modules.get("tax_audit_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("tax_audit_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["tax_audit_service"] = _pkg
+    _sys.modules["tax_audit_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from tax_audit_service import crud, models
+from tax_audit_service.dependencies import book_id_var, get_db_session, get_user_id
+from tax_audit_service.exceptions import TaxAuditError
 
 SERVICE_NAME = "tax-audit-service"
-PORT = int(os.getenv("PORT", "8353"))
+PORT = int(os.getenv("PORT", "8370"))
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
@@ -32,53 +46,24 @@ app.add_middleware(
 try:
     from shared.tracing import setup_tracing
 
-    TRACER = setup_tracing(service_name="tax-audit-service", instrument_app=app)
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
     TRACER = None
 
 
-class AuditStatus(str, Enum):
-    PLANNED = "planned"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
+@app.exception_handler(TaxAuditError)
+async def _tax_audit_error(request: Request, exc: TaxAuditError):
+    from fastapi.responses import JSONResponse
+
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
-class FindingSeverity(str, Enum):
-    INFO = "info"
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
-class AuditFinding(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    title: str
-    description: str
-    severity: FindingSeverity = FindingSeverity.MEDIUM
-    recommendation: str = ""
-    status: str = "open"  # open, remediated, accepted
-    evidence: str = ""
-
-
-class AuditEngagement(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    audit_type: str = "operational"
-    title: str
-    scope: str = ""
-    objectives: List[str] = []
-    start_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    end_date: Optional[datetime] = None
-    auditor: str = ""
-    status: AuditStatus = AuditStatus.PLANNED
-    findings: List[AuditFinding] = []
-    summary: str = ""
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-_engagements: Dict[str, List[AuditEngagement]] = defaultdict(list)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -86,80 +71,78 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME}
 
 
-@app.post("/engagements", response_model=AuditEngagement)
-async def create_engagement(engagement: AuditEngagement):
-    _engagements[engagement.company_id].append(engagement)
-    logger.info("engagement_created", company_id=engagement.company_id, type=engagement.audit_type)
-    return engagement
+@app.post("/engagements", response_model=models.AuditEngagement)
+async def create_engagement(
+    engagement: models.AuditEngagementCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.create_engagement(db_session, user_id, engagement)
+    logger.info("engagement_created", company_id=item.company_id, type=item.audit_type)
+    return item
 
 
 @app.get("/engagements/{company_id}")
-async def get_engagements(company_id: str, status_filter: Optional[str] = None):
-    engs = _engagements.get(company_id, [])
-    if status_filter:
-        engs = [e for e in engs if e.status.value == status_filter]
-    return {"company_id": company_id, "engagements": engs, "total": len(engs)}
+async def get_engagements(
+    company_id: str,
+    status_filter: str = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    engagements = await crud.list_engagements(db_session, user_id, company_id, status_filter or "")
+    return {"company_id": company_id, "engagements": engagements, "total": len(engagements)}
 
 
 @app.put("/engagements/{engagement_id}/status")
-async def update_status(engagement_id: str, status: AuditStatus, summary: str = ""):
-    for engs in _engagements.values():
-        for e in engs:
-            if e.id == engagement_id:
-                e.status = status
-                if status == AuditStatus.COMPLETED:
-                    e.end_date = datetime.now(timezone.utc)
-                    if summary:
-                        e.summary = summary
-                return {"id": engagement_id, "status": status.value}
-    raise HTTPException(status_code=404, detail="Engagement not found")
+async def update_status(
+    engagement_id: str,
+    status: models.AuditStatus,
+    summary: str = "",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await crud.update_status(db_session, user_id, engagement_id, status, summary)
+    except TaxAuditError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
 @app.post("/engagements/{engagement_id}/findings")
-async def add_finding(engagement_id: str, finding: AuditFinding):
-    for engs in _engagements.values():
-        for e in engs:
-            if e.id == engagement_id:
-                e.findings.append(finding)
-                return {"engagement_id": engagement_id, "finding_id": finding.id, "severity": finding.severity.value}
-    raise HTTPException(status_code=404, detail="Engagement not found")
+async def add_finding(
+    engagement_id: str,
+    finding: models.AuditFindingCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await crud.add_finding(db_session, user_id, engagement_id, finding)
+    except TaxAuditError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
 @app.put("/findings/{finding_id}/remediate")
-async def remediate_finding(finding_id: str, remediation_note: str = ""):
-    for engs in _engagements.values():
-        for e in engs:
-            for f in e.findings:
-                if f.id == finding_id:
-                    f.status = "remediated"
-                    if remediation_note:
-                        f.recommendation = f"{f.recommendation}\n\nRemediation: {remediation_note}"
-                    return {"finding_id": finding_id, "status": "remediated"}
-    raise HTTPException(status_code=404, detail="Finding not found")
+async def remediate_finding(
+    finding_id: str,
+    remediation_note: str = "",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await crud.remediate_finding(db_session, user_id, finding_id, remediation_note)
+    except TaxAuditError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
 @app.get("/report/{engagement_id}")
-async def audit_report(engagement_id: str):
-    for engs in _engagements.values():
-        for e in engs:
-            if e.id == engagement_id:
-                critical = sum(1 for f in e.findings if f.severity == FindingSeverity.CRITICAL)
-                high = sum(1 for f in e.findings if f.severity == FindingSeverity.HIGH)
-                medium = sum(1 for f in e.findings if f.severity == FindingSeverity.MEDIUM)
-                low = sum(1 for f in e.findings if f.severity == FindingSeverity.LOW)
-                return {
-                    "engagement": e,
-                    "findings_summary": {
-                        "critical": critical,
-                        "high": high,
-                        "medium": medium,
-                        "low": low,
-                        "total": len(e.findings),
-                    },
-                    "open_findings": sum(1 for f in e.findings if f.status == "open"),
-                    "remediated": sum(1 for f in e.findings if f.status == "remediated"),
-                }
-    raise HTTPException(status_code=404, detail="Engagement not found")
+async def audit_report(
+    engagement_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await crud.audit_report(db_session, user_id, engagement_id)
+    except TaxAuditError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
 if __name__ == "__main__":
