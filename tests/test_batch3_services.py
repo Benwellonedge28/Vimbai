@@ -51,7 +51,22 @@ class TestTaxRiskService:
 
 class TestTaxComplianceService:
     def setup_method(self):
-        self.client = TestClient(load_app("tax-compliance-service"))
+        import importlib.util
+        import os as _os
+
+        app = load_app("tax-compliance-service")
+        svc_dir = _os.path.join(
+            _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "tax-compliance-service"
+        )
+        spec = importlib.util.spec_from_file_location("tc_batch3_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
+        fake_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake_mod)
+        self._session = fake_mod.FakeSession()
+        import tax_compliance_service.database as db
+
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "batch3-tc-user"})
 
     def test_obligation_lifecycle(self):
         obl = self.client.post(
@@ -65,10 +80,11 @@ class TestTaxComplianceService:
                 "filing_frequency": "quarterly",
             },
         )
-        assert obl.status_code == 200
+        assert obl.status_code == 200, obl.text
         obl_id = obl.json()["id"]
 
         filed = self.client.post(f"/obligations/{obl_id}/file", params={"company_id": "comp-1", "filed_amount": 15000})
+        assert filed.status_code == 200
         assert filed.json()["filed"] is True
 
         summary = self.client.get("/summary", params={"company_id": "comp-1"})

@@ -2082,3 +2082,69 @@ def test_audit_trio_accessible_in_book(audit_trio_client, key):
     tax_mount = "/tax-audit"
     tax_list = audit_trio_client.get(f"{tax_mount}/engagements/co-book-access", headers=H).json()
     assert all(e["id"] != eng["id"] for e in tax_list["engagements"])
+
+
+# --------------------------------------------------------------------------
+# Tax compliance (tax-audit-investigation bracket member)
+# --------------------------------------------------------------------------
+
+TC_OBLIGATION_PAYLOAD = {
+    "company_id": "co-book-access",
+    "obligation_type": "vat_return",
+    "description": "Book-Access VAT Return",
+    "due_date": "2026-04-30T00:00:00Z",
+    "amount": 15000,
+    "filing_frequency": "quarterly",
+}
+
+
+@pytest.fixture(scope="module")
+def tax_compliance_client():
+    bracket = _load_bracket("tax-audit-investigation-bracket")
+    _patch_fake("tax_compliance_service", "tc_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_tax_compliance_accessible_in_book(tax_compliance_client):
+    resp = tax_compliance_client.post("/tax-compliance/obligations", json=TC_OBLIGATION_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    obl = resp.json()
+    assert obl["status"] == "pending"
+
+    # visible in the Book, invisible to the other Book and other users
+    mine = tax_compliance_client.get(
+        "/tax-compliance/obligations", params={"company_id": "co-book-access"}, headers=H
+    ).json()
+    assert any(o["id"] == obl["id"] for o in mine)
+    other = tax_compliance_client.get(
+        "/tax-compliance/obligations", params={"company_id": "co-book-access"}, headers=H_OTHER
+    ).json()
+    assert all(o["id"] != obl["id"] for o in other)
+
+    # filing is Book-gated
+    filed = tax_compliance_client.post(
+        f"/tax-compliance/obligations/{obl['id']}/file",
+        params={"company_id": "co-book-access", "filed_amount": 15000},
+        headers=H,
+    )
+    assert filed.status_code == 200, filed.text
+    assert filed.json()["filed"] is True
+
+    # the other Book cannot file someone else's obligation, and cannot see it in summary
+    obl2 = tax_compliance_client.post("/tax-compliance/obligations", json=TC_OBLIGATION_PAYLOAD, headers=H).json()
+    blocked = tax_compliance_client.post(
+        f"/tax-compliance/obligations/{obl2['id']}/file",
+        params={"company_id": "co-book-access", "filed_amount": 1},
+        headers=H_OTHER,
+    )
+    assert blocked.status_code == 404
+    summary = tax_compliance_client.get(
+        "/tax-compliance/summary", params={"company_id": "co-book-access"}, headers=H
+    ).json()
+    assert summary["filed"] == 1
+    assert summary["pending"] == 1
+    other_summary = tax_compliance_client.get(
+        "/tax-compliance/summary", params={"company_id": "co-book-access"}, headers=H_OTHER
+    ).json()
+    assert other_summary["total_obligations"] == 0
