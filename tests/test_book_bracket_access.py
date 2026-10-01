@@ -1518,3 +1518,69 @@ def test_bank_relationship_accessible_in_book(bank_relationship_client):
         "/bank-relationship/relationships/co-book-access", headers=H_PERSONAL
     ).json()
     assert any(r["id"] == rel["id"] for r in personal["relationships"])
+
+
+# --------------------------------------------------------------------------
+# Cash optimization (corporate-finance bracket member)
+# --------------------------------------------------------------------------
+
+CO_ACCOUNTS = [
+    {
+        "company_id": "co-book-access",
+        "account_name": "Operating",
+        "account_type": "operating",
+        "balance": 200000,
+        "min_required": 50000,
+    },
+    {
+        "company_id": "co-book-access",
+        "account_name": "Investment",
+        "account_type": "investment",
+        "balance": 50000,
+        "interest_rate": 0.05,
+    },
+]
+
+
+@pytest.fixture(scope="module")
+def cash_opt_client():
+    bracket = _load_bracket("corporate-finance-bracket")
+    _patch_fake("cash_optimization_service", "cashopt_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_cash_optimization_accessible_in_book(cash_opt_client):
+    for acct in CO_ACCOUNTS:
+        resp = cash_opt_client.post("/cash-optimization/accounts", json=acct, headers=H)
+        assert resp.status_code == 200, resp.text
+
+    # accounts visible in the Book, invisible to the other Book
+    mine = cash_opt_client.get("/cash-optimization/accounts/co-book-access", headers=H).json()
+    assert len(mine["accounts"]) == 2
+    other = cash_opt_client.get("/cash-optimization/accounts/co-book-access", headers=H_OTHER).json()
+    assert other["accounts"] == []
+
+    # optimize within the Book
+    resp = cash_opt_client.post("/cash-optimization/optimize/co-book-access", headers=H)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["total_count"] >= 1
+    assert data["potential_annual_benefit"] > 0
+
+    # suggestions persist and stay Book-scoped
+    stored = cash_opt_client.get("/cash-optimization/suggestions/co-book-access", headers=H).json()
+    assert len(stored["suggestions"]) == data["total_count"]
+    other_stored = cash_opt_client.get("/cash-optimization/suggestions/co-book-access", headers=H_OTHER).json()
+    assert other_stored["suggestions"] == []
+
+    # other Book's optimize run sees no accounts and produces nothing
+    other_run = cash_opt_client.post("/cash-optimization/optimize/co-book-access", headers=H_OTHER).json()
+    assert other_run["total_count"] == 0
+    # the Book's own suggestions survive the other Book's run untouched
+    still_there = cash_opt_client.get("/cash-optimization/suggestions/co-book-access", headers=H).json()
+    assert len(still_there["suggestions"]) == data["total_count"]
+
+    # Personal view still sees own accounts across Books
+    personal = cash_opt_client.get("/cash-optimization/accounts/co-book-access", headers=H_PERSONAL).json()
+    assert len(personal["accounts"]) == 2

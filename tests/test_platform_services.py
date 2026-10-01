@@ -85,8 +85,11 @@ def scenario_client():
 
 @pytest.fixture
 def cash_opt_client():
+    _patch_fake("cash_optimization_service", "cash_opt_root_fake")
     app = load_service("cash-optimization-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture

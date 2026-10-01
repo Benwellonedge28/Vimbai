@@ -1,19 +1,35 @@
-"""Vimbai Cash Optimization Service - Optimize cash allocation across accounts. Port: 8324"""
+"""Vimbai Cash Optimization Service - idle cash redeployment suggestions. Port: 8370
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "cash_optimization_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("cash_optimization_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("cash_optimization_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["cash_optimization_service"] = _pkg
+    _sys.modules["cash_optimization_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI
+from cash_optimization_service import crud, models
+from cash_optimization_service.dependencies import book_id_var, get_db_session, get_user_id
+from cash_optimization_service.exceptions import CashOptimizationError
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "cash-optimization-service"
-PORT = int(os.getenv("PORT", "8324"))
+PORT = int(os.getenv("PORT", "8370"))
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
@@ -32,119 +48,24 @@ app.add_middleware(
 try:
     from shared.tracing import setup_tracing
 
-    TRACER = setup_tracing(service_name="cash-optimization-service", instrument_app=app)
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
     TRACER = None
 
 
-class AccountType(str, Enum):
-    OPERATING = "operating"
-    RESERVE = "reserve"
-    INVESTMENT = "investment"
-    TAX = "tax"
-    PAYROLL = "payroll"
+@app.exception_handler(CashOptimizationError)
+async def _cash_optimization_error(request: Request, exc: CashOptimizationError):
+    from fastapi.responses import JSONResponse
+
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
-class CashAccount(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    account_name: str
-    account_type: AccountType
-    balance: float
-    min_required: float = 0
-    interest_rate: float = 0
-    currency: str = "USD"
-
-
-class OptimizationSuggestion(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    from_account: str
-    to_account: str
-    amount: float
-    reason: str
-    expected_benefit: float = 0  # annual benefit
-    priority: str = "medium"  # low, medium, high
-
-
-_accounts: Dict[str, List[CashAccount]] = defaultdict(list)
-_suggestions: Dict[str, List[OptimizationSuggestion]] = defaultdict(list)
-
-
-def optimize(company_id: str) -> List[OptimizationSuggestion]:
-    accounts = _accounts.get(company_id, [])
-    suggestions = []
-    if not accounts:
-        return suggestions
-
-    # Find excess cash in operating accounts
-    for acc in accounts:
-        excess = acc.balance - acc.min_required
-        if excess > 10000 and acc.account_type == AccountType.OPERATING:
-            # Find best investment account
-            inv_accounts = [a for a in accounts if a.account_type == AccountType.INVESTMENT]
-            if inv_accounts:
-                best = max(inv_accounts, key=lambda a: a.interest_rate)
-                annual_benefit = excess * best.interest_rate
-                suggestions.append(
-                    OptimizationSuggestion(
-                        company_id=company_id,
-                        from_account=acc.account_name,
-                        to_account=best.account_name,
-                        amount=excess,
-                        reason=f"Move excess operating cash to higher-yield investment account ({best.interest_rate*100:.1f}% APR)",
-                        expected_benefit=annual_benefit,
-                        priority="high",
-                    )
-                )
-
-        # Check reserve accounts with excess
-        if excess > 50000 and acc.account_type == AccountType.RESERVE:
-            inv_accounts = [
-                a for a in accounts if a.account_type == AccountType.INVESTMENT and a.interest_rate > acc.interest_rate
-            ]
-            if inv_accounts:
-                best = max(inv_accounts, key=lambda a: a.interest_rate)
-                rate_diff = best.interest_rate - acc.interest_rate
-                annual_benefit = excess * rate_diff
-                suggestions.append(
-                    OptimizationSuggestion(
-                        company_id=company_id,
-                        from_account=acc.account_name,
-                        to_account=best.account_name,
-                        amount=excess,
-                        reason=f"Transfer to higher-yield account for {rate_diff*100:.1f}% rate improvement",
-                        expected_benefit=annual_benefit,
-                        priority="medium",
-                    )
-                )
-
-    # Check for underfunded accounts
-    for acc in accounts:
-        if acc.balance < acc.min_required and acc.account_type in (
-            AccountType.RESERVE,
-            AccountType.TAX,
-            AccountType.PAYROLL,
-        ):
-            deficit = acc.min_required - acc.balance
-            operating = [
-                a for a in accounts if a.account_type == AccountType.OPERATING and a.balance > a.min_required + deficit
-            ]
-            if operating:
-                source = max(operating, key=lambda a: a.balance - a.min_required)
-                suggestions.append(
-                    OptimizationSuggestion(
-                        company_id=company_id,
-                        from_account=source.account_name,
-                        to_account=acc.account_name,
-                        amount=deficit,
-                        reason=f"Top up {acc.account_type.value} account to meet minimum requirement",
-                        expected_benefit=0,
-                        priority="high",
-                    )
-                )
-
-    return suggestions
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -153,32 +74,48 @@ async def health():
 
 
 @app.post("/accounts")
-async def add_account(account: CashAccount):
-    _accounts[account.company_id].append(account)
-    return {"id": account.id, "account_name": account.account_name, "balance": account.balance}
+async def add_account(
+    account: models.CashAccountCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.add_account(db_session, user_id, account)
+    logger.info("cash_account_added", company_id=account.company_id, name=account.account_name)
+    return item
 
 
 @app.get("/accounts/{company_id}")
-async def get_accounts(company_id: str):
-    return {"company_id": company_id, "accounts": _accounts.get(company_id, [])}
+async def get_accounts(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.get_accounts(db_session, user_id, company_id)
 
 
 @app.post("/optimize/{company_id}")
-async def run_optimization(company_id: str):
-    suggestions = optimize(company_id)
-    _suggestions[company_id] = suggestions
-    total_benefit = sum(s.expected_benefit for s in suggestions)
-    return {
-        "company_id": company_id,
-        "suggestions": suggestions,
-        "total_count": len(suggestions),
-        "potential_annual_benefit": total_benefit,
-    }
+async def run_optimization(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    result = await crud.run_optimization(db_session, user_id, company_id)
+    logger.info(
+        "optimization_run",
+        company_id=company_id,
+        suggestions=result["total_count"],
+        benefit=result["potential_annual_benefit"],
+    )
+    return result
 
 
 @app.get("/suggestions/{company_id}")
-async def get_suggestions(company_id: str):
-    return {"company_id": company_id, "suggestions": _suggestions.get(company_id, [])}
+async def get_suggestions(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.get_suggestions(db_session, user_id, company_id)
 
 
 if __name__ == "__main__":
