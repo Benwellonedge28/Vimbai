@@ -2,18 +2,45 @@
 Integration tests for Treasury Management, Compliance, and Analytics services.
 """
 
-from datetime import datetime, timezone
+import importlib.util
+import os
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import load_service
 
+TM_HEADERS = {"X-User-Id": "root-tm-user"}
+
 
 @pytest.fixture
 def treasury_client():
-    app = load_service("treasury-management-service").main.app
-    return TestClient(app)
+    pkg = load_service("treasury-management-service")
+    app = pkg.main.app
+    # patch the fake Neo4j driver (module is registered by the service's self-bootstrap)
+    fake_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "treasury-management-service",
+        "fake_neo4j.py",
+    )
+    spec = importlib.util.spec_from_file_location("root_tm_fake", fake_path)
+    fake = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fake)
+    session = fake.FakeSession()
+    # conftest replaces the parent alias with a bare module (no __path__), so
+    # load the lazily-imported database module by file path and patch it
+    db_path = os.path.join(os.path.dirname(fake_path), "database.py")
+    db_spec = importlib.util.spec_from_file_location("treasury_management_service.database", db_path)
+    db_mod = importlib.util.module_from_spec(db_spec)
+    sys.modules["treasury_management_service.database"] = db_mod
+    db_spec.loader.exec_module(db_mod)
+    db_mod.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
+    client = TestClient(app)
+    client.headers.update(TM_HEADERS)
+    yield client
+    session.nodes.clear()
+    session.edges.clear()
 
 
 @pytest.fixture

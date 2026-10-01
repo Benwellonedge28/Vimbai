@@ -927,3 +927,72 @@ def test_trade_finance_accessible_in_book(trade_finance_client):
     ).json()
     assert len(personal) == 1
     assert personal[0]["status"] == "paid"
+
+
+# --------------------------------------------------------------------------
+# Treasury management (treasury-banking bracket member)
+# --------------------------------------------------------------------------
+
+TM_FLOW_PAYLOAD = {
+    "company_id": "co-book-access",
+    "flow_type": "inflow",
+    "amount": 50000,
+    "currency": "USD",
+    "description": "Customer payment",
+}
+
+
+@pytest.fixture(scope="module")
+def treasury_mgmt_client():
+    bracket = _load_bracket("treasury-banking-bracket")
+    _patch_fake("treasury_management_service", "tmg_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_treasury_management_accessible_in_book(treasury_mgmt_client):
+    resp = treasury_mgmt_client.post("/treasury-management/cashflows", json=TM_FLOW_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "recorded"
+
+    in_book = treasury_mgmt_client.get("/treasury-management/cashflows/co-book-access", headers=H).json()
+    assert in_book["total"] == 1
+    assert in_book["cashflows"][0]["book_id"] == BOOK
+    assert in_book["cashflows"][0]["amount"] == 50000
+
+    # Other Book sees nothing of the Book-A cashflows
+    other = treasury_mgmt_client.get("/treasury-management/cashflows/co-book-access", headers=H_OTHER).json()
+    assert other["total"] == 0
+
+    # Position derived from the visible flows only
+    pos = treasury_mgmt_client.get("/treasury-management/position/co-book-access", headers=H).json()
+    assert pos["total_cash"] == 50000.0
+    other_pos = treasury_mgmt_client.get("/treasury-management/position/co-book-access", headers=H_OTHER).json()
+    assert other_pos["total_cash"] == 0.0
+
+    # Position update persists within the Book and stays invisible to the other Book
+    put = treasury_mgmt_client.put(
+        "/treasury-management/position/co-book-access",
+        json={"total_cash": 120000.0, "available_cash": 90000.0},
+        headers=H,
+    )
+    assert put.status_code == 200, put.text
+    assert put.json()["book_id"] == BOOK
+    assert (
+        treasury_mgmt_client.get("/treasury-management/position/co-book-access", headers=H).json()["total_cash"]
+        == 120000.0
+    )
+    assert (
+        treasury_mgmt_client.get("/treasury-management/position/co-book-access", headers=H_OTHER).json()["total_cash"]
+        == 0.0
+    )
+
+    # Forecast is Book-scoped too
+    fc = treasury_mgmt_client.post("/treasury-management/forecast/co-book-access", headers=H).json()
+    assert fc["projected_inflows"] >= 0
+    other_fc = treasury_mgmt_client.post("/treasury-management/forecast/co-book-access", headers=H_OTHER).json()
+    assert other_fc["projected_inflows"] == 0
+
+    # Personal view still sees own records across Books
+    personal = treasury_mgmt_client.get("/treasury-management/cashflows/co-book-access", headers=H_PERSONAL).json()
+    assert personal["total"] == 1
