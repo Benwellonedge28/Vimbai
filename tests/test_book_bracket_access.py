@@ -2148,3 +2148,53 @@ def test_tax_compliance_accessible_in_book(tax_compliance_client):
         "/tax-compliance/summary", params={"company_id": "co-book-access"}, headers=H_OTHER
     ).json()
     assert other_summary["total_obligations"] == 0
+
+
+# --------------------------------------------------------------------------
+# Tax planning (tax-audit-investigation bracket member)
+# --------------------------------------------------------------------------
+
+TP_STRATEGY_PAYLOAD = {
+    "name": "Book-Access capital allowance",
+    "description": "Accelerate depreciation claims",
+    "strategy_type": "deduction",
+    "estimated_savings": 50000,
+    "implementation_cost": 10000,
+    "risk_level": "low",
+    "timeframe": "short-term",
+}
+
+
+@pytest.fixture(scope="module")
+def tax_planning_client():
+    bracket = _load_bracket("tax-audit-investigation-bracket")
+    _patch_fake("tax_planning_service", "tp_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_tax_planning_accessible_in_book(tax_planning_client):
+    resp = tax_planning_client.post("/tax-planning/strategies", json=TP_STRATEGY_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    strat = resp.json()
+    assert strat["id"]
+
+    # strategies persist and are visible in the Book, invisible to the other Book
+    mine = tax_planning_client.get("/tax-planning/strategies", headers=H).json()
+    assert any(s["id"] == strat["id"] for s in mine)
+    other = tax_planning_client.get("/tax-planning/strategies", headers=H_OTHER).json()
+    assert all(s["id"] != strat["id"] for s in other)
+
+    # planning stays a pure computation over the request payload
+    plan_payload = {
+        "company_id": "co-book-access",
+        "fiscal_year": 2026,
+        "current_taxable_income": 1000000,
+        "current_tax": 250000,
+        "strategies": [TP_STRATEGY_PAYLOAD],
+    }
+    plan = tax_planning_client.post("/tax-planning/plan", json=plan_payload, headers=H).json()
+    assert plan["projected_tax"] == 200000
+    assert plan["recommended_strategies"] == ["Book-Access capital allowance"]
+    # planning does not persist anything into the Book store
+    assert len(tax_planning_client.get("/tax-planning/strategies", headers=H).json()) == 1
