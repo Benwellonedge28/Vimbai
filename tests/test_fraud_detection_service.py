@@ -11,10 +11,33 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def client():
+    import importlib.util
+    import os
+
     from tests.conftest import load_service
 
-    app = load_service("fraud-detection-service").main.app
-    return TestClient(app)
+    svc = load_service("fraud-detection-service")
+    app = svc.main.app
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    fake_path = os.path.join(repo_root, "fraud-detection-service", "fake_neo4j.py")
+    import sys
+
+    spec = importlib.util.spec_from_file_location("fd_root_fake", fake_path)
+    fake_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fake_mod)
+    session = fake_mod.FakeSession()
+    # conftest replaces the parent alias with a bare module (no __path__), so
+    # load the lazily-imported database module by file path and patch it
+    db_spec = importlib.util.spec_from_file_location(
+        "fraud_detection_service.database", os.path.join(os.path.dirname(fake_path), "database.py")
+    )
+    db_mod = importlib.util.module_from_spec(db_spec)
+    sys.modules["fraud_detection_service.database"] = db_mod
+    db_spec.loader.exec_module(db_mod)
+    db_mod.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(session))
+    c = TestClient(app)
+    c.headers.update({"X-User-Id": "fraud-root-user"})
+    return c
 
 
 @pytest.fixture

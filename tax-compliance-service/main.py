@@ -44,6 +44,7 @@ app = FastAPI(title="Vimbai Tax Compliance Service", version="2.0.0", docs_url="
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
+# Distributed tracing (OpenTelemetry)
 try:
     from shared.tracing import setup_tracing
 
