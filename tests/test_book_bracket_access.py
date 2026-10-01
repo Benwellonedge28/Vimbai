@@ -1772,3 +1772,83 @@ def test_sensitivity_analysis_accessible_in_book(sensitivity_analysis_client):
         "/sensitivity-analysis/analyses/co-book-access", headers=H_PERSONAL
     ).json()
     assert personal["total"] == 1
+
+
+# --------------------------------------------------------------------------
+# Zero-based budgeting (costing-budgeting bracket member)
+# --------------------------------------------------------------------------
+
+ZBB_PACKAGE_PAYLOAD = {
+    "company_id": "co-book-access",
+    "period": "2026-Q1",
+    "name": "IT Budget",
+    "department": "IT",
+    "items": [
+        {
+            "department": "IT",
+            "category": "software",
+            "description": "Licenses",
+            "amount": 50000,
+            "justification": "Required for ops",
+        }
+    ],
+}
+
+
+@pytest.fixture(scope="module")
+def zbb_book_client():
+    bracket = _load_bracket("costing-budgeting-bracket")
+    _patch_fake("zero_based_budgeting_service", "zbb_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_zero_based_budgeting_accessible_in_book(zbb_book_client):
+    resp = zbb_book_client.post("/zero-based-budgeting/packages", json=ZBB_PACKAGE_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    pkg = resp.json()
+    assert pkg["book_id"] == BOOK
+    assert pkg["total_amount"] == 50000.0
+
+    # visible in the Book, invisible to the other Book
+    mine = zbb_book_client.get("/zero-based-budgeting/packages/co-book-access", headers=H).json()
+    assert any(p["id"] == pkg["id"] for p in mine["packages"])
+    other = zbb_book_client.get("/zero-based-budgeting/packages/co-book-access", headers=H_OTHER).json()
+    assert all(p["id"] != pkg["id"] for p in other["packages"])
+
+    # workflow operations stay Book-scoped; cross-Book status update 404
+    add = zbb_book_client.post(
+        f"/zero-based-budgeting/packages/{pkg['id']}/items",
+        json={
+            "department": "IT",
+            "category": "hardware",
+            "description": "Laptops",
+            "amount": 20000,
+            "justification": "New hires",
+        },
+        headers=H,
+    )
+    assert add.status_code == 200, add.text
+    assert add.json()["total_amount"] == 70000.0
+    assert (
+        zbb_book_client.put(
+            f"/zero-based-budgeting/packages/{pkg['id']}/status", params={"status": "approved"}, headers=H_OTHER
+        ).status_code
+        == 404
+    )
+    approved = zbb_book_client.put(
+        f"/zero-based-budgeting/packages/{pkg['id']}/status", params={"status": "approved"}, headers=H
+    )
+    assert approved.status_code == 200
+
+    # summary reflects the Book's packages only
+    summary = zbb_book_client.get("/zero-based-budgeting/summary/co-book-access", headers=H).json()
+    assert summary["total_packages"] == 1
+    assert summary["total_budget"] == 70000.0
+    assert summary["by_status"] == {"approved": 1}
+    other_summary = zbb_book_client.get("/zero-based-budgeting/summary/co-book-access", headers=H_OTHER).json()
+    assert other_summary["total_packages"] == 0
+
+    # Personal view still sees own packages across Books
+    personal = zbb_book_client.get("/zero-based-budgeting/packages/co-book-access", headers=H_PERSONAL).json()
+    assert any(p["id"] == pkg["id"] for p in personal["packages"])

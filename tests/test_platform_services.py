@@ -106,8 +106,11 @@ def sensitivity_client():
 
 @pytest.fixture
 def zbb_client():
+    _patch_fake("zero_based_budgeting_service", "zbb_root_fake")
     app = load_service("zero-based-budgeting-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 class TestPolicyEngine:
