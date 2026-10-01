@@ -40,8 +40,11 @@ def _patch_fake(pkg_name, fake_name):
 
 @pytest.fixture
 def policy_client():
+    _patch_fake("policy_engine_service", "policy_engine_root_fake")
     app = load_service("policy-engine-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture

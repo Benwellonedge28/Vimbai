@@ -1892,3 +1892,59 @@ def test_webhook_accessible_in_book(webhook_book_client):
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["total_sent"] == 0
+
+
+# --------------------------------------------------------------------------
+# Policy engine (platform-infrastructure bracket member)
+# --------------------------------------------------------------------------
+
+POLICY_RULE_PAYLOAD = {
+    "name": "Large Transaction Check",
+    "resource_type": "transaction",
+    "condition_field": "amount",
+    "condition_operator": ">",
+    "condition_value": 50000,
+    "action": "deny",
+    "message": "Transaction requires approval",
+}
+
+
+@pytest.fixture(scope="module")
+def policy_book_client():
+    bracket = _load_bracket("platform-infrastructure-bracket")
+    _patch_fake("policy_engine_service", "policy_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_policy_engine_accessible_in_book(policy_book_client):
+    created = policy_book_client.post("/policy/rules/co-book-access", json=POLICY_RULE_PAYLOAD, headers=H)
+    assert created.status_code == 200, created.text
+    rule = created.json()
+
+    mine = policy_book_client.get("/policy/rules/co-book-access", headers=H).json()
+    assert mine["total"] == 1
+    other = policy_book_client.get("/policy/rules/co-book-access", headers=H_OTHER).json()
+    assert other["total"] == 0
+
+    # Personal view still sees own rules across Books
+    personal = policy_book_client.get("/policy/rules/co-book-access", headers=H_PERSONAL).json()
+    assert personal["total"] == 1
+
+    # evaluation applies only the Book's rules
+    result = policy_book_client.post(
+        "/policy/evaluate/co-book-access",
+        params={"resource_type": "transaction"},
+        json={"amount": 80000},
+        headers=H,
+    ).json()
+    assert result["triggered_count"] == 1
+    assert result["blocked"] is True
+    other_result = policy_book_client.post(
+        "/policy/evaluate/co-book-access",
+        params={"resource_type": "transaction"},
+        json={"amount": 80000},
+        headers=H_OTHER,
+    ).json()
+    assert other_result["triggered_count"] == 0
+    assert other_result["allowed"] is True
