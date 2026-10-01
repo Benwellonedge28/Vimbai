@@ -1997,3 +1997,88 @@ def test_financial_identity_accessible_in_book(identity_book_client):
         identity_book_client.get("/financial-identity/profiles/user/subject-book-access", headers=H_OTHER).status_code
         == 404
     )
+
+
+# --------------------------------------------------------------------------
+# Forensic / IT / Operational audits (tax-audit-investigation bracket members)
+# --------------------------------------------------------------------------
+# Same audit-engagement engine as tax-audit, but stored under distinct node
+# labels so the four audit services can never read each other's engagements
+# inside the shared bracket database.
+
+
+AUDIT_TRIO_MOUNTS = {
+    "forensic": ("/forensic-accounting", "forensic_accounting_service", "forensic"),
+    "it": ("/it-audit", "it_audit_service", "it_audit"),
+    "operational": ("/operational-audit", "operational_audit_service", "operational"),
+}
+
+
+@pytest.fixture(scope="module")
+def audit_trio_client():
+    bracket = _load_bracket("tax-audit-investigation-bracket")
+    for _, pkg, short in AUDIT_TRIO_MOUNTS.values():
+        _patch_fake(pkg, f"{short}_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+@pytest.mark.parametrize("key", list(AUDIT_TRIO_MOUNTS))
+def test_audit_trio_accessible_in_book(audit_trio_client, key):
+    mount, _pkg, _short = AUDIT_TRIO_MOUNTS[key]
+    payload = {
+        "company_id": "co-book-access",
+        "audit_type": key,
+        "title": f"Book-Access {key} audit 2026",
+        "objectives": ["Check controls"],
+    }
+    resp = audit_trio_client.post(f"{mount}/engagements", json=payload, headers=H)
+    assert resp.status_code == 200, resp.text
+    eng = resp.json()
+    assert eng["book_id"] == BOOK
+    assert eng["status"] == "planned"
+
+    # visible in the Book, invisible to the other Book
+    mine = audit_trio_client.get(f"{mount}/engagements/co-book-access", headers=H).json()
+    assert any(e["id"] == eng["id"] for e in mine["engagements"])
+    other = audit_trio_client.get(f"{mount}/engagements/co-book-access", headers=H_OTHER).json()
+    assert all(e["id"] != eng["id"] for e in other["engagements"])
+
+    # findings and status changes are Book-gated
+    add = audit_trio_client.post(
+        f"{mount}/engagements/{eng['id']}/findings",
+        json={"title": "Control gap", "severity": "high", "description": "Weak control"},
+        headers=H,
+    )
+    assert add.status_code == 200, add.text
+    assert (
+        audit_trio_client.post(
+            f"{mount}/engagements/{eng['id']}/findings",
+            json={"title": "x", "description": "y"},
+            headers=H_OTHER,
+        ).status_code
+        == 404
+    )
+    assert (
+        audit_trio_client.put(
+            f"{mount}/engagements/{eng['id']}/status", params={"status": "completed"}, headers=H_OTHER
+        ).status_code
+        == 404
+    )
+
+    # complete within the Book, verify the report and cross-scope 404
+    done = audit_trio_client.put(
+        f"{mount}/engagements/{eng['id']}/status",
+        params={"status": "completed", "summary": "Closed"},
+        headers=H,
+    )
+    assert done.status_code == 200, done.text
+    report = audit_trio_client.get(f"{mount}/report/{eng['id']}", headers=H).json()
+    assert report["engagement"]["status"] == "completed"
+    assert report["findings_summary"]["high"] == 1
+    assert audit_trio_client.get(f"{mount}/report/{eng['id']}", headers=H_OTHER).status_code == 404
+
+    # tax-audit's engagements never leak into this service's listings
+    tax_mount = "/tax-audit"
+    tax_list = audit_trio_client.get(f"{tax_mount}/engagements/co-book-access", headers=H).json()
+    assert all(e["id"] != eng["id"] for e in tax_list["engagements"])

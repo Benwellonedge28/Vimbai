@@ -42,20 +42,29 @@ def _patch_fake(pkg_name, fake_name):
 
 @pytest.fixture
 def forensic_client():
+    _patch_fake("forensic_accounting_service", "forensic_root_fake")
     app = load_service("forensic-accounting-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture
 def it_audit_client():
+    _patch_fake("it_audit_service", "it_audit_root_fake")
     app = load_service("it-audit-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture
 def operational_audit_client():
+    _patch_fake("operational_audit_service", "operational_root_fake")
     app = load_service("operational-audit-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture
