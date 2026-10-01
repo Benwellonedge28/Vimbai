@@ -1,15 +1,31 @@
-"""Vimbai Treasury Analytics Service - Analytics and KPIs for treasury operations. Port: 8322"""
+"""Vimbai Treasury Analytics Service - Analytics and KPIs for treasury operations. Port: 8322
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "treasury_analytics_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("treasury_analytics_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("treasury_analytics_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["treasury_analytics_service"] = _pkg
+    _sys.modules["treasury_analytics_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from collections import defaultdict
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
 
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from treasury_analytics_service import crud, models
+from treasury_analytics_service.dependencies import book_id_var, get_db_session, get_user_id
 
 SERVICE_NAME = "treasury-analytics-service"
 PORT = int(os.getenv("PORT", "8322"))
@@ -28,6 +44,7 @@ app = FastAPI(title="Vimbai Treasury Analytics Service", version="2.0.0", docs_u
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
+# Distributed tracing (OpenTelemetry)
 try:
     from shared.tracing import setup_tracing
 
@@ -36,45 +53,26 @@ except ImportError:
     TRACER = None
 
 
-class TreasuryKPI(BaseModel):
-    name: str
-    value: float
-    unit: str
-    benchmark: float = 0
-    status: str = "good"
-    description: str = ""
-
-
-class AnalyticsRequest(BaseModel):
-    company_id: str
-    total_cash: float = 0
-    monthly_inflow: float = 0
-    monthly_outflow: float = 0
-    short_term_debt: float = 0
-    total_debt: float = 0
-    investments: float = 0
-    fx_exposure: float = 0
-
-
-class AnalyticsResponse(BaseModel):
-    company_id: str
-    kpis: List[TreasuryKPI]
-    cash_adequacy_days: float
-    debt_service_ratio: float
-    investment_yield: float
-    fx_risk_score: float
-
-
-_metrics: Dict[str, AnalyticsResponse] = {}
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
+@app.get("/health")
 async def health():
     return {"status": "healthy", "service": SERVICE_NAME}
 
 
-@app.post("/analyze", response_model=AnalyticsResponse)
-async def analyze_treasury(req: AnalyticsRequest):
+@app.post("/analyze", response_model=models.AnalyticsResponse)
+async def analyze_treasury(
+    req: models.AnalyticsRequest,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Compute treasury KPIs (pure calculation) and persist the snapshot for the caller's Book."""
     net_flow = req.monthly_inflow - req.monthly_outflow
     cash_adequacy = req.total_cash / max(1, req.monthly_outflow) * 30 if req.monthly_outflow > 0 else 999
     debt_service = (req.short_term_debt / max(1, req.monthly_inflow)) * 100 if req.monthly_inflow > 0 else 0
@@ -82,14 +80,14 @@ async def analyze_treasury(req: AnalyticsRequest):
     fx_score = min(100, (req.fx_exposure / max(1, req.total_cash)) * 100)
 
     kpis = [
-        TreasuryKPI(
+        models.TreasuryKPI(
             name="Net Cash Flow",
             value=net_flow,
             unit="USD",
             status="good" if net_flow > 0 else "warning",
             description="Monthly net cash position",
         ),
-        TreasuryKPI(
+        models.TreasuryKPI(
             name="Cash Runway",
             value=cash_adequacy,
             unit="days",
@@ -97,7 +95,7 @@ async def analyze_treasury(req: AnalyticsRequest):
             status="good" if cash_adequacy > 90 else "warning" if cash_adequacy > 30 else "critical",
             description="Days of cash available at current burn",
         ),
-        TreasuryKPI(
+        models.TreasuryKPI(
             name="Debt Service Ratio",
             value=debt_service,
             unit="%",
@@ -105,7 +103,7 @@ async def analyze_treasury(req: AnalyticsRequest):
             status="good" if debt_service < 30 else "warning" if debt_service < 50 else "critical",
             description="Short-term debt as % of monthly inflow",
         ),
-        TreasuryKPI(
+        models.TreasuryKPI(
             name="Investment Yield",
             value=yield_pct,
             unit="%",
@@ -113,7 +111,7 @@ async def analyze_treasury(req: AnalyticsRequest):
             status="good" if yield_pct >= 5 else "warning",
             description="Estimated annual yield on investments",
         ),
-        TreasuryKPI(
+        models.TreasuryKPI(
             name="FX Risk Score",
             value=fx_score,
             unit="score",
@@ -121,7 +119,7 @@ async def analyze_treasury(req: AnalyticsRequest):
             status="good" if fx_score < 20 else "warning" if fx_score < 50 else "critical",
             description="Foreign exchange exposure risk",
         ),
-        TreasuryKPI(
+        models.TreasuryKPI(
             name="Cash Utilization",
             value=(
                 (1 - req.total_cash / max(1, req.total_cash + req.investments)) * 100
@@ -134,7 +132,7 @@ async def analyze_treasury(req: AnalyticsRequest):
             description="Cash deployed in investments vs idle",
         ),
     ]
-    resp = AnalyticsResponse(
+    resp = models.AnalyticsResponse(
         company_id=req.company_id,
         kpis=kpis,
         cash_adequacy_days=cash_adequacy,
@@ -142,14 +140,27 @@ async def analyze_treasury(req: AnalyticsRequest):
         investment_yield=yield_pct,
         fx_risk_score=fx_score,
     )
-    _metrics[req.company_id] = resp
+    await crud.save_snapshot(db_session, user_id, resp)
+    logger.info(
+        "treasury_analyzed",
+        company_id=req.company_id,
+        cash_adequacy_days=cash_adequacy,
+        debt_service_ratio=debt_service,
+        fx_risk_score=fx_score,
+    )
     return resp
 
 
 @app.get("/kpi/{company_id}")
-async def get_kpis(company_id: str):
-    if company_id in _metrics:
-        return _metrics[company_id]
+async def get_kpis(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Return the caller's latest stored KPI snapshot for the company."""
+    snapshot = await crud.get_snapshot(db_session, user_id, company_id)
+    if snapshot:
+        return snapshot
     return {"company_id": company_id, "message": "Run /analyze first"}
 
 
