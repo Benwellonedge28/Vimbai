@@ -1584,3 +1584,76 @@ def test_cash_optimization_accessible_in_book(cash_opt_client):
     # Personal view still sees own accounts across Books
     personal = cash_opt_client.get("/cash-optimization/accounts/co-book-access", headers=H_PERSONAL).json()
     assert len(personal["accounts"]) == 2
+
+
+# --------------------------------------------------------------------------
+# Process + product costing (costing-budgeting bracket members, twins)
+# --------------------------------------------------------------------------
+
+COSTING_COMPONENTS = [
+    {"name": "Raw materials", "amount": 5000, "cost_type": "direct_materials"},
+    {"name": "Labour", "amount": 3000, "cost_type": "direct_labor"},
+    {"name": "Overhead", "amount": 2000, "cost_type": "overhead"},
+]
+
+COSTING_PAYLOAD = {
+    "company_id": "co-book-access",
+    "product_or_process": "Widget Assembly",
+    "period": "2026-Q1",
+    "quantity": 100,
+    "components": COSTING_COMPONENTS,
+}
+
+
+def _costing_flow(client, prefix):
+    resp = client.post(f"/{prefix}/calculate", json=COSTING_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    calc = resp.json()
+    assert calc["book_id"] == BOOK
+    assert calc["total_cost"] == 10000.0
+    assert calc["unit_cost"] == 100.0
+
+    # calculation visible in the Book, invisible to the other Book
+    mine = client.get(f"/{prefix}/calculations/co-book-access", headers=H).json()
+    assert any(c["id"] == calc["id"] for c in mine["calculations"])
+    other = client.get(f"/{prefix}/calculations/co-book-access", headers=H_OTHER).json()
+    assert all(c["id"] != calc["id"] for c in other["calculations"])
+
+    # breakdown within the Book; cross-scope 404
+    bd = client.get(f"/{prefix}/breakdown/co-book-access/{calc['id']}", headers=H).json()
+    assert bd["breakdown"]["direct_materials"] == 5000.0
+    assert client.get(f"/{prefix}/breakdown/co-book-access/{calc['id']}", headers=H_OTHER).status_code == 404
+
+    # summary reflects the Book's calculations only
+    summary = client.get(f"/{prefix}/summary/co-book-access", headers=H).json()
+    assert summary["total_calculations"] >= 1
+    other_summary = client.get(f"/{prefix}/summary/co-book-access", headers=H_OTHER).json()
+    assert other_summary["total_calculations"] == 0
+
+    # Personal view still sees own calculations across Books
+    personal = client.get(f"/{prefix}/calculations/co-book-access", headers=H_PERSONAL).json()
+    assert any(c["id"] == calc["id"] for c in personal["calculations"])
+
+
+@pytest.fixture(scope="module")
+def process_costing_client():
+    bracket = _load_bracket("costing-budgeting-bracket")
+    _patch_fake("process_costing_service", "pc_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+@pytest.fixture(scope="module")
+def product_costing_client():
+    bracket = _load_bracket("costing-budgeting-bracket")
+    _patch_fake("product_costing_service", "prc_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_process_costing_accessible_in_book(process_costing_client):
+    _costing_flow(process_costing_client, "process-costing")
+
+
+def test_product_costing_accessible_in_book(product_costing_client):
+    _costing_flow(product_costing_client, "product-costing")

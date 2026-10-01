@@ -69,14 +69,20 @@ def tax_audit_client():
 
 @pytest.fixture
 def process_costing_client():
+    _patch_fake("process_costing_service", "process_costing_root_fake")
     app = load_service("process-costing-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture
 def product_costing_client():
+    _patch_fake("product_costing_service", "product_costing_root_fake")
     app = load_service("product-costing-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture

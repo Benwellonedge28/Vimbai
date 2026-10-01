@@ -1,16 +1,32 @@
-"""Vimbai Product Costing Service - Costing analysis and calculation. Port: 8341"""
+"""Vimbai Product Costing Service - costing analysis and calculation. Port: 8341
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "product_costing_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("product_costing_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("product_costing_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["product_costing_service"] = _pkg
+    _sys.modules["product_costing_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from product_costing_service import crud, models
+from product_costing_service.dependencies import book_id_var, get_db_session, get_user_id
+from product_costing_service.exceptions import ProductCostingError
 
 SERVICE_NAME = "product-costing-service"
 PORT = int(os.getenv("PORT", "8341"))
@@ -32,31 +48,24 @@ app.add_middleware(
 try:
     from shared.tracing import setup_tracing
 
-    TRACER = setup_tracing(service_name="product-costing-service", instrument_app=app)
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
     TRACER = None
 
 
-class CostComponent(BaseModel):
-    name: str
-    amount: float
-    cost_type: str = "direct"  # direct_materials, direct_labor, overhead, etc.
+@app.exception_handler(ProductCostingError)
+async def _product_costing_error(request: Request, exc: ProductCostingError):
+    from fastapi.responses import JSONResponse
+
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
-class CostCalculation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    product_or_process: str
-    period: str = ""
-    components: List[CostComponent] = []
-    total_cost: float = 0
-    unit_cost: float = 0
-    quantity: int = 1
-    notes: str = ""
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-_calculations: Dict[str, List[CostCalculation]] = defaultdict(list)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -64,57 +73,53 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME}
 
 
-@app.post("/calculate", response_model=CostCalculation)
-async def calculate_cost(calc: CostCalculation):
-    calc.total_cost = sum(c.amount for c in calc.components)
-    calc.unit_cost = calc.total_cost / max(1, calc.quantity)
-    _calculations[calc.company_id].append(calc)
+@app.post("/calculate", response_model=models.CostCalculation)
+async def calculate_cost(
+    calc: models.CostCalculationCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.create_calculation(db_session, user_id, calc)
     logger.info(
         "cost_calculated",
-        company_id=calc.company_id,
-        product=calc.product_or_process,
-        total=calc.total_cost,
-        unit=calc.unit_cost,
+        company_id=item.company_id,
+        product=item.product_or_process,
+        total=item.total_cost,
+        unit=item.unit_cost,
     )
-    return calc
+    return item
 
 
 @app.get("/calculations/{company_id}")
-async def get_calculations(company_id: str, product: Optional[str] = None):
-    calcs = _calculations.get(company_id, [])
-    if product:
-        calcs = [c for c in calcs if product.lower() in c.product_or_process.lower()]
-    return {"company_id": company_id, "calculations": calcs, "total": len(calcs)}
+async def get_calculations(
+    company_id: str,
+    product: str = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.get_calculations(db_session, user_id, company_id, product or "")
 
 
 @app.get("/breakdown/{company_id}/{calc_id}")
-async def get_cost_breakdown(company_id: str, calc_id: str):
-    for c in _calculations.get(company_id, []):
-        if c.id == calc_id:
-            by_type = defaultdict(float)
-            for comp in c.components:
-                by_type[comp.cost_type] += comp.amount
-            return {
-                "calc_id": calc_id,
-                "total": c.total_cost,
-                "unit_cost": c.unit_cost,
-                "breakdown": dict(by_type),
-                "components": c.components,
-            }
-    raise HTTPException(status_code=404, detail="Calculation not found")
+async def get_cost_breakdown(
+    company_id: str,
+    calc_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await crud.get_cost_breakdown(db_session, user_id, company_id, calc_id)
+    except ProductCostingError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
 @app.get("/summary/{company_id}")
-async def cost_summary(company_id: str):
-    calcs = _calculations.get(company_id, [])
-    if not calcs:
-        return {"company_id": company_id, "total_calculations": 0, "total_cost": 0, "avg_unit_cost": 0}
-    return {
-        "company_id": company_id,
-        "total_calculations": len(calcs),
-        "total_cost": sum(c.total_cost for c in calcs),
-        "avg_unit_cost": sum(c.unit_cost for c in calcs) / len(calcs),
-    }
+async def cost_summary(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.cost_summary(db_session, user_id, company_id)
 
 
 if __name__ == "__main__":
