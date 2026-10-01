@@ -46,8 +46,11 @@ def policy_client():
 
 @pytest.fixture
 def webhook_client():
+    _patch_fake("webhook_service", "webhook_root_fake")
     app = load_service("webhook-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture

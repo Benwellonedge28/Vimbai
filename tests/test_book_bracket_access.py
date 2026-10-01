@@ -1852,3 +1852,43 @@ def test_zero_based_budgeting_accessible_in_book(zbb_book_client):
     # Personal view still sees own packages across Books
     personal = zbb_book_client.get("/zero-based-budgeting/packages/co-book-access", headers=H_PERSONAL).json()
     assert any(p["id"] == pkg["id"] for p in personal["packages"])
+
+
+# --------------------------------------------------------------------------
+# Webhook service (platform-automation bracket member)
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def webhook_book_client():
+    bracket = _load_bracket("platform-automation-bracket")
+    _patch_fake("webhook_service", "webhook_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_webhook_accessible_in_book(webhook_book_client):
+    created = webhook_book_client.post(
+        "/webhook/endpoints",
+        json={"company_id": "co-book-access", "url": "https://example.com/hook", "events": ["invoice.created"]},
+        headers=H,
+    )
+    assert created.status_code == 200, created.text
+    ep = created.json()
+
+    mine = webhook_book_client.get("/webhook/endpoints/co-book-access", headers=H).json()
+    assert mine["total"] == 1
+    other = webhook_book_client.get("/webhook/endpoints/co-book-access", headers=H_OTHER).json()
+    assert other["total"] == 0
+
+    # Personal view still sees own endpoints across Books
+    personal = webhook_book_client.get("/webhook/endpoints/co-book-access", headers=H_PERSONAL).json()
+    assert personal["total"] == 1
+
+    # cross-Book dispatch must not reach this endpoint (network is mocked by
+    # the TestClient transport failing; only scoping matters here)
+    resp = webhook_book_client.post(
+        "/webhook/dispatch/co-book-access", params={"event_type": "invoice.created"}, json={"x": 1}, headers=H_OTHER
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["total_sent"] == 0
