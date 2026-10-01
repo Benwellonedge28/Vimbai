@@ -376,7 +376,23 @@ class TestInternalControlsService:
 
 class TestRegulatoryComplianceService:
     def setup_method(self):
-        self.client = TestClient(load_app("regulatory-compliance-service"))
+        import importlib.util
+        import os as _os
+
+        app = load_app("regulatory-compliance-service")
+        svc_dir = _os.path.join(
+            _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "regulatory-compliance-service"
+        )
+        spec = importlib.util.spec_from_file_location("rc_batch4_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
+        fake_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake_mod)
+        self._session = fake_mod.FakeSession()
+
+        import regulatory_compliance_service.database as db
+
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "batch4-rc-user"})
 
     def test_regulation_lifecycle(self):
         reg = self.client.post(

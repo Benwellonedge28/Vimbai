@@ -1,30 +1,51 @@
+"""Vimbai Regulatory Compliance Service - regulation tracking and compliance dashboards. Port: 8378
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
-Vimbai Regulatory Compliance Service
-Multi-jurisdiction regulatory requirement tracking and compliance monitoring.
-Port: 8396
-"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "regulatory_compliance_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("regulatory_compliance_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("regulatory_compliance_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["regulatory_compliance_service"] = _pkg
+    _sys.modules["regulatory_compliance_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Dict, List, Optional
+from typing import List
 
 import structlog
-from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from neo4j import AsyncSession
+from regulatory_compliance_service import crud, models
+from regulatory_compliance_service.dependencies import book_id_var, get_db_session, get_user_id
+from regulatory_compliance_service.exceptions import RegulatoryComplianceError
 
 SERVICE_NAME = "regulatory-compliance-service"
-PORT = int(os.getenv("PORT", "8396"))
+PORT = int(os.getenv("PORT", "8378"))
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.JSONRenderer(),
-    ]
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 app = FastAPI(title="Vimbai Regulatory Compliance Service", version="2.0.0", docs_url="/docs")
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 try:
     from shared.tracing import setup_tracing
 
@@ -33,39 +54,19 @@ except ImportError:
     pass
 
 
-class RegStatus(str, Enum):
-    COMPLIANT = "compliant"
-    NON_COMPLIANT = "non_compliant"
-    PENDING_REVIEW = "pending_review"
-    NOT_APPLICABLE = "n/a"
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class Regulation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    regulation_name: str
-    jurisdiction: str
-    framework: str  # iFRS, IAS, SOX, Basel III, AML, GDPR, PCI_DSS
-    requirement: str
-    status: RegStatus = RegStatus.PENDING_REVIEW
-    last_reviewed: str = ""
-    next_review_due: str = ""
-    risk_if_non_compliant: str = "medium"  # low, medium, high, critical
+@app.exception_handler(RegulatoryComplianceError)
+async def _regulatory_compliance_error(request: Request, exc: RegulatoryComplianceError):
+    from fastapi.responses import JSONResponse
 
-
-class ComplianceDashboard(BaseModel):
-    company_id: str
-    total_regulations: int
-    compliant: int
-    non_compliant: int
-    pending: int
-    compliance_rate: float
-    by_framework: Dict[str, Dict] = {}
-    by_jurisdiction: Dict[str, Dict] = {}
-    critical_items: List[Dict] = []
-
-
-_regulations: Dict[str, List[Regulation]] = {}
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
 @app.get("/")
@@ -74,85 +75,48 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
 
-@app.post("/regulations", response_model=Regulation)
-async def add_regulation(reg: Regulation):
-    _regulations.setdefault(reg.company_id, []).append(reg)
-    return reg
+@app.post("/regulations", response_model=models.Regulation)
+async def add_regulation(
+    reg: models.RegulationCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.create_regulation(db_session, user_id, reg)
+    logger.info("regulation_added", company_id=item.company_id, framework=item.framework)
+    return item
 
 
-@app.get("/regulations", response_model=List[Regulation])
-async def list_regulations(company_id: str, framework: str = ""):
-    items = _regulations.get(company_id, [])
-    if framework:
-        items = [r for r in items if r.framework == framework]
-    return items
+@app.get("/regulations", response_model=List[models.Regulation])
+async def list_regulations(
+    company_id: str,
+    framework: str = "",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.list_regulations(db_session, user_id, company_id, framework)
 
 
 @app.post("/regulations/{reg_id}/update")
-async def update_reg_status(company_id: str, reg_id: str, status: str):
-    items = _regulations.get(company_id, [])
-    for r in items:
-        if r.id == reg_id:
-            r.status = RegStatus(status) if status in [s.value for s in RegStatus] else r.status
-            r.last_reviewed = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            return {"updated": True, "regulation_id": reg_id, "status": r.status.value}
-    from fastapi import HTTPException
+async def update_reg_status(
+    reg_id: str,
+    company_id: str,
+    status: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await crud.update_reg_status(db_session, user_id, company_id, reg_id, status)
+    except RegulatoryComplianceError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
-    raise HTTPException(status_code=404, detail="Regulation not found")
 
-
-@app.get("/dashboard", response_model=ComplianceDashboard)
-async def get_dashboard(company_id: str):
-    items = _regulations.get(company_id, [])
-    compliant = sum(1 for r in items if r.status == RegStatus.COMPLIANT)
-    non_compliant = sum(1 for r in items if r.status == RegStatus.NON_COMPLIANT)
-    pending = sum(1 for r in items if r.status == RegStatus.PENDING_REVIEW)
-    total = len(items)
-    rate = (compliant / total * 100) if total else 100
-
-    by_framework = {}
-    for r in items:
-        fw = r.framework
-        if fw not in by_framework:
-            by_framework[fw] = {"total": 0, "compliant": 0, "non_compliant": 0}
-        by_framework[fw]["total"] += 1
-        if r.status == RegStatus.COMPLIANT:
-            by_framework[fw]["compliant"] += 1
-        elif r.status == RegStatus.NON_COMPLIANT:
-            by_framework[fw]["non_compliant"] += 1
-
-    by_jur = {}
-    for r in items:
-        j = r.jurisdiction
-        if j not in by_jur:
-            by_jur[j] = {"total": 0, "compliant": 0}
-        by_jur[j]["total"] += 1
-        if r.status == RegStatus.COMPLIANT:
-            by_jur[j]["compliant"] += 1
-
-    critical = [
-        {
-            "regulation": r.regulation_name,
-            "jurisdiction": r.jurisdiction,
-            "framework": r.framework,
-            "status": r.status.value,
-            "risk": r.risk_if_non_compliant,
-        }
-        for r in items
-        if r.risk_if_non_compliant in ("high", "critical") and r.status != RegStatus.COMPLIANT
-    ]
-
-    return ComplianceDashboard(
-        company_id=company_id,
-        total_regulations=total,
-        compliant=compliant,
-        non_compliant=non_compliant,
-        pending=pending,
-        compliance_rate=round(rate, 1),
-        by_framework=by_framework,
-        by_jurisdiction=by_jur,
-        critical_items=critical,
-    )
+@app.get("/dashboard", response_model=models.ComplianceDashboard)
+async def get_dashboard(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.get_dashboard(db_session, user_id, company_id)
 
 
 if __name__ == "__main__":

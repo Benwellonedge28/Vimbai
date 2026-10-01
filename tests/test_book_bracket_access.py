@@ -2198,3 +2198,73 @@ def test_tax_planning_accessible_in_book(tax_planning_client):
     assert plan["recommended_strategies"] == ["Book-Access capital allowance"]
     # planning does not persist anything into the Book store
     assert len(tax_planning_client.get("/tax-planning/strategies", headers=H).json()) == 1
+
+
+# --------------------------------------------------------------------------
+# Regulatory compliance (tax-audit-investigation bracket member)
+# --------------------------------------------------------------------------
+
+RC_REGULATION_PAYLOAD = {
+    "company_id": "co-book-access",
+    "regulation_name": "IFRS 15 Revenue",
+    "jurisdiction": "ZW",
+    "framework": "IFRS",
+    "requirement": "Recognize revenue when performance obligation satisfied",
+    "risk_if_non_compliant": "high",
+}
+
+
+@pytest.fixture(scope="module")
+def regulatory_compliance_client():
+    bracket = _load_bracket("tax-audit-investigation-bracket")
+    _patch_fake("regulatory_compliance_service", "rc_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_regulatory_compliance_accessible_in_book(regulatory_compliance_client):
+    resp = regulatory_compliance_client.post(
+        "/regulatory-compliance/regulations", json=RC_REGULATION_PAYLOAD, headers=H
+    )
+    assert resp.status_code == 200, resp.text
+    reg = resp.json()
+    assert reg["status"] == "pending_review"
+
+    # visible in the Book, invisible to the other Book and other users
+    mine = regulatory_compliance_client.get(
+        "/regulatory-compliance/regulations", params={"company_id": "co-book-access"}, headers=H
+    ).json()
+    assert any(r["id"] == reg["id"] for r in mine)
+    other = regulatory_compliance_client.get(
+        "/regulatory-compliance/regulations", params={"company_id": "co-book-access"}, headers=H_OTHER
+    ).json()
+    assert all(r["id"] != reg["id"] for r in other)
+
+    # status updates are Book-gated
+    upd = regulatory_compliance_client.post(
+        f"/regulatory-compliance/regulations/{reg['id']}/update",
+        params={"company_id": "co-book-access", "status": "compliant"},
+        headers=H,
+    )
+    assert upd.status_code == 200, upd.text
+    assert upd.json()["updated"] is True
+    reg2 = regulatory_compliance_client.post(
+        "/regulatory-compliance/regulations", json=RC_REGULATION_PAYLOAD, headers=H
+    ).json()
+    blocked = regulatory_compliance_client.post(
+        f"/regulatory-compliance/regulations/{reg2['id']}/update",
+        params={"company_id": "co-book-access", "status": "compliant"},
+        headers=H_OTHER,
+    )
+    assert blocked.status_code == 404
+
+    # dashboard aggregates only Book-visible regulations
+    dashboard = regulatory_compliance_client.get(
+        "/regulatory-compliance/dashboard", params={"company_id": "co-book-access"}, headers=H
+    ).json()
+    assert dashboard["total_regulations"] == 2
+    assert dashboard["compliant"] == 1
+    other_dashboard = regulatory_compliance_client.get(
+        "/regulatory-compliance/dashboard", params={"company_id": "co-book-access"}, headers=H_OTHER
+    ).json()
+    assert other_dashboard["total_regulations"] == 0
