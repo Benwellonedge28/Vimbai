@@ -1441,3 +1441,80 @@ def test_appropriation_control_accessible_in_book(appropriation_client):
     assert any(a["id"] == appr["id"] for a in personal["appropriations"])
     idx = [a["id"] for a in personal["appropriations"]].index(appr["id"])
     assert personal["appropriations"][idx]["available_amount"] == 70000
+
+
+# --------------------------------------------------------------------------
+# Bank relationship (treasury-banking bracket member)
+# --------------------------------------------------------------------------
+
+BR_RELATIONSHIP_PAYLOAD = {
+    "company_id": "co-book-access",
+    "bank_name": "CBZ Bank",
+    "services": ["checking", "credit_line"],
+    "rating": 4,
+}
+
+
+@pytest.fixture(scope="module")
+def bank_relationship_client():
+    bracket = _load_bracket("treasury-banking-bracket")
+    _patch_fake("bank_relationship_service", "br_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_bank_relationship_accessible_in_book(bank_relationship_client):
+    resp = bank_relationship_client.post("/bank-relationship/relationships", json=BR_RELATIONSHIP_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    rel = resp.json()
+    assert rel["book_id"] == BOOK
+    assert rel["bank_name"] == "CBZ Bank"
+
+    # relationship visible in the Book, invisible to the other Book
+    mine = bank_relationship_client.get("/bank-relationship/relationships/co-book-access", headers=H).json()
+    assert any(r["id"] == rel["id"] for r in mine["relationships"])
+    other = bank_relationship_client.get("/bank-relationship/relationships/co-book-access", headers=H_OTHER).json()
+    assert all(r["id"] != rel["id"] for r in other["relationships"])
+
+    # update within the Book persists
+    upd = bank_relationship_client.put(f"/bank-relationship/relationships/{rel['id']}", params={"rating": 5}, headers=H)
+    assert upd.status_code == 200, upd.text
+    assert upd.json()["rating"] == 5
+
+    # other Book cannot update
+    blocked = bank_relationship_client.put(
+        f"/bank-relationship/relationships/{rel['id']}", params={"rating": 1}, headers=H_OTHER
+    )
+    assert blocked.status_code == 404
+
+    # quality metrics attach within the Book only
+    add = bank_relationship_client.post(
+        "/bank-relationship/quality-metrics",
+        json={"relationship_id": rel["id"], "metric_name": "response_time", "score": 4},
+        headers=H,
+    )
+    assert add.status_code == 200, add.text
+    blocked_metric = bank_relationship_client.post(
+        "/bank-relationship/quality-metrics",
+        json={"relationship_id": rel["id"], "metric_name": "x", "score": 1},
+        headers=H_OTHER,
+    )
+    assert blocked_metric.status_code == 404
+    metrics = bank_relationship_client.get(f"/bank-relationship/quality-metrics/{rel['id']}", headers=H).json()
+    assert metrics["avg_score"] == 4.0
+    assert (
+        bank_relationship_client.get(f"/bank-relationship/quality-metrics/{rel['id']}", headers=H_OTHER).status_code
+        == 404
+    )
+
+    # summary reflects the Book's relationships only
+    summary = bank_relationship_client.get("/bank-relationship/summary/co-book-access", headers=H).json()
+    assert summary["total_relationships"] == 1
+    other_summary = bank_relationship_client.get("/bank-relationship/summary/co-book-access", headers=H_OTHER).json()
+    assert other_summary["total_relationships"] == 0
+
+    # Personal view still sees own relationships across Books
+    personal = bank_relationship_client.get(
+        "/bank-relationship/relationships/co-book-access", headers=H_PERSONAL
+    ).json()
+    assert any(r["id"] == rel["id"] for r in personal["relationships"])
