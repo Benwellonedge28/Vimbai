@@ -63,7 +63,21 @@ class TestAutomationEngineService:
 
 class TestSupplyChainService:
     def setup_method(self):
-        self.client = TestClient(load_app("supply-chain-service"))
+        import importlib.util
+        import os as _os
+
+        app = load_app("supply-chain-service")
+        svc_dir = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "supply-chain-service")
+        spec = importlib.util.spec_from_file_location("sc_upgraded_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
+        fake_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake_mod)
+        self._session = fake_mod.FakeSession()
+
+        import supply_chain_service.database as db
+
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "upgraded-sc-user"})
 
     def test_supplier_crud(self):
         resp = self.client.post("/suppliers", json={"name": "Acme Corp", "lead_time_days": 7, "rating": 4.5})

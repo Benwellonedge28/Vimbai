@@ -1,161 +1,191 @@
-"""
-Vimbai Supply Chain Service - Comprehensive Test Suite
-Tests: inventory, suppliers, customers, purchase orders, sales invoices
+"""Book-scoping and persistence tests for supply-chain-service (fake Neo4j harness).
+
+Covers: supplier/inventory/PO persistence, low-stock logic, PO receive
+semantics (status + stock update), demand forecasting with reorder
+recommendation, ownership and Book isolation.
 """
 
+import importlib.util
 import os
-from unittest.mock import AsyncMock, patch
 
+import main
 import pytest
 from fastapi.testclient import TestClient
+from supply_chain_service.database import Neo4jConnector
 
-os.environ["JWT_SECRET"] = "test-secret-key-for-testing-only"
-os.environ["NEO4J_PASSWORD"] = "test-password"
+app = main.app
 
-from main import app
+_HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_spec = importlib.util.spec_from_file_location("sc_fake", os.path.join(_HERE, "fake_neo4j.py"))
+_fake_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_fake_mod)
+
+_fake_session = _fake_mod.FakeSession()
+Neo4jConnector.get_driver = classmethod(lambda cls: _fake_mod.FakeDriver(_fake_session))
 
 client = TestClient(app)
 
 
-@pytest.fixture
-def auth_headers():
-    from datetime import datetime, timedelta, timezone
+@pytest.fixture(autouse=True)
+def _clean_fake_graph():
+    _fake_session.nodes.clear()
+    _fake_session.edges.clear()
+    yield
+    _fake_session.nodes.clear()
+    _fake_session.edges.clear()
 
-    import jwt as pyjwt
 
-    token = pyjwt.encode(
-        {
-            "user_id": "test-user-id",
-            "username": "testuser",
-            "role": "admin",
-            "permissions": ["supply:view", "supply:create", "supply:edit", "supply:delete"],
-            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
-        },
-        os.environ["JWT_SECRET"],
-        algorithm="HS256",
+U1, U2 = "sc-user-1", "sc-user-2"
+BOOK_A, BOOK_B = "sc-book-a", "sc-book-b"
+H1 = {"X-User-Id": U1, "X-Book-ID": BOOK_A}
+H1_PERSONAL = {"X-User-Id": U1}
+H2 = {"X-User-Id": U2, "X-Book-ID": BOOK_A}
+
+
+def _supplier(name="Acme Corp", **kw):
+    p = {"name": name, "contact": "acme@example.com", "lead_time_days": 7, "rating": 4.5, "products": ["widgets"]}
+    p.update(kw)
+    return p
+
+
+def _item(sku="WIDGET-001", qty=5, company="co-sc", **kw):
+    p = {
+        "sku": sku,
+        "name": "Widget",
+        "company_id": company,
+        "quantity": qty,
+        "reorder_point": 10,
+        "reorder_qty": 50,
+    }
+    p.update(kw)
+    return p
+
+
+def _po(sku="WIDGET-001", company="co-sc", qty=20, cost=2.5, **kw):
+    p = {"company_id": company, "supplier_id": "sup-1", "item_sku": sku, "quantity": qty, "unit_cost": cost}
+    p.update(kw)
+    return p
+
+
+def test_suppliers_persist_and_scope():
+    resp = client.post("/suppliers", json=_supplier(), headers=H1)
+    assert resp.status_code == 200, resp.text
+    created = resp.json()
+    assert created["name"] == "Acme Corp"
+    assert created["products"] == ["widgets"]
+
+    mine = client.get("/suppliers", headers=H1).json()
+    assert [s["id"] for s in mine] == [created["id"]]
+    # other user sees nothing
+    assert client.get("/suppliers", headers=H2).json() == []
+
+
+def test_inventory_low_stock_and_receive():
+    client.post("/inventory", json=_item(qty=0), headers=H1)
+    client.post("/inventory", json=_item(sku="FULL-001", qty=100), headers=H1)
+    inv = client.get("/inventory", params={"company_id": "co-sc"}, headers=H1).json()
+    assert {i["sku"] for i in inv} == {"WIDGET-001", "FULL-001"}
+
+    low = client.get("/inventory/low-stock", params={"company_id": "co-sc"}, headers=H1).json()
+    assert len(low) == 1
+    assert low[0]["sku"] == "WIDGET-001"
+    assert low[0]["urgency"] == "critical"
+    # qty=5 <= reorder_point=10 -> warning
+    client.post("/inventory", json=_item(sku="LOW-001", qty=5), headers=H1)
+    low = client.get("/inventory/low-stock", params={"company_id": "co-sc"}, headers=H1).json()
+    urgencies = {e["sku"]: e["urgency"] for e in low}
+    assert urgencies == {"WIDGET-001": "critical", "LOW-001": "warning"}
+
+    # PO receive updates stock + persists
+    po = client.post("/purchase-orders", json=_po(qty=20), headers=H1).json()
+    recv = client.post(f"/purchase-orders/{po['id']}/receive", params={"company_id": "co-sc"}, headers=H1)
+    assert recv.status_code == 200, recv.text
+    assert recv.json() == {"po_id": po["id"], "status": "received", "quantity_added": 20}
+    stored = client.get("/inventory", params={"company_id": "co-sc"}, headers=H1).json()
+    w = next(i for i in stored if i["sku"] == "WIDGET-001")
+    assert w["quantity"] == 20
+    pos = client.get("/purchase-orders", params={"company_id": "co-sc"}, headers=H1).json()
+    assert pos[0]["status"] == "received"
+    # status filter
+    assert client.get("/purchase-orders", params={"company_id": "co-sc", "status": "pending"}, headers=H1).json() == []
+
+
+def test_receive_po_scoping():
+    po = client.post("/purchase-orders", json=_po(), headers=H1).json()
+    # cross-user, cross-Book, wrong-company all 404
+    assert (
+        client.post(f"/purchase-orders/{po['id']}/receive", params={"company_id": "co-sc"}, headers=H2).status_code
+        == 404
     )
-    return {"Authorization": f"Bearer {token}"}
+    assert (
+        client.post(
+            f"/purchase-orders/{po['id']}/receive",
+            params={"company_id": "co-sc"},
+            headers={"X-User-Id": U1, "X-Book-ID": BOOK_B},
+        ).status_code
+        == 404
+    )
+    assert (
+        client.post(f"/purchase-orders/{po['id']}/receive", params={"company_id": "other-co"}, headers=H1).status_code
+        == 404
+    )
+    # still pending
+    pos = client.get("/purchase-orders", params={"company_id": "co-sc"}, headers=H1).json()
+    assert pos[0]["status"] == "pending"
 
 
-@pytest.fixture
-def valid_customer():
-    return {
-        "name": "Test Customer",
-        "email": "customer@vimbai.com",
-        "phone": "+263771234567",
-        "address": "123 Test Street, Harare",
-        "tax_number": "BRN123456",
-    }
+def test_forecast_semantics():
+    # insufficient data
+    r = client.post(
+        "/forecast",
+        json={"sku": "PROD-001", "company_id": "co-sc", "historical_data": [10], "forecast_periods": 3},
+        headers=H1,
+    ).json()
+    assert r["method"] == "insufficient_data"
+    assert r["forecast"] == [0, 0, 0]
+    assert r["reorder_recommended"] is False
+
+    # moving average with trend, reorder recommended when projected stock <= reorder point
+    client.post("/inventory", json=_item(sku="PROD-001", qty=15), headers=H1)
+    r = client.post(
+        "/forecast",
+        json={
+            "sku": "PROD-001",
+            "company_id": "co-sc",
+            "historical_data": [100, 110, 105, 120, 115],
+            "forecast_periods": 3,
+        },
+        headers=H1,
+    ).json()
+    assert len(r["forecast"]) == 3
+    assert r["method"] == "moving_average_with_trend"
+    assert r["reorder_recommended"] is True
+    assert r["recommended_qty"] == 50
+    # other user: no inventory visible -> no reorder recommendation
+    r2 = client.post(
+        "/forecast",
+        json={
+            "sku": "PROD-001",
+            "company_id": "co-sc",
+            "historical_data": [100, 110, 105, 120, 115],
+            "forecast_periods": 3,
+        },
+        headers=H2,
+    ).json()
+    assert r2["reorder_recommended"] is False
 
 
-@pytest.fixture
-def valid_supplier():
-    return {
-        "name": "Test Supplier",
-        "email": "supplier@vimbai.com",
-        "phone": "+263771987654",
-        "address": "456 Supplier Ave, Harare",
-        "payment_terms": "net_30",
-    }
+def test_book_a_b_isolation():
+    client.post("/inventory", json=_item(sku="A-001", company="co-sc"), headers=H1)
+    hb = {"X-User-Id": U1, "X-Book-ID": BOOK_B}
+    client.post("/inventory", json=_item(sku="B-001", company="co-sc"), headers=hb)
+    assert {i["sku"] for i in client.get("/inventory", params={"company_id": "co-sc"}, headers=H1).json()} == {"A-001"}
+    assert {i["sku"] for i in client.get("/inventory", params={"company_id": "co-sc"}, headers=hb).json()} == {"B-001"}
+    # personal view spans both Books
+    assert len(client.get("/inventory", params={"company_id": "co-sc"}, headers=H1_PERSONAL).json()) == 2
 
 
-@pytest.fixture
-def valid_inventory_item():
-    return {
-        "name": "Test Product",
-        "sku": "TEST-001",
-        "quantity": 100,
-        "unit_price": "15.99",
-        "reorder_level": 20,
-        "category": "General",
-    }
-
-
-class TestHealthCheck:
-    def test_root_endpoint(self):
-        response = client.get("/")
-        assert response.status_code == 200
-
-
-class TestCustomers:
-    def test_create_customer_no_auth(self, valid_customer):
-        response = client.post("/customers/", json=valid_customer)
-        assert response.status_code in [401, 403]
-
-    def test_create_customer_with_auth(self, auth_headers, valid_customer):
-        response = client.post("/customers/", json=valid_customer, headers=auth_headers)
-        assert response.status_code in [201, 200, 500]
-
-    def test_create_customer_missing_fields(self, auth_headers):
-        response = client.post("/customers/", json={"name": "Missing Fields"}, headers=auth_headers)
-        assert response.status_code in [422, 400, 201]
-
-    def test_get_customers_with_auth(self, auth_headers):
-        response = client.get("/customers/", headers=auth_headers)
-        assert response.status_code in [200, 500]
-
-    def test_get_customers_no_auth(self):
-        response = client.get("/customers/")
-        assert response.status_code in [401, 403]
-
-
-class TestSuppliers:
-    def test_create_supplier_no_auth(self, valid_supplier):
-        response = client.post("/suppliers/", json=valid_supplier)
-        assert response.status_code in [401, 403]
-
-    def test_create_supplier_with_auth(self, auth_headers, valid_supplier):
-        response = client.post("/suppliers/", json=valid_supplier, headers=auth_headers)
-        assert response.status_code in [201, 200, 500]
-
-    def test_get_suppliers_with_auth(self, auth_headers):
-        response = client.get("/suppliers/", headers=auth_headers)
-        assert response.status_code in [200, 500]
-
-
-class TestInventory:
-    def test_create_inventory_item_no_auth(self, valid_inventory_item):
-        response = client.post("/inventory-items/", json=valid_inventory_item)
-        assert response.status_code in [401, 403]
-
-    def test_create_inventory_item_with_auth(self, auth_headers, valid_inventory_item):
-        response = client.post("/inventory-items/", json=valid_inventory_item, headers=auth_headers)
-        assert response.status_code in [201, 200, 500]
-
-    def test_get_inventory_items_with_auth(self, auth_headers):
-        response = client.get("/inventory-items/", headers=auth_headers)
-        assert response.status_code in [200, 500]
-
-    def test_create_inventory_negative_quantity(self, auth_headers):
-        response = client.post(
-            "/inventory-items/",
-            json={"name": "Negative Stock", "sku": "NEG-001", "quantity": -10, "unit_price": "5.00"},
-            headers=auth_headers,
-        )
-        assert response.status_code in [422, 400, 201]
-
-
-class TestPurchaseOrders:
-    def test_create_purchase_order_no_auth(self):
-        response = client.post(
-            "/purchase-orders/",
-            json={"supplier_id": "supplier-001", "items": [{"sku": "TEST-001", "quantity": 10, "unit_price": "15.99"}]},
-        )
-        assert response.status_code in [401, 403]
-
-    def test_get_purchase_orders_with_auth(self, auth_headers):
-        response = client.get("/purchase-orders/", headers=auth_headers)
-        assert response.status_code in [200, 500]
-
-
-class TestSalesInvoices:
-    def test_create_sales_invoice_no_auth(self):
-        response = client.post(
-            "/sales-invoices/",
-            json={"customer_id": "customer-001", "items": [{"sku": "TEST-001", "quantity": 5, "unit_price": "15.99"}]},
-        )
-        assert response.status_code in [401, 403]
-
-    def test_get_sales_invoices_with_auth(self, auth_headers):
-        response = client.get("/sales-invoices/", headers=auth_headers)
-        assert response.status_code in [200, 500]
+def test_x_user_id_required():
+    assert client.post("/suppliers", json=_supplier()).status_code in (401, 403, 422)
+    assert client.get("/inventory", params={"company_id": "co-sc"}).status_code in (401, 403, 422)
+    assert client.get("/suppliers").status_code in (401, 403, 422)

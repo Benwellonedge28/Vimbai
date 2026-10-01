@@ -1,19 +1,31 @@
-"""
-Vimbai Supply Chain Service
-Inventory management, supplier tracking, order fulfillment, and demand forecasting.
-Port: 8004
+"""Vimbai Supply Chain Service - inventory, suppliers, purchase orders and demand forecasting. Port: 8004
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import math
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "supply_chain_service" not in _sys.modules or not hasattr(_sys.modules.get("supply_chain_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("supply_chain_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["supply_chain_service"] = _pkg
+    _sys.modules["supply_chain_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import structlog
-from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from neo4j import AsyncSession
+from supply_chain_service import crud, models
+from supply_chain_service.dependencies import book_id_var, get_db_session, get_user_id
+from supply_chain_service.exceptions import SupplyChainError
 
 SERVICE_NAME = "supply-chain-service"
 PORT = int(os.getenv("PORT", "8004"))
@@ -22,11 +34,17 @@ structlog.configure(
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.JSONRenderer(),
-    ]
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 app = FastAPI(title="Vimbai Supply Chain Service", version="2.0.0", docs_url="/docs")
-# Distributed tracing
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
+# Distributed tracing (OpenTelemetry)
 try:
     from shared.tracing import setup_tracing
 
@@ -35,60 +53,19 @@ except ImportError:
     pass
 
 
-class Supplier(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    contact: str = ""
-    lead_time_days: int = 7
-    rating: float = 5.0
-    products: List[str] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class InventoryItem(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    sku: str
-    name: str
-    company_id: str
-    quantity: int = 0
-    reorder_point: int = 10
-    reorder_qty: int = 50
-    unit_cost: float = 0
-    unit_price: float = 0
-    supplier_id: Optional[str] = None
-    lead_time_days: int = 7
+@app.exception_handler(SupplyChainError)
+async def _supply_chain_error(request: Request, exc: SupplyChainError):
+    from fastapi.responses import JSONResponse
 
-
-class PurchaseOrder(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    supplier_id: str
-    item_sku: str
-    quantity: int
-    unit_cost: float
-    status: str = "pending"  # pending, approved, shipped, received
-    order_date: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    expected_delivery: Optional[str] = None
-
-
-class DemandForecast(BaseModel):
-    sku: str
-    company_id: str
-    historical_data: List[float] = []  # units sold per period
-    forecast_periods: int = 3
-
-
-class ForecastResult(BaseModel):
-    sku: str
-    forecast: List[float]
-    method: str
-    confidence: float
-    reorder_recommended: bool
-    recommended_qty: int = 0
-
-
-_inventory: Dict[str, List[InventoryItem]] = defaultdict(list)
-_suppliers: Dict[str, Supplier] = {}
-_orders: Dict[str, List[PurchaseOrder]] = defaultdict(list)
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
 @app.get("/")
@@ -97,35 +74,55 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
 
-@app.post("/suppliers", response_model=Supplier)
-async def create_supplier(supplier: Supplier):
-    _suppliers[supplier.id] = supplier
-    return supplier
-
-
-@app.get("/suppliers", response_model=List[Supplier])
-async def list_suppliers():
-    return list(_suppliers.values())
-
-
-@app.post("/inventory", response_model=InventoryItem)
-async def add_inventory(item: InventoryItem):
-    _inventory[item.company_id].append(item)
+@app.post("/suppliers", response_model=models.Supplier)
+async def create_supplier(
+    supplier: models.Supplier,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.create_supplier(db_session, user_id, supplier)
+    logger.info("supplier_created", supplier_id=item.id, name=item.name)
     return item
 
 
-@app.get("/inventory", response_model=List[InventoryItem])
-async def get_inventory(company_id: str):
-    return _inventory.get(company_id, [])
+@app.get("/suppliers", response_model=List[models.Supplier])
+async def list_suppliers(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.list_suppliers(db_session, user_id)
+
+
+@app.post("/inventory", response_model=models.InventoryItem)
+async def add_inventory(
+    item: models.InventoryItem,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    created = await crud.add_inventory(db_session, user_id, item)
+    logger.info("inventory_added", sku=created.sku, company_id=created.company_id)
+    return created
+
+
+@app.get("/inventory", response_model=List[models.InventoryItem])
+async def get_inventory(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.list_inventory(db_session, user_id, company_id)
 
 
 @app.get("/inventory/low-stock", response_model=List[Dict])
-async def get_low_stock(company_id: str):
-    items = _inventory.get(company_id, [])
+async def get_low_stock(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    items = await crud.list_inventory(db_session, user_id, company_id)
     low = []
     for item in items:
         if item.quantity <= item.reorder_point:
-            days_until_stockout = item.quantity / max(1, item.quantity) if item.quantity else 0
             low.append(
                 {
                     "sku": item.sku,
@@ -140,41 +137,51 @@ async def get_low_stock(company_id: str):
     return low
 
 
-@app.post("/purchase-orders", response_model=PurchaseOrder)
-async def create_po(po: PurchaseOrder):
-    _orders[po.company_id].append(po)
-    return po
+@app.post("/purchase-orders", response_model=models.PurchaseOrder)
+async def create_po(
+    po: models.PurchaseOrder,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    created = await crud.create_po(db_session, user_id, po)
+    logger.info("po_created", po_id=created.id, company_id=created.company_id)
+    return created
 
 
-@app.get("/purchase-orders", response_model=List[PurchaseOrder])
-async def list_pos(company_id: str, status: str = ""):
-    orders = _orders.get(company_id, [])
-    if status:
-        orders = [o for o in orders if o.status == status]
-    return orders
+@app.get("/purchase-orders", response_model=List[models.PurchaseOrder])
+async def list_pos(
+    company_id: str,
+    status: str = "",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.list_pos(db_session, user_id, company_id, status)
 
 
 @app.post("/purchase-orders/{po_id}/receive")
-async def receive_po(po_id: str, company_id: str):
-    orders = _orders.get(company_id, [])
-    for po in orders:
-        if po.id == po_id:
-            po.status = "received"
-            items = _inventory.get(company_id, [])
-            for item in items:
-                if item.sku == po.item_sku:
-                    item.quantity += po.quantity
-                    break
-            return {"po_id": po_id, "status": "received", "quantity_added": po.quantity}
-    from fastapi import HTTPException
-
-    raise HTTPException(status_code=404, detail="PO not found")
+async def receive_po(
+    po_id: str,
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        result = await crud.receive_po(db_session, user_id, company_id, po_id)
+        logger.info("po_received", po_id=po_id, company_id=company_id)
+        return result
+    except SupplyChainError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
-@app.post("/forecast", response_model=ForecastResult)
-async def forecast_demand(req: DemandForecast):
+@app.post("/forecast", response_model=models.ForecastResult)
+async def forecast_demand(
+    req: models.DemandForecast,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Moving average with trend; the reorder check reads the caller's Book-visible inventory."""
     if len(req.historical_data) < 2:
-        return ForecastResult(
+        return models.ForecastResult(
             sku=req.sku,
             forecast=[0] * req.forecast_periods,
             method="insufficient_data",
@@ -182,7 +189,6 @@ async def forecast_demand(req: DemandForecast):
             reorder_recommended=False,
         )
 
-    # Simple moving average with trend
     recent = req.historical_data[-min(5, len(req.historical_data)) :]
     avg = sum(recent) / len(recent)
     if len(recent) >= 2:
@@ -193,8 +199,8 @@ async def forecast_demand(req: DemandForecast):
     forecast = [max(0, avg + trend * (i + 1)) for i in range(req.forecast_periods)]
     confidence = max(0, min(1, 1 - abs(trend) / (avg + 1)))
 
-    # Check if reorder needed
-    items = _inventory.get(req.company_id, [])
+    # Check if reorder needed (caller's Book-visible inventory only)
+    items = await crud.list_inventory(db_session, user_id, req.company_id)
     item = next((i for i in items if i.sku == req.sku), None)
     reorder = False
     rec_qty = 0
@@ -204,7 +210,7 @@ async def forecast_demand(req: DemandForecast):
             reorder = True
             rec_qty = item.reorder_qty
 
-    return ForecastResult(
+    return models.ForecastResult(
         sku=req.sku,
         forecast=[round(f, 1) for f in forecast],
         method="moving_average_with_trend",
