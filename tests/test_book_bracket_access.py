@@ -996,3 +996,79 @@ def test_treasury_management_accessible_in_book(treasury_mgmt_client):
     # Personal view still sees own records across Books
     personal = treasury_mgmt_client.get("/treasury-management/cashflows/co-book-access", headers=H_PERSONAL).json()
     assert personal["total"] == 1
+
+
+# --------------------------------------------------------------------------
+# Revenue recognition (advanced-accounting bracket member)
+# --------------------------------------------------------------------------
+
+RR_CONTRACT_PAYLOAD = {
+    "company_id": "co-book-access",
+    "customer_name": "Customer A",
+    "obligations": [
+        {
+            "description": "Software License",
+            "transaction_price": 80000,
+            "standalone_selling_price": 80000,
+            "recognition_method": "point_in_time",
+        },
+        {
+            "description": "Implementation",
+            "transaction_price": 20000,
+            "standalone_selling_price": 20000,
+            "recognition_method": "over_time",
+        },
+    ],
+}
+
+
+@pytest.fixture(scope="module")
+def revenue_recognition_client():
+    bracket = _load_bracket("advanced-accounting-bracket")
+    _patch_fake("revenue_recognition_service", "rr_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_revenue_recognition_accessible_in_book(revenue_recognition_client):
+    resp = revenue_recognition_client.post("/revenue-recognition/contracts", json=RR_CONTRACT_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["total_transaction_price"] == 100000
+    assert data["book_id"] == BOOK
+    contract_id = data["id"]
+    obligation_id = data["obligations"][0]["id"]
+
+    # recognize within the Book
+    recog = revenue_recognition_client.post(
+        f"/revenue-recognition/contracts/{contract_id}/recognize",
+        params={"obligation_id": obligation_id, "amount": 80000},
+        headers=H,
+    )
+    assert recog.status_code == 200, recog.text
+    assert recog.json()["is_satisfied"] is True
+    assert recog.json()["contract_total_recognized"] == 80000
+
+    # Other Book sees no contracts and cannot recognize on this one
+    other = revenue_recognition_client.get("/revenue-recognition/contracts/co-book-access", headers=H_OTHER).json()
+    assert other["total"] == 0
+    blocked = revenue_recognition_client.post(
+        f"/revenue-recognition/contracts/{contract_id}/recognize",
+        params={"obligation_id": obligation_id, "amount": 1000},
+        headers=H_OTHER,
+    )
+    assert blocked.status_code == 404
+
+    # summary is Book-scoped
+    s = revenue_recognition_client.get("/revenue-recognition/summary/co-book-access", headers=H).json()
+    assert s["total_contracts"] == 1
+    assert s["revenue_recognized"] == 80000
+    s_other = revenue_recognition_client.get("/revenue-recognition/summary/co-book-access", headers=H_OTHER).json()
+    assert s_other["total_contracts"] == 0
+
+    # Personal view still sees own contracts across Books
+    personal = revenue_recognition_client.get(
+        "/revenue-recognition/contracts/co-book-access", headers=H_PERSONAL
+    ).json()
+    assert personal["total"] == 1
+    assert personal["contracts"][0]["total_revenue_recognized"] == 80000

@@ -1,19 +1,35 @@
-"""Vimbai Revenue Recognition Service - IFRS 15 revenue recognition. Port: 8349"""
+"""Vimbai Revenue Recognition Service - IFRS 15 contract revenue tracking. Port: 8370
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "revenue_recognition_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("revenue_recognition_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("revenue_recognition_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["revenue_recognition_service"] = _pkg
+    _sys.modules["revenue_recognition_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from revenue_recognition_service import crud, models
+from revenue_recognition_service.dependencies import book_id_var, get_db_session, get_user_id
+from revenue_recognition_service.exceptions import RevenueRecognitionError
 
 SERVICE_NAME = "revenue-recognition-service"
-PORT = int(os.getenv("PORT", "8349"))
+PORT = int(os.getenv("PORT", "8370"))
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
@@ -32,47 +48,24 @@ app.add_middleware(
 try:
     from shared.tracing import setup_tracing
 
-    TRACER = setup_tracing(service_name="revenue-recognition-service", instrument_app=app)
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
     TRACER = None
 
 
-class RecognitionMethod(str, Enum):
-    POINT_IN_TIME = "point_in_time"
-    OVER_TIME = "over_time"
+@app.exception_handler(RevenueRecognitionError)
+async def _revenue_recognition_error(request: Request, exc: RevenueRecognitionError):
+    from fastapi.responses import JSONResponse
+
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
-class PerformanceObligation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    description: str
-    transaction_price: float
-    standalone_selling_price: float = 0
-    recognition_method: RecognitionMethod = RecognitionMethod.POINT_IN_TIME
-    is_satisfied: bool = False
-    revenue_recognized: float = 0
-
-
-class RevenueContract(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    customer_name: str
-    contract_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    total_transaction_price: float = 0
-    obligations: List[PerformanceObligation] = []
-    total_revenue_recognized: float = 0
-    deferred_revenue: float = 0
-    status: str = "active"
-
-
-_contracts: Dict[str, List[RevenueContract]] = defaultdict(list)
-
-
-def allocate_price(contract: RevenueContract):
-    total_ssp = sum(o.standalone_selling_price for o in contract.obligations)
-    if total_ssp > 0 and contract.total_transaction_price > 0:
-        for o in contract.obligations:
-            if o.standalone_selling_price > 0:
-                o.transaction_price = contract.total_transaction_price * (o.standalone_selling_price / total_ssp)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -80,65 +73,53 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME}
 
 
-@app.post("/contracts", response_model=RevenueContract)
-async def create_contract(contract: RevenueContract):
-    contract.total_transaction_price = sum(o.transaction_price for o in contract.obligations)
-    if any(o.standalone_selling_price > 0 for o in contract.obligations):
-        allocate_price(contract)
-    _contracts[contract.company_id].append(contract)
+@app.post("/contracts", response_model=models.RevenueContract)
+async def create_contract(
+    contract: models.RevenueContractCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    item = await crud.create_contract(db_session, user_id, contract)
     logger.info(
         "contract_created",
-        company_id=contract.company_id,
-        customer=contract.customer_name,
-        value=contract.total_transaction_price,
+        company_id=item.company_id,
+        customer=item.customer_name,
+        value=item.total_transaction_price,
     )
-    return contract
+    return item
 
 
 @app.post("/contracts/{contract_id}/recognize")
-async def recognize_revenue(contract_id: str, obligation_id: str, amount: float = 0):
-    for contracts in _contracts.values():
-        for c in contracts:
-            if c.id == contract_id:
-                for o in c.obligations:
-                    if o.id == obligation_id:
-                        recog = amount if amount > 0 else o.transaction_price
-                        o.revenue_recognized = min(o.transaction_price, o.revenue_recognized + recog)
-                        o.is_satisfied = o.revenue_recognized >= o.transaction_price
-                        c.total_revenue_recognized = sum(ob.revenue_recognized for ob in c.obligations)
-                        c.deferred_revenue = c.total_transaction_price - c.total_revenue_recognized
-                        return {
-                            "obligation_id": obligation_id,
-                            "recognized": o.revenue_recognized,
-                            "is_satisfied": o.is_satisfied,
-                            "contract_total_recognized": c.total_revenue_recognized,
-                            "deferred": c.deferred_revenue,
-                        }
-    raise HTTPException(status_code=404, detail="Contract or obligation not found")
+async def recognize_revenue(
+    contract_id: str,
+    obligation_id: str,
+    amount: float = 0,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await crud.recognize_revenue(db_session, user_id, contract_id, obligation_id, amount)
+    except RevenueRecognitionError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
 @app.get("/contracts/{company_id}")
-async def get_contracts(company_id: str):
-    return {
-        "company_id": company_id,
-        "contracts": _contracts.get(company_id, []),
-        "total": len(_contracts.get(company_id, [])),
-    }
+async def get_contracts(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    contracts = await crud.list_contracts(db_session, user_id, company_id)
+    return {"company_id": company_id, "contracts": contracts, "total": len(contracts)}
 
 
 @app.get("/summary/{company_id}")
-async def revenue_summary(company_id: str):
-    contracts = _contracts.get(company_id, [])
-    total = sum(c.total_transaction_price for c in contracts)
-    recognized = sum(c.total_revenue_recognized for c in contracts)
-    deferred = sum(c.deferred_revenue for c in contracts)
-    return {
-        "company_id": company_id,
-        "total_contracts": len(contracts),
-        "total_contract_value": total,
-        "revenue_recognized": recognized,
-        "deferred_revenue": deferred,
-    }
+async def revenue_summary(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.revenue_summary(db_session, user_id, company_id)
 
 
 if __name__ == "__main__":

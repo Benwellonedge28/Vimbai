@@ -85,8 +85,11 @@ def expense_client():
 
 @pytest.fixture
 def revenue_client():
+    _patch_fake("revenue_recognition_service", "revenue_root_fake")
     app = load_service("revenue-recognition-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture
@@ -308,7 +311,10 @@ class TestRevenueRecognition:
         assert data["total_transaction_price"] == 100000
         contract_id = data["id"]
         obligation_id = data["obligations"][0]["id"]
-        recog = revenue_client.post(f"/contracts/{contract_id}/recognize?obligation_id={obligation_id}&amount=80000")
+        recog = revenue_client.post(
+            f"/contracts/{contract_id}/recognize?obligation_id={obligation_id}&amount=80000",
+            headers=_H,
+        )
         assert recog.status_code == 200
         assert recog.json()["is_satisfied"] == True
         assert recog.json()["contract_total_recognized"] == 80000
