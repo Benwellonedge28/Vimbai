@@ -435,6 +435,7 @@ class TestInsuranceClaimsService:
 class TestScenarioAnalysisService:
     def setup_method(self):
         self.client = TestClient(load_app("scenario-analysis-service"))
+        self.client.headers.update({"X-User-Id": "root-upgraded-user"})
 
     def test_scenario_analysis(self):
         resp = self.client.post(

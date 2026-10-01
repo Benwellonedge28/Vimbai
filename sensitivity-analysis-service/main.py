@@ -1,15 +1,32 @@
-"""Vimbai Sensitivity Analysis Service - What-if analysis on financial variables. Port: 8325"""
+"""Vimbai Sensitivity Analysis Service - what-if analysis on financial variables. Port: 8325
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "sensitivity_analysis_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("sensitivity_analysis_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("sensitivity_analysis_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["sensitivity_analysis_service"] = _pkg
+    _sys.modules["sensitivity_analysis_service"].__path__ = [_HERE]
 
 import os
-import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from sensitivity_analysis_service import crud, models
+from sensitivity_analysis_service.dependencies import book_id_var, get_db_session, get_user_id
 
 SERVICE_NAME = "sensitivity-analysis-service"
 PORT = int(os.getenv("PORT", "8325"))
@@ -36,43 +53,14 @@ except ImportError:
     TRACER = None
 
 
-class Variable(BaseModel):
-    name: str
-    base_value: float
-    change_pct: float = 0  # percentage change to test
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class SensitivityResult(BaseModel):
-    variable_name: str
-    base_value: float
-    changed_value: float
-    change_pct: float
-    impact_on_target: float
-    elasticity: float = 0  # % change in target / % change in variable
-
-
-class AnalysisRequest(BaseModel):
-    company_id: str
-    target_metric: str  # e.g., "net_profit", "cash_flow", "revenue"
-    base_target_value: float
-    variables: List[Variable]
-    change_steps: List[float] = [-10, -5, 0, 5, 10]  # percentage changes to test
-
-
-class AnalysisResponse(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    target_metric: str
-    base_target_value: float
-    results: List[SensitivityResult]
-    most_sensitive_variable: str = ""
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-_analyses: Dict[str, List[AnalysisResponse]] = defaultdict(list)
-
-
-def estimate_impact(var: Variable, target: str, base_target: float) -> float:
+def estimate_impact(var: models.Variable, target: str, base_target: float) -> float:
     """Estimate impact of variable change on target metric using simplified linear model."""
     change_pct = var.change_pct / 100
     if target in ("net_profit", "profit"):
@@ -103,12 +91,16 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME}
 
 
-@app.post("/analyze", response_model=AnalysisResponse)
-async def run_analysis(req: AnalysisRequest):
+@app.post("/analyze", response_model=models.AnalysisResponse)
+async def run_analysis(
+    req: models.AnalysisRequest,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     results = []
     for var in req.variables:
         for step in req.change_steps:
-            var_copy = Variable(name=var.name, base_value=var.base_value, change_pct=step)
+            var_copy = models.Variable(name=var.name, base_value=var.base_value, change_pct=step)
             changed_value = var.base_value * (1 + step / 100)
             impact = estimate_impact(var_copy, req.target_metric, req.base_target_value)
             elasticity = (
@@ -117,7 +109,7 @@ async def run_analysis(req: AnalysisRequest):
                 else 0
             )
             results.append(
-                SensitivityResult(
+                models.SensitivityResult(
                     variable_name=var.name,
                     base_value=var.base_value,
                     changed_value=changed_value,
@@ -133,24 +125,26 @@ async def run_analysis(req: AnalysisRequest):
         var_elasticity[r.variable_name].append(r.elasticity)
     most_sensitive = max(var_elasticity, key=lambda v: sum(var_elasticity[v]) / len(var_elasticity[v]), default="")
 
-    resp = AnalysisResponse(
+    resp = models.AnalysisResponse(
+        user_id=user_id,
+        book_id=book_id_var.get(),
         company_id=req.company_id,
         target_metric=req.target_metric,
         base_target_value=req.base_target_value,
         results=results,
         most_sensitive_variable=most_sensitive,
     )
-    _analyses[req.company_id].append(resp)
+    await crud.store_analysis(db_session, user_id, resp)
     return resp
 
 
 @app.get("/analyses/{company_id}")
-async def get_analyses(company_id: str):
-    return {
-        "company_id": company_id,
-        "analyses": _analyses.get(company_id, []),
-        "total": len(_analyses.get(company_id, [])),
-    }
+async def get_analyses(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.get_analyses(db_session, user_id, company_id)
 
 
 if __name__ == "__main__":

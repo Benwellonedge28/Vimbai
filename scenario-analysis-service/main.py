@@ -1,16 +1,30 @@
+"""Vimbai Scenario Analysis Service - best/base/worst case financial modeling. Port: 8372
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
-Vimbai Scenario Analysis Service
-Best/base/worst case financial modeling and sensitivity analysis.
-Port: 8372
-"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "scenario_analysis_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("scenario_analysis_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("scenario_analysis_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["scenario_analysis_service"] = _pkg
+    _sys.modules["scenario_analysis_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from typing import Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from fastapi import Depends, FastAPI, Request
+from neo4j import AsyncSession
+from scenario_analysis_service import crud, models
+from scenario_analysis_service.dependencies import book_id_var, get_db_session, get_user_id
 
 SERVICE_NAME = "scenario-analysis-service"
 PORT = int(os.getenv("PORT", "8372"))
@@ -31,46 +45,11 @@ except ImportError:
     pass
 
 
-class ScenarioAssumption(BaseModel):
-    revenue_growth: float = 0.1
-    cost_growth: float = 0.05
-    interest_rate: float = 0.05
-    tax_rate: float = 0.25
-    capex: float = 0
-    description: str = ""
-
-
-class ScenarioRequest(BaseModel):
-    company_id: str
-    base_revenue: float
-    base_cost: float
-    base_interest: float = 0
-    base_depreciation: float = 0
-    best_case: ScenarioAssumption
-    base_case: ScenarioAssumption
-    worst_case: ScenarioAssumption
-
-
-class ScenarioResult(BaseModel):
-    name: str
-    description: str
-    projected_revenue: float
-    projected_cost: float
-    ebit: float
-    pretax_income: float
-    net_income: float
-    net_margin: float
-
-
-class AnalysisResponse(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    best_case: ScenarioResult
-    base_case: ScenarioResult
-    worst_case: ScenarioResult
-    sensitivity_revenue: float
-    sensitivity_cost: float
-    recommendation: str
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -80,8 +59,13 @@ async def health():
 
 
 def _calc_scenario(
-    name: str, assumption: ScenarioAssumption, base_rev: float, base_cost: float, base_int: float, base_dep: float
-) -> ScenarioResult:
+    name: str,
+    assumption: models.ScenarioAssumption,
+    base_rev: float,
+    base_cost: float,
+    base_int: float,
+    base_dep: float,
+) -> models.ScenarioResult:
     rev = base_rev * (1 + assumption.revenue_growth)
     cost = base_cost * (1 + assumption.cost_growth)
     ebit = rev - cost - base_dep
@@ -89,7 +73,7 @@ def _calc_scenario(
     tax = max(pretax, 0) * assumption.tax_rate
     net = pretax - tax
     margin = (net / rev * 100) if rev else 0
-    return ScenarioResult(
+    return models.ScenarioResult(
         name=name,
         description=assumption.description,
         projected_revenue=round(rev, 2),
@@ -101,8 +85,12 @@ def _calc_scenario(
     )
 
 
-@app.post("/analyze", response_model=AnalysisResponse)
-async def analyze_scenarios(req: ScenarioRequest):
+@app.post("/analyze", response_model=models.AnalysisResponse)
+async def analyze_scenarios(
+    req: models.ScenarioRequest,
+    user_id: str = Depends(get_user_id),
+):
+    """Pure computation over the submitted assumptions; nothing is persisted."""
     best = _calc_scenario(
         "Best Case", req.best_case, req.base_revenue, req.base_cost, req.base_interest, req.base_depreciation
     )
@@ -123,7 +111,7 @@ async def analyze_scenarios(req: ScenarioRequest):
     else:
         rec = "Base case unprofitable - immediate restructuring required"
 
-    return AnalysisResponse(
+    return models.AnalysisResponse(
         company_id=req.company_id,
         best_case=best,
         base_case=base,
@@ -134,54 +122,33 @@ async def analyze_scenarios(req: ScenarioRequest):
     )
 
 
-# Backward-compatible /scenarios endpoints (for platform test compatibility)
-_scenarios_store: Dict[str, List[Dict]] = {}
-
-
-class ScenarioCreate(BaseModel):
-    company_id: str
-    name: str
-    scenario_type: str = "custom"
-    projected_revenue: float = 0
-    projected_expenses: float = 0
-
-
-@app.post("/scenarios", response_model=dict)
-async def create_scenario(req: ScenarioCreate):
-    sid = str(uuid.uuid4())
-    scenario = {
-        "id": sid,
-        "company_id": req.company_id,
-        "name": req.name,
-        "scenario_type": req.scenario_type,
-        "projected_revenue": req.projected_revenue,
-        "projected_expenses": req.projected_expenses,
-        "net_projection": req.projected_revenue - req.projected_expenses,
-    }
-    _scenarios_store.setdefault(req.company_id, []).append(scenario)
+@app.post("/scenarios", response_model=models.Scenario)
+async def create_scenario(
+    req: models.ScenarioCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    scenario = await crud.create_scenario(db_session, user_id, req)
+    logger.info("scenario_created", company_id=scenario.company_id, name=scenario.name)
     return scenario
 
 
 @app.get("/scenarios/{company_id}")
-async def list_scenarios(company_id: str):
-    items = _scenarios_store.get(company_id, [])
-    return {"total": len(items), "scenarios": items}
+async def list_scenarios(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.list_scenarios(db_session, user_id, company_id)
 
 
 @app.get("/compare/{company_id}")
-async def compare_scenarios(company_id: str):
-    items = _scenarios_store.get(company_id, [])
-    if len(items) < 2:
-        return {"comparison": "Need at least 2 scenarios", "best_case": "", "worst_case": ""}
-    best = max(items, key=lambda s: s["net_projection"])
-    worst = min(items, key=lambda s: s["net_projection"])
-    return {
-        "best_case": best["name"],
-        "worst_case": worst["name"],
-        "best_net": best["net_projection"],
-        "worst_net": worst["net_projection"],
-        "range": best["net_projection"] - worst["net_projection"],
-    }
+async def compare_scenarios(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return await crud.compare_scenarios(db_session, user_id, company_id)
 
 
 if __name__ == "__main__":

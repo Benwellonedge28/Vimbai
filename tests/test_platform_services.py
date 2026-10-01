@@ -79,8 +79,11 @@ def appropriation_client():
 
 @pytest.fixture
 def scenario_client():
+    _patch_fake("scenario_analysis_service", "scenario_analysis_root_fake")
     app = load_service("scenario-analysis-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture
@@ -94,8 +97,11 @@ def cash_opt_client():
 
 @pytest.fixture
 def sensitivity_client():
+    _patch_fake("sensitivity_analysis_service", "sensitivity_analysis_root_fake")
     app = load_service("sensitivity-analysis-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture

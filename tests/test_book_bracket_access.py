@@ -1657,3 +1657,118 @@ def test_process_costing_accessible_in_book(process_costing_client):
 
 def test_product_costing_accessible_in_book(product_costing_client):
     _costing_flow(product_costing_client, "product-costing")
+
+
+# --------------------------------------------------------------------------
+# Scenario + sensitivity analysis (corporate-finance bracket members)
+# --------------------------------------------------------------------------
+
+SCENARIO_ANALYZE_PAYLOAD = {
+    "company_id": "co-book-access",
+    "base_revenue": 1000000,
+    "base_cost": 700000,
+    "base_interest": 20000,
+    "base_depreciation": 50000,
+    "best_case": {"revenue_growth": 0.2, "cost_growth": 0.03, "description": "Optimistic"},
+    "base_case": {"revenue_growth": 0.1, "cost_growth": 0.05, "description": "Expected"},
+    "worst_case": {"revenue_growth": -0.1, "cost_growth": 0.08, "description": "Pessimistic"},
+}
+
+SENSITIVITY_ANALYZE_PAYLOAD = {
+    "company_id": "co-book-access",
+    "target_metric": "net_profit",
+    "base_target_value": 100000,
+    "variables": [
+        {"name": "revenue", "base_value": 500000, "change_pct": 10},
+        {"name": "costs", "base_value": 400000, "change_pct": 10},
+    ],
+    "change_steps": [-10, 0, 10],
+}
+
+
+@pytest.fixture(scope="module")
+def scenario_analysis_client():
+    bracket = _load_bracket("corporate-finance-bracket")
+    _patch_fake("scenario_analysis_service", "scen_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+@pytest.fixture(scope="module")
+def sensitivity_analysis_client():
+    bracket = _load_bracket("corporate-finance-bracket")
+    _patch_fake("sensitivity_analysis_service", "sens_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_scenario_analysis_accessible_in_book(scenario_analysis_client):
+    # the /analyze modeling itself is stateless computation
+    resp = scenario_analysis_client.post("/scenario-analysis/analyze", json=SCENARIO_ANALYZE_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["best_case"]["net_income"] > data["worst_case"]["net_income"]
+    assert len(data["recommendation"]) > 0
+
+    # stored scenarios are Book-scoped
+    created = scenario_analysis_client.post(
+        "/scenario-analysis/scenarios",
+        json={
+            "company_id": "co-book-access",
+            "name": "Base",
+            "projected_revenue": 150000,
+            "projected_expenses": 100000,
+        },
+        headers=H,
+    )
+    assert created.status_code == 200, created.text
+    scenario = created.json()
+    assert scenario["book_id"] == BOOK
+
+    mine = scenario_analysis_client.get("/scenario-analysis/scenarios/co-book-access", headers=H).json()
+    assert any(s["id"] == scenario["id"] for s in mine["scenarios"])
+    other = scenario_analysis_client.get("/scenario-analysis/scenarios/co-book-access", headers=H_OTHER).json()
+    assert all(s["id"] != scenario["id"] for s in other["scenarios"])
+
+    # comparison only over the Book's own scenarios
+    scenario_analysis_client.post(
+        "/scenario-analysis/scenarios",
+        json={
+            "company_id": "co-book-access",
+            "name": "Bull",
+            "projected_revenue": 300000,
+            "projected_expenses": 100000,
+        },
+        headers=H,
+    )
+    cmp_data = scenario_analysis_client.get("/scenario-analysis/compare/co-book-access", headers=H).json()
+    assert cmp_data["best_case"] == "Bull"
+    assert cmp_data["worst_case"] == "Base"
+    other_cmp = scenario_analysis_client.get("/scenario-analysis/compare/co-book-access", headers=H_OTHER).json()
+    assert other_cmp["comparison"] == "Need at least 2 scenarios"
+
+    # Personal view still sees own scenarios across Books
+    personal = scenario_analysis_client.get("/scenario-analysis/scenarios/co-book-access", headers=H_PERSONAL).json()
+    assert any(s["id"] == scenario["id"] for s in personal["scenarios"])
+
+
+def test_sensitivity_analysis_accessible_in_book(sensitivity_analysis_client):
+    resp = sensitivity_analysis_client.post(
+        "/sensitivity-analysis/analyze", json=SENSITIVITY_ANALYZE_PAYLOAD, headers=H
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert len(data["results"]) == 6
+    assert data["book_id"] == BOOK
+
+    # analysis persisted and visible in the Book only
+    mine = sensitivity_analysis_client.get("/sensitivity-analysis/analyses/co-book-access", headers=H).json()
+    assert mine["total"] == 1
+    other = sensitivity_analysis_client.get("/sensitivity-analysis/analyses/co-book-access", headers=H_OTHER).json()
+    assert other["total"] == 0
+
+    # Personal view still sees own analyses across Books
+    personal = sensitivity_analysis_client.get(
+        "/sensitivity-analysis/analyses/co-book-access", headers=H_PERSONAL
+    ).json()
+    assert personal["total"] == 1
