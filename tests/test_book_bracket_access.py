@@ -1136,3 +1136,70 @@ def test_subscription_plans_accessible_in_book(subscription_plans_client):
     # Personal view still sees own plans across Books
     personal = subscription_plans_client.get("/subscription-plans/plans", headers=H_PERSONAL).json()
     assert any(p["id"] == plan["id"] for p in personal)
+
+
+# --------------------------------------------------------------------------
+# Insurance claims (corporate-finance bracket member)
+# --------------------------------------------------------------------------
+
+IC_CLAIM_PAYLOAD = {
+    "company_id": "co-book-access",
+    "policy_number": "POL-BK-001",
+    "claim_type": "property",
+    "incident_date": "2026-06-15",
+    "claim_amount": 50000,
+    "deductible": 5000,
+    "coverage_limit": 100000,
+    "description": "Warehouse fire",
+}
+
+
+@pytest.fixture(scope="module")
+def insurance_claims_client():
+    bracket = _load_bracket("corporate-finance-bracket")
+    _patch_fake("insurance_claims_service", "ic_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_insurance_claims_accessible_in_book(insurance_claims_client):
+    resp = insurance_claims_client.post("/insurance-claims/file", json=IC_CLAIM_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    claim = resp.json()
+    assert claim["book_id"] == BOOK
+    assert claim["status"] == "filed"
+
+    # claim visible in the Book, invisible to the other Book
+    mine = insurance_claims_client.get(
+        "/insurance-claims/claims", params={"company_id": "co-book-access"}, headers=H
+    ).json()
+    assert any(c["id"] == claim["id"] for c in mine)
+    other = insurance_claims_client.get(
+        "/insurance-claims/claims", params={"company_id": "co-book-access"}, headers=H_OTHER
+    ).json()
+    assert all(c["id"] != claim["id"] for c in other)
+
+    # process within the Book
+    result = insurance_claims_client.post(
+        f"/insurance-claims/claims/{claim['id']}/process",
+        params={"company_id": "co-book-access"},
+        headers=H,
+    )
+    assert result.status_code == 200, result.text
+    assert result.json()["covered_amount"] == 45000
+    assert result.json()["status"] == "approved"
+
+    # other Book cannot process the claim
+    blocked = insurance_claims_client.post(
+        f"/insurance-claims/claims/{claim['id']}/process",
+        params={"company_id": "co-book-access"},
+        headers=H_OTHER,
+    )
+    assert blocked.status_code == 404
+
+    # Personal view still sees own claims across Books
+    personal = insurance_claims_client.get(
+        "/insurance-claims/claims", params={"company_id": "co-book-access"}, headers=H_PERSONAL
+    ).json()
+    assert any(c["id"] == claim["id"] for c in personal)
+    assert personal[[c["id"] for c in personal].index(claim["id"])]["status"] == "approved"

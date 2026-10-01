@@ -381,9 +381,33 @@ class TestDebtManagementService:
         assert data["debt_to_equity"] > 0
 
 
+def _patch_insurance_claims_fake():
+    """Give insurance-claims-service a fake Neo4j driver + identity headers."""
+    import importlib.util
+
+    fake_path = os.path.join(REPO_ROOT, "insurance-claims-service", "fake_neo4j.py")
+    spec = importlib.util.spec_from_file_location("ic_root_fake", fake_path)
+    fake_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fake_mod)
+    db_path = os.path.join(REPO_ROOT, "insurance-claims-service", "database.py")
+    db_spec = importlib.util.spec_from_file_location("insurance_claims_service.database", db_path)
+    db_mod = importlib.util.module_from_spec(db_spec)
+    sys.modules["insurance_claims_service.database"] = db_mod
+    db_spec.loader.exec_module(db_mod)
+    session = fake_mod.FakeSession()
+    db_mod.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(session))
+    return session
+
+
 class TestInsuranceClaimsService:
     def setup_method(self):
+        self.session = _patch_insurance_claims_fake()
         self.client = TestClient(load_app("insurance-claims-service"))
+        self.client.headers.update({"X-User-Id": "root-ic-user"})
+
+    def teardown_method(self):
+        self.session.nodes.clear()
+        self.session.edges.clear()
 
     def test_file_and_process_claim(self):
         claim = self.client.post(
