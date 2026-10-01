@@ -1072,3 +1072,67 @@ def test_revenue_recognition_accessible_in_book(revenue_recognition_client):
     ).json()
     assert personal["total"] == 1
     assert personal["contracts"][0]["total_revenue_recognized"] == 80000
+
+
+# --------------------------------------------------------------------------
+# Subscription plans (operations-inventory bracket member)
+# --------------------------------------------------------------------------
+
+SP_PLAN_PAYLOAD = {
+    "tier": "professional",
+    "name": "Pro Plan",
+    "price_monthly": 199,
+    "features": ["Multi-company", "Advanced reporting"],
+    "max_users": 50,
+    "max_companies": 10,
+    "api_calls_per_month": 10000,
+}
+
+
+@pytest.fixture(scope="module")
+def subscription_plans_client():
+    bracket = _load_bracket("operations-inventory-bracket")
+    _patch_fake("subscription_plans_service", "sp_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_subscription_plans_accessible_in_book(subscription_plans_client):
+    resp = subscription_plans_client.post("/subscription-plans/plans", json=SP_PLAN_PAYLOAD, headers=H)
+    assert resp.status_code == 200, resp.text
+    plan = resp.json()
+    assert plan["book_id"] == BOOK
+
+    # plan visible in the Book, invisible to the other Book
+    assert len(subscription_plans_client.get("/subscription-plans/plans", headers=H).json()) >= 1
+    other = subscription_plans_client.get("/subscription-plans/plans", headers=H_OTHER).json()
+    assert all(p["id"] != plan["id"] for p in other)
+
+    # subscribe within the Book
+    sub = subscription_plans_client.post(
+        "/subscription-plans/subscribe",
+        params={"company_id": "co-book-access", "plan_id": plan["id"], "cycle": "annual"},
+        headers=H,
+    )
+    assert sub.status_code == 200, sub.text
+    assert sub.json()["book_id"] == BOOK
+
+    # subscription listing is Book-scoped
+    subs = subscription_plans_client.get("/subscription-plans/subscriptions/co-book-access", headers=H).json()
+    assert len(subs) == 1
+    assert subs[0]["billing_cycle"] == "annual"
+    assert (
+        subscription_plans_client.get("/subscription-plans/subscriptions/co-book-access", headers=H_OTHER).json() == []
+    )
+
+    # other Book cannot subscribe to this Book's plan
+    blocked = subscription_plans_client.post(
+        "/subscription-plans/subscribe",
+        params={"company_id": "co-book-access", "plan_id": plan["id"]},
+        headers=H_OTHER,
+    )
+    assert blocked.status_code == 404
+
+    # Personal view still sees own plans across Books
+    personal = subscription_plans_client.get("/subscription-plans/plans", headers=H_PERSONAL).json()
+    assert any(p["id"] == plan["id"] for p in personal)

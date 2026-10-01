@@ -448,9 +448,33 @@ class TestXBRLReportingService:
         assert len(data["validation_errors"]) > 0
 
 
+def _patch_subscription_plans_fake():
+    """Give subscription-plans-service a fake Neo4j driver + identity headers."""
+    import importlib.util
+
+    fake_path = os.path.join(REPO_ROOT, "subscription-plans-service", "fake_neo4j.py")
+    spec = importlib.util.spec_from_file_location("sp_root_fake", fake_path)
+    fake_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fake_mod)
+    db_path = os.path.join(REPO_ROOT, "subscription-plans-service", "database.py")
+    db_spec = importlib.util.spec_from_file_location("subscription_plans_service.database", db_path)
+    db_mod = importlib.util.module_from_spec(db_spec)
+    sys.modules["subscription_plans_service.database"] = db_mod
+    db_spec.loader.exec_module(db_mod)
+    session = fake_mod.FakeSession()
+    db_mod.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(session))
+    return session
+
+
 class TestSubscriptionPlansService:
     def setup_method(self):
+        self.session = _patch_subscription_plans_fake()
         self.client = TestClient(load_app("subscription-plans-service"))
+        self.client.headers.update({"X-User-Id": "root-sp-user"})
+
+    def teardown_method(self):
+        self.session.nodes.clear()
+        self.session.edges.clear()
 
     def test_plan_and_subscribe(self):
         plan = self.client.post(
