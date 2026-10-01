@@ -70,8 +70,11 @@ def integrity_client():
 
 @pytest.fixture
 def identity_client():
+    _patch_fake("financial_identity_service", "fin_identity_root_fake")
     app = load_service("financial-identity-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture

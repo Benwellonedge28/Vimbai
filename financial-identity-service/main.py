@@ -1,16 +1,33 @@
-"""Vimbai Financial Identity Service - Financial identity verification. Port: 8372"""
+"""Vimbai Financial Identity Service - Financial identity verification. Port: 8372
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "financial_identity_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("financial_identity_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("financial_identity_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["financial_identity_service"] = _pkg
+    _sys.modules["financial_identity_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import List
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from financial_identity_service import crud, models
+from financial_identity_service.dependencies import book_id_var, get_db_session, get_user_id
+from financial_identity_service.exceptions import FinancialIdentityError
+from neo4j import AsyncSession
 
 SERVICE_NAME = "financial-identity-service"
 PORT = int(os.getenv("PORT", "8372"))
@@ -32,37 +49,24 @@ app.add_middleware(
 try:
     from shared.tracing import setup_tracing
 
-    TRACER = setup_tracing(service_name="financial-identity-service", instrument_app=app)
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
     TRACER = None
 
 
-class VerificationStatus(str, Enum):
-    PENDING = "pending"
-    VERIFIED = "verified"
-    FAILED = "failed"
-    EXPIRED = "expired"
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class FinancialProfile(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    user_id: str
-    legal_name: str
-    national_id: str = ""
-    tax_id: str = ""
-    date_of_birth: Optional[datetime] = None
-    address: str = ""
-    phone: str = ""
-    email: str = ""
-    employer: str = ""
-    annual_income: float = 0
-    verification_status: VerificationStatus = VerificationStatus.PENDING
-    verified_at: Optional[datetime] = None
-    risk_score: int = 0
-    kyc_documents: List[str] = []
+@app.exception_handler(FinancialIdentityError)
+async def _identity_error(request: Request, exc: FinancialIdentityError):
+    from fastapi.responses import JSONResponse
 
-
-_profiles: Dict[str, FinancialProfile] = {}
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
 @app.get("/")
@@ -70,40 +74,52 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME}
 
 
-@app.post("/profiles", response_model=FinancialProfile)
-async def create_profile(profile: FinancialProfile):
-    _profiles[profile.id] = profile
-    return profile
+@app.post("/profiles", response_model=models.FinancialProfile)
+async def create_profile(
+    profile: models.FinancialProfileCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    created = await crud.create_profile(db_session, user_id, profile)
+    logger.info("kyc_profile_created", subject=created.user_id)
+    return created
 
 
-@app.get("/profiles/{profile_id}")
-async def get_profile(profile_id: str):
-    if profile_id not in _profiles:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    return _profiles[profile_id]
+@app.get("/profiles/{profile_id}", response_model=models.FinancialProfile)
+async def get_profile(
+    profile_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await crud.get_profile(db_session, user_id, profile_id)
+    except FinancialIdentityError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
 @app.put("/profiles/{profile_id}/verify")
-async def verify_profile(profile_id: str, documents: List[str]):
-    if profile_id not in _profiles:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    p = _profiles[profile_id]
-    p.kyc_documents = documents
-    if len(documents) >= 2:
-        p.verification_status = VerificationStatus.VERIFIED
-        p.verified_at = datetime.now(timezone.utc)
-        p.risk_score = 20  # low risk
-    else:
-        p.risk_score = 80  # high risk
-    return {"id": profile_id, "status": p.verification_status.value, "risk_score": p.risk_score}
+async def verify_profile(
+    profile_id: str,
+    documents: List[str],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await crud.verify_profile(db_session, user_id, profile_id, documents)
+    except FinancialIdentityError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
-@app.get("/profiles/user/{user_id}")
-async def get_by_user(user_id: str):
-    for p in _profiles.values():
-        if p.user_id == user_id:
-            return p
-    raise HTTPException(status_code=404, detail="No profile for user")
+@app.get("/profiles/user/{user_id}", response_model=models.FinancialProfile)
+async def get_by_user(
+    user_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    try:
+        return await crud.get_by_user(db_session, caller_id, user_id)
+    except FinancialIdentityError as exc:
+        raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
 if __name__ == "__main__":

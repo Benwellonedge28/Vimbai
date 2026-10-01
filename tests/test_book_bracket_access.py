@@ -1948,3 +1948,52 @@ def test_policy_engine_accessible_in_book(policy_book_client):
     ).json()
     assert other_result["triggered_count"] == 0
     assert other_result["allowed"] is True
+
+
+# --------------------------------------------------------------------------
+# Financial identity (advanced-accounting bracket member)
+# --------------------------------------------------------------------------
+
+KYC_PROFILE_PAYLOAD = {"user_id": "subject-book-access", "legal_name": "Book Access Subject"}
+
+
+@pytest.fixture(scope="module")
+def identity_book_client():
+    bracket = _load_bracket("advanced-accounting-bracket")
+    _patch_fake("financial_identity_service", "fin_identity_bookaccess_fake")
+    with TestClient(bracket.app) as client:
+        yield client
+
+
+def test_financial_identity_accessible_in_book(identity_book_client):
+    created = identity_book_client.post("/financial-identity/profiles", json=KYC_PROFILE_PAYLOAD, headers=H)
+    assert created.status_code == 200, created.text
+    profile = created.json()
+    assert profile["verification_status"] == "pending"
+
+    mine = identity_book_client.get(f"/financial-identity/profiles/{profile['id']}", headers=H).json()
+    assert mine["legal_name"] == "Book Access Subject"
+    # other Book cannot read or verify this KYC profile
+    assert identity_book_client.get(f"/financial-identity/profiles/{profile['id']}", headers=H_OTHER).status_code == 404
+    assert (
+        identity_book_client.put(
+            f"/financial-identity/profiles/{profile['id']}/verify", json=["passport", "utility_bill"], headers=H_OTHER
+        ).status_code
+        == 404
+    )
+
+    # verification within the Book works and persists
+    verified = identity_book_client.put(
+        f"/financial-identity/profiles/{profile['id']}/verify", json=["passport", "utility_bill"], headers=H
+    )
+    assert verified.status_code == 200, verified.text
+    assert verified.json() == {"id": profile["id"], "status": "verified", "risk_score": 20}
+
+    # subject lookup is scoped to the caller's own records
+    by_user = identity_book_client.get("/financial-identity/profiles/user/subject-book-access", headers=H)
+    assert by_user.status_code == 200
+    assert by_user.json()["verification_status"] == "verified"
+    assert (
+        identity_book_client.get("/financial-identity/profiles/user/subject-book-access", headers=H_OTHER).status_code
+        == 404
+    )
