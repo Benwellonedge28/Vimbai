@@ -1,19 +1,35 @@
-"""Vimbai Financial Integrity Service - Financial data integrity checks. Port: 8373"""
+"""Vimbai Financial Integrity Service - balance, hash and completeness checks. Port: 8332
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "financial_integrity_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("financial_integrity_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("financial_integrity_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["financial_integrity_service"] = _pkg
+    _sys.modules["financial_integrity_service"].__path__ = [_HERE]
 
 import hashlib
 import os
-import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from financial_integrity_service import crud, models
+from financial_integrity_service.dependencies import book_id_var, get_db_session, get_user_id
+from neo4j import AsyncSession
 
 SERVICE_NAME = "financial-integrity-service"
-PORT = int(os.getenv("PORT", "8373"))
+PORT = int(os.getenv("PORT", "8332"))
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
@@ -29,6 +45,7 @@ app = FastAPI(title="Vimbai Financial Integrity Service", version="2.0.0", docs_
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
+# Distributed tracing (OpenTelemetry)
 try:
     from shared.tracing import setup_tracing
 
@@ -37,40 +54,32 @@ except ImportError:
     TRACER = None
 
 
-class IntegrityCheck(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    check_type: str  # balance_check, hash_verify, reconciliation, completeness
-    entity_type: str = ""
-    entity_id: str = ""
-    passed: bool = False
-    details: str = ""
-    hash_before: str = ""
-    hash_after: str = ""
-    checked_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class IntegrityReport(BaseModel):
-    company_id: str
-    total_checks: int = 0
-    passed: int = 0
-    failed: int = 0
-    pass_rate: float = 0
-    checks: List[IntegrityCheck] = []
-
-
-_checks: Dict[str, List[IntegrityCheck]] = defaultdict(list)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
+@app.get("/health")
 async def health():
     return {"status": "healthy", "service": SERVICE_NAME}
 
 
 @app.post("/check/balance")
-async def check_balance(company_id: str, account_id: str, debits: float, credits: float, tolerance: float = 0.01):
+async def check_balance(
+    company_id: str,
+    account_id: str,
+    debits: float,
+    credits: float,
+    tolerance: float = 0.01,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Balance check (pure computation); the result is recorded for the caller's Book."""
     passed = abs(debits - credits) <= tolerance
-    check = IntegrityCheck(
+    check = models.IntegrityCheck(
         company_id=company_id,
         check_type="balance_check",
         entity_type="account",
@@ -78,15 +87,24 @@ async def check_balance(company_id: str, account_id: str, debits: float, credits
         passed=passed,
         details=f"Debits: {debits}, Credits: {credits}, Diff: {abs(debits-credits)}",
     )
-    _checks[company_id].append(check)
+    await crud.record_check(db_session, user_id, check)
     return {"passed": passed, "difference": abs(debits - credits), "tolerance": tolerance}
 
 
 @app.post("/check/hash")
-async def verify_hash(company_id: str, entity_type: str, entity_id: str, data: str, expected_hash: str):
+async def verify_hash(
+    company_id: str,
+    entity_type: str,
+    entity_id: str,
+    data: str,
+    expected_hash: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """SHA-256 hash verification; the result is recorded for the caller's Book."""
     actual_hash = hashlib.sha256(data.encode()).hexdigest()
     passed = actual_hash == expected_hash
-    check = IntegrityCheck(
+    check = models.IntegrityCheck(
         company_id=company_id,
         check_type="hash_verify",
         entity_type=entity_type,
@@ -96,21 +114,29 @@ async def verify_hash(company_id: str, entity_type: str, entity_id: str, data: s
         hash_after=actual_hash,
         details="Hash mismatch" if not passed else "Hash verified",
     )
-    _checks[company_id].append(check)
+    await crud.record_check(db_session, user_id, check)
     return {"passed": passed, "actual_hash": actual_hash, "expected_hash": expected_hash}
 
 
 @app.post("/check/completeness")
-async def check_completeness(company_id: str, entity_type: str, expected_count: int, actual_count: int):
+async def check_completeness(
+    company_id: str,
+    entity_type: str,
+    expected_count: int,
+    actual_count: int,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Count completeness check; the result is recorded for the caller's Book."""
     passed = expected_count == actual_count
-    check = IntegrityCheck(
+    check = models.IntegrityCheck(
         company_id=company_id,
         check_type="completeness",
         entity_type=entity_type,
         passed=passed,
         details=f"Expected: {expected_count}, Actual: {actual_count}",
     )
-    _checks[company_id].append(check)
+    await crud.record_check(db_session, user_id, check)
     return {
         "passed": passed,
         "expected": expected_count,
@@ -119,12 +145,17 @@ async def check_completeness(company_id: str, entity_type: str, expected_count: 
     }
 
 
-@app.get("/report/{company_id}", response_model=IntegrityReport)
-async def get_report(company_id: str):
-    checks = _checks.get(company_id, [])
+@app.get("/report/{company_id}", response_model=models.IntegrityReport)
+async def get_report(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Integrity report over the caller's Book-visible checks for the company."""
+    checks = await crud.list_checks(db_session, user_id, company_id)
     passed = sum(1 for c in checks if c.passed)
     failed = len(checks) - passed
-    return IntegrityReport(
+    return models.IntegrityReport(
         company_id=company_id,
         total_checks=len(checks),
         passed=passed,

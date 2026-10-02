@@ -64,8 +64,11 @@ def state_machine_client():
 
 @pytest.fixture
 def integrity_client():
+    _patch_fake("financial_integrity_service", "fin_integrity_root_fake")
     app = load_service("financial-integrity-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture
