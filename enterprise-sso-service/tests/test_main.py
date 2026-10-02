@@ -16,20 +16,32 @@ def test_health_check():
     assert response.json()["status"] == "healthy"
 
 
+def _jwt_like(sub):
+    """Build a JWT-shaped IdP token (the current contract validates structure)."""
+    import base64
+    import json
+
+    header = base64.urlsafe_b64encode(json.dumps({"alg": "RS256"}).encode()).rstrip(b"=").decode()
+    payload = base64.urlsafe_b64encode(json.dumps({"sub": sub, "exp": 99999999999}).encode()).rstrip(b"=").decode()
+    return f"{header}.{payload}.sig"
+
+
 def test_sso_auth_success():
     response = client.post(
-        "/auth/sso", json={"organization_id": "org_enterprise_001", "idp_token": "valid_idp_token_from_okta_or_azure"}
+        "/auth/sso",
+        json={"organization_id": "org_enterprise_001", "idp_token": _jwt_like("sso_user_1"), "provider": "oidc"},
     )
     assert response.status_code == 200
     data = response.json()
     assert "vimbai_access_token" in data
     assert data["organization_id"] == "org_enterprise_001"
-    assert "SSO Authentication successful" in data["message"]
+    assert "SSO authentication successful" in data["message"]
 
 
 def test_sso_auth_no_personal_data_retained():
     response = client.post(
-        "/auth/sso", json={"organization_id": "org_enterprise_002", "idp_token": "another_valid_idp_token_here"}
+        "/auth/sso",
+        json={"organization_id": "org_enterprise_002", "idp_token": _jwt_like("sso_user_2"), "provider": "oidc"},
     )
     assert response.status_code == 200
     data = response.json()
