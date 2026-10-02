@@ -1,19 +1,36 @@
-"""Vimbai Federated Network Service. Port: 8382"""
+"""Vimbai Federated Network Service. Port: 8382
 
-import os
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "federated_network_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("federated_network_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("federated_network_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["federated_network_service"] = _pkg
+    _sys.modules["federated_network_service"].__path__ = [_HERE]
+
 import time
-import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from federated_network_service import crud, models
+from federated_network_service.dependencies import book_id_var, get_db_session, get_user_id
+from federated_network_service.exceptions import FederatedNetworkError
+from neo4j import AsyncSession
 
 SERVICE_NAME = "federated-network-service"
-PORT = int(os.getenv("PORT", "8382"))
+PORT = int(__import__("os").getenv("PORT", "8382"))
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
@@ -29,6 +46,7 @@ app = FastAPI(title="Vimbai Federated Network Service", version="2.0.0", docs_ur
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
+# Distributed tracing (OpenTelemetry)
 try:
     from shared.tracing import setup_tracing
 
@@ -37,74 +55,82 @@ except ImportError:
     TRACER = None
 
 
-# Generic entity model for this service
-class Entity(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    description: str = ""
-    config: Dict[str, Any] = {}
-    status: str = "active"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-_store: Dict[str, List[Entity]] = defaultdict(list)
+@app.exception_handler(FederatedNetworkError)
+async def _disaster_recovery_error(request: Request, exc: FederatedNetworkError):
+    from fastapi.responses import JSONResponse
+
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
 @app.get("/")
-async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
-
-
 @app.get("/health")
-async def health_check():
-    return {"status": "healthy", "service": SERVICE_NAME, "uptime_seconds": time.time()}
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0", "uptime_seconds": time.time()}
 
 
 @app.post("/items")
-async def create_item(company_id: str, item: Entity):
-    _store[company_id].append(item)
-    logger.info("item_created", company_id=company_id, name=item.name)
-    return {"id": item.id, "name": item.name, "status": "created"}
+async def create_item(
+    company_id: str,
+    item: models.Entity,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    created = await crud.create_item(db_session, user_id, company_id, item)
+    logger.info("item_created", company_id=company_id, name=created.name)
+    return {"id": created.id, "name": created.name, "status": "created"}
 
 
 @app.get("/items/{company_id}")
-async def get_items(company_id: str):
-    return {"company_id": company_id, "items": _store.get(company_id, []), "total": len(_store.get(company_id, []))}
+async def get_items(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    items = await crud.list_items_for_company(db_session, user_id, company_id)
+    return {"company_id": company_id, "items": items, "total": len(items)}
 
 
 @app.put("/items/{item_id}")
 async def update_item(
-    item_id: str, name: Optional[str] = None, description: Optional[str] = None, status: Optional[str] = None
+    item_id: str,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    for items in _store.values():
-        for item in items:
-            if item.id == item_id:
-                if name is not None:
-                    item.name = name
-                if description is not None:
-                    item.description = description
-                if status is not None:
-                    item.status = status
-                item.updated_at = datetime.now(timezone.utc)
-                return {"id": item_id, "status": "updated"}
-    raise HTTPException(status_code=404, detail="Item not found")
+    """Update a caller-owned, Book-visible item; cross-scope updates 404."""
+    await crud.update_item(db_session, user_id, item_id, name, description, status)
+    return {"id": item_id, "status": "updated"}
 
 
 @app.delete("/items/{item_id}")
-async def delete_item(item_id: str):
-    for items in _store.values():
-        for i, item in enumerate(items):
-            if item.id == item_id:
-                item.status = "deleted"
-                return {"id": item_id, "status": "deleted"}
-    raise HTTPException(status_code=404, detail="Item not found")
+async def delete_item(
+    item_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Soft delete (original semantics): flip status to 'deleted'; the item stays listed."""
+    await crud.delete_item(db_session, user_id, item_id)
+    return {"id": item_id, "status": "deleted"}
 
 
 @app.get("/metrics")
-async def metrics():
-    total = sum(len(v) for v in _store.values())
-    return {"service": SERVICE_NAME, "total_items": total, "companies": len(_store)}
+async def metrics(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Service totals over the caller's Book-visible items only."""
+    m = await crud.metrics(db_session, user_id)
+    return {"service": SERVICE_NAME, **m}
 
 
 if __name__ == "__main__":
