@@ -587,16 +587,26 @@ def current_user(x_user_id: Optional[str] = Header(default=None)) -> str:
     return x_user_id
 
 
-def require_org(conn, org_id: str) -> sqlite3.Row:
+def require_org(conn, org_id: str, user_id: str) -> sqlite3.Row:
+    """Fetch the org and enforce CALLER OWNERSHIP.
+
+    Existence alone is not enough: the org registry is multi-tenant,
+    so a caller operating on an org they do not own gets the same 404
+    as a nonexistent org (no existence leak to other tenants).
+    """
     row = conn.execute("SELECT * FROM orgs WHERE id=?", (org_id,)).fetchone()
-    if row is None:
+    if row is None or row["owner_id"] != user_id:
         raise HTTPException(status_code=404, detail="Organization not found")
     return row
 
 
 def refresh_band(conn, org_id: str) -> str:
-    """Recompute the size band after membership/branch/revenue changes."""
-    org = require_org(conn, org_id)
+    """Recompute the size band after membership/branch/revenue changes.
+
+    Internal helper: callers have already established ownership via
+    require_org(), so this only fetches (no ownership re-check).
+    """
+    org = conn.execute("SELECT * FROM orgs WHERE id=?", (org_id,)).fetchone()
     n_branches = conn.execute("SELECT COUNT(*) c FROM branches WHERE org_id=?", (org_id,)).fetchone()["c"]
     band = classify_band(
         org["annual_revenue"] or 0,
@@ -873,7 +883,7 @@ def list_orgs(user: str = Depends(current_user)):
 @app.get("/orgs/{org_id}")
 def get_org(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         features = FEATURES[org["org_type"]][org["size_band"]]
     return {"service": SERVICE_NAME, "org": row(org), "features": features}
 
@@ -881,7 +891,7 @@ def get_org(org_id: str, user: str = Depends(current_user)):
 @app.patch("/orgs/{org_id}")
 def update_org(org_id: str, body: OrgUpdate, user: str = Depends(current_user)):
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         updates, vals = [], []
         for field in ("annual_revenue", "headcount", "sector"):
             v = getattr(body, field)
@@ -898,7 +908,7 @@ def update_org(org_id: str, body: OrgUpdate, user: str = Depends(current_user)):
 @app.get("/orgs/{org_id}/features")
 def org_features(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
     limit = APPROVAL_LIMITS[org["size_band"]]
     return {
         "service": SERVICE_NAME,
@@ -918,7 +928,7 @@ def org_features(org_id: str, user: str = Depends(current_user)):
 @app.post("/orgs/{org_id}/branches")
 def create_branch(org_id: str, body: BranchCreate, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         branch_id = str(uuid.uuid4())
         conn.execute(
             "INSERT INTO branches (id, org_id, parent_id, name, region,"
@@ -932,7 +942,7 @@ def create_branch(org_id: str, body: BranchCreate, user: str = Depends(current_u
 @app.get("/orgs/{org_id}/branches")
 def list_branches(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         branch_rows = rows(conn.execute("SELECT * FROM branches WHERE org_id=? ORDER BY created_at", (org_id,)))
     return {"service": SERVICE_NAME, "branches": branch_rows}
 
@@ -958,7 +968,7 @@ def record_revenue(org_id: str, body: RevenueEntryCreate, user: str = Depends(cu
     now = time.time()
     revenue_id = str(uuid.uuid4())
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         if org["org_type"] not in ("commercial", "partnership", "company", "plc"):
             raise HTTPException(
                 status_code=400,
@@ -998,7 +1008,7 @@ def record_revenue(org_id: str, body: RevenueEntryCreate, user: str = Depends(cu
 @app.get("/orgs/{org_id}/revenues")
 def list_revenues(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         revenue_rows = rows(
             conn.execute(
                 "SELECT * FROM revenues WHERE org_id=? ORDER BY received_at DESC",
@@ -1026,7 +1036,12 @@ class BookLinkBody(BaseModel):
 
 
 def _require_owner(conn, org_id: str, user: str):
-    org = require_org(conn, org_id)
+    """Owner gate for Book-member management: nonexistent org 404s, an
+    org owned by someone else 403s (distinct from require_org's
+    uniform 404, so a misdirected invite is explained to its sender)."""
+    org = conn.execute("SELECT * FROM orgs WHERE id=?", (org_id,)).fetchone()
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
     if org["owner_id"] != user:
         raise HTTPException(status_code=403, detail="Only the org owner can manage Book members")
     return org
@@ -1037,7 +1052,7 @@ def get_org_book(org_id: str, user: str = Depends(current_user)):
     """The org's Book plus its members - enforced by the sync service's
     own membership checks, so a non-member sees nothing."""
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         if not org["book_id"]:
             raise HTTPException(status_code=404, detail="Org has no Book yet")
         book_id = org["book_id"]
@@ -1057,7 +1072,7 @@ def invite_book_member(org_id: str, body: MemberInviteBody, user: str = Depends(
     with db() as conn:
         _require_owner(conn, org_id, user)
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         if not org["book_id"]:
             raise HTTPException(status_code=400, detail="Org has no Book yet")
         book_id = org["book_id"]
@@ -1082,7 +1097,7 @@ def invite_book_member(org_id: str, body: MemberInviteBody, user: str = Depends(
 @app.get("/orgs/{org_id}/members")
 def list_book_members(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         if not org["book_id"]:
             raise HTTPException(status_code=404, detail="Org has no Book yet")
         book_id = org["book_id"]
@@ -1137,7 +1152,7 @@ class PurchaseCreate(BaseModel):
 @app.post("/orgs/{org_id}/vendors")
 def add_vendor(org_id: str, body: VendorCreate, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         vid = str(uuid.uuid4())
         conn.execute(
             "INSERT INTO vendors (id, org_id, name, phone, email, created_at)" " VALUES (?,?,?,?,?,?)",
@@ -1149,7 +1164,7 @@ def add_vendor(org_id: str, body: VendorCreate, user: str = Depends(current_user
 @app.get("/orgs/{org_id}/vendors")
 def list_vendors(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         v = rows(
             conn.execute(
                 "SELECT * FROM vendors WHERE org_id=? ORDER BY created_at",
@@ -1165,7 +1180,7 @@ def record_purchase(org_id: str, body: PurchaseCreate, user: str = Depends(curre
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="amount must be positive")
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         vendor = conn.execute(
             "SELECT id FROM vendors WHERE id=? AND org_id=?",
             (body.vendor_id, org_id),
@@ -1187,7 +1202,7 @@ def pay_purchase(org_id: str, purchase_id: str, user: str = Depends(current_user
     """Settle a purchase: marks it paid and books it as an expense so
     every report (activities, equity, capital accounts) stays honest."""
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         p = conn.execute(
             "SELECT * FROM purchases WHERE id=? AND org_id=?",
             (purchase_id, org_id),
@@ -1228,7 +1243,7 @@ def pay_purchase(org_id: str, purchase_id: str, user: str = Depends(current_user
 def report_creditors(org_id: str, user: str = Depends(current_user)):
     """Aged payables: what the org owes each vendor right now."""
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         c = conn.execute(
             "SELECT v.name vendor, SUM(p.amount) owed"
             " FROM purchases p JOIN vendors v ON v.id = p.vendor_id"
@@ -1266,7 +1281,7 @@ def add_shareholder(org_id: str, body: ShareholderCreate, user: str = Depends(cu
     if body.shares < 1:
         raise HTTPException(status_code=400, detail="shares must be >= 1")
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         if org["org_type"] not in ("company", "plc"):
             raise HTTPException(
                 status_code=400,
@@ -1289,7 +1304,7 @@ class DirectorCreate(BaseModel):
 @app.post("/orgs/{org_id}/directors")
 def add_director(org_id: str, body: DirectorCreate, user: str = Depends(current_user)):
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         if org["org_type"] not in ("company", "plc"):
             raise HTTPException(
                 status_code=400,
@@ -1306,7 +1321,7 @@ def add_director(org_id: str, body: DirectorCreate, user: str = Depends(current_
 @app.get("/orgs/{org_id}/directors")
 def list_directors(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         d = rows(
             conn.execute(
                 "SELECT * FROM directors WHERE org_id=? ORDER BY appointed_at",
@@ -1319,7 +1334,7 @@ def list_directors(org_id: str, user: str = Depends(current_user)):
 @app.get("/orgs/{org_id}/shareholders")
 def list_shareholders(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         sh_rows = rows(
             conn.execute(
                 "SELECT * FROM shareholders WHERE org_id=? ORDER BY joined_at",
@@ -1333,7 +1348,7 @@ def list_shareholders(org_id: str, user: str = Depends(current_user)):
 def declare_dividend(org_id: str, body: DividendCreate, user: str = Depends(current_user)):
     """Declare a dividend per share, capped at distributable reserves."""
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         if org["org_type"] not in ("company", "plc"):
             raise HTTPException(
                 status_code=400,
@@ -1383,7 +1398,7 @@ def report_equity(org_id: str, user: str = Depends(current_user)):
     """Statement of changes in equity: share capital paid in,
     retained earnings, dividends declared, closing equity."""
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         if org["org_type"] not in ("company", "plc"):
             raise HTTPException(
                 status_code=400,
@@ -1437,7 +1452,7 @@ class PartnerDrawCreate(BaseModel):
 @app.post("/orgs/{org_id}/partners")
 def add_partner(org_id: str, body: PartnerCreate, user: str = Depends(current_user)):
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         if org["org_type"] != "partnership":
             raise HTTPException(
                 status_code=400,
@@ -1457,7 +1472,7 @@ def add_partner(org_id: str, body: PartnerCreate, user: str = Depends(current_us
 @app.get("/orgs/{org_id}/partners")
 def list_partners(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         partner_rows = rows(
             conn.execute(
                 "SELECT * FROM partners WHERE org_id=? ORDER BY joined_at",
@@ -1473,7 +1488,7 @@ def partner_draw(org_id: str, partner_id: str, body: PartnerDrawCreate, user: st
     if body.amount <= 0:
         raise HTTPException(status_code=400, detail="amount must be positive")
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         p = conn.execute(
             "SELECT * FROM partners WHERE id=? AND org_id=?",
             (partner_id, org_id),
@@ -1492,7 +1507,7 @@ def report_capital_accounts(org_id: str, user: str = Depends(current_user)):
     """Statement of partners' capital accounts: contribution + share of
     net income - draws, per partner. The report partners care about."""
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         if org["org_type"] != "partnership":
             raise HTTPException(
                 status_code=400,
@@ -1553,7 +1568,7 @@ def report_capital_accounts(org_id: str, user: str = Depends(current_user)):
 @app.post("/orgs/{org_id}/donors")
 def create_donor(org_id: str, body: DonorCreate, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         donor_id = str(uuid.uuid4())
         conn.execute(
             "INSERT INTO donors (id, org_id, name, email, phone, type," " created_at) VALUES (?,?,?,?,?,?,?)",
@@ -1565,7 +1580,7 @@ def create_donor(org_id: str, body: DonorCreate, user: str = Depends(current_use
 @app.get("/orgs/{org_id}/donors")
 def list_donors(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         donor_rows = rows(conn.execute("SELECT * FROM donors WHERE org_id=? ORDER BY created_at", (org_id,)))
     return {"service": SERVICE_NAME, "donors": donor_rows}
 
@@ -1576,7 +1591,7 @@ def record_donation(org_id: str, body: DonationCreate, user: str = Depends(curre
     now = time.time()
     donation_id = str(uuid.uuid4())
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         donor = conn.execute(
             "SELECT * FROM donors WHERE id=? AND org_id=?",
             (body.donor_id, org_id),
@@ -1626,7 +1641,7 @@ def record_donation(org_id: str, body: DonationCreate, user: str = Depends(curre
 @app.get("/orgs/{org_id}/donations")
 def list_donations(org_id: str, user: str = Depends(current_user), designation: Optional[str] = None):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         q = "SELECT * FROM donations WHERE org_id=?"
         args = [org_id]
         if designation:
@@ -1639,7 +1654,7 @@ def list_donations(org_id: str, user: str = Depends(current_user), designation: 
 @app.post("/orgs/{org_id}/pledges")
 def create_pledge(org_id: str, body: PledgeCreate, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         pledge_id = str(uuid.uuid4())
         first_due = time.time() + 30 * 86400
         conn.execute(
@@ -1669,7 +1684,7 @@ def run_pledges(org_id: str, user: str = Depends(current_user)):
     collected = 0
     total = 0.0
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         due = conn.execute(
             "SELECT * FROM pledges WHERE org_id=? AND status='active'" " AND next_due <= ?",
             (org_id, now),
@@ -1716,7 +1731,7 @@ def run_pledges(org_id: str, user: str = Depends(current_user)):
 @app.get("/orgs/{org_id}/receipts")
 def list_receipts(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         receipt_rows = rows(
             conn.execute(
                 "SELECT * FROM receipts WHERE org_id=? ORDER BY issued_at DESC",
@@ -1796,7 +1811,7 @@ def _receipt_pdf(org_name: str, receipt) -> bytes:
 def receipt_pdf(org_id: str, receipt_id: str, user: str = Depends(current_user)):
     """Download a receipt as a real PDF the donor can keep or print."""
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         r = conn.execute(
             "SELECT r.receipt_no, r.amount, r.currency, r.issued_at, r.token"
             " FROM receipts r WHERE r.id=? AND r.org_id=?",
@@ -1864,7 +1879,7 @@ def public_holdings(verify_code: str):
 @app.post("/orgs/{org_id}/expenses")
 def create_expense(org_id: str, body: ExpenseCreate, user: str = Depends(current_user)):
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         limit = APPROVAL_LIMITS[org["size_band"]]
         status = "approved"
         if body.amount > limit:
@@ -1902,7 +1917,7 @@ def create_expense(org_id: str, body: ExpenseCreate, user: str = Depends(current
 @app.get("/orgs/{org_id}/expenses")
 def list_expenses(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         expense_rows = rows(
             conn.execute(
                 "SELECT * FROM expenses WHERE org_id=? ORDER BY spent_at DESC",
@@ -1920,7 +1935,7 @@ def list_expenses(org_id: str, user: str = Depends(current_user)):
 @app.put("/orgs/{org_id}/budgets")
 def upsert_budget(org_id: str, body: BudgetUpsert, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         conn.execute(
             "INSERT INTO budgets (id, org_id, fiscal_year, fund, program,"
             " budgeted) VALUES (?,?,?,?,?,?)"
@@ -1934,7 +1949,7 @@ def upsert_budget(org_id: str, body: BudgetUpsert, user: str = Depends(current_u
 @app.post("/orgs/{org_id}/compliance")
 def create_compliance(org_id: str, body: ComplianceCreate, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         item_id = str(uuid.uuid4())
         conn.execute(
             "INSERT INTO compliance_items (id, org_id, title, category,"
@@ -1948,7 +1963,7 @@ def create_compliance(org_id: str, body: ComplianceCreate, user: str = Depends(c
 @app.get("/orgs/{org_id}/compliance")
 def list_compliance(org_id: str, user: str = Depends(current_user)):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         items = rows(
             conn.execute(
                 "SELECT * FROM compliance_items WHERE org_id=?" " ORDER BY due_date ASC",
@@ -1963,7 +1978,7 @@ def create_balance_item(org_id: str, body: BalanceItemCreate, user: str = Depend
     if body.kind not in ("asset", "liability"):
         raise HTTPException(status_code=400, detail="kind must be asset or liability")
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         item_id = str(uuid.uuid4())
         conn.execute(
             "INSERT INTO balance_items (id, org_id, kind, name, amount," " currency, as_of) VALUES (?,?,?,?,?,?,?)",
@@ -1990,7 +2005,7 @@ def report_activities(org_id: str, user: str = Depends(current_user), fiscal_yea
     """Statement of activities: revenue by fund (designation) minus
     expenses by fund, per branch with org total."""
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         w, args = _fy_where(fiscal_year)
         if org["org_type"] in ("commercial", "partnership", "company", "plc"):
             revenue = conn.execute(
@@ -2041,7 +2056,7 @@ def report_activities(org_id: str, user: str = Depends(current_user), fiscal_yea
 def report_functional(org_id: str, user: str = Depends(current_user)):
     """Functional expense report: program vs admin vs fundraising."""
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         areas = conn.execute(
             "SELECT functional_area, SUM(amount) total FROM expenses" " WHERE org_id=? GROUP BY functional_area",
             (org_id,),
@@ -2062,7 +2077,7 @@ def report_position(org_id: str, user: str = Depends(current_user)):
     """Statement of financial position: assets, liabilities and net
     assets (with cash-flow approximation from donations - expenses)."""
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         assets = conn.execute(
             "SELECT COALESCE(SUM(amount),0) t FROM balance_items" " WHERE org_id=? AND kind='asset'",
             (org_id,),
@@ -2097,7 +2112,7 @@ def report_position(org_id: str, user: str = Depends(current_user)):
 @app.get("/orgs/{org_id}/reports/budget-vs-actual")
 def report_budget(org_id: str, user: str = Depends(current_user), fiscal_year: Optional[int] = None):
     with db() as conn:
-        require_org(conn, org_id)
+        require_org(conn, org_id, user)
         q = "SELECT * FROM budgets WHERE org_id=?"
         args = [org_id]
         if fiscal_year:
@@ -2132,7 +2147,7 @@ def report_consolidated(org_id: str, user: str = Depends(current_user)):
     """Federation view: per-branch donation and expense totals with the
     org-wide consolidation. Available once the org hits large scale."""
     with db() as conn:
-        org = require_org(conn, org_id)
+        org = require_org(conn, org_id, user)
         if org["size_band"] not in ("large", "extra_large"):
             raise HTTPException(
                 status_code=403,

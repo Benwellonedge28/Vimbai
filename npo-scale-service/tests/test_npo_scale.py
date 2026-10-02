@@ -963,3 +963,55 @@ def test_book_link_adopts_existing_book(fake_sync):
     book = client.get("/orgs/%s/book" % org_id, headers=hdr()).json()
     assert book["book"]["id"] == "bk_123"
     assert len(book["members"]) == 2
+
+
+# ---------------------------------------------------------------------------
+# Caller-ownership regression tests (cross-tenant isolation)
+# ---------------------------------------------------------------------------
+def _make_org(name, user):
+    r = client.post(
+        "/orgs",
+        json={"name": name, "org_type": "nonprofit", "annual_revenue": 1000},
+        headers=hdr(user),
+    )
+    assert r.status_code == 200
+    return r.json()["org"]["id"]
+
+
+def test_cross_tenant_read_is_404():
+    org_id = _make_org("Victim Org", HQ)
+    other = hdr("attacker-1")
+    assert client.get("/orgs/%s" % org_id, headers=other).status_code == 404
+    assert client.get("/orgs/%s/branches" % org_id, headers=other).status_code == 404
+    assert client.get("/orgs/%s/receipts" % org_id, headers=other).status_code == 404
+    assert client.get("/orgs/%s/reports/consolidated" % org_id, headers=other).status_code == 404
+
+
+def test_cross_tenant_write_is_404():
+    org_id = _make_org("Victim Org 2", HQ)
+    other = hdr("attacker-2")
+    assert (
+        client.post(
+            "/orgs/%s/branches" % org_id,
+            json={"name": "Branch X", "region": "Harare"},
+            headers=other,
+        ).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            "/orgs/%s/expenses" % org_id,
+            json={"amount": 500, "description": "steal", "approver1": "a1"},
+            headers=other,
+        ).status_code
+        == 404
+    )
+    # the victim's org is untouched
+    org = client.get("/orgs/%s" % org_id, headers=hdr(HQ)).json()["org"]
+    assert org["id"] == org_id
+
+
+def test_owner_still_has_access():
+    org_id = _make_org("Legit Org", HQ)
+    assert client.get("/orgs/%s" % org_id, headers=hdr(HQ)).status_code == 200
+    assert client.get("/orgs/%s/branches" % org_id, headers=hdr(HQ)).status_code == 200
