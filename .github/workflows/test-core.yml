@@ -54,7 +54,7 @@ jobs:
           - group: tax-audit-investigation-bracket
             services: "corporate-tax-service forensic-accounting-service investigation-service it-audit-service operational-audit-service tax-audit-service"
           - group: treasury-banking-bracket
-            services: "sovereign-treasury-service treasury-analytics-service treasury-compliance-service treasury-management-service bank-feed-service"
+            services: "sovereign-treasury-service treasury-analytics-service treasury-compliance-service treasury-management-service bank-feed-service cash-management-service"
 
     steps:
       - uses: actions/checkout@v4
