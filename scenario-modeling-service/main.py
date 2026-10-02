@@ -1,225 +1,63 @@
-"""
-Scenario Modeling Service - Rule-based What-If Analysis
-======================================================
+"""Vimbai Scenario Modeling Service - rule-based What-If analysis and forecasting.
 
-This service implements rule-based scenario modeling for financial forecasting
-and What-If analysis as specified in the Vimbai Design Document.
-
-Features:
-- Create and manage financial scenarios
-- Rule-based forecasting with condition-action pairs
-- What-If analysis with variable manipulation
-- Sensitivity analysis
-- Scenario comparison
-- Trend extrapolation
+This file may be imported bare (uvicorn main:app), so it bootstraps its
+own package alias before importing sibling modules.
 """
 
-import json
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "scenario_modeling_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("scenario_modeling_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("scenario_modeling_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["scenario_modeling_service"] = _pkg
+    _sys.modules["scenario_modeling_service"].__path__ = [_HERE]
+
 import os
 import uuid
-from datetime import date, datetime
+from datetime import datetime, timezone
 from decimal import Decimal
-from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List
 
-from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query, status
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, validator
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from neo4j import AsyncSession
+from scenario_modeling_service import crud, models
+from scenario_modeling_service.dependencies import book_id_var, get_db_session, get_user_id
 
-load_dotenv()
-
-# =============================================================================
-# MODELS
-# =============================================================================
-
-
-class ScenarioType(str, Enum):
-    """Types of scenario modeling"""
-
-    BUDGET_FORECAST = "budget_forecast"
-    REVENUE_PROJECTION = "revenue_projection"
-    EXPENSE_SIMULATION = "expense_simulation"
-    CASH_FLOW = "cash_flow"
-    PROFITABILITY = "profitability"
-    GROWTH_RATE = "growth_rate"
-    CUSTOM = "custom"
-
-
-class RuleConditionOperator(str, Enum):
-    """Operators for rule conditions"""
-
-    EQUALS = "equals"
-    NOT_EQUALS = "not_equals"
-    GREATER_THAN = "greater_than"
-    LESS_THAN = "less_than"
-    GREATER_OR_EQUAL = "greater_or_equal"
-    LESS_OR_EQUAL = "less_or_equal"
-    CONTAINS = "contains"
-    BETWEEN = "between"
-
-
-class RuleActionType(str, Enum):
-    """Types of rule actions"""
-
-    ADJUST_AMOUNT = "adjust_amount"
-    SCALE_AMOUNT = "scale_amount"
-    APPLY_PERCENTAGE = "apply_percentage"
-    SET_VALUE = "set_value"
-    FLAG_ALERT = "flag_alert"
-    TRIGGER_WORKFLOW = "trigger_workflow"
-
-
-class RuleCondition(BaseModel):
-    """Condition for rule evaluation"""
-
-    field: str = Field(..., description="Field to evaluate")
-    operator: RuleConditionOperator = Field(..., description="Comparison operator")
-    value: Any = Field(..., description="Value to compare against")
-    secondary_value: Optional[Any] = Field(None, description="Secondary value for BETWEEN operator")
-
-
-class RuleAction(BaseModel):
-    """Action to execute when rule condition is met"""
-
-    action_type: RuleActionType = Field(..., description="Type of action")
-    target_field: str = Field(..., description="Field to modify")
-    value: Any = Field(..., description="Action value or multiplier")
-    description: Optional[str] = Field(None, description="Action description")
-
-
-class ModelingRule(BaseModel):
-    """Rule for scenario modeling"""
-
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Rule ID")
-    name: str = Field(..., max_length=200, description="Rule name")
-    description: Optional[str] = Field(None, description="Rule description")
-    conditions: List[RuleCondition] = Field(..., min_length=1, description="Rule conditions (AND logic)")
-    actions: List[RuleAction] = Field(..., min_length=1, description="Actions to execute")
-    priority: int = Field(100, description="Rule priority (lower = higher priority)")
-    enabled: bool = Field(True, description="Whether rule is enabled")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    @validator("conditions", "actions")
-    def validate_not_empty(cls, v):
-        if len(v) == 0:
-            raise ValueError("Conditions and actions must have at least one item")
-        return v
-
-
-class ScenarioVariable(BaseModel):
-    """Variable for What-If analysis"""
-
-    name: str = Field(..., max_length=100, description="Variable name")
-    current_value: Decimal = Field(..., description="Current/base value")
-    min_value: Optional[Decimal] = Field(None, description="Minimum allowed value")
-    max_value: Optional[Decimal] = Field(None, description="Maximum allowed value")
-    step: Optional[Decimal] = Field(None, description="Step size for sensitivity analysis")
-    unit: Optional[str] = Field(None, max_length=50, description="Unit of measurement")
-    description: Optional[str] = Field(None, description="Variable description")
-
-
-class ScenarioCreate(BaseModel):
-    """Create a new scenario"""
-
-    name: str = Field(..., max_length=200, description="Scenario name")
-    description: Optional[str] = Field(None, max_length=1000, description="Scenario description")
-    scenario_type: ScenarioType = Field(..., description="Type of scenario")
-    base_date: date = Field(..., description="Base date for calculations")
-    end_date: date = Field(..., description="End date for projection")
-    variables: List[ScenarioVariable] = Field(default_factory=list, description="Scenario variables")
-    rules: List[str] = Field(default_factory=list, description="Rule IDs to apply")
-    assumptions: Optional[Dict[str, Any]] = Field(None, description="Additional assumptions")
-
-
-class ScenarioInDB(ScenarioCreate):
-    """Scenario as stored in database"""
-
-    id: str = Field(..., description="Scenario ID")
-    user_id: str = Field(..., description="User who created the scenario")
-    status: Literal["draft", "active", "completed", "archived"] = Field("draft", description="Scenario status")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    results: Optional[Dict[str, Any]] = Field(None, description="Scenario results")
-
-    class Config:
-        from_attributes = True
-
-
-class WhatIfAnalysisCreate(BaseModel):
-    """What-If analysis request"""
-
-    scenario_id: str = Field(..., description="Scenario to use")
-    variable_changes: Dict[str, Decimal] = Field(..., description="Variable changes to apply")
-    description: Optional[str] = Field(None, description="Analysis description")
-
-
-class WhatIfResult(BaseModel):
-    """What-If analysis result"""
-
-    analysis_id: str = Field(..., description="Analysis ID")
-    scenario_id: str = Field(..., description="Scenario used")
-    base_values: Dict[str, Decimal] = Field(..., description="Base variable values")
-    changed_values: Dict[str, Decimal] = Field(..., description="Changed variable values")
-    original_outcome: Decimal = Field(..., description="Original outcome")
-    new_outcome: Decimal = Field(..., description="New outcome after changes")
-    variance: Decimal = Field(..., description="Variance from original")
-    variance_percent: float = Field(..., description="Variance as percentage")
-    affected_accounts: List[Dict[str, Any]] = Field(default_factory=list, description="Accounts affected")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-
-class SensitivityAnalysisRequest(BaseModel):
-    """Sensitivity analysis request"""
-
-    scenario_id: str = Field(..., description="Scenario to use")
-    variable_name: str = Field(..., description="Variable to analyze")
-    min_change: Decimal = Field(..., description="Minimum change to apply")
-    max_change: Decimal = Field(..., description="Maximum change to apply")
-    steps: int = Field(10, ge=2, le=100, description="Number of steps")
-
-
-class SensitivityResult(BaseModel):
-    """Sensitivity analysis result"""
-
-    analysis_id: str = Field(..., description="Analysis ID")
-    variable_name: str = Field(..., description="Variable analyzed")
-    outcomes: List[Dict[str, Any]] = Field(..., description="Outcome for each step")
-    most_sensitive_range: Dict[str, Any] = Field(..., description="Range of highest sensitivity")
-    recommendations: List[str] = Field(..., description="Analysis recommendations")
-
-
-# =============================================================================
-# IN-MEMORY STORAGE (Production would use Neo4j)
-# =============================================================================
-
-
-class Storage:
-    scenarios: Dict[str, ScenarioInDB] = {}
-    rules: Dict[str, ModelingRule] = {}
-    what_if_results: Dict[str, WhatIfResult] = {}
-    sensitivity_results: Dict[str, SensitivityResult] = {}
-
-
-storage = Storage()
-
-# =============================================================================
-# FASTAPI APPLICATION
-# =============================================================================
+SERVICE_NAME = "scenario-modeling-service"
+PORT = int(os.getenv("PORT", "8122"))
 
 app = FastAPI(
     title="Vimbai Scenario Modeling Service",
     description="Rule-based What-If analysis and financial forecasting",
-    version="1.0.0",
+    version="2.0.0",
 )
 
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
+
+
+@app.get("/")
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+
+
 # =============================================================================
-# HELPER FUNCTIONS
+# HELPER FUNCTIONS (pure computation, unchanged)
 # =============================================================================
 
 
-def evaluate_condition(condition: RuleCondition, data: Dict[str, Any]) -> bool:
+def evaluate_condition(condition: models.RuleCondition, data: Dict[str, Any]) -> bool:
     """Evaluate a single rule condition"""
     value = data.get(condition.field)
 
@@ -237,28 +75,28 @@ def evaluate_condition(condition: RuleCondition, data: Dict[str, Any]) -> bool:
     except (ValueError, TypeError):
         pass
 
-    if condition.operator == RuleConditionOperator.EQUALS:
+    if condition.operator == models.RuleConditionOperator.EQUALS:
         return value == target_value
-    elif condition.operator == RuleConditionOperator.NOT_EQUALS:
+    elif condition.operator == models.RuleConditionOperator.NOT_EQUALS:
         return value != target_value
-    elif condition.operator == RuleConditionOperator.GREATER_THAN:
+    elif condition.operator == models.RuleConditionOperator.GREATER_THAN:
         return value > target_value
-    elif condition.operator == RuleConditionOperator.LESS_THAN:
+    elif condition.operator == models.RuleConditionOperator.LESS_THAN:
         return value < target_value
-    elif condition.operator == RuleConditionOperator.GREATER_OR_EQUAL:
+    elif condition.operator == models.RuleConditionOperator.GREATER_OR_EQUAL:
         return value >= target_value
-    elif condition.operator == RuleConditionOperator.LESS_OR_EQUAL:
+    elif condition.operator == models.RuleConditionOperator.LESS_OR_EQUAL:
         return value <= target_value
-    elif condition.operator == RuleConditionOperator.CONTAINS:
+    elif condition.operator == models.RuleConditionOperator.CONTAINS:
         return str(target_value) in str(value)
-    elif condition.operator == RuleConditionOperator.BETWEEN:
+    elif condition.operator == models.RuleConditionOperator.BETWEEN:
         secondary = Decimal(str(condition.secondary_value))
         return target_value <= value <= secondary
 
     return False
 
 
-def apply_rule(rule: ModelingRule, data: Dict[str, Any]) -> Dict[str, Any]:
+def apply_rule(rule: models.ModelingRule, data: Dict[str, Any]) -> Dict[str, Any]:
     """Apply a rule to data and return modified data"""
     # Check all conditions (AND logic)
     conditions_met = all(evaluate_condition(c, data) for c in rule.conditions)
@@ -269,40 +107,40 @@ def apply_rule(rule: ModelingRule, data: Dict[str, Any]) -> Dict[str, Any]:
     # Apply actions
     result = data.copy()
     for action in rule.actions:
-        if action.action_type == RuleActionType.ADJUST_AMOUNT:
+        if action.action_type == models.RuleActionType.ADJUST_AMOUNT:
             current = Decimal(str(result.get(action.target_field, 0)))
             result[action.target_field] = float(current + Decimal(str(action.value)))
-        elif action.action_type == RuleActionType.SCALE_AMOUNT:
+        elif action.action_type == models.RuleActionType.SCALE_AMOUNT:
             current = Decimal(str(result.get(action.target_field, 0)))
             result[action.target_field] = float(current * Decimal(str(action.value)))
-        elif action.action_type == RuleActionType.APPLY_PERCENTAGE:
+        elif action.action_type == models.RuleActionType.APPLY_PERCENTAGE:
             current = Decimal(str(result.get(action.target_field, 0)))
             percentage = Decimal(str(action.value)) / Decimal("100")
             result[action.target_field] = float(current * (Decimal("1") + percentage))
-        elif action.action_type == RuleActionType.SET_VALUE:
+        elif action.action_type == models.RuleActionType.SET_VALUE:
             result[action.target_field] = action.value
 
     return result
 
 
-def calculate_outcome(scenario: ScenarioInDB, variables: Dict[str, Decimal]) -> Decimal:
+def calculate_outcome(scenario: models.ScenarioInDB, variables: Dict[str, Decimal]) -> Decimal:
     """Calculate the outcome based on scenario type and variables"""
     # Simple calculation based on scenario type
-    if scenario.scenario_type == ScenarioType.BUDGET_FORECAST:
+    if scenario.scenario_type == models.ScenarioType.BUDGET_FORECAST:
         total = sum(variables.values())
         return total
-    elif scenario.scenario_type == ScenarioType.REVENUE_PROJECTION:
+    elif scenario.scenario_type == models.ScenarioType.REVENUE_PROJECTION:
         base = Decimal(str(scenario.assumptions.get("base_revenue", 100000)) if scenario.assumptions else 100000)
         growth = variables.get("growth_rate", Decimal("0.05"))
         periods = (scenario.end_date - scenario.base_date).days / 30
         return base * (Decimal("1") + growth) ** Decimal(str(periods))
-    elif scenario.scenario_type == ScenarioType.EXPENSE_SIMULATION:
+    elif scenario.scenario_type == models.ScenarioType.EXPENSE_SIMULATION:
         return sum(v for k, v in variables.items() if "expense" in k.lower())
-    elif scenario.scenario_type == ScenarioType.CASH_FLOW:
+    elif scenario.scenario_type == models.ScenarioType.CASH_FLOW:
         inflows = sum(v for k, v in variables.items() if "inflow" in k.lower())
         outflows = sum(v for k, v in variables.items() if "outflow" in k.lower())
         return inflows - outflows
-    elif scenario.scenario_type == ScenarioType.PROFITABILITY:
+    elif scenario.scenario_type == models.ScenarioType.PROFITABILITY:
         revenue = variables.get("revenue", Decimal("0"))
         costs = variables.get("costs", Decimal("0"))
         return revenue - costs
@@ -315,17 +153,22 @@ def calculate_outcome(scenario: ScenarioInDB, variables: Dict[str, Decimal]) -> 
 # =============================================================================
 
 
-@app.post("/scenarios/", response_model=ScenarioInDB, status_code=status.HTTP_201_CREATED)
-async def create_scenario(scenario: ScenarioCreate, user_id: str = Query(..., description="User ID")):
+@app.post("/scenarios/", response_model=models.ScenarioInDB, status_code=status.HTTP_201_CREATED)
+async def create_scenario(
+    scenario: models.ScenarioCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Create a new scenario"""
     scenario_id = str(uuid.uuid4())
 
-    # Validate rules exist
+    # Validate rules exist among the caller's Book-visible rules
     for rule_id in scenario.rules:
-        if rule_id not in storage.rules:
+        rule = await crud.find_rule(db_session, user_id, rule_id)
+        if rule is None:
             raise HTTPException(status_code=404, detail=f"Rule {rule_id} not found")
 
-    scenario_data = ScenarioInDB(
+    scenario_data = models.ScenarioInDB(
         id=scenario_id,
         user_id=user_id,
         name=scenario.name,
@@ -338,70 +181,72 @@ async def create_scenario(scenario: ScenarioCreate, user_id: str = Query(..., de
         assumptions=scenario.assumptions,
     )
 
-    storage.scenarios[scenario_id] = scenario_data
+    await crud.create_scenario(db_session, user_id, scenario_data)
     return scenario_data
 
 
-@app.get("/scenarios/", response_model=List[ScenarioInDB])
+@app.get("/scenarios/", response_model=List[models.ScenarioInDB])
 async def list_scenarios(
-    user_id: str = Query(..., description="User ID"),
-    status: Optional[str] = Query(None, description="Filter by status"),
-    scenario_type: Optional[ScenarioType] = Query(None, description="Filter by type"),
+    status: str = Query(None, description="Filter by status"),
+    scenario_type: models.ScenarioType = Query(None, description="Filter by type"),
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """List all scenarios for a user"""
-    results = [s for s in storage.scenarios.values() if s.user_id == user_id]
-
-    if status:
-        results = [s for s in results if s.status == status]
-    if scenario_type:
-        results = [s for s in results if s.scenario_type == scenario_type]
-
-    return sorted(results, key=lambda x: x.created_at, reverse=True)
+    """List all scenarios for a user (Book-visible)"""
+    return await crud.list_scenarios(
+        db_session,
+        user_id,
+        status=status or "",
+        scenario_type=scenario_type.value if scenario_type else "",
+    )
 
 
-@app.get("/scenarios/{scenario_id}", response_model=ScenarioInDB)
-async def get_scenario(scenario_id: str, user_id: str = Query(...)):
+@app.get("/scenarios/{scenario_id}", response_model=models.ScenarioInDB)
+async def get_scenario(
+    scenario_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get a scenario by ID"""
-    if scenario_id not in storage.scenarios:
+    scenario = await crud.find_scenario(db_session, user_id, scenario_id)
+    if scenario is None:
         raise HTTPException(status_code=404, detail="Scenario not found")
-
-    scenario = storage.scenarios[scenario_id]
-    if scenario.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Access denied")
-
     return scenario
 
 
-@app.put("/scenarios/{scenario_id}", response_model=ScenarioInDB)
-async def update_scenario(scenario_id: str, updates: Dict[str, Any], user_id: str = Query(...)):
+@app.put("/scenarios/{scenario_id}", response_model=models.ScenarioInDB)
+async def update_scenario(
+    scenario_id: str,
+    updates: Dict[str, Any],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Update a scenario"""
-    if scenario_id not in storage.scenarios:
+    scenario = await crud.find_scenario(db_session, user_id, scenario_id)
+    if scenario is None:
         raise HTTPException(status_code=404, detail="Scenario not found")
 
-    scenario = storage.scenarios[scenario_id]
-    if scenario.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    # Apply updates
+    # Apply updates (original setattr semantics)
     for key, value in updates.items():
         if hasattr(scenario, key) and key not in ["id", "user_id", "created_at"]:
             setattr(scenario, key, value)
 
-    scenario.updated_at = datetime.utcnow()
+    scenario.updated_at = datetime.now(timezone.utc)
+    await crud.update_scenario(db_session, user_id, scenario)
     return scenario
 
 
 @app.delete("/scenarios/{scenario_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_scenario(scenario_id: str, user_id: str = Query(...)):
+async def delete_scenario(
+    scenario_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Delete a scenario"""
-    if scenario_id not in storage.scenarios:
+    scenario = await crud.find_scenario(db_session, user_id, scenario_id)
+    if scenario is None:
         raise HTTPException(status_code=404, detail="Scenario not found")
-
-    scenario = storage.scenarios[scenario_id]
-    if scenario.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    del storage.scenarios[scenario_id]
+    await crud.delete_scenario(db_session, user_id, scenario_id)
 
 
 # =============================================================================
@@ -409,50 +254,73 @@ async def delete_scenario(scenario_id: str, user_id: str = Query(...)):
 # =============================================================================
 
 
-@app.post("/rules/", response_model=ModelingRule, status_code=status.HTTP_201_CREATED)
-async def create_rule(rule: ModelingRule):
+@app.post("/rules/", response_model=models.ModelingRule, status_code=status.HTTP_201_CREATED)
+async def create_rule(
+    rule: models.ModelingRule,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Create a new modeling rule"""
-    storage.rules[rule.id] = rule
+    await crud.create_rule(db_session, user_id, rule)
     return rule
 
 
-@app.get("/rules/", response_model=List[ModelingRule])
-async def list_rules(enabled_only: bool = Query(False, description="Filter enabled only")):
-    """List all modeling rules"""
-    if enabled_only:
-        return [r for r in storage.rules.values() if r.enabled]
-    return list(storage.rules.values())
+@app.get("/rules/", response_model=List[models.ModelingRule])
+async def list_rules(
+    enabled_only: bool = Query(False, description="Filter enabled only"),
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List all modeling rules for the caller (Book-visible)"""
+    return await crud.list_rules(db_session, user_id, enabled_only=enabled_only)
 
 
-@app.get("/rules/{rule_id}", response_model=ModelingRule)
-async def get_rule(rule_id: str):
+@app.get("/rules/{rule_id}", response_model=models.ModelingRule)
+async def get_rule(
+    rule_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get a rule by ID"""
-    if rule_id not in storage.rules:
+    rule = await crud.find_rule(db_session, user_id, rule_id)
+    if rule is None:
         raise HTTPException(status_code=404, detail="Rule not found")
-    return storage.rules[rule_id]
+    return rule
 
 
-@app.put("/rules/{rule_id}", response_model=ModelingRule)
-async def update_rule(rule_id: str, updates: Dict[str, Any]):
+@app.put("/rules/{rule_id}", response_model=models.ModelingRule)
+async def update_rule(
+    rule_id: str,
+    updates: Dict[str, Any],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Update a rule"""
-    if rule_id not in storage.rules:
+    rule = await crud.find_rule(db_session, user_id, rule_id)
+    if rule is None:
         raise HTTPException(status_code=404, detail="Rule not found")
 
-    rule = storage.rules[rule_id]
+    # Apply updates (original setattr semantics)
     for key, value in updates.items():
         if hasattr(rule, key) and key not in ["id", "created_at"]:
             setattr(rule, key, value)
-    rule.updated_at = datetime.utcnow()
+    rule.updated_at = datetime.now(timezone.utc)
 
+    await crud.update_rule(db_session, user_id, rule)
     return rule
 
 
 @app.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_rule(rule_id: str):
+async def delete_rule(
+    rule_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Delete a rule"""
-    if rule_id not in storage.rules:
+    rule = await crud.find_rule(db_session, user_id, rule_id)
+    if rule is None:
         raise HTTPException(status_code=404, detail="Rule not found")
-    del storage.rules[rule_id]
+    await crud.delete_rule(db_session, user_id, rule_id)
 
 
 # =============================================================================
@@ -460,13 +328,16 @@ async def delete_rule(rule_id: str):
 # =============================================================================
 
 
-@app.post("/what-if/", response_model=WhatIfResult, status_code=status.HTTP_201_CREATED)
-async def run_what_if_analysis(analysis: WhatIfAnalysisCreate):
-    """Run a What-If analysis"""
-    if analysis.scenario_id not in storage.scenarios:
+@app.post("/what-if/", response_model=models.WhatIfResult, status_code=status.HTTP_201_CREATED)
+async def run_what_if_analysis(
+    analysis: models.WhatIfAnalysisCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Run a What-If analysis on a caller-owned scenario"""
+    scenario = await crud.find_scenario(db_session, user_id, analysis.scenario_id)
+    if scenario is None:
         raise HTTPException(status_code=404, detail="Scenario not found")
-
-    scenario = storage.scenarios[analysis.scenario_id]
 
     # Get base values
     base_values = {v.name: v.current_value for v in scenario.variables}
@@ -491,7 +362,7 @@ async def run_what_if_analysis(analysis: WhatIfAnalysisCreate):
         {"account": "Net Income", "variance": float(variance * Decimal("0.3"))},
     ]
 
-    result = WhatIfResult(
+    result = models.WhatIfResult(
         analysis_id=str(uuid.uuid4()),
         scenario_id=analysis.scenario_id,
         base_values=base_values,
@@ -503,22 +374,31 @@ async def run_what_if_analysis(analysis: WhatIfAnalysisCreate):
         affected_accounts=affected_accounts,
     )
 
-    storage.what_if_results[result.analysis_id] = result
+    await crud.create_what_if(db_session, user_id, result)
     return result
 
 
-@app.get("/what-if/{analysis_id}", response_model=WhatIfResult)
-async def get_what_if_result(analysis_id: str):
+@app.get("/what-if/{analysis_id}", response_model=models.WhatIfResult)
+async def get_what_if_result(
+    analysis_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get What-If analysis result"""
-    if analysis_id not in storage.what_if_results:
+    result = await crud.get_what_if(db_session, user_id, analysis_id)
+    if result is None:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    return storage.what_if_results[analysis_id]
+    return result
 
 
-@app.get("/what-if/scenario/{scenario_id}", response_model=List[WhatIfResult])
-async def get_scenario_what_if_results(scenario_id: str):
+@app.get("/what-if/scenario/{scenario_id}", response_model=List[models.WhatIfResult])
+async def get_scenario_what_if_results(
+    scenario_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get all What-If analyses for a scenario"""
-    return [r for r in storage.what_if_results.values() if r.scenario_id == scenario_id]
+    return await crud.list_what_if_for_scenario(db_session, user_id, scenario_id)
 
 
 # =============================================================================
@@ -526,13 +406,16 @@ async def get_scenario_what_if_results(scenario_id: str):
 # =============================================================================
 
 
-@app.post("/sensitivity/", response_model=SensitivityResult, status_code=status.HTTP_201_CREATED)
-async def run_sensitivity_analysis(request: SensitivityAnalysisRequest):
-    """Run sensitivity analysis on a variable"""
-    if request.scenario_id not in storage.scenarios:
+@app.post("/sensitivity/", response_model=models.SensitivityResult, status_code=status.HTTP_201_CREATED)
+async def run_sensitivity_analysis(
+    request: models.SensitivityAnalysisRequest,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Run sensitivity analysis on a variable of a caller-owned scenario"""
+    scenario = await crud.find_scenario(db_session, user_id, request.scenario_id)
+    if scenario is None:
         raise HTTPException(status_code=404, detail="Scenario not found")
-
-    scenario = storage.scenarios[request.scenario_id]
 
     # Find the variable
     variable = next((v for v in scenario.variables if v.name == request.variable_name), None)
@@ -590,7 +473,7 @@ async def run_sensitivity_analysis(request: SensitivityAnalysisRequest):
                 f"Decrease {request.variable_name} by {abs(o['change_percent']):.1f}% yields {o['outcome']:.2f}"
             )
 
-    result = SensitivityResult(
+    result = models.SensitivityResult(
         analysis_id=str(uuid.uuid4()),
         variable_name=request.variable_name,
         outcomes=outcomes,
@@ -598,7 +481,7 @@ async def run_sensitivity_analysis(request: SensitivityAnalysisRequest):
         recommendations=recommendations[:5],  # Top 5 recommendations
     )
 
-    storage.sensitivity_results[result.analysis_id] = result
+    await crud.create_sensitivity(db_session, user_id, request.scenario_id, result)
     return result
 
 
@@ -608,13 +491,18 @@ async def run_sensitivity_analysis(request: SensitivityAnalysisRequest):
 
 
 @app.post("/compare/", response_model=Dict[str, Any])
-async def compare_scenarios(scenario_ids: List[str]):
-    """Compare multiple scenarios"""
+async def compare_scenarios(
+    scenario_ids: List[str],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Compare multiple scenarios (caller-owned, Book-visible)"""
     scenarios = []
     for sid in scenario_ids:
-        if sid not in storage.scenarios:
+        scenario = await crud.find_scenario(db_session, user_id, sid)
+        if scenario is None:
             raise HTTPException(status_code=404, detail=f"Scenario {sid} not found")
-        scenarios.append(storage.scenarios[sid])
+        scenarios.append(scenario)
 
     comparison = {
         "scenarios": [
@@ -628,7 +516,7 @@ async def compare_scenarios(scenario_ids: List[str]):
             }
             for s in scenarios
         ],
-        "comparison_date": datetime.utcnow().isoformat(),
+        "comparison_date": datetime.now(timezone.utc).isoformat(),
         "best_case": None,
         "worst_case": None,
         "recommendations": [],
@@ -662,28 +550,11 @@ async def compare_scenarios(scenario_ids: List[str]):
 
 
 # =============================================================================
-# HEALTH CHECK
-# =============================================================================
-
-
-@app.get("/health")
-async def health_check():
-    """Service health check"""
-    return {
-        "status": "healthy",
-        "service": "scenario-modeling",
-        "version": "1.0.0",
-        "scenarios_count": len(storage.scenarios),
-        "rules_count": len(storage.rules),
-    }
-
-
-# =============================================================================
 # MAIN
 # =============================================================================
 
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.getenv("SCENARIO_MODELING_PORT", "8092"))
+    port = int(os.getenv("SCENARIO_MODELING_PORT", PORT))
     uvicorn.run(app, host="0.0.0.0", port=port)

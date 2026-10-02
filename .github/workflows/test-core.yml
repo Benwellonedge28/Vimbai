@@ -35,6 +35,7 @@ jobs:
           - multimodal-pipeline-service
           - banking-integration-service
           - supply-chain-service
+          - scenario-modeling-service
           - fraud-detection-service
           - workflow-service
           - reporting-service
