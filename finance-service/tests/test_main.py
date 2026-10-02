@@ -13,7 +13,7 @@ os.environ.setdefault("JWT_SECRET", "test-secret-key-for-testing-only")
 os.environ.setdefault("NEO4J_PASSWORD", "test-password")
 
 import main  # noqa: F401  (registers the finance_service package alias)
-import finance_service.dependencies as deps
+from finance_service import dependencies as deps
 from finance_service.dependencies import get_db_session
 from main import app
 
