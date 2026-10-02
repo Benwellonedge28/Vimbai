@@ -323,21 +323,38 @@ class TestForeignExchangeService:
 
 
 class TestMFAService:
+    """mfa-auth is now Neo4j-backed: MFA is self-service (X-User-Id must match)."""
+
     def setup_method(self):
-        self.client = TestClient(load_app("mfa-auth-service"))
+        import os as _os
+
+        app = load_app("mfa-auth-service")
+        svc_dir = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "mfa-auth-service")
+        spec = importlib.util.spec_from_file_location("mfa_upgraded_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
+        fake_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake_mod)
+        self._session = fake_mod.FakeSession()
+
+        import mfa_auth_service.database as db
+
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
+        self.client = TestClient(app)
 
     def test_setup_and_verify(self):
-        setup = self.client.post("/setup", json={"user_id": "user-1", "method": "totp"})
+        h1 = {"X-User-Id": "user-1"}
+        setup = self.client.post("/setup", json={"user_id": "user-1", "method": "totp"}, headers=h1)
         data = setup.json()
         assert setup.status_code == 200
         assert data["secret"]
         assert len(data["backup_codes"]) == 8
 
-        verify = self.client.post("/verify", json={"user_id": "user-1", "code": "123456"})
+        verify = self.client.post("/verify", json={"user_id": "user-1", "code": "123456"}, headers=h1)
         assert verify.status_code == 200
 
     def test_challenge_flow(self):
-        challenge = self.client.post("/challenge", params={"user_id": "user-2", "method": "sms"})
+        challenge = self.client.post(
+            "/challenge", params={"user_id": "user-2", "method": "sms"}, headers={"X-User-Id": "user-2"}
+        )
         data = challenge.json()
         assert "challenge_id" in data
         # Can't verify without knowing the code, but structure should work
