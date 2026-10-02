@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 os.environ.setdefault("JWT_SECRET", "test-secret-key-for-testing-only")
 
+import main  # noqa: F401  (registers the workflow_service package alias)
 import workflow_service.dependencies as deps
 from main import app
 from workflow_service.dependencies import get_db_session

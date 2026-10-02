@@ -5,6 +5,7 @@ layer runs carries the Book context parameter, and that Book filtering is
 applied to reads, writes, updates and deletes.
 """
 
+import main  # noqa: F401  (registers the multimodal_pipeline_service package alias)
 import pytest
 from multimodal_pipeline_service import crud
 from multimodal_pipeline_service.dependencies import book_id_var
