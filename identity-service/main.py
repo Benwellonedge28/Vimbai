@@ -47,7 +47,8 @@ except ImportError:
 # Configuration
 # ============================================================================
 
-JWT_SECRET = os.environ["JWT_SECRET"]
+# os.environ["JWT_SECRET"] is read from the environment at call time, not import time
+# (lets tests override it and keeps import side-effect free)
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 REFRESH_TOKEN_EXPIRE_DAYS = 7
@@ -292,7 +293,7 @@ def create_access_token(user: User, expires_delta: Optional[timedelta] = None) -
         "role": user.role_ids[0] if user.role_ids else "user",
         "organization_id": user.organization_id,
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return jwt.encode(payload, os.environ["JWT_SECRET"], algorithm=JWT_ALGORITHM)
 
 
 def create_refresh_token(user: User) -> str:
@@ -598,7 +599,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 async def verify_mfa(mfa_data: MFAVerify, request: Request):
     """Verify MFA code and complete login"""
     try:
-        payload = jwt.decode(mfa_data.temp_token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(mfa_data.temp_token, os.environ["JWT_SECRET"], algorithms=[JWT_ALGORITHM])
         user_id = payload["sub"]
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid temporary token")
@@ -641,7 +642,7 @@ async def get_current_user(request: Request, authorization: str = Header(None)):
         if scheme.lower() != "bearer":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication scheme")
 
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, os.environ["JWT_SECRET"], algorithms=[JWT_ALGORITHM])
         user_id = payload["sub"]
     except (ValueError, jwt.PyJWTError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")

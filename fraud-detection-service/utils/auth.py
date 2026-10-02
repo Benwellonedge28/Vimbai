@@ -5,7 +5,8 @@ from fastapi.security import OAuth2PasswordBearer
 from fraud_detection_service.exceptions import ForbiddenError, UnauthorizedError
 from jose import JWTError, jwt
 
-JWT_SECRET = os.environ["JWT_SECRET"]
+# os.environ["JWT_SECRET"] is read from the environment at call time, not import time
+# (lets tests override it and keeps import side-effect free)
 ALGORITHM = "HS256"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8081/identity/login")
@@ -14,7 +15,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8081/identity/lo
 async def get_current_user_claims(token: str = Depends(oauth2_scheme)):
     credentials_exception = UnauthorizedError(detail="Could not validate credentials", code="INVALID_CREDENTIALS")
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, os.environ["JWT_SECRET"], algorithms=[ALGORITHM])
         user_id: str = payload.get("user_id")
         username: str = payload.get("username")
         user_role: str = payload.get("role")

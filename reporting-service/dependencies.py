@@ -6,7 +6,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 security = HTTPBearer(auto_error=False)
-JWT_SECRET = os.environ["JWT_SECRET"]
+# os.environ["JWT_SECRET"] is read from the environment at call time, not import time
+# (lets tests override it and keeps import side-effect free)
 
 
 async def get_db_session():
@@ -21,7 +22,7 @@ async def get_user_id(credentials: HTTPAuthorizationCredentials = Depends(securi
     if not credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(credentials.credentials, os.environ["JWT_SECRET"], algorithms=["HS256"])
         user_id = payload.get("sub") or payload.get("user_id")
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
@@ -37,7 +38,7 @@ def check_permission(permission: str):
         if not credentials:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
         try:
-            payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])
+            payload = jwt.decode(credentials.credentials, os.environ["JWT_SECRET"], algorithms=["HS256"])
             if payload.get("role") == "SUPER_ADMIN":
                 return True
             if permission in payload.get("permissions", []):

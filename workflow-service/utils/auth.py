@@ -9,13 +9,14 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 security = HTTPBearer(auto_error=False)
 
 IDENTITY_SERVICE_URL = os.getenv("IDENTITY_SERVICE_URL", "http://identity-service:8080")
-JWT_SECRET = os.environ["JWT_SECRET"]
+# os.environ["JWT_SECRET"] is read from the environment at call time, not import time
+# (lets tests override it and keeps import side-effect free)
 
 
 async def get_user_id_from_token(token: str) -> str:
     """Extract user_id from JWT token"""
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(token, os.environ["JWT_SECRET"], algorithms=["HS256"])
         user_id = payload.get("sub") or payload.get("user_id")
         if not user_id:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token: user_id not found")
@@ -35,7 +36,7 @@ def check_permission(permission: str):
 
         token = credentials.credentials
         try:
-            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            payload = jwt.decode(token, os.environ["JWT_SECRET"], algorithms=["HS256"])
             user_permissions = payload.get("permissions", [])
             user_role = payload.get("role", "")
 
