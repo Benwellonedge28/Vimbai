@@ -232,16 +232,16 @@ class TestRBACSecurity:
         assert created.status_code == 201, created.text
         role_id = created.json()["id"]
         updated = client.put(
-            "/roles/" + role_id, headers=headers, json={"name": "custom_role2", "description": "Custom2", "permissions": []}
+            "/roles/" + role_id,
+            headers=headers,
+            json={"name": "custom_role2", "description": "Custom2", "permissions": []},
         )
         assert updated.status_code == 200
         assert updated.json()["name"] == "custom_role2"
 
     def test_non_admin_cannot_create_roles(self):
         headers = _register_and_token("rbac-viewer@vimbai.com", ["viewer"])
-        resp = client.post(
-            "/roles", headers=headers, json={"name": "nope", "description": "nope", "permissions": []}
-        )
+        resp = client.post("/roles", headers=headers, json={"name": "nope", "description": "nope", "permissions": []})
         assert resp.status_code == 403
 
 

@@ -5,6 +5,7 @@ Neo4jConnector.get_driver at import time; the last patch won, so one
 file's autouse cleanup cleared a session that no request ever used,
 leaking rules across tests. One session + one autouse cleanup here.
 """
+
 import importlib.util
 import os
 

@@ -668,9 +668,7 @@ async def get_current_user(request: Request, authorization: str = Header(None)):
 def require_permission(current_user: dict, capability: Capability):
     """Ensure the authenticated user holds the given capability."""
     if capability.value not in current_user.get("permissions", []):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail=f"Missing capability: {capability.value}"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Missing capability: {capability.value}")
     return current_user
 
 
