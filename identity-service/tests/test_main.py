@@ -74,11 +74,8 @@ class TestHealthCheck:
 
 
 class TestUserRegistration:
-    @patch("main.users_store", {})
-    @patch("main.pwd_context")
-    def test_register_user_success(self, mock_pwd, mock_store):
+    def test_register_user_success(self):
         """Test successful user registration."""
-        mock_pwd.hash = MagicMock(return_value="hashed_password")
         response = client.post(
             "/users/register",
             json={
@@ -128,27 +125,22 @@ class TestUserRegistration:
 
 
 class TestUserLogin:
-    @patch("main.users_store", {})
-    @patch("main.pwd_context")
-    def test_login_success(self, mock_pwd, mock_store):
+    def test_login_success(self):
         """Test successful login returns JWT token."""
-        mock_pwd.hash = MagicMock(return_value="hashed_password")
-        mock_pwd.verify = MagicMock(return_value=True)
-
         # Register first
         client.post(
             "/users/register", json={"email": "login@vimbai.com", "username": "loginuser", "password": "SecurePass123!"}
         )
 
         # Login
-        response = client.post("/users/login", json={"email": "login@vimbai.com", "password": "SecurePass123!"})
+        response = client.post("/users/login", data={"username": "login@vimbai.com", "password": "SecurePass123!"})
         assert response.status_code in [200, 201]
         data = response.json()
         assert "access_token" in data or "token" in data
 
     def test_login_wrong_password(self):
         """Test that wrong password is rejected."""
-        response = client.post("/users/login", json={"email": "nonexistent@vimbai.com", "password": "wrongpassword"})
+        response = client.post("/users/login", data={"username": "nonexistent@vimbai.com", "password": "wrongpassword"})
         assert response.status_code in [401, 404, 400]
 
     def test_login_missing_credentials(self):
@@ -197,6 +189,60 @@ class TestJWTValidation:
 # ============================================================================
 # Role-Based Access Control
 # ============================================================================
+
+
+def _register_and_token(email="rbac-user@vimbai.com", role_ids=None):
+    """Register a fresh user holding the given roles and return auth headers."""
+    import jwt as pyjwt
+    from datetime import datetime, timedelta, timezone
+
+    resp = client.post(
+        "/users/register",
+        json={
+            "email": email,
+            "username": email.split("@")[0],
+            "password": "SecurePass123!",
+            "role_ids": role_ids or [],
+        },
+    )
+    assert resp.status_code in [200, 201], resp.text
+    user_id = resp.json()["id"]
+    token = pyjwt.encode(
+        {"sub": user_id, "exp": datetime.now(timezone.utc) + timedelta(hours=1)},
+        os.environ["JWT_SECRET"],
+        algorithm="HS256",
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
+class TestRBACSecurity:
+    """Regression tests: role management MUST be authenticated (was fully open)."""
+
+    def test_roles_require_authentication(self):
+        assert client.get("/roles").status_code == 401
+        assert client.post("/roles", json={"name": "x", "description": "x"}).status_code == 401
+        assert client.get("/roles/admin").status_code == 401
+        assert client.put("/roles/admin", json={"name": "x", "description": "x"}).status_code == 401
+
+    def test_admin_can_create_and_update_roles(self):
+        headers = _register_and_token("rbac-admin@vimbai.com", ["admin"])
+        created = client.post(
+            "/roles", headers=headers, json={"name": "custom_role", "description": "Custom", "permissions": []}
+        )
+        assert created.status_code == 201, created.text
+        role_id = created.json()["id"]
+        updated = client.put(
+            "/roles/" + role_id, headers=headers, json={"name": "custom_role2", "description": "Custom2", "permissions": []}
+        )
+        assert updated.status_code == 200
+        assert updated.json()["name"] == "custom_role2"
+
+    def test_non_admin_cannot_create_roles(self):
+        headers = _register_and_token("rbac-viewer@vimbai.com", ["viewer"])
+        resp = client.post(
+            "/roles", headers=headers, json={"name": "nope", "description": "nope", "permissions": []}
+        )
+        assert resp.status_code == 403
 
 
 class TestRBAC:

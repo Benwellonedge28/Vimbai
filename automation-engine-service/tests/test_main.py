@@ -16,29 +16,16 @@ os.environ["NEO4J_PASSWORD"] = "test-password"
 import main
 from main import app
 
-# Fake Neo4j harness (see test_book_scoping.py for the deep Book-scoping suite)
-_HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_spec = importlib.util.spec_from_file_location("ae_fake_main", os.path.join(_HERE, "fake_neo4j.py"))
-_fake_mod = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_fake_mod)
-_fake_session = _fake_mod.FakeSession()
-
+from tests.conftest import fake_session, fake_module
 from automation_engine_service.database import Neo4jConnector
 
-Neo4jConnector.get_driver = classmethod(lambda cls: _fake_mod.FakeDriver(_fake_session))
+Neo4jConnector.get_driver = classmethod(lambda cls: fake_module.FakeDriver(fake_session))
+
+# Fake Neo4j harness (see test_book_scoping.py for the deep Book-scoping suite)
 
 client = TestClient(app)
 
 H = {"X-User-Id": "ae-main-user", "X-Book-ID": "ae-main-book"}
-
-
-@pytest.fixture(autouse=True)
-def _clean_fake_graph():
-    _fake_session.nodes.clear()
-    _fake_session.edges.clear()
-    yield
-    _fake_session.nodes.clear()
-    _fake_session.edges.clear()
 
 
 def _rule_body():

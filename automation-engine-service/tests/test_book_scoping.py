@@ -8,30 +8,17 @@ import importlib.util
 import os
 
 import main
-import pytest
-from automation_engine_service.database import Neo4jConnector
 from fastapi.testclient import TestClient
+
+from tests.conftest import fake_session, fake_module
+from automation_engine_service.database import Neo4jConnector
 
 app = main.app
 
-_HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_spec = importlib.util.spec_from_file_location("ae_fake", os.path.join(_HERE, "fake_neo4j.py"))
-_fake_mod = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_fake_mod)
+Neo4jConnector.get_driver = classmethod(lambda cls: fake_module.FakeDriver(fake_session))
 
-_fake_session = _fake_mod.FakeSession()
-Neo4jConnector.get_driver = classmethod(lambda cls: _fake_mod.FakeDriver(_fake_session))
 
 client = TestClient(app)
-
-
-@pytest.fixture(autouse=True)
-def _clean_fake_graph():
-    _fake_session.nodes.clear()
-    _fake_session.edges.clear()
-    yield
-    _fake_session.nodes.clear()
-    _fake_session.edges.clear()
 
 
 U1, U2 = "ae-user-1", "ae-user-2"

@@ -50,9 +50,18 @@ class TestReportGeneration:
 
     def test_generate_report_with_auth(self, auth_headers):
         response = client.post(
-            "/generate", json={"report_type": "balance_sheet", "period": "2026-Q1"}, headers=auth_headers
+            "/generate",
+            json={
+                "company_id": "comp-1",
+                "report_type": "balance_sheet",
+                "period_start": "2026-01-01",
+                "period_end": "2026-03-31",
+                "format": "pdf",
+                "recipients": ["user@vimbai.com"],
+            },
+            headers=auth_headers,
         )
-        assert response.status_code in [200, 201, 500]
+        assert response.status_code in [200, 201]
 
     def test_generate_report_missing_fields(self, auth_headers):
         response = client.post("/generate", json={"report_type": "balance_sheet"}, headers=auth_headers)
@@ -75,10 +84,16 @@ class TestReportScheduling:
     def test_schedule_report_with_auth(self, auth_headers):
         response = client.post(
             "/schedule",
-            json={"report_type": "income_statement", "frequency": "monthly", "email": "user@vimbai.com"},
+            json={
+                "company_id": "comp-1",
+                "report_type": "income_statement",
+                "schedule": "0 6 * * 1",
+                "recipients": ["user@vimbai.com"],
+                "parameters": {},
+            },
             headers=auth_headers,
         )
-        assert response.status_code in [200, 201, 500]
+        assert response.status_code in [200, 201]
 
     def test_schedule_report_invalid_frequency(self, auth_headers):
         response = client.post(

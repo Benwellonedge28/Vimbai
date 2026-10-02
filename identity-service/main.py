@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 import jwt
 import structlog
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
+from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
@@ -356,7 +356,7 @@ def create_audit_log(
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,
-        ip_address=request.client.host if request else None,
+        ip_address=request.client.host if (request and request.client) else None,
         user_agent=request.headers.get("user-agent") if request else None,
         details=details,
         timestamp=datetime.now(timezone.utc),
@@ -515,7 +515,9 @@ async def register_user(user_data: UserCreate, request: Request):
         first_name=user_data.first_name,
         last_name=user_data.last_name,
         phone=user_data.phone,
-        status=UserStatus.PENDING_VERIFICATION,
+        # No email-verification flow exists in this service; self-registered
+        # accounts must be usable immediately or login is permanently broken.
+        status=UserStatus.ACTIVE,
         role_ids=user_data.role_ids,
         organization_id=user_data.organization_id,
         permissions=[],
@@ -576,7 +578,7 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         "user_id": user_id,
         "created_at": datetime.now(timezone.utc),
         "last_activity": datetime.now(timezone.utc),
-        "ip_address": request.client.host,
+        "ip_address": request.client.host if request.client else None,
     }
 
     # Update last login
@@ -613,7 +615,7 @@ async def verify_mfa(mfa_data: MFAVerify, request: Request):
         "user_id": user_id,
         "created_at": datetime.now(timezone.utc),
         "last_activity": datetime.now(timezone.utc),
-        "ip_address": request.client.host,
+        "ip_address": request.client.host if request.client else None,
     }
 
     user.last_login = datetime.now(timezone.utc)
@@ -629,7 +631,7 @@ async def verify_mfa(mfa_data: MFAVerify, request: Request):
 
 
 @app.get("/users/me")
-async def get_current_user(request: Request, authorization: str = None):
+async def get_current_user(request: Request, authorization: str = Header(None)):
     """Get current authenticated user"""
     if not authorization:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
@@ -660,6 +662,15 @@ async def get_current_user(request: Request, authorization: str = None):
         "mfa_enabled": user.mfa_enabled,
         "last_login": user.last_login,
     }
+
+
+def require_permission(current_user: dict, capability: Capability):
+    """Ensure the authenticated user holds the given capability."""
+    if capability.value not in current_user.get("permissions", []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=f"Missing capability: {capability.value}"
+        )
+    return current_user
 
 
 @app.get("/users/{user_id}")
@@ -826,14 +837,19 @@ async def disable_mfa(user_id: str, code: str = Form(...), request: Request = No
 
 
 @app.get("/roles")
-async def list_roles():
-    """List all available roles"""
+async def list_roles(current_user: dict = Depends(get_current_user)):
+    """List all available roles (authenticated users only)"""
     return {"total": len(roles), "roles": list(roles.values())}
 
 
 @app.post("/roles", status_code=status.HTTP_201_CREATED)
-async def create_role(role_data: RoleCreate, request: Request = None):
-    """Create a new role"""
+async def create_role(
+    role_data: RoleCreate,
+    request: Request = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """Create a new role (admin only)"""
+    require_permission(current_user, Capability.USER_MANAGE)
     role_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
 
@@ -855,16 +871,22 @@ async def create_role(role_data: RoleCreate, request: Request = None):
 
 
 @app.get("/roles/{role_id}")
-async def get_role(role_id: str):
-    """Get role by ID"""
+async def get_role(role_id: str, current_user: dict = Depends(get_current_user)):
+    """Get role by ID (authenticated users only)"""
     if role_id not in roles:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
     return roles[role_id]
 
 
 @app.put("/roles/{role_id}")
-async def update_role(role_id: str, update_data: RoleCreate, request: Request = None):
-    """Update a role"""
+async def update_role(
+    role_id: str,
+    update_data: RoleCreate,
+    request: Request = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """Update a role (admin only)"""
+    require_permission(current_user, Capability.USER_MANAGE)
     if role_id not in roles:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
 
