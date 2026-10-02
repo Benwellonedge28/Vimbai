@@ -1,0 +1,20 @@
+# Test-environment dependencies for the unified integration suite
+# (root tests/ + bracket smoke). Verified against a clean Python 3.11
+# venv: the full root suite + 13 bracket health checks pass with
+# exactly this set. Keep in sync when a service gains a new import.
+pytest
+pytest-asyncio
+pytest-cov
+coverage
+httpx
+fastapi
+uvicorn
+pydantic
+structlog
+neo4j
+aiofiles
+python-dotenv
+python-multipart
+croniter
+scipy
+strawberry-graphql

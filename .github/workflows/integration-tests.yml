@@ -7,12 +7,16 @@ on:
       - '**/*.py'
       - '**/Dockerfile'
       - 'tests/**'
+      - '.github/workflows/**'
+      - 'requirements-test.txt'
   pull_request:
     branches: ["main", "develop"]
     paths:
       - '**/*.py'
       - '**/Dockerfile'
       - 'tests/**'
+      - '.github/workflows/**'
+      - 'requirements-test.txt'
   schedule:
     - cron: '0 0 * * *'
 
@@ -31,7 +35,7 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-asyncio httpx fastapi pydantic structlog uvicorn pytest-cov coverage
+          pip install -r requirements-test.txt
 
       - name: Run integration test suite with coverage
         run: |

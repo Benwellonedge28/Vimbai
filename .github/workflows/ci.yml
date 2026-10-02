@@ -16,7 +16,8 @@ on:
       - 'api-gateway/**'
       - 'shared/**'
       - 'frontend/**'
-      - '.github/workflows/ci.yml'
+      - '.github/workflows/**'
+      - 'requirements-test.txt'
   pull_request:
     branches: [main, develop]
     paths:
@@ -32,7 +33,8 @@ on:
       - 'api-gateway/**'
       - 'shared/**'
       - 'frontend/**'
-      - '.github/workflows/ci.yml'
+      - '.github/workflows/**'
+      - 'requirements-test.txt'
   workflow_dispatch:
 
 env:
@@ -164,7 +166,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-asyncio httpx pytest-cov neo4j-driver fastapi uvicorn pydantic python-dotenv python-jose passlib bcrypt APScheduler structlog aiohttp
+          pip install -r requirements-test.txt
 
       - name: Run unified integration test suite with coverage
         run: |
@@ -178,8 +180,6 @@ jobs:
 
       - name: Smoke test bracket services (324 merged services, 13 brackets)
         run: |
-          pip install structlog "python-jose[cryptography]" croniter \
-            python-multipart python-dotenv strawberry-graphql[fastapi] scipy numpy
           python scripts/test_brackets.py
 
       - name: Upload coverage to Codecov
