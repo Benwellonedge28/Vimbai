@@ -14,10 +14,10 @@ os.environ["JWT_SECRET"] = "test-secret-key-for-testing-only"
 os.environ["NEO4J_PASSWORD"] = "test-password"
 
 import main
+from automation_engine_service.database import Neo4jConnector
 from main import app
 
-from tests.conftest import fake_session, fake_module
-from automation_engine_service.database import Neo4jConnector
+from tests.conftest import fake_module, fake_session
 
 Neo4jConnector.get_driver = classmethod(lambda cls: fake_module.FakeDriver(fake_session))
 

@@ -8,10 +8,10 @@ import importlib.util
 import os
 
 import main
+from automation_engine_service.database import Neo4jConnector
 from fastapi.testclient import TestClient
 
-from tests.conftest import fake_session, fake_module
-from automation_engine_service.database import Neo4jConnector
+from tests.conftest import fake_module, fake_session
 
 app = main.app
 
