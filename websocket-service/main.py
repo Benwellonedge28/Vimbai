@@ -65,7 +65,9 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
-_message_log: List[dict] = []
+# Lifetime delivery counter (the message payloads themselves are never
+# persisted or re-read - bound this to an int, not an unbounded list).
+_messages_sent = 0
 
 
 @app.get("/")
@@ -78,18 +80,19 @@ async def stats():
     return {
         "connections": manager.stats(),
         "total_connections": sum(len(v) for v in manager.active.values()),
-        "messages_sent": len(_message_log),
+        "messages_sent": _messages_sent,
     }
 
 
 @app.websocket("/ws/{channel}")
 async def websocket_endpoint(ws: WebSocket, channel: str):
     await manager.connect(ws, channel)
+    global _messages_sent
     try:
         while True:
             data = await ws.receive_text()
             msg = {"channel": channel, "data": data, "timestamp": datetime.now(timezone.utc).isoformat()}
-            _message_log.append(msg)
+            _messages_sent += 1
             await manager.broadcast(channel, msg)
     except WebSocketDisconnect:
         manager.disconnect(ws, channel)
@@ -100,13 +103,14 @@ async def websocket_endpoint(ws: WebSocket, channel: str):
 
 @app.post("/broadcast/{channel}")
 async def broadcast_to_channel(channel: str, message: dict):
+    global _messages_sent
     msg = {
         "channel": channel,
         "data": message,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "type": "broadcast",
     }
-    _message_log.append(msg)
+    _messages_sent += 1
     await manager.broadcast(channel, msg)
     return {"channel": channel, "delivered_to": len(manager.active.get(channel, set()))}
 
