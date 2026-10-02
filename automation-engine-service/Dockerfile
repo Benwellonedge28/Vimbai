@@ -10,19 +10,14 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies required for neo4j driver
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
 # Copy requirements first for better caching
-COPY automation-engine-service/requirements.txt /app/requirements.txt
+COPY requirements.txt /app/requirements.txt
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code
-COPY automation-engine-service/ /app/
+COPY . /app/
 
 # Create log directory
 RUN mkdir -p /app/logs
@@ -30,11 +25,12 @@ RUN mkdir -p /app/logs
 # Expose port
 EXPOSE 8006
 
-# Health check
+# Health check (python:slim has no curl)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8006/ || exit 1
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8006/').status==200 else 1)" || exit 1
 
 # Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8006", "--reload"]
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 USER appuser
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8006"]
