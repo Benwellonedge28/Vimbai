@@ -3,7 +3,7 @@
 # Web Framework
 fastapi==0.110.0
 uvicorn[standard]==0.27.1
-pydantic[email]==2.6.1
+pydantic[email]==2.13.5
 
 # Neo4j Database
 neo4j==5.19.0
