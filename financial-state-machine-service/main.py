@@ -1,19 +1,38 @@
-"""Vimbai Financial State Machine Service - State machine for financial document lifecycle. Port: 8374"""
+"""Vimbai Financial State Machine Service - document lifecycle states. Port: 8333
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
+"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "financial_state_machine_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("financial_state_machine_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location(
+        "financial_state_machine_service", _os.path.join(_HERE, "__init__.py")
+    )
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["financial_state_machine_service"] = _pkg
+    _sys.modules["financial_state_machine_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from collections import defaultdict
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from financial_state_machine_service import crud, models
+from financial_state_machine_service.dependencies import book_id_var, get_db_session, get_user_id
+from financial_state_machine_service.exceptions import FinancialStateMachineError
+from financial_state_machine_service.models import TRANSITIONS, DocumentState
+from neo4j import AsyncSession
 
 SERVICE_NAME = "financial-state-machine-service"
-PORT = int(os.getenv("PORT", "8374"))
+PORT = int(os.getenv("PORT", "8333"))
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
@@ -29,6 +48,7 @@ app = FastAPI(title="Vimbai Financial State Machine Service", version="2.0.0", d
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
+# Distributed tracing (OpenTelemetry)
 try:
     from shared.tracing import setup_tracing
 
@@ -37,95 +57,89 @@ except ImportError:
     TRACER = None
 
 
-class DocumentState(str, Enum):
-    DRAFT = "draft"
-    PENDING_APPROVAL = "pending_approval"
-    APPROVED = "approved"
-    POSTED = "posted"
-    CANCELLED = "cancelled"
-    ARCHIVED = "archived"
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-TRANSITIONS = {
-    DocumentState.DRAFT: [DocumentState.PENDING_APPROVAL, DocumentState.CANCELLED],
-    DocumentState.PENDING_APPROVAL: [DocumentState.APPROVED, DocumentState.DRAFT, DocumentState.CANCELLED],
-    DocumentState.APPROVED: [DocumentState.POSTED, DocumentState.CANCELLED],
-    DocumentState.POSTED: [DocumentState.ARCHIVED],
-    DocumentState.CANCELLED: [],
-    DocumentState.ARCHIVED: [],
-}
+@app.exception_handler(FinancialStateMachineError)
+async def _financial_state_machine_error(request: Request, exc: FinancialStateMachineError):
+    from fastapi.responses import JSONResponse
 
-
-class StateTransition(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    document_id: str
-    from_state: DocumentState
-    to_state: DocumentState
-    user_id: str = ""
-    notes: str = ""
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class FinancialDocument(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    document_type: str = "invoice"  # invoice, payment, journal_entry, expense
-    reference: str = ""
-    current_state: DocumentState = DocumentState.DRAFT
-    history: List[StateTransition] = []
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-_documents: Dict[str, FinancialDocument] = {}
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
 @app.get("/")
+@app.get("/health")
 async def health():
     return {"status": "healthy", "service": SERVICE_NAME}
 
 
-@app.post("/documents", response_model=FinancialDocument)
-async def create_document(doc: FinancialDocument):
-    _documents[doc.id] = doc
-    return doc
+@app.post("/documents", response_model=models.FinancialDocument)
+async def create_document(
+    doc: models.FinancialDocument,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Create a document for the caller's Book (initial state: draft)."""
+    return await crud.create_document(db_session, user_id, doc)
 
 
 @app.get("/documents/{doc_id}")
-async def get_document(doc_id: str):
-    if doc_id not in _documents:
+async def get_document(
+    doc_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Fetch a caller-owned, Book-visible document; cross-scope reads 404."""
+    doc = await crud.find_document(db_session, user_id, doc_id)
+    if doc is None:
+        from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Document not found")
-    return _documents[doc_id]
+    return doc
 
 
 @app.post("/documents/{doc_id}/transition")
-async def transition(doc_id: str, to_state: DocumentState, user_id: str = "", notes: str = ""):
-    if doc_id not in _documents:
-        raise HTTPException(status_code=404, detail="Document not found")
-    doc = _documents[doc_id]
-    allowed = TRANSITIONS.get(doc.current_state, [])
-    if to_state not in allowed:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid transition: {doc.current_state.value} -> {to_state.value}. Allowed: {[s.value for s in allowed]}",
-        )
-    transition_record = StateTransition(
-        document_id=doc_id, from_state=doc.current_state, to_state=to_state, user_id=user_id, notes=notes
-    )
-    doc.history.append(transition_record)
-    doc.current_state = to_state
-    logger.info("state_transition", doc_id=doc_id, from_state=transition_record.from_state, to_state=to_state)
-    return {"doc_id": doc_id, "current_state": doc.current_state.value, "history_count": len(doc.history)}
+async def transition(
+    doc_id: str,
+    to_state: DocumentState,
+    user_id: str = "",
+    notes: str = "",
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Apply a state transition (validated against the TRANSITIONS map); cross-scope 404.
+
+    The user_id query param is the transition actor (kept from the original
+    contract); the caller identity comes from the X-User-Id header.
+    """
+    result = await crud.apply_transition(db_session, caller_id, doc_id, to_state, actor_id=user_id, notes=notes)
+    logger.info("state_transition", doc_id=doc_id, from_state=result["current_state"], to_state=to_state)
+    return result
 
 
 @app.get("/documents/{doc_id}/history")
-async def get_history(doc_id: str):
-    if doc_id not in _documents:
+async def get_history(
+    doc_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Transition history for a caller-owned, Book-visible document."""
+    doc = await crud.find_document(db_session, user_id, doc_id)
+    if doc is None:
+        from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Document not found")
-    return {"doc_id": doc_id, "history": _documents[doc_id].history, "current_state": _documents[doc_id].current_state}
+    return {"doc_id": doc_id, "history": doc.history, "current_state": doc.current_state}
 
 
 @app.get("/states")
 async def get_states():
+    """The state catalogue and allowed transitions (pure, no storage)."""
     return {
         "states": [s.value for s in DocumentState],
         "transitions": {k.value: [v.value for v in vs] for k, vs in TRANSITIONS.items()},

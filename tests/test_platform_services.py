@@ -58,8 +58,11 @@ def webhook_client():
 
 @pytest.fixture
 def state_machine_client():
+    _patch_fake("financial_state_machine_service", "fin_state_machine_root_fake")
     app = load_service("financial-state-machine-service").main.app
-    return TestClient(app)
+    client = TestClient(app)
+    client.headers.update(_H)
+    return client
 
 
 @pytest.fixture
