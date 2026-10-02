@@ -36,6 +36,7 @@ jobs:
           - banking-integration-service
           - supply-chain-service
           - scenario-modeling-service
+          - notifications-service
           - fraud-detection-service
           - workflow-service
           - reporting-service

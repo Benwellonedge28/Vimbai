@@ -1,123 +1,75 @@
 """
 Vimbai Notification Service
-Handles notifications for workflows, approvals, and system events
+Handles notifications for workflows, approvals, and system events.
+
+This file may be imported bare (uvicorn main:app), so it bootstraps
+its own package alias before importing sibling modules.
 """
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "notifications_service" not in _sys.modules or not hasattr(_sys.modules.get("notifications_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("notifications_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["notifications_service"] = _pkg
+    _sys.modules["notifications_service"].__path__ = [_HERE]
 
 import asyncio
 import json
 import os
 import uuid
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, status
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
+from neo4j import AsyncSession
+from notifications_service import crud, models
+from notifications_service.dependencies import book_id_var, get_db_session, get_user_id
 from pydantic import BaseModel, Field
 
 load_dotenv()
 
+SERVICE_NAME = "notifications"
+
 app = FastAPI(
     title="Vimbai Notifications Service",
     description="Notification and messaging system for Vimbai workflows",
-    version="0.1.0",
+    version="2.0.0",
 )
 
-# ============================================================================
-# Models
-# ============================================================================
 
-
-class NotificationType(str, Enum):
-    APPROVAL_REQUIRED = "approval_required"
-    APPROVAL_COMPLETED = "approval_completed"
-    APPROVAL_REJECTED = "approval_rejected"
-    COMMENT_ADDED = "comment_added"
-    MENTION = "mention"
-    WORKFLOW_COMPLETED = "workflow_completed"
-    WORKFLOW_FAILED = "workflow_failed"
-    DEADLINE_REMINDER = "deadline_reminder"
-    SYSTEM = "system"
-
-
-class NotificationPriority(str, Enum):
-    URGENT = "urgent"
-    HIGH = "high"
-    NORMAL = "normal"
-    LOW = "low"
-
-
-class NotificationChannel(str, Enum):
-    IN_APP = "in_app"
-    EMAIL = "email"
-    SMS = "sms"
-    WEBHOOK = "webhook"
-    PUSH = "push"
-
-
-class NotificationCreate(BaseModel):
-    type: NotificationType
-    title: str
-    message: str
-    priority: NotificationPriority = NotificationPriority.NORMAL
-    recipients: List[str] = Field(..., min_items=1)
-    channels: List[NotificationChannel] = [NotificationChannel.IN_APP]
-    metadata: Optional[Dict[str, Any]] = None
-    action_url: Optional[str] = None
-    scheduled_at: Optional[datetime] = None
-    expires_at: Optional[datetime] = None
-
-
-class NotificationInDB(NotificationCreate):
-    id: str
-    sender: Optional[str] = None
-    status: Literal["pending", "sent", "failed", "read", "archived"] = "pending"
-    created_at: datetime
-    sent_at: Optional[datetime] = None
-    read_at: Optional[datetime] = None
-
-
-class NotificationPreferences(BaseModel):
-    user_id: str
-    channels: Dict[NotificationType, List[NotificationChannel]] = {}
-    quiet_hours_start: Optional[str] = None
-    quiet_hours_end: Optional[str] = None
-    email_batch: bool = True
-    email_batch_interval_minutes: int = 60
-
-
-class NotificationTemplate(BaseModel):
-    name: str
-    type: NotificationType
-    subject_template: str
-    body_template: str
-    variables: List[str] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 # ============================================================================
-# WebSocket Connection Manager
+# WebSocket Connection Manager (live sockets only - by design in-memory)
 # ============================================================================
 
 
 class NotificationManager:
-    """Manages notification connections and delivery"""
+    """Manages live notification connections and channel delivery."""
 
     def __init__(self):
         self.active_connections: Dict[str, List[WebSocket]] = defaultdict(list)
-        self.user_notifications: Dict[str, List[NotificationInDB]] = defaultdict(list)
         self.lock = asyncio.Lock()
-        self.pending_batches: Dict[str, List[NotificationInDB]] = defaultdict(list)
 
-    async def connect(self, websocket: WebSocket, user_id: str):
+    async def connect(self, websocket: WebSocket, user_id: str, unread_count: int = 0):
         await websocket.accept()
         async with self.lock:
             self.active_connections[user_id].append(websocket)
-            # Send unread notifications on connect
-            unread = [n for n in self.user_notifications.get(user_id, []) if n.status != "read"]
-            if unread:
-                await websocket.send_json({"type": "unread_count", "count": len(unread)})
+        if unread_count:
+            await websocket.send_json({"type": "unread_count", "count": unread_count})
 
     async def disconnect(self, websocket: WebSocket, user_id: str):
         async with self.lock:
@@ -129,22 +81,8 @@ class NotificationManager:
                 if not self.active_connections[user_id]:
                     del self.active_connections[user_id]
 
-    async def send_notification(self, notification: NotificationInDB, user_id: str):
-        """Send notification to user via all available channels"""
-        async with self.lock:
-            self.user_notifications[user_id].append(notification)
-
-        # Send via WebSocket if connected
-        await self._send_websocket(
-            user_id, {"type": "notification", "notification": self._serialize_notification(notification)}
-        )
-
-        # Process additional channels
-        for channel in notification.channels:
-            await self._send_via_channel(notification, user_id, channel)
-
-    async def _send_websocket(self, user_id: str, message: dict):
-        """Send message via WebSocket"""
+    async def send_websocket(self, user_id: str, message: dict):
+        """Send message via WebSocket to a user's live sockets."""
         if user_id in self.active_connections:
             disconnected = []
             for ws in self.active_connections[user_id]:
@@ -152,8 +90,6 @@ class NotificationManager:
                     await ws.send_json(message)
                 except Exception:
                     disconnected.append(ws)
-
-            # Clean up
             async with self.lock:
                 for ws in disconnected:
                     try:
@@ -161,38 +97,34 @@ class NotificationManager:
                     except ValueError:
                         pass
 
-    async def _send_via_channel(self, notification: NotificationInDB, user_id: str, channel: NotificationChannel):
+    async def _send_via_channel(self, notification: models.NotificationInDB, user_id: str, channel):
         """Send notification via specific channel"""
-        if channel == NotificationChannel.EMAIL:
+        if channel == models.NotificationChannel.EMAIL:
             await self._send_email(notification, user_id)
-        elif channel == NotificationChannel.WEBHOOK:
+        elif channel == models.NotificationChannel.WEBHOOK:
             await self._send_webhook(notification, user_id)
-        elif channel == NotificationChannel.PUSH:
+        elif channel == models.NotificationChannel.PUSH:
             await self._send_push(notification, user_id)
-        elif channel == NotificationChannel.SMS:
+        elif channel == models.NotificationChannel.SMS:
             await self._send_sms(notification, user_id)
 
-    async def _send_email(self, notification: NotificationInDB, user_id: str):
+    async def _send_email(self, notification, user_id):
         """Send email notification (placeholder - integrate with email service)"""
-        # In production, integrate with email service (SendGrid, SES, etc.)
         print(f"Email to {user_id}: {notification.title}")
 
-    async def _send_webhook(self, notification: NotificationInDB, user_id: str):
+    async def _send_webhook(self, notification, user_id):
         """Send webhook notification"""
-        # In production, make HTTP request to user's webhook URL
         print(f"Webhook to {user_id}: {notification.title}")
 
-    async def _send_push(self, notification: NotificationInDB, user_id: str):
+    async def _send_push(self, notification, user_id):
         """Send push notification"""
-        # In production, integrate with push notification service (FCM, APNS)
         print(f"Push to {user_id}: {notification.title}")
 
-    async def _send_sms(self, notification: NotificationInDB, user_id: str):
+    async def _send_sms(self, notification, user_id):
         """Send SMS notification"""
-        # In production, integrate with SMS service (Twilio, etc.)
         print(f"SMS to {user_id}: {notification.message[:50]}")
 
-    def _serialize_notification(self, notification: NotificationInDB) -> dict:
+    def _serialize_notification(self, notification) -> dict:
         return {
             "id": notification.id,
             "type": notification.type.value,
@@ -205,54 +137,45 @@ class NotificationManager:
             "status": notification.status,
         }
 
-    def get_user_notifications(
-        self, user_id: str, unread_only: bool = False, limit: int = 50
-    ) -> List[NotificationInDB]:
-        """Get notifications for a user"""
-        notifications = self.user_notifications.get(user_id, [])
-        if unread_only:
-            notifications = [n for n in notifications if n.status != "read"]
-        return sorted(notifications, key=lambda x: x.created_at, reverse=True)[:limit]
-
 
 notification_manager = NotificationManager()
 
 # ============================================================================
-# Notification Templates
+# Notification Templates (static, shared definitions)
 # ============================================================================
 
 templates = {
-    "approval_request": NotificationTemplate(
+    "approval_request": models.NotificationTemplate(
         name="Approval Request",
-        type=NotificationType.APPROVAL_REQUIRED,
+        type=models.NotificationType.APPROVAL_REQUIRED,
         subject_template="Approval Required: {{title}}",
         body_template="You have a new approval request for '{{title}}' from {{sender}}. Please review and take action.",
         variables=["title", "sender", "action_url"],
     ),
-    "approval_completed": NotificationTemplate(
+    "approval_completed": models.NotificationTemplate(
         name="Approval Completed",
-        type=NotificationType.APPROVAL_COMPLETED,
+        type=models.NotificationType.APPROVAL_COMPLETED,
         subject_template="Approved: {{title}}",
         body_template="Your request '{{title}}' has been approved by {{approver}}.",
         variables=["title", "approver"],
     ),
-    "comment_added": NotificationTemplate(
+    "comment_added": models.NotificationTemplate(
         name="Comment Added",
-        type=NotificationType.COMMENT_ADDED,
+        type=models.NotificationType.COMMENT_ADDED,
         subject_template="{{sender}} commented on {{title}}",
         body_template="{{sender}} added a comment: {{comment}}",
         variables=["sender", "title", "comment"],
     ),
-    "mention": NotificationTemplate(
+    "mention": models.NotificationTemplate(
         name="Mention",
-        type=NotificationType.MENTION,
+        type=models.NotificationType.MENTION,
         subject_template="{{sender}} mentioned you",
         body_template="{{sender}} mentioned you in '{{title}}': {{comment}}",
         variables=["sender", "title", "comment"],
     ),
-    "deadline_reminder": NotificationTemplate(
+    "deadline_reminder": models.NotificationTemplate(
         name="Deadline Reminder",
-        type=NotificationType.DEADLINE_REMINDER,
+        type=models.NotificationType.DEADLINE_REMINDER,
         subject_template="Deadline Reminder: {{title}}",
         body_template="Reminder: '{{title}}' is due on {{deadline}}.",
         variables=["title", "deadline"],
@@ -270,34 +193,42 @@ async def startup():
 
 
 @app.get("/")
+@app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "notifications"}
+    return {"status": "healthy", "service": SERVICE_NAME}
 
 
 # --- WebSocket Endpoint ---
 @app.websocket("/ws/notifications/{user_id}")
 async def websocket_notifications(websocket: WebSocket, user_id: str):
-    """WebSocket endpoint for real-time notifications"""
-    await notification_manager.connect(websocket, user_id)
+    """WebSocket endpoint for real-time notifications (per-user inbox socket)."""
+    # Websocket connections bypass the HTTP middleware; bind the Book context here.
+    book_id_var.set(websocket.headers.get("X-Book-ID"))
+    from notifications_service.database import Neo4jConnector
+
+    async with Neo4jConnector.get_driver().session() as session:
+        try:
+            unread_count = await crud.get_unread_count(session, user_id)
+        except Exception:
+            unread_count = 0
+    await notification_manager.connect(websocket, user_id, unread_count=unread_count)
     try:
         while True:
             data = await websocket.receive_text()
             try:
                 message = json.loads(data)
-                if message.get("type") == "mark_read":
-                    # Mark notification as read
-                    notification_id = message.get("notification_id")
-                    for notifications in notification_manager.user_notifications.values():
-                        for notif in notifications:
-                            if notif.id == notification_id:
-                                notif.status = "read"
-                                notif.read_at = datetime.utcnow()
-                                break
-                elif message.get("type") == "mark_all_read":
-                    for notif in notification_manager.user_notifications.get(user_id, []):
-                        if notif.status != "read":
-                            notif.status = "read"
-                            notif.read_at = datetime.utcnow()
+                async with Neo4jConnector.get_driver().session() as session:
+                    if message.get("type") == "mark_read":
+                        # Mark one of THIS socket user's notifications read
+                        # (previously scanned every user's notifications).
+                        notification_id = message.get("notification_id")
+                        await crud.mark_notification_read(session, user_id, notification_id)
+                        await notification_manager.send_websocket(
+                            user_id, {"type": "notification_read", "notification_id": notification_id}
+                        )
+                    elif message.get("type") == "mark_all_read":
+                        count = await crud.mark_all_read(session, user_id)
+                        await notification_manager.send_websocket(user_id, {"type": "all_read", "marked_count": count})
             except json.JSONDecodeError:
                 pass
     except WebSocketDisconnect:
@@ -305,14 +236,17 @@ async def websocket_notifications(websocket: WebSocket, user_id: str):
 
 
 # --- Send Notification ---
-@app.post("/notifications", response_model=NotificationInDB, status_code=status.HTTP_201_CREATED)
-async def create_notification(notification: NotificationCreate, sender: Optional[str] = None):
-    """Create and send a notification"""
-    notification_id = str(uuid.uuid4())
-    now = datetime.utcnow()
+@app.post("/notifications", response_model=models.NotificationInDB, status_code=status.HTTP_201_CREATED)
+async def create_notification(
+    notification: models.NotificationCreate,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Create and send a notification (sender is the verified caller)."""
+    now = datetime.now(timezone.utc)
 
-    db_notification = NotificationInDB(
-        id=notification_id,
+    db_notification = models.NotificationInDB(
+        id=str(uuid.uuid4()),
         type=notification.type,
         title=notification.title,
         message=notification.message,
@@ -323,14 +257,23 @@ async def create_notification(notification: NotificationCreate, sender: Optional
         action_url=notification.action_url,
         scheduled_at=notification.scheduled_at,
         expires_at=notification.expires_at,
-        sender=sender,
+        sender=user_id,
         status="pending",
         created_at=now,
     )
 
-    # Send to all recipients
+    # Send to all recipients (delivery to arbitrary recipients is this
+    # service's job; each recipient owns their own copy of the record).
     for recipient in notification.recipients:
-        await notification_manager.send_notification(db_notification, recipient)
+        db_notification.status = "sent"
+        db_notification.sent_at = now
+        await crud.create_notification(db_session, recipient, db_notification, book_id=book_id_var.get())
+        await notification_manager.send_websocket(
+            recipient,
+            {"type": "notification", "notification": notification_manager._serialize_notification(db_notification)},
+        )
+        for channel in notification.channels:
+            await notification_manager._send_via_channel(db_notification, recipient, channel)
 
     db_notification.status = "sent"
     db_notification.sent_at = now
@@ -340,103 +283,116 @@ async def create_notification(notification: NotificationCreate, sender: Optional
 
 # --- Send Batch Notifications ---
 @app.post("/notifications/batch", status_code=status.HTTP_201_CREATED)
-async def create_batch_notifications(notifications: List[NotificationCreate], sender: Optional[str] = None):
+async def create_batch_notifications(
+    notifications: List[models.NotificationCreate],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Create and send multiple notifications"""
     results = []
-    now = datetime.utcnow()
-
     for notification in notifications:
-        notification_id = str(uuid.uuid4())
-        db_notification = NotificationInDB(
-            id=notification_id,
-            type=notification.type,
-            title=notification.title,
-            message=notification.message,
-            priority=notification.priority,
-            recipients=notification.recipients,
-            channels=notification.channels,
-            metadata=notification.metadata,
-            action_url=notification.action_url,
-            sender=sender,
-            status="pending",
-            created_at=now,
-        )
-
-        for recipient in notification.recipients:
-            await notification_manager.send_notification(db_notification, recipient)
-
-        db_notification.status = "sent"
-        db_notification.sent_at = now
-        results.append(db_notification)
+        sent = await create_notification(notification, user_id, db_session)
+        results.append(sent)
 
     return {"count": len(results), "notifications": results}
 
 
-# --- Get User Notifications ---
+# --- Get User Notifications (own inbox only) ---
 @app.get("/notifications/{user_id}")
-async def get_user_notifications(user_id: str, unread_only: bool = Query(False), limit: int = Query(50, ge=1, le=200)):
-    """Get notifications for a user"""
-    notifications = notification_manager.get_user_notifications(user_id, unread_only, limit)
-    unread_count = sum(1 for n in notification_manager.user_notifications.get(user_id, []) if n.status != "read")
+async def get_user_notifications(
+    user_id: str,
+    unread_only: bool = Query(False),
+    limit: int = Query(50, ge=1, le=200),
+    caller: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get notifications for a user (the caller's own inbox only)."""
+    if user_id != caller:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    notifications = await crud.list_notifications(db_session, user_id, unread_only, limit)
+    unread_count = await crud.get_unread_count(db_session, user_id)
 
     return {
         "notifications": notifications,
         "unread_count": unread_count,
-        "total_count": len(notification_manager.user_notifications.get(user_id, [])),
+        "total_count": len(await crud.list_notifications(db_session, user_id, limit=200)),
     }
 
 
 # --- Mark as Read ---
 @app.put("/notifications/{notification_id}/read")
-async def mark_notification_read(notification_id: str, user_id: str):
-    """Mark a notification as read"""
-    for notif in notification_manager.user_notifications.get(user_id, []):
-        if notif.id == notification_id:
-            notif.status = "read"
-            notif.read_at = datetime.utcnow()
-            return {"status": "success", "notification_id": notification_id}
+async def mark_notification_read(
+    notification_id: str,
+    caller: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Mark one of the caller's notifications as read"""
+    notification = await crud.find_notification(db_session, caller, notification_id)
+    if notification is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    await crud.mark_notification_read(db_session, caller, notification_id)
+    return {"status": "success", "notification_id": notification_id}
 
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
 
-
+# --- Mark All as Read ---
 @app.put("/notifications/{user_id}/read-all")
-async def mark_all_notifications_read(user_id: str):
-    """Mark all notifications as read for a user"""
-    count = 0
-    for notif in notification_manager.user_notifications.get(user_id, []):
-        if notif.status != "read":
-            notif.status = "read"
-            notif.read_at = datetime.utcnow()
-            count += 1
-
+async def mark_all_notifications_read(
+    user_id: str,
+    caller: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Mark all the caller's notifications as read"""
+    if user_id != caller:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    count = await crud.mark_all_read(db_session, user_id)
     return {"status": "success", "marked_count": count}
 
 
 # --- Delete Notification ---
 @app.delete("/notifications/{notification_id}")
-async def delete_notification(notification_id: str, user_id: str):
-    """Delete a notification"""
-    user_notifs = notification_manager.user_notifications.get(user_id, [])
-    for i, notif in enumerate(user_notifs):
-        if notif.id == notification_id:
-            user_notifs.pop(i)
-            return {"status": "success"}
+async def delete_notification(
+    notification_id: str,
+    caller: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Delete a notification from the caller's inbox"""
+    notification = await crud.find_notification(db_session, caller, notification_id)
+    if notification is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    await crud.delete_notification(db_session, caller, notification_id)
+    return {"status": "success"}
 
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
 
-
-# --- Notification Preferences ---
+# --- Notification Preferences (personal; caller-gated) ---
 @app.put("/preferences/{user_id}")
-async def update_preferences(user_id: str, preferences: NotificationPreferences):
-    """Update notification preferences for a user"""
-    # In production, store in database
-    return {"status": "success", "preferences": preferences}
+async def update_preferences(
+    preferences: models.NotificationPreferences,
+    user_id: str,
+    caller: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Update notification preferences for the caller"""
+    if user_id != caller:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    preferences.user_id = user_id
+    saved = await crud.save_preferences(db_session, user_id, preferences)
+    return {"status": "success", "preferences": saved}
 
 
 @app.get("/preferences/{user_id}")
-async def get_preferences(user_id: str):
-    """Get notification preferences for a user"""
-    return NotificationPreferences(user_id=user_id, email_batch=True, email_batch_interval_minutes=60)
+async def get_preferences(
+    user_id: str,
+    caller: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get notification preferences for the caller (defaults when never set)"""
+    if user_id != caller:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    stored = await crud.get_preferences(db_session, user_id)
+    if stored is None:
+        stored = models.NotificationPreferences(user_id=user_id, email_batch=True, email_batch_interval_minutes=60)
+    return stored
 
 
 # --- Template Endpoints ---
@@ -456,7 +412,11 @@ async def get_template(template_name: str):
 
 @app.post("/templates/{template_name}/send")
 async def send_from_template(
-    template_name: str, recipients: List[str], variables: Dict[str, str], sender: Optional[str] = None
+    template_name: str,
+    recipients: List[str],
+    variables: Dict[str, str],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Send notification using a template"""
     if template_name not in templates:
@@ -472,15 +432,15 @@ async def send_from_template(
         subject = subject.replace(f"{{{{{var}}}}}", value)
         body = body.replace(f"{{{{{var}}}}}", value)
 
-    notification = NotificationCreate(
+    notification = models.NotificationCreate(
         type=template.type,
         title=subject,
         message=body,
         recipients=recipients,
-        channels=[NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        channels=[models.NotificationChannel.IN_APP, models.NotificationChannel.EMAIL],
     )
 
-    return await create_notification(notification, sender)
+    return await create_notification(notification, user_id, db_session)
 
 
 # --- Workflow Notification Helpers ---
@@ -490,6 +450,8 @@ async def notify_workflow_event(
     event_type: Literal["started", "completed", "failed", "cancelled"],
     participants: List[str],
     metadata: Optional[Dict[str, Any]] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Send workflow-related notifications"""
     event_messages = {
@@ -501,17 +463,21 @@ async def notify_workflow_event(
 
     title, message = event_messages.get(event_type, ("Workflow Event", f"Workflow {workflow_id} update"))
 
-    notification = NotificationCreate(
-        type=NotificationType.WORKFLOW_COMPLETED if event_type == "completed" else NotificationType.WORKFLOW_FAILED,
+    notification = models.NotificationCreate(
+        type=(
+            models.NotificationType.WORKFLOW_COMPLETED
+            if event_type == "completed"
+            else models.NotificationType.WORKFLOW_FAILED
+        ),
         title=title,
         message=message,
         recipients=participants,
-        channels=[NotificationChannel.IN_APP],
+        channels=[models.NotificationChannel.IN_APP],
         metadata={"workflow_id": workflow_id, "event_type": event_type, **(metadata or {})},
         action_url=f"/workflows/{workflow_id}",
     )
 
-    return await create_notification(notification)
+    return await create_notification(notification, user_id, db_session)
 
 
 # --- Approval Notification Helpers ---
@@ -522,57 +488,69 @@ async def notify_approval_event(
     requester: str,
     approvers: List[str],
     metadata: Optional[Dict[str, Any]] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Send approval-related notifications"""
     notification_map = {
-        "requested": (NotificationType.APPROVAL_REQUIRED, "Approval Required", f"New approval request {approval_id}"),
+        "requested": (
+            models.NotificationType.APPROVAL_REQUIRED,
+            "Approval Required",
+            f"New approval request {approval_id}",
+        ),
         "approved": (
-            NotificationType.APPROVAL_COMPLETED,
+            models.NotificationType.APPROVAL_COMPLETED,
             "Request Approved",
             f"Your request {approval_id} has been approved",
         ),
         "rejected": (
-            NotificationType.APPROVAL_REJECTED,
+            models.NotificationType.APPROVAL_REJECTED,
             "Request Rejected",
             f"Your request {approval_id} has been rejected",
         ),
-        "commented": (NotificationType.COMMENT_ADDED, "Comment Added", f"New comment on approval {approval_id}"),
+        "commented": (
+            models.NotificationType.COMMENT_ADDED,
+            "Comment Added",
+            f"New comment on approval {approval_id}",
+        ),
     }
 
-    notif_type, title, message = notification_map.get(event_type, (NotificationType.SYSTEM, "Approval Update", ""))
+    notif_type, title, message = notification_map.get(
+        event_type, (models.NotificationType.SYSTEM, "Approval Update", "")
+    )
 
-    notification = NotificationCreate(
+    notification = models.NotificationCreate(
         type=notif_type,
         title=title,
         message=message,
-        priority=NotificationPriority.HIGH if event_type == "requested" else NotificationPriority.NORMAL,
+        priority=models.NotificationPriority.HIGH if event_type == "requested" else models.NotificationPriority.NORMAL,
         recipients=approvers if event_type == "requested" else [requester],
-        channels=[NotificationChannel.IN_APP, NotificationChannel.EMAIL],
+        channels=[models.NotificationChannel.IN_APP, models.NotificationChannel.EMAIL],
         metadata={"approval_id": approval_id, "requester": requester, **(metadata or {})},
         action_url=f"/approvals/{approval_id}",
     )
 
-    return await create_notification(notification)
+    return await create_notification(notification, user_id, db_session)
 
 
-# --- Stats Endpoint ---
+# --- Stats Endpoint (caller's own data) ---
 @app.get("/stats")
-async def get_notification_stats():
-    """Get notification statistics"""
-    total_notifications = sum(len(n) for n in notification_manager.user_notifications.values())
-    unread_total = sum(
-        1 for notifs in notification_manager.user_notifications.values() for n in notifs if n.status != "read"
-    )
+async def get_notification_stats(
+    caller: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get notification statistics for the caller (previously global across all users)."""
+    own = await crud.list_notifications(db_session, caller, limit=200)
+    unread = sum(1 for n in own if n.status != "read")
 
     return {
-        "total_notifications": total_notifications,
-        "unread_notifications": unread_total,
+        "total_notifications": len(own),
+        "unread_notifications": unread,
         "active_connections": sum(len(conns) for conns in notification_manager.active_connections.values()),
-        "users_with_notifications": len(notification_manager.user_notifications),
     }
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8091)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8091")))
