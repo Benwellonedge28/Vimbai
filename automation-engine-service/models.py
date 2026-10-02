@@ -100,3 +100,62 @@ class AutomationLogInDB(AutomationLogBase):
 
     class Config:
         from_attributes = True
+
+
+# --- Live API models: rules + workflow executions (Book-scoped) ---
+
+import uuid as _uuid
+from datetime import timezone as _timezone
+from enum import Enum as _Enum
+from typing import Any as _Any
+from typing import Dict as _Dict
+from typing import List as _List
+from typing import Optional as _Optional
+
+from pydantic import Field as _Field
+
+
+class TriggerType(str, _Enum):
+    SCHEDULED = "scheduled"
+    EVENT = "event"
+    MANUAL = "manual"
+    WEBHOOK = "webhook"
+
+
+class WorkflowStatus(str, _Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    PAUSED = "paused"
+
+
+class WorkflowStep(BaseModel):
+    step_id: str
+    step_name: str
+    action: str
+    params: _Dict[str, _Any] = {}
+    depends_on: _List[str] = []
+    timeout_seconds: int = 300
+
+
+class AutomationRule(BaseModel):
+    id: str = _Field(default_factory=lambda: str(_uuid.uuid4()))
+    name: str
+    company_id: str
+    trigger: TriggerType
+    condition: _Dict[str, _Any] = {}
+    steps: _List[WorkflowStep] = []
+    enabled: bool = True
+    priority: int = 5
+
+
+class WorkflowExecution(BaseModel):
+    id: str = _Field(default_factory=lambda: str(_uuid.uuid4()))
+    rule_id: str
+    company_id: str
+    status: WorkflowStatus
+    started_at: str = _Field(default_factory=lambda: datetime.now(_timezone.utc).isoformat())
+    completed_at: _Optional[str] = None
+    step_results: _List[_Dict] = []
+    error: _Optional[str] = None

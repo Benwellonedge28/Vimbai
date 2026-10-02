@@ -23,7 +23,22 @@ def load_app(service_dir):
 
 class TestAutomationEngineService:
     def setup_method(self):
-        self.client = TestClient(load_app("automation-engine-service"))
+        import os as _os
+
+        app = load_app("automation-engine-service")
+        svc_dir = _os.path.join(
+            _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "automation-engine-service"
+        )
+        spec = importlib.util.spec_from_file_location("ae_upgraded_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
+        fake_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake_mod)
+        self._session = fake_mod.FakeSession()
+
+        import automation_engine_service.database as db
+
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "root-ae-user"})
 
     def test_health(self):
         assert self.client.get("/health").status_code == 200
