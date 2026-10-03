@@ -481,11 +481,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Grype vulnerability scan
-        uses: anchore/grype-action@main
+        uses: anchore/scan-action@v7
         with:
-          directory: '.'
-          format: sarif
-          output: 'grype-results.sarif'
+          path: '.'
+          output-format: sarif
+          output-file: 'grype-results.sarif'
           severity-cutoff: medium
           fail-build: false
         continue-on-error: true
