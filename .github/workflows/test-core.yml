@@ -36,7 +36,7 @@ jobs:
           - group: standalone-containers
             services: "identity-service accounting-service finance-service multimodal-pipeline-service banking-integration-service supply-chain-service scenario-modeling-service fraud-detection-service workflow-service"
           - group: advanced-accounting-bracket
-            services: "cost-accounting-service financial-identity-service financial-integrity-service revenue-recognition-service currency-service fixed-assets-register-service"
+            services: "cost-accounting-service financial-identity-service financial-integrity-service revenue-recognition-service currency-service fixed-assets-register-service general-reserve-service"
           - group: ap-ar-expenses-bracket
             services: "expense-tracking-service petty-cash-service purchases-ledger-control-service sales-ledger-control-service"
           - group: corporate-finance-bracket

@@ -1,24 +1,48 @@
 """
 Vimbai General Reserve Service
-Manages general reserve fund operations.
+Handles general reserves: creation, allocation, and utilization.
+
+Records persist in Neo4j, stamped with the caller (X-User-Id) and the
+Book context (X-Book-ID, verified upstream by the API gateway).
+Allocate/utilize check the caller's own Book-visible reserve first.
+Balance math, journal side-calls, miss contracts, and response shapes
+are preserved exactly.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import os
-import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+import importlib.util
+import os as _os
+import sys as _sys
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "general_reserve_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("general_reserve_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("general_reserve_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["general_reserve_service"] = _pkg
+    _sys.modules["general_reserve_service"].__path__ = [_HERE]
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from general_reserve_service import crud
+from general_reserve_service.database import Neo4jConnector
+from general_reserve_service.dependencies import book_id_var, get_db_session, get_user_id
+from general_reserve_service.exceptions import GeneralReserveServiceError
+from general_reserve_service.models import GeneralReserve, ReserveAllocation, ReserveUtilization
+from neo4j import AsyncSession
 
 SERVICE_NAME = "general-reserve-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8053"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
+PORT = int(_os.getenv("PORT", "8064"))
+ACCOUNTING_SERVICE_URL = _os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
     processors=[
@@ -40,45 +64,21 @@ app.add_middleware(
 )
 
 
-class GeneralReserve(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    reserve_name: str
-    description: str = ""
-    current_balance: float = 0
-    target_balance: Optional[float] = None
-    minimum_balance: float = 0
-    funding_source: str = "retained_earnings"  # retained_earnings, share_premium, specific_allocation
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class ReserveAllocation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    reserve_id: str
-    amount: float
-    allocation_date: datetime
-    source: str  # retained_earnings, share_premium, profit
-    description: str
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.exception_handler(GeneralReserveServiceError)
+async def _gr_error(request: Request, exc: GeneralReserveServiceError):
+    from fastapi.responses import JSONResponse
 
-
-class ReserveUtilization(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    reserve_id: str
-    amount: float
-    utilization_date: datetime
-    purpose: str  # asset_purchase, debt_repayment, working_capital, bonus_issue
-    description: str
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-reserves: List[GeneralReserve] = []
-allocations: List[ReserveAllocation] = []
-utilizations: List[ReserveUtilization] = []
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400),
+        content={"detail": str(exc), "error": exc.__class__.__name__},
+    )
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -113,6 +113,8 @@ async def create_reserve(
     target_balance: Optional[float] = None,
     minimum_balance: float = 0,
     funding_source: str = "retained_earnings",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Create a general reserve."""
     reserve = GeneralReserve(
@@ -138,28 +140,34 @@ async def create_reserve(
         result = await call_accounting_service("POST", "/journal-entries", journal_entry)
         reserve.journal_entry_id = result.get("id")
 
-    reserves.append(reserve)
-    return reserve
+    return await crud.create_reserve(db_session, user_id, reserve)
 
 
 @app.post("/reserves/{reserve_id}/allocate")
 async def allocate_to_reserve(
-    reserve_id: str, amount: float, source: str, description: str, allocation_date: Optional[datetime] = None
+    reserve_id: str,
+    amount: float,
+    source: str,
+    description: str,
+    allocation_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Allocate funds to reserve."""
-    reserve = next((r for r in reserves if r.id == reserve_id), None)
+    reserve = await crud.get_reserve(db_session, user_id, reserve_id)
     if not reserve:
         return {"error": "Reserve not found"}
 
     if allocation_date is None:
-        allocation_date = datetime.utcnow()
+        allocation_date = datetime.now(timezone.utc)
 
     allocation = ReserveAllocation(
         reserve_id=reserve_id, amount=amount, allocation_date=allocation_date, source=source, description=description
     )
 
     reserve.current_balance += amount
-    reserve.updated_at = datetime.utcnow()
+    reserve.updated_at = datetime.now(timezone.utc)
+    await crud.save_reserve(db_session, user_id, reserve)
 
     source_account = "3300" if source == "retained_earnings" else "3210"
     journal_entry = {
@@ -178,17 +186,23 @@ async def allocate_to_reserve(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     allocation.journal_entry_id = result.get("id")
-    allocations.append(allocation)
+    allocation = await crud.create_allocation(db_session, user_id, allocation)
 
     return {"reserve": reserve, "allocation": allocation}
 
 
 @app.post("/reserves/{reserve_id}/utilize")
 async def utilize_reserve(
-    reserve_id: str, amount: float, purpose: str, description: str, utilization_date: Optional[datetime] = None
+    reserve_id: str,
+    amount: float,
+    purpose: str,
+    description: str,
+    utilization_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Utilize funds from reserve."""
-    reserve = next((r for r in reserves if r.id == reserve_id), None)
+    reserve = await crud.get_reserve(db_session, user_id, reserve_id)
     if not reserve:
         return {"error": "Reserve not found"}
 
@@ -196,7 +210,7 @@ async def utilize_reserve(
         return {"error": "Insufficient reserve balance"}
 
     if utilization_date is None:
-        utilization_date = datetime.utcnow()
+        utilization_date = datetime.now(timezone.utc)
 
     utilization = ReserveUtilization(
         reserve_id=reserve_id,
@@ -207,7 +221,8 @@ async def utilize_reserve(
     )
 
     reserve.current_balance -= amount
-    reserve.updated_at = datetime.utcnow()
+    reserve.updated_at = datetime.now(timezone.utc)
+    await crud.save_reserve(db_session, user_id, reserve)
 
     dest_account = "1000" if purpose in ["asset_purchase", "working_capital"] else "2310"
     journal_entry = {
@@ -226,34 +241,46 @@ async def utilize_reserve(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     utilization.journal_entry_id = result.get("id")
-    utilizations.append(utilization)
+    utilization = await crud.create_utilization(db_session, user_id, utilization)
 
     return {"reserve": reserve, "utilization": utilization}
 
 
 @app.get("/reserves")
-async def list_reserves(company_id: Optional[str] = None):
+async def list_reserves(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List all reserves."""
-    result = reserves
+    result = await crud.list_reserves(db_session, user_id)
     if company_id:
         result = [r for r in result if r.company_id == company_id]
     return {"reserves": result}
 
 
 @app.get("/reserves/{reserve_id}")
-async def get_reserve(reserve_id: str):
+async def get_reserve(
+    reserve_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get reserve details."""
-    reserve = next((r for r in reserves if r.id == reserve_id), None)
+    reserve = await crud.get_reserve(db_session, user_id, reserve_id)
     if not reserve:
         return {"error": "Reserve not found"}
     return reserve
 
 
 @app.get("/reserves/{reserve_id}/history")
-async def get_reserve_history(reserve_id: str):
+async def get_reserve_history(
+    reserve_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get reserve allocation and utilization history."""
-    reserve_allocations = [a for a in allocations if a.reserve_id == reserve_id]
-    reserve_utilizations = [u for u in utilizations if u.reserve_id == reserve_id]
+    reserve_allocations = await crud.list_allocations(db_session, user_id, reserve_id)
+    reserve_utilizations = await crud.list_utilizations(db_session, user_id, reserve_id)
     return {"allocations": reserve_allocations, "utilizations": reserve_utilizations}
 
 
