@@ -1,21 +1,49 @@
 """
 Vimbai Fixed Assets Register Service
-Maintains a comprehensive register of fixed assets with depreciation tracking.
+Fixed asset register with depreciation and disposals.
+
+Assets, depreciation entries, and disposals persist in Neo4j, stamped with
+the caller (X-User-Id) and the Book context (X-Book-ID, verified upstream
+by the API gateway). All lookups and summaries are scoped to the caller's
+own Book-visible records. Original status codes (200/400/404) and
+depreciation semantics are preserved.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import os
-import uuid
+import importlib.util
+import os as _os
+import sys as _sys
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Optional
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "fixed_assets_register_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("fixed_assets_register_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("fixed_assets_register_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["fixed_assets_register_service"] = _pkg
+    _sys.modules["fixed_assets_register_service"].__path__ = [_HERE]
+
+from typing import List
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from fixed_assets_register_service import crud
+from fixed_assets_register_service.database import Neo4jConnector
+from fixed_assets_register_service.dependencies import book_id_var, get_db_session, get_user_id
+from fixed_assets_register_service.exceptions import FixedAssetsRegisterError
+from fixed_assets_register_service.models import AssetDisposal, DepreciationEntry, FixedAsset
+from neo4j import AsyncSession
 
 SERVICE_NAME = "fixed-assets-register-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8355"))
+PORT = int(_os.getenv("PORT", "8265"))
 
 structlog.configure(
     processors=[
@@ -31,7 +59,7 @@ structlog.configure(
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
-app = FastAPI(title="Vimbai Fixed Assets Register", version=SERVICE_VERSION, docs_url="/docs")
+app = FastAPI(title="Vimbai Fixed Assets Register Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
@@ -44,48 +72,19 @@ except ImportError:
     TRACER = None
 
 
-class FixedAsset(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    asset_code: str
-    asset_name: str
-    category: str  # land, buildings, vehicles, machinery, furniture, equipment, IT
-    location: str = ""
-    department: str = ""
-    acquisition_date: datetime
-    acquisition_cost: float
-    useful_life_years: int
-    salvage_value: float = 0.0
-    depreciation_method: str = "straight_line"  # straight_line, reducing_balance, units_of_production
-    accumulated_depreciation: float = 0.0
-    net_book_value: float = 0.0
-    status: str = "active"  # active, disposed, impaired, under_construction
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class DepreciationEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    asset_id: str
-    period: str  # YYYY-MM
-    depreciation_amount: float
-    accumulated_depreciation: float
-    net_book_value: float
-    method: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class AssetDisposal(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    asset_id: str
-    disposal_date: datetime
-    disposal_value: float = 0.0
-    disposal_method: str = "sale"  # sale, scrap, donation, write_off
-    gain_loss: float = 0.0
-    notes: str = ""
-
-
-assets: List[FixedAsset] = []
-depreciation_entries: List[DepreciationEntry] = []
-disposals: List[AssetDisposal] = []
+@app.exception_handler(FixedAssetsRegisterError)
+async def _far_error(request: Request, exc: FixedAssetsRegisterError):
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400),
+        content={"detail": str(exc), "error": exc.__class__.__name__},
+    )
 
 
 @app.get("/")
@@ -106,6 +105,8 @@ async def register_asset(
     depreciation_method: str = "straight_line",
     location: str = "",
     department: str = "",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Register a fixed asset."""
     valid_cats = ["land", "buildings", "vehicles", "machinery", "furniture", "equipment", "IT"]
@@ -125,15 +126,21 @@ async def register_asset(
         depreciation_method=depreciation_method,
         net_book_value=acquisition_cost,
     )
-    assets.append(asset)
-    logger.info("Fixed asset registered", asset_id=asset.id, code=asset_code)
-    return asset
+    created = await crud.create_asset(db_session, user_id, asset)
+    logger.info("Fixed asset registered", asset_id=created.id, code=asset_code)
+    return created
 
 
 @app.get("/assets", response_model=List[FixedAsset])
-async def list_assets(category: Optional[str] = None, status: Optional[str] = None, department: Optional[str] = None):
-    """List fixed assets with optional filters."""
-    result = assets
+async def list_assets(
+    category: Optional[str] = None,
+    status: Optional[str] = None,
+    department: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's fixed assets with optional filters."""
+    result = await crud.list_assets(db_session, user_id)
     if category:
         result = [a for a in result if a.category == category]
     if status:
@@ -144,18 +151,27 @@ async def list_assets(category: Optional[str] = None, status: Optional[str] = No
 
 
 @app.get("/assets/{asset_id}", response_model=FixedAsset)
-async def get_asset(asset_id: str):
-    """Get a specific fixed asset."""
-    asset = next((a for a in assets if a.id == asset_id), None)
+async def get_asset(
+    asset_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get a specific fixed asset (caller-scoped)."""
+    asset = await crud.get_asset(db_session, user_id, asset_id)
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     return asset
 
 
 @app.post("/assets/{asset_id}/depreciate", response_model=DepreciationEntry)
-async def depreciate_asset(asset_id: str, period: str):
+async def depreciate_asset(
+    asset_id: str,
+    period: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Record depreciation for an asset for a given period."""
-    asset = next((a for a in assets if a.id == asset_id), None)
+    asset = await crud.get_asset(db_session, user_id, asset_id)
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     if asset.status != "active":
@@ -176,6 +192,15 @@ async def depreciate_asset(asset_id: str, period: str):
         asset.net_book_value = asset.salvage_value
         asset.status = "disposed"
 
+    await crud.update_asset_state(
+        db_session,
+        user_id,
+        asset_id,
+        asset.accumulated_depreciation,
+        asset.net_book_value,
+        asset.status,
+    )
+
     entry = DepreciationEntry(
         asset_id=asset_id,
         period=period,
@@ -184,30 +209,47 @@ async def depreciate_asset(asset_id: str, period: str):
         net_book_value=asset.net_book_value,
         method=asset.depreciation_method,
     )
-    depreciation_entries.append(entry)
+    created = await crud.create_entry(db_session, user_id, entry)
     logger.info("Depreciation recorded", asset_id=asset_id, period=period, amount=monthly_depr)
-    return entry
+    return created
 
 
 @app.get("/assets/{asset_id}/depreciation", response_model=List[DepreciationEntry])
-async def list_depreciation(asset_id: str):
-    """List depreciation entries for an asset."""
-    return [e for e in depreciation_entries if e.asset_id == asset_id]
+async def list_depreciation(
+    asset_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List depreciation entries for the caller's asset."""
+    return await crud.list_entries(db_session, user_id, asset_id)
 
 
 @app.post("/assets/{asset_id}/dispose", response_model=AssetDisposal)
 async def dispose_asset(
-    asset_id: str, disposal_date: datetime, disposal_value: float = 0.0, disposal_method: str = "sale", notes: str = ""
+    asset_id: str,
+    disposal_date: datetime,
+    disposal_value: float = 0.0,
+    disposal_method: str = "sale",
+    notes: str = "",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Dispose of a fixed asset."""
-    asset = next((a for a in assets if a.id == asset_id), None)
+    asset = await crud.get_asset(db_session, user_id, asset_id)
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
     if asset.status == "disposed":
         raise HTTPException(status_code=400, detail="Asset already disposed")
 
     gain_loss = disposal_value - asset.net_book_value
-    asset.status = "disposed"
+    await crud.update_asset_state(
+        db_session,
+        user_id,
+        asset_id,
+        asset.accumulated_depreciation,
+        asset.net_book_value,
+        "disposed",
+    )
 
     disposal = AssetDisposal(
         asset_id=asset_id,
@@ -217,14 +259,18 @@ async def dispose_asset(
         gain_loss=gain_loss,
         notes=notes,
     )
-    disposals.append(disposal)
+    created = await crud.create_disposal(db_session, user_id, disposal)
     logger.info("Asset disposed", asset_id=asset_id, method=disposal_method, gain_loss=gain_loss)
-    return disposal
+    return created
 
 
 @app.get("/summary")
-async def asset_summary():
-    """Get fixed asset register summary."""
+async def asset_summary(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's fixed asset register summary."""
+    assets = await crud.list_assets(db_session, user_id)
     return {
         "total_assets": len(assets),
         "active_assets": len([a for a in assets if a.status == "active"]),
