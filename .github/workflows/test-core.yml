@@ -52,7 +52,7 @@ jobs:
           - group: statements-reporting-bracket
             services: "balance-sheet-service cash-flow-statement-service reporting-service risk-reporting-service"
           - group: partnership-bracket
-            services: "partnership-agreement-service"
+            services: "partnership-agreement-service partnership-changes-service"
           - group: tax-audit-investigation-bracket
             services: "corporate-tax-service forensic-accounting-service investigation-service it-audit-service operational-audit-service tax-audit-service"
           - group: treasury-banking-bracket

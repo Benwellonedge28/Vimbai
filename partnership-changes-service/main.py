@@ -1,25 +1,50 @@
 """
 Vimbai Partnership Changes Service
 Manages admission, retirement, death, and insolvency of partners.
+
+Records persist in Neo4j, stamped with the caller (X-User-Id) and the
+Book context (X-Book-ID, verified upstream by the API gateway). All
+lookups and settlements are scoped to the caller's own Book-visible
+records. Original status codes, totals math, and fail-soft accounting
+side-calls are preserved.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import os
+import importlib.util
+import os as _os
+import sys as _sys
 import uuid
-from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "partnership_changes_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("partnership_changes_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("partnership_changes_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["partnership_changes_service"] = _pkg
+    _sys.modules["partnership_changes_service"].__path__ = [_HERE]
 
 import httpx
 import structlog
-from fastapi import FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from partnership_changes_service import crud
+from partnership_changes_service.database import Neo4jConnector
+from partnership_changes_service.dependencies import book_id_var, get_db_session, get_user_id
+from partnership_changes_service.exceptions import PartnershipChangesServiceError
+from partnership_changes_service.models import AdmissionDetails, ChangeType, PartnerChange
 
 SERVICE_NAME = "partnership-changes-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8043"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
+PORT = int(_os.getenv("PORT", "8043"))
+AUDIT_SERVICE_URL = _os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
+ACCOUNTING_SERVICE_URL = _os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
     processors=[
@@ -41,51 +66,24 @@ app.add_middleware(
 )
 
 
-class ChangeType(str, Enum):
-    ADMISSION = "admission"
-    RETIREMENT = "retirement"
-    DEATH = "death"
-    INSOLVENCY = "insolvency"
-    EXPULSION = "expulsion"
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class PartnerChange(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    partnership_id: str
-    change_type: ChangeType
-    partner_id: str
-    partner_name: str
-    effective_date: datetime
-    capital_balance: float = 0
-    current_account_balance: float = 0
-    total_payable: float = 0
-    goodwill_amount: float = 0
-    payment_method: str = "cash"  # cash, assets, mixed
-    settlement_status: str = "pending"
-    journal_entry_id: Optional[str] = None
-    notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.exception_handler(PartnershipChangesServiceError)
+async def _pc_error(request: Request, exc: PartnershipChangesServiceError):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400),
+        content={"detail": str(exc), "error": exc.__class__.__name__},
+    )
 
 
-class AdmissionDetails(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    new_partner_id: str
-    new_partner_name: str
-    capital_contribution: float
-    goodwill_paid: float = 0
-    premium_distribution: Dict[str, float] = {}  # partner_id -> amount
-    new_profit_sharing_ratios: Dict[str, float] = {}
-    revaluation_required: bool = False
-    revaluation_amount: float = 0
-    admission_date: datetime
-    journal_entry_ids: List[str] = []
-
-
-changes: List[PartnerChange] = []
-admissions: List[AdmissionDetails] = []
-
-
-async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{ACCOUNTING_SERVICE_URL}{endpoint}"
@@ -105,7 +103,7 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Partnership changes management"}
+    return {"service": SERVICE_NAME, "description": "Admission, retirement, death, insolvency changes"}
 
 
 @app.post("/changes/retirement")
@@ -118,6 +116,8 @@ async def record_retirement(
     current_account_balance: float,
     goodwill_amount: float = 0,
     payment_method: str = "cash",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Record partner retirement."""
     total_payable = capital_balance + current_account_balance + goodwill_amount
@@ -134,9 +134,6 @@ async def record_retirement(
         goodwill_amount=goodwill_amount,
         payment_method=payment_method,
     )
-    changes.append(change)
-
-    # Journal entry
     journal_entry = {
         "date": effective_date,
         "description": f"Retirement of partner: {partner_name}",
@@ -154,14 +151,18 @@ async def record_retirement(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     change.journal_entry_id = result.get("id")
-    return change
+    return await crud.create_change(db_session, user_id, change)
 
 
 @app.post("/changes/admission")
-async def record_admission(data: AdmissionDetails):
+async def record_admission(
+    data: AdmissionDetails,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Record new partner admission."""
     data.id = str(uuid.uuid4())
-    data.admission_date = data.admission_date or datetime.utcnow()
+    data.admission_date = data.admission_date or datetime.now(timezone.utc)
 
     journal_entries = []
 
@@ -207,8 +208,7 @@ async def record_admission(data: AdmissionDetails):
         result = await call_accounting_service("POST", "/journal-entries", entry)
         data.journal_entry_ids.append(result.get("id", ""))
 
-    admissions.append(data)
-    return data
+    return await crud.create_admission(db_session, user_id, data)
 
 
 @app.post("/changes/death")
@@ -220,6 +220,8 @@ async def record_death(
     capital_balance: float,
     current_account_balance: float,
     executor_name: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Record partner death."""
     total_payable = capital_balance + current_account_balance
@@ -235,14 +237,18 @@ async def record_death(
         total_payable=total_payable,
         notes=f"Payable to executor: {executor_name}",
     )
-    changes.append(change)
-    return change
+    return await crud.create_change(db_session, user_id, change)
 
 
 @app.get("/changes")
-async def list_changes(change_type: Optional[ChangeType] = None, partnership_id: Optional[str] = None):
-    """List all partner changes."""
-    result = changes
+async def list_changes(
+    change_type: Optional[ChangeType] = None,
+    partnership_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's partner changes."""
+    result = await crud.list_changes(db_session, user_id)
     if change_type:
         result = [c for c in result if c.change_type == change_type]
     if partnership_id:
@@ -251,11 +257,16 @@ async def list_changes(change_type: Optional[ChangeType] = None, partnership_id:
 
 
 @app.post("/changes/{change_id}/settle")
-async def settle_change(change_id: str):
-    """Mark change as settled."""
-    change = next((c for c in changes if c.id == change_id), None)
+async def settle_change(
+    change_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Mark the caller's change as settled."""
+    change = await crud.get_change(db_session, user_id, change_id)
     if not change:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Change not found")
+    await crud.settle_change(db_session, user_id, change_id)
     change.settlement_status = "settled"
     return change
 
