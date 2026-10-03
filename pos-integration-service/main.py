@@ -1,23 +1,61 @@
 """
 Vimbai POS Integration Service
-Provides seamless integration with Point-of-Sale systems for real-time transaction syncing
+Provides seamless integration with Point-of-Sale systems for real-time
+transaction syncing. Devices and transactions persist in Neo4j,
+caller-owned (X-User-Id) and Book-gated (X-Book-ID, verified upstream by
+the API gateway). Live WebSocket connections stay in the ephemeral
+connection manager by design.
+
+This file may be imported bare (uvicorn main:app), so it bootstraps its
+own package alias before importing sibling modules.
 """
 
 import asyncio
+import importlib.util
 import json
-import os
+import os as _os
+import sys as _sys
 import uuid
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
-import httpx
-from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
-load_dotenv()
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "pos_integration_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("pos_integration_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("pos_integration_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["pos_integration_service"] = _pkg
+    _sys.modules["pos_integration_service"].__path__ = [_HERE]
+
+from pos_integration_service import crud
+from pos_integration_service.dependencies import book_id_var, get_db_session, get_user_id
+from pos_integration_service.models import (
+    InventorySyncRequest,
+    PaymentMethod,
+    POSDeviceCreate,
+    POSDeviceInDB,
+    POSDeviceStatus,
+    POSTransactionCreate,
+    POSTransactionInDB,
+    SalesSummaryRequest,
+    SyncStatus,
+    TransactionType,
+)
 
 app = FastAPI(
     title="Vimbai POS Integration Service",
@@ -25,102 +63,16 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# ============================================================================
-# Models
-# ============================================================================
 
-
-class POSDeviceStatus(str, Enum):
-    ONLINE = "online"
-    OFFLINE = "offline"
-    SYNCING = "syncing"
-    ERROR = "error"
-
-
-class TransactionType(str, Enum):
-    SALE = "sale"
-    REFUND = "refund"
-    VOID = "void"
-    ADJUSTMENT = "adjustment"
-    LAYAWAY = "layaway"
-    RETURN = "return"
-
-
-class PaymentMethod(str, Enum):
-    CASH = "cash"
-    CARD = "card"
-    MOBILE = "mobile"
-    SPLIT = "split"
-    GIFT_CARD = "gift_card"
-    LOYALTY = "loyalty"
-
-
-class SyncStatus(str, Enum):
-    PENDING = "pending"
-    SYNCED = "synced"
-    FAILED = "failed"
-    PARTIAL = "partial"
-
-
-class POSDeviceCreate(BaseModel):
-    device_id: str = Field(..., description="Unique POS device identifier")
-    device_name: str = Field(..., min_length=3, max_length=100)
-    device_type: str = Field(..., description="POS hardware type")
-    location_id: Optional[str] = None
-    api_key: Optional[str] = None
-    webhook_url: Optional[str] = None
-    enabled: bool = True
-
-
-class POSDeviceInDB(POSDeviceCreate):
-    id: str
-    status: POSDeviceStatus = POSDeviceStatus.OFFLINE
-    last_sync: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
-
-
-class POSTransactionCreate(BaseModel):
-    transaction_id: str = Field(..., description="External POS transaction ID")
-    device_id: str
-    transaction_type: TransactionType
-    total_amount: float = Field(..., gt=0)
-    tax_amount: float = 0
-    discount_amount: float = 0
-    payment_method: PaymentMethod
-    payment_details: Optional[Dict[str, Any]] = None
-    items: List[Dict[str, Any]] = Field(..., min_items=1)
-    customer_id: Optional[str] = None
-    employee_id: Optional[str] = None
-    location_id: Optional[str] = None
-    notes: Optional[str] = None
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class POSTransactionInDB(POSTransactionCreate):
-    id: str
-    sync_status: SyncStatus = SyncStatus.PENDING
-    journal_entry_id: Optional[str] = None
-    processed_at: Optional[datetime] = None
-    error_message: Optional[str] = None
-    created_at: datetime
-
-
-class InventorySyncRequest(BaseModel):
-    device_id: str
-    products: List[Dict[str, Any]] = Field(..., description="Product inventory updates")
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class SalesSummaryRequest(BaseModel):
-    device_id: str
-    start_date: datetime
-    end_date: datetime
-    group_by: str = "hour"  # hour, day, week
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 # ============================================================================
-# Connection Manager
+# Connection Manager (live sockets only — ephemeral by design)
 # ============================================================================
 
 
@@ -170,13 +122,10 @@ class POSConnectionManager:
 
 pos_manager = POSConnectionManager()
 
-# ============================================================================
-# In-Memory Storage (Use Neo4j in production)
-# ============================================================================
 
-devices: Dict[str, POSDeviceInDB] = {}
-transactions: Dict[str, POSTransactionInDB] = {}
-transaction_mappings: Dict[str, str] = {}  # external_id -> internal_id
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
 
 # ============================================================================
 # API Endpoints
@@ -184,7 +133,11 @@ transaction_mappings: Dict[str, str] = {}  # external_id -> internal_id
 
 
 @app.get("/")
-async def health_check():
+async def health_check(
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    transactions = await crud.list_transactions(db_session, caller_id)
     return {
         "status": "healthy",
         "service": "pos-integration",
@@ -194,164 +147,170 @@ async def health_check():
 
 
 # --- Device Management ---
-@app.post("/devices", response_model=POSDeviceInDB, status_code=status.HTTP_201_CREATED)
-async def register_device(device: POSDeviceCreate):
-    """Register a new POS device"""
-    device_id = device.device_id
 
-    if device_id in devices:
+
+@app.post("/devices", response_model=POSDeviceInDB, status_code=status.HTTP_201_CREATED)
+async def register_device(
+    device: POSDeviceCreate,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Register a new POS device"""
+    if await crud.get_device_by_external_id(db_session, caller_id, device.device_id):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Device already registered")
 
-    now = datetime.now(timezone.utc)
+    now = _utcnow()
     db_device = POSDeviceInDB(
         id=str(uuid.uuid4()), **device.model_dump(), status=POSDeviceStatus.OFFLINE, created_at=now, updated_at=now
     )
-
-    devices[device_id] = db_device
-    return db_device
+    return await crud.create_device(db_session, caller_id, db_device)
 
 
 @app.get("/devices", response_model=List[POSDeviceInDB])
-async def list_devices(status: Optional[POSDeviceStatus] = None):
-    """List all registered POS devices"""
-    devices_list = list(devices.values())
+async def list_devices(
+    status: Optional[POSDeviceStatus] = None,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List all registered POS devices (caller's own Book-visible devices)"""
+    devices_list = await crud.list_devices(db_session, caller_id)
     if status:
         devices_list = [d for d in devices_list if d.status == status]
     return devices_list
 
 
 @app.get("/devices/{device_id}", response_model=POSDeviceInDB)
-async def get_device(device_id: str):
-    if device_id not in devices:
+async def get_device(
+    device_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    device = await crud.get_device_by_external_id(db_session, caller_id, device_id)
+    if not device:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
-    return devices[device_id]
+    return device
 
 
 @app.put("/devices/{device_id}/status")
-async def update_device_status(device_id: str, status_update: Dict[str, Any]):
-    """Update device status"""
-    if device_id not in devices:
+async def update_device_status(
+    device_id: str,
+    status_update: Dict[str, Any],
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Update device status (caller's own devices only)"""
+    if not await crud.get_device_by_external_id(db_session, caller_id, device_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
 
-    devices[device_id].status = POSDeviceStatus(status_update.get("status", "online"))
-    devices[device_id].last_sync = datetime.now(timezone.utc)
-    devices[device_id].updated_at = datetime.now(timezone.utc)
+    now = _utcnow()
+    updated = await crud.set_device_status(
+        db_session, caller_id, device_id, status_update.get("status", "online"), now, now
+    )
 
     await pos_manager.broadcast_to_all(
-        {"type": "device_status_update", "device_id": device_id, "status": devices[device_id].status.value}
+        {"type": "device_status_update", "device_id": device_id, "status": updated.status.value}
     )
 
     return {"status": "updated", "device_id": device_id}
 
 
 # --- Transaction Processing ---
-@app.post("/transactions", response_model=POSTransactionInDB, status_code=status.HTTP_201_CREATED)
-async def receive_transaction(transaction: POSTransactionCreate, background_tasks: BackgroundTasks):
-    """Receive transaction from POS device and process for accounting"""
-    transaction_id = transaction.transaction_id
 
-    if transaction_id in transaction_mappings:
+
+async def _ingest_transaction(
+    transaction: POSTransactionCreate,
+    caller_id: str,
+    db_session: AsyncSession,
+) -> POSTransactionInDB:
+    """Validate and persist an incoming transaction (caller-scoped duplicate check)."""
+    if await crud.get_transaction_by_external_id(db_session, caller_id, transaction.transaction_id):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Transaction already received")
 
-    now = datetime.now(timezone.utc)
     db_transaction = POSTransactionInDB(
-        id=str(uuid.uuid4()), **transaction.model_dump(), sync_status=SyncStatus.PENDING, created_at=now
+        id=str(uuid.uuid4()),
+        **transaction.model_dump(),
+        sync_status=SyncStatus.PENDING,
+        created_at=_utcnow(),
     )
-
-    transactions[transaction_id] = db_transaction
-    transaction_mappings[transaction_id] = db_transaction.id
-
-    # Process in background - create journal entry
-    background_tasks.add_task(process_transaction_for_accounting, db_transaction)
+    saved = await crud.create_transaction(db_session, caller_id, db_transaction)
 
     # Broadcast to connected dashboards
     await pos_manager.broadcast_to_all(
         {
             "type": "new_transaction",
             "transaction": {
-                "id": db_transaction.id,
-                "external_id": transaction_id,
-                "amount": db_transaction.total_amount,
-                "type": db_transaction.transaction_type.value,
+                "id": saved.id,
+                "external_id": saved.transaction_id,
+                "amount": saved.total_amount,
+                "type": saved.transaction_type.value,
             },
         }
     )
+    return saved
 
-    return db_transaction
+
+@app.post("/transactions", response_model=POSTransactionInDB, status_code=status.HTTP_201_CREATED)
+async def receive_transaction(
+    transaction: POSTransactionCreate,
+    background_tasks: BackgroundTasks,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Receive transaction from POS device and process for accounting"""
+    saved = await _ingest_transaction(transaction, caller_id, db_session)
+
+    # Process in background - create journal entry
+    background_tasks.add_task(process_transaction_for_accounting, saved.id, caller_id)
+
+    return saved
 
 
-async def process_transaction_for_accounting(transaction: POSTransactionInDB):
-    """Process POS transaction and create journal entry"""
-    try:
-        # Simulate calling accounting service
-        # In production, this would call the accounting service via message queue
+async def process_transaction_for_accounting(transaction_id: str, caller_id: str):
+    """Process POS transaction and create journal entry (caller-scoped persistence)"""
+    from pos_integration_service.database import Neo4jConnector
 
-        # Create journal entry data
-        journal_entry_data = {
-            "description": f"POS Transaction {transaction.transaction_id}",
-            "entry_date": transaction.timestamp.isoformat(),
-            "reference": f"POS-{transaction.device_id}-{transaction.transaction_id}",
-            "lines": [],
-        }
+    async with Neo4jConnector.get_driver().session() as session:
+        try:
+            db_transaction = await crud.get_transaction_by_id(session, caller_id, transaction_id)
+            if not db_transaction:
+                return
 
-        # For sales, create debit to cash/receivables and credit to sales
-        if transaction.transaction_type == TransactionType.SALE:
-            # Debit entry (cash or accounts receivable)
-            journal_entry_data["lines"].append(
-                {
-                    "account_code": "1100",  # Cash account
-                    "description": "Cash from POS sale",
-                    "debit": transaction.total_amount - transaction.tax_amount,
-                    "credit": 0,
-                }
-            )
-            # Tax liability
-            if transaction.tax_amount > 0:
-                journal_entry_data["lines"].append(
-                    {
-                        "account_code": "2200",  # Sales Tax Payable
-                        "description": "Sales tax collected",
-                        "debit": 0,
-                        "credit": transaction.tax_amount,
-                    }
-                )
-            # Credit to sales revenue
-            journal_entry_data["lines"].append(
-                {
-                    "account_code": "4000",  # Sales Revenue
-                    "description": "POS Sale",
-                    "debit": 0,
-                    "credit": transaction.total_amount - transaction.tax_amount,
-                }
+            # Simulate calling accounting service
+            # In production, this would call the accounting service via message queue
+
+            # Update transaction status
+            await crud.mark_transaction_synced(
+                session, caller_id, transaction_id, f"JE-{transaction_id[:8]}", _utcnow()
             )
 
-        # Update transaction status
-        transaction.sync_status = SyncStatus.SYNCED
-        transaction.processed_at = datetime.now(timezone.utc)
+            # Broadcast update
+            await pos_manager.broadcast_to_device(
+                db_transaction.device_id,
+                {
+                    "type": "transaction_synced",
+                    "transaction_id": db_transaction.transaction_id,
+                    "journal_entry_id": f"JE-{transaction_id[:8]}",
+                },
+            )
 
-        # Broadcast update
-        await pos_manager.broadcast_to_device(
-            transaction.device_id,
-            {
-                "type": "transaction_synced",
-                "transaction_id": transaction.transaction_id,
-                "journal_entry_id": f"JE-{transaction.id[:8]}",
-            },
-        )
-
-    except Exception as e:
-        transaction.sync_status = SyncStatus.FAILED
-        transaction.error_message = str(e)
+        except Exception as e:
+            await crud.mark_transaction_failed(session, caller_id, transaction_id, str(e), _utcnow())
 
 
 @app.post("/transactions/batch", status_code=status.HTTP_201_CREATED)
-async def receive_batch_transactions(transactions_list: List[POSTransactionCreate], background_tasks: BackgroundTasks):
+async def receive_batch_transactions(
+    transactions_list: List[POSTransactionCreate],
+    background_tasks: BackgroundTasks,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Receive multiple transactions from POS device"""
     results = []
 
     for transaction in transactions_list:
         try:
-            db_transaction = await receive_transaction(transaction, background_tasks)
+            db_transaction = await _ingest_transaction(transaction, caller_id, db_session)
+            background_tasks.add_task(process_transaction_for_accounting, db_transaction.id, caller_id)
             results.append(
                 {"transaction_id": transaction.transaction_id, "status": "accepted", "internal_id": db_transaction.id}
             )
@@ -364,18 +323,20 @@ async def receive_batch_transactions(transactions_list: List[POSTransactionCreat
 @app.get("/transactions", response_model=List[POSTransactionInDB])
 async def list_transactions(
     device_id: Optional[str] = None,
-    status: Optional[SyncStatus] = None,
+    sync_status: Optional[SyncStatus] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     limit: int = 100,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """List POS transactions with filters"""
-    filtered = list(transactions.values())
+    """List POS transactions with filters (caller's own Book-visible set)"""
+    filtered = await crud.list_transactions(db_session, caller_id)
 
     if device_id:
         filtered = [t for t in filtered if t.device_id == device_id]
-    if status:
-        filtered = [t for t in filtered if t.sync_status == status]
+    if sync_status:
+        filtered = [t for t in filtered if t.sync_status == sync_status]
     if start_date:
         filtered = [t for t in filtered if t.timestamp >= start_date]
     if end_date:
@@ -385,13 +346,20 @@ async def list_transactions(
 
 
 @app.get("/transactions/{transaction_id}", response_model=POSTransactionInDB)
-async def get_transaction(transaction_id: str):
-    if transaction_id not in transactions:
+async def get_transaction(
+    transaction_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    t = await crud.get_transaction_by_external_id(db_session, caller_id, transaction_id)
+    if not t:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
-    return transactions[transaction_id]
+    return t
 
 
 # --- Inventory Sync ---
+
+
 @app.post("/inventory/sync")
 async def sync_inventory(request: InventorySyncRequest):
     """Sync inventory from POS to central system"""
@@ -401,7 +369,7 @@ async def sync_inventory(request: InventorySyncRequest):
         "status": "synced",
         "device_id": request.device_id,
         "items_updated": len(request.products),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": _utcnow().isoformat(),
     }
 
 
@@ -424,12 +392,19 @@ async def reconcile_inventory(device_id: str, inventory_data: List[Dict[str, Any
 
 
 # --- Sales Summary ---
+
+
 @app.post("/reports/sales-summary")
-async def get_sales_summary(request: SalesSummaryRequest):
-    """Generate sales summary report for POS device"""
+async def get_sales_summary(
+    request: SalesSummaryRequest,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Generate sales summary report for POS device (caller's transactions only)"""
+    all_transactions = await crud.list_transactions(db_session, caller_id)
     filtered = [
         t
-        for t in transactions.values()
+        for t in all_transactions
         if t.device_id == request.device_id and request.start_date <= t.timestamp <= request.end_date
     ]
 
@@ -462,6 +437,8 @@ async def get_sales_summary(request: SalesSummaryRequest):
 
 
 # --- WebSocket for Real-time Updates ---
+
+
 @app.websocket("/ws/pos/{device_id}")
 async def websocket_pos(websocket: WebSocket, device_id: str):
     """WebSocket endpoint for real-time POS updates"""
@@ -472,11 +449,24 @@ async def websocket_pos(websocket: WebSocket, device_id: str):
             try:
                 message = json.loads(data)
                 if message.get("type") == "ping":
-                    await websocket.send_json({"type": "pong", "timestamp": datetime.now(timezone.utc).isoformat()})
+                    await websocket.send_json({"type": "pong", "timestamp": _utcnow().isoformat()})
                 elif message.get("type") == "status_update":
-                    # Update device status
-                    if device_id in devices:
-                        devices[device_id].status = POSDeviceStatus(message.get("status", "online"))
+                    # Persist the device status change for the socket's caller
+                    caller_id = websocket.headers.get("X-User-Id")
+                    if caller_id and device_id:
+                        from pos_integration_service.database import Neo4jConnector
+
+                        async with Neo4jConnector.get_driver().session() as session:
+                            if await crud.get_device_by_external_id(session, caller_id, device_id):
+                                now = _utcnow()
+                                await crud.set_device_status(
+                                    session,
+                                    caller_id,
+                                    device_id,
+                                    message.get("status", "online"),
+                                    now,
+                                    now,
+                                )
             except json.JSONDecodeError:
                 await websocket.send_json({"type": "error", "message": "Invalid JSON"})
     except WebSocketDisconnect:
@@ -498,8 +488,16 @@ async def websocket_dashboard(websocket: WebSocket):
 
 
 # --- External Integration Endpoints ---
+
+
 @app.post("/integrations/{pos_type}/webhook")
-async def receive_pos_webhook(pos_type: str, payload: Dict[str, Any]):
+async def receive_pos_webhook(
+    pos_type: str,
+    payload: Dict[str, Any],
+    background_tasks: BackgroundTasks,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Receive transaction data from external POS systems"""
     # Support for Square, Stripe, Shopify, etc.
 
@@ -514,16 +512,9 @@ async def receive_pos_webhook(pos_type: str, payload: Dict[str, Any]):
 
     transaction = POSTransactionCreate(**transaction_data)
 
-    # Process the transaction
-    db_transaction = POSTransactionInDB(
-        id=str(uuid.uuid4()),
-        **transaction.model_dump(),
-        sync_status=SyncStatus.PENDING,
-        created_at=datetime.now(timezone.utc),
-    )
-
-    transactions[transaction.transaction_id] = db_transaction
-    transaction_mappings[transaction.transaction_id] = db_transaction.id
+    # Process the transaction (caller-scoped duplicate check)
+    saved = await _ingest_transaction(transaction, caller_id, db_session)
+    background_tasks.add_task(process_transaction_for_accounting, saved.id, caller_id)
 
     return {"status": "received", "transaction_id": transaction.transaction_id}
 
@@ -539,7 +530,7 @@ def transform_square_transaction(payload: Dict[str, Any]) -> Dict[str, Any]:
         "discount_amount": 0,
         "payment_method": PaymentMethod.CARD,
         "items": [],
-        "timestamp": datetime.now(timezone.utc),
+        "timestamp": _utcnow(),
     }
 
 
@@ -569,23 +560,29 @@ def transform_shopify_transaction(payload: Dict[str, Any]) -> Dict[str, Any]:
         "discount_amount": float(payload.get("total_discounts", 0)),
         "payment_method": PaymentMethod.CARD,
         "items": [],
-        "timestamp": datetime.now(timezone.utc),
+        "timestamp": _utcnow(),
     }
 
 
 # --- Health and Metrics ---
-@app.get("/metrics")
-async def get_metrics():
-    """Get POS integration metrics"""
-    total_transactions = len(transactions)
-    synced = sum(1 for t in transactions.values() if t.sync_status == SyncStatus.SYNCED)
-    pending = sum(1 for t in transactions.values() if t.sync_status == SyncStatus.PENDING)
-    failed = sum(1 for t in transactions.values() if t.sync_status == SyncStatus.FAILED)
 
-    total_amount = sum(t.total_amount for t in transactions.values())
+
+@app.get("/metrics")
+async def get_metrics(
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get POS integration metrics (over the caller's Book-visible data)"""
+    transactions = await crud.list_transactions(db_session, caller_id)
+    synced = sum(1 for t in transactions if t.sync_status == SyncStatus.SYNCED)
+    pending = sum(1 for t in transactions if t.sync_status == SyncStatus.PENDING)
+    failed = sum(1 for t in transactions if t.sync_status == SyncStatus.FAILED)
+
+    total_amount = sum(t.total_amount for t in transactions)
+    devices = await crud.list_devices(db_session, caller_id)
 
     return {
-        "total_transactions": total_transactions,
+        "total_transactions": len(transactions),
         "synced": synced,
         "pending": pending,
         "failed": failed,
@@ -598,4 +595,4 @@ async def get_metrics():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8095)
+    uvicorn.run(app, host="0.0.0.0", port=int(_os.getenv("PORT", "8095")))
