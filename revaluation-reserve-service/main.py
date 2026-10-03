@@ -1,24 +1,48 @@
 """
 Vimbai Revaluation Reserve Service
-Manages revaluation reserve from asset revaluations.
+Handles revaluation reserve: asset revaluations and utilization.
+
+Records persist in Neo4j, stamped with the caller (X-User-Id) and the
+Book context (X-Book-ID, verified upstream by the API gateway).
+Cumulative revaluation nodes are per caller+asset (upsert). Gain/loss
+math, journal side-calls, miss contracts, and response shapes are
+preserved exactly.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import os
-import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+import importlib.util
+import os as _os
+import sys as _sys
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "revaluation_reserve_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("revaluation_reserve_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("revaluation_reserve_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["revaluation_reserve_service"] = _pkg
+    _sys.modules["revaluation_reserve_service"].__path__ = [_HERE]
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from revaluation_reserve_service import crud
+from revaluation_reserve_service.database import Neo4jConnector
+from revaluation_reserve_service.dependencies import book_id_var, get_db_session, get_user_id
+from revaluation_reserve_service.exceptions import RevaluationReserveServiceError
+from revaluation_reserve_service.models import CumulativeRevaluation, RevaluationEntry, RevaluationUtilization
 
 SERVICE_NAME = "revaluation-reserve-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8057"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
+PORT = int(_os.getenv("PORT", "8065"))
+ACCOUNTING_SERVICE_URL = _os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
     processors=[
@@ -40,50 +64,21 @@ app.add_middleware(
 )
 
 
-class RevaluationEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    asset_id: str
-    asset_name: str
-    asset_class: str  # property, plant, equipment, investment_property
-    revaluation_date: datetime
-    previous_value: float
-    new_value: float
-    revaluation_gain: float = 0
-    revaluation_loss: float = 0
-    depreciation_adjustment: float = 0  # Adjustment to accumulated depreciation
-    net_effect: float = 0
-    journal_entry_id: Optional[str] = None
-    status: str = "completed"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class RevaluationUtilization(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    amount: float
-    utilization_type: str  # asset_disposal, impairment, transfer_retained_earnings
-    related_asset_id: Optional[str] = None
-    description: str
-    journal_entry_id: Optional[str] = None
-    utilization_date: datetime
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.exception_handler(RevaluationReserveServiceError)
+async def _rr_error(request: Request, exc: RevaluationReserveServiceError):
+    from fastapi.responses import JSONResponse
 
-
-class CumulativeRevaluation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    asset_id: str
-    total_revaluation_gain: float = 0
-    total_revaluation_loss: float = 0
-    total_utilized: float = 0
-    net_revaluation_reserve: float = 0
-    last_revaluation_date: Optional[datetime] = None
-
-
-revaluation_entries: List[RevaluationEntry] = []
-revaluation_utilizations: List[RevaluationUtilization] = []
-cumulative_revaluations: List[CumulativeRevaluation] = []
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400),
+        content={"detail": str(exc), "error": exc.__class__.__name__},
+    )
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -119,6 +114,8 @@ async def record_revaluation(
     previous_value: float,
     new_value: float,
     depreciation_adjustment: float = 0,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Record asset revaluation."""
     revaluation_gain = 0
@@ -171,10 +168,10 @@ async def record_revaluation(
 
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     entry.journal_entry_id = result.get("id")
-    revaluation_entries.append(entry)
+    entry = await crud.create_entry(db_session, user_id, entry)
 
-    # Update cumulative revaluation
-    cumulative = next((c for c in cumulative_revaluations if c.asset_id == asset_id), None)
+    # Update cumulative revaluation (caller's own node for the asset)
+    cumulative = await crud.get_cumulative(db_session, user_id, asset_id)
     if cumulative:
         cumulative.total_revaluation_gain += revaluation_gain
         cumulative.total_revaluation_loss += revaluation_loss
@@ -191,8 +188,8 @@ async def record_revaluation(
             net_revaluation_reserve=revaluation_gain - revaluation_loss,
             last_revaluation_date=revaluation_date,
         )
-        cumulative_revaluations.append(cumulative)
 
+    cumulative = await crud.save_cumulative(db_session, user_id, cumulative)
     return {"revaluation": entry, "cumulative": cumulative}
 
 
@@ -204,10 +201,12 @@ async def utilize_revaluation_reserve(
     related_asset_id: Optional[str] = None,
     description: str = "",
     utilization_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Utilize revaluation reserve."""
     if utilization_date is None:
-        utilization_date = datetime.utcnow()
+        utilization_date = datetime.now(timezone.utc)
 
     utilization = RevaluationUtilization(
         company_id=company_id,
@@ -251,15 +250,19 @@ async def utilize_revaluation_reserve(
 
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     utilization.journal_entry_id = result.get("id")
-    revaluation_utilizations.append(utilization)
 
-    return utilization
+    return await crud.create_utilization(db_session, user_id, utilization)
 
 
 @app.get("/revaluations")
-async def list_revaluations(company_id: Optional[str] = None, asset_id: Optional[str] = None):
+async def list_revaluations(
+    company_id: Optional[str] = None,
+    asset_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List revaluation entries."""
-    result = revaluation_entries
+    result = await crud.list_entries(db_session, user_id)
     if company_id:
         result = [r for r in result if r.company_id == company_id]
     if asset_id:
@@ -268,19 +271,27 @@ async def list_revaluations(company_id: Optional[str] = None, asset_id: Optional
 
 
 @app.get("/cumulative/{asset_id}")
-async def get_cumulative_revaluation(asset_id: str):
+async def get_cumulative_revaluation(
+    asset_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get cumulative revaluation for an asset."""
-    cumulative = next((c for c in cumulative_revaluations if c.asset_id == asset_id), None)
+    cumulative = await crud.get_cumulative(db_session, user_id, asset_id)
     if not cumulative:
         return {"error": "Asset not found"}
     return cumulative
 
 
 @app.get("/summary/{company_id}")
-async def get_revaluation_summary(company_id: str):
+async def get_revaluation_summary(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get revaluation reserve summary."""
-    company_revaluations = [r for r in revaluation_entries if r.company_id == company_id]
-    company_utilizations = [u for u in revaluation_utilizations if u.company_id == company_id]
+    company_revaluations = [r for r in await crud.list_entries(db_session, user_id) if r.company_id == company_id]
+    company_utilizations = [u for u in await crud.list_utilizations(db_session, user_id) if u.company_id == company_id]
 
     total_gains = sum(r.revaluation_gain for r in company_revaluations)
     total_losses = sum(r.revaluation_loss for r in company_revaluations)
