@@ -1,526 +1,122 @@
 """
 Vimbai Admin Service
-Centralized admin interface for feature management, system configuration, and admin controls
-Includes organization-level feature settings, rollout schedules, feature dependencies,
-and user-requested feature management
+Feature flags, org feature configs, rollout schedules, feature requests,
+system configuration, audit logs and dashboard stats.
+
+Caller-specific state persists in Neo4j, stamped with the caller
+(X-User-Id) and the Book context (X-Book-ID, verified upstream by the API
+gateway). The code-defined catalogs (feature registry, dependencies,
+config defaults, service health) are immutable seeds; per-caller
+overrides/org-configs/schedules/requests/audit entries are persisted and
+lookups resolve only against the caller's own Book-visible records.
+Previously the shared module-level stores let any caller toggle global
+feature flags, reconfigure any org, cancel anyone's rollout schedule, and
+read the global audit trail.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import asyncio
-import os
+import importlib.util
+import os as _os
+import sys as _sys
 import uuid
-from datetime import datetime, timedelta, timezone
-from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
-from pydantic import BaseModel, Field
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "admin_service" not in _sys.modules or not hasattr(_sys.modules.get("admin_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("admin_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["admin_service"] = _pkg
+    _sys.modules["admin_service"].__path__ = [_HERE]
 
-load_dotenv()
+from admin_service import crud
+from admin_service.catalog import FEATURE_DEPENDENCIES, FEATURES, SERVICES_HEALTH, SYSTEM_CONFIG
+from admin_service.database import Neo4jConnector
+from admin_service.dependencies import book_id_var, get_db_session, get_user_id
+from admin_service.models import (
+    AuditLogEntry,
+    Feature,
+    FeatureCategory,
+    FeatureRequest,
+    FeatureRequestStatus,
+    FeatureRolloutSchedule,
+    FeatureStatus,
+    FeatureUpdate,
+    OrgFeatureConfig,
+    SystemConfig,
+)
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from neo4j import AsyncSession
 
-app = FastAPI(
-    title="Vimbai Admin Service",
-    description="Admin interface for system configuration, feature management, organization controls, and user feature requests",
-    version="1.2.0",
+app = FastAPI(title="Vimbai Admin Service", version="1.0.0", docs_url="/docs")
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
 
-# ============================================================================
-# Enums and Models
-# ============================================================================
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class FeatureCategory(str, Enum):
-    ACCOUNTING = "accounting"
-    FINANCE = "finance"
-    BANKING = "banking"
-    FRAUD_DETECTION = "fraud_detection"
-    REPORTING = "reporting"
-    WORKFLOW = "workflow"
-    MULTIMODAL = "multimodal"
-    INTEGRATION = "integration"
-    NOTIFICATIONS = "notifications"
-    SECURITY = "security"
-    SYSTEM = "system"
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
-class FeatureStatus(str, Enum):
-    ENABLED = "enabled"
-    DISABLED = "disabled"
-    BETA = "beta"
-    DEPRECATED = "deprecated"
+async def _merged_features(db_session: AsyncSession, caller_id: str) -> Dict[str, Feature]:
+    """Catalog features with the caller's Book-visible status/config/rollout overrides applied."""
+    overrides = await crud.get_feature_overrides(db_session, caller_id)
+    merged: Dict[str, Feature] = {}
+    for fid, feature in FEATURES.items():
+        ov = overrides.get(fid)
+        if ov:
+            merged[fid] = feature.model_copy(
+                update={
+                    "status": FeatureStatus(ov["status"]) if ov.get("status") else feature.status,
+                    "config": ov.get("config") if ov.get("config") is not None else feature.config,
+                    "rollout_percentage": (
+                        int(ov["rollout_percentage"])
+                        if ov.get("rollout_percentage") is not None
+                        else feature.rollout_percentage
+                    ),
+                }
+            )
+        else:
+            merged[fid] = feature.model_copy()
+    return merged
 
 
-class FeatureRequestStatus(str, Enum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    IMPLEMENTED = "implemented"
-
-
-class Feature(BaseModel):
-    id: str
-    name: str
-    description: str
-    category: FeatureCategory
-    status: FeatureStatus
-    enabled_by_default: bool
-    requires_permission: Optional[str] = None
-    config: Optional[Dict[str, Any]] = None
-    rollout_percentage: int = 100  # 0-100, for gradual rollouts
-    metadata: Optional[Dict[str, Any]] = None
-
-
-class FeatureUpdate(BaseModel):
-    status: Optional[FeatureStatus] = None
-    config: Optional[Dict[str, Any]] = None
-    rollout_percentage: Optional[int] = None
-
-
-class SystemConfig(BaseModel):
-    key: str
-    value: Any
-    description: Optional[str] = None
-    category: str
-    is_sensitive: bool = False
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_by: Optional[str] = None
-
-
-class AuditLogEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-    user_id: str
-    user_email: str
-    action: str
-    resource_type: str
-    resource_id: str
-    changes: Optional[Dict[str, Any]] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-
-
-class ServiceHealth(BaseModel):
-    service_name: str
-    status: Literal["healthy", "degraded", "unhealthy", "unknown"]
-    version: Optional[str] = None
-    uptime_seconds: Optional[float] = None
-    last_check: datetime = Field(default_factory=datetime.utcnow)
-    endpoints: Optional[Dict[str, str]] = None
-    error_message: Optional[str] = None
+async def _log(
+    db_session: AsyncSession,
+    caller_id: str,
+    action: str,
+    resource_type: str,
+    resource_id: str,
+    changes: Optional[Dict[str, Any]] = None,
+    actor_email: Optional[str] = None,
+) -> None:
+    await crud.create_audit_entry(
+        db_session,
+        caller_id,
+        AuditLogEntry(
+            user_id=caller_id,
+            user_email=actor_email or f"{caller_id}@vimbai.com",
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            changes=changes,
+        ),
+    )
 
 
 # ============================================================================
-# Organization Feature Configuration Models
-# ============================================================================
-
-
-class OrgFeatureConfig(BaseModel):
-    """Organization-specific feature configuration"""
-
-    organization_id: str
-    feature_id: str
-    enabled: bool
-    custom_config: Optional[Dict[str, Any]] = None
-    rollout_percentage: int = 100
-    enabled_at: Optional[datetime] = None
-    disabled_at: Optional[datetime] = None
-    enabled_by: Optional[str] = None
-    notes: Optional[str] = None
-
-
-class FeatureDependency(BaseModel):
-    """Feature dependency configuration"""
-
-    feature_id: str
-    depends_on: List[str]  # List of feature IDs that must be enabled
-    required_permissions: List[str] = []
-    min_rollout_percentage: int = 50  # Minimum rollout before this feature can be enabled
-
-
-class FeatureRolloutSchedule(BaseModel):
-    """Scheduled feature rollout"""
-
-    feature_id: str
-    organization_id: Optional[str] = None
-    scheduled_date: datetime
-    target_percentage: int
-    status: str = "scheduled"  # scheduled, in_progress, completed, cancelled
-    created_by: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class FeatureRequest(BaseModel):
-    """User-submitted feature request"""
-
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    user_id: str
-    user_email: str
-    organization_id: Optional[str] = None
-    feature_name: str
-    feature_description: Optional[str] = None
-    category: Optional[FeatureCategory] = None
-    priority: str = "normal"  # low, normal, high, urgent
-    business_justification: Optional[str] = None
-    status: FeatureRequestStatus = FeatureRequestStatus.PENDING
-    reviewed_by: Optional[str] = None
-    reviewed_at: Optional[datetime] = None
-    review_notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-# ============================================================================
-# Feature Registry
-# ============================================================================
-
-FEATURES: Dict[str, Feature] = {
-    # Accounting Features
-    "double_entry": Feature(
-        id="double_entry",
-        name="Double-Entry Accounting",
-        description="Enable double-entry bookkeeping with debit/credit validation",
-        category=FeatureCategory.ACCOUNTING,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-        requires_permission="accounting.double_entry",
-    ),
-    "single_entry": Feature(
-        id="single_entry",
-        name="Single-Entry System",
-        description="Enable single-entry (incomplete records) accounting",
-        category=FeatureCategory.ACCOUNTING,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-        requires_permission="accounting.single_entry",
-    ),
-    "fund_accounting": Feature(
-        id="fund_accounting",
-        name="Fund Accounting",
-        description="Enable fund-based accounting for nonprofits/government",
-        category=FeatureCategory.ACCOUNTING,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-        requires_permission="accounting.fund",
-    ),
-    "project_accounting": Feature(
-        id="project_accounting",
-        name="Project Accounting",
-        description="Enable project/cost center tracking",
-        category=FeatureCategory.ACCOUNTING,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-        requires_permission="accounting.project",
-    ),
-    "npo_accounting": Feature(
-        id="npo_accounting",
-        name="NPO Accounting",
-        description="Enable nonprofit organization specific features",
-        category=FeatureCategory.ACCOUNTING,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-        requires_permission="accounting.npo",
-    ),
-    "depreciation_tracking": Feature(
-        id="depreciation_tracking",
-        name="Fixed Asset Depreciation",
-        description="Enable automatic depreciation calculation for fixed assets",
-        category=FeatureCategory.ACCOUNTING,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    # Finance Features
-    "budgeting": Feature(
-        id="budgeting",
-        name="Budget Management",
-        description="Enable budget creation, tracking, and variance analysis",
-        category=FeatureCategory.FINANCE,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "scenario_modeling": Feature(
-        id="scenario_modeling",
-        name="What-If Scenario Modeling",
-        description="Enable financial scenario creation and comparison",
-        category=FeatureCategory.FINANCE,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "forecasting": Feature(
-        id="forecasting",
-        name="Cash Flow Forecasting",
-        description="Enable AI-assisted cash flow forecasting",
-        category=FeatureCategory.FINANCE,
-        status=FeatureStatus.BETA,
-        enabled_by_default=False,
-    ),
-    # Banking Features
-    "bank_integration": Feature(
-        id="bank_integration",
-        name="Bank Feed Integration",
-        description="Enable automatic bank feed imports and reconciliation",
-        category=FeatureCategory.BANKING,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "pos_integration": Feature(
-        id="pos_integration",
-        name="POS Integration",
-        description="Enable Point-of-Sale system integration",
-        category=FeatureCategory.BANKING,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    # Fraud Detection
-    "fraud_detection": Feature(
-        id="fraud_detection",
-        name="Real-time Fraud Detection",
-        description="Enable ML-based fraud detection on transactions",
-        category=FeatureCategory.FRAUD_DETECTION,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "fraud_alerts": Feature(
-        id="fraud_alerts",
-        name="Fraud Alert Notifications",
-        description="Enable real-time fraud alert notifications",
-        category=FeatureCategory.FRAUD_DETECTION,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    # Reporting
-    "custom_reports": Feature(
-        id="custom_reports",
-        name="Custom Report Builder",
-        description="Enable drag-and-drop report builder",
-        category=FeatureCategory.REPORTING,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "pdf_export": Feature(
-        id="pdf_export",
-        name="PDF Export",
-        description="Enable PDF export for reports",
-        category=FeatureCategory.REPORTING,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "excel_export": Feature(
-        id="excel_export",
-        name="Excel Export",
-        description="Enable Excel export for reports",
-        category=FeatureCategory.REPORTING,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "financial_statements": Feature(
-        id="financial_statements",
-        name="Financial Statement Generation",
-        description="Enable automatic income statement, balance sheet, cash flow",
-        category=FeatureCategory.REPORTING,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    # Workflow
-    "approval_workflows": Feature(
-        id="approval_workflows",
-        name="Approval Workflows",
-        description="Enable configurable approval chains",
-        category=FeatureCategory.WORKFLOW,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "audit_trail": Feature(
-        id="audit_trail",
-        name="Immutable Audit Trail",
-        description="Track all changes with immutable audit log",
-        category=FeatureCategory.WORKFLOW,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    # Multimodal
-    "ocr_processing": Feature(
-        id="ocr_processing",
-        name="OCR Document Processing",
-        description="Enable OCR for scanned documents",
-        category=FeatureCategory.MULTIMODAL,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "voice_input": Feature(
-        id="voice_input",
-        name="Voice Input",
-        description="Enable voice-to-journal-entry feature",
-        category=FeatureCategory.MULTIMODAL,
-        status=FeatureStatus.BETA,
-        enabled_by_default=False,
-    ),
-    # Security
-    "oauth_login": Feature(
-        id="oauth_login",
-        name="OAuth2/OIDC Login",
-        description="Enable social login (Google, GitHub, Microsoft)",
-        category=FeatureCategory.SECURITY,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "mfa": Feature(
-        id="mfa",
-        name="Multi-Factor Authentication",
-        description="Enable TOTP-based MFA",
-        category=FeatureCategory.SECURITY,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "rate_limiting": Feature(
-        id="rate_limiting",
-        name="API Rate Limiting",
-        description="Enable rate limiting on API endpoints",
-        category=FeatureCategory.SECURITY,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    # System
-    "offline_mode": Feature(
-        id="offline_mode",
-        name="Offline-First Mode",
-        description="Enable offline data entry and sync",
-        category=FeatureCategory.SYSTEM,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "graphql_api": Feature(
-        id="graphql_api",
-        name="GraphQL API",
-        description="Enable GraphQL API endpoint",
-        category=FeatureCategory.SYSTEM,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "websocket_alerts": Feature(
-        id="websocket_alerts",
-        name="Real-time WebSocket Alerts",
-        description="Enable WebSocket for real-time notifications",
-        category=FeatureCategory.SYSTEM,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-    "multi_currency": Feature(
-        id="multi_currency",
-        name="Multi-Currency Support",
-        description="Enable multi-currency transactions and conversion",
-        category=FeatureCategory.SYSTEM,
-        status=FeatureStatus.ENABLED,
-        enabled_by_default=True,
-    ),
-}
-
-# ============================================================================
-# Organization Feature Configurations Store
-# ============================================================================
-
-org_feature_configs: Dict[str, OrgFeatureConfig] = {}
-
-# ============================================================================
-# Feature Dependencies Store
-# ============================================================================
-
-FEATURE_DEPENDENCIES: Dict[str, FeatureDependency] = {
-    "forecasting": FeatureDependency(
-        feature_id="forecasting",
-        depends_on=["budgeting", "scenario_modeling"],
-        required_permissions=["finance.forecasting"],
-        min_rollout_percentage=50,
-    ),
-    "voice_input": FeatureDependency(
-        feature_id="voice_input",
-        depends_on=["ocr_processing"],
-        required_permissions=["multimodal.voice"],
-        min_rollout_percentage=25,
-    ),
-    "approval_workflows": FeatureDependency(
-        feature_id="approval_workflows",
-        depends_on=["audit_trail"],
-        required_permissions=["workflow.approval"],
-        min_rollout_percentage=10,
-    ),
-}
-
-# ============================================================================
-# Feature Rollout Schedules Store
-# ============================================================================
-
-rollout_schedules: List[FeatureRolloutSchedule] = []
-
-# ============================================================================
-# Feature Requests Store
-# ============================================================================
-
-feature_requests: Dict[str, FeatureRequest] = {}
-
-# ============================================================================
-# Configuration Store
-# ============================================================================
-
-SYSTEM_CONFIG: Dict[str, SystemConfig] = {
-    "company_name": SystemConfig(
-        key="company_name",
-        value="Vimbai Corporation",
-        description="Company name displayed in reports",
-        category="general",
-    ),
-    "fiscal_year_start": SystemConfig(
-        key="fiscal_year_start",
-        value="January",
-        description="Start month of fiscal year",
-        category="accounting",
-    ),
-    "base_currency": SystemConfig(
-        key="base_currency",
-        value="USD",
-        description="Primary currency for financial statements",
-        category="accounting",
-    ),
-    "date_format": SystemConfig(
-        key="date_format",
-        value="YYYY-MM-DD",
-        description="Date format for displays",
-        category="general",
-    ),
-    "timezone": SystemConfig(
-        key="timezone",
-        value="UTC",
-        description="System timezone",
-        category="general",
-    ),
-    "session_timeout_minutes": SystemConfig(
-        key="session_timeout_minutes",
-        value=60,
-        description="Session timeout in minutes",
-        category="security",
-        is_sensitive=False,
-    ),
-    "max_login_attempts": SystemConfig(
-        key="max_login_attempts",
-        value=5,
-        description="Maximum failed login attempts before lockout",
-        category="security",
-    ),
-    "maintenance_mode": SystemConfig(
-        key="maintenance_mode",
-        value=False,
-        description="Enable system maintenance mode",
-        category="system",
-    ),
-}
-
-# ============================================================================
-# Audit Log Store
-# ============================================================================
-
-audit_logs: List[AuditLogEntry] = []
-
-# ============================================================================
-# API Endpoints
+# Health
 # ============================================================================
 
 
@@ -530,18 +126,25 @@ async def health_check():
         "status": "healthy",
         "service": "admin",
         "version": "1.2.0",
+        "features_registered": len(FEATURES),
     }
 
 
-# --- Feature Management ---
+# ============================================================================
+# Feature Management
+# ============================================================================
 
 
 @app.get("/features")
 async def list_features(
-    category: Optional[FeatureCategory] = None, status: Optional[FeatureStatus] = None, enabled_only: bool = False
+    category: Optional[FeatureCategory] = None,
+    status: Optional[FeatureStatus] = None,
+    enabled_only: bool = False,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List all features with optional filtering"""
-    result = list(FEATURES.values())
+    result = list((await _merged_features(db_session, caller_id)).values())
 
     if category:
         result = [f for f in result if f.category == category]
@@ -554,60 +157,66 @@ async def list_features(
 
 
 @app.get("/features/{feature_id}")
-async def get_feature(feature_id: str):
+async def get_feature(
+    feature_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get a specific feature"""
     if feature_id not in FEATURES:
         raise HTTPException(status_code=404, detail="Feature not found")
-    return FEATURES[feature_id]
+    return (await _merged_features(db_session, caller_id))[feature_id]
 
 
 @app.put("/features/{feature_id}")
-async def update_feature(feature_id: str, update: FeatureUpdate):
-    """Update a feature"""
+async def update_feature(
+    feature_id: str,
+    update: FeatureUpdate,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Update a feature (caller-scoped override)"""
     if feature_id not in FEATURES:
         raise HTTPException(status_code=404, detail="Feature not found")
 
-    feature = FEATURES[feature_id]
-
-    if update.status:
-        feature.status = update.status
-    if update.config:
-        feature.config = update.config
-    if update.rollout_percentage is not None:
-        feature.rollout_percentage = update.rollout_percentage
-
-    # Log the change
-    audit_logs.append(
-        AuditLogEntry(
-            user_id="admin",
-            user_email="admin@vimbai.com",
-            action="feature_updated",
-            resource_type="feature",
-            resource_id=feature_id,
-            changes={"status": update.status, "config": update.config},
-        )
+    await crud.upsert_feature_override(db_session, caller_id, feature_id, update)
+    await _log(
+        db_session,
+        caller_id,
+        "feature_updated",
+        "feature",
+        feature_id,
+        {"status": update.status, "config": update.config},
     )
 
-    return feature
+    return (await _merged_features(db_session, caller_id))[feature_id]
 
 
 @app.post("/features/{feature_id}/enable")
-async def enable_feature(feature_id: str):
+async def enable_feature(
+    feature_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Enable a feature"""
     if feature_id not in FEATURES:
         raise HTTPException(status_code=404, detail="Feature not found")
 
-    FEATURES[feature_id].status = FeatureStatus.ENABLED
+    await crud.set_feature_status(db_session, caller_id, feature_id, FeatureStatus.ENABLED.value)
     return {"status": "enabled", "feature_id": feature_id}
 
 
 @app.post("/features/{feature_id}/disable")
-async def disable_feature(feature_id: str):
+async def disable_feature(
+    feature_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Disable a feature"""
     if feature_id not in FEATURES:
         raise HTTPException(status_code=404, detail="Feature not found")
 
-    FEATURES[feature_id].status = FeatureStatus.DISABLED
+    await crud.set_feature_status(db_session, caller_id, feature_id, FeatureStatus.DISABLED.value)
     return {"status": "disabled", "feature_id": feature_id}
 
 
@@ -621,13 +230,22 @@ async def list_feature_categories():
 
 
 @app.get("/organizations/{organization_id}/features")
-async def get_org_features(organization_id: str):
-    """Get all feature configurations for an organization"""
-    org_configs = {f.feature_id: f for f in org_feature_configs.values() if f.organization_id == organization_id}
+async def get_org_features(
+    organization_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get all feature configurations for an organization (caller's own org configs only)"""
+    merged = await _merged_features(db_session, caller_id)
+    org_configs = {
+        c.feature_id: c
+        for c in await crud.list_org_configs(db_session, caller_id)
+        if c.organization_id == organization_id
+    }
 
     # Merge with default features
     result = []
-    for feature_id, feature in FEATURES.items():
+    for feature_id, feature in merged.items():
         if feature_id in org_configs:
             org_config = org_configs[feature_id]
             result.append(
@@ -651,34 +269,43 @@ async def get_org_features(organization_id: str):
     return result
 
 
-@app.put("/organizations/{organization_id}/features/{feature_id}")
-async def update_org_feature(
+async def _update_org_feature(
+    db_session: AsyncSession,
+    caller_id: str,
     organization_id: str,
     feature_id: str,
     enabled: bool,
-    custom_config: Optional[Dict[str, Any]] = None,
-    rollout_percentage: int = 100,
-    notes: Optional[str] = None,
-    updated_by: str = "admin",
-):
-    """Update organization-specific feature configuration"""
+    custom_config: Optional[Dict[str, Any]],
+    rollout_percentage: int,
+    notes: Optional[str],
+    updated_by: str,
+) -> OrgFeatureConfig:
+    """Update organization-specific feature configuration (caller-owned)."""
     if feature_id not in FEATURES:
         raise HTTPException(status_code=404, detail="Feature not found")
 
-    config_key = f"{organization_id}:{feature_id}"
-    now = datetime.utcnow()
+    existing = next(
+        (
+            c
+            for c in await crud.list_org_configs(db_session, caller_id)
+            if c.organization_id == organization_id and c.feature_id == feature_id
+        ),
+        None,
+    )
+    now = _utcnow()
 
-    if config_key in org_feature_configs:
-        config = org_feature_configs[config_key]
-        config.enabled = enabled
-        config.custom_config = custom_config
-        config.rollout_percentage = rollout_percentage
-        config.notes = notes
-        if enabled and not config.enabled_at:
-            config.enabled_at = now
-        if not enabled:
-            config.disabled_at = now
-        config.enabled_by = updated_by
+    if existing:
+        config = existing.model_copy(
+            update={
+                "enabled": enabled,
+                "custom_config": custom_config,
+                "rollout_percentage": rollout_percentage,
+                "notes": notes,
+                "enabled_at": existing.enabled_at if (enabled and existing.enabled_at) else (now if enabled else None),
+                "disabled_at": None if enabled else now,
+                "enabled_by": updated_by,
+            }
+        )
     else:
         config = OrgFeatureConfig(
             organization_id=organization_id,
@@ -691,40 +318,85 @@ async def update_org_feature(
             enabled_by=updated_by,
             notes=notes,
         )
-        org_feature_configs[config_key] = config
 
-    # Log the change
-    audit_logs.append(
-        AuditLogEntry(
-            user_id=updated_by,
-            user_email=f"{updated_by}@vimbai.com",
-            action="org_feature_updated",
-            resource_type="org_feature",
-            resource_id=config_key,
-            changes={"enabled": enabled, "rollout_percentage": rollout_percentage, "organization_id": organization_id},
-        )
+    saved = await crud.upsert_org_config(db_session, caller_id, config)
+
+    await _log(
+        db_session,
+        caller_id,
+        "org_feature_updated",
+        "org_feature",
+        f"{organization_id}:{feature_id}",
+        {"enabled": enabled, "rollout_percentage": rollout_percentage, "organization_id": organization_id},
+        actor_email=f"{updated_by}@vimbai.com",
     )
 
-    return config
+    return saved
+
+
+@app.put("/organizations/{organization_id}/features/{feature_id}")
+async def update_org_feature(
+    organization_id: str,
+    feature_id: str,
+    enabled: bool,
+    custom_config: Optional[Dict[str, Any]] = None,
+    rollout_percentage: int = 100,
+    notes: Optional[str] = None,
+    updated_by: str = "admin",
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Update organization-specific feature configuration"""
+    return await _update_org_feature(
+        db_session,
+        caller_id,
+        organization_id,
+        feature_id,
+        enabled,
+        custom_config,
+        rollout_percentage,
+        notes,
+        updated_by,
+    )
 
 
 @app.post("/organizations/{organization_id}/features/{feature_id}/enable")
-async def enable_org_feature(organization_id: str, feature_id: str, updated_by: str = "admin"):
+async def enable_org_feature(
+    organization_id: str,
+    feature_id: str,
+    updated_by: str = "admin",
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Enable a feature for a specific organization"""
-    return await update_org_feature(organization_id, feature_id, True, None, 100, None, updated_by)
+    return await _update_org_feature(
+        db_session, caller_id, organization_id, feature_id, True, None, 100, None, updated_by
+    )
 
 
 @app.post("/organizations/{organization_id}/features/{feature_id}/disable")
-async def disable_org_feature(organization_id: str, feature_id: str, updated_by: str = "admin"):
+async def disable_org_feature(
+    organization_id: str,
+    feature_id: str,
+    updated_by: str = "admin",
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Disable a feature for a specific organization"""
-    return await update_org_feature(organization_id, feature_id, False, None, 0, None, updated_by)
+    return await _update_org_feature(
+        db_session, caller_id, organization_id, feature_id, False, None, 0, None, updated_by
+    )
 
 
 # --- Feature Dependencies ---
 
 
 @app.get("/features/{feature_id}/dependencies")
-async def get_feature_dependencies(feature_id: str):
+async def get_feature_dependencies(
+    feature_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get dependencies for a feature"""
     if feature_id not in FEATURES:
         raise HTTPException(status_code=404, detail="Feature not found")
@@ -733,12 +405,14 @@ async def get_feature_dependencies(feature_id: str):
     if not dependency:
         return {"feature_id": feature_id, "dependencies": [], "satisfied": True}
 
+    merged = await _merged_features(db_session, caller_id)
+
     # Check if dependencies are satisfied
     satisfied = True
     missing_deps = []
     for dep_id in dependency.depends_on:
-        if dep_id in FEATURES:
-            dep_feature = FEATURES[dep_id]
+        if dep_id in merged:
+            dep_feature = merged[dep_id]
             if dep_feature.status != FeatureStatus.ENABLED:
                 satisfied = False
                 missing_deps.append(dep_id)
@@ -761,10 +435,14 @@ async def get_feature_dependencies(feature_id: str):
 
 @app.get("/rollout-schedules")
 async def list_rollout_schedules(
-    feature_id: Optional[str] = None, organization_id: Optional[str] = None, status: Optional[str] = None
+    feature_id: Optional[str] = None,
+    organization_id: Optional[str] = None,
+    status: Optional[str] = None,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List all feature rollout schedules"""
-    result = rollout_schedules
+    result = await crud.list_schedules(db_session, caller_id)
 
     if feature_id:
         result = [s for s in result if s.feature_id == feature_id]
@@ -783,6 +461,8 @@ async def create_rollout_schedule(
     target_percentage: int,
     organization_id: Optional[str] = None,
     created_by: str = "admin",
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Schedule a feature rollout"""
     if feature_id not in FEATURES:
@@ -795,32 +475,32 @@ async def create_rollout_schedule(
         target_percentage=target_percentage,
         created_by=created_by,
     )
-    rollout_schedules.append(schedule)
+    saved = await crud.create_schedule(db_session, caller_id, schedule)
 
-    # Log the change
-    audit_logs.append(
-        AuditLogEntry(
-            user_id=created_by,
-            user_email=f"{created_by}@vimbai.com",
-            action="rollout_scheduled",
-            resource_type="rollout_schedule",
-            resource_id=feature_id,
-            changes={"scheduled_date": scheduled_date, "target_percentage": target_percentage},
-        )
+    await _log(
+        db_session,
+        caller_id,
+        "rollout_scheduled",
+        "rollout_schedule",
+        feature_id,
+        {"scheduled_date": scheduled_date, "target_percentage": target_percentage},
+        actor_email=f"{created_by}@vimbai.com",
     )
 
-    return schedule
+    return saved
 
 
 @app.delete("/rollout-schedules/{schedule_id}")
-async def cancel_rollout_schedule(schedule_id: str):
+async def cancel_rollout_schedule(
+    schedule_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Cancel a scheduled rollout"""
-    for schedule in rollout_schedules:
-        if schedule.feature_id == schedule_id or schedule.id == schedule_id:
-            schedule.status = "cancelled"
-            return {"status": "cancelled", "schedule_id": schedule.id}
-
-    raise HTTPException(status_code=404, detail="Schedule not found")
+    matched = await crud.cancel_schedule(db_session, caller_id, schedule_id)
+    if not matched:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return {"status": "cancelled", "schedule_id": matched}
 
 
 # --- Feature Requests (User-Requested Features) ---
@@ -836,6 +516,8 @@ async def create_feature_request(
     category: Optional[FeatureCategory] = None,
     priority: str = "normal",
     business_justification: Optional[str] = None,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Submit a new feature request"""
     request = FeatureRequest(
@@ -848,21 +530,19 @@ async def create_feature_request(
         priority=priority,
         business_justification=business_justification,
     )
-    feature_requests[request.id] = request
+    saved = await crud.create_request(db_session, caller_id, request)
 
-    # Log the request
-    audit_logs.append(
-        AuditLogEntry(
-            user_id=user_id,
-            user_email=user_email,
-            action="feature_request_submitted",
-            resource_type="feature_request",
-            resource_id=request.id,
-            changes={"feature_name": feature_name, "priority": priority},
-        )
+    await _log(
+        db_session,
+        caller_id,
+        "feature_request_submitted",
+        "feature_request",
+        saved.id,
+        {"feature_name": feature_name, "priority": priority},
+        actor_email=user_email,
     )
 
-    return request
+    return saved
 
 
 @app.get("/feature-requests")
@@ -871,9 +551,11 @@ async def list_feature_requests(
     organization_id: Optional[str] = None,
     priority: Optional[str] = None,
     limit: int = 50,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List all feature requests with filters"""
-    result = list(feature_requests.values())
+    result = await crud.list_requests(db_session, caller_id)
 
     if status:
         result = [r for r in result if r.status == status]
@@ -887,60 +569,93 @@ async def list_feature_requests(
 
 
 @app.get("/feature-requests/{request_id}")
-async def get_feature_request(request_id: str):
+async def get_feature_request(
+    request_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get a specific feature request"""
-    if request_id not in feature_requests:
+    request = await crud.get_request(db_session, caller_id, request_id)
+    if not request:
         raise HTTPException(status_code=404, detail="Feature request not found")
-    return feature_requests[request_id]
+    return request
 
 
 @app.put("/feature-requests/{request_id}/review")
 async def review_feature_request(
-    request_id: str, status: FeatureRequestStatus, reviewed_by: str, review_notes: Optional[str] = None
+    request_id: str,
+    status: FeatureRequestStatus,
+    reviewed_by: str,
+    review_notes: Optional[str] = None,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Review and update a feature request status"""
-    if request_id not in feature_requests:
+    request = await crud.get_request(db_session, caller_id, request_id)
+    if not request:
         raise HTTPException(status_code=404, detail="Feature request not found")
 
-    request = feature_requests[request_id]
     request.status = status
     request.reviewed_by = reviewed_by
-    request.reviewed_at = datetime.utcnow()
+    request.reviewed_at = _utcnow()
     request.review_notes = review_notes
-    request.updated_at = datetime.utcnow()
+    request.updated_at = _utcnow()
+    await crud.update_request(db_session, caller_id, request)
 
-    # Log the review
-    audit_logs.append(
-        AuditLogEntry(
-            user_id=reviewed_by,
-            user_email=f"{reviewed_by}@vimbai.com",
-            action="feature_request_reviewed",
-            resource_type="feature_request",
-            resource_id=request_id,
-            changes={"status": status.value, "review_notes": review_notes},
-        )
+    await _log(
+        db_session,
+        caller_id,
+        "feature_request_reviewed",
+        "feature_request",
+        request_id,
+        {"status": status.value, "review_notes": review_notes},
+        actor_email=f"{reviewed_by}@vimbai.com",
     )
 
     return request
 
 
 @app.delete("/feature-requests/{request_id}")
-async def delete_feature_request(request_id: str):
+async def delete_feature_request(
+    request_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Delete a feature request"""
-    if request_id not in feature_requests:
+    request = await crud.get_request(db_session, caller_id, request_id)
+    if not request:
         raise HTTPException(status_code=404, detail="Feature request not found")
 
-    del feature_requests[request_id]
+    await crud.delete_request(db_session, caller_id, request_id)
     return {"status": "deleted", "request_id": request_id}
 
 
 # --- System Configuration ---
 
 
+async def _merged_config(db_session: AsyncSession, caller_id: str) -> Dict[str, SystemConfig]:
+    """Config defaults with the caller's Book-visible overrides applied."""
+    overrides = await crud.get_config_overrides(db_session, caller_id)
+    merged: Dict[str, SystemConfig] = {}
+    for key, default in SYSTEM_CONFIG.items():
+        ov = overrides.get(key)
+        if ov:
+            merged[key] = default.model_copy(
+                update={"value": ov.value, "updated_at": ov.updated_at, "updated_by": ov.updated_by}
+            )
+        else:
+            merged[key] = default.model_copy()
+    return merged
+
+
 @app.get("/config")
-async def list_config(category: Optional[str] = None):
+async def list_config(
+    category: Optional[str] = None,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List system configuration"""
-    result = list(SYSTEM_CONFIG.values())
+    result = list((await _merged_config(db_session, caller_id)).values())
 
     if category:
         result = [c for c in result if c.category == category]
@@ -959,12 +674,18 @@ async def list_config(category: Optional[str] = None):
 
 
 @app.get("/config/{key}")
-async def get_config(key: str, include_sensitive: bool = False):
+async def get_config(
+    key: str,
+    include_sensitive: bool = False,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get a specific configuration value"""
-    if key not in SYSTEM_CONFIG:
+    merged = await _merged_config(db_session, caller_id)
+    if key not in merged:
         raise HTTPException(status_code=404, detail="Configuration not found")
 
-    config = SYSTEM_CONFIG[key]
+    config = merged[key]
 
     if config.is_sensitive and not include_sensitive:
         return {
@@ -979,30 +700,30 @@ async def get_config(key: str, include_sensitive: bool = False):
 
 
 @app.put("/config/{key}")
-async def update_config(key: str, value: Any, updated_by: str = "admin"):
-    """Update a configuration value"""
+async def update_config(
+    key: str,
+    value: Any,
+    updated_by: str = "admin",
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Update a configuration value (caller-scoped override)"""
     if key not in SYSTEM_CONFIG:
         raise HTTPException(status_code=404, detail="Configuration not found")
 
-    config = SYSTEM_CONFIG[key]
-    old_value = config.value
-    config.value = value
-    config.updated_at = datetime.utcnow()
-    config.updated_by = updated_by
-
-    # Log the change
-    audit_logs.append(
-        AuditLogEntry(
-            user_id=updated_by,
-            user_email=f"{updated_by}@vimbai.com",
-            action="config_updated",
-            resource_type="config",
-            resource_id=key,
-            changes={"old_value": old_value, "new_value": value},
-        )
+    old_value = SYSTEM_CONFIG[key].value
+    await crud.set_config_override(db_session, caller_id, key, value, updated_by)
+    await _log(
+        db_session,
+        caller_id,
+        "config_updated",
+        "config",
+        key,
+        {"old_value": old_value, "new_value": value},
+        actor_email=f"{updated_by}@vimbai.com",
     )
 
-    return config
+    return (await _merged_config(db_session, caller_id))[key]
 
 
 # --- Audit Logs ---
@@ -1010,10 +731,15 @@ async def update_config(key: str, value: Any, updated_by: str = "admin"):
 
 @app.get("/audit-logs")
 async def list_audit_logs(
-    user_id: Optional[str] = None, action: Optional[str] = None, resource_type: Optional[str] = None, limit: int = 100
+    user_id: Optional[str] = None,
+    action: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    limit: int = 100,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """List audit log entries"""
-    result = audit_logs
+    """List audit log entries (caller's own Book-visible trail)"""
+    result = await crud.list_audit_entries(db_session, caller_id)
 
     if user_id:
         result = [e for e in result if e.user_id == user_id]
@@ -1034,6 +760,8 @@ async def create_audit_entry(
     resource_type: str,
     resource_id: str,
     changes: Optional[Dict[str, Any]] = None,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Create an audit log entry"""
     entry = AuditLogEntry(
@@ -1044,13 +772,7 @@ async def create_audit_entry(
         resource_id=resource_id,
         changes=changes,
     )
-    audit_logs.append(entry)
-
-    # Keep only last 10000 entries
-    if len(audit_logs) > 10000:
-        audit_logs.pop(0)
-
-    return entry
+    return await crud.create_audit_entry(db_session, caller_id, entry)
 
 
 # --- Service Health ---
@@ -1059,96 +781,49 @@ async def create_audit_entry(
 @app.get("/services/health")
 async def get_services_health():
     """Get health status of all microservices"""
-    services = [
-        ServiceHealth(
-            service_name="accounting-service",
-            status="healthy",
-            version="1.0.0",
-            endpoints={"api": "http://localhost:8000"},
-        ),
-        ServiceHealth(
-            service_name="finance-service",
-            status="healthy",
-            version="1.0.0",
-            endpoints={"api": "http://localhost:8001"},
-        ),
-        ServiceHealth(
-            service_name="identity-service",
-            status="healthy",
-            version="1.0.0",
-            endpoints={"api": "http://localhost:8080"},
-        ),
-        ServiceHealth(
-            service_name="audit-service",
-            status="healthy",
-            version="1.0.0",
-            endpoints={"api": "http://localhost:8091"},
-        ),
-        ServiceHealth(
-            service_name="api-gateway",
-            status="healthy",
-            version="1.0.0",
-            endpoints={"api": "http://localhost:8081"},
-        ),
-        ServiceHealth(
-            service_name="alerts-service",
-            status="healthy",
-            version="1.0.0",
-            endpoints={"api": "http://localhost:8090"},
-        ),
-        ServiceHealth(
-            service_name="notifications-service",
-            status="healthy",
-            version="1.0.0",
-            endpoints={"api": "http://localhost:8091"},
-        ),
-        ServiceHealth(
-            service_name="message-bus-service",
-            status="healthy",
-            version="1.0.0",
-            endpoints={"api": "http://localhost:8097"},
-        ),
-        ServiceHealth(
-            service_name="automation-engine",
-            status="healthy",
-            version="1.0.0",
-            endpoints={"api": "http://localhost:8098"},
-        ),
-    ]
-    return services
+    return SERVICES_HEALTH
 
 
 # --- Dashboard Stats ---
 
 
 @app.get("/dashboard/stats")
-async def get_dashboard_stats():
-    """Get admin dashboard statistics"""
-    enabled_features = sum(1 for f in FEATURES.values() if f.status == FeatureStatus.ENABLED)
-    beta_features = sum(1 for f in FEATURES.values() if f.status == FeatureStatus.BETA)
-    disabled_features = sum(1 for f in FEATURES.values() if f.status == FeatureStatus.DISABLED)
+async def get_dashboard_stats(
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get admin dashboard statistics (over the caller's Book-visible data)"""
+    merged = await _merged_features(db_session, caller_id)
+    enabled_features = sum(1 for f in merged.values() if f.status == FeatureStatus.ENABLED)
+    beta_features = sum(1 for f in merged.values() if f.status == FeatureStatus.BETA)
+    disabled_features = sum(1 for f in merged.values() if f.status == FeatureStatus.DISABLED)
 
-    pending_requests = sum(1 for r in feature_requests.values() if r.status == FeatureRequestStatus.PENDING)
-    approved_requests = sum(1 for r in feature_requests.values() if r.status == FeatureRequestStatus.APPROVED)
+    requests = await crud.list_requests(db_session, caller_id)
+    pending_requests = sum(1 for r in requests if r.status == FeatureRequestStatus.PENDING)
+    approved_requests = sum(1 for r in requests if r.status == FeatureRequestStatus.APPROVED)
 
-    scheduled_rollouts = sum(1 for s in rollout_schedules if s.status == "scheduled")
-    active_org_configs = len(set(f"{c.organization_id}:{c.feature_id}" for c in org_feature_configs.values()))
+    schedules = await crud.list_schedules(db_session, caller_id)
+    scheduled_rollouts = sum(1 for s in schedules if s.status == "scheduled")
+    org_configs = await crud.list_org_configs(db_session, caller_id)
+    active_org_configs = len({f"{c.organization_id}:{c.feature_id}" for c in org_configs})
+
+    audit_entries = await crud.list_audit_entries(db_session, caller_id)
 
     return {
-        "total_features": len(FEATURES),
+        "total_features": len(merged),
         "enabled_features": enabled_features,
         "beta_features": beta_features,
         "disabled_features": disabled_features,
         "total_config_entries": len(SYSTEM_CONFIG),
-        "audit_logs_count": len(audit_logs),
+        "audit_logs_count": len(audit_entries),
         "feature_requests": {
             "pending": pending_requests,
             "approved": approved_requests,
-            "total": len(feature_requests),
+            "total": len(requests),
         },
         "rollout_schedules": {
             "scheduled": scheduled_rollouts,
-            "total": len(rollout_schedules),
+            "total": len(schedules),
         },
         "organization_configs": active_org_configs,
     }
@@ -1157,4 +832,4 @@ async def get_dashboard_stats():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8099)
+    uvicorn.run(app, host="0.0.0.0", port=int(_os.getenv("PORT", "8099")))

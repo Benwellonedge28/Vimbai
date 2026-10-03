@@ -44,7 +44,7 @@ jobs:
           - group: costing-budgeting-bracket
             services: "appropriation-control-service job-costing-service process-costing-service product-costing-service zero-based-budgeting-service"
           - group: platform-automation-bracket
-            services: "automation-engine-service notifications-service webhook-service"
+            services: "automation-engine-service notifications-service webhook-service admin-service"
           - group: platform-infrastructure-bracket
             services: "financial-state-machine-service policy-engine-service realtime-calculation-engine message-bus-service"
           - group: risk-governance-bracket
