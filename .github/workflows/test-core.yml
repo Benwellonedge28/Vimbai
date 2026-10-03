@@ -42,7 +42,7 @@ jobs:
           - group: corporate-finance-bracket
             services: "capital-reconstruction-service capital-redemption-reserve-service cash-optimization-service scenario-analysis-service sensitivity-analysis-service debentures-service"
           - group: costing-budgeting-bracket
-            services: "appropriation-control-service job-costing-service process-costing-service product-costing-service zero-based-budgeting-service"
+            services: "appropriation-control-service job-costing-service process-costing-service product-costing-service zero-based-budgeting-service treasury-policy-service treasury-reporting-service treasury-risk-service"
           - group: platform-automation-bracket
             services: "automation-engine-service notifications-service webhook-service admin-service"
           - group: platform-infrastructure-bracket
