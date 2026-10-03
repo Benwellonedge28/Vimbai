@@ -13,7 +13,7 @@ import httpx
 import structlog
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 SERVICE_NAME = "double-entry-principles-service"
 SERVICE_VERSION = "1.0.0"
@@ -98,29 +98,6 @@ class AccountBalance(BaseModel):
     credit_balance: float = 0
     net_balance: float = 0
     normal_balance: EntryType
-
-
-class TransactionRule(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    transaction_type: str
-    account_type: AccountType
-    debit_or_credit: EntryType
-    explanation: str
-    examples: List[str] = []
-
-
-class DoubleEntryRule(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    rule_name: str
-    debit_accounts: List[AccountType]
-    credit_accounts: List[AccountType]
-    description: str
-    journal_entry_template: Dict[str, Any] = {}
-
-
-# In-memory rules storage
-transaction_rules: List[TransactionRule] = []
-double_entry_rules: Dict[str, DoubleEntryRule] = {}
 
 
 def get_normal_balance(account_type: AccountType) -> EntryType:
