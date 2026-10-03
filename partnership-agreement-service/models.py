@@ -1,5 +1,4 @@
-"""Pydantic models for Partnership Agreement Service (API contract unchanged).
-"""
+"""Pydantic models for Partnership Agreement Service (API contract unchanged)."""
 
 import uuid
 from datetime import datetime

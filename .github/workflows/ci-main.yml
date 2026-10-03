@@ -85,8 +85,8 @@ jobs:
         run: |
           if [ -d "${{ matrix.service }}/tests" ]; then
             cd ${{ matrix.service }}
-            PYTHONPATH=. python -m pytest tests/ -v --tb=short --cov=. --cov-report=xml --cov-report=term-missing
-            rc=$?
+            rc=0
+            PYTHONPATH=. python -m pytest tests/ -v --tb=short --cov=. --cov-report=xml --cov-report=term-missing || rc=$?
             if [ $rc -eq 5 ]; then
               echo "No tests collected in ${{ matrix.service }} - skipping"
               exit 0
