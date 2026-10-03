@@ -1,234 +1,97 @@
-"""
-Vimbai Accounting Standards Service
-Supports all major accounting standards worldwide including:
-- IFRS (International Financial Reporting Standards)
-- GAAP (US Generally Accepted Accounting Principles)
-- UK GAAP (FRS 102, FRS 105)
-- EU Directives
-- Asian Standards (India, Japan, China, Singapore, HK, etc.)
-- Middle East Standards (UAE, Saudi, etc.)
-- African Standards (SAICA, Nigeria, Kenya, etc.)
-- Australian/New Zealand Standards
-- Canadian Standards (ASPE, IFRS for public)
-- Japanese Standards (J-GAAP)
+"""Vimbai Accounting Standards Service. Port: 8095
+
+Supports all major accounting standards worldwide (IFRS, US GAAP, UK GAAP,
+EU Directives, Asian, Middle East, African, Australian, Canadian and more).
+
+Organization configuration, account mappings, accounting policies and
+compliance checks persist to Neo4j as caller-owned, Book-scoped records
+(previously four module-level dicts shared across ALL callers). The
+standards/requirements catalogues remain code-defined seeds.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import hashlib
-import json
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "accounting_standards_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("accounting_standards_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("accounting_standards_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["accounting_standards_service"] = _pkg
+    _sys.modules["accounting_standards_service"].__path__ = [_HERE]
+
+import os
 import uuid
 from datetime import date, datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, status
-from pydantic import BaseModel, Field, field_validator
+import structlog
+from accounting_standards_service import crud, models
+from accounting_standards_service.dependencies import book_id_var, get_db_session, get_user_id
+from accounting_standards_service.exceptions import AccountingStandardsError
+from accounting_standards_service.models import (
+    AccountCategory,
+    AccountingPolicy,
+    AccountingStandard,
+    AccountMapping,
+    ComplianceCheck,
+    DisclosureLevel,
+    MeasurementBase,
+    StandardConfiguration,
+    StandardRequirement,
+    StandardType,
+)
+from fastapi import Depends, FastAPI, HTTPException, Request
+from neo4j import AsyncSession
+
+SERVICE_NAME = "accounting-standards-service"
+PORT = int(os.getenv("PORT", "8095"))
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(
     title="Vimbai Accounting Standards Service",
     description="Comprehensive accounting standards management supporting IFRS, US GAAP, UK GAAP, and 40+ national standards",
-    version="1.0.0",
+    version="2.0.0",
 )
 
-# ============================================================================
-# Enums
-# ============================================================================
+# Distributed tracing (OpenTelemetry)
+try:
+    from shared.tracing import setup_tracing
+
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    TRACER = None
 
 
-class StandardType(str, Enum):
-    IFRS = "ifrs"
-    US_GAAP = "us_gaap"
-    UK_GAAP = "uk_gaap"
-    EU_GAAP = "eu_gaap"
-    INDIAN_GAAP = "indian_gaap"
-    JAPANESE_GAAP = "japanese_gaap"
-    CHINESE_GAAP = "chinese_gaap"
-    SINGAPORE_GAAP = "singapore_gaap"
-    HK_GAAP = "hk_gaap"
-    AUSTRALIAN_GAAP = "australian_gaap"
-    NZ_GAAP = "nz_gaap"
-    CANADIAN_ASPE = "canadian_aspe"
-    CANADIAN_IFRS = "canadian_ifrs"
-    GERMAN_GAAP = "german_gaap"
-    FRENCH_GAAP = "french_gaap"
-    UAE_GAAP = "uae_gaap"
-    SAUDI_GAAP = "saudi_gaap"
-    SOUTH_AFRICAN_GAAP = "sa_gap"
-    NIGERIAN_GAAP = "nigerian_gaap"
-    KENYAN_GAAP = "kenyan_gaap"
-    KOREAN_GAAP = "korean_gaap"
-    MALAYSIAN_GAAP = "malaysian_gaap"
-    THAI_GAAP = "thai_gaap"
-    INDONESIAN_GAAP = "indonesian_gaap"
-    PHILIPPINE_GAAP = "philippine_gaap"
-    VIETNAMESE_GAAP = "vietnamese_gaap"
-    BRAZILIAN_GAAP = "brazilian_gaap"
-    MEXICAN_GAAP = "mexican_gaap"
-    ARGENTINE_GAAP = "argentine_gaap"
-    CHILEAN_GAAP = "chilean_gaap"
-    COLOMBIAN_GAAP = "colombian_gaap"
-    TURKISH_GAAP = "turkish_gaap"
-    RUSSIAN_GAAP = "russian_gaap"
-    POLISH_GAAP = "polish_gaap"
-    CZECH_GAAP = "czech_gaap"
-    HUNGARIAN_GAAP = "hungarian_gaap"
-    ROMANIAN_GAAP = "romanian_gaap"
-    UKRAINIAN_GAAP = "ukrainian_gaap"
-    ISRAELI_GAAP = "israeli_gaap"
-    EGYPTIAN_GAAP = "egyptian_gaap"
-    MOROCCAN_GAAP = "moroccan_gaap"
-    NETHERLANDS_GAAP = "dutch_gaap"
-    BELGIAN_GAAP = "belgian_gaap"
-    SWISS_GAAP = "swiss_gaap"
-    AUSTRIAN_GAAP = "austrian_gaap"
-    SWEDISH_GAAP = "swedish_gaap"
-    NORWEGIAN_GAAP = "norwegian_gaap"
-    DANISH_GAAP = "danish_gaap"
-    FINNISH_GAAP = "finnish_gaap"
-    IRISH_GAAP = "irish_gaap"
-    PORTUGUESE_GAAP = "portuguese_gaap"
-    SPANISH_GAAP = "spanish_gaap"
-    ITALIAN_GAAP = "italian_gaap"
-    GREEK_GAAP = "greek_gaap"
-    CUSTOM = "custom"
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class AccountCategory(str, Enum):
-    ASSET = "asset"
-    LIABILITY = "liability"
-    EQUITY = "equity"
-    REVENUE = "revenue"
-    EXPENSE = "expense"
-    GAIN = "gain"
-    LOSS = "loss"
+@app.exception_handler(AccountingStandardsError)
+async def _accounting_standards_error(request: Request, exc: AccountingStandardsError):
+    from fastapi.responses import JSONResponse
 
-
-class AccountingPrinciple(str, Enum):
-    GOING_CONCERN = "going_concern"
-    ECONOMIC_ENTITY = "economic_entity"
-    MONETARY_UNIT = "monetary_unit"
-    TEMPORAL_UNIT = "temporal_unit"
-    HISTORICAL_COST = "historical_cost"
-    FAIR_VALUE = "fair_value"
-    MATCHING = "matching"
-    REVENUE_RECOGNITION = "revenue_recognition"
-    EXPENSE_RECOGNITION = "expense_recognition"
-    CONSERVATISM = "conservatism"
-    MATERIALITY = "materiality"
-    CONSISTENCY = "consistency"
-    FULL_DISCLOSURE = "full_disclosure"
-    ENTITY = "entity"
-
-
-class MeasurementBase(str, Enum):
-    HISTORICAL_COST = "historical_cost"
-    CURRENT_COST = "current_cost"
-    REALIZABLE_VALUE = "realizable_value"
-    PRESENT_VALUE = "present_value"
-    FAIR_VALUE = "fair_value"
-    MIXED = "mixed"
-
-
-class DisclosureLevel(str, Enum):
-    MINIMUM = "minimum"
-    STANDARD = "standard"
-    ENHANCED = "enhanced"
-    COMPREHENSIVE = "comprehensive"
-
-
-# ============================================================================
-# Pydantic Models
-# ============================================================================
-
-
-class AccountingStandard(BaseModel):
-    id: str
-    code: str
-    name: str
-    standard_type: StandardType
-    region: str
-    country: str
-    issuing_body: str
-    effective_date: date
-    version: str
-    description: str
-    key_principles: List[str]
-    measurement_basis: MeasurementBase
-    presentation_currency: Optional[str] = None
-    inflation_adjustment_required: bool = False
-    consolidation_method: str = "control"
-    related_standards: List[str] = []
-    regulatory_body_url: Optional[str] = None
-
-
-class StandardConfiguration(BaseModel):
-    id: str
-    organization_id: str
-    selected_standards: List[StandardType]
-    measurement_base: MeasurementBase
-    disclosure_level: DisclosureLevel
-    functional_currency: str
-    presentation_currency: Optional[str] = None
-    fiscal_year_end: str  # Month name
-    comparative_periods: int = 2
-    inflation_adjustment: bool = False
-    include_tax_effects: bool = True
-    consolidated_reporting: bool = True
-    segment_reporting: bool = False
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class StandardRequirement(BaseModel):
-    standard: StandardType
-    requirement_code: str
-    description: str
-    category: str
-    is_mandatory: bool
-    effective_date: Optional[date] = None
-    disclosure_required: bool
-    measurement_method: Optional[str] = None
-    presentation_format: Optional[str] = None
-    validation_rules: Optional[Dict[str, Any]] = None
-
-
-class AccountMapping(BaseModel):
-    local_code: str
-    local_name: str
-    standard_code: str
-    standard_name: str
-    standard_type: StandardType
-    category: AccountCategory
-    classification: str
-    measurement: MeasurementBase
-    is_required: bool
-    allowed_balances: Optional[List[str]] = None  # debit, credit, both
-
-
-class ComplianceCheck(BaseModel):
-    id: str
-    standard_type: StandardType
-    check_date: datetime
-    status: Literal["pass", "fail", "warning", "not_applicable"]
-    area: str
-    requirement: str
-    finding: Optional[str] = None
-    severity: Optional[Literal["critical", "major", "minor"]] = None
-    recommendation: Optional[str] = None
-
-
-class AccountingPolicy(BaseModel):
-    id: str
-    organization_id: str
-    standard_type: StandardType
-    policy_area: str
-    policy_description: str
-    selected_method: str
-    alternative_methods: List[str]
-    justification: str
-    disclosure_text: str
-    effective_date: date
-    approved_by: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
 # ============================================================================
@@ -632,17 +495,6 @@ STANDARD_REQUIREMENTS: Dict[str, List[StandardRequirement]] = {
     ],
 }
 
-
-# ============================================================================
-# Storage
-# ============================================================================
-
-org_standard_configs: Dict[str, StandardConfiguration] = {}
-account_mappings: Dict[str, List[AccountMapping]] = {}
-accounting_policies: Dict[str, AccountingPolicy] = {}
-compliance_checks: Dict[str, List[ComplianceCheck]] = {}
-
-
 # ============================================================================
 # API Endpoints
 # ============================================================================
@@ -653,7 +505,7 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "accounting-standards",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "supported_standards": len(ACCOUNTING_STANDARDS),
     }
 
@@ -669,6 +521,42 @@ async def list_standards(region: Optional[str] = None, standard_type: Optional[S
         result = [s for s in result if s.standard_type == standard_type]
 
     return result
+
+
+@app.get("/standards/comparison")
+async def compare_standards(standard_1: StandardType, standard_2: StandardType):
+    """Compare two accounting standards"""
+    s1 = await get_standard(standard_1)
+    s2 = await get_standard(standard_2)
+
+    return {
+        "standard_1": s1.model_dump(),
+        "standard_2": s2.model_dump(),
+        "comparison": {
+            "measurement_basis_differences": s1.measurement_basis != s2.measurement_basis,
+            "consolidation_method_differences": s1.consolidation_method != s2.consolidation_method,
+            "key_principles_common": [p for p in s1.key_principles if p in s2.key_principles],
+            "unique_to_standard_1": [p for p in s1.key_principles if p not in s2.key_principles],
+            "unique_to_standard_2": [p for p in s2.key_principles if p not in s1.key_principles],
+        },
+    }
+
+
+@app.get("/standards/categories")
+async def list_standard_categories():
+    """List all standard categories by region"""
+    categories = {}
+    for standard in ACCOUNTING_STANDARDS.values():
+        if standard.region not in categories:
+            categories[standard.region] = []
+        categories[standard.region].append(
+            {
+                "code": standard.standard_type.value,
+                "name": standard.name,
+                "country": standard.country,
+            }
+        )
+    return categories
 
 
 @app.get("/standards/{standard_type}")
@@ -695,131 +583,178 @@ async def get_standard_requirements(standard_type: StandardType):
     return []
 
 
-@app.get("/standards/categories")
-async def list_standard_categories():
-    """List all standard categories by region"""
-    categories = {}
-    for standard in ACCOUNTING_STANDARDS.values():
-        if standard.region not in categories:
-            categories[standard.region] = []
-        categories[standard.region].append(
-            {
-                "code": standard.standard_type.value,
-                "name": standard.name,
-                "country": standard.country,
-            }
-        )
-    return categories
-
-
-# --- Organization Standard Configuration ---
+# --- Organization Configuration (caller-owned, Book-scoped) ---
 
 
 @app.post("/organizations/{organization_id}/configuration")
-async def create_standard_configuration(organization_id: str, config: StandardConfiguration):
-    """Configure accounting standards for an organization"""
-    config.id = str(uuid.uuid4())
+async def create_standard_configuration(
+    organization_id: str,
+    config: StandardConfiguration,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Configure accounting standards for an organization (upserts the caller's config)."""
     config.organization_id = organization_id
     config.created_at = datetime.now(timezone.utc)
     config.updated_at = datetime.now(timezone.utc)
 
-    org_standard_configs[organization_id] = config
-    return config
+    return await crud.replace_for(db_session, user_id, config, organization_id=organization_id)
 
 
 @app.get("/organizations/{organization_id}/configuration")
-async def get_standard_configuration(organization_id: str):
-    """Get standard configuration for an organization"""
-    if organization_id not in org_standard_configs:
+async def get_standard_configuration(
+    organization_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's standard configuration for an organization; cross-scope 404."""
+    configs = [
+        c
+        for c in await crud.list_all(db_session, user_id, StandardConfiguration)
+        if c.organization_id == organization_id
+    ]
+    if not configs:
         raise HTTPException(status_code=404, detail="Configuration not found")
-    return org_standard_configs[organization_id]
+    return configs[0]
 
 
 @app.put("/organizations/{organization_id}/configuration")
-async def update_standard_configuration(organization_id: str, config: StandardConfiguration):
-    """Update standard configuration for an organization"""
-    if organization_id not in org_standard_configs:
+async def update_standard_configuration(
+    organization_id: str,
+    config: StandardConfiguration,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Update the caller's standard configuration; cross-scope 404."""
+    existing = [
+        c
+        for c in await crud.list_all(db_session, user_id, StandardConfiguration)
+        if c.organization_id == organization_id
+    ]
+    if not existing:
         raise HTTPException(status_code=404, detail="Configuration not found")
 
-    config.id = org_standard_configs[organization_id].id
+    config.id = existing[0].id
     config.organization_id = organization_id
-    config.created_at = org_standard_configs[organization_id].created_at
+    config.created_at = existing[0].created_at
     config.updated_at = datetime.now(timezone.utc)
 
-    org_standard_configs[organization_id] = config
+    await crud.update(db_session, user_id, config)
     return config
 
 
 @app.post("/organizations/{organization_id}/standards/{standard_type}/activate")
-async def activate_standard(organization_id: str, standard_type: StandardType):
-    """Add a standard to organization's active standards"""
-    if organization_id not in org_standard_configs:
+async def activate_standard(
+    organization_id: str,
+    standard_type: StandardType,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Add a standard to the organization's active standards; cross-scope 404."""
+    configs = [
+        c
+        for c in await crud.list_all(db_session, user_id, StandardConfiguration)
+        if c.organization_id == organization_id
+    ]
+    if not configs:
         raise HTTPException(status_code=404, detail="Organization configuration not found")
 
-    config = org_standard_configs[organization_id]
+    config = configs[0]
     if standard_type not in config.selected_standards:
         config.selected_standards.append(standard_type)
         config.updated_at = datetime.now(timezone.utc)
+        await crud.update(db_session, user_id, config)
 
     return {"status": "activated", "standard": standard_type.value}
 
 
 @app.post("/organizations/{organization_id}/standards/{standard_type}/deactivate")
-async def deactivate_standard(organization_id: str, standard_type: StandardType):
-    """Remove a standard from organization's active standards"""
-    if organization_id not in org_standard_configs:
+async def deactivate_standard(
+    organization_id: str,
+    standard_type: StandardType,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Remove a standard from the organization's active standards; cross-scope 404."""
+    configs = [
+        c
+        for c in await crud.list_all(db_session, user_id, StandardConfiguration)
+        if c.organization_id == organization_id
+    ]
+    if not configs:
         raise HTTPException(status_code=404, detail="Organization configuration not found")
 
-    config = org_standard_configs[organization_id]
+    config = configs[0]
     if standard_type in config.selected_standards:
         config.selected_standards.remove(standard_type)
         config.updated_at = datetime.now(timezone.utc)
+        await crud.update(db_session, user_id, config)
 
     return {"status": "deactivated", "standard": standard_type.value}
 
 
-# --- Account Mapping ---
+# --- Account Mapping (caller-owned, Book-scoped) ---
 
 
 @app.get("/standards/{standard_type}/account-mapping")
-async def get_account_mapping(standard_type: StandardType):
-    """Get standard chart of accounts mapping"""
-    key = standard_type.value
-    if key in account_mappings:
-        return account_mappings[key]
-    return []
+async def get_account_mapping(
+    standard_type: StandardType,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's chart of accounts mapping for a standard."""
+    return [m for m in await crud.list_all(db_session, user_id, AccountMapping) if m.standard_type == standard_type]
 
 
 @app.post("/standards/{standard_type}/account-mapping")
-async def add_account_mapping(standard_type: StandardType, mapping: AccountMapping):
-    """Add account mapping for a standard"""
-    key = standard_type.value
-    if key not in account_mappings:
-        account_mappings[key] = []
-    account_mappings[key].append(mapping)
+async def add_account_mapping(
+    standard_type: StandardType,
+    mapping: AccountMapping,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Add an account mapping for a standard (keyed by the path standard)."""
+    mapping.standard_type = standard_type
+    await crud.create(db_session, user_id, mapping)
     return {"status": "added", "mapping": mapping}
 
 
-# --- Accounting Policies ---
+# --- Accounting Policies (caller-owned, Book-scoped) ---
 
 
 @app.post("/organizations/{organization_id}/policies")
-async def create_accounting_policy(organization_id: str, policy: AccountingPolicy):
-    """Create accounting policy for an organization"""
+async def create_accounting_policy(
+    organization_id: str,
+    policy: AccountingPolicy,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Create an accounting policy (upserts the caller's policy for org+standard+area)."""
     policy.id = str(uuid.uuid4())
     policy.organization_id = organization_id
     policy.created_at = datetime.now(timezone.utc)
 
-    policy_key = f"{organization_id}:{policy.standard_type.value}:{policy.policy_area}"
-    accounting_policies[policy_key] = policy
-
-    return policy
+    return await crud.replace_for(
+        db_session,
+        user_id,
+        policy,
+        organization_id=organization_id,
+        standard_type=policy.standard_type.value,
+        policy_area=policy.policy_area,
+    )
 
 
 @app.get("/organizations/{organization_id}/policies")
-async def list_accounting_policies(organization_id: str, standard_type: Optional[StandardType] = None):
-    """List all accounting policies for an organization"""
-    policies = [p for k, p in accounting_policies.items() if k.startswith(f"{organization_id}:")]
+async def list_accounting_policies(
+    organization_id: str,
+    standard_type: Optional[StandardType] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's accounting policies for an organization."""
+    policies = [
+        p for p in await crud.list_all(db_session, user_id, AccountingPolicy) if p.organization_id == organization_id
+    ]
 
     if standard_type:
         policies = [p for p in policies if p.standard_type == standard_type]
@@ -828,20 +763,32 @@ async def list_accounting_policies(organization_id: str, standard_type: Optional
 
 
 @app.get("/organizations/{organization_id}/policies/{policy_area}")
-async def get_policy_for_area(organization_id: str, policy_area: str, standard_type: StandardType):
-    """Get policy for specific area and standard"""
-    policy_key = f"{organization_id}:{standard_type.value}:{policy_area}"
-    if policy_key in accounting_policies:
-        return accounting_policies[policy_key]
+async def get_policy_for_area(
+    organization_id: str,
+    policy_area: str,
+    standard_type: StandardType,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's policy for a specific area and standard; cross-scope 404."""
+    for p in await crud.list_all(db_session, user_id, AccountingPolicy):
+        if p.organization_id == organization_id and p.policy_area == policy_area and p.standard_type == standard_type:
+            return p
     raise HTTPException(status_code=404, detail="Policy not found")
 
 
-# --- Compliance Checking ---
+# --- Compliance Checking (caller-owned, Book-scoped) ---
 
 
 @app.post("/organizations/{organization_id}/compliance/check")
-async def run_compliance_check(organization_id: str, standard_type: StandardType, check_data: Dict[str, Any]):
-    """Run compliance check against standard requirements"""
+async def run_compliance_check(
+    organization_id: str,
+    standard_type: StandardType,
+    check_data: Dict[str, Any],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Run a compliance check against standard requirements; replaces the caller's history for the org."""
     checks = []
     requirements = STANDARD_REQUIREMENTS.get(standard_type.value, [])
 
@@ -866,7 +813,11 @@ async def run_compliance_check(organization_id: str, standard_type: StandardType
 
         checks.append(check)
 
-    compliance_checks[organization_id] = checks
+    # Replace the caller's compliance history for this organization
+    await crud.delete_where(db_session, user_id, ComplianceCheck, organization_id=organization_id)
+    for check in checks:
+        await crud.create(db_session, user_id, check, extra={"organization_id": organization_id})
+
     return {
         "organization_id": organization_id,
         "standard": standard_type.value,
@@ -879,16 +830,18 @@ async def run_compliance_check(organization_id: str, standard_type: StandardType
 
 
 @app.get("/organizations/{organization_id}/compliance/history")
-async def get_compliance_history(organization_id: str):
-    """Get compliance check history for an organization"""
-    if organization_id in compliance_checks:
-        return compliance_checks[organization_id]
-    return []
+async def get_compliance_history(
+    organization_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's compliance check history for an organization."""
+    return await crud.list_where(db_session, user_id, ComplianceCheck, organization_id=organization_id)
 
 
 @app.get("/standards/{standard_type}/disclosure-requirements")
 async def get_disclosure_requirements(standard_type: StandardType):
-    """Get disclosure requirements for a standard"""
+    """Get disclosure requirements for a standard (code-defined catalogue)."""
     requirements = STANDARD_REQUIREMENTS.get(standard_type.value, [])
     disclosures = [
         {
@@ -902,25 +855,6 @@ async def get_disclosure_requirements(standard_type: StandardType):
         if req.disclosure_required
     ]
     return disclosures
-
-
-@app.get("/standards/comparison")
-async def compare_standards(standard_1: StandardType, standard_2: StandardType):
-    """Compare two accounting standards"""
-    s1 = await get_standard(standard_1)
-    s2 = await get_standard(standard_2)
-
-    return {
-        "standard_1": s1.model_dump(),
-        "standard_2": s2.model_dump(),
-        "comparison": {
-            "measurement_basis_differences": s1.measurement_basis != s2.measurement_basis,
-            "consolidation_method_differences": s1.consolidation_method != s2.consolidation_method,
-            "key_principles_common": [p for p in s1.key_principles if p in s2.key_principles],
-            "unique_to_standard_1": [p for p in s1.key_principles if p not in s2.key_principles],
-            "unique_to_standard_2": [p for p in s2.key_principles if p not in s1.key_principles],
-        },
-    }
 
 
 @app.get("/standards/{standard_type}/measurement-guide")
@@ -958,4 +892,4 @@ async def get_measurement_guide(standard_type: StandardType):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8095)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

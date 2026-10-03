@@ -3,6 +3,7 @@
 # Web Framework
 fastapi==0.110.0
 uvicorn[standard]==0.27.1
+neo4j==5.19.0
 pydantic==2.6.1
 
 # Environment Variables
