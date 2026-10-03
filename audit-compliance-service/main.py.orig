@@ -1,66 +1,48 @@
-"""Vimbai Audit Compliance Service. Port: 8091.
-
-Immutable audit-event logging with tamper-evident checksums, data
-versioning, and lineage tracing. Events and version snapshots persist to
-Neo4j as caller-owned, Book-scoped records (previously module-level
-dicts shared across ALL callers, so any caller could read, search and
-verify any user's audit trail). The integrity chain is derived from the
-per-caller chain_position stamp instead of a global list, and lineage is
-derived from the caller's events by resource_id.
-
-This file may be imported bare (bracket mounts, uvicorn main:app), so it
-bootstraps its own package alias before importing sibling modules.
 """
+Vimbai Audit & Compliance Service (Merged)
+Port: 8091
 
-import importlib.util
-import os as _os
-import sys as _sys
+This service consolidates the following former services:
+  - audit-service (Port: 8091)
+  - audit-compliance-service (Port: 8343)
+  - audit-report-service (Port: 8202)
+  - audit-planning-service (Port: 8195)
+  - audit-trails-service (Port: 8283)
+  - audit-reporting-service (Port: 8284)
+  - audit-management-service (Port: 8285)
+  - compliance-monitoring-service (Port: 8282)
+  - compliance-audit-service (Port: 8286)
+  - external-audit-service (Port: 8287)
+  - internal-audit-service (Port: 8288)
 
-_HERE = _os.path.dirname(_os.path.abspath(__file__))
-if "audit_compliance_service" not in _sys.modules or not hasattr(
-    _sys.modules.get("audit_compliance_service"), "__path__"
-):
-    _spec = importlib.util.spec_from_file_location("audit_compliance_service", _os.path.join(_HERE, "__init__.py"))
-    _pkg = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(_pkg)
-    _sys.modules["audit_compliance_service"] = _pkg
-    _sys.modules["audit_compliance_service"].__path__ = [_HERE]
+Capabilities:
+  - Immutable audit trail with tamper-proof event logging
+  - Data versioning and lineage tracing
+  - Audit chain integrity verification
+  - Compliance reporting (SOX, GDPR, SOC2)
+  - Audit planning, risk assessment, and materiality
+  - Audit report generation with findings and opinions
+  - Audit trail analysis and suspicious activity detection
+  - Compliance monitoring and alerting
+"""
 
 import hashlib
 import json
 import os
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
+import httpx
 import structlog
-from audit_compliance_service import crud, models
-from audit_compliance_service.dependencies import book_id_var, get_db_session, get_user_id
-from audit_compliance_service.exceptions import AuditComplianceError
-from audit_compliance_service.models import (
-    AuditEntry,
-    AuditEvent,
-    AuditEventCreate,
-    AuditPlanningRequest,
-    AuditReportRequest,
-    AuditTrailsRequest,
-    ComplianceCheck,
-    ComplianceMonitoringRequest,
-    ComplianceReport,
-    ComplianceReportRequest,
-    DataLineageEdge,
-    DataLineageNode,
-    EventType,
-    Finding,
-    GDPRComplianceRequest,
-    ResourceType,
-    Severity,
-    SOXComplianceRequest,
-    VersionSnapshot,
-)
-from fastapi import Depends, FastAPI, HTTPException, Request, status
-from neo4j import AsyncSession
+from fastapi import FastAPI, HTTPException, status
+from pydantic import BaseModel, Field
+
+# ============================================================================
+# Configuration
+# ============================================================================
 
 SERVICE_NAME = "audit-compliance-service"
 SERVICE_VERSION = "2.0.0"
@@ -74,32 +56,278 @@ structlog.configure(
         structlog.processors.JSONRenderer(),
     ],
     wrapper_class=structlog.stdlib.BoundLogger,
+    context_class=dict,
     logger_factory=structlog.stdlib.LoggerFactory(),
     cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(
-    title="Vimbai Audit Compliance Service",
-    description="Comprehensive audit compliance: immutable audit trails, integrity verification, versioning, and lineage",
+    title="Vimbai Audit & Compliance Service",
+    description="Consolidated Audit Trail, Compliance, Planning, Reporting, and Monitoring",
     version=SERVICE_VERSION,
 )
 
-
-@app.middleware("http")
-async def book_context_middleware(request: Request, call_next):
-    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
-    book_id_var.set(request.headers.get("X-Book-ID"))
-    return await call_next(request)
+# ============================================================================
+# Enums
+# ============================================================================
 
 
-@app.exception_handler(AuditComplianceError)
-async def _audit_compliance_error(request: Request, exc: AuditComplianceError):
-    from fastapi.responses import JSONResponse
+class EventType(str, Enum):
+    CREATE = "create"
+    UPDATE = "update"
+    DELETE = "delete"
+    APPROVE = "approve"
+    REJECT = "reject"
+    POST = "post"
+    UNPOST = "unpost"
+    REVERSE = "reverse"
+    RECONCILE = "reconcile"
+    IMPORT = "import"
+    EXPORT = "export"
+    LOGIN = "login"
+    LOGOUT = "logout"
+    PASSWORD_CHANGE = "password_change"
+    PERMISSION_CHANGE = "permission_change"
+    CONFIG_CHANGE = "config_change"
 
-    status_code = getattr(exc, "status_code", 400)
-    return JSONResponse(status_code=status_code, content={"detail": str(exc), "error": exc.__class__.__name__})
 
+class ResourceType(str, Enum):
+    USER = "user"
+    ACCOUNT = "account"
+    JOURNAL_ENTRY = "journal_entry"
+    JOURNAL_LINE = "journal_line"
+    INVOICE = "invoice"
+    PAYMENT = "payment"
+    PROJECT = "project"
+    FUND = "fund"
+    DEPARTMENT = "department"
+    BUDGET = "budget"
+    REPORT = "report"
+    WORKFLOW = "workflow"
+    DOCUMENT = "document"
+    CONFIGURATION = "configuration"
+
+
+class Severity(str, Enum):
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    CRITICAL = "critical"
+
+
+# ============================================================================
+# Pydantic Models — Audit Trail
+# ============================================================================
+
+
+class AuditEventCreate(BaseModel):
+    event_type: EventType
+    resource_type: ResourceType
+    resource_id: str
+    user_id: str
+    user_email: Optional[str] = None
+    organization_id: Optional[str] = None
+    action_details: Dict[str, Any] = {}
+    previous_state: Optional[Dict[str, Any]] = None
+    new_state: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    session_id: Optional[str] = None
+    correlation_id: Optional[str] = None
+
+
+class AuditEvent(BaseModel):
+    id: str
+    event_type: EventType
+    resource_type: ResourceType
+    resource_id: str
+    user_id: str
+    user_email: Optional[str] = None
+    organization_id: Optional[str] = None
+    action_details: Dict[str, Any] = {}
+    previous_state: Optional[Dict[str, Any]] = None
+    new_state: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
+    checksum: str
+    timestamp: datetime
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    session_id: Optional[str] = None
+    correlation_id: Optional[str] = None
+
+
+class VersionSnapshot(BaseModel):
+    id: str
+    resource_type: ResourceType
+    resource_id: str
+    version: int
+    state: Dict[str, Any]
+    changed_by: str
+    changed_at: datetime
+    change_reason: Optional[str] = None
+    checksum: str
+
+
+class DataLineageNode(BaseModel):
+    id: str
+    resource_type: ResourceType
+    resource_id: str
+    operation: str
+    timestamp: datetime
+    user_id: str
+    source_event_id: Optional[str] = None
+
+
+class DataLineageEdge(BaseModel):
+    id: str
+    from_node_id: str
+    to_node_id: str
+    relationship_type: str
+    metadata: Optional[Dict[str, Any]] = None
+
+
+# ============================================================================
+# Pydantic Models — Compliance
+# ============================================================================
+
+
+class ComplianceCheck(BaseModel):
+    check_id: str
+    regulation: str
+    description: str
+    status: str
+    last_checked: str
+
+
+class ComplianceReportRequest(BaseModel):
+    start_date: datetime
+    end_date: datetime
+    resource_types: List[ResourceType] = []
+    user_ids: List[str] = []
+    include_verifications: bool = True
+    include_integrity_checks: bool = True
+
+
+class ComplianceReport(BaseModel):
+    report_id: str
+    generated_at: datetime
+    period_start: datetime
+    period_end: datetime
+    total_events: int
+    events_by_type: Dict[str, int]
+    events_by_user: Dict[str, int]
+    integrity_verified: bool
+    findings: List[Dict[str, Any]]
+
+
+class SOXComplianceRequest(BaseModel):
+    company_id: str
+    fiscal_year: int
+    controls: List[Dict[str, Any]]
+    evidence_required: List[str]
+
+
+class GDPRComplianceRequest(BaseModel):
+    company_id: str
+    data_processing_activities: List[Dict[str, Any]]
+    retention_policies: List[Dict[str, Any]]
+    consent_records: int
+
+
+class ComplianceMonitoringRequest(BaseModel):
+    company_id: str
+    checks: List[ComplianceCheck]
+
+
+# ============================================================================
+# Pydantic Models — Audit Planning
+# ============================================================================
+
+
+class AuditScope(BaseModel):
+    entities: List[str]
+    periods: List[str]
+    accounts: List[str]
+    locations: List[str]
+
+
+class MaterialityLevels(BaseModel):
+    planning_materiality: float
+    performance_materiality: float
+    thresholds_unadjusted: float
+
+
+class RiskAssessment(BaseModel):
+    inherent_risk: str
+    control_risk: str
+    detection_risk: float
+    risk_level: str
+
+
+class AuditPlanningRequest(BaseModel):
+    audit_id: str
+    company_id: str
+    fiscal_year: str
+    prior_year_findings: List[Dict[str, Any]]
+    industry_risk_factors: List[str]
+    regulatory_requirements: List[str]
+    client_acceptance: bool
+
+
+# ============================================================================
+# Pydantic Models — Audit Report
+# ============================================================================
+
+
+class Finding(BaseModel):
+    finding_id: str
+    description: str
+    impact: str
+    severity: str
+    recommendation: str
+
+
+class AuditReportRequest(BaseModel):
+    audit_id: str
+    company_id: str
+    fiscal_year: str
+    opinion: str
+    key_audit_matters: List[str]
+    findings: List[Dict[str, Any]]
+    material_weaknesses: List[str]
+    going_concern_issues: bool
+
+
+# ============================================================================
+# Pydantic Models — Audit Trails Analysis
+# ============================================================================
+
+
+class AuditEntry(BaseModel):
+    entry_id: str
+    user_id: str
+    action: str
+    timestamp: str
+    system: str
+
+
+class AuditTrailsRequest(BaseModel):
+    company_id: str
+    entries: List[AuditEntry]
+    start_date: str
+    end_date: str
+
+
+# ============================================================================
+# In-Memory Storage
+# ============================================================================
+
+audit_events: Dict[str, AuditEvent] = {}
+version_snapshots: Dict[str, List[VersionSnapshot]] = defaultdict(list)
+data_lineage: Dict[str, List[str]] = defaultdict(list)
+integrity_chain: List[str] = []
 
 # ============================================================================
 # Helper Functions
@@ -109,6 +337,28 @@ async def _audit_compliance_error(request: Request, exc: AuditComplianceError):
 def generate_checksum(event_data: Dict) -> str:
     content = json.dumps(event_data, sort_keys=True, default=str)
     return hashlib.sha256(content.encode()).hexdigest()
+
+
+def verify_chain_integrity():
+    errors = []
+    for i, event_id in enumerate(integrity_chain):
+        event = audit_events.get(event_id)
+        if not event:
+            errors.append(f"Event {event_id} not found at position {i}")
+            continue
+        computed_checksum = generate_checksum(event.model_dump(exclude={"checksum"}))
+        if computed_checksum != event.checksum:
+            errors.append(f"Checksum mismatch for event {event_id}")
+    return len(errors) == 0, errors
+
+
+def calculate_hash_chain(event_ids: List[str]) -> str:
+    chain_hash = ""
+    for event_id in event_ids:
+        event = audit_events.get(event_id)
+        if event:
+            chain_hash = hashlib.sha256((chain_hash + event.checksum).encode()).hexdigest()
+    return chain_hash
 
 
 # ============================================================================
@@ -132,31 +382,44 @@ async def health():
 
 
 @app.post("/events", status_code=status.HTTP_201_CREATED)
-async def create_audit_event(
-    event_create: AuditEventCreate,
-    user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
-):
-    """Log an immutable audit event (caller-owned, Book-stamped)."""
+async def create_audit_event(event_create: AuditEventCreate):
+    """Log an immutable audit event."""
     event_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
 
-    pending = AuditEvent(
+    event_data = {
+        "id": event_id,
+        "event_type": event_create.event_type.value,
+        "resource_type": event_create.resource_type.value,
+        "resource_id": event_create.resource_id,
+        "user_id": event_create.user_id,
+        "user_email": event_create.user_email,
+        "organization_id": event_create.organization_id,
+        "action_details": event_create.action_details,
+        "previous_state": event_create.previous_state,
+        "new_state": event_create.new_state,
+        "metadata": event_create.metadata,
+        "timestamp": now.isoformat(),
+        "ip_address": event_create.ip_address,
+        "user_agent": event_create.user_agent,
+        "session_id": event_create.session_id,
+        "correlation_id": event_create.correlation_id,
+    }
+
+    checksum = generate_checksum(event_data)
+
+    event = AuditEvent(
         id=event_id,
-        checksum="pending",
+        checksum=checksum,
         timestamp=now,
-        **event_create.model_dump(),
+        **{k: v for k, v in event_create.model_dump().items()},
     )
-    # One canonical serializer feeds both the stored checksum and later
-    # verification (the original mixed repr styles and never matched).
-    canonical = pending.model_dump(mode="json", exclude={"checksum"})
-    event = pending.model_copy(update={"checksum": generate_checksum(canonical)})
 
-    # The caller's chain position: append-only, monotonic per caller
-    chain_position = len(await crud.list_all(db_session, user_id, AuditEvent))
-    await crud.create(db_session, user_id, event, extra={"chain_position": chain_position})
+    audit_events[event_id] = event
+    integrity_chain.append(event_id)
+    data_lineage[event_create.resource_id].append(event_id)
 
-    logger.info("Audit event created", event_id=event_id, type=event.event_type.value)
+    logger.info("Audit event created", event_id=event_id, type=event_create.event_type.value)
     return event
 
 
@@ -168,11 +431,9 @@ async def list_audit_events(
     event_type: Optional[EventType] = None,
     limit: int = 100,
     offset: int = 0,
-    caller: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """List the caller's audit events with optional filters."""
-    events = await crud.list_all(db_session, caller, AuditEvent)
+    """List audit events with optional filters."""
+    events = list(audit_events.values())
     if resource_type:
         events = [e for e in events if e.resource_type == resource_type]
     if resource_id:
@@ -186,16 +447,11 @@ async def list_audit_events(
 
 
 @app.get("/events/{event_id}")
-async def get_audit_event(
-    event_id: str,
-    user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
-):
-    """Get a specific audit event; cross-scope 404."""
-    event = await crud.find(db_session, user_id, AuditEvent, event_id)
-    if not event:
+async def get_audit_event(event_id: str):
+    """Get a specific audit event."""
+    if event_id not in audit_events:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
-    return event
+    return audit_events[event_id]
 
 
 # ============================================================================
@@ -210,12 +466,10 @@ async def create_version_snapshot(
     state: Dict[str, Any],
     changed_by: str,
     change_reason: Optional[str] = None,
-    user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """Create a version snapshot of a resource (caller-owned)."""
-    existing = [s for s in await crud.list_all(db_session, user_id, VersionSnapshot) if s.resource_id == resource_id]
-    version = len(existing) + 1
+    """Create a version snapshot of a resource."""
+    snapshots = version_snapshots[resource_id]
+    version = len(snapshots) + 1
     snapshot_id = str(uuid.uuid4())
     checksum = generate_checksum(state)
 
@@ -230,29 +484,18 @@ async def create_version_snapshot(
         change_reason=change_reason,
         checksum=checksum,
     )
-    await crud.create(db_session, user_id, snapshot)
+    version_snapshots[resource_id].append(snapshot)
     return snapshot
 
 
 @app.get("/versions/{resource_type}/{resource_id}")
-async def get_version_history(
-    resource_type: ResourceType,
-    resource_id: str,
-    user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
-):
-    """Get the caller's version history for a resource."""
-    snapshots = [
-        s
-        for s in await crud.list_all(db_session, user_id, VersionSnapshot)
-        if s.resource_id == resource_id and s.resource_type == resource_type
-    ]
-    snapshots.sort(key=lambda s: s.version)
-    return {"resource_id": resource_id, "versions": snapshots}
+async def get_version_history(resource_type: ResourceType, resource_id: str):
+    """Get version history for a resource."""
+    return {"resource_id": resource_id, "versions": version_snapshots.get(resource_id, [])}
 
 
 # ============================================================================
-# Routes — Data Lineage (derived from the caller's events)
+# Routes — Data Lineage
 # ============================================================================
 
 
@@ -261,21 +504,18 @@ async def get_data_lineage(
     resource_id: str,
     depth: int = 10,
     direction: Literal["forward", "backward", "both"] = "both",
-    user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """Trace data lineage for a resource across the caller's events."""
-    chain = await crud.list_chain(db_session, user_id)
-    event_ids = [e.id for e in chain if e.resource_id == resource_id]
+    """Trace data lineage for a resource."""
+    event_ids = data_lineage.get(resource_id, [])
     if not event_ids:
         return {"resource_id": resource_id, "lineage": [], "message": "No lineage data found"}
-
-    by_id = {e.id: e for e in chain}
 
     nodes = []
     edges = []
     for event_id in event_ids[:depth]:
-        event = by_id[event_id]
+        event = audit_events.get(event_id)
+        if not event:
+            continue
         node = DataLineageNode(
             id=event_id,
             resource_type=event.resource_type,
@@ -286,7 +526,7 @@ async def get_data_lineage(
             source_event_id=event.correlation_id,
         )
         nodes.append(node)
-        if event.correlation_id and event.correlation_id in by_id:
+        if event.correlation_id and event.correlation_id in audit_events:
             edge = DataLineageEdge(
                 id=str(uuid.uuid4()),
                 from_node_id=event.correlation_id,
@@ -305,32 +545,19 @@ async def get_data_lineage(
 
 
 # ============================================================================
-# Routes — Integrity Verification (per-caller chain, derived)
+# Routes — Integrity Verification
 # ============================================================================
 
 
 @app.get("/integrity/verify")
-async def verify_integrity(
-    user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
-):
-    """Verify the integrity of the caller's entire audit chain."""
-    chain = await crud.list_chain(db_session, user_id)
-
-    errors = []
-    for event in chain:
-        computed = generate_checksum(event.model_dump(mode="json", exclude={"checksum"}))
-        if computed != event.checksum:
-            errors.append(f"Checksum mismatch for event {event.id}")
-
-    chain_hash = ""
-    for event in chain:
-        chain_hash = hashlib.sha256((chain_hash + event.checksum).encode()).hexdigest()
-
+async def verify_integrity():
+    """Verify the integrity of the entire audit chain."""
+    is_valid, errors = verify_chain_integrity()
+    chain_hash = calculate_hash_chain(integrity_chain)
     return {
-        "is_valid": len(errors) == 0,
-        "total_events": len(chain),
-        "chain_length": len(chain),
+        "is_valid": is_valid,
+        "total_events": len(audit_events),
+        "chain_length": len(integrity_chain),
         "chain_hash": chain_hash,
         "errors": errors,
         "verified_at": datetime.now(timezone.utc),
@@ -338,16 +565,12 @@ async def verify_integrity(
 
 
 @app.get("/integrity/verify-event/{event_id}")
-async def verify_single_event(
-    event_id: str,
-    user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
-):
-    """Verify integrity of a single event; cross-scope 404."""
-    event = await crud.find(db_session, user_id, AuditEvent, event_id)
-    if not event:
+async def verify_single_event(event_id: str):
+    """Verify integrity of a single event."""
+    if event_id not in audit_events:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
-    computed_checksum = generate_checksum(event.model_dump(mode="json", exclude={"checksum"}))
+    event = audit_events[event_id]
+    computed_checksum = generate_checksum(event.model_dump(exclude={"checksum"}))
     return {
         "event_id": event_id,
         "stored_checksum": event.checksum,
@@ -583,16 +806,12 @@ async def assess_gdpr_compliance(request: GDPRComplianceRequest):
 
 
 @app.post("/compliance/report")
-async def generate_compliance_report(
-    report_request: ComplianceReportRequest,
-    user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
-):
-    """Generate a full compliance audit report over the caller's audit events."""
+async def generate_compliance_report(report_request: ComplianceReportRequest):
+    """Generate a full compliance audit report over a date range."""
     report_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
 
-    events = await crud.list_all(db_session, user_id, AuditEvent)
+    events = list(audit_events.values())
     if report_request.resource_types:
         events = [e for e in events if e.resource_type in report_request.resource_types]
     if report_request.user_ids:
@@ -608,26 +827,21 @@ async def generate_compliance_report(
     integrity_verified = True
     findings: List[Dict[str, Any]] = []
     if report_request.include_integrity_checks:
-        chain = await crud.list_chain(db_session, user_id)
-        integrity_errors = []
-        for event in chain:
-            computed = generate_checksum(event.model_dump(mode="json", exclude={"checksum"}))
-            if computed != event.checksum:
-                integrity_errors.append(f"Checksum mismatch for event {event.id}")
-        integrity_verified = not integrity_errors
-        for error in integrity_errors:
+        is_valid, errors = verify_chain_integrity()
+        integrity_verified = is_valid
+        for error in errors:
             findings.append(
                 {"type": "integrity_error", "severity": Severity.CRITICAL.value, "description": error, "timestamp": now}
             )
 
-    for actor_id, count in events_by_user.items():
+    for user_id, count in events_by_user.items():
         if count > 1000:
             findings.append(
                 {
                     "type": "unusual_activity",
                     "severity": Severity.WARNING.value,
-                    "description": f"User {actor_id} has {count} events in period",
-                    "user_id": actor_id,
+                    "description": f"User {user_id} has {count} events in period",
+                    "user_id": user_id,
                     "count": count,
                 }
             )
@@ -645,15 +859,18 @@ async def generate_compliance_report(
     )
 
 
+# ============================================================================
+# Routes — Analytics & Search
+# ============================================================================
+
+
 @app.get("/analytics/summary")
 async def get_audit_summary(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """Get summary statistics for the caller's audit events."""
-    events = await crud.list_all(db_session, user_id, AuditEvent)
+    """Get summary statistics for audit events."""
+    events = list(audit_events.values())
     if start_date:
         events = [e for e in events if e.timestamp >= start_date]
     if end_date:
@@ -681,16 +898,10 @@ async def get_audit_summary(
 
 
 @app.get("/search")
-async def search_audit_events(
-    query: str,
-    fields: Optional[List[str]] = None,
-    limit: int = 50,
-    user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
-):
-    """Search the caller's audit events by query string."""
+async def search_audit_events(query: str, fields: Optional[List[str]] = None, limit: int = 50):
+    """Search audit events by query string."""
     results = []
-    for event in await crud.list_all(db_session, user_id, AuditEvent):
+    for event in audit_events.values():
         search_fields = fields or ["resource_id", "user_id", "action_details"]
         for field in search_fields:
             value = getattr(event, field, None)
