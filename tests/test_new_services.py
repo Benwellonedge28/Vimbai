@@ -693,7 +693,23 @@ class TestIFRSReportingService:
 
 class TestFixedAssetsRegisterService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("fixed-assets-register-service"))
+        import importlib.util
+        import os as _os
+
+        app = load_service_app("fixed-assets-register-service")
+        svc_dir = _os.path.join(
+            _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "fixed-assets-register-service"
+        )
+        spec = importlib.util.spec_from_file_location("far_new_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
+        fake_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake_mod)
+        self._session = fake_mod.FakeSession()
+
+        import fixed_assets_register_service.database as db
+
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "new-far-user"})
 
     def test_health(self):
         resp = self.client.get("/health")
