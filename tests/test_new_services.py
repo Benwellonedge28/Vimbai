@@ -226,7 +226,18 @@ class TestEncryptedBackupService:
 
 class TestFamilyCommunityGroupService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("family-community-group-service"))
+        # Load first: main.py self-bootstraps the family_community_group_service package.
+        app = load_service_app("family-community-group-service")
+        fake_path = os.path.join(REPO_ROOT, "family-community-group-service", "fake_neo4j.py")
+        spec = importlib.util.spec_from_file_location("fcg_root_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+        import family_community_group_service.database as db
+
+        shared = fake.FakeSession()
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(shared))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
 
     def test_health(self):
         resp = self.client.get("/health")
