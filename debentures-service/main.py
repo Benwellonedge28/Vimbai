@@ -1,24 +1,47 @@
 """
 Vimbai Debentures Service
-Manages debenture issuance, interest, and redemption.
+Debenture classes, issues, interest, and redemptions.
+
+Records persist in Neo4j, stamped with the caller (X-User-Id) and the Book
+context (X-Book-ID, verified upstream by the API gateway). Every lookup is
+scoped to the caller's own Book-visible records. Original status codes and
+the {"error": ...} 200 not-found shapes are preserved, as are the
+accounting side-calls (fail-soft).
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import os
-import uuid
+import importlib.util
+import os as _os
+import sys as _sys
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "debentures_service" not in _sys.modules or not hasattr(_sys.modules.get("debentures_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("debentures_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["debentures_service"] = _pkg
+    _sys.modules["debentures_service"].__path__ = [_HERE]
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from debentures_service import crud
+from debentures_service.database import Neo4jConnector
+from debentures_service.dependencies import book_id_var, get_db_session, get_user_id
+from debentures_service.exceptions import DebenturesServiceError
+from debentures_service.models import DebentureClass, DebentureIssue, InterestPayment, RedemptionEntry
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from neo4j import AsyncSession
 
 SERVICE_NAME = "debentures-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8058"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
+PORT = int(_os.getenv("PORT", "8058"))
+ACCOUNTING_SERVICE_URL = _os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
     processors=[
@@ -40,71 +63,22 @@ app.add_middleware(
 )
 
 
-class DebentureClass(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    company_id: str
-    nominal_value: float
-    issue_price: float
-    coupon_rate: float  # Annual interest rate as percentage
-    interest_payment_frequency: str  # annual, semi_annual, quarterly, monthly
-    maturity_date: datetime
-    redemption_price: float
-    convertibility: str = "none"  # none, convertible, optionally_convertible
-    conversion_terms: Optional[str] = None
-    debentures_issued: int = 0
-    debentures_outstanding: int = 0
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class DebentureIssue(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    debenture_class_id: str
-    debentures_issued: int
-    issue_date: datetime
-    total_proceeds: float = 0
-    discount_on_issue: float = 0
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.exception_handler(DebenturesServiceError)
+async def _deb_error(request: Request, exc: DebenturesServiceError):
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400),
+        content={"detail": str(exc), "error": exc.__class__.__name__},
+    )
 
 
-class InterestPayment(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    debenture_class_id: str
-    period_start: datetime
-    period_end: datetime
-    debentures_outstanding: int
-    interest_rate: float
-    interest_amount: float = 0
-    tax_deducted: float = 0
-    net_payment: float = 0
-    payment_date: Optional[datetime] = None
-    journal_entry_id: Optional[str] = None
-    status: str = "accrued"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class RedemptionEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    debenture_class_id: str
-    debentures_redeemed: int
-    redemption_date: datetime
-    redemption_price: float
-    total_proceeds: float = 0
-    premium_on_redemption: float = 0
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-debenture_classes: List[DebentureClass] = []
-debenture_issues: List[DebentureIssue] = []
-interest_payments: List[InterestPayment] = []
-redemptions: List[RedemptionEntry] = []
-
-
-async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{ACCOUNTING_SERVICE_URL}{endpoint}"
@@ -124,7 +98,11 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Debentures management"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "description": "Debenture classes, issues, interest and redemptions",
+    }
 
 
 @app.post("/classes/create")
@@ -139,6 +117,8 @@ async def create_debenture_class(
     redemption_price: float,
     convertibility: str = "none",
     conversion_terms: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Create a debenture class."""
     deb_class = DebentureClass(
@@ -153,14 +133,21 @@ async def create_debenture_class(
         convertibility=convertibility,
         conversion_terms=conversion_terms,
     )
-    debenture_classes.append(deb_class)
-    return deb_class
+    created = await crud.create_debenture_class(db_session, user_id, deb_class)
+    return created
 
 
 @app.post("/classes/{debenture_class_id}/issue")
-async def issue_debentures(debenture_class_id: str, company_id: str, debentures_issued: int, issue_date: datetime):
+async def issue_debentures(
+    debenture_class_id: str,
+    company_id: str,
+    debentures_issued: int,
+    issue_date: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Issue debentures."""
-    deb_class = next((d for d in debenture_classes if d.id == debenture_class_id), None)
+    deb_class = await crud.get_debenture_class(db_session, user_id, debenture_class_id)
     if not deb_class:
         return {"error": "Debenture class not found"}
 
@@ -175,6 +162,9 @@ async def issue_debentures(debenture_class_id: str, company_id: str, debentures_
 
     deb_class.debentures_issued += debentures_issued
     deb_class.debentures_outstanding += debentures_issued
+    await crud.update_class_counters(
+        db_session, user_id, debenture_class_id, deb_class.debentures_issued, deb_class.debentures_outstanding
+    )
 
     journal_entry = {
         "date": issue_date,
@@ -198,17 +188,26 @@ async def issue_debentures(debenture_class_id: str, company_id: str, debentures_
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     issue.journal_entry_id = result.get("id")
-    debenture_issues.append(issue)
-
-    return issue
+    created = await crud.create_issue(db_session, user_id, issue)
+    if result.get("id"):
+        await crud.update_journal_entry(
+            db_session, user_id, "DebentureIssue", "OWNS_ISSUE", created.id, issue.journal_entry_id
+        )
+    return created
 
 
 @app.post("/classes/{debenture_class_id}/interest/accrue")
 async def accrue_interest(
-    debenture_class_id: str, company_id: str, period_start: datetime, period_end: datetime, debentures_outstanding: int
+    debenture_class_id: str,
+    company_id: str,
+    period_start: datetime,
+    period_end: datetime,
+    debentures_outstanding: int,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Accrue debenture interest."""
-    deb_class = next((d for d in debenture_classes if d.id == debenture_class_id), None)
+    deb_class = await crud.get_debenture_class(db_session, user_id, debenture_class_id)
     if not deb_class:
         return {"error": "Debenture class not found"}
 
@@ -247,15 +246,19 @@ async def accrue_interest(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     interest.journal_entry_id = result.get("id")
-    interest_payments.append(interest)
-
-    return interest
+    created = await crud.create_interest(db_session, user_id, interest)
+    return created
 
 
 @app.post("/interest/{interest_id}/pay")
-async def pay_interest(interest_id: str, payment_date: datetime):
+async def pay_interest(
+    interest_id: str,
+    payment_date: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Pay debenture interest."""
-    interest = next((i for i in interest_payments if i.id == interest_id), None)
+    interest = await crud.get_interest(db_session, user_id, interest_id)
     if not interest:
         return {"error": "Interest not found"}
 
@@ -272,16 +275,24 @@ async def pay_interest(interest_id: str, payment_date: datetime):
     await call_accounting_service("POST", "/journal-entries", journal_entry)
     interest.payment_date = payment_date
     interest.status = "paid"
+    await crud.update_interest_payment(
+        db_session, user_id, interest_id, payment_date, "paid", interest.journal_entry_id
+    )
 
     return interest
 
 
 @app.post("/classes/{debenture_class_id}/redeem")
 async def redeem_debentures(
-    debenture_class_id: str, company_id: str, debentures_redeemed: int, redemption_date: datetime
+    debenture_class_id: str,
+    company_id: str,
+    debentures_redeemed: int,
+    redemption_date: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Redeem debentures."""
-    deb_class = next((d for d in debenture_classes if d.id == debenture_class_id), None)
+    deb_class = await crud.get_debenture_class(db_session, user_id, debenture_class_id)
     if not deb_class:
         return {"error": "Debenture class not found"}
 
@@ -296,6 +307,9 @@ async def redeem_debentures(
     redemption.premium_on_redemption = debentures_redeemed * (deb_class.redemption_price - deb_class.nominal_value)
 
     deb_class.debentures_outstanding -= debentures_redeemed
+    await crud.update_class_counters(
+        db_session, user_id, debenture_class_id, deb_class.debentures_issued, deb_class.debentures_outstanding
+    )
 
     journal_entry = {
         "date": redemption_date,
@@ -319,33 +333,44 @@ async def redeem_debentures(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     redemption.journal_entry_id = result.get("id")
-    redemptions.append(redemption)
-
-    return redemption
+    created = await crud.create_redemption(db_session, user_id, redemption)
+    return created
 
 
 @app.get("/classes")
-async def list_debenture_classes(company_id: Optional[str] = None):
-    """List debenture classes."""
-    result = debenture_classes
+async def list_debenture_classes(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's debenture classes."""
+    result = await crud.list_debenture_classes(db_session, user_id)
     if company_id:
         result = [d for d in result if d.company_id == company_id]
     return {"debenture_classes": result}
 
 
 @app.get("/issues")
-async def list_issues(company_id: Optional[str] = None):
-    """List debenture issues."""
-    result = debenture_issues
+async def list_issues(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's debenture issues."""
+    result = await crud.list_issues(db_session, user_id)
     if company_id:
         result = [i for i in result if i.company_id == company_id]
     return {"issues": result}
 
 
 @app.get("/interest")
-async def list_interest_payments(company_id: Optional[str] = None):
-    """List interest payments."""
-    result = interest_payments
+async def list_interest_payments(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's interest payments."""
+    result = await crud.list_interest(db_session, user_id)
     if company_id:
         result = [i for i in result if i.company_id == company_id]
     return {"interest_payments": result}

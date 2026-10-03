@@ -40,7 +40,7 @@ jobs:
           - group: ap-ar-expenses-bracket
             services: "expense-tracking-service petty-cash-service purchases-ledger-control-service sales-ledger-control-service"
           - group: corporate-finance-bracket
-            services: "cash-optimization-service scenario-analysis-service sensitivity-analysis-service"
+            services: "cash-optimization-service scenario-analysis-service sensitivity-analysis-service debentures-service"
           - group: costing-budgeting-bracket
             services: "appropriation-control-service job-costing-service process-costing-service product-costing-service zero-based-budgeting-service"
           - group: platform-automation-bracket
