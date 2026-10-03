@@ -8,8 +8,8 @@ python-dotenv==1.0.1
 structlog==24.1.0
 python-dateutil>=2.8.2
 
-# Optional: Neo4j for production-grade graph-native audit trail
-# neo4j==5.19.0
+# Neo4j graph backend (converted services)
+neo4j==5.19.0
 
 # Testing
 pytest==8.0.2
