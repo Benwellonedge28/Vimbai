@@ -1,24 +1,50 @@
 """
 Vimbai Capital Redemption Reserve Service
-Manages capital redemption reserve operations.
+Handles capital redemption reserve (CRR) creation and utilization.
+
+Records persist in Neo4j, stamped with the caller (X-User-Id) and the
+Book context (X-Book-ID, verified upstream by the API gateway). All
+listings and the balance summary are scoped to the caller's own
+Book-visible records. Reserve math, journal side-calls, and response
+shapes are preserved exactly.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import os
-import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+import importlib.util
+import os as _os
+import sys as _sys
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "capital_redemption_reserve_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("capital_redemption_reserve_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location(
+        "capital_redemption_reserve_service", _os.path.join(_HERE, "__init__.py")
+    )
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["capital_redemption_reserve_service"] = _pkg
+    _sys.modules["capital_redemption_reserve_service"].__path__ = [_HERE]
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from capital_redemption_reserve_service import crud
+from capital_redemption_reserve_service.database import Neo4jConnector
+from capital_redemption_reserve_service.dependencies import book_id_var, get_db_session, get_user_id
+from capital_redemption_reserve_service.exceptions import CapitalRedemptionReserveServiceError
+from capital_redemption_reserve_service.models import CRRCreation, CRRUtilization, RedemptionTransaction
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "capital-redemption-reserve-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8055"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
+PORT = int(_os.getenv("PORT", "8063"))
+ACCOUNTING_SERVICE_URL = _os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
     processors=[
@@ -40,47 +66,21 @@ app.add_middleware(
 )
 
 
-class RedemptionTransaction(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    share_class: str  # preference, ordinary
-    shares_redeemed: int
-    redemption_price: float
-    nominal_value: float
-    total_proceeds: float = 0
-    redemption_reserve_amount: float = 0  # proceeds - nominal
-    redemption_date: datetime
-    source_account: str  # proceeds, fresh_issue, bonus_issue
-    journal_entry_id: Optional[str] = None
-    status: str = "completed"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class CRRCreation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    amount: float
-    source: str  # share_redemption, capital_reduction, fresh_issue
-    description: str
-    creation_date: datetime
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.exception_handler(CapitalRedemptionReserveServiceError)
+async def _crr_error(request: Request, exc: CapitalRedemptionReserveServiceError):
+    from fastapi.responses import JSONResponse
 
-
-class CRRUtilization(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    amount: float
-    utilization_type: str  # bonus_issue, write_off, transfer_general
-    description: str
-    utilization_date: datetime
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-redemption_transactions: List[RedemptionTransaction] = []
-crr_creations: List[CRRCreation] = []
-crr_utilizations: List[CRRUtilization] = []
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400),
+        content={"detail": str(exc), "error": exc.__class__.__name__},
+    )
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -115,6 +115,8 @@ async def record_redemption(
     nominal_value: float,
     redemption_date: datetime,
     source_account: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Record share redemption creating CRR."""
     transaction = RedemptionTransaction(
@@ -153,18 +155,23 @@ async def record_redemption(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     transaction.journal_entry_id = result.get("id")
-    redemption_transactions.append(transaction)
 
-    return transaction
+    return await crud.create_redemption(db_session, user_id, transaction)
 
 
 @app.post("/creations/create")
 async def create_crr(
-    company_id: str, amount: float, source: str, description: str, creation_date: Optional[datetime] = None
+    company_id: str,
+    amount: float,
+    source: str,
+    description: str,
+    creation_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Manually create CRR (e.g., from capital reduction)."""
     if creation_date is None:
-        creation_date = datetime.utcnow()
+        creation_date = datetime.now(timezone.utc)
 
     crr = CRRCreation(
         company_id=company_id, amount=amount, source=source, description=description, creation_date=creation_date
@@ -181,18 +188,23 @@ async def create_crr(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     crr.journal_entry_id = result.get("id")
-    crr_creations.append(crr)
 
-    return crr
+    return await crud.create_creation(db_session, user_id, crr)
 
 
 @app.post("/utilizations/record")
 async def utilize_crr(
-    company_id: str, amount: float, utilization_type: str, description: str, utilization_date: Optional[datetime] = None
+    company_id: str,
+    amount: float,
+    utilization_type: str,
+    description: str,
+    utilization_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Utilize CRR (e.g., for bonus issue)."""
     if utilization_date is None:
-        utilization_date = datetime.utcnow()
+        utilization_date = datetime.now(timezone.utc)
 
     utilization = CRRUtilization(
         company_id=company_id,
@@ -235,44 +247,59 @@ async def utilize_crr(
 
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     utilization.journal_entry_id = result.get("id")
-    crr_utilizations.append(utilization)
 
-    return utilization
+    return await crud.create_utilization(db_session, user_id, utilization)
 
 
 @app.get("/redemptions")
-async def list_redemptions(company_id: Optional[str] = None):
+async def list_redemptions(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List redemption transactions."""
-    result = redemption_transactions
+    result = await crud.list_redemptions(db_session, user_id)
     if company_id:
         result = [r for r in result if r.company_id == company_id]
     return {"redemptions": result}
 
 
 @app.get("/creations")
-async def list_creations(company_id: Optional[str] = None):
+async def list_creations(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List CRR creations."""
-    result = crr_creations
+    result = await crud.list_creations(db_session, user_id)
     if company_id:
         result = [c for c in result if c.company_id == company_id]
     return {"creations": result}
 
 
 @app.get("/utilizations")
-async def list_utilizations(company_id: Optional[str] = None):
+async def list_utilizations(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List CRR utilizations."""
-    result = crr_utilizations
+    result = await crud.list_utilizations(db_session, user_id)
     if company_id:
         result = [u for u in result if u.company_id == company_id]
     return {"utilizations": result}
 
 
 @app.get("/summary/{company_id}")
-async def get_crr_summary(company_id: str):
+async def get_crr_summary(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get CRR balance summary."""
-    company_redemptions = [r for r in redemption_transactions if r.company_id == company_id]
-    company_creations = [c for c in crr_creations if c.company_id == company_id]
-    company_utilizations = [u for u in crr_utilizations if u.company_id == company_id]
+    company_redemptions = [r for r in await crud.list_redemptions(db_session, user_id) if r.company_id == company_id]
+    company_creations = [c for c in await crud.list_creations(db_session, user_id) if c.company_id == company_id]
+    company_utilizations = [u for u in await crud.list_utilizations(db_session, user_id) if u.company_id == company_id]
 
     total_created = sum(r.redemption_reserve_amount for r in company_redemptions) + sum(
         c.amount for c in company_creations
