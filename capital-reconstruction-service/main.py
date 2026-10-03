@@ -1,25 +1,55 @@
 """
 Vimbai Capital Reconstruction Service
-Manages capital reduction and reconstruction schemes.
+Handles capital reconstruction schemes (simplification, restructuring,
+write-off of excess capital, consolidation, substitution).
+
+Records persist in Neo4j, stamped with the caller (X-User-Id) and the
+Book context (X-Book-ID, verified upstream by the API gateway). Child
+writes (adjustments, reserve conversions) are authorized against the
+caller's own Book-visible reconstruction. Original math, journal
+side-call behavior, miss responses, and list shapes are preserved.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import os
-import uuid
-from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
+import importlib.util
+import os as _os
+import sys as _sys
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "capital_reconstruction_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("capital_reconstruction_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location(
+        "capital_reconstruction_service", _os.path.join(_HERE, "__init__.py")
+    )
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["capital_reconstruction_service"] = _pkg
+    _sys.modules["capital_reconstruction_service"].__path__ = [_HERE]
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from capital_reconstruction_service import crud
+from capital_reconstruction_service.database import Neo4jConnector
+from capital_reconstruction_service.dependencies import book_id_var, get_db_session, get_user_id
+from capital_reconstruction_service.exceptions import CapitalReconstructionServiceError
+from capital_reconstruction_service.models import (
+    CapitalReconstruction,
+    ReconstructionAdjustment,
+    ReserveConversion,
+)
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "capital-reconstruction-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8060"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
+PORT = int(_os.getenv("PORT", "8062"))
+ACCOUNTING_SERVICE_URL = _os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
     processors=[
@@ -41,65 +71,24 @@ app.add_middleware(
 )
 
 
-class ReconstructionType(str, Enum):
-    SIMPLIFICATION = "simplification"
-    FINANCIAL_RESTRUCTURING = "financial_restructuring"
-    WRITE_OFF_EXCESS_CAPITAL = "write_off_excess_capital"
-    CONSOLIDATION = "consolidation"
-    SUBSTITUTION = "substitution"
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class CapitalReconstruction(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    reconstruction_type: str
-    description: str
-    scheme_date: datetime
-    court_approval_date: Optional[datetime] = None
-    shareholders_approval_date: Optional[datetime] = None
-    previous_share_capital: float = 0
-    new_share_capital: float = 0
-    capital_reduction_amount: float = 0
-    share_consolidation_ratio: str = ""  # e.g., "2:1"
-    journal_entry_id: Optional[str] = None
-    status: str = "draft"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.exception_handler(CapitalReconstructionServiceError)
+async def _cr_error(request: Request, exc: CapitalReconstructionServiceError):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400),
+        content={"detail": str(exc), "error": exc.__class__.__name__},
+    )
 
 
-class ReconstructionAdjustment(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    reconstruction_id: str
-    account_code: str
-    account_name: str
-    previous_balance: float
-    adjustment_type: str  # write_off, transfer, consolidate
-    adjustment_amount: float
-    new_balance: float = 0
-    description: str
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class ReserveConversion(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    reconstruction_id: str
-    from_account: str
-    from_account_name: str
-    to_account: str
-    to_account_name: str
-    amount: float
-    conversion_date: datetime
-    reason: str
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-reconstructions: List[CapitalReconstruction] = []
-adjustments: List[ReconstructionAdjustment] = []
-reserve_conversions: List[ReserveConversion] = []
-
-
-async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{ACCOUNTING_SERVICE_URL}{endpoint}"
@@ -119,7 +108,7 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Capital reconstruction management"}
+    return {"service": SERVICE_NAME, "description": "Capital reconstruction schemes"}
 
 
 @app.post("/reconstructions/create")
@@ -131,6 +120,8 @@ async def create_reconstruction(
     previous_share_capital: float,
     new_share_capital: float,
     share_consolidation_ratio: str = "",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Create capital reconstruction scheme."""
     reconstruction = CapitalReconstruction(
@@ -143,8 +134,7 @@ async def create_reconstruction(
         share_consolidation_ratio=share_consolidation_ratio,
     )
     reconstruction.capital_reduction_amount = previous_share_capital - new_share_capital
-    reconstructions.append(reconstruction)
-    return reconstruction
+    return await crud.create_reconstruction(db_session, user_id, reconstruction)
 
 
 @app.post("/reconstructions/{reconstruction_id}/adjustments/add")
@@ -156,9 +146,11 @@ async def add_adjustment(
     adjustment_type: str,
     adjustment_amount: float,
     description: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """Add reconstruction adjustment."""
-    reconstruction = next((r for r in reconstructions if r.id == reconstruction_id), None)
+    """Add reconstruction adjustment (caller's reconstruction only)."""
+    reconstruction = await crud.get_reconstruction(db_session, user_id, reconstruction_id)
     if not reconstruction:
         return {"error": "Reconstruction not found"}
 
@@ -172,9 +164,8 @@ async def add_adjustment(
         description=description,
     )
     adjustment.new_balance = previous_balance + adjustment_amount if adjustment_type == "transfer" else 0
-    adjustments.append(adjustment)
 
-    return adjustment
+    return await crud.create_adjustment(db_session, user_id, adjustment)
 
 
 @app.post("/reconstructions/{reconstruction_id}/reserve-conversions/add")
@@ -187,10 +178,16 @@ async def add_reserve_conversion(
     amount: float,
     reason: str,
     conversion_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """Add reserve conversion entry."""
+    """Add reserve conversion entry (caller's reconstruction only)."""
+    reconstruction = await crud.get_reconstruction(db_session, user_id, reconstruction_id)
+    if not reconstruction:
+        return {"error": "Reconstruction not found"}
+
     if conversion_date is None:
-        conversion_date = datetime.utcnow()
+        conversion_date = datetime.now(timezone.utc)
 
     conversion = ReserveConversion(
         reconstruction_id=reconstruction_id,
@@ -214,9 +211,8 @@ async def add_reserve_conversion(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     conversion.journal_entry_id = result.get("id")
-    reserve_conversions.append(conversion)
 
-    return conversion
+    return await crud.create_conversion(db_session, user_id, conversion)
 
 
 @app.post("/reconstructions/{reconstruction_id}/approve")
@@ -224,9 +220,11 @@ async def approve_reconstruction(
     reconstruction_id: str,
     court_approval_date: Optional[datetime] = None,
     shareholders_approval_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """Approve and execute reconstruction."""
-    reconstruction = next((r for r in reconstructions if r.id == reconstruction_id), None)
+    """Approve and execute reconstruction (caller's reconstruction only)."""
+    reconstruction = await crud.get_reconstruction(db_session, user_id, reconstruction_id)
     if not reconstruction:
         return {"error": "Reconstruction not found"}
 
@@ -237,13 +235,10 @@ async def approve_reconstruction(
 
     reconstruction.status = "approved"
 
-    # Get all adjustments and conversions for this reconstruction
-    reconstruction_adjustments = [a for a in adjustments if a.reconstruction_id == reconstruction_id]
-    reconstruction_conversions = [c for c in reserve_conversions if c.reconstruction_id == reconstruction_id]
+    reconstruction_adjustments = await crud.list_adjustments(db_session, user_id, reconstruction_id)
+    reconstruction_conversions = await crud.list_conversions(db_session, user_id, reconstruction_id)
 
-    # Create main reconstruction journal entry
     entries = [
-        # Reduce share capital
         {
             "account_code": "3200",
             "description": "Share Capital",
@@ -252,7 +247,6 @@ async def approve_reconstruction(
         },
     ]
 
-    # Add write-offs from adjustments
     for adj in reconstruction_adjustments:
         if adj.adjustment_type == "write_off":
             entries.append(
@@ -264,7 +258,6 @@ async def approve_reconstruction(
                 }
             )
 
-    # Credits go to various reserves
     total_credits = reconstruction.capital_reduction_amount + sum(
         adj.adjustment_amount for adj in reconstruction_adjustments if adj.adjustment_type == "write_off"
     )
@@ -282,6 +275,8 @@ async def approve_reconstruction(
     reconstruction.journal_entry_id = result.get("id")
     reconstruction.status = "completed"
 
+    await crud.save_reconstruction(db_session, user_id, reconstruction)
+
     return {
         "reconstruction": reconstruction,
         "adjustments": reconstruction_adjustments,
@@ -290,9 +285,14 @@ async def approve_reconstruction(
 
 
 @app.get("/reconstructions")
-async def list_reconstructions(company_id: Optional[str] = None, status: Optional[str] = None):
-    """List capital reconstructions."""
-    result = reconstructions
+async def list_reconstructions(
+    company_id: Optional[str] = None,
+    status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's capital reconstructions."""
+    result = await crud.list_reconstructions(db_session, user_id)
     if company_id:
         result = [r for r in result if r.company_id == company_id]
     if status:
@@ -301,14 +301,18 @@ async def list_reconstructions(company_id: Optional[str] = None, status: Optiona
 
 
 @app.get("/reconstructions/{reconstruction_id}")
-async def get_reconstruction(reconstruction_id: str):
-    """Get reconstruction details with adjustments."""
-    reconstruction = next((r for r in reconstructions if r.id == reconstruction_id), None)
+async def get_reconstruction(
+    reconstruction_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get reconstruction details with adjustments (caller-scoped)."""
+    reconstruction = await crud.get_reconstruction(db_session, user_id, reconstruction_id)
     if not reconstruction:
         return {"error": "Reconstruction not found"}
 
-    reconstruction_adjustments = [a for a in adjustments if a.reconstruction_id == reconstruction_id]
-    reconstruction_conversions = [c for c in reserve_conversions if c.reconstruction_id == reconstruction_id]
+    reconstruction_adjustments = await crud.list_adjustments(db_session, user_id, reconstruction_id)
+    reconstruction_conversions = await crud.list_conversions(db_session, user_id, reconstruction_id)
 
     return {
         "reconstruction": reconstruction,
@@ -318,9 +322,15 @@ async def get_reconstruction(reconstruction_id: str):
 
 
 @app.get("/summary/{company_id}")
-async def get_reconstruction_summary(company_id: str):
-    """Get capital reconstruction summary."""
-    company_reconstructions = [r for r in reconstructions if r.company_id == company_id]
+async def get_reconstruction_summary(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's capital reconstruction summary for a company."""
+    company_reconstructions = [
+        r for r in await crud.list_reconstructions(db_session, user_id) if r.company_id == company_id
+    ]
 
     total_reduction = sum(r.capital_reduction_amount for r in company_reconstructions)
     completed = len([r for r in company_reconstructions if r.status == "completed"])
