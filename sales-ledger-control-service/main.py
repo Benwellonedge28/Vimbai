@@ -1,25 +1,51 @@
 """
 Vimbai Sales Ledger Control Service
-Manages sales ledger control account and debtor transactions.
+Manages purchases ledger control account and debtor transactions.
+
+Transactions persist in Neo4j, stamped with the caller (X-User-Id) and the
+Book context (X-Book-ID, verified upstream by the API gateway). Balances,
+summaries, and reconciliation are derived from the caller's own
+Book-visible transactions only. Original status codes and response shapes
+are preserved; the accounting/audit side-calls keep their fail-soft
+behavior.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import os
-import uuid
-from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
+import importlib.util
+import os as _os
+import sys as _sys
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "sales_ledger_control_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("sales_ledger_control_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("sales_ledger_control_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["sales_ledger_control_service"] = _pkg
+    _sys.modules["sales_ledger_control_service"].__path__ = [_HERE]
 
 import httpx
 import structlog
-from fastapi import FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from neo4j import AsyncSession
+from sales_ledger_control_service import crud
+from sales_ledger_control_service.database import Neo4jConnector
+from sales_ledger_control_service.dependencies import book_id_var, get_db_session, get_user_id
+from sales_ledger_control_service.exceptions import SalesLedgerControlError
+from sales_ledger_control_service.models import ControlAccountSummary, DebtorTransaction, TransactionType
 
 SERVICE_NAME = "sales-ledger-control-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8038"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
+PORT = int(_os.getenv("PORT", "8038"))
+AUDIT_SERVICE_URL = _os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
+ACCOUNTING_SERVICE_URL = _os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
     processors=[
@@ -41,47 +67,22 @@ app.add_middleware(
 )
 
 
-class TransactionType(str, Enum):
-    INVOICE = "invoice"
-    CREDIT_NOTE = "credit_note"
-    PAYMENT = "payment"
-    REFUND = "refund"
-    BAD_DEBT = "bad_debt"
-    DISCOUNT = "discount"
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class DebtorTransaction(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    transaction_type: TransactionType
-    debtor_id: str
-    debtor_name: str
-    invoice_number: Optional[str] = None
-    date: datetime
-    amount: float
-    balance: float = 0
-    reference: Optional[str] = None
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.exception_handler(SalesLedgerControlError)
+async def _plc_error(request: Request, exc: SalesLedgerControlError):
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400),
+        content={"detail": str(exc), "error": exc.__class__.__name__},
+    )
 
 
-class ControlAccountSummary(BaseModel):
-    as_of_date: datetime
-    opening_balance: float = 0
-    total_invoices: float = 0
-    total_credit_notes: float = 0
-    total_payments: float = 0
-    total_bad_debts: float = 0
-    closing_balance: float = 0
-    transaction_count: int = 0
-    debtor_count: int = 0
-
-
-# In-memory storage
-debtor_transactions: List[DebtorTransaction] = []
-debtor_balances: Dict[str, float] = {}
-
-
-async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{ACCOUNTING_SERVICE_URL}{endpoint}"
@@ -104,7 +105,7 @@ async def call_audit_service(action: str, resource_type: str, resource_id: str, 
                     "resource_type": resource_type,
                     "resource_id": resource_id,
                     "details": details,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 },
             )
     except Exception:
@@ -121,7 +122,7 @@ async def root():
     return {
         "service": SERVICE_NAME,
         "version": SERVICE_VERSION,
-        "description": "Sales ledger control account management",
+        "description": "Purchases ledger control account management",
     }
 
 
@@ -134,6 +135,8 @@ async def record_transaction(
     amount: float,
     invoice_number: Optional[str] = None,
     reference: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Record a debtor transaction."""
     txn = DebtorTransaction(
@@ -146,11 +149,11 @@ async def record_transaction(
         reference=reference,
     )
 
-    # Calculate balance
-    current_balance = debtor_balances.get(debtor_id, 0)
+    # Stamp the running balance (replayed from the caller's visible ledger).
+    balances = crud.derive_balances(await crud.list_transactions(db_session, user_id))
+    current_balance = balances.get(debtor_id, 0.0)
     if transaction_type in [TransactionType.INVOICE]:
         txn.balance = current_balance + amount
-        debtor_balances[debtor_id] = txn.balance
     elif transaction_type in [
         TransactionType.CREDIT_NOTE,
         TransactionType.PAYMENT,
@@ -158,9 +161,8 @@ async def record_transaction(
         TransactionType.BAD_DEBT,
     ]:
         txn.balance = current_balance - amount
-        debtor_balances[debtor_id] = txn.balance
 
-    debtor_transactions.append(txn)
+    txn = await crud.create_transaction(db_session, user_id, txn)
 
     # Create journal entry
     entries = []
@@ -188,18 +190,25 @@ async def record_transaction(
             "reference": reference or f"SL-{txn.id[:8]}",
         }
         result = await call_accounting_service("POST", "/journal-entries", journal_entry)
-        txn.journal_entry_id = result.get("id")
+        if result.get("id"):
+            txn.journal_entry_id = result.get("id")
+            await crud.update_journal_entry_id(db_session, user_id, txn.id, txn.journal_entry_id)
 
     await call_audit_service("CREATE", "transaction", txn.id, {"type": transaction_type, "amount": amount})
     return txn
 
 
 @app.get("/control-account/summary")
-async def get_control_summary(as_of_date: Optional[datetime] = None):
+async def get_control_summary(
+    as_of_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get control account summary."""
-    as_of_date = as_of_date or datetime.utcnow()
-
-    transactions = [t for t in debtor_transactions if t.date <= as_of_date]
+    as_of_date = as_of_date or datetime.now(timezone.utc)
+    if as_of_date.tzinfo is None:
+        as_of_date = as_of_date.replace(tzinfo=timezone.utc)
+    transactions = [t for t in await crud.list_transactions(db_session, user_id) if t.date <= as_of_date]
 
     total_invoices = sum(t.amount for t in transactions if t.transaction_type == TransactionType.INVOICE)
     total_credit_notes = sum(t.amount for t in transactions if t.transaction_type == TransactionType.CREDIT_NOTE)
@@ -221,10 +230,15 @@ async def get_control_summary(as_of_date: Optional[datetime] = None):
 
 
 @app.get("/debtors/{debtor_id}/balance")
-async def get_debtor_balance(debtor_id: str):
-    """Get individual debtor balance."""
-    transactions = [t for t in debtor_transactions if t.debtor_id == debtor_id]
-    balance = debtor_balances.get(debtor_id, 0)
+async def get_debtor_balance(
+    debtor_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get an individual debtor balance (caller-scoped)."""
+    transactions = [t for t in await crud.list_transactions(db_session, user_id) if t.debtor_id == debtor_id]
+    balances = crud.derive_balances(await crud.list_transactions(db_session, user_id))
+    balance = balances.get(debtor_id, 0)
 
     return {
         "debtor_id": debtor_id,
@@ -235,20 +249,27 @@ async def get_debtor_balance(debtor_id: str):
 
 
 @app.get("/debtors")
-async def list_debtors():
-    """List all debtors with balances."""
+async def list_debtors(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's debtors with balances."""
+    balances = crud.derive_balances(await crud.list_transactions(db_session, user_id))
     return {
-        "debtors": [{"debtor_id": did, "balance": bal} for did, bal in debtor_balances.items()],
-        "total_balance": sum(debtor_balances.values()),
+        "debtors": [{"debtor_id": cid, "balance": bal} for cid, bal in balances.items()],
+        "total_balance": sum(balances.values()),
     }
 
 
 @app.post("/reconcile")
-async def reconcile_control_account():
+async def reconcile_control_account(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Reconcile control account."""
-    control_balance = sum(debtor_balances.values())
-    summary = await get_control_summary()
-
+    balances = crud.derive_balances(await crud.list_transactions(db_session, user_id))
+    control_balance = sum(balances.values())
+    summary = await get_control_summary(user_id=user_id, db_session=db_session)
     return {
         "control_account_balance": summary.closing_balance,
         "sales_ledger_total": control_balance,

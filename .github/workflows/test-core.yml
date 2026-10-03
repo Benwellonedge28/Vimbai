@@ -38,7 +38,7 @@ jobs:
           - group: advanced-accounting-bracket
             services: "cost-accounting-service financial-identity-service financial-integrity-service revenue-recognition-service currency-service"
           - group: ap-ar-expenses-bracket
-            services: "expense-tracking-service petty-cash-service"
+            services: "expense-tracking-service petty-cash-service purchases-ledger-control-service sales-ledger-control-service"
           - group: corporate-finance-bracket
             services: "cash-optimization-service scenario-analysis-service sensitivity-analysis-service"
           - group: costing-budgeting-bracket
