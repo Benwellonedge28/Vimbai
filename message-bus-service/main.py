@@ -1,23 +1,62 @@
 """
 Vimbai Message Bus Service
 RabbitMQ-based event bus for asynchronous communication between microservices
+
+Published events and webhook subscriptions persist in Neo4j, stamped
+with the caller (X-User-Id) and the Book context (X-Book-ID, verified
+upstream by the API gateway). Monitoring endpoints see only the
+caller's own Book-visible records. The in-memory 10000-event ring
+buffer is replaced by durable storage; RabbitMQ transport behavior is
+unchanged (fallback mode when RabbitMQ is unreachable).
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
 import asyncio
 import hashlib
+import importlib.util
 import json
-import os
+import os as _os
+import sys as _sys
 from datetime import datetime
-from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "message_bus_service" not in _sys.modules or not hasattr(_sys.modules.get("message_bus_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("message_bus_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["message_bus_service"] = _pkg
+    _sys.modules["message_bus_service"].__path__ = [_HERE]
 
 import aio_pika
 from aio_pika import DeliveryMode, ExchangeType, Message
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
+from message_bus_service import crud
+from message_bus_service.database import Neo4jConnector
+from message_bus_service.dependencies import book_id_var, get_db_session, get_user_id
+from message_bus_service.exceptions import MessageBusServiceError
+from message_bus_service.models import (
+    DEAD_LETTER_EXCHANGE,
+    EXCHANGE_NAME,
+    Event,
+    EventPriority,
+    EventSubscription,
+    EventType,
+    QueueConfig,
+)
+from neo4j import AsyncSession
 from pydantic import BaseModel, Field
 
 load_dotenv()
+
+# ============================================================================
+# Configuration
+# ============================================================================
+
+RABBITMQ_URL = _os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
 app = FastAPI(
     title="Vimbai Message Bus Service",
@@ -25,79 +64,33 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
+
+
+@app.exception_handler(MessageBusServiceError)
+async def _mb_error(request: Request, exc: MessageBusServiceError):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400),
+        content={"detail": str(exc), "error": exc.__class__.__name__},
+    )
+
+
 # ============================================================================
 # Configuration
 # ============================================================================
 
-RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-EXCHANGE_NAME = "vimbai_events"
-DEAD_LETTER_EXCHANGE = "vimbai_dlx"
+RABBITMQ_URL = _os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 
 # ============================================================================
 # Enums and Models
 # ============================================================================
-
-
-class EventType(str, Enum):
-    # Accounting Events
-    JOURNAL_ENTRY_CREATED = "accounting.journal_entry.created"
-    JOURNAL_ENTRY_UPDATED = "accounting.journal_entry.updated"
-    JOURNAL_ENTRY_POSTED = "accounting.journal_entry.posted"
-    ACCOUNT_CREATED = "accounting.account.created"
-    ACCOUNT_UPDATED = "accounting.account.updated"
-    TRIAL_BALANCE_GENERATED = "accounting.trial_balance.generated"
-
-    # Finance Events
-    BUDGET_CREATED = "finance.budget.created"
-    BUDGET_UPDATED = "finance.budget.updated"
-    BUDGET_VARIANCE_ALERT = "finance.budget.variance_alert"
-    SCENARIO_CREATED = "finance.scenario.created"
-
-    # Transaction Events
-    TRANSACTION_CREATED = "banking.transaction.created"
-    TRANSACTION_RECONCILED = "banking.transaction.reconciled"
-    TRANSACTION_FLAGGED = "fraud.transaction.flagged"
-
-    # Workflow Events
-    APPROVAL_REQUESTED = "workflow.approval.requested"
-    APPROVAL_COMPLETED = "workflow.approval.completed"
-    APPROVAL_REJECTED = "workflow.approval.rejected"
-
-    # Integration Events
-    POS_SYNC_COMPLETED = "integration.pos.sync_completed"
-    BANK_FEED_RECEIVED = "integration.bank_feed.received"
-    INVENTORY_UPDATED = "integration.inventory.updated"
-
-    # Multimodal Events
-    DOCUMENT_PROCESSED = "multimodal.document.processed"
-    VOICE_TRANSCRIPT_COMPLETE = "multimodal.voice.transcript_complete"
-
-    # System Events
-    SERVICE_HEALTHY = "system.service.healthy"
-    SERVICE_UNHEALTHY = "system.service.unhealthy"
-    FEATURE_TOGGLED = "system.feature.toggled"
-    DATA_SYNC_COMPLETED = "system.data_sync.completed"
-
-
-class EventPriority(str, Enum):
-    LOW = "low"
-    NORMAL = "normal"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
-class Event(BaseModel):
-    id: str = Field(default_factory=lambda: hashlib.md5(str(datetime.utcnow()).encode()).hexdigest()[:16])
-    type: EventType
-    source_service: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-    priority: EventPriority = EventPriority.NORMAL
-    payload: Dict[str, Any]
-    correlation_id: Optional[str] = None
-    reply_to: Optional[str] = None
-    headers: Optional[Dict[str, str]] = None
-    retry_count: int = 0
-    max_retries: int = 3
 
 
 class EventSubscription(BaseModel):
@@ -118,15 +111,6 @@ class QueueConfig(BaseModel):
     message_ttl: Optional[int] = None
     dead_letter_exchange: str = DEAD_LETTER_EXCHANGE
 
-
-# ============================================================================
-# In-Memory Event Store (for monitoring and debugging)
-# ============================================================================
-
-event_store: List[Event] = []
-subscriptions: Dict[str, EventSubscription] = {}
-connection = None
-channel = None
 
 # ============================================================================
 # Event Bus Core
@@ -182,11 +166,6 @@ class EventBus:
     async def publish(self, event: Event) -> bool:
         """Publish an event to the message bus"""
         try:
-            # Store in memory for monitoring
-            event_store.append(event)
-            if len(event_store) > 10000:
-                event_store.pop(0)  # Keep last 10000 events
-
             # Try to publish to RabbitMQ
             if self.rabbitmq_channel:
                 exchange = await self.rabbitmq_channel.get_exchange(EXCHANGE_NAME)
@@ -301,13 +280,16 @@ async def shutdown():
 
 
 @app.get("/")
-async def health_check():
+async def health_check(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     return {
         "status": "healthy",
         "service": "message-bus",
         "connected": event_bus.rabbitmq_connection is not None,
-        "events_stored": len(event_store),
-        "subscriptions": len(subscriptions),
+        "events_stored": len(await crud.list_events(db_session, user_id)),
+        "subscriptions": len(await crud.list_subscriptions(db_session, user_id)),
     }
 
 
@@ -315,9 +297,15 @@ async def health_check():
 
 
 @app.post("/events/publish")
-async def publish_event(event: Event):
+async def publish_event(
+    event: Event,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Publish an event to the message bus"""
     success = await event_bus.publish(event)
+    if success:
+        await crud.create_event(db_session, user_id, event)
 
     if success:
         return {"status": "published", "event_id": event.id, "event_type": event.type.value}
@@ -331,6 +319,8 @@ async def publish_event_by_type(
     source_service: str,
     payload: Dict[str, Any],
     priority: EventPriority = EventPriority.NORMAL,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Publish an event by type (convenience endpoint)"""
     event = create_event(
@@ -341,6 +331,8 @@ async def publish_event_by_type(
     )
 
     success = await event_bus.publish(event)
+    if success:
+        await crud.create_event(db_session, user_id, event)
 
     return {"status": "published" if success else "failed", "event_id": event.id, "event_type": event_type.value}
 
@@ -349,42 +341,64 @@ async def publish_event_by_type(
 
 
 @app.post("/subscriptions", status_code=201)
-async def create_subscription(subscription: EventSubscription):
+async def create_subscription(
+    subscription: EventSubscription,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Create a webhook subscription for events"""
-    subscriptions[subscription.id] = subscription
-    return subscription
+    return await crud.create_subscription(db_session, user_id, subscription)
 
 
 @app.get("/subscriptions")
-async def list_subscriptions():
+async def list_subscriptions(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List all event subscriptions"""
-    return list(subscriptions.values())
+    return await crud.list_subscriptions(db_session, user_id)
 
 
 @app.get("/subscriptions/{subscription_id}")
-async def get_subscription(subscription_id: str):
+async def get_subscription(
+    subscription_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get a specific subscription"""
-    if subscription_id not in subscriptions:
+    sub = await crud.get_subscription(db_session, user_id, subscription_id)
+    if not sub:
         raise HTTPException(status_code=404, detail="Subscription not found")
-    return subscriptions[subscription_id]
+    return sub
 
 
 @app.delete("/subscriptions/{subscription_id}")
-async def delete_subscription(subscription_id: str):
+async def delete_subscription(
+    subscription_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Delete a subscription"""
-    if subscription_id in subscriptions:
-        del subscriptions[subscription_id]
-        return {"status": "deleted"}
-    raise HTTPException(status_code=404, detail="Subscription not found")
+    sub = await crud.get_subscription(db_session, user_id, subscription_id)
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    await crud.delete_subscription(db_session, user_id, subscription_id)
+    return {"status": "deleted"}
 
 
 # --- Event Store ---
 
 
 @app.get("/events")
-async def list_events(event_type: Optional[EventType] = None, source_service: Optional[str] = None, limit: int = 100):
+async def list_events(
+    event_type: Optional[EventType] = None,
+    source_service: Optional[str] = None,
+    limit: int = 100,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List recent events"""
-    filtered = event_store
+    filtered = await crud.list_events(db_session, user_id)
 
     if event_type:
         filtered = [e for e in filtered if e.type == event_type]
@@ -398,12 +412,16 @@ async def list_events(event_type: Optional[EventType] = None, source_service: Op
 
 
 @app.get("/events/{event_id}")
-async def get_event(event_id: str):
+async def get_event(
+    event_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get a specific event"""
-    for event in event_store:
-        if event.id == event_id:
-            return event
-    raise HTTPException(status_code=404, detail="Event not found")
+    event = await crud.get_event(db_session, user_id, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return event
 
 
 # --- Event Types ---
@@ -419,17 +437,20 @@ async def list_event_types():
 
 
 @app.get("/metrics")
-async def get_metrics():
+async def get_metrics(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get message bus metrics"""
     event_counts = {}
-    for event in event_store:
+    for event in await crud.list_events(db_session, user_id):
         event_type = event.type.value
         event_counts[event_type] = event_counts.get(event_type, 0) + 1
 
     return {
-        "total_events": len(event_store),
+        "total_events": len(await crud.list_events(db_session, user_id)),
         "event_counts_by_type": event_counts,
-        "total_subscriptions": len(subscriptions),
+        "total_subscriptions": len(await crud.list_subscriptions(db_session, user_id)),
         "rabbitmq_connected": event_bus.rabbitmq_connection is not None,
     }
 
@@ -438,7 +459,13 @@ async def get_metrics():
 
 
 @app.post("/trigger/journal-entry-created")
-async def trigger_journal_entry_created(entry_id: str, amount: float, description: str = "Test journal entry"):
+async def trigger_journal_entry_created(
+    entry_id: str,
+    amount: float,
+    description: str = "Test journal entry",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Trigger a journal entry created event (for testing)"""
     event = create_event(
         event_type=EventType.JOURNAL_ENTRY_CREATED,
@@ -450,11 +477,18 @@ async def trigger_journal_entry_created(entry_id: str, amount: float, descriptio
         },
     )
     await event_bus.publish(event)
+    await crud.create_event(db_session, user_id, event)
     return {"status": "triggered", "event_id": event.id}
 
 
 @app.post("/trigger/budget-variance-alert")
-async def trigger_budget_variance_alert(budget_id: str, variance_percent: float, category: str):
+async def trigger_budget_variance_alert(
+    budget_id: str,
+    variance_percent: float,
+    category: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Trigger a budget variance alert"""
     priority = EventPriority.HIGH if variance_percent > 20 else EventPriority.NORMAL
 
@@ -469,11 +503,18 @@ async def trigger_budget_variance_alert(budget_id: str, variance_percent: float,
         priority=priority,
     )
     await event_bus.publish(event)
+    await crud.create_event(db_session, user_id, event)
     return {"status": "triggered", "event_id": event.id}
 
 
 @app.post("/trigger/transaction-flagged")
-async def trigger_transaction_flagged(transaction_id: str, fraud_score: float, reason: str):
+async def trigger_transaction_flagged(
+    transaction_id: str,
+    fraud_score: float,
+    reason: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Trigger a transaction flagged event"""
     priority = EventPriority.CRITICAL if fraud_score > 0.8 else EventPriority.HIGH
 
@@ -488,11 +529,19 @@ async def trigger_transaction_flagged(transaction_id: str, fraud_score: float, r
         priority=priority,
     )
     await event_bus.publish(event)
+    await crud.create_event(db_session, user_id, event)
     return {"status": "triggered", "event_id": event.id}
 
 
 @app.post("/trigger/approval-requested")
-async def trigger_approval_requested(approval_id: str, requester: str, approvers: List[str], amount: float):
+async def trigger_approval_requested(
+    approval_id: str,
+    requester: str,
+    approvers: List[str],
+    amount: float,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Trigger an approval requested event"""
     event = create_event(
         event_type=EventType.APPROVAL_REQUESTED,
@@ -506,6 +555,7 @@ async def trigger_approval_requested(approval_id: str, requester: str, approvers
         priority=EventPriority.HIGH,
     )
     await event_bus.publish(event)
+    await crud.create_event(db_session, user_id, event)
     return {"status": "triggered", "event_id": event.id}
 
 

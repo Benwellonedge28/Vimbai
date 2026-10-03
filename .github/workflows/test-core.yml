@@ -46,7 +46,7 @@ jobs:
           - group: platform-automation-bracket
             services: "automation-engine-service notifications-service webhook-service"
           - group: platform-infrastructure-bracket
-            services: "financial-state-machine-service policy-engine-service realtime-calculation-engine"
+            services: "financial-state-machine-service policy-engine-service realtime-calculation-engine message-bus-service"
           - group: risk-governance-bracket
             services: "risk-assessment-service risk-mitigation-service"
           - group: statements-reporting-bracket
