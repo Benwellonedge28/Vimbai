@@ -1,26 +1,95 @@
+"""Vimbai Company Accounting Service - company registry, share capital, dividends. Port: 8101
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
-Vimbai Company Accounting Service
-Dedicated service for company-level financial management including
-shareholder equity, dividends, capital transactions, and company-specific reporting
-Uses existing services via internal API calls
-"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "company_accounting_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("company_accounting_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("company_accounting_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["company_accounting_service"] = _pkg
+    _sys.modules["company_accounting_service"].__path__ = [_HERE]
 
 import os
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Query
-from pydantic import BaseModel, Field
+import structlog
+from company_accounting_service import crud, models
+from company_accounting_service.dependencies import book_id_var, get_db_session, get_user_id
+from company_accounting_service.exceptions import CompanyAccountingError
+from company_accounting_service.models import (
+    CapitalTransaction,
+    CapitalTransactionType,
+    Company,
+    CompanyStatus,
+    CompanyType,
+    Dividend,
+    DividendPayment,
+    DividendType,
+    Reserve,
+    RetainedEarnings,
+    ShareCapital,
+    ShareClass,
+    Shareholder,
+)
+from fastapi import Depends, FastAPI, HTTPException, Request
+from neo4j import AsyncSession
+
+SERVICE_NAME = "company-accounting-service"
+PORT = int(os.getenv("PORT", "8101"))
+structlog.configure(
+    processors=[
+        structlog.stdlib.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    cache_logger_on_first_use=True,
+)
+logger = structlog.get_logger(SERVICE_NAME)
 
 app = FastAPI(
     title="Vimbai Company Accounting Service",
-    description="Company-level financial management including shareholder equity, dividends, capital transactions, and company-specific reporting",
-    version="1.0.0",
+    description="Company-level financial management: shareholder equity, dividends, capital transactions, company-specific reporting",
+    version="2.0.0",
 )
+
+# Distributed tracing (OpenTelemetry)
+try:
+    from shared.tracing import setup_tracing
+
+    TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
+except ImportError:
+    TRACER = None
+
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
+
+
+@app.exception_handler(CompanyAccountingError)
+async def _company_accounting_error(request: Request, exc: CompanyAccountingError):
+    from fastapi.responses import JSONResponse
+
+    status = getattr(exc, "status_code", 400)
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
+
 
 # ============================================================================
 # Configuration - Internal API endpoints
@@ -28,234 +97,10 @@ app = FastAPI(
 
 ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8091")
-CURRENCY_SERVICE_URL = os.getenv("CURRENCY_SERVICE_URL", "http://localhost:8020")
-REPORTING_SERVICE_URL = os.getenv("REPORTING_SERVICE_URL", "http://localhost:8003")
-
-# ============================================================================
-# Enums
-# ============================================================================
-
-
-class CompanyType(str, Enum):
-    SOLE_PROPRIETORSHIP = "sole_proprietorship"
-    PARTNERSHIP = "partnership"
-    LIMITED_COMPANY = "limited_company"
-    PUBLIC_LIMITED_COMPANY = "public_limited_company"
-    HOLDING_COMPANY = "holding_company"
-    SUBSIDIARY = "subsidiary"
-    ASSOCIATE = "associate"
-    JOINT_VENTURE = "joint_venture"
-
-
-class ShareClass(str, Enum):
-    ORDINARY = "ordinary"
-    PREFERENCE = "preference"
-    REDEEMABLE = "redeemable"
-    FOUNDERS = "founders"
-    MANAGEMENT = "management"
-
-
-class CapitalTransactionType(str, Enum):
-    SHARE_ISSUANCE = "share_issuance"
-    SHARE_REDEMPTION = "share_redemption"
-    BONUS_ISSUE = "bonus_issue"
-    RIGHTS_ISSUE = "rights_issue"
-    CAPITAL_REDUCTION = "capital_reduction"
-    DIVIDEND_PAYMENT = "dividend_payment"
-    SHARE_PREMIUM = "share_premium"
-    MERGER_CONTRIBUTION = "merger_contribution"
-
-
-class DividendType(str, Enum):
-    INTERIM = "interim"
-    FINAL = "final"
-    SPECIAL = "special"
-    SCRIP = "scrip"
-    CASH = "cash"
-
-
-class CompanyStatus(str, Enum):
-    ACTIVE = "active"
-    DORMANT = "dormant"
-    LIQUIDATION = "liquidation"
-    ADMINISTRATION = "administration"
-    DISSOLVED = "dissolved"
-
-
-# ============================================================================
-# Pydantic Models
-# ============================================================================
-
-
-class Company(BaseModel):
-    id: str
-    company_code: str
-    company_name: str
-    registration_number: Optional[str] = None
-    company_type: CompanyType
-    incorporation_date: datetime
-    financial_year_end: str  # Month name
-    registered_office: Optional[str] = None
-    jurisdiction: str  # Country/State
-    tax_id: Optional[str] = None
-    status: CompanyStatus = CompanyStatus.ACTIVE
-    accounting_standard: str = "IFRS"
-    functional_currency: str = "USD"
-    parent_company_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class Shareholder(BaseModel):
-    id: str
-    company_id: str
-    shareholder_name: str
-    shareholder_type: str  # individual, corporate, institutional
-    share_class: ShareClass
-    shares_held: int
-    percentage_holding: float
-    registration_date: datetime
-    address: Optional[str] = None
-    tax_status: Optional[str] = None
-    is_controlling_party: bool = False
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class ShareCapital(BaseModel):
-    id: str
-    company_id: str
-    share_class: ShareClass
-    authorized_shares: int
-    issued_shares: int
-    paid_up_value_per_share: Decimal
-    total_paid_up_capital: Decimal
-    share_premium: Decimal = Decimal("0")
-    par_value: Optional[Decimal] = None
-    currency: str = "USD"
-    as_of_date: datetime
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class CapitalTransaction(BaseModel):
-    id: str
-    company_id: str
-    transaction_type: CapitalTransactionType
-    transaction_date: datetime
-    share_class: Optional[ShareClass] = None
-    number_of_shares: int = 0
-    price_per_share: Decimal
-    total_amount: Decimal
-    share_premium_amount: Optional[Decimal] = None
-    reason: Optional[str] = None
-    shareholder_id: Optional[str] = None
-    reference_number: str
-    approved_by: Optional[str] = None
-    journal_entry_id: Optional[str] = None
-    notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class Dividend(BaseModel):
-    id: str
-    company_id: str
-    dividend_type: DividendType
-    declaration_date: datetime
-    record_date: datetime
-    payment_date: Optional[datetime] = None
-    per_share_amount: Decimal
-    total_amount: Decimal
-    currency: str = "USD"
-    share_class: ShareClass = ShareClass.ORDINARY
-    tax_withheld: Decimal = Decimal("0")
-    net_payment: Decimal
-    status: str = "declared"  # declared, approved, paid, cancelled
-    approved_by: Optional[str] = None
-    journal_entry_id: Optional[str] = None
-    notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class DividendPayment(BaseModel):
-    id: str
-    dividend_id: str
-    shareholder_id: str
-    shareholder_name: str
-    shares_held: int
-    gross_amount: Decimal
-    tax_withheld: Decimal
-    net_amount: Decimal
-    payment_date: Optional[datetime] = None
-    payment_method: Optional[str] = None
-    payment_reference: Optional[str] = None
-    status: str = "pending"  # pending, processed, failed
-    notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class RetainedEarnings(BaseModel):
-    id: str
-    company_id: str
-    period_start: datetime
-    period_end: datetime
-    opening_balance: Decimal
-    net_profit_for_period: Decimal
-    dividends_declared: Decimal
-    prior_year_adjustments: Decimal = Decimal("0")
-    transfers_to_reserves: Decimal = Decimal("0")
-    closing_balance: Decimal
-    currency: str = "USD"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class Reserve(BaseModel):
-    id: str
-    company_id: str
-    reserve_name: str
-    reserve_type: str  # statutory, capital, revenue, general
-    opening_balance: Decimal
-    transfers_in: Decimal = Decimal("0")
-    transfers_out: Decimal = Decimal("0")
-    closing_balance: Decimal
-    restriction_notes: Optional[str] = None
-    currency: str = "USD"
-    as_of_date: datetime
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class EquityReport(BaseModel):
-    id: str
-    company_id: str
-    report_date: datetime
-    share_capital: Decimal
-    share_premium: Decimal
-    reserves: Decimal
-    retained_earnings: Decimal
-    total_equity: Decimal
-    movements: List[Dict[str, Any]] = []
-    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-# ============================================================================
-# Storage
-# ============================================================================
-
-companies: Dict[str, Company] = {}
-shareholders: Dict[str, Shareholder] = {}
-share_capitals: Dict[str, ShareCapital] = {}
-capital_transactions: Dict[str, CapitalTransaction] = {}
-dividends: Dict[str, Dividend] = {}
-dividend_payments: Dict[str, DividendPayment] = {}
-retained_earnings: Dict[str, List[RetainedEarnings]] = {}
-reserves: Dict[str, List[Reserve]] = {}
-
-
-# ============================================================================
-# Internal API Helper Functions
-# ============================================================================
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None):
-    """Call accounting service for core accounting functions"""
+    """Call accounting service for core accounting functions (failures tolerated)"""
     async with httpx.AsyncClient() as client:
         url = f"{ACCOUNTING_SERVICE_URL}{endpoint}"
         try:
@@ -271,7 +116,7 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 
 
 async def call_audit_service(event_data: Dict):
-    """Log to audit service"""
+    """Log to audit service (failures tolerated)"""
     async with httpx.AsyncClient() as client:
         url = f"{AUDIT_SERVICE_URL}/events"
         try:
@@ -280,50 +125,27 @@ async def call_audit_service(event_data: Dict):
             pass
 
 
-async def call_currency_service(method: str, endpoint: str, data: Optional[Dict] = None):
-    """Call currency service for exchange rates"""
-    async with httpx.AsyncClient() as client:
-        url = f"{CURRENCY_SERVICE_URL}{endpoint}"
-        try:
-            if method == "GET":
-                response = await client.get(url, timeout=10.0)
-            elif method == "POST":
-                response = await client.post(url, json=data, timeout=10.0)
-            else:
-                return {"error": "Method not supported"}
-            return response.json()
-        except httpx.RequestError:
-            return {"error": "Currency service unavailable", "data": None}
-
-
-# ============================================================================
-# API Endpoints
-# ============================================================================
-
-
 @app.get("/")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "company-accounting",
-        "version": "1.0.0",
-        "total_companies": len(companies),
-        "total_shareholders": len(shareholders),
-    }
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": SERVICE_NAME}
 
 
-# --- Company Management ---
+# ============================================================================
+# Company Management
+# ============================================================================
 
 
 @app.post("/companies")
-async def create_company(company: Company):
-    """Create a new company"""
-    company.id = str(uuid.uuid4())
+async def create_company(
+    company: Company,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Create a company owned by the caller, stamped with the caller's Book."""
     company.created_at = datetime.now(timezone.utc)
     company.updated_at = datetime.now(timezone.utc)
-
-    companies[company.id] = company
+    saved = await crud.create(db_session, user_id, company)
 
     # Create equity accounts in accounting service
     equity_accounts = [
@@ -350,19 +172,24 @@ async def create_company(company: Company):
         {
             "event_type": "create",
             "resource_type": "company",
-            "resource_id": company.id,
-            "user_id": "system",
+            "resource_id": saved.id,
+            "user_id": user_id,
             "action_details": {"company_name": company.company_name, "type": company.company_type.value},
         }
     )
 
-    return company
+    return saved
 
 
 @app.get("/companies")
-async def list_companies(company_type: Optional[CompanyType] = None, status: Optional[CompanyStatus] = None):
-    """List all companies"""
-    results = list(companies.values())
+async def list_companies(
+    company_type: Optional[CompanyType] = None,
+    status: Optional[CompanyStatus] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's Book-visible companies"""
+    results = await crud.list_all(db_session, user_id, Company)
 
     if company_type:
         results = [c for c in results if c.company_type == company_type]
@@ -373,22 +200,29 @@ async def list_companies(company_type: Optional[CompanyType] = None, status: Opt
 
 
 @app.get("/companies/{company_id}")
-async def get_company(company_id: str):
-    """Get company details"""
-    if company_id not in companies:
-        raise HTTPException(status_code=404, detail="Company not found")
-    return companies[company_id]
+async def get_company(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get a caller-owned, Book-visible company; cross-scope reads 404."""
+    return await crud.find_or_404(db_session, user_id, Company, company_id)
 
 
 @app.put("/companies/{company_id}")
-async def update_company(company_id: str, company: Company):
-    """Update company details"""
-    if company_id not in companies:
-        raise HTTPException(status_code=404, detail="Company not found")
+async def update_company(
+    company_id: str,
+    company: Company,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Update company details; cross-scope updates 404."""
+    existing = await crud.find_or_404(db_session, user_id, Company, company_id)
 
-    company.id = company_id
+    company.id = existing.id
+    company.created_at = existing.created_at
     company.updated_at = datetime.now(timezone.utc)
-    companies[company_id] = company
+    await crud.update(db_session, user_id, company)
 
     return company
 
@@ -397,23 +231,31 @@ async def update_company(company_id: str, company: Company):
 
 
 @app.post("/shareholders")
-async def register_shareholder(shareholder: Shareholder):
-    """Register a new shareholder"""
-    shareholder.id = str(uuid.uuid4())
+async def register_shareholder(
+    shareholder: Shareholder,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Register a shareholder (caller-owned, Book-stamped)."""
     shareholder.created_at = datetime.now(timezone.utc)
+    saved = await crud.create(db_session, user_id, shareholder)
 
-    shareholders[shareholder.id] = shareholder
+    # Update percentage holdings for all the caller's shareholders in this company
+    await _recalculate_shareholding_percentages(db_session, user_id, shareholder.company_id)
 
-    # Update percentage holdings for all shareholders in this company
-    await recalculate_shareholding_percentages(shareholder.company_id)
-
-    return shareholder
+    # Return the recalculated record (the original returned the live dict entry)
+    return await crud.find(db_session, user_id, Shareholder, saved.id)
 
 
 @app.get("/shareholders")
-async def list_shareholders(company_id: Optional[str] = None, share_class: Optional[ShareClass] = None):
-    """List shareholders"""
-    results = list(shareholders.values())
+async def list_shareholders(
+    company_id: Optional[str] = None,
+    share_class: Optional[ShareClass] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's Book-visible shareholders"""
+    results = await crud.list_all(db_session, user_id, Shareholder)
 
     if company_id:
         results = [s for s in results if s.company_id == company_id]
@@ -423,23 +265,29 @@ async def list_shareholders(company_id: Optional[str] = None, share_class: Optio
     return results
 
 
-async def recalculate_shareholding_percentages(company_id: str):
-    """Recalculate percentage holdings for all shareholders"""
-    company_shareholders = [s for s in shareholders.values() if s.company_id == company_id]
+async def _recalculate_shareholding_percentages(db_session: AsyncSession, user_id: str, company_id: str):
+    """Recalculate percentage holdings across the caller's shareholders in a company."""
+    company_shareholders = [
+        s for s in await crud.list_all(db_session, user_id, Shareholder) if s.company_id == company_id
+    ]
     total_shares = sum(s.shares_held for s in company_shareholders)
 
     for shareholder in company_shareholders:
         if total_shares > 0:
             shareholder.percentage_holding = (shareholder.shares_held / total_shares) * 100
+            await crud.update(db_session, user_id, shareholder)
 
 
 # --- Share Capital Management ---
 
 
 @app.post("/share-capital")
-async def create_share_capital(share_capital: ShareCapital):
-    """Create share capital record"""
-    share_capital.id = str(uuid.uuid4())
+async def create_share_capital(
+    share_capital: ShareCapital,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Create a share capital record"""
     share_capital.created_at = datetime.now(timezone.utc)
 
     # Calculate totals
@@ -447,31 +295,38 @@ async def create_share_capital(share_capital: ShareCapital):
         Decimal(str(share_capital.issued_shares)) * share_capital.paid_up_value_per_share
     )
 
-    share_capitals[share_capital.id] = share_capital
-
-    return share_capital
+    return await crud.create(db_session, user_id, share_capital)
 
 
 @app.get("/share-capital")
-async def get_share_capital(company_id: str):
-    """Get current share capital for a company"""
-    results = [sc for sc in share_capitals.values() if sc.company_id == company_id]
+async def get_share_capital(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's most recent share capital record for a company"""
+    results = [sc for sc in await crud.list_all(db_session, user_id, ShareCapital) if sc.company_id == company_id]
+    results.sort(key=lambda x: x.created_at)
     return results[-1] if results else None
 
 
-# --- Capital Transactions ---
+# ============================================================================
+# Capital Transactions
+# ============================================================================
 
 
 @app.post("/capital-transactions")
-async def record_capital_transaction(transaction: CapitalTransaction):
-    """Record a capital transaction"""
-    transaction.id = str(uuid.uuid4())
+async def record_capital_transaction(
+    transaction: CapitalTransaction,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Record a capital transaction (caller-owned, Book-stamped)."""
     transaction.created_at = datetime.now(timezone.utc)
-
-    capital_transactions[transaction.id] = transaction
+    saved = await crud.create(db_session, user_id, transaction)
 
     # Create journal entry in accounting service
-    company = companies.get(transaction.company_id)
+    company = await crud.find(db_session, user_id, Company, transaction.company_id)
 
     if company:
         journal_lines = []
@@ -528,9 +383,10 @@ async def record_capital_transaction(transaction: CapitalTransaction):
                     "lines": journal_lines,
                 },
             )
-            transaction.journal_entry_id = journal_result.get("id")
+            saved.journal_entry_id = journal_result.get("id")
+            await crud.update(db_session, user_id, saved)
 
-    return transaction
+    return saved
 
 
 @app.get("/capital-transactions")
@@ -539,9 +395,11 @@ async def list_capital_transactions(
     transaction_type: Optional[CapitalTransactionType] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """List capital transactions"""
-    results = list(capital_transactions.values())
+    """List the caller's Book-visible capital transactions"""
+    results = await crud.list_all(db_session, user_id, CapitalTransaction)
 
     if company_id:
         results = [t for t in results if t.company_id == company_id]
@@ -556,20 +414,27 @@ async def list_capital_transactions(
     return results
 
 
-# --- Dividend Management ---
+# ============================================================================
+# Dividend Management
+# ============================================================================
 
 
 @app.post("/dividends")
-async def declare_dividend(dividend: Dividend):
-    """Declare a dividend"""
-    dividend.id = str(uuid.uuid4())
+async def declare_dividend(
+    dividend: Dividend,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Declare a dividend and generate per-shareholder payments for the caller's shareholders."""
     dividend.created_at = datetime.now(timezone.utc)
     dividend.net_payment = dividend.total_amount - dividend.tax_withheld
 
-    dividends[dividend.id] = dividend
+    saved = await crud.create(db_session, user_id, dividend)
 
-    # Generate individual dividend payments for each shareholder
-    company_shareholders = [s for s in shareholders.values() if s.company_id == dividend.company_id]
+    # Generate individual dividend payments for each of the caller's shareholders
+    company_shareholders = [
+        s for s in await crud.list_all(db_session, user_id, Shareholder) if s.company_id == dividend.company_id
+    ]
     for shareholder in company_shareholders:
         if shareholder.share_class == dividend.share_class:
             shares = shareholder.shares_held
@@ -579,7 +444,7 @@ async def declare_dividend(dividend: Dividend):
 
             payment = DividendPayment(
                 id=str(uuid.uuid4()),
-                dividend_id=dividend.id,
+                dividend_id=saved.id,
                 shareholder_id=shareholder.id,
                 shareholder_name=shareholder.shareholder_name,
                 shares_held=shares,
@@ -588,17 +453,17 @@ async def declare_dividend(dividend: Dividend):
                 net_amount=net,
                 created_at=datetime.now(timezone.utc),
             )
-            dividend_payments[payment.id] = payment
+            await crud.create(db_session, user_id, payment)
 
     # Create journal entry
-    company = companies.get(dividend.company_id)
+    company = await crud.find(db_session, user_id, Company, dividend.company_id)
     if company:
         await call_accounting_service(
             "POST",
             "/journal-entries/",
             {
                 "description": f"Dividend declared - {dividend.dividend_type.value}",
-                "reference": f"DIV-{dividend.id[:8]}",
+                "reference": f"DIV-{saved.id[:8]}",
                 "date": dividend.declaration_date.isoformat(),
                 "lines": [
                     {
@@ -617,13 +482,18 @@ async def declare_dividend(dividend: Dividend):
             },
         )
 
-    return dividend
+    return saved
 
 
 @app.get("/dividends")
-async def list_dividends(company_id: Optional[str] = None, status: Optional[str] = None):
-    """List dividends"""
-    results = list(dividends.values())
+async def list_dividends(
+    company_id: Optional[str] = None,
+    status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's Book-visible dividends"""
+    results = await crud.list_all(db_session, user_id, Dividend)
 
     if company_id:
         results = [d for d in results if d.company_id == company_id]
@@ -634,23 +504,28 @@ async def list_dividends(company_id: Optional[str] = None, status: Optional[str]
 
 
 @app.post("/dividends/{dividend_id}/pay")
-async def pay_dividend(dividend_id: str, approved_by: str):
-    """Process dividend payment"""
-    if dividend_id not in dividends:
-        raise HTTPException(status_code=404, detail="Dividend not found")
+async def pay_dividend(
+    dividend_id: str,
+    approved_by: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Process dividend payment; cross-scope payments 404."""
+    dividend = await crud.find_or_404(db_session, user_id, Dividend, dividend_id)
 
-    dividend = dividends[dividend_id]
     dividend.status = "paid"
     dividend.approved_by = approved_by
+    await crud.update(db_session, user_id, dividend)
 
-    # Update individual payments
-    for payment in dividend_payments.values():
+    # Update the caller's individual payments for this dividend
+    for payment in await crud.list_all(db_session, user_id, DividendPayment):
         if payment.dividend_id == dividend_id:
             payment.status = "processed"
             payment.payment_date = datetime.now(timezone.utc)
+            await crud.update(db_session, user_id, payment)
 
     # Create journal entry
-    company = companies.get(dividend.company_id)
+    company = await crud.find(db_session, user_id, Company, dividend.company_id)
     if company:
         await call_accounting_service(
             "POST",
@@ -658,7 +533,7 @@ async def pay_dividend(dividend_id: str, approved_by: str):
             {
                 "description": f"Dividend payment - {dividend.dividend_type.value}",
                 "reference": f"DIV-PAY-{dividend.id[:8]}",
-                "date": datetime.now().isoformat(),
+                "date": datetime.now(timezone.utc).isoformat(),
                 "lines": [
                     {
                         "account_code": f"{company.company_code}-DIVIDEND_PAYABLE",
@@ -686,18 +561,28 @@ async def pay_dividend(dividend_id: str, approved_by: str):
 
 
 @app.get("/dividends/{dividend_id}/payments")
-async def get_dividend_payments(dividend_id: str):
-    """Get individual dividend payments"""
-    return [p for p in dividend_payments.values() if p.dividend_id == dividend_id]
+async def get_dividend_payments(
+    dividend_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's individual payments for a Book-visible dividend."""
+    await crud.find_or_404(db_session, user_id, Dividend, dividend_id)
+    return [p for p in await crud.list_all(db_session, user_id, DividendPayment) if p.dividend_id == dividend_id]
 
 
-# --- Retained Earnings ---
+# ============================================================================
+# Retained Earnings
+# ============================================================================
 
 
 @app.post("/retained-earnings")
-async def calculate_retained_earnings(entry: RetainedEarnings):
-    """Calculate and record retained earnings"""
-    entry.id = str(uuid.uuid4())
+async def calculate_retained_earnings(
+    entry: RetainedEarnings,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Calculate and record retained earnings (caller-owned)."""
     entry.created_at = datetime.now(timezone.utc)
 
     # Calculate closing balance
@@ -709,73 +594,85 @@ async def calculate_retained_earnings(entry: RetainedEarnings):
         - entry.transfers_to_reserves
     )
 
-    if entry.company_id not in retained_earnings:
-        retained_earnings[entry.company_id] = []
-    retained_earnings[entry.company_id].append(entry)
-
-    return entry
+    return await crud.create(db_session, user_id, entry)
 
 
 @app.get("/retained-earnings")
-async def get_retained_earnings(company_id: str):
-    """Get retained earnings history"""
-    if company_id not in retained_earnings:
-        return []
-    return retained_earnings[company_id]
+async def get_retained_earnings(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's retained earnings history for a company"""
+    results = [e for e in await crud.list_all(db_session, user_id, RetainedEarnings) if e.company_id == company_id]
+    results.sort(key=lambda x: x.created_at)
+    return results
 
 
-# --- Reserves ---
+# ============================================================================
+# Reserves
+# ============================================================================
 
 
 @app.post("/reserves")
-async def create_reserve(reserve: Reserve):
-    """Create or update a reserve"""
-    reserve.id = str(uuid.uuid4())
+async def create_reserve(
+    reserve: Reserve,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Create a reserve record (caller-owned)."""
     reserve.created_at = datetime.now(timezone.utc)
     reserve.closing_balance = reserve.opening_balance + reserve.transfers_in - reserve.transfers_out
 
-    if reserve.company_id not in reserves:
-        reserves[reserve.company_id] = []
-    reserves[reserve.company_id].append(reserve)
-
-    return reserve
+    return await crud.create(db_session, user_id, reserve)
 
 
 @app.get("/reserves")
-async def get_reserves(company_id: str):
-    """Get all reserves for a company"""
-    if company_id not in reserves:
-        return []
-    return reserves[company_id]
+async def get_reserves(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's reserves for a company"""
+    return [r for r in await crud.list_all(db_session, user_id, Reserve) if r.company_id == company_id]
 
 
-# --- Reports ---
+# ============================================================================
+# Reports
+# ============================================================================
 
 
 @app.get("/reports/equity-statement/{company_id}")
-async def get_equity_statement(company_id: str, as_of_date: datetime):
-    """Generate statement of changes in equity"""
-    if company_id not in companies:
-        raise HTTPException(status_code=404, detail="Company not found")
-
-    company = companies[company_id]
+async def get_equity_statement(
+    company_id: str,
+    as_of_date: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Generate a statement of changes in equity from the caller's Book-visible records."""
+    company = await crud.find_or_404(db_session, user_id, Company, company_id)
 
     # Get share capital
-    share_capital = await get_share_capital(company_id)
+    share_capitals = [
+        sc for sc in await crud.list_all(db_session, user_id, ShareCapital) if sc.company_id == company_id
+    ]
+    share_capitals.sort(key=lambda x: x.created_at)
+    share_capital = share_capitals[-1] if share_capitals else None
     share_capital_amount = share_capital.total_paid_up_capital if share_capital else Decimal("0")
     share_premium_amount = share_capital.share_premium if share_capital else Decimal("0")
 
     # Get retained earnings
-    re_entries = retained_earnings.get(company_id, [])
+    re_entries = [e for e in await crud.list_all(db_session, user_id, RetainedEarnings) if e.company_id == company_id]
+    re_entries.sort(key=lambda x: x.created_at)
     current_re = re_entries[-1].closing_balance if re_entries else Decimal("0")
 
     # Get reserves
-    company_reserves = reserves.get(company_id, [])
+    company_reserves = [r for r in await crud.list_all(db_session, user_id, Reserve) if r.company_id == company_id]
     total_reserves = sum(r.closing_balance for r in company_reserves)
 
     # Get movements for the period
     movements = []
-    for transaction in capital_transactions.values():
+    for transaction in await crud.list_all(db_session, user_id, CapitalTransaction):
         if transaction.company_id == company_id and transaction.transaction_date <= as_of_date:
             movements.append(
                 {
@@ -788,7 +685,7 @@ async def get_equity_statement(company_id: str, as_of_date: datetime):
 
     total_equity = share_capital_amount + share_premium_amount + total_reserves + current_re
 
-    return EquityReport(
+    return models.EquityReport(
         id=str(uuid.uuid4()),
         company_id=company_id,
         report_date=as_of_date,
@@ -803,18 +700,23 @@ async def get_equity_statement(company_id: str, as_of_date: datetime):
 
 
 @app.get("/reports/shareholder-register/{company_id}")
-async def get_shareholder_register(company_id: str):
-    """Generate shareholder register"""
-    if company_id not in companies:
-        raise HTTPException(status_code=404, detail="Company not found")
+async def get_shareholder_register(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Generate a shareholder register from the caller's Book-visible records."""
+    company = await crud.find_or_404(db_session, user_id, Company, company_id)
 
-    company_shareholders = [s for s in shareholders.values() if s.company_id == company_id]
+    company_shareholders = [
+        s for s in await crud.list_all(db_session, user_id, Shareholder) if s.company_id == company_id
+    ]
 
     # Sort by percentage holding
     company_shareholders.sort(key=lambda x: x.percentage_holding, reverse=True)
 
     return {
-        "company": companies[company_id],
+        "company": company,
         "total_shareholders": len(company_shareholders),
         "shareholders": [
             {
@@ -830,9 +732,13 @@ async def get_shareholder_register(company_id: str):
 
 
 @app.get("/reports/dividend-history/{company_id}")
-async def get_dividend_history(company_id: str):
-    """Get dividend payment history"""
-    company_dividends = [d for d in dividends.values() if d.company_id == company_id]
+async def get_dividend_history(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's dividend payment history for a company"""
+    company_dividends = [d for d in await crud.list_all(db_session, user_id, Dividend) if d.company_id == company_id]
     company_dividends.sort(key=lambda x: x.declaration_date, reverse=True)
 
     return {
@@ -846,4 +752,4 @@ async def get_dividend_history(company_id: str):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8101)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
