@@ -1,40 +1,70 @@
 """
 Vimbai Intercompany Service
 Manages intercompany transactions, transfer pricing, and eliminations.
+Caller-owned (X-User-Id) and Book-gated (X-Book-ID) stores persist in Neo4j.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import os
-import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+import importlib.util
+import logging
+import os as _os
+import sys as _sys
 
-import structlog
-from fastapi import FastAPI, HTTPException
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "intercompany_service" not in _sys.modules or not hasattr(_sys.modules.get("intercompany_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("intercompany_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["intercompany_service"] = _pkg
+    _sys.modules["intercompany_service"].__path__ = [_HERE]
+
+from typing import List, Optional
+
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from intercompany_service import crud
+from intercompany_service.dependencies import book_id_var, get_db_session, get_user_id
+from intercompany_service.models import EliminationEntry, IntercompanyEntity, IntercompanyTransaction
+from neo4j import AsyncSession
 
 SERVICE_NAME = "intercompany-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8350"))
+PORT = int(_os.getenv("PORT", "8350"))
 
-structlog.configure(
-    processors=[
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer(),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    cache_logger_on_first_use=True,
-)
-logger = structlog.get_logger(SERVICE_NAME)
+try:
+    import structlog
+
+    structlog.configure(
+        processors=[
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.add_logger_name,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.JSONRenderer(),
+        ],
+        wrapper_class=structlog.stdlib.BoundLogger,
+        context_class=dict,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
+    logger = structlog.get_logger(SERVICE_NAME)
+except ImportError:  # pragma: no cover
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(SERVICE_NAME)
 
 app = FastAPI(title="Vimbai Intercompany Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
+
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
+
 
 try:
     from shared.tracing import setup_tracing
@@ -44,45 +74,6 @@ except ImportError:
     TRACER = None
 
 
-class IntercompanyEntity(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    legal_entity_code: str
-    tax_jurisdiction: str = ""
-    currency: str = "USD"
-    status: str = "active"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class IntercompanyTransaction(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    from_entity_id: str
-    to_entity_id: str
-    transaction_type: str  # loan, service_fee, royalty, sale, cost_allocation
-    amount: float
-    currency: str = "USD"
-    description: str = ""
-    transfer_price_basis: str = "cost_plus"  # cost_plus, market, negotiated
-    transaction_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    status: str = "pending"  # pending, matched, eliminated
-    matched_transaction_id: Optional[str] = None
-
-
-class EliminationEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    pair_id: str  # links to the matched pair
-    debit_entity_id: str
-    credit_entity_id: str
-    amount: float
-    description: str = ""
-    elimination_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-entities: List[IntercompanyEntity] = []
-transactions: List[IntercompanyTransaction] = []
-eliminations: List[EliminationEntry] = []
-
-
 @app.get("/")
 @app.get("/health")
 async def health_check():
@@ -90,7 +81,14 @@ async def health_check():
 
 
 @app.post("/entities", response_model=IntercompanyEntity)
-async def create_entity(name: str, legal_entity_code: str, tax_jurisdiction: str = "", currency: str = "USD"):
+async def create_entity(
+    name: str,
+    legal_entity_code: str,
+    tax_jurisdiction: str = "",
+    currency: str = "USD",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Register an intercompany entity."""
     entity = IntercompanyEntity(
         name=name,
@@ -98,15 +96,18 @@ async def create_entity(name: str, legal_entity_code: str, tax_jurisdiction: str
         tax_jurisdiction=tax_jurisdiction,
         currency=currency,
     )
-    entities.append(entity)
-    logger.info("Intercompany entity created", entity_id=entity.id, name=name)
-    return entity
+    saved = await crud.create_entity(db_session, user_id, entity)
+    logger.info("Intercompany entity created", entity_id=saved.id, name=name)
+    return saved
 
 
 @app.get("/entities", response_model=List[IntercompanyEntity])
-async def list_entities():
-    """List all intercompany entities."""
-    return entities
+async def list_entities(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List all intercompany entities (caller's own Book-visible set)."""
+    return await crud.list_entities(db_session, user_id)
 
 
 @app.post("/transactions", response_model=IntercompanyTransaction)
@@ -118,6 +119,8 @@ async def create_transaction(
     currency: str = "USD",
     description: str = "",
     transfer_price_basis: str = "cost_plus",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Create an intercompany transaction."""
     valid_types = ["loan", "service_fee", "royalty", "sale", "cost_allocation"]
@@ -133,17 +136,21 @@ async def create_transaction(
         description=description,
         transfer_price_basis=transfer_price_basis,
     )
-    transactions.append(txn)
-    logger.info("Intercompany transaction created", txn_id=txn.id, amount=amount)
-    return txn
+    saved = await crud.create_transaction(db_session, user_id, txn)
+    logger.info("Intercompany transaction created", txn_id=saved.id, amount=amount)
+    return saved
 
 
 @app.get("/transactions", response_model=List[IntercompanyTransaction])
 async def list_transactions(
-    from_entity: Optional[str] = None, to_entity: Optional[str] = None, status: Optional[str] = None
+    from_entity: Optional[str] = None,
+    to_entity: Optional[str] = None,
+    status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """List intercompany transactions."""
-    result = transactions
+    """List intercompany transactions (caller's own Book-visible set)."""
+    result = await crud.list_transactions(db_session, user_id)
     if from_entity:
         result = [t for t in result if t.from_entity_id == from_entity]
     if to_entity:
@@ -154,20 +161,23 @@ async def list_transactions(
 
 
 @app.post("/transactions/match")
-async def match_transactions(txn1_id: str, txn2_id: str):
-    """Match two intercompany transactions for elimination."""
-    txn1 = next((t for t in transactions if t.id == txn1_id), None)
-    txn2 = next((t for t in transactions if t.id == txn2_id), None)
+async def match_transactions(
+    txn1_id: str,
+    txn2_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Match two intercompany transactions for elimination (caller's own pairs only)."""
+    txn1 = await crud.get_transaction(db_session, user_id, txn1_id)
+    txn2 = await crud.get_transaction(db_session, user_id, txn2_id)
     if not txn1 or not txn2:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
     if txn1.amount != txn2.amount:
         raise HTTPException(status_code=400, detail="Amounts do not match")
 
-    txn1.status = "matched"
-    txn2.status = "matched"
-    txn1.matched_transaction_id = txn2_id
-    txn2.matched_transaction_id = txn1_id
+    await crud.mark_matched(db_session, user_id, txn1_id, txn2_id)
+    await crud.mark_matched(db_session, user_id, txn2_id, txn1_id)
 
     elimination = EliminationEntry(
         pair_id=f"{txn1_id}:{txn2_id}",
@@ -176,16 +186,19 @@ async def match_transactions(txn1_id: str, txn2_id: str):
         amount=txn1.amount,
         description=f"Elimination: {txn1.description}",
     )
-    eliminations.append(elimination)
+    saved = await crud.create_elimination(db_session, user_id, elimination)
 
     logger.info("Transactions matched and eliminated", txn1=txn1_id, txn2=txn2_id, amount=txn1.amount)
-    return {"matched": True, "elimination_id": elimination.id}
+    return {"matched": True, "elimination_id": saved.id}
 
 
 @app.get("/eliminations", response_model=List[EliminationEntry])
-async def list_eliminations():
-    """List elimination entries."""
-    return eliminations
+async def list_eliminations(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List elimination entries (caller's own Book-visible set)."""
+    return await crud.list_eliminations(db_session, user_id)
 
 
 if __name__ == "__main__":

@@ -924,7 +924,18 @@ class TestAuthorizedShareCapitalService:
 
 class TestIntercompanyService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("intercompany-service"))
+        # Load first: main.py self-bootstraps the intercompany_service package.
+        app = load_service_app("intercompany-service")
+        fake_path = os.path.join(REPO_ROOT, "intercompany-service", "fake_neo4j.py")
+        spec = importlib.util.spec_from_file_location("ic_root_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+        import intercompany_service.database as db
+
+        shared = fake.FakeSession()
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(shared))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
 
     def test_health(self):
         resp = self.client.get("/health")
