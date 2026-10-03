@@ -409,7 +409,19 @@ class TestReportDistributionService:
 
 class TestDataWarehouseService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("data-warehouse-service"))
+        # Load first: main.py self-bootstraps the data_warehouse_service package.
+        app = load_service_app("data-warehouse-service")
+        pkg = sys.modules["data_warehouse_service"]
+        fake_path = os.path.join(REPO_ROOT, "data-warehouse-service", "fake_neo4j.py")
+        spec = importlib.util.spec_from_file_location("dw_root_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+        import data_warehouse_service.database as db
+
+        shared = fake.FakeSession()
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(shared))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
 
     def test_health(self):
         resp = self.client.get("/health")
@@ -423,6 +435,16 @@ class TestDataWarehouseService:
             json=[{"name": "date_id", "type": "int"}, {"name": "year", "type": "int"}],
         )
         assert dim_resp.status_code == 200
+
+    def test_dimension_is_caller_scoped(self):
+        self.client.post(
+            "/dimensions",
+            params={"name": "dim_org"},
+            json=[{"name": "org_id", "type": "int"}],
+        )
+        other = TestClient(self.client.app)
+        other.headers.update({"X-User-Id": "other-user", "X-Book-ID": "root-book"})
+        assert other.get("/dimensions").json() == []
 
 
 class TestETLService:
@@ -527,7 +549,19 @@ class TestIntangibleAssetsService:
 
 class TestSOXComplianceService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("sox-compliance-service"))
+        # Load first: main.py self-bootstraps the sox_compliance_service package.
+        app = load_service_app("sox-compliance-service")
+        pkg = sys.modules["sox_compliance_service"]
+        fake_path = os.path.join(REPO_ROOT, "sox-compliance-service", "fake_neo4j.py")
+        spec = importlib.util.spec_from_file_location("sox_root_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+        import sox_compliance_service.database as db
+
+        shared = fake.FakeSession()
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(shared))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
 
     def test_health(self):
         resp = self.client.get("/health")
@@ -547,8 +581,8 @@ class TestSOXComplianceService:
                 "process": "IT General Controls",
             },
         )
-        ctrl_id = ctrl_resp.json()["id"]
         assert ctrl_resp.status_code == 200
+        ctrl_id = ctrl_resp.json()["id"]
 
         test_resp = self.client.post(
             f"/controls/{ctrl_id}/test",
@@ -560,6 +594,11 @@ class TestSOXComplianceService:
             },
         )
         assert test_resp.json()["result"] == "pass"
+
+        # caller-scoped: another caller sees no controls
+        other = TestClient(self.client.app)
+        other.headers.update({"X-User-Id": "other-user", "X-Book-ID": "root-book"})
+        assert other.get("/controls").json() == []
 
 
 class TestTreasuryPolicyService:
