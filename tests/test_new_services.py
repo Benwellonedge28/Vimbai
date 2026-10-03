@@ -614,7 +614,18 @@ class TestSOXComplianceService:
 
 class TestTreasuryPolicyService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("treasury-policy-service"))
+        # Load first: main.py self-bootstraps the treasury_policy_service package.
+        app = load_service_app("treasury-policy-service")
+        fake_path = os.path.join(REPO_ROOT, "treasury-policy-service", "fake_neo4j.py")
+        spec = importlib.util.spec_from_file_location("tp_root_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+        import treasury_policy_service.database as db
+
+        shared = fake.FakeSession()
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(shared))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
 
     def test_health(self):
         resp = self.client.get("/health")
@@ -1245,7 +1256,18 @@ class TestLeaseTerminationService:
 
 class TestTreasuryReportingService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("treasury-reporting-service"))
+        # Load first: main.py self-bootstraps the treasury_reporting_service package.
+        app = load_service_app("treasury-reporting-service")
+        fake_path = os.path.join(REPO_ROOT, "treasury-reporting-service", "fake_neo4j.py")
+        spec = importlib.util.spec_from_file_location("tr_root_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+        import treasury_reporting_service.database as db
+
+        shared = fake.FakeSession()
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(shared))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
 
     def test_health(self):
         resp = self.client.get("/health")
