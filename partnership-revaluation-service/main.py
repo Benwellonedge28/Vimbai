@@ -1,25 +1,50 @@
 """
 Vimbai Partnership Revaluation Service
-Asset revaluation and goodwill treatment in partnerships.
+Handles asset revaluations during partnership changes.
+
+Revaluation reports persist in Neo4j, stamped with the caller
+(X-User-Id) and the Book context (X-Book-ID, verified upstream by the
+API gateway). Listings and lookups are scoped to the caller's own
+Book-visible records. Realization math, list shape, and the
+{"error": "Revaluation not found"} miss response are preserved.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import os
-import uuid
+import importlib.util
+import os as _os
+import sys as _sys
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, List, Optional
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "partnership_revaluation_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("partnership_revaluation_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location(
+        "partnership_revaluation_service", _os.path.join(_HERE, "__init__.py")
+    )
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["partnership_revaluation_service"] = _pkg
+    _sys.modules["partnership_revaluation_service"].__path__ = [_HERE]
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from partnership_revaluation_service import crud
+from partnership_revaluation_service.database import Neo4jConnector
+from partnership_revaluation_service.dependencies import book_id_var, get_db_session, get_user_id
+from partnership_revaluation_service.exceptions import PartnershipRevaluationServiceError
+from partnership_revaluation_service.models import GoodwillTreatment, RevaluationEntry, RevaluationReport
 
 SERVICE_NAME = "partnership-revaluation-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8044"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
+PORT = int(_os.getenv("PORT", "8044"))
+ACCOUNTING_SERVICE_URL = _os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
     processors=[
@@ -41,45 +66,24 @@ app.add_middleware(
 )
 
 
-class GoodwillTreatment(str, Enum):
-    RAISE_AND_RAISE = "raise_and_raise"
-    WRITE_OFF_AGAINST_RESERVES = "write_off_against_reserves"
-    ELIMINATE_FROM_BOOKS = "eliminate_from_books"
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class RevaluationEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    asset_id: str
-    asset_name: str
-    asset_code: str
-    old_value: float
-    new_value: float
-    increase: float = 0
-    decrease: float = 0
-    revaluation_gain: float = 0
-    revaluation_loss: float = 0
-    journal_entry_id: Optional[str] = None
+@app.exception_handler(PartnershipRevaluationServiceError)
+async def _pr_error(request: Request, exc: PartnershipRevaluationServiceError):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400),
+        content={"detail": str(exc), "error": exc.__class__.__name__},
+    )
 
 
-class RevaluationReport(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    partnership_id: str
-    revaluation_date: datetime
-    entries: List[RevaluationEntry] = []
-    total_increase: float = 0
-    total_decrease: float = 0
-    net_gain: float = 0
-    goodwill_amount: float = 0
-    goodwill_treatment: GoodwillTreatment
-    new_profit_sharing_ratios: Dict[str, float] = {}
-    journal_entry_ids: List[str] = []
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-revaluations: List[RevaluationReport] = []
-
-
-async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{ACCOUNTING_SERVICE_URL}{endpoint}"
@@ -99,7 +103,7 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Partnership asset revaluation"}
+    return {"service": SERVICE_NAME, "description": "Partnership asset revaluation service"}
 
 
 @app.post("/revalue")
@@ -109,6 +113,8 @@ async def create_revaluation(
     goodwill_treatment: GoodwillTreatment,
     asset_revaluations: List[Dict[str, Any]],
     goodwill_amount: float = 0,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Create asset revaluation."""
     entries = []
@@ -195,7 +201,7 @@ async def create_revaluation(
             }
         )
 
-    # Post all journal entries
+    # Post all journal entries (fail-soft: accounting service may be absent in tests)
     entry_ids = []
     for entry in journal_entries:
         result = await call_accounting_service("POST", "/journal-entries", entry)
@@ -215,23 +221,30 @@ async def create_revaluation(
         goodwill_treatment=goodwill_treatment,
         journal_entry_ids=entry_ids,
     )
-    revaluations.append(report)
-    return report
+    return await crud.create_revaluation(db_session, user_id, report)
 
 
 @app.get("/revaluations")
-async def list_revaluations(partnership_id: Optional[str] = None):
-    """List revaluations."""
-    result = revaluations
+async def list_revaluations(
+    partnership_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's revaluations."""
+    result = await crud.list_revaluations(db_session, user_id)
     if partnership_id:
         result = [r for r in result if r.partnership_id == partnership_id]
     return {"revaluations": result, "count": len(result)}
 
 
 @app.get("/revaluations/{revaluation_id}")
-async def get_revaluation(revaluation_id: str):
-    """Get revaluation details."""
-    rev = next((r for r in revaluations if r.id == revaluation_id), None)
+async def get_revaluation(
+    revaluation_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get revaluation details (caller-scoped)."""
+    rev = await crud.get_revaluation(db_session, user_id, revaluation_id)
     if not rev:
         return {"error": "Revaluation not found"}
     return rev

@@ -1,25 +1,55 @@
 """
 Vimbai Partnership Dissolution Service
 Handles complete dissolution of partnerships.
+
+Dissolution reports persist in Neo4j, stamped with the caller
+(X-User-Id) and the Book context (X-Book-ID, verified upstream by the
+API gateway). Listings and lookups are scoped to the caller's own
+Book-visible records. Realization/settlement math, the {"dissolutions": ...}
+list shape, and the {"error": "Not found"} lookup miss response are
+preserved exactly.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
-import os
-import uuid
+import importlib.util
+import os as _os
+import sys as _sys
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-import httpx
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "partnership_dissolution_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("partnership_dissolution_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location(
+        "partnership_dissolution_service", _os.path.join(_HERE, "__init__.py")
+    )
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["partnership_dissolution_service"] = _pkg
+    _sys.modules["partnership_dissolution_service"].__path__ = [_HERE]
+
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from partnership_dissolution_service import crud
+from partnership_dissolution_service.database import Neo4jConnector
+from partnership_dissolution_service.dependencies import book_id_var, get_db_session, get_user_id
+from partnership_dissolution_service.exceptions import PartnershipDissolutionServiceError
+from partnership_dissolution_service.models import (
+    AssetRealization,
+    CreditorSettlement,
+    DissolutionReason,
+    DissolutionReport,
+    PartnerSettlement,
+)
 
 SERVICE_NAME = "partnership-dissolution-service"
 SERVICE_VERSION = "1.0.0"
-PORT = int(os.getenv("PORT", "8045"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
+PORT = int(_os.getenv("PORT", "8045"))
 
 structlog.configure(
     processors=[
@@ -41,74 +71,21 @@ app.add_middleware(
 )
 
 
-class DissolutionReason(str, Enum):
-    MUTUAL_AGREEMENT = "mutual_agreement"
-    EXPIRY_OF_TERM = "expiry_of_term"
-    COMPLETION_OF_ADVENTURE = "completion_of_adventure"
-    DEATH_OF_PARTNER = "death_of_partner"
-    INSOLVENCY = "insolvency"
-    COURT_ORDER = "court_order"
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class AssetRealization(BaseModel):
-    asset_id: str
-    asset_name: str
-    book_value: float
-    sale_proceeds: float
-    profit: float = 0
-    loss: float = 0
+@app.exception_handler(PartnershipDissolutionServiceError)
+async def _pd_error(request: Request, exc: PartnershipDissolutionServiceError):
+    from fastapi.responses import JSONResponse
 
-
-class CreditorSettlement(BaseModel):
-    creditor_id: str
-    creditor_name: str
-    amount_owed: float
-    amount_paid: float
-    discount_received: float = 0
-
-
-class PartnerSettlement(BaseModel):
-    partner_id: str
-    partner_name: str
-    capital_balance: float
-    current_account_balance: float
-    share_of_profit_loss: float
-    total_due: float
-
-
-class DissolutionReport(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    partnership_id: str
-    dissolution_date: datetime
-    reason: DissolutionReason
-    total_assets_realized: float = 0
-    total_liabilities_paid: float = 0
-    total_creditors: float = 0
-    total_partners_capitals: float = 0
-    realization_profit: float = 0
-    realization_loss: float = 0
-    assets: List[AssetRealization] = []
-    creditors: List[CreditorSettlement] = []
-    partners: List[PartnerSettlement] = []
-    journal_entry_ids: List[str] = []
-    status: str = "pending"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-dissolutions: List[DissolutionReport] = []
-
-
-async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{ACCOUNTING_SERVICE_URL}{endpoint}"
-            if method == "POST":
-                response = await client.post(url, json=data)
-            else:
-                response = await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception:
-        return {}
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400),
+        content={"detail": str(exc), "error": exc.__class__.__name__},
+    )
 
 
 @app.get("/health")
@@ -118,7 +95,7 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Partnership dissolution service"}
+    return {"service": SERVICE_NAME, "description": "Partnership dissolution service"}
 
 
 @app.post("/dissolve")
@@ -129,6 +106,8 @@ async def create_dissolution(
     assets: List[Dict[str, Any]],
     creditors: List[Dict[str, Any]],
     partners: List[Dict[str, Any]],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Process partnership dissolution."""
     report = DissolutionReport(partnership_id=partnership_id, dissolution_date=dissolution_date, reason=reason)
@@ -178,21 +157,26 @@ async def create_dissolution(
         report.partners.append(settlement)
         report.total_partners_capitals += settlement.total_due
 
-    # Calculate net position
-    net = report.total_assets_realized - report.total_creditors - report.total_partners_capitals
     report.status = "completed"
-    dissolutions.append(report)
-    return report
+    return await crud.create_dissolution(db_session, user_id, report)
 
 
 @app.get("/dissolutions")
-async def list_dissolutions():
-    return {"dissolutions": dissolutions}
+async def list_dissolutions(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    return {"dissolutions": await crud.list_dissolutions(db_session, user_id)}
 
 
 @app.get("/dissolutions/{dissolution_id}")
-async def get_dissolution(dissolution_id: str):
-    return next((d for d in dissolutions if d.id == dissolution_id), {"error": "Not found"})
+async def get_dissolution(
+    dissolution_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    report = await crud.get_dissolution(db_session, user_id, dissolution_id)
+    return report if report else {"error": "Not found"}
 
 
 if __name__ == "__main__":
