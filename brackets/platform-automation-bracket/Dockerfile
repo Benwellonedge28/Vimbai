@@ -18,7 +18,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY brackets/platform-automation-bracket/main.py ./main.py
 COPY admin-service ./admin-service
 COPY alerts-service ./alerts-service
-COPY automation-engine ./automation-engine
 COPY automation-engine-service ./automation-engine-service
 COPY fixed-assets-schedule-service ./fixed-assets-schedule-service
 COPY notifications-service ./notifications-service

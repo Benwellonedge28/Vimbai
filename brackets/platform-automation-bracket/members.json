@@ -14,11 +14,6 @@
     },
     {
       "path": "/automation",
-      "name": "automation-engine",
-      "dir": "automation-engine"
-    },
-    {
-      "path": "/automation",
       "name": "automation-engine-service",
       "dir": "automation-engine-service"
     },

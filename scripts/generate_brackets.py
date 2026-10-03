@@ -44,6 +44,8 @@ STANDALONE = {
     "banking-integration-service",
     "supply-chain-service",
     "fraud-detection-service",
+    "book-sync-service",
+    "npo-scale-service",
 }
 
 # Ordered bracket rules: first matching rule wins.

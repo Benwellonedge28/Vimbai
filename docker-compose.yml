@@ -91,6 +91,20 @@ services:
     - neo4j
     networks:
     - vimbai-net
+  book_sync_service:
+    build:
+      context: .
+      dockerfile: book-sync-service/Dockerfile
+    ports:
+    - 9020:9020
+    environment:
+    - JWT_SECRET=${JWT_SECRET:-dev-secret}
+    - BOOK_SYNC_DB=/data/vimbai_book_sync.db
+    volumes:
+    - book_sync_data:/data
+    restart: unless-stopped
+    networks:
+    - vimbai-net
   corporate_finance_bracket:
     build:
       context: .
@@ -187,22 +201,7 @@ services:
     restart: unless-stopped
     networks:
     - vimbai-net
-  book_sync_service:
-    build:
-      context: .
-      dockerfile: book-sync-service/Dockerfile
-    ports:
-    - 9020:9020
-    environment:
-    - JWT_SECRET=${JWT_SECRET:-dev-secret}
-    - BOOK_SYNC_DB=/data/vimbai_book_sync.db
-    volumes:
-    - book_sync_data:/data
-    restart: unless-stopped
-    networks:
-    - vimbai-net
   identity_service:
-
     build:
       context: ./identity-service
       dockerfile: Dockerfile
@@ -297,7 +296,6 @@ services:
     networks:
     - vimbai-net
   npo_service:
-
     build:
       context: ./npo-service
       dockerfile: Dockerfile

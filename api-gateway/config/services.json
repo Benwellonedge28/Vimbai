@@ -200,14 +200,6 @@
       "strip_prefix": false
     },
     {
-      "name": "automation-engine",
-      "path": "/automation",
-      "url": "http://localhost:9008",
-      "port": 8098,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "automation-engine-service",
       "path": "/automation",
       "url": "http://localhost:9008",
