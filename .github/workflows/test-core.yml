@@ -48,13 +48,13 @@ jobs:
           - group: platform-infrastructure-bracket
             services: "financial-state-machine-service policy-engine-service realtime-calculation-engine message-bus-service pos-integration-service"
           - group: risk-governance-bracket
-            services: "risk-assessment-service risk-mitigation-service"
+            services: "risk-assessment-service"
           - group: statements-reporting-bracket
-            services: "balance-sheet-service cash-flow-statement-service reporting-service risk-reporting-service"
+            services: "balance-sheet-service cash-flow-statement-service reporting-service"
           - group: partnership-bracket
             services: "partnership-agreement-service partnership-changes-service partnership-dissolution-service partnership-revaluation-service"
           - group: tax-audit-investigation-bracket
-            services: "corporate-tax-service forensic-accounting-service investigation-service it-audit-service operational-audit-service tax-audit-service sox-compliance-service"
+            services: "corporate-tax-service forensic-accounting-service it-audit-service operational-audit-service tax-audit-service sox-compliance-service"
           - group: general-services-bracket
             services: "org-authorization-engine"
           - group: treasury-banking-bracket

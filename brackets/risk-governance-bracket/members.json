@@ -43,11 +43,6 @@
       "dir": "risk-assessment-service"
     },
     {
-      "path": "/risk-mitigation",
-      "name": "risk-mitigation-service",
-      "dir": "risk-mitigation-service"
-    },
-    {
       "path": "/risk-return-analysis",
       "name": "risk-return-analysis-service",
       "dir": "risk-return-analysis-service"

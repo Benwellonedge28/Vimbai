@@ -1,10 +1,20 @@
 """
-Integration tests for Risk Assessment, Mitigation, Reporting, and Investigation services.
+Integration tests for the canonical risk-assessment-service.
+
+investigation-service, risk-mitigation-service and risk-reporting-service
+were exact clones of this service (same models, same :RiskItem label and
+:OWNS_RISK edge) and have been de-registered as duplicates: their gateway
+routes, k8s deployments and CI bracket memberships were removed while their
+source directories stay in the repository. The dedup test below asserts they
+stay de-registered.
 """
 
 import importlib
 import importlib.util
+import json
 import os
+import re
+from types import ModuleType
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +23,13 @@ from tests.conftest import load_service
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _H = {"X-User-Id": "root-risk-user"}
+
+# Exact clones of risk-assessment-service, de-registered (files kept).
+DEREGISTERED_DUPLICATES = {
+    "investigation-service",
+    "risk-mitigation-service",
+    "risk-reporting-service",
+}
 
 
 def _patch_fake(pkg_name, fake_alias):
@@ -28,7 +45,6 @@ def _patch_fake(pkg_name, fake_alias):
     spec.loader.exec_module(fake)
 
     import sys
-    from types import ModuleType
 
     cached = sys.modules.get(pkg_name)
     if cached is None or not hasattr(cached, "__path__"):
@@ -47,30 +63,6 @@ def risk_client():
     pkg = load_service("risk-assessment-service")
     app = pkg.main.app
     _patch_fake("risk_assessment_service", "risk_assessment_root_fake")
-    return TestClient(app)
-
-
-@pytest.fixture
-def mitigation_client():
-    pkg = load_service("risk-mitigation-service")
-    app = pkg.main.app
-    _patch_fake("risk_mitigation_service", "risk_mitigation_root_fake")
-    return TestClient(app)
-
-
-@pytest.fixture
-def reporting_client():
-    pkg = load_service("risk-reporting-service")
-    app = pkg.main.app
-    _patch_fake("risk_reporting_service", "risk_reporting_root_fake")
-    return TestClient(app)
-
-
-@pytest.fixture
-def investigation_client():
-    pkg = load_service("investigation-service")
-    app = pkg.main.app
-    _patch_fake("investigation_service", "investigation_root_fake")
     return TestClient(app)
 
 
@@ -168,65 +160,23 @@ class TestRiskAssessment:
         assert resp.json()["status"] == "closed"
 
 
-class TestRiskMitigation:
-    def test_health(self, mitigation_client):
-        resp = mitigation_client.get("/")
-        assert resp.status_code == 200
+class TestRiskServiceDeduplication:
+    def test_duplicate_services_are_not_routed(self):
+        routes = json.load(open(os.path.join(_ROOT, "api-gateway", "config", "services.json")))["services"]
+        registered = {r["name"] for r in routes}
+        assert "risk-assessment-service" in registered
+        for dup in DEREGISTERED_DUPLICATES:
+            assert dup not in registered, f"{dup} must stay de-registered as a duplicate of risk-assessment-service"
 
-    def test_create_and_mitigate(self, mitigation_client):
-        create = mitigation_client.post(
-            "/risks",
-            json={
-                "company_id": "comp-mit",
-                "category": "operational",
-                "name": "Process Risk",
-                "likelihood": 3,
-                "impact": 4,
-            },
-            headers=_H,
-        )
-        assert create.json()["risk_score"] == 12
-        risk_id = create.json()["id"]
-        update = mitigation_client.put(
-            f"/risks/{risk_id}?mitigation=Implemented+new+controls&status=mitigating", headers=_H
-        )
-        assert update.status_code == 200
-        assert update.json()["status"] == "mitigating"
+    def test_duplicate_services_are_not_deployed(self):
+        for manifest in ("k8s/all-services.yaml", "k8s/new-services.yaml", "k8s/new-services-v2.yaml"):
+            path = os.path.join(_ROOT, manifest)
+            if not os.path.isfile(path):
+                continue
+            for dup in DEREGISTERED_DUPLICATES:
+                assert f"name: {dup}" not in open(path).read(), f"{dup} must not be deployed via {manifest}"
 
-
-class TestRiskReporting:
-    def test_health(self, reporting_client):
-        assert reporting_client.get("/").status_code == 200
-
-    def test_report_dashboard(self, reporting_client):
-        reporting_client.post(
-            "/risks",
-            json={"company_id": "comp-rpt", "category": "compliance", "name": "Reg Risk", "likelihood": 4, "impact": 3},
-            headers=_H,
-        )
-        resp = reporting_client.get("/dashboard/comp-rpt", headers=_H)
-        assert resp.status_code == 200
-        assert resp.json()["total_risks"] >= 1
-
-
-class TestInvestigation:
-    def test_health(self, investigation_client):
-        assert investigation_client.get("/").status_code == 200
-
-    def test_investigation_workflow(self, investigation_client):
-        create = investigation_client.post(
-            "/risks",
-            json={
-                "company_id": "comp-inv",
-                "category": "financial",
-                "name": "Suspicious Activity",
-                "likelihood": 4,
-                "impact": 5,
-            },
-            headers=_H,
-        )
-        risk_id = create.json()["id"]
-        update = investigation_client.put(f"/risks/{risk_id}?status=assessing", headers=_H)
-        assert update.json()["status"] == "assessing"
-        close = investigation_client.delete(f"/risks/{risk_id}", headers=_H)
-        assert close.status_code == 200
+    def test_duplicate_services_are_not_in_ci_brackets(self):
+        ci = open(os.path.join(_ROOT, ".github", "workflows", "test-core.yml")).read()
+        for dup in DEREGISTERED_DUPLICATES:
+            assert not re.search(r"\b" + re.escape(dup) + r"\b", ci), f"{dup} must stay out of CI bracket lists"

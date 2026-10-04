@@ -20,47 +20,170 @@ PORT = int(os.getenv("PORT", "9003"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    ["acquisition-financing", "acquisition-financing-service"],
-    ["amortization", "amortization-service"],
-    ["authorized-share-capital", "authorized-share-capital-service"],
-    ["bad-debts-recovery", "bad-debts-recovery-service"],
-    ["bank-fee-analysis", "bank-fee-analysis-service"],
-    ["bank-feed", "bank-feed-service"],
-    ["bank-reconciliation", "bank-reconciliation-service"],
-    ["bank-relationship", "bank-relationship-service"],
-    ["cash-flow", "cash-flow-service"],
-    ["cash-flow-forecasting", "cash-flow-forecasting-service"],
-    ["credit-derivatives", "credit-derivatives-service"],
-    ["credit-risk-analysis", "credit-risk-analysis-service"],
-    ["cross-currency-swap", "cross-currency-swap-service"],
-    ["currency", "currency-service"],
-    ["currency-hedging", "currency-hedging-service"],
-    ["debt-covenants", "debt-covenants-service"],
-    ["debt-management", "debt-management-service"],
-    ["foreign-currency-translation", "foreign-currency-translation-service"],
-    ["ifrs-2-share-based-payment", "ifrs-2-share-based-payment-service"],
-    ["initial-investment", "initial-investment-service"],
-    ["interest-rate-hedging", "interest-rate-hedging-service"],
-    ["interest-rate-risk", "interest-rate-risk-service"],
-    ["investment-appraisal", "investment-appraisal-service"],
-    ["investment-monitoring", "investment-monitoring-service"],
-    ["investment-portfolio", "investment-portfolio-service"],
-    ["investment-property", "investment-property-service"],
-    ["issued-share-capital", "issued-share-capital-service"],
-    ["multi-currency", "multi-currency-service"],
-    ["payment-gateway", "payment-gateway-service"],
-    ["payment-optimization", "payment-optimization-service"],
-    ["provision-bad-debts", "provision-bad-debts-service"],
-    ["provision-doubtful-debts", "provision-doubtful-debts-service"],
-    ["sovereign-treasury", "sovereign-treasury-service"],
-    ["times-interest-earned", "times-interest-earned-service"],
-    ["treasury-analytics", "treasury-analytics-service"],
-    ["treasury-cash", "treasury-cash-service"],
-    ["treasury-compliance", "treasury-compliance-service"],
-    ["treasury-management", "treasury-management-service"],
-    ["treasury-operations", "treasury-operations-service"],
-    ["treasury-policy", "treasury-policy-service"],
-    ["treasury-risk", "treasury-risk-service"],
+    [
+        "acquisition-financing",
+        "acquisition-financing-service"
+    ],
+    [
+        "amortization",
+        "amortization-service"
+    ],
+    [
+        "authorized-share-capital",
+        "authorized-share-capital-service"
+    ],
+    [
+        "bad-debts-recovery",
+        "bad-debts-recovery-service"
+    ],
+    [
+        "bank-fee-analysis",
+        "bank-fee-analysis-service"
+    ],
+    [
+        "bank-feed",
+        "bank-feed-service"
+    ],
+    [
+        "bank-reconciliation",
+        "bank-reconciliation-service"
+    ],
+    [
+        "bank-relationship",
+        "bank-relationship-service"
+    ],
+    [
+        "cash-flow",
+        "cash-flow-service"
+    ],
+    [
+        "cash-flow-forecasting",
+        "cash-flow-forecasting-service"
+    ],
+    [
+        "credit-derivatives",
+        "credit-derivatives-service"
+    ],
+    [
+        "credit-risk-analysis",
+        "credit-risk-analysis-service"
+    ],
+    [
+        "cross-currency-swap",
+        "cross-currency-swap-service"
+    ],
+    [
+        "currency",
+        "currency-service"
+    ],
+    [
+        "currency-hedging",
+        "currency-hedging-service"
+    ],
+    [
+        "debt-covenants",
+        "debt-covenants-service"
+    ],
+    [
+        "debt-management",
+        "debt-management-service"
+    ],
+    [
+        "foreign-currency-translation",
+        "foreign-currency-translation-service"
+    ],
+    [
+        "ifrs-2-share-based-payment",
+        "ifrs-2-share-based-payment-service"
+    ],
+    [
+        "initial-investment",
+        "initial-investment-service"
+    ],
+    [
+        "interest-rate-hedging",
+        "interest-rate-hedging-service"
+    ],
+    [
+        "interest-rate-risk",
+        "interest-rate-risk-service"
+    ],
+    [
+        "investment-appraisal",
+        "investment-appraisal-service"
+    ],
+    [
+        "investment-monitoring",
+        "investment-monitoring-service"
+    ],
+    [
+        "investment-portfolio",
+        "investment-portfolio-service"
+    ],
+    [
+        "investment-property",
+        "investment-property-service"
+    ],
+    [
+        "issued-share-capital",
+        "issued-share-capital-service"
+    ],
+    [
+        "multi-currency",
+        "multi-currency-service"
+    ],
+    [
+        "payment-gateway",
+        "payment-gateway-service"
+    ],
+    [
+        "payment-optimization",
+        "payment-optimization-service"
+    ],
+    [
+        "provision-bad-debts",
+        "provision-bad-debts-service"
+    ],
+    [
+        "provision-doubtful-debts",
+        "provision-doubtful-debts-service"
+    ],
+    [
+        "sovereign-treasury",
+        "sovereign-treasury-service"
+    ],
+    [
+        "times-interest-earned",
+        "times-interest-earned-service"
+    ],
+    [
+        "treasury-analytics",
+        "treasury-analytics-service"
+    ],
+    [
+        "treasury-cash",
+        "treasury-cash-service"
+    ],
+    [
+        "treasury-compliance",
+        "treasury-compliance-service"
+    ],
+    [
+        "treasury-management",
+        "treasury-management-service"
+    ],
+    [
+        "treasury-operations",
+        "treasury-operations-service"
+    ],
+    [
+        "treasury-policy",
+        "treasury-policy-service"
+    ],
+    [
+        "treasury-risk",
+        "treasury-risk-service"
+    ]
 ]
 
 app = FastAPI(

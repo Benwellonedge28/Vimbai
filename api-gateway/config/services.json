@@ -1294,14 +1294,6 @@
       "strip_prefix": false
     },
     {
-      "name": "investigation-service",
-      "path": "/investigation",
-      "url": "http://localhost:9004",
-      "port": 8069,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "investment-appraisal-service",
       "path": "/investment-appraisal",
       "url": "http://localhost:9003",
@@ -2133,22 +2125,6 @@
       "path": "/risk-assessment",
       "url": "http://localhost:9005",
       "port": 8117,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "risk-mitigation-service",
-      "path": "/risk-mitigation",
-      "url": "http://localhost:9005",
-      "port": 8118,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "risk-reporting-service",
-      "path": "/risk-reporting",
-      "url": "http://localhost:9002",
-      "port": 8119,
       "auth_required": true,
       "strip_prefix": false
     },

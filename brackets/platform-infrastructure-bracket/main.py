@@ -20,32 +20,110 @@ PORT = int(os.getenv("PORT", "9013"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    ["cache", "cache-service"],
-    ["cqrs-event-sourcing", "cqrs-event-sourcing-service"],
-    ["dashboard", "dashboard-service"],
-    ["data-sovereignty", "data-sovereignty-service"],
-    ["disaster-recovery", "disaster-recovery-service"],
-    ["edge-computing", "edge-computing-service"],
-    ["encrypted-backup", "encrypted-backup-service"],
-    ["enterprise-sso", "enterprise-sso-service"],
-    ["etl", "etl-service"],
-    ["event-streaming", "event-streaming-service"],
-    ["federated-network", "federated-network-service"],
-    ["financial-state-machine", "financial-state-machine-service"],
-    ["graphql", "graphql-service"],
-    ["grpc", "grpc-service"],
-    ["high-availability", "high-availability-service"],
-    ["infrastructure-as-code", "infrastructure-as-code-service"],
-    ["management-dashboard", "management-dashboard-service"],
-    ["mfa-auth", "mfa-auth-service"],
-    ["multi-cloud", "multi-cloud-service"],
-    ["multi-tenant", "multi-tenant-service"],
-    ["observability", "observability-service"],
-    ["plugin-extension", "plugin-extension-service"],
-    ["policy", "policy-engine-service"],
-    ["realtime-calculation", "realtime-calculation-engine"],
-    ["websocket", "websocket-service"],
-    ["zero-trust-data", "zero-trust-data-service"],
+    [
+        "cache",
+        "cache-service"
+    ],
+    [
+        "cqrs-event-sourcing",
+        "cqrs-event-sourcing-service"
+    ],
+    [
+        "dashboard",
+        "dashboard-service"
+    ],
+    [
+        "data-sovereignty",
+        "data-sovereignty-service"
+    ],
+    [
+        "disaster-recovery",
+        "disaster-recovery-service"
+    ],
+    [
+        "edge-computing",
+        "edge-computing-service"
+    ],
+    [
+        "encrypted-backup",
+        "encrypted-backup-service"
+    ],
+    [
+        "enterprise-sso",
+        "enterprise-sso-service"
+    ],
+    [
+        "etl",
+        "etl-service"
+    ],
+    [
+        "event-streaming",
+        "event-streaming-service"
+    ],
+    [
+        "federated-network",
+        "federated-network-service"
+    ],
+    [
+        "financial-state-machine",
+        "financial-state-machine-service"
+    ],
+    [
+        "graphql",
+        "graphql-service"
+    ],
+    [
+        "grpc",
+        "grpc-service"
+    ],
+    [
+        "high-availability",
+        "high-availability-service"
+    ],
+    [
+        "infrastructure-as-code",
+        "infrastructure-as-code-service"
+    ],
+    [
+        "management-dashboard",
+        "management-dashboard-service"
+    ],
+    [
+        "mfa-auth",
+        "mfa-auth-service"
+    ],
+    [
+        "multi-cloud",
+        "multi-cloud-service"
+    ],
+    [
+        "multi-tenant",
+        "multi-tenant-service"
+    ],
+    [
+        "observability",
+        "observability-service"
+    ],
+    [
+        "plugin-extension",
+        "plugin-extension-service"
+    ],
+    [
+        "policy",
+        "policy-engine-service"
+    ],
+    [
+        "realtime-calculation",
+        "realtime-calculation-engine"
+    ],
+    [
+        "websocket",
+        "websocket-service"
+    ],
+    [
+        "zero-trust-data",
+        "zero-trust-data-service"
+    ]
 ]
 
 app = FastAPI(

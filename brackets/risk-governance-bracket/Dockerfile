@@ -24,7 +24,6 @@ COPY liquidity-risk-service ./liquidity-risk-service
 COPY market-risk-service ./market-risk-service
 COPY operational-risk-service ./operational-risk-service
 COPY risk-assessment-service ./risk-assessment-service
-COPY risk-mitigation-service ./risk-mitigation-service
 COPY risk-return-analysis-service ./risk-return-analysis-service
 
 USER vimbai

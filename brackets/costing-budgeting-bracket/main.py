@@ -20,43 +20,154 @@ PORT = int(os.getenv("PORT", "9001"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    ["absorption-costing", "absorption-costing-service"],
-    ["absorption-costing-statement", "absorption-costing-statement-service"],
-    ["activity-based-budget", "activity-based-budget-service"],
-    ["activity-based-costing", "activity-based-costing-service"],
-    ["actual-cost", "actual-cost-service"],
-    ["appropriation-control", "appropriation-control-service"],
-    ["balanced-scorecard", "balanced-scorecard-service"],
-    ["budget", "budget-service"],
-    ["budgeted-cost", "budgeted-cost-service"],
-    ["capital-budgeting", "capital-budgeting-service"],
-    ["capital-expenditure-budget", "capital-expenditure-budget-service"],
-    ["cash-budget", "cash-budget-service"],
-    ["fixed-cost", "fixed-cost-service"],
-    ["flexible-budget", "flexible-budget-service"],
-    ["job-costing", "job-costing-service"],
-    ["labour-cost-variance", "labour-cost-variance-service"],
-    ["labour-efficiency-variance", "labour-efficiency-variance-service"],
-    ["labour-rate-variance", "labour-rate-variance-service"],
-    ["lifecycle-costing", "lifecycle-costing-service"],
-    ["marginal-costing", "marginal-costing-service"],
-    ["master-budget", "master-budget-service"],
-    ["material-cost-variance", "material-cost-variance-service"],
-    ["material-price-variance", "material-price-variance-service"],
-    ["material-usage-variance", "material-usage-variance-service"],
-    ["prime-cost", "prime-cost-service"],
-    ["process-costing", "process-costing-service"],
-    ["product-costing", "product-costing-service"],
-    ["sales-price-variance", "sales-price-variance-service"],
-    ["sales-volume-variance", "sales-volume-variance-service"],
-    ["scenario-budget", "scenario-budget-service"],
-    ["standard-cost", "standard-cost-service"],
-    ["target-costing", "target-costing-service"],
-    ["total-production-cost", "total-production-cost-service"],
-    ["variable-cost", "variable-cost-service"],
-    ["variance", "variance-service"],
-    ["zero-based-budget", "zero-based-budget-service"],
-    ["zero-based-budgeting", "zero-based-budgeting-service"],
+    [
+        "absorption-costing",
+        "absorption-costing-service"
+    ],
+    [
+        "absorption-costing-statement",
+        "absorption-costing-statement-service"
+    ],
+    [
+        "activity-based-budget",
+        "activity-based-budget-service"
+    ],
+    [
+        "activity-based-costing",
+        "activity-based-costing-service"
+    ],
+    [
+        "actual-cost",
+        "actual-cost-service"
+    ],
+    [
+        "appropriation-control",
+        "appropriation-control-service"
+    ],
+    [
+        "balanced-scorecard",
+        "balanced-scorecard-service"
+    ],
+    [
+        "budget",
+        "budget-service"
+    ],
+    [
+        "budgeted-cost",
+        "budgeted-cost-service"
+    ],
+    [
+        "capital-budgeting",
+        "capital-budgeting-service"
+    ],
+    [
+        "capital-expenditure-budget",
+        "capital-expenditure-budget-service"
+    ],
+    [
+        "cash-budget",
+        "cash-budget-service"
+    ],
+    [
+        "fixed-cost",
+        "fixed-cost-service"
+    ],
+    [
+        "flexible-budget",
+        "flexible-budget-service"
+    ],
+    [
+        "job-costing",
+        "job-costing-service"
+    ],
+    [
+        "labour-cost-variance",
+        "labour-cost-variance-service"
+    ],
+    [
+        "labour-efficiency-variance",
+        "labour-efficiency-variance-service"
+    ],
+    [
+        "labour-rate-variance",
+        "labour-rate-variance-service"
+    ],
+    [
+        "lifecycle-costing",
+        "lifecycle-costing-service"
+    ],
+    [
+        "marginal-costing",
+        "marginal-costing-service"
+    ],
+    [
+        "master-budget",
+        "master-budget-service"
+    ],
+    [
+        "material-cost-variance",
+        "material-cost-variance-service"
+    ],
+    [
+        "material-price-variance",
+        "material-price-variance-service"
+    ],
+    [
+        "material-usage-variance",
+        "material-usage-variance-service"
+    ],
+    [
+        "prime-cost",
+        "prime-cost-service"
+    ],
+    [
+        "process-costing",
+        "process-costing-service"
+    ],
+    [
+        "product-costing",
+        "product-costing-service"
+    ],
+    [
+        "sales-price-variance",
+        "sales-price-variance-service"
+    ],
+    [
+        "sales-volume-variance",
+        "sales-volume-variance-service"
+    ],
+    [
+        "scenario-budget",
+        "scenario-budget-service"
+    ],
+    [
+        "standard-cost",
+        "standard-cost-service"
+    ],
+    [
+        "target-costing",
+        "target-costing-service"
+    ],
+    [
+        "total-production-cost",
+        "total-production-cost-service"
+    ],
+    [
+        "variable-cost",
+        "variable-cost-service"
+    ],
+    [
+        "variance",
+        "variance-service"
+    ],
+    [
+        "zero-based-budget",
+        "zero-based-budget-service"
+    ],
+    [
+        "zero-based-budgeting",
+        "zero-based-budgeting-service"
+    ]
 ]
 
 app = FastAPI(

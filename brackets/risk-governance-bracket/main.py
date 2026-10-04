@@ -1,6 +1,6 @@
 """
 Vimbai Risk & Governance Bracket Service
-One container hosting 10 merged microservices. Each member service's
+One container hosting 9 merged microservices. Each member service's
 FastAPI app is mounted at its original gateway path prefix, so every
 external URL is unchanged.
 
@@ -20,22 +20,48 @@ PORT = int(os.getenv("PORT", "9005"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    ["corporate-governance", "corporate-governance-service"],
-    ["fraud-risk-assessment", "fraud-risk-assessment-service"],
-    ["internal-control-evaluation", "internal-control-evaluation-service"],
-    ["internal-controls-testing", "internal-controls-testing-service"],
-    ["liquidity-risk", "liquidity-risk-service"],
-    ["market-risk", "market-risk-service"],
-    ["operational-risk", "operational-risk-service"],
-    ["risk-assessment", "risk-assessment-service"],
-    ["risk-mitigation", "risk-mitigation-service"],
-    ["risk-return-analysis", "risk-return-analysis-service"],
+    [
+        "corporate-governance",
+        "corporate-governance-service"
+    ],
+    [
+        "fraud-risk-assessment",
+        "fraud-risk-assessment-service"
+    ],
+    [
+        "internal-control-evaluation",
+        "internal-control-evaluation-service"
+    ],
+    [
+        "internal-controls-testing",
+        "internal-controls-testing-service"
+    ],
+    [
+        "liquidity-risk",
+        "liquidity-risk-service"
+    ],
+    [
+        "market-risk",
+        "market-risk-service"
+    ],
+    [
+        "operational-risk",
+        "operational-risk-service"
+    ],
+    [
+        "risk-assessment",
+        "risk-assessment-service"
+    ],
+    [
+        "risk-return-analysis",
+        "risk-return-analysis-service"
+    ]
 ]
 
 app = FastAPI(
     title="Vimbai Risk & Governance Bracket Service",
     version=SERVICE_VERSION,
-    description="Bracket container for 10 Vimbai microservices.",
+    description="Bracket container for 9 Vimbai microservices.",
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))

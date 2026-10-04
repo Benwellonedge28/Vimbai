@@ -20,14 +20,38 @@ PORT = int(os.getenv("PORT", "9008"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    ["admin", "admin-service"],
-    ["alerts", "alerts-service"],
-    ["automation", "automation-engine-service"],
-    ["fixed-assets-schedule", "fixed-assets-schedule-service"],
-    ["notifications", "notifications-service"],
-    ["offline-sync", "offline-sync-service"],
-    ["privacy-admin-dashboard", "privacy-admin-dashboard-service"],
-    ["webhook", "webhook-service"],
+    [
+        "admin",
+        "admin-service"
+    ],
+    [
+        "alerts",
+        "alerts-service"
+    ],
+    [
+        "automation",
+        "automation-engine-service"
+    ],
+    [
+        "fixed-assets-schedule",
+        "fixed-assets-schedule-service"
+    ],
+    [
+        "notifications",
+        "notifications-service"
+    ],
+    [
+        "offline-sync",
+        "offline-sync-service"
+    ],
+    [
+        "privacy-admin-dashboard",
+        "privacy-admin-dashboard-service"
+    ],
+    [
+        "webhook",
+        "webhook-service"
+    ]
 ]
 
 app = FastAPI(

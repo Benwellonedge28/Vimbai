@@ -93,11 +93,6 @@
       "dir": "reporting-service"
     },
     {
-      "path": "/risk-reporting",
-      "name": "risk-reporting-service",
-      "dir": "risk-reporting-service"
-    },
-    {
       "path": "/sales-ledger-control",
       "name": "sales-ledger-control-service",
       "dir": "sales-ledger-control-service"

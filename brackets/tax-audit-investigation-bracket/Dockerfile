@@ -22,7 +22,6 @@ COPY audit-sampling-service ./audit-sampling-service
 COPY corporate-tax-service ./corporate-tax-service
 COPY forensic-accounting-service ./forensic-accounting-service
 COPY group-tax-service ./group-tax-service
-COPY investigation-service ./investigation-service
 COPY it-audit-service ./it-audit-service
 COPY operational-audit-service ./operational-audit-service
 COPY r-and-d-tax-service ./r-and-d-tax-service

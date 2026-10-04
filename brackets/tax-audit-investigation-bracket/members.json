@@ -33,11 +33,6 @@
       "dir": "group-tax-service"
     },
     {
-      "path": "/investigation",
-      "name": "investigation-service",
-      "dir": "investigation-service"
-    },
-    {
       "path": "/it-audit",
       "name": "it-audit-service",
       "dir": "it-audit-service"
