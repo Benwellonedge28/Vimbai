@@ -13,6 +13,14 @@ import 'package:vimbai_mobile_client/pages/npo_page.dart';
 import 'package:vimbai_mobile_client/pages/personal_finance_page.dart';
 import 'package:vimbai_mobile_client/pages/bank_accounts_page.dart';
 import 'package:vimbai_mobile_client/pages/financial_ratios_page.dart';
+import 'package:vimbai_mobile_client/pages/journal_entries_list_page.dart';
+import 'package:vimbai_mobile_client/pages/chart_of_accounts_page.dart';
+import 'package:vimbai_mobile_client/pages/ledger_page.dart';
+import 'package:vimbai_mobile_client/pages/trial_balance_page.dart';
+import 'package:vimbai_mobile_client/pages/balance_sheet_page.dart';
+import 'package:vimbai_mobile_client/pages/income_statement_page.dart';
+import 'package:vimbai_mobile_client/pages/cash_flow_statement_page.dart';
+import 'package:vimbai_mobile_client/pages/budgets_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -99,6 +107,21 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// Builds a full-width navigation button that pushes [page].
+  Widget _navButton(BuildContext context, String label, Widget page) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: ElevatedButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => page),
+          );
+        },
+        child: Text(label),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,7 +152,10 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // ... (existing widgets) ...
+                  // ------------------------------------------------------
+                  // Active Book context - every service call below runs
+                  // inside the selected Book (X-Book-ID via gateway).
+                  // ------------------------------------------------------
                   ValueListenableBuilder<int>(
                     valueListenable: _contextTicker,
                     builder: (context, _, __) {
@@ -148,7 +174,7 @@ class _HomePageState extends State<HomePage> {
                           subtitle: Text(
                             b == null
                                 ? 'tap to choose a Book context'
-                                : '${b.tier} - you are ${b.yourRole}',
+                                : 'your ${b.tier} Book - you are ${b.yourRole}',
                           ),
                           onTap: () {
                             Navigator.of(context).push(
@@ -162,70 +188,66 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
                   const SizedBox(height: 16),
+
+                  // ------------------------------------------------------
+                  // Accounting core (wired to accounting-service via gateway)
+                  // ------------------------------------------------------
+                  const Text(
+                    'Accounting:',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  _navButton(context, 'Journal Entries', const JournalEntriesListPage()),
+                  _navButton(context, 'Chart of Accounts', const ChartOfAccountsPage()),
+                  _navButton(context, 'Ledger', const LedgerPage()),
+                  _navButton(context, 'Trial Balance', const TrialBalancePage()),
+                  const SizedBox(height: 20),
+
+                  // ------------------------------------------------------
+                  // Financial statements (wired to accounting-service)
+                  // ------------------------------------------------------
+                  const Text(
+                    'Financial Statements:',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  _navButton(context, 'Balance Sheet', const BalanceSheetPage()),
+                  _navButton(context, 'Income Statement', const IncomeStatementPage()),
+                  _navButton(context, 'Cash Flow Statement', const CashFlowStatementPage()),
+                  const SizedBox(height: 20),
+
+                  // ------------------------------------------------------
+                  // Budgets (local-first CRUD + remote variance analysis)
+                  // ------------------------------------------------------
+                  const Text(
+                    'Budgets:',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  _navButton(context, 'Budgets', const BudgetsPage()),
+                  const SizedBox(height: 20),
+
                   const Text(
                     'Multimodal Input:',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const MultimodalInputPage()),
-                      );
-                    },
-                    child: const Text('Process Image/Audio'),
-                  ),
+                  _navButton(context, 'Process Image/Audio', const MultimodalInputPage()),
                   const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const BooksPage()),
-                      );
-                    },
-                    child: const Text('Your Books'),
-                  ),
+                  _navButton(context, 'Your Books', const BooksPage()),
                   const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const NpoPage()),
-                      );
-                    },
-                    child: const Text('Non-profit Organizations'),
-                  ),
+                  _navButton(context, 'Non-profit Organizations', const NpoPage()),
                   const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (context) => const PersonalFinancePage()),
-                      );
-                    },
-                    child: const Text('Personal finance'),
-                  ),
+                  _navButton(context, 'Personal finance', const PersonalFinancePage()),
                   const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const FinancialRatiosPage()),
-                      );
-                    },
-                    child: const Text('View Financial Ratios'),
-                  ),
+                  _navButton(context, 'View Financial Ratios', const FinancialRatiosPage()),
                   const SizedBox(height: 30),
                   const Text(
                     'Banking Integration:',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const BankAccountsPage()),
-                      );
-                    },
-                    child: const Text('Manage Bank Accounts'),
-                  ),
+                  _navButton(context, 'Manage Bank Accounts', const BankAccountsPage()),
                 ],
               ),
             ),

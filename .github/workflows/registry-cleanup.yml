@@ -36,68 +36,51 @@ jobs:
           echo "count=$COUNT" >> $GITHUB_OUTPUT
 
       - name: Prune old images via GitHub Packages API
+        id: prune
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KEEP_LAST: ${{ github.event.inputs.keep_last || '10' }}
+          REPO_NAME: ${{ github.event.repository.name }}
         run: |
-          set -e
-          OWNER="${{ github.repository_owner }}"
+          # GHCR container package names for this repo are "<repo>/<service>",
+          # lower-cased, and the slash must be URL-encoded (%2F) in the API path.
+          # We use the /user/packages endpoints (GITHUB_TOKEN is the repo-linked
+          # user token). 404 = package not published yet -> skip, not fail.
           TOTAL_PRUNED=0
 
           for SERVICE in ${{ steps.services.outputs.services }}; do
-            echo "Processing $SERVICE..."
+            PACKAGE="$(printf '%s/%s' "$REPO_NAME" "$SERVICE" | tr '[:upper:]' '[:lower:]' | sed 's|/|%2F|')"
+            echo "Processing $SERVICE (package: $PACKAGE)..."
 
-            # List all package versions for this service
-            RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            RESPONSE=$(curl -s \
+              -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/orgs/$OWNER/packages/container/${SERVICE}/versions?per_page=100" 2>/dev/null || \
-              curl -s -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/users/$OWNER/packages/container/${SERVICE}/versions?per_page=100" 2>/dev/null)
+              "https://api.github.com/user/packages/container/$PACKAGE/versions?per_page=100")
 
-            # Check if we got versions
-            VERSION_COUNT=$(echo "$RESPONSE" | jq 'length' 2>/dev/null || echo "0")
-
-            if [ "$VERSION_COUNT" = "0" ] || [ "$VERSION_COUNT" = "null" ]; then
-              echo "  No versions found (or package not yet published), skipping"
+            # A missing package returns {"message":"Not Found",...} - an object,
+            # not an array. Only proceed when jq gives us a list.
+            if ! echo "$RESPONSE" | jq -e 'type == "array"' > /dev/null 2>&1; then
+              echo "  No package found (or not visible), skipping"
               continue
             fi
 
-            echo "  Found $VERSION_COUNT versions, keeping latest $KEEP_LAST"
-
+            VERSION_COUNT=$(echo "$RESPONSE" | jq 'length')
             if [ "$VERSION_COUNT" -le "$KEEP_LAST" ]; then
-              echo "  Under threshold, no cleanup needed"
+              echo "  Found $VERSION_COUNT versions, under threshold ($KEEP_LAST), nothing to do"
               continue
             fi
 
-            # Get versions to delete (skip first KEEP_LAST, which are newest)
-            TO_DELETE=$(echo "$RESPONSE" | jq -r ".[$KEEP_LAST:] | .[].id" 2>/dev/null)
-
-            if [ -z "$TO_DELETE" ]; then
-              echo "  Nothing to delete"
-              continue
-            fi
+            echo "  Found $VERSION_COUNT versions, pruning all but the newest $KEEP_LAST"
+            TO_DELETE=$(echo "$RESPONSE" | jq -r ".[$KEEP_LAST:] | .[].id")
 
             DELETED=0
             for VERSION_ID in $TO_DELETE; do
-              # Skip if version ID is empty
               [ -z "$VERSION_ID" ] && continue
-
-              # Try org endpoint first, fall back to user endpoint
               HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
                 -X DELETE \
                 -H "Authorization: Bearer $GH_TOKEN" \
                 -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/orgs/$OWNER/packages/container/${SERVICE}/versions/$VERSION_ID" 2>/dev/null)
-
-              if [ "$HTTP_CODE" = "404" ]; then
-                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-                  -X DELETE \
-                  -H "Authorization: Bearer $GH_TOKEN" \
-                  -H "Accept: application/vnd.github+json" \
-                  "https://api.github.com/users/$OWNER/packages/container/${SERVICE}/versions/$VERSION_ID" 2>/dev/null)
-              fi
-
+                "https://api.github.com/user/packages/container/$PACKAGE/versions/$VERSION_ID")
               if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
                 DELETED=$((DELETED + 1))
               else
@@ -109,10 +92,11 @@ jobs:
             TOTAL_PRUNED=$((TOTAL_PRUNED + DELETED))
           done
 
-          echo "::notice::Registry cleanup complete. Pruned $TOTAL_PRUNED image versions across ${{ steps.services.outputs.count }} services."
+          echo "TOTAL_PRUNED=$TOTAL_PRUNED" >> "$GITHUB_OUTPUT"
 
       - name: Summary
         run: |
           echo "Registry cleanup complete."
           echo "Services scanned: ${{ steps.services.outputs.count }}"
           echo "Keep last: ${{ github.event.inputs.keep_last || '10' }} versions per service"
+          echo "Old versions pruned: ${{ steps.prune.outputs.TOTAL_PRUNED || '0' }}"

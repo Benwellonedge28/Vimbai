@@ -237,7 +237,14 @@ func main() {
 	}
 
 	// Setup routes with resilience
+	//
+	// NOTE: `route := route` captures the loop variable per iteration.
+	// Without it (Go < 1.22 loopvar semantics), every proxy closure below
+	// (Director, ErrorHandler) would share the LAST route after the loop
+	// ends - silently applying the last route's StripPrefix/Path to every
+	// proxied request and breaking prefix stripping for every other route.
 	for _, route := range cfg.Routes {
+		route := route
 		targetURL, err := url.Parse(route.TargetURL)
 		if err != nil {
 			log.Fatalf("Invalid target URL for path %s: %v", route.Path, err)
