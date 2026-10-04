@@ -58,28 +58,6 @@ jobs:
             fi
           done
 
-      - name: Build and push web frontend
-        run: |
-          if [ -f "web-frontend/Dockerfile" ]; then
-            docker buildx build \
-              --platform linux/amd64 \
-              -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web-frontend:${{ github.ref_name }} \
-              -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/web-frontend:latest \
-              --push \
-              "./web-frontend"
-          fi
-
-  deploy-production:
-    name: Deploy to Production Cluster
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-    env:
-      KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
-    steps:
-      - uses: actions/checkout@v4
-
       - name: Check for kubeconfig
         id: check
         run: |

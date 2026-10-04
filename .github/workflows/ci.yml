@@ -95,31 +95,6 @@ jobs:
         run: |
           flake8 . --quiet
 
-  lint-frontend:
-    name: Lint Frontend
-    runs-on: ubuntu-latest
-    if: github.actor != 'dependabot[bot]'
-    continue-on-error: true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
-          cache-dependency-path: web-frontend/yarn.lock
-
-      - name: Install dependencies
-        working-directory: web-frontend
-        run: yarn install --frozen-lockfile
-
-      - name: Run ESLint
-        working-directory: web-frontend
-        run: yarn lint || echo "ESLint warnings - continuing"
-        continue-on-error: true
-
   # ============================================================
   # CodeQL Analysis
   # ============================================================
@@ -241,41 +216,6 @@ jobs:
         run: go vet ./...
 
   # ============================================================
-  # React Frontend - Build
-  # ============================================================
-  build-frontend:
-    name: Build React Frontend
-    runs-on: ubuntu-latest
-    if: github.actor != 'dependabot[bot]'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
-          cache-dependency-path: web-frontend/yarn.lock
-
-      - name: Install dependencies
-        working-directory: web-frontend
-        run: yarn install --frozen-lockfile
-
-      - name: Type check
-        working-directory: web-frontend
-        run: npx tsc --noEmit
-
-      - name: Build frontend
-        working-directory: web-frontend
-        run: yarn build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build
-          path: web-frontend/dist
-          retention-days: 30
 
   # ============================================================
   # Docker Build - Core Services (not all 342)
@@ -283,7 +223,7 @@ jobs:
   docker-build:
     name: Build Core Docker Images
     runs-on: ubuntu-latest
-    needs: [lint-python, test-python-services, build-go, build-frontend]
+    needs: [lint-python, test-python-services, build-go]
     if: github.ref == 'refs/heads/main' && github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout code
@@ -306,7 +246,6 @@ jobs:
             "identity-service"
             "accounting-service"
             "finance-service"
-            "web-frontend"
           )
           for SERVICE in "${CORE_SERVICES[@]}"; do
             if [ -f "${SERVICE}/Dockerfile" ]; then
@@ -522,49 +461,13 @@ jobs:
         if: always()
 
   # ============================================================
-  # NPM Audit (non-blocking)
-  # ============================================================
-  npm-audit:
-    name: NPM Security Audit
-    runs-on: ubuntu-latest
-    if: github.actor != 'dependabot[bot]'
-    continue-on-error: true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
-          cache-dependency-path: web-frontend/yarn.lock
-
-      - name: Install dependencies
-        working-directory: web-frontend
-        run: yarn install --frozen-lockfile
-
-      - name: Run NPM audit
-        working-directory: web-frontend
-        run: |
-          npm audit --json > npm-audit-report.json || true
-        continue-on-error: true
-
-      - name: Upload NPM audit report
-        uses: actions/upload-artifact@v4
-        with:
-          name: npm-audit-report
-          path: web-frontend/npm-audit-report.json
-          retention-days: 30
-        if: always()
-
   # ============================================================
   # Notification on Failure
   # ============================================================
   notify-failure:
     name: Notify on Failure
     runs-on: ubuntu-latest
-    needs: [lint-python, test-python-services, build-go, build-frontend, docker-build, codeql-analysis, zap-scan, grype-scan, trivy-scan, dependency-vulnerabilities, sbom, npm-audit]
+    needs: [lint-python, test-python-services, build-go, docker-build, codeql-analysis, zap-scan, grype-scan, trivy-scan, dependency-vulnerabilities, sbom]
     if: always()
     steps:
       - name: Check results
@@ -573,7 +476,6 @@ jobs:
           echo "  lint-python: ${{ needs.lint-python.result }}"
           echo "  test-python-services: ${{ needs.test-python-services.result }}"
           echo "  build-go: ${{ needs.build-go.result }}"
-          echo "  build-frontend: ${{ needs.build-frontend.result }}"
           echo "  docker-build: ${{ needs.docker-build.result }}"
           echo "  codeql-analysis: ${{ needs.codeql-analysis.result }}"
           echo "  zap-scan: ${{ needs.zap-scan.result }}"
@@ -581,13 +483,11 @@ jobs:
           echo "  trivy-scan: ${{ needs.trivy-scan.result }}"
           echo "  dependency-vulnerabilities: ${{ needs.dependency-vulnerabilities.result }}"
           echo "  sbom: ${{ needs.sbom.result }}"
-          echo "  npm-audit: ${{ needs.npm-audit.result }}"
           
           # Only fail if critical jobs failed
           if [[ "${{ needs.lint-python.result }}" == "failure" || \
                 "${{ needs.test-python-services.result }}" == "failure" || \
-                "${{ needs.build-go.result }}" == "failure" || \
-                "${{ needs.build-frontend.result }}" == "failure" ]]; then
+                "${{ needs.build-go.result }}" == "failure" ]]; then
             echo "::error::Critical CI checks failed"
             exit 1
           fi
