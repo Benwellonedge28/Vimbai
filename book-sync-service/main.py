@@ -93,6 +93,7 @@ def init_db():
                 name TEXT NOT NULL,
                 tier TEXT NOT NULL,
                 description TEXT DEFAULT '',
+                folder TEXT NOT NULL DEFAULT '',
                 created_by TEXT NOT NULL,
                 created_at REAL NOT NULL,
                 seq INTEGER NOT NULL DEFAULT 0
@@ -147,6 +148,12 @@ def init_db():
             );
             CREATE INDEX IF NOT EXISTS idx_mem_user ON memberships(user_id);
             """)
+        # Migration: books gained a `folder` column (client-side organization
+        # of Books into folders). SQLite has no ADD COLUMN IF NOT EXISTS, so
+        # guard on the existing column list.
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(books)").fetchall()}
+        if "folder" not in cols:
+            conn.execute("ALTER TABLE books ADD COLUMN folder TEXT NOT NULL DEFAULT ''")
 
 
 init_db()
@@ -187,6 +194,8 @@ class BookCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     tier: str
     description: str = ""
+    # Optional folder for client-side organization of Books ("" = unfiled).
+    folder: str = Field(default="", max_length=120)
     # The Book's AES key wrapped for the creator (public-key wrapped, opaque
     # to this server). Empty for personal Books that never sync.
     wrapped_book_key: str = ""
@@ -195,6 +204,7 @@ class BookCreate(BaseModel):
 class BookUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    folder: Optional[str] = None  # None = unchanged, "" = unfile
 
 
 class MemberInvite(BaseModel):
@@ -237,8 +247,9 @@ def create_book(body: BookCreate, user_id: str = Depends(current_user)):
     now = time.time()
     with db() as conn:
         conn.execute(
-            "INSERT INTO books (id, name, tier, description, created_by, created_at, seq) " "VALUES (?,?,?,?,?,?,0)",
-            (book_id, body.name, body.tier, body.description, user_id, now),
+            "INSERT INTO books (id, name, tier, description, folder, created_by, created_at, seq) "
+            "VALUES (?,?,?,?,?,?,?,0)",
+            (book_id, body.name, body.tier, body.description, body.folder, user_id, now),
         )
         conn.execute(
             "INSERT INTO memberships (id, book_id, user_id, role, display_name, status, invited_by, created_at) "
@@ -258,6 +269,7 @@ def create_book(body: BookCreate, user_id: str = Depends(current_user)):
             "name": body.name,
             "tier": body.tier,
             "description": body.description,
+            "folder": body.folder,
             "created_by": user_id,
             "created_at": now,
             "seq": 0,
@@ -284,6 +296,7 @@ def list_books(user_id: str = Depends(current_user)):
                     "name": r["name"],
                     "tier": r["tier"],
                     "description": r["description"],
+                    "folder": r["folder"],
                     "seq": r["seq"],
                     "your_role": r["role"],
                     "membership_status": r["status"],
@@ -306,6 +319,7 @@ def get_book(book_id: str, user_id: str = Depends(current_user)):
                 "name": r["name"],
                 "tier": r["tier"],
                 "description": r["description"],
+                "folder": r["folder"],
                 "seq": r["seq"],
                 "created_at": r["created_at"],
             },
@@ -322,7 +336,9 @@ def update_book(book_id: str, body: BookUpdate, user_id: str = Depends(current_u
             conn.execute("UPDATE books SET name=? WHERE id=?", (body.name, book_id))
         if body.description is not None:
             conn.execute("UPDATE books SET description=? WHERE id=?", (body.description, book_id))
-        audit(conn, book_id, user_id, "book.updated", body.name or "")
+        if body.folder is not None:
+            conn.execute("UPDATE books SET folder=? WHERE id=?", (body.folder.strip()[:120], book_id))
+        audit(conn, book_id, user_id, "book.updated", body.name or body.folder or "")
     return {"service": SERVICE_NAME, "status": "updated"}
 
 

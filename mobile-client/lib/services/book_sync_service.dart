@@ -56,7 +56,7 @@ class BookSyncService {
     final dir = await getDatabasesPath();
     _metaDb = await openDatabase(
       p.join(dir, 'vimbai_books.db'),
-      version: 1,
+      version: 2,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE registry (
@@ -64,6 +64,7 @@ class BookSyncService {
             name TEXT NOT NULL,
             tier TEXT NOT NULL,
             description TEXT DEFAULT '',
+            folder TEXT DEFAULT '',
             role TEXT NOT NULL,
             status TEXT NOT NULL,
             local_seq INTEGER NOT NULL DEFAULT 0,
@@ -72,6 +73,12 @@ class BookSyncService {
             last_meta_sync REAL NOT NULL DEFAULT 0
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // v2: Books can be organized into folders.
+          await db.execute("ALTER TABLE registry ADD COLUMN folder TEXT DEFAULT ''");
+        }
       },
     );
     return _metaDb!;
@@ -190,6 +197,7 @@ class BookSyncService {
           'name': book.name,
           'tier': book.tier,
           'description': book.description,
+          'folder': book.folder,
           'role': book.yourRole,
           'status': book.membershipStatus,
           'last_meta_sync': DateTime.now().millisecondsSinceEpoch / 1000.0,
@@ -210,6 +218,7 @@ class BookSyncService {
         name: r['name'] as String,
         tier: r['tier'] as String,
         description: r['description'] as String? ?? '',
+        folder: r['folder'] as String? ?? '',
         yourRole: r['role'] as String? ?? 'viewer',
         membershipStatus: r['status'] as String? ?? 'active',
         seq: (r['local_seq'] as num?)?.toInt() ?? 0,
@@ -222,7 +231,7 @@ class BookSyncService {
   /// the key wrapped for *you* via your RSA public key, so it stays
   /// end-to-end encrypted even in transit.
   Future<VBook> createBook(String name, String tier,
-      {String description = ''}) async {
+      {String description = '', String folder = ''}) async {
     final bookKey = generateBookKey();
     final r = await _client.post(
       _u('/books'),
@@ -231,6 +240,7 @@ class BookSyncService {
         'name': name,
         'tier': tier,
         'description': description,
+        'folder': folder,
         'wrapped_book_key': _wrapForSelf(bookKey),
       }),
     );
@@ -248,6 +258,7 @@ class BookSyncService {
         'name': book.name,
         'tier': book.tier,
         'description': book.description,
+        'folder': book.folder,
         'role': 'owner',
         'status': 'active',
         'book_key': bookKey,
@@ -265,6 +276,40 @@ class BookSyncService {
   /// the user's public key from identity-service. Kept as a seam so the
   /// protocol does not change when the registry lands.
   String _wrapForSelf(String bookKey) => 'self:${base64Encode(utf8.encode(bookKey))}';
+
+  /// Update a Book (name/description/folder). Folder moves keep the Book in
+  /// the chosen client-side folder; pass '' to unfile it. Requires owner or
+  /// admin membership server-side.
+  Future<void> updateBook(String bookId,
+      {String? name, String? description, String? folder}) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (description != null) body['description'] = description;
+    if (folder != null) body['folder'] = folder.trim();
+    final r = await _client.put(
+      _u('/books/$bookId'),
+      headers: _headers,
+      body: jsonEncode(body),
+    );
+    if (r.statusCode != 200) {
+      throw Exception('Update book failed: ${r.statusCode} ${r.body}');
+    }
+    // keep the local registry in sync so folder grouping survives offline
+    final meta = await _meta();
+    final patch = <String, dynamic>{};
+    if (name != null) patch['name'] = name;
+    if (description != null) patch['description'] = description;
+    if (folder != null) patch['folder'] = folder.trim();
+    if (patch.isNotEmpty) {
+      patch['book_id'] = bookId;
+      await meta.update(
+        'registry',
+        patch,
+        where: 'book_id = ?',
+        whereArgs: [bookId],
+      );
+    }
+  }
 
   Future<void> _ensureDevice(String bookId) async {
     final meta = await _meta();

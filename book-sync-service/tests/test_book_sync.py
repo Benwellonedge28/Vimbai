@@ -294,3 +294,69 @@ def test_default_book_get_or_create():
     r2 = client.post("/books/default", headers=hdrs)
     assert r2.json()["created"] is False
     assert r2.json()["book"]["id"] == first["book"]["id"]
+
+
+def test_create_book_with_folder():
+    r = client.post(
+        "/books",
+        json={"name": "Tuckshop Sales", "tier": "business", "folder": "Shops"},
+        headers=hdr(ALICE),
+    )
+    assert r.status_code == 200, r.text
+    b = r.json()["book"]
+    assert b["folder"] == "Shops"
+    # folder comes back on the list and the single fetch
+    listed = client.get("/books", headers=hdr(ALICE)).json()["books"]
+    match = [x for x in listed if x["id"] == b["id"]][0]
+    assert match["folder"] == "Shops"
+    one = client.get("/books/%s" % b["id"], headers=hdr(ALICE)).json()["book"]
+    assert one["folder"] == "Shops"
+
+
+def test_books_default_to_unfiled_folder():
+    r = client.post(
+        "/books",
+        json={"name": "Stokvel", "tier": "group"},
+        headers=hdr(ALICE),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["book"]["folder"] == ""
+
+
+def test_move_book_to_folder():
+    r = client.post(
+        "/books",
+        json={"name": "Chikafu Funds", "tier": "group"},
+        headers=hdr(ALICE),
+    )
+    book_id = r.json()["book"]["id"]
+    mv = client.put("/books/%s" % book_id, json={"folder": "Savings Clubs"}, headers=hdr(ALICE))
+    assert mv.status_code == 200, mv.text
+    listed = client.get("/books", headers=hdr(ALICE)).json()["books"]
+    match = [x for x in listed if x["id"] == book_id][0]
+    assert match["folder"] == "Savings Clubs"
+    # unfile again with empty string
+    client.put("/books/%s" % book_id, json={"folder": ""}, headers=hdr(ALICE))
+    listed = client.get("/books", headers=hdr(ALICE)).json()["books"]
+    match = [x for x in listed if x["id"] == book_id][0]
+    assert match["folder"] == ""
+
+
+def test_viewer_cannot_move_book():
+    # invite BOB as viewer with a wrapped key
+    r = client.post(
+        "/books",
+        json={"name": "Locked Book", "tier": "business", "folder": "Vault"},
+        headers=hdr(ALICE),
+    )
+    book_id = r.json()["book"]["id"]
+    inv = client.post(
+        "/books/%s/members" % book_id,
+        json={"user_id": BOB, "role": "viewer", "wrapped_book_key": "k"},
+        headers=hdr(ALICE),
+    )
+    assert inv.status_code == 200, inv.text
+    acc = client.post("/books/%s/members/accept" % book_id, headers=hdr(BOB))
+    assert acc.status_code == 200, acc.text
+    mv = client.put("/books/%s" % book_id, json={"folder": "Evil"}, headers=hdr(BOB))
+    assert mv.status_code == 403

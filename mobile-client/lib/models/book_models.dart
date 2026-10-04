@@ -10,6 +10,7 @@ class VBook {
   final String name;
   final String tier; // personal | household | group | business
   final String description;
+  final String folder; // optional client-side folder grouping ("" = unfiled)
   final String yourRole;
   final String membershipStatus; // active | invited
   final int seq;
@@ -20,6 +21,7 @@ class VBook {
     required this.name,
     required this.tier,
     this.description = '',
+    this.folder = '',
     this.yourRole = 'owner',
     this.membershipStatus = 'active',
     this.seq = 0,
@@ -32,6 +34,7 @@ class VBook {
       name: j['name'] as String? ?? '',
       tier: j['tier'] as String? ?? 'personal',
       description: j['description'] as String? ?? '',
+      folder: j['folder'] as String? ?? '',
       yourRole: j['your_role'] as String? ?? 'viewer',
       membershipStatus: j['membership_status'] as String? ?? 'active',
       seq: (j['seq'] as num?)?.toInt() ?? 0,
@@ -48,6 +51,7 @@ class VBook {
         'name': name,
         'tier': tier,
         'description': description,
+        'folder': folder,
         'your_role': yourRole,
         'membership_status': membershipStatus,
         'seq': seq,

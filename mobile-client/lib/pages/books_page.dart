@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vimbai_mobile_client/models/book_models.dart';
 import 'package:vimbai_mobile_client/services/book_context.dart';
 import 'package:vimbai_mobile_client/services/book_sync_service.dart';
+import 'package:vimbai_mobile_client/pages/create_book_wizard.dart';
 import 'package:vimbai_mobile_client/services/npo_scale_service.dart';
 
 class BooksPage extends StatefulWidget {
@@ -129,66 +130,201 @@ class _BooksPageState extends State<BooksPage> {
   }
 
   Future<void> _createBook() async {
-    final nameCtrl = TextEditingController();
-    String tier = 'household';
-    final created = await showDialog<Map<String, String>>(
+    // Start a Book: choose category -> name it -> create (full wizard).
+    final created = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (context) => const CreateBookWizardPage()),
+    );
+    if (created is String && created.isNotEmpty) {
+      // The freshly created Book becomes the active Book context right away.
+      await _setActive(created);
+    }
+    await _load();
+  }
+
+  /// Books organized into folders: returns folder names sorted, with
+  /// books sorted by name inside each folder.
+  Map<String, List<VBook>> _folders(List<VBook> books) {
+    final byFolder = <String, List<VBook>>{};
+    for (final b in books) {
+      byFolder.putIfAbsent(b.folder, () => []).add(b);
+    }
+    final keys = byFolder.keys.where((f) => f.isNotEmpty).toList()..sort();
+    if (byFolder.containsKey('')) {
+      keys.add(''); // unfiled Books come last
+    }
+    return {for (final k in keys) k: byFolder[k]!..sort((a, b) => a.name.compareTo(b.name))};
+  }
+
+  /// Move a Book into a folder ("" unfiles it).
+  Future<void> _moveToFolder(VBook book) async {
+    final folders = _books
+        .map((b) => b.folder)
+        .where((f) => f.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    final ctrl = TextEditingController(text: book.folder);
+    final folder = await showDialog<String>(
       context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setDialog) {
-            return AlertDialog(
-              title: const Text('New Book'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Book name',
-                    ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) {
+          return AlertDialog(
+            title: Text('Move "${book.name}"'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (folders.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ...folders.map(
+                        (f) => ChoiceChip(
+                          label: Text(f),
+                          selected: ctrl.text == f,
+                          onSelected: (_) => setDialog(() => ctrl.text = f),
+                        ),
+                      ),
+                      ActionChip(
+                        avatar: const Icon(
+                          Icons.create_new_folder_outlined,
+                          size: 18,
+                        ),
+                        label: const Text('New'),
+                        onPressed: () async {
+                          final c2 = TextEditingController();
+                          final name = await showDialog<String>(
+                            context: ctx,
+                            builder: (ctx2) => AlertDialog(
+                              title: const Text('New folder'),
+                              content: TextField(
+                                controller: c2,
+                                autofocus: true,
+                                maxLength: 120,
+                                decoration: const InputDecoration(
+                                  labelText: 'Folder name',
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx2),
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () =>
+                                      Navigator.pop(ctx2, c2.text.trim()),
+                                  child: const Text('Add'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (name != null && name.isNotEmpty) {
+                            setDialog(() => ctrl.text = name);
+                          }
+                        },
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  ...kBookTiers.map(
-                    (t) => RadioListTile<String>(
-                      value: t,
-                      groupValue: tier,
-                      onChanged: (v) => setDialog(() => tier = v ?? tier),
-                      title: Text(t[0].toUpperCase() + t.substring(1)),
-                    ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: ctrl,
+                  maxLength: 120,
+                  decoration: const InputDecoration(
+                    labelText: 'Folder name (empty = no folder)',
                   ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(
-                    ctx,
-                    {'name': nameCtrl.text, 'tier': tier},
-                  ),
-                  child: const Text('Create'),
                 ),
               ],
-            );
-          },
-        );
-      },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+                child: const Text('Move'),
+              ),
+            ],
+          );
+        },
+      ),
     );
-    if (created == null) return;
-    final name = (created['name'] ?? '').trim();
-    if (name.isEmpty) return;
+    if (folder == null) return;
     try {
-      final book = await _sync.createBook(name, created['tier']!);
-      await _setActive(book.id);
+      await _sync.updateBook(book.id, folder: folder);
       await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              folder.isEmpty ? 'Book unfiled' : 'Moved to "$folder"',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not create book: $e')),
+          SnackBar(content: Text('Move failed: $e')),
         );
       }
+    }
+  }
+
+  /// Long-press actions on a Book: move to a folder, invite members.
+  Future<void> _bookActions(VBook book, String folder, List<VBook> siblings) async {
+    final canInvite = book.yourRole == 'owner' || book.yourRole == 'admin';
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                book.name,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.drive_file_move_outline),
+              title: Text(folder.isEmpty ? 'Move to folder' : 'Change folder'),
+              onTap: () => Navigator.pop(ctx, 'move'),
+            ),
+            if (canInvite)
+              ListTile(
+                leading: const Icon(Icons.person_add_alt),
+                title: const Text('Invite member'),
+                onTap: () => Navigator.pop(ctx, 'invite'),
+              ),
+            if (folder.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.folder_off_outlined),
+                title: const Text('Remove from folder'),
+                onTap: () => Navigator.pop(ctx, 'unfile'),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    switch (action) {
+      case 'move':
+        await _moveToFolder(book);
+      case 'invite':
+        await _invite(book.id);
+      case 'unfile':
+        try {
+          await _sync.updateBook(book.id, folder: '');
+          await _load();
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not unfile: $e')),
+            );
+          }
+        }
     }
   }
 
@@ -332,38 +468,56 @@ class _BooksPageState extends State<BooksPage> {
                         style: TextStyle(color: Theme.of(context).colorScheme.error),
                       ),
                     ),
-                  ..._books.map(
-                    (b) {
-                      final isActive = b.id == _activeBookId;
-                      final invited = b.membershipStatus == 'invited';
-                      return Card(
-                        color: isActive
-                            ? Theme.of(context).colorScheme.primaryContainer
-                            : null,
-                        child: ListTile(
-                          leading: Icon(_tierIcons[b.tier] ?? Icons.book),
-                          title: Text(b.name),
-                          subtitle: Text(
-                            '${b.tier} - you are ${b.yourRole}'
-                            '${invited ? ' (invited)' : ''}',
+                  ..._folders(_books).entries.expand((entry) {
+                    final folder = entry.key;
+                    final books = entry.value;
+                    return [
+                      if (folder.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.folder_outlined, size: 18),
+                              const SizedBox(width: 6),
+                              Text(
+                                folder,
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                            ],
                           ),
-                          trailing: invited
-                              ? TextButton(
-                                  onPressed: () => _accept(b),
-                                  child: const Text('Accept'),
-                                )
-                              : (isActive
-                                  ? const Icon(Icons.check_circle)
-                                  : null),
-                          onTap: invited ? null : () => _setActive(b.id),
-                          onLongPress: b.yourRole == 'owner' ||
-                                  b.yourRole == 'admin'
-                              ? () => _invite(b.id)
-                              : null,
                         ),
-                      );
-                    },
-                  ),
+                      ...books.map(
+                        (b) {
+                          final isActive = b.id == _activeBookId;
+                          final invited = b.membershipStatus == 'invited';
+                          return Card(
+                            color: isActive
+                                ? Theme.of(context).colorScheme.primaryContainer
+                                : null,
+                            child: ListTile(
+                              leading: Icon(_tierIcons[b.tier] ?? Icons.book),
+                              title: Text(b.name),
+                              subtitle: Text(
+                                '${b.tier} - you are ${b.yourRole}'
+                                '${invited ? ' (invited)' : ''}',
+                              ),
+                              trailing: invited
+                                  ? TextButton(
+                                      onPressed: () => _accept(b),
+                                      child: const Text('Accept'),
+                                    )
+                                  : (isActive
+                                      ? const Icon(Icons.check_circle)
+                                      : null),
+                              onTap: invited ? null : () => _setActive(b.id),
+                              onLongPress: () =>
+                                  _bookActions(b, entry.key),
+                            ),
+                          );
+                        },
+                      ),
+                    ];
+                  }),
                   if (_orgBooks.isNotEmpty) ...[
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
