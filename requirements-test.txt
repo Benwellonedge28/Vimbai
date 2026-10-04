@@ -19,4 +19,7 @@ croniter
 scipy
 strawberry-graphql
 PyJWT  # several service test suites sign their own tokens
+python-jose[cryptography]  # accounting-service token introspection (vimbai_local core profile)
+passlib[bcrypt]  # identity-service password hashing (vimbai_local core profile)
+email-validator  # identity-service EmailStr fields (pydantic[email])
 bcrypt==4.2.1  # passlib 1.7.4 is broken by bcrypt 5.x
