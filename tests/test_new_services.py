@@ -1127,7 +1127,21 @@ class TestDisposalGroupService:
 
 class TestActivityBasedBudgetService:
     def setup_method(self):
+        # Patch the fake Neo4j driver AFTER app load (package alias registers on
+        # main.py exec) and stamp caller identity on every request.
+        import importlib.util
+        import os as _os
+
+        from activity_based_budget_service.database import Neo4jConnector
+
+        fake_path = _os.path.join(REPO_ROOT, "activity-based-budget-service", "fake_neo4j.py")
+        spec = importlib.util.spec_from_file_location("abb_root_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+        shared = fake.FakeSession()
+        Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(shared))
         self.client = TestClient(load_service_app("activity-based-budget-service"))
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
 
     def test_health(self):
         resp = self.client.get("/health")
