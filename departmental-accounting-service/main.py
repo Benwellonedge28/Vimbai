@@ -1,20 +1,57 @@
+"""Vimbai Departmental Accounting Service. Port: 8100.
+
+Departmental cost allocation, inter-department billing, and
+department-level financial reporting. The six module-level stores
+previously shared ALL callers' data globally; they now persist to Neo4j
+as caller-owned, Book-scoped records (X-User-Id / X-Book-ID). Rerunning
+a cost allocation replaces the caller's previous results for that pool.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
-Vimbai Departmental Accounting Service
-Dedicated service for departmental cost allocation, inter-department billing,
-and department-level financial reporting
-Uses existing services via internal API calls for core accounting functions
-"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "departmental_accounting_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("departmental_accounting_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location(
+        "departmental_accounting_service", _os.path.join(_HERE, "__init__.py")
+    )
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["departmental_accounting_service"] = _pkg
+    _sys.modules["departmental_accounting_service"].__path__ = [_HERE]
 
 import os
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import httpx
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
-from pydantic import BaseModel, Field
+from fastapi import Depends, FastAPI, HTTPException, Request
+from neo4j import AsyncSession
+
+from departmental_accounting_service import crud
+from departmental_accounting_service.dependencies import book_id_var, get_db_session, get_user_id
+from departmental_accounting_service.exceptions import DepartmentalAccountingError
+from departmental_accounting_service.models import (
+    AllocationBasis,
+    AllocationMethod,
+    Department,
+    DepartmentAllocationResult,
+    DepartmentAllocationRule,
+    DepartmentCostPool,
+    DepartmentFinancials,
+    DepartmentPerformanceReport,
+    DepartmentStatus,
+    DepartmentType,
+    InterDepartmentBilling,
+)
 
 app = FastAPI(
     title="Vimbai Departmental Accounting Service",
@@ -32,168 +69,25 @@ CASHBOOK_SERVICE_URL = os.getenv("CASHBOOK_SERVICE_URL", "http://localhost:8098"
 AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8091")
 
 # ============================================================================
-# Enums
-# ============================================================================
-
-
-class DepartmentType(str, Enum):
-    REVENUE = "revenue"  # Generates income
-    COST = "cost"  # Incurs expenses
-    SUPPORT = "support"  # Provides services to other departments
-    ADMIN = "admin"  # Administrative
-
-
-class AllocationMethod(str, Enum):
-    DIRECT = "direct"
-    STEP_DOWN = "step_down"
-    RECIPROCAL = "reciprocal"
-    RATIO_BASED = "ratio_based"
-
-
-class AllocationBasis(str, Enum):
-    HEADCOUNT = "headcount"
-    FLOOR_SPACE = "floor_space"
-    REVENUE = "revenue"
-    EXPENSES = "expenses"
-    USAGE = "usage"
-    CUSTOM = "custom"
-
-
-class DepartmentStatus(str, Enum):
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    UNDER_REVIEW = "under_review"
-    CLOSED = "closed"
-
-
-# ============================================================================
-# Pydantic Models
-# ============================================================================
-
-
-class Department(BaseModel):
-    id: str
-    department_code: str
-    department_name: str
-    department_type: DepartmentType
-    parent_department_id: Optional[str] = None
-    manager_id: str
-    manager_name: str
-    cost_center_code: Optional[str] = None
-    revenue_center_code: Optional[str] = None
-    status: DepartmentStatus = DepartmentStatus.ACTIVE
-    budget_id: Optional[str] = None  # Links to budgeting-service
-    account_code: Optional[str] = None  # Links to accounting-service
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class DepartmentAllocationRule(BaseModel):
-    id: str
-    department_id: str
-    cost_type: str  # rent, utilities, IT, HR, etc.
-    allocation_basis: AllocationBasis
-    allocation_method: AllocationMethod
-    percentage: float = 0.0  # For ratio-based
-    custom_formula: Optional[str] = None
-    priority: int = 1  # For step-down method
-    is_active: bool = True
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class InterDepartmentBilling(BaseModel):
-    id: str
-    bill_number: str
-    from_department_id: str
-    from_department_name: str
-    to_department_id: str
-    to_department_name: str
-    service_description: str
-    service_category: str
-    amount: Decimal
-    billing_date: datetime
-    period_start: datetime
-    period_end: datetime
-    status: str = "pending"  # pending, approved, invoiced, paid
-    approved_by: Optional[str] = None
-    invoice_id: Optional[str] = None
-    notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class DepartmentCostPool(BaseModel):
-    id: str
-    pool_name: str
-    pool_type: str  # service_costs, facility_costs, admin_costs
-    total_amount: Decimal
-    allocation_basis: AllocationBasis
-    allocation_method: AllocationMethod
-    included_departments: List[str] = []
-    excluded_departments: List[str] = []
-    status: str = "open"  # open, allocating, closed
-    period_start: datetime
-    period_end: datetime
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class DepartmentAllocationResult(BaseModel):
-    id: str
-    department_id: str
-    department_name: str
-    cost_pool_id: str
-    cost_pool_name: str
-    allocated_amount: Decimal
-    allocation_percentage: float
-    allocation_basis_used: AllocationBasis
-    calculation_details: Dict[str, Any] = {}
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class DepartmentFinancials(BaseModel):
-    department_id: str
-    department_name: str
-    period: str
-    revenue: Decimal = Decimal("0")
-    direct_expenses: Decimal = Decimal("0")
-    allocated_costs: Decimal = Decimal("0")
-    total_expenses: Decimal = Decimal("0")
-    net_income: Decimal = Decimal("0")
-    budget_variance: Decimal = Decimal("0")
-    budget_variance_percentage: float = 0.0
-    headcount: int = 0
-    revenue_per_head: Decimal = Decimal("0")
-    cost_per_head: Decimal = Decimal("0")
-    as_of_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class DepartmentPerformanceReport(BaseModel):
-    id: str
-    department_id: str
-    department_name: str
-    period_start: datetime
-    period_end: datetime
-    financial_summary: DepartmentFinancials
-    kpis: Dict[str, Any] = {}
-    comparisons: Dict[str, Any] = {}  # vs budget, vs previous period, vs target
-    recommendations: List[str] = []
-    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-# ============================================================================
-# Storage
-# ============================================================================
-
-departments: Dict[str, Department] = {}
-allocation_rules: Dict[str, DepartmentAllocationRule] = {}
-inter_dept_bills: Dict[str, InterDepartmentBilling] = {}
-cost_pools: Dict[str, DepartmentCostPool] = {}
-allocation_results: Dict[str, List[DepartmentAllocationResult]] = {}
-dept_financials_cache: Dict[str, DepartmentFinancials] = {}
-
-
-# ============================================================================
 # Internal API Helper Functions
 # ============================================================================
+
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
+
+
+@app.exception_handler(DepartmentalAccountingError)
+async def _departmental_accounting_error(request: Request, exc: DepartmentalAccountingError):
+    from fastapi.responses import JSONResponse
+
+    status_code = getattr(exc, "status_code", 400)
+    return JSONResponse(
+        status_code=status_code, content={"detail": str(exc), "error": exc.__class__.__name__}
+    )
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None):
@@ -260,14 +154,19 @@ async def call_audit_service(event_data: Dict):
 
 
 @app.get("/")
-async def health_check():
-    """Health check endpoint"""
+async def health_check(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Health check endpoint (caller-scoped counts)"""
+    departments = await crud.list_all(db_session, user_id, Department)
+    cost_pools = await crud.list_all(db_session, user_id, DepartmentCostPool)
     return {
         "status": "healthy",
         "service": "departmental-accounting",
         "version": "1.0.0",
         "total_departments": len(departments),
-        "active_cost_pools": sum(1 for p in cost_pools.values() if p.status == "open"),
+        "active_cost_pools": sum(1 for p in cost_pools if p.status == "open"),
     }
 
 
@@ -275,13 +174,17 @@ async def health_check():
 
 
 @app.post("/departments")
-async def create_department(department: Department):
-    """Create a new department"""
+async def create_department(
+    department: Department,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Create a new department (caller-owned, Book-stamped)"""
     department.id = str(uuid.uuid4())
     department.created_at = datetime.now(timezone.utc)
     department.updated_at = datetime.now(timezone.utc)
 
-    departments[department.id] = department
+    await crud.create(db_session, user_id, department)
 
     # Create cost center in accounting service
     await call_accounting_service(
@@ -314,9 +217,11 @@ async def list_departments(
     department_type: Optional[DepartmentType] = None,
     status: Optional[DepartmentStatus] = None,
     parent_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """List all departments"""
-    results = list(departments.values())
+    """List the caller's departments"""
+    results = await crud.list_all(db_session, user_id, Department)
 
     if department_type:
         results = [d for d in results if d.department_type == department_type]
@@ -329,47 +234,69 @@ async def list_departments(
 
 
 @app.get("/departments/{department_id}")
-async def get_department(department_id: str):
-    """Get department details"""
-    if department_id not in departments:
+async def get_department(
+    department_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get department details; cross-scope 404"""
+    dept = await crud.find(db_session, user_id, Department, department_id)
+    if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
-    return departments[department_id]
+    return dept
 
 
 @app.put("/departments/{department_id}")
-async def update_department(department_id: str, department: Department):
-    """Update department"""
-    if department_id not in departments:
+async def update_department(
+    department_id: str,
+    department: Department,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Update department (full replace, caller-owned)"""
+    existing = await crud.find(db_session, user_id, Department, department_id)
+    if not existing:
         raise HTTPException(status_code=404, detail="Department not found")
 
     department.id = department_id
     department.updated_at = datetime.now(timezone.utc)
-    departments[department_id] = department
+
+    # latest-wins upsert: replace the caller's record for this id
+    await crud.delete_where(db_session, user_id, Department, {"id": department_id})
+    await crud.create(db_session, user_id, department)
 
     return department
 
 
 @app.get("/departments/{department_id}/hierarchy")
-async def get_department_hierarchy(department_id: str):
-    """Get department hierarchy (parent/children)"""
-    if department_id not in departments:
+async def get_department_hierarchy(
+    department_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get department hierarchy (parent/children) within the caller's scope"""
+    dept = await crud.find(db_session, user_id, Department, department_id)
+    if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
+
+    all_departments = await crud.list_all(db_session, user_id, Department)
+    by_id = {d.id: d for d in all_departments}
 
     # Get parent chain
     parents = []
     current_id = department_id
     while current_id:
-        dept = departments.get(current_id)
-        if not dept:
+        d = by_id.get(current_id)
+        if not d:
             break
-        parents.append(dept)
-        current_id = dept.parent_department_id
+        parents.append(d)
+        current_id = d.parent_department_id
 
     # Get children
-    children = [d for d in departments.values() if d.parent_department_id == department_id]
+    children = [d for d in all_departments if d.parent_department_id == department_id]
 
     return {
-        "department": departments[department_id],
+        "department": dept,
         "parents": parents[1:],  # Exclude self
         "children": children,
     }
@@ -379,19 +306,27 @@ async def get_department_hierarchy(department_id: str):
 
 
 @app.post("/allocation-rules")
-async def create_allocation_rule(rule: DepartmentAllocationRule):
-    """Create cost allocation rule"""
+async def create_allocation_rule(
+    rule: DepartmentAllocationRule,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Create cost allocation rule (caller-owned)"""
     rule.id = str(uuid.uuid4())
     rule.created_at = datetime.now(timezone.utc)
 
-    allocation_rules[rule.id] = rule
+    await crud.create(db_session, user_id, rule)
     return rule
 
 
 @app.get("/allocation-rules")
-async def list_allocation_rules(department_id: Optional[str] = None):
-    """List allocation rules"""
-    results = list(allocation_rules.values())
+async def list_allocation_rules(
+    department_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's allocation rules"""
+    results = await crud.list_all(db_session, user_id, DepartmentAllocationRule)
 
     if department_id:
         results = [r for r in results if r.department_id == department_id]
@@ -400,12 +335,18 @@ async def list_allocation_rules(department_id: Optional[str] = None):
 
 
 @app.delete("/allocation-rules/{rule_id}")
-async def deactivate_allocation_rule(rule_id: str):
+async def deactivate_allocation_rule(
+    rule_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Deactivate an allocation rule"""
-    if rule_id not in allocation_rules:
+    updated = await crud.update_props(
+        db_session, user_id, DepartmentAllocationRule, rule_id, {"is_active": False}
+    )
+    if not updated:
         raise HTTPException(status_code=404, detail="Rule not found")
 
-    allocation_rules[rule_id].is_active = False
     return {"status": "deactivated", "rule_id": rule_id}
 
 
@@ -413,19 +354,27 @@ async def deactivate_allocation_rule(rule_id: str):
 
 
 @app.post("/cost-pools")
-async def create_cost_pool(pool: DepartmentCostPool):
-    """Create a cost pool for allocation"""
+async def create_cost_pool(
+    pool: DepartmentCostPool,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Create a cost pool for allocation (caller-owned)"""
     pool.id = str(uuid.uuid4())
     pool.created_at = datetime.now(timezone.utc)
 
-    cost_pools[pool.id] = pool
+    await crud.create(db_session, user_id, pool)
     return pool
 
 
 @app.get("/cost-pools")
-async def list_cost_pools(status: Optional[str] = None):
-    """List cost pools"""
-    results = list(cost_pools.values())
+async def list_cost_pools(
+    status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's cost pools"""
+    results = await crud.list_all(db_session, user_id, DepartmentCostPool)
 
     if status:
         results = [p for p in results if p.status == status]
@@ -434,11 +383,16 @@ async def list_cost_pools(status: Optional[str] = None):
 
 
 @app.get("/cost-pools/{pool_id}")
-async def get_cost_pool(pool_id: str):
-    """Get cost pool details"""
-    if pool_id not in cost_pools:
+async def get_cost_pool(
+    pool_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get cost pool details; cross-scope 404"""
+    pool = await crud.find(db_session, user_id, DepartmentCostPool, pool_id)
+    if not pool:
         raise HTTPException(status_code=404, detail="Cost pool not found")
-    return cost_pools[pool_id]
+    return pool
 
 
 # --- Cost Allocation ---
@@ -446,20 +400,39 @@ async def get_cost_pool(pool_id: str):
 
 @app.post("/allocate")
 async def run_cost_allocation(
-    cost_pool_id: str, period_start: datetime, period_end: datetime, created_by: str = "system"
+    cost_pool_id: str,
+    period_start: datetime,
+    period_end: datetime,
+    created_by: str = "system",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """Run cost allocation for a cost pool"""
-    if cost_pool_id not in cost_pools:
+    """Run cost allocation for a caller-owned cost pool"""
+    pool = await crud.find(db_session, user_id, DepartmentCostPool, cost_pool_id)
+    if not pool:
         raise HTTPException(status_code=404, detail="Cost pool not found")
 
-    pool = cost_pools[cost_pool_id]
     pool.period_start = period_start
     pool.period_end = period_end
     pool.status = "allocating"
+    await crud.update_props(
+        db_session,
+        user_id,
+        DepartmentCostPool,
+        cost_pool_id,
+        {
+            "period_start": period_start,
+            "period_end": period_end,
+            "status": "allocating",
+        },
+    )
 
-    # Get departments to allocate to
+    # Get departments to allocate to (caller's own, active, not excluded)
+    all_departments = await crud.list_all(db_session, user_id, Department)
     target_departments = [
-        d for d in departments.values() if d.id not in pool.excluded_departments and d.status == DepartmentStatus.ACTIVE
+        d
+        for d in all_departments
+        if d.id not in pool.excluded_departments and d.status == DepartmentStatus.ACTIVE
     ]
 
     results = []
@@ -541,8 +514,14 @@ async def run_cost_allocation(
             },
         )
 
-    allocation_results[pool.id] = results
+    # latest-wins: replace the caller's prior results for this pool
+    await crud.delete_where(
+        db_session, user_id, DepartmentAllocationResult, {"cost_pool_id": pool.id}
+    )
+    for result in results:
+        await crud.create(db_session, user_id, result)
     pool.status = "closed"
+    await crud.update_props(db_session, user_id, DepartmentCostPool, cost_pool_id, {"status": "closed"})
 
     return {
         "cost_pool": pool,
@@ -552,33 +531,48 @@ async def run_cost_allocation(
 
 
 @app.get("/allocations/{pool_id}")
-async def get_allocation_results(pool_id: str):
-    """Get allocation results for a cost pool"""
-    if pool_id not in allocation_results:
-        return []
-    return allocation_results[pool_id]
+async def get_allocation_results(
+    pool_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's allocation results for a cost pool"""
+    results = [
+        r
+        for r in await crud.list_all(db_session, user_id, DepartmentAllocationResult)
+        if r.cost_pool_id == pool_id
+    ]
+    return results
 
 
 # --- Inter-Department Billing ---
 
 
 @app.post("/inter-department-bills")
-async def create_inter_dept_bill(bill: InterDepartmentBilling):
-    """Create inter-department billing"""
+async def create_inter_dept_bill(
+    bill: InterDepartmentBilling,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Create inter-department billing (caller-owned)"""
     bill.id = str(uuid.uuid4())
     bill.created_at = datetime.now(timezone.utc)
 
-    inter_dept_bills[bill.id] = bill
+    await crud.create(db_session, user_id, bill)
 
     return bill
 
 
 @app.get("/inter-department-bills")
 async def list_inter_dept_bills(
-    from_dept_id: Optional[str] = None, to_dept_id: Optional[str] = None, status: Optional[str] = None
+    from_dept_id: Optional[str] = None,
+    to_dept_id: Optional[str] = None,
+    status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """List inter-department bills"""
-    results = list(inter_dept_bills.values())
+    """List the caller's inter-department bills"""
+    results = await crud.list_all(db_session, user_id, InterDepartmentBilling)
 
     if from_dept_id:
         results = [b for b in results if b.from_department_id == from_dept_id]
@@ -591,18 +585,31 @@ async def list_inter_dept_bills(
 
 
 @app.post("/inter-department-bills/{bill_id}/approve")
-async def approve_inter_dept_bill(bill_id: str, approved_by: str):
-    """Approve inter-department bill"""
-    if bill_id not in inter_dept_bills:
+async def approve_inter_dept_bill(
+    bill_id: str,
+    approved_by: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Approve inter-department bill; cross-scope 404"""
+    bill = await crud.find(db_session, user_id, InterDepartmentBilling, bill_id)
+    if not bill:
         raise HTTPException(status_code=404, detail="Bill not found")
 
-    bill = inter_dept_bills[bill_id]
     bill.status = "approved"
     bill.approved_by = approved_by
+    await crud.update_props(
+        db_session,
+        user_id,
+        InterDepartmentBilling,
+        bill_id,
+        {"status": "approved", "approved_by": approved_by},
+    )
 
     # Create journal entries in accounting service
-    from_dept = departments.get(bill.from_department_id)
-    to_dept = departments.get(bill.to_department_id)
+    all_departments = await crud.list_all(db_session, user_id, Department)
+    from_dept = next((d for d in all_departments if d.id == bill.from_department_id), None)
+    to_dept = next((d for d in all_departments if d.id == bill.to_department_id), None)
 
     if from_dept and to_dept:
         await call_accounting_service(
@@ -635,13 +642,17 @@ async def approve_inter_dept_bill(bill_id: str, approved_by: str):
 # --- Department Financials ---
 
 
-@app.get("/departments/{department_id}/financials")
-async def get_department_financials(department_id: str, period_start: datetime, period_end: datetime):
-    """Get department financial summary using existing services"""
-    if department_id not in departments:
+async def _department_financials(
+    user_id: str,
+    db_session: AsyncSession,
+    department_id: str,
+    period_start: datetime,
+    period_end: datetime,
+) -> DepartmentFinancials:
+    """Compute a department financial summary over the caller's own data."""
+    dept = await crud.find(db_session, user_id, Department, department_id)
+    if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
-
-    dept = departments[department_id]
 
     # Get revenue from accounting service
     revenue_data = await call_accounting_service("GET", f"/accounts/{dept.account_code}/period-activity")
@@ -653,12 +664,11 @@ async def get_department_financials(department_id: str, period_start: datetime, 
         ledger = await call_accounting_service("GET", f"/ledgers/{dept.account_code}")
         expenses = Decimal(str(ledger.get("closing_balance", 0)))
 
-    # Get allocated costs
+    # Get allocated costs (caller's own allocation results)
     allocated_costs = Decimal("0")
-    for results in allocation_results.values():
-        for result in results:
-            if result.department_id == department_id:
-                allocated_costs += result.allocated_amount
+    for result in await crud.list_all(db_session, user_id, DepartmentAllocationResult):
+        if result.department_id == department_id:
+            allocated_costs += result.allocated_amount
 
     # Get budget variance from budgeting service
     budget_variance = Decimal("0")
@@ -686,23 +696,41 @@ async def get_department_financials(department_id: str, period_start: datetime, 
         budget_variance_percentage=budget_variance_pct,
     )
 
-    # Cache the results
+    # Cache the results (latest-wins per department+period, caller-owned)
     cache_key = f"{dept.id}-{period_start.date()}"
-    dept_financials_cache[cache_key] = financials
+    await crud.delete_where(db_session, user_id, DepartmentFinancials, {"cache_key": cache_key})
+    await crud.create(db_session, user_id, financials, extra={"cache_key": cache_key})
 
     return financials
 
 
+@app.get("/departments/{department_id}/financials")
+async def get_department_financials(
+    department_id: str,
+    period_start: datetime,
+    period_end: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get department financial summary using existing services"""
+    return await _department_financials(user_id, db_session, department_id, period_start, period_end)
+
+
 @app.get("/departments/{department_id}/performance-report")
-async def get_performance_report(department_id: str, period_start: datetime, period_end: datetime):
+async def get_performance_report(
+    department_id: str,
+    period_start: datetime,
+    period_end: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Generate comprehensive department performance report"""
-    if department_id not in departments:
+    dept = await crud.find(db_session, user_id, Department, department_id)
+    if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
 
-    dept = departments[department_id]
-
     # Get financials
-    financials = await get_department_financials(department_id, period_start, period_end)
+    financials = await _department_financials(user_id, db_session, department_id, period_start, period_end)
 
     # Get budget execution from budgeting service
     budget_execution = {}
@@ -710,12 +738,12 @@ async def get_performance_report(department_id: str, period_start: datetime, per
         budget_execution = await call_budgeting_service("GET", f"/reports/execution?budget_id={dept.budget_id}")
 
     # Calculate KPIs
+    cost_ratio_pct = float(financials.total_expenses / financials.revenue * 100) if financials.revenue else 0
     kpis = {
         "profit_margin": float(financials.net_income / financials.revenue * 100) if financials.revenue else 0,
-        "cost_ratio": float(financials.total_expenses / financials.revenue * 100) if financials.revenue else 0,
-        "cost_efficiency": (
-            "Good" if float(financials.total_expenses / financials.revenue * 100) < 80 else "Needs Improvement"
-        ),
+        "cost_ratio": cost_ratio_pct,
+        # zero-revenue departments: original divided by zero here (latent 500) - guard like the siblings
+        "cost_efficiency": "Good" if cost_ratio_pct < 80 else "Needs Improvement",
         "budget_adherence": "On Budget" if abs(financials.budget_variance_percentage) < 5 else "Over/Under Budget",
     }
 
@@ -748,12 +776,18 @@ async def get_performance_report(department_id: str, period_start: datetime, per
 
 
 @app.get("/reports/department-comparison")
-async def compare_departments(department_ids: List[str], period_start: datetime, period_end: datetime):
-    """Compare financial performance across departments"""
+async def compare_departments(
+    department_ids: List[str],
+    period_start: datetime,
+    period_end: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Compare financial performance across the caller's departments"""
     comparisons = []
 
     for dept_id in department_ids:
-        financials = await get_department_financials(dept_id, period_start, period_end)
+        financials = await _department_financials(user_id, db_session, dept_id, period_start, period_end)
         comparisons.append(financials)
 
     # Sort by net income
@@ -771,25 +805,31 @@ async def compare_departments(department_ids: List[str], period_start: datetime,
 
 
 @app.get("/reports/cost-distribution")
-async def get_cost_distribution_report(period_start: datetime, period_end: datetime):
-    """Get cost distribution across all departments"""
+async def get_cost_distribution_report(
+    period_start: datetime,
+    period_end: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get cost distribution across the caller's active departments"""
     distribution = []
 
-    for dept in departments.values():
-        if dept.status == DepartmentStatus.ACTIVE:
-            financials = await get_department_financials(dept.id, period_start, period_end)
+    for dept in await crud.list_all(db_session, user_id, Department):
+        if dept.status != DepartmentStatus.ACTIVE:
+            continue
+        financials = await _department_financials(user_id, db_session, dept.id, period_start, period_end)
 
-            distribution.append(
-                {
-                    "department_id": dept.id,
-                    "department_name": dept.department_name,
-                    "department_type": dept.department_type.value,
-                    "direct_costs": str(financials.direct_expenses),
-                    "allocated_costs": str(financials.allocated_costs),
-                    "total_costs": str(financials.total_expenses),
-                    "percentage_of_total": 0,  # Calculate after
-                }
-            )
+        distribution.append(
+            {
+                "department_id": dept.id,
+                "department_name": dept.department_name,
+                "department_type": dept.department_type.value,
+                "direct_costs": str(financials.direct_expenses),
+                "allocated_costs": str(financials.allocated_costs),
+                "total_costs": str(financials.total_expenses),
+                "percentage_of_total": 0,  # Calculate after
+            }
+        )
 
     total_costs = sum(Decimal(str(d["total_costs"])) for d in distribution)
     for d in distribution:
