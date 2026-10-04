@@ -1,115 +1,99 @@
-class BankAccount {
-  final String? id; // Neo4j internal ID
-  final String userId;
-  final String bankName;
-  final String accountName;
-  final String accountId; // Unique ID from bank/integration
-  final String accountType;
-  final String currency;
-  final double currentBalance;
-  final bool isSynced;
-  final DateTime? lastSyncedAt;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+// Banking models mapped to the real banking-integration-service contract:
+//
+//   BankConnection: POST /connect, GET /connections, DELETE /connections/{id}
+//   BankTransaction: GET /transactions/{connection_id}, POST .../reconcile
+//
+// The service is Book-scoped (the gateway injects X-Book-ID) and keeps no
+// balance per connection: balance is carried per transaction (balance_after).
 
-  BankAccount({
-    this.id,
-    required this.userId,
+class BankConnection {
+  final String id;
+  final String bankName;
+  final String accountNumber;
+  final String accountType;
+  final String status;
+  final DateTime? lastSync;
+  final DateTime createdAt;
+
+  BankConnection({
+    required this.id,
     required this.bankName,
-    required this.accountName,
-    required this.accountId,
+    required this.accountNumber,
     required this.accountType,
-    required this.currency,
-    required this.currentBalance,
-    required this.isSynced,
-    this.lastSyncedAt,
+    required this.status,
+    this.lastSync,
     required this.createdAt,
-    required this.updatedAt,
   });
 
-  factory BankAccount.fromJson(Map<String, dynamic> json) {
-    return BankAccount(
-      id: json['id'],
-      userId: json['user_id'],
-      bankName: json['bank_name'],
-      accountName: json['account_name'],
-      accountId: json['account_id'],
-      accountType: json['account_type'],
-      currency: json['currency'],
-      currentBalance: (json['current_balance'] as num).toDouble(),
-      isSynced: json['is_synced'],
-      lastSyncedAt: json['last_synced_at'] != null ? DateTime.parse(json['last_synced_at']) : null,
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+  factory BankConnection.fromJson(Map<String, dynamic> json) {
+    return BankConnection(
+      id: json['id'] as String,
+      bankName: json['bank_name'] as String,
+      accountNumber: json['account_number'] as String,
+      accountType: (json['account_type'] as String?) ?? 'checking',
+      status: (json['status'] as String?) ?? 'active',
+      lastSync: json['last_sync'] != null ? DateTime.parse(json['last_sync'] as String) : null,
+      createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'bank_name': bankName,
-      'account_name': accountName,
-      'account_id': accountId,
-      'account_type': accountType,
-      'currency': currency,
-      'current_balance': currentBalance,
-      'is_synced': isSynced,
-      'last_synced_at': lastSyncedAt?.toIso8601String(),
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'bank_name': bankName,
+        'account_number': accountNumber,
+        'account_type': accountType,
+        'status': status,
+        'last_sync': lastSync?.toIso8601String(),
+        'created_at': createdAt.toIso8601String(),
+      };
 }
 
 class BankTransaction {
-  final String? id; // Neo4j internal ID
-  final String bankAccountId; // Corresponding BankAccount.id
-  final String transactionId; // Unique ID from bank
-  final DateTime date;
-  final String description;
+  final String id;
+  final String connectionId;
   final double amount;
-  final String transactionType;
-  final String? category;
+  final String transactionType; // credit, debit
+  final String description;
+  final DateTime transactionDate;
+  final double balanceAfter;
   final bool reconciled;
-  final DateTime createdAt;
-  final DateTime updatedAt;
+  final String reference;
 
   BankTransaction({
-    this.id,
-    required this.bankAccountId,
-    required this.transactionId,
-    required this.date,
-    required this.description,
+    required this.id,
+    required this.connectionId,
     required this.amount,
     required this.transactionType,
-    this.category,
+    required this.description,
+    required this.transactionDate,
+    required this.balanceAfter,
     required this.reconciled,
-    required this.createdAt,
-    required this.updatedAt,
+    required this.reference,
   });
 
   factory BankTransaction.fromJson(Map<String, dynamic> json) {
     return BankTransaction(
-      id: json['id'],
-      bankAccountId: json['bank_account_id'],
-      transactionId: json['transaction_id'],
-      date: DateTime.parse(json['date']),
-      description: json['description'],
+      id: json['id'] as String,
+      connectionId: json['connection_id'] as String,
       amount: (json['amount'] as num).toDouble(),
-      transactionType: json['transaction_type'],
-      category: json['category'],
-      reconciled: json['reconciled'],
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      transactionType: json['transaction_type'] as String,
+      description: (json['description'] as String?) ?? '',
+      transactionDate: DateTime.parse(json['transaction_date'] as String),
+      balanceAfter: ((json['balance_after'] as num?) ?? 0).toDouble(),
+      reconciled: (json['reconciled'] as bool?) ?? false,
+      reference: (json['reference'] as String?) ?? '',
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'transaction_id': transactionId,
-      'date': date.toIso8601String(),
-      'description': description,
-      'amount': amount,
-      'transaction_type': transactionType,
-      'category': category,
-      'reconciled': reconciled,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'connection_id': connectionId,
+        'amount': amount,
+        'transaction_type': transactionType,
+        'description': description,
+        'transaction_date': transactionDate.toIso8601String(),
+        'balance_after': balanceAfter,
+        'reconciled': reconciled,
+        'reference': reference,
+      };
 }

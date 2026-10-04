@@ -432,3 +432,80 @@ class FinancialRatiosReport {
     );
   }
 }
+// --- Budget variance analysis (budget-service POST /variance-analysis) ---
+class VarianceOutsideToleranceItem {
+  final String accountId;
+  final String description;
+  final double budget;
+  final double actual;
+  final double variance;
+  final double variancePct;
+
+  VarianceOutsideToleranceItem({
+    required this.accountId,
+    required this.description,
+    required this.budget,
+    required this.actual,
+    required this.variance,
+    required this.variancePct,
+  });
+
+  factory VarianceOutsideToleranceItem.fromJson(Map<String, dynamic> json) {
+    return VarianceOutsideToleranceItem(
+      accountId: (json['account_id'] as String?) ?? '',
+      description: (json['description'] as String?) ?? '',
+      budget: ((json['budget'] as num?) ?? 0).toDouble(),
+      actual: ((json['actual'] as num?) ?? 0).toDouble(),
+      variance: ((json['variance'] as num?) ?? 0).toDouble(),
+      variancePct: ((json['variance_pct'] as num?) ?? 0).toDouble(),
+    );
+  }
+}
+
+class VarianceAnalysisResult {
+  final String budgetId;
+  final String budgetName;
+  final double totalVariance;
+  final double favorableVariance;
+  final double unfavorableVariance;
+  final List<VarianceOutsideToleranceItem> itemsOutsideTolerance;
+  final Map<String, String> rootCauses;
+  final List<String> correctiveActions;
+
+  VarianceAnalysisResult({
+    required this.budgetId,
+    required this.budgetName,
+    required this.totalVariance,
+    required this.favorableVariance,
+    required this.unfavorableVariance,
+    required this.itemsOutsideTolerance,
+    required this.rootCauses,
+    required this.correctiveActions,
+  });
+
+  factory VarianceAnalysisResult.fromJson({
+    required String budgetId,
+    required String budgetName,
+    required Map<String, dynamic> json,
+  }) {
+    final outside = (json['items_outside_tolerance'] as List<dynamic>? ?? [])
+        .map((e) => VarianceOutsideToleranceItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final rawCauses = (json['root_causes'] as Map<String, dynamic>? ?? const {});
+    final causes = <String, String>{};
+    rawCauses.forEach((k, v) => causes[k] = v.toString());
+
+    return VarianceAnalysisResult(
+      budgetId: (json['budget_id'] as String?) ?? budgetId,
+      budgetName: budgetName,
+      totalVariance: ((json['total_variance'] as num?) ?? 0).toDouble(),
+      favorableVariance: ((json['favorable_variance'] as num?) ?? 0).toDouble(),
+      unfavorableVariance: ((json['unfavorable_variance'] as num?) ?? 0).toDouble(),
+      itemsOutsideTolerance: outside,
+      rootCauses: causes,
+      correctiveActions: (json['corrective_actions'] as List<dynamic>? ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+    );
+  }
+}

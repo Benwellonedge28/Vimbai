@@ -3,15 +3,17 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:vimbai_mobile_client/config.dart';
 import 'package:vimbai_mobile_client/services/book_context.dart';
 
 class PersonalFinanceService {
   PersonalFinanceService._();
   static final PersonalFinanceService instance = PersonalFinanceService._();
 
+  // Route through the API gateway so the JWT is resolved to X-User-ID.
   static const String _kBaseUrl = String.fromEnvironment(
     'VIMBAI_PERSONAL_FINANCE_URL',
-    defaultValue: 'http://10.0.2.2:8080/personal-finance',
+    defaultValue: '${AppConfig.apiUrl}/personal-finance',
   );
 
   String? _token;

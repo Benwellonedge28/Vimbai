@@ -10,6 +10,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:vimbai_mobile_client/config.dart';
 import 'package:vimbai_mobile_client/services/book_context.dart';
 
 class NpoOrg {
@@ -45,9 +46,10 @@ class NpoScaleService {
   NpoScaleService._();
   static final NpoScaleService instance = NpoScaleService._();
 
+  // Route through the API gateway so the JWT is resolved to X-User-ID.
   static const String _kBaseUrl = String.fromEnvironment(
     'VIMBAI_NPO_SCALE_URL',
-    defaultValue: 'http://10.0.2.2:8080/npo-scale',
+    defaultValue: '${AppConfig.apiUrl}/npo-scale',
   );
 
   String? _token;

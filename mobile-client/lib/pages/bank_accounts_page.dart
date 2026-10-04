@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:vimbai_mobile_client/services/banking_api_service.dart';
 import 'package:vimbai_mobile_client/models/banking_models.dart';
-import 'package:vimbai_mobile_client/local_db/user_local_data.dart'; // To get current user ID
 import 'package:vimbai_mobile_client/pages/bank_account_detail_page.dart';
 
 class BankAccountsPage extends StatefulWidget {
@@ -12,58 +11,42 @@ class BankAccountsPage extends StatefulWidget {
 }
 
 class _BankAccountsPageState extends State<BankAccountsPage> {
-  late Future<List<BankAccount>> _bankAccountsFuture;
+  late Future<List<BankConnection>> _connectionsFuture;
   final BankingApiService _apiService = BankingApiService();
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _bankNameController = TextEditingController();
-  final TextEditingController _accountNameController = TextEditingController();
-  final TextEditingController _accountIdController = TextEditingController();
-  final TextEditingController _currencyController = TextEditingController(text: 'USD');
-  final TextEditingController _initialBalanceController = TextEditingController();
+  final TextEditingController _accountNumberController = TextEditingController();
+  final TextEditingController _apiKeyController = TextEditingController();
   String _accountType = 'checking'; // Default account type
 
   @override
   void initState() {
     super.initState();
-    _bankAccountsFuture = _apiService.getBankAccounts();
+    _connectionsFuture = _apiService.getConnections();
   }
 
-  void _refreshBankAccounts() {
+  void _refreshConnections() {
     setState(() {
-      _bankAccountsFuture = _apiService.getBankAccounts();
+      _connectionsFuture = _apiService.getConnections();
     });
   }
 
-  Future<void> _createBankAccount() async {
+  Future<void> _connectBank() async {
     if (_formKey.currentState!.validate()) {
-      final userId = await UserLocalData.getUserId(); // Assume user ID is available locally
-      if (userId == null) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User not logged in locally.')));
-        return;
-      }
-
-      final newAccount = BankAccount(
-        userId: userId, // Backend will use actual JWT user_id, this is just for model.
-        bankName: _bankNameController.text,
-        accountName: _accountNameController.text,
-        accountId: _accountIdController.text,
-        accountType: _accountType,
-        currency: _currencyController.text,
-        currentBalance: double.parse(_initialBalanceController.text),
-        isSynced: false,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
       try {
-        await _apiService.createBankAccount(newAccount);
+        await _apiService.connectBank(
+          bankName: _bankNameController.text.trim(),
+          accountNumber: _accountNumberController.text.trim(),
+          apiKey: _apiKeyController.text.trim(),
+          accountType: _accountType,
+        );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Bank account linked successfully!')),
           );
           Navigator.of(context).pop(); // Close dialog
-          _refreshBankAccounts();
+          _refreshConnections();
         }
       } catch (e) {
         if (mounted) {
@@ -75,7 +58,7 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
     }
   }
 
-  void _showCreateAccountDialog() {
+  void _showConnectDialog() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -93,13 +76,14 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
                     validator: (value) => value!.isEmpty ? 'Required' : null,
                   ),
                   TextFormField(
-                    controller: _accountNameController,
-                    decoration: const InputDecoration(labelText: 'Account Name (e.g., Main Checking)'),
+                    controller: _accountNumberController,
+                    decoration: const InputDecoration(labelText: 'Account Number'),
                     validator: (value) => value!.isEmpty ? 'Required' : null,
                   ),
                   TextFormField(
-                    controller: _accountIdController,
-                    decoration: const InputDecoration(labelText: 'Bank Account ID (Unique Identifier)'),
+                    controller: _apiKeyController,
+                    decoration: const InputDecoration(labelText: 'Bank API Key'),
+                    obscureText: true,
                     validator: (value) => value!.isEmpty ? 'Required' : null,
                   ),
                   DropdownButtonFormField<String>(
@@ -114,30 +98,48 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
                       }
                     },
                   ),
-                  TextFormField(
-                    controller: _currencyController,
-                    decoration: const InputDecoration(labelText: 'Currency (e.g., USD)'),
-                    validator: (value) => value!.isEmpty ? 'Required' : null,
-                  ),
-                  TextFormField(
-                    controller: _initialBalanceController,
-                    decoration: const InputDecoration(labelText: 'Initial/Current Balance'),
-                    keyboardType: TextInputType.number,
-                    validator: (value) => value!.isEmpty || double.tryParse(value) == null ? 'Enter a valid number' : null,
-                  ),
                 ],
               ),
             ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-            ElevatedButton(onPressed: _createBankAccount, child: const Text('Link Account')),
+            ElevatedButton(onPressed: _connectBank, child: const Text('Link Account')),
           ],
         );
       },
     );
   }
 
+  Future<void> _disconnect(BankConnection connection) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Disconnect bank account?'),
+        content: Text('${connection.bankName} ${connection.accountNumber} will be unlinked.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Disconnect')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _apiService.disconnect(connection.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bank account disconnected.')),
+        );
+      }
+      _refreshConnections();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error disconnecting: ${e.toString()}')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,12 +149,12 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh),
-                onPressed: _refreshBankAccounts,
+                onPressed: _refreshConnections,
               ),
             ],
           ),
-          body: FutureBuilder<List<BankAccount>>(
-            future: _bankAccountsFuture,
+          body: FutureBuilder<List<BankConnection>>(
+            future: _connectionsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -164,18 +166,38 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
                 return ListView.builder(
                   itemCount: snapshot.data!.length,
                   itemBuilder: (context, index) {
-                    final account = snapshot.data![index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: ListTile(
-                        title: Text('${account.bankName} - ${account.accountName}'),
-                        subtitle: Text('${account.accountType.toUpperCase()} | Balance: ${account.currency} ${account.currentBalance.toStringAsFixed(2)}'),
-                        trailing: Icon(account.isSynced ? Icons.sync : Icons.sync_disabled),
-                        onTap: () {
-                          Navigator.of(context).push(MaterialPageRoute(
-                            builder: (context) => BankAccountDetailPage(bankAccount: account),
-                          ));
-                        },
+                    final connection = snapshot.data![index];
+                    return Dismissible(
+                      key: Key(connection.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        color: Colors.red,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 16),
+                        child: const Icon(Icons.link_off, color: Colors.white),
+                      ),
+                      confirmDismiss: (_) async {
+                        await _disconnect(connection);
+                        return false;
+                      },
+                      child: Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: ListTile(
+                          title: Text('${connection.bankName} - ${connection.accountNumber}'),
+                          subtitle: Text(
+                            '${connection.accountType.toUpperCase()} | ${connection.status.toUpperCase()}'
+                            '${connection.lastSync != null ? ' | Synced: ${connection.lastSync!.toLocal().toString().substring(0, 16)}' : ''}',
+                          ),
+                          trailing: Icon(
+                            connection.status == 'active' ? Icons.link : Icons.link_off,
+                            color: connection.status == 'active' ? Colors.green : Colors.grey,
+                          ),
+                          onTap: () {
+                            Navigator.of(context).push(MaterialPageRoute(
+                              builder: (context) => BankAccountDetailPage(connection: connection),
+                            ));
+                          },
+                        ),
                       ),
                     );
                   },
@@ -184,7 +206,7 @@ class _BankAccountsPageState extends State<BankAccountsPage> {
             },
           ),
           floatingActionButton: FloatingActionButton(
-            onPressed: _showCreateAccountDialog,
+            onPressed: _showConnectDialog,
             child: const Icon(Icons.add),
           ),
         );

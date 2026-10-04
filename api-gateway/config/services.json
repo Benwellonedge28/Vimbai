@@ -2524,7 +2524,7 @@
       "url": "http://localhost:9021",
       "port": 9021,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     }
   ]
 }
