@@ -1,7 +1,28 @@
+"""Vimbai Absorption Costing Service. Port: 8064.
+
+Total costing / absorption costing methods. The two module-level lists
+(product_costs, overhead_absorptions) were process-global and shared
+across ALL callers; they now persist to Neo4j as caller-owned,
+Book-scoped records (X-User-Id / X-Book-ID). Cost-plus pricing stays
+a pure calculation.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
-Vimbai Absorption Costing Service
-Manages total costing / absorption costing methods.
-"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "absorption_costing_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("absorption_costing_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("absorption_costing_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["absorption_costing_service"] = _pkg
+    _sys.modules["absorption_costing_service"].__path__ = [_HERE]
 
 import os
 import uuid
@@ -10,9 +31,16 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from neo4j import AsyncSession
+from pydantic import BaseModel
+
+from absorption_costing_service import crud
+from absorption_costing_service.dependencies import book_id_var, get_db_session, get_user_id
+from absorption_costing_service.exceptions import AbsorptionCostingError
+from absorption_costing_service.models import CostComponent, OverheadAbsorption, ProductCost
 
 SERVICE_NAME = "absorption-costing-service"
 SERVICE_VERSION = "1.0.0"
@@ -40,50 +68,21 @@ app.add_middleware(
 )
 
 
-class CostComponent(BaseModel):
-    component_name: str
-    amount: float
-    cost_type: str  # direct_material, direct_labor, direct_expense, manufacturing_overhead
-    absorbed: bool = True
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class ProductCost(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    product_id: str
-    product_name: str
-    period: str
-    direct_materials: float = 0
-    direct_labor: float = 0
-    direct_expenses: float = 0
-    prime_cost: float = 0
-    manufacturing_overhead: float = 0
-    total_production_cost: float = 0
-    units_produced: int = 0
-    cost_per_unit: float = 0
-    opening_stock: int = 0
-    closing_stock: int = 0
-    cost_components: List[CostComponent] = []
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+@app.exception_handler(AbsorptionCostingError)
+async def _absorption_costing_error(request: Request, exc: AbsorptionCostingError):
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400), content={"detail": str(exc), "error": exc.__class__.__name__}
+    )
 
 
-class OverheadAbsorption(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    product_id: str
-    period: str
-    overhead_cost: float
-    absorption_base: str  # machine_hours, labor_hours, units, etc.
-    absorption_base_units: float
-    overhead_absorption_rate: float = 0
-    absorbed_overhead: float = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-product_costs: List[ProductCost] = []
-overhead_absorptions: List[OverheadAbsorption] = []
-
-
-async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
+async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             url = f"{ACCOUNTING_SERVICE_URL}{endpoint}"
@@ -119,8 +118,10 @@ async def calculate_product_cost(
     opening_stock: int = 0,
     closing_stock: int = 0,
     cost_components: Optional[List[Dict[str, Any]]] = None,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """Calculate full product cost using absorption costing."""
+    """Calculate full product cost using absorption costing (persisted, caller-owned)."""
     product_cost = ProductCost(
         product_id=product_id,
         product_name=product_name,
@@ -173,16 +174,22 @@ async def calculate_product_cost(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
     product_cost.journal_entry_id = result.get("id")
-    product_costs.append(product_cost)
+    await crud.create(db_session, caller_id, product_cost)
 
     return product_cost
 
 
 @app.post("/overhead/absorption")
 async def calculate_overhead_absorption(
-    product_id: str, period: str, overhead_cost: float, absorption_base: str, absorption_base_units: float
+    product_id: str,
+    period: str,
+    overhead_cost: float,
+    absorption_base: str,
+    absorption_base_units: float,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """Calculate overhead absorption rate and absorbed overhead."""
+    """Calculate overhead absorption rate and absorbed overhead (persisted, caller-owned)."""
     absorption = OverheadAbsorption(
         product_id=product_id,
         period=period,
@@ -196,13 +203,13 @@ async def calculate_overhead_absorption(
         absorption.overhead_absorption_rate = overhead_cost / absorption_base_units
         absorption.absorbed_overhead = absorption.overhead_absorption_rate * absorption_base_units
 
-    overhead_absorptions.append(absorption)
+    await crud.create(db_session, caller_id, absorption)
     return absorption
 
 
 @app.post("/cost-plus")
 async def calculate_cost_plus_pricing(product_cost: float, markup_percentage: float):
-    """Calculate selling price using cost-plus pricing."""
+    """Calculate selling price using cost-plus pricing (pure calculation)."""
     markup_amount = product_cost * (markup_percentage / 100)
     selling_price = product_cost + markup_amount
 
@@ -215,9 +222,14 @@ async def calculate_cost_plus_pricing(product_cost: float, markup_percentage: fl
 
 
 @app.get("/product-costs")
-async def list_product_costs(product_id: Optional[str] = None, period: Optional[str] = None):
-    """List product costs."""
-    result = product_costs
+async def list_product_costs(
+    product_id: Optional[str] = None,
+    period: Optional[str] = None,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's product costs."""
+    result = await crud.list_all(db_session, caller_id, ProductCost)
     if product_id:
         result = [p for p in result if p.product_id == product_id]
     if period:
@@ -226,18 +238,33 @@ async def list_product_costs(product_id: Optional[str] = None, period: Optional[
 
 
 @app.get("/product-costs/{product_id}/latest")
-async def get_latest_product_cost(product_id: str):
-    """Get latest product cost."""
-    product_cost = next((p for p in reversed(product_costs) if p.product_id == product_id), None)
+async def get_latest_product_cost(
+    product_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's latest product cost for a product."""
+    product_cost = next(
+        (p for p in reversed(await crud.list_all(db_session, caller_id, ProductCost)) if p.product_id == product_id),
+        None,
+    )
     if not product_cost:
         return {"error": "Product cost not found"}
     return product_cost
 
 
 @app.get("/stock-valuation")
-async def calculate_stock_valuation(product_id: str, valuation_method: str = "fifo"):
-    """Calculate stock valuation using absorption costing."""
-    product_cost = next((p for p in reversed(product_costs) if p.product_id == product_id), None)
+async def calculate_stock_valuation(
+    product_id: str,
+    valuation_method: str = "fifo",
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Calculate stock valuation using the caller's absorption costing records."""
+    product_cost = next(
+        (p for p in reversed(await crud.list_all(db_session, caller_id, ProductCost)) if p.product_id == product_id),
+        None,
+    )
     if not product_cost:
         return {"error": "Product cost not found"}
 
