@@ -19,9 +19,7 @@ _HERE = _os.path.dirname(_os.path.abspath(__file__))
 if "zero_trust_data_service" not in _sys.modules or not hasattr(
     _sys.modules.get("zero_trust_data_service"), "__path__"
 ):
-    _spec = importlib.util.spec_from_file_location(
-        "zero_trust_data_service", _os.path.join(_HERE, "__init__.py")
-    )
+    _spec = importlib.util.spec_from_file_location("zero_trust_data_service", _os.path.join(_HERE, "__init__.py"))
     _pkg = importlib.util.module_from_spec(_spec)
     _spec.loader.exec_module(_pkg)
     _sys.modules["zero_trust_data_service"] = _pkg

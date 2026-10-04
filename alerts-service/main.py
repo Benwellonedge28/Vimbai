@@ -245,6 +245,7 @@ async def health_check():
 
 # --- WebSocket Endpoint ---
 
+
 @app.websocket("/ws/alerts/{user_id}")
 async def websocket_alerts(websocket: WebSocket, user_id: str):
     """WebSocket endpoint for real-time alerts"""
@@ -482,7 +483,10 @@ async def acknowledge_alert(
     alert.status = AlertStatus.ACKNOWLEDGED
     alert.acknowledged_at = datetime.utcnow()
     await crud.update_props(
-        db_session, caller_id, AlertInDB, alert_id,
+        db_session,
+        caller_id,
+        AlertInDB,
+        alert_id,
         {"status": alert.status, "acknowledged_at": alert.acknowledged_at},
     )
 
@@ -603,7 +607,10 @@ async def evaluate_data(
             await crud.create(db_session, caller_id, alert)
             rule.trigger_count += 1
             await crud.update_props(
-                db_session, caller_id, AlertRuleInDB, rule.id,
+                db_session,
+                caller_id,
+                AlertRuleInDB,
+                rule.id,
                 {"trigger_count": rule.trigger_count, "last_triggered": now},
             )
 

@@ -165,7 +165,9 @@ async def find(session: AsyncSession, user_id: str, model: Type, record_id: str)
     return _hydrate(model, node), extra
 
 
-async def update_props(session: AsyncSession, user_id: str, model: Type, record_id: str, updates: Dict[str, Any]) -> bool:
+async def update_props(
+    session: AsyncSession, user_id: str, model: Type, record_id: str, updates: Dict[str, Any]
+) -> bool:
     """Write a set of prop updates back to a caller-owned record."""
     label, edge = RECORDS[model]
     json_fields = JSON_FIELDS.get(model, ())
