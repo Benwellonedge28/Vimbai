@@ -1,20 +1,52 @@
+"""Vimbai Real-Time Alerts Service. Port: 8090.
+
+Real-time monitoring and alerting for financial events and metrics.
+The two durable stores (alert rules, alerts) were process-global dicts
+shared across ALL callers; they now persist to Neo4j as caller-owned,
+Book-scoped records (X-User-Id / X-Book-ID). WebSocket connection and
+subscription state is ephemeral session state and stays in memory.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
-Vimbai Real-Time Alerts Service
-Provides real-time monitoring and alerting for financial events and metrics
-"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "alerts_service" not in _sys.modules or not hasattr(_sys.modules.get("alerts_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("alerts_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["alerts_service"] = _pkg
+    _sys.modules["alerts_service"].__path__ = [_HERE]
 
 import asyncio
 import json
-import os
 import uuid
-from datetime import datetime, timedelta
-from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from pydantic import BaseModel
+
+from alerts_service import crud
+from alerts_service.dependencies import book_id_var, get_db_session, get_user_id
+from alerts_service.exceptions import AlertsError
+from alerts_service.models import (
+    AlertCategory,
+    AlertCreate,
+    AlertInDB,
+    AlertRuleCreate,
+    AlertRuleInDB,
+    AlertSeverity,
+    AlertStatus,
+    AlertSubscription,
+)
 
 load_dotenv()
 
@@ -24,78 +56,19 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# ============================================================================
-# Models
-# ============================================================================
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class AlertSeverity(str, Enum):
-    CRITICAL = "critical"
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-    INFO = "info"
-
-
-class AlertCategory(str, Enum):
-    FRAUD = "fraud"
-    COMPLIANCE = "compliance"
-    FINANCIAL = "financial"
-    SECURITY = "security"
-    SYSTEM = "system"
-    WORKFLOW = "workflow"
-
-
-class AlertStatus(str, Enum):
-    ACTIVE = "active"
-    ACKNOWLEDGED = "acknowledged"
-    RESOLVED = "resolved"
-    DISMISSED = "dismissed"
-
-
-class AlertRuleCreate(BaseModel):
-    name: str = Field(..., min_length=3, max_length=100)
-    description: Optional[str] = None
-    category: AlertCategory
-    severity: AlertSeverity
-    condition: Dict[str, Any] = Field(..., description="Alert condition definition")
-    action: Literal["notify", "email", "webhook", "auto_resolve"] = "notify"
-    action_config: Optional[Dict[str, Any]] = None
-    enabled: bool = True
-    cooldown_seconds: int = Field(default=300, ge=0)
-
-
-class AlertRuleInDB(AlertRuleCreate):
-    id: str
-    created_by: str
-    created_at: datetime
-    updated_at: datetime
-    trigger_count: int = 0
-
-
-class AlertCreate(BaseModel):
-    rule_id: str
-    title: str
-    message: str
-    severity: AlertSeverity
-    category: AlertCategory
-    source: str
-    metadata: Optional[Dict[str, Any]] = None
-
-
-class AlertInDB(AlertCreate):
-    id: str
-    status: AlertStatus
-    created_at: datetime
-    acknowledged_at: Optional[datetime] = None
-    resolved_at: Optional[datetime] = None
-
-
-class AlertSubscription(BaseModel):
-    user_id: str
-    categories: List[AlertCategory] = []
-    severities: List[AlertSeverity] = []
-    webhook_url: Optional[str] = None
+@app.exception_handler(AlertsError)
+async def _alerts_error(request: Request, exc: AlertsError):
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400), content={"detail": str(exc), "error": exc.__class__.__name__}
+    )
 
 
 # ============================================================================
@@ -174,58 +147,9 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# ============================================================================
-# Alert Rules Store (In-memory for demo, use database in production)
-# ============================================================================
-
-alert_rules: Dict[str, AlertRuleInDB] = {}
-alerts: Dict[str, AlertInDB] = {}
-
-# Pre-defined alert rules
-default_rules = [
-    AlertRuleInDB(
-        id="fraud-high-amount",
-        name="High Value Transaction Alert",
-        description="Alert when transaction exceeds threshold",
-        category=AlertCategory.FRAUD,
-        severity=AlertSeverity.HIGH,
-        condition={"type": "threshold", "field": "amount", "operator": "gt", "value": 10000},
-        action="notify",
-        created_by="system",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
-    ),
-    AlertRuleInDB(
-        id="fraud-unusual-pattern",
-        name="Unusual Transaction Pattern",
-        description="Alert for unusual transaction patterns",
-        category=AlertCategory.FRAUD,
-        severity=AlertSeverity.CRITICAL,
-        condition={"type": "pattern", "pattern_type": "velocity", "threshold": 10},
-        action="notify",
-        created_by="system",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
-    ),
-    AlertRuleInDB(
-        id="compliance-deadline",
-        name="Compliance Deadline Reminder",
-        description="Alert for upcoming compliance deadlines",
-        category=AlertCategory.COMPLIANCE,
-        severity=AlertSeverity.MEDIUM,
-        condition={"type": "deadline", "days_before": 7},
-        action="email",
-        created_by="system",
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
-    ),
-]
-
-for rule in default_rules:
-    alert_rules[rule.id] = rule
 
 # ============================================================================
-# Alert Evaluation Engine
+# Alert Engine
 # ============================================================================
 
 
@@ -307,10 +231,6 @@ class AlertEngine:
 
 alert_engine = AlertEngine()
 
-# ============================================================================
-# API Endpoints
-# ============================================================================
-
 
 @app.on_event("startup")
 async def startup():
@@ -324,6 +244,7 @@ async def health_check():
 
 
 # --- WebSocket Endpoint ---
+
 @app.websocket("/ws/alerts/{user_id}")
 async def websocket_alerts(websocket: WebSocket, user_id: str):
     """WebSocket endpoint for real-time alerts"""
@@ -360,9 +281,16 @@ async def websocket_alerts(websocket: WebSocket, user_id: str):
 
 
 # --- Alert Rules Endpoints ---
+
+
 @app.post("/rules", response_model=AlertRuleInDB, status_code=status.HTTP_201_CREATED)
-async def create_alert_rule(rule: AlertRuleCreate, user_id: str = "system"):
-    """Create a new alert rule"""
+async def create_alert_rule(
+    rule: AlertRuleCreate,
+    user_id: str = "system",
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Create a new alert rule (owned by the caller)"""
     rule_id = str(uuid.uuid4())
     now = datetime.utcnow()
 
@@ -382,59 +310,91 @@ async def create_alert_rule(rule: AlertRuleCreate, user_id: str = "system"):
         updated_at=now,
     )
 
-    alert_rules[rule_id] = db_rule
+    await crud.create(db_session, caller_id, db_rule, extra={"last_triggered": None})
     return db_rule
 
 
 @app.get("/rules", response_model=List[AlertRuleInDB])
-async def list_alert_rules(enabled_only: bool = False):
-    """List all alert rules"""
-    rules = list(alert_rules.values())
+async def list_alert_rules(
+    enabled_only: bool = False,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's alert rules"""
+    rules = await crud.list_all(db_session, caller_id, AlertRuleInDB)
     if enabled_only:
         rules = [r for r in rules if r.enabled]
     return rules
 
 
 @app.get("/rules/{rule_id}", response_model=AlertRuleInDB)
-async def get_alert_rule(rule_id: str):
-    """Get a specific alert rule"""
-    if rule_id not in alert_rules:
+async def get_alert_rule(
+    rule_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get a specific alert rule; cross-scope 404"""
+    rule, _ = await crud.find(db_session, caller_id, AlertRuleInDB, rule_id)
+    if not rule:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
-    return alert_rules[rule_id]
+    return rule
 
 
 @app.put("/rules/{rule_id}", response_model=AlertRuleInDB)
-async def update_alert_rule(rule_id: str, rule: AlertRuleCreate):
-    """Update an alert rule"""
-    if rule_id not in alert_rules:
+async def update_alert_rule(
+    rule_id: str,
+    rule: AlertRuleCreate,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Update an alert rule (caller-owned)"""
+    existing, extras = await crud.find(db_session, caller_id, AlertRuleInDB, rule_id)
+    if not existing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
 
-    existing = alert_rules[rule_id]
-    existing.name = rule.name
-    existing.description = rule.description
-    existing.category = rule.category
-    existing.severity = rule.severity
-    existing.condition = rule.condition
-    existing.action = rule.action
-    existing.action_config = rule.action_config
-    existing.enabled = rule.enabled
-    existing.cooldown_seconds = rule.cooldown_seconds
-    existing.updated_at = datetime.utcnow()
+    updated = AlertRuleInDB(
+        id=existing.id,
+        name=rule.name,
+        description=rule.description,
+        category=rule.category,
+        severity=rule.severity,
+        condition=rule.condition,
+        action=rule.action,
+        action_config=rule.action_config,
+        enabled=rule.enabled,
+        cooldown_seconds=rule.cooldown_seconds,
+        created_by=existing.created_by,
+        created_at=existing.created_at,
+        updated_at=datetime.utcnow(),
+        trigger_count=existing.trigger_count,
+    )
 
-    return existing
+    # latest-wins upsert, preserving cooldown bookkeeping
+    await crud.delete_where(db_session, caller_id, AlertRuleInDB, {"id": rule_id})
+    await crud.create(db_session, caller_id, updated, extra={"last_triggered": extras.get("last_triggered")})
+    return updated
 
 
 @app.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_alert_rule(rule_id: str):
-    """Delete an alert rule"""
-    if rule_id in alert_rules:
-        del alert_rules[rule_id]
+async def delete_alert_rule(
+    rule_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Delete an alert rule (caller-scoped; 204 like the original for unknown ids)"""
+    await crud.delete_where(db_session, caller_id, AlertRuleInDB, {"id": rule_id})
 
 
 # --- Alerts Endpoints ---
+
+
 @app.post("/alerts", response_model=AlertInDB, status_code=status.HTTP_201_CREATED)
-async def create_alert(alert: AlertCreate):
-    """Create a new alert (internal use or webhook-triggered)"""
+async def create_alert(
+    alert: AlertCreate,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Create a new alert (internal use or webhook-triggered; caller-owned)"""
     alert_id = str(uuid.uuid4())
     now = datetime.utcnow()
 
@@ -451,7 +411,7 @@ async def create_alert(alert: AlertCreate):
         created_at=now,
     )
 
-    alerts[alert_id] = db_alert
+    await crud.create(db_session, caller_id, db_alert)
 
     # Broadcast via WebSocket
     alert_message = {
@@ -476,9 +436,11 @@ async def list_alerts(
     category: Optional[AlertCategory] = None,
     severity: Optional[AlertSeverity] = None,
     limit: int = Query(100, ge=1, le=1000),
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """List alerts with optional filters"""
-    filtered = list(alerts.values())
+    """List the caller's alerts with optional filters"""
+    filtered = await crud.list_all(db_session, caller_id, AlertInDB)
 
     if status:
         filtered = [a for a in filtered if a.status == status]
@@ -494,22 +456,35 @@ async def list_alerts(
 
 
 @app.get("/alerts/{alert_id}", response_model=AlertInDB)
-async def get_alert(alert_id: str):
-    """Get a specific alert"""
-    if alert_id not in alerts:
+async def get_alert(
+    alert_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get a specific alert; cross-scope 404"""
+    alert, _ = await crud.find(db_session, caller_id, AlertInDB, alert_id)
+    if not alert:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
-    return alerts[alert_id]
+    return alert
 
 
 @app.put("/alerts/{alert_id}/acknowledge", response_model=AlertInDB)
-async def acknowledge_alert(alert_id: str):
+async def acknowledge_alert(
+    alert_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Acknowledge an alert"""
-    if alert_id not in alerts:
+    alert, _ = await crud.find(db_session, caller_id, AlertInDB, alert_id)
+    if not alert:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
 
-    alert = alerts[alert_id]
     alert.status = AlertStatus.ACKNOWLEDGED
     alert.acknowledged_at = datetime.utcnow()
+    await crud.update_props(
+        db_session, caller_id, AlertInDB, alert_id,
+        {"status": alert.status, "acknowledged_at": alert.acknowledged_at},
+    )
 
     # Broadcast update
     await manager.broadcast(
@@ -525,17 +500,27 @@ async def acknowledge_alert(alert_id: str):
 
 
 @app.put("/alerts/{alert_id}/resolve", response_model=AlertInDB)
-async def resolve_alert(alert_id: str, resolution_note: Optional[str] = None):
+async def resolve_alert(
+    alert_id: str,
+    resolution_note: Optional[str] = None,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Resolve an alert"""
-    if alert_id not in alerts:
+    alert, _ = await crud.find(db_session, caller_id, AlertInDB, alert_id)
+    if not alert:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
 
-    alert = alerts[alert_id]
     alert.status = AlertStatus.RESOLVED
     alert.resolved_at = datetime.utcnow()
 
     if resolution_note and alert.metadata:
         alert.metadata["resolution_note"] = resolution_note
+
+    updates: Dict[str, Any] = {"status": alert.status, "resolved_at": alert.resolved_at}
+    if resolution_note and alert.metadata:
+        updates["metadata"] = alert.metadata
+    await crud.update_props(db_session, caller_id, AlertInDB, alert_id, updates)
 
     # Broadcast update
     await manager.broadcast(
@@ -551,13 +536,18 @@ async def resolve_alert(alert_id: str, resolution_note: Optional[str] = None):
 
 
 @app.put("/alerts/{alert_id}/dismiss", response_model=AlertInDB)
-async def dismiss_alert(alert_id: str):
+async def dismiss_alert(
+    alert_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Dismiss an alert (mark as false positive)"""
-    if alert_id not in alerts:
+    alert, _ = await crud.find(db_session, caller_id, AlertInDB, alert_id)
+    if not alert:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
 
-    alert = alerts[alert_id]
     alert.status = AlertStatus.DISMISSED
+    await crud.update_props(db_session, caller_id, AlertInDB, alert_id, {"status": alert.status})
 
     # Broadcast update
     await manager.broadcast({"type": "alert_update", "alert_id": alert_id, "status": AlertStatus.DISMISSED.value})
@@ -566,18 +556,28 @@ async def dismiss_alert(alert_id: str):
 
 
 # --- Alert Evaluation Endpoint ---
+
+
 @app.post("/evaluate")
-async def evaluate_data(data: Dict[str, Any]):
-    """Evaluate data against all enabled alert rules and trigger matching alerts"""
+async def evaluate_data(
+    data: Dict[str, Any],
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Evaluate data against the caller's enabled alert rules and trigger matching alerts"""
     triggered = []
 
-    for rule_id, rule in alert_rules.items():
+    for rule, extras in [
+        (r, (await crud.find(db_session, caller_id, AlertRuleInDB, r.id))[1])
+        for r in await crud.list_all(db_session, caller_id, AlertRuleInDB)
+    ]:
         if not rule.enabled:
             continue
 
-        # Check cooldown
-        if hasattr(rule, "_last_triggered") and rule._last_triggered:
-            elapsed = (datetime.utcnow() - rule._last_triggered).total_seconds()
+        # Check cooldown (persisted last_triggered bookkeeping)
+        last_triggered = crud._coerce_dt(extras.get("last_triggered"))
+        if last_triggered:
+            elapsed = (datetime.utcnow() - last_triggered).total_seconds()
             if elapsed < rule.cooldown_seconds:
                 continue
 
@@ -589,7 +589,7 @@ async def evaluate_data(data: Dict[str, Any]):
 
             alert = AlertInDB(
                 id=alert_id,
-                rule_id=rule_id,
+                rule_id=rule.id,
                 title=f"{rule.name}: Threshold exceeded",
                 message=f"Alert triggered for data: {json.dumps(data)}",
                 severity=rule.severity,
@@ -600,9 +600,12 @@ async def evaluate_data(data: Dict[str, Any]):
                 created_at=now,
             )
 
-            alerts[alert_id] = alert
+            await crud.create(db_session, caller_id, alert)
             rule.trigger_count += 1
-            rule._last_triggered = now
+            await crud.update_props(
+                db_session, caller_id, AlertRuleInDB, rule.id,
+                {"trigger_count": rule.trigger_count, "last_triggered": now},
+            )
 
             # Broadcast
             await manager.broadcast(
@@ -627,38 +630,51 @@ async def evaluate_data(data: Dict[str, Any]):
 
 
 # --- Statistics Endpoint ---
-@app.get("/stats")
-async def get_alert_stats():
-    """Get alert statistics"""
-    total = len(alerts)
-    by_status = {}
-    by_severity = {}
-    by_category = {}
 
-    for alert in alerts.values():
+
+@app.get("/stats")
+async def get_alert_stats(
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get alert statistics for the caller's alerts only"""
+    all_alerts = await crud.list_all(db_session, caller_id, AlertInDB)
+    all_rules = await crud.list_all(db_session, caller_id, AlertRuleInDB)
+
+    by_status: Dict[str, int] = {}
+    by_severity: Dict[str, int] = {}
+    by_category: Dict[str, int] = {}
+
+    for alert in all_alerts:
         by_status[alert.status.value] = by_status.get(alert.status.value, 0) + 1
         by_severity[alert.severity.value] = by_severity.get(alert.severity.value, 0) + 1
         by_category[alert.category.value] = by_category.get(alert.category.value, 0) + 1
 
     return {
-        "total_alerts": total,
+        "total_alerts": len(all_alerts),
         "by_status": by_status,
         "by_severity": by_severity,
         "by_category": by_category,
         "active_connections": len(manager.active_connections),
-        "total_rules": len(alert_rules),
-        "enabled_rules": sum(1 for r in alert_rules.values() if r.enabled),
+        "total_rules": len(all_rules),
+        "enabled_rules": sum(1 for r in all_rules if r.enabled),
     }
 
 
 # --- Integration Endpoint for Internal Services ---
-@app.post("/trigger/{rule_id}")
-async def trigger_alert_by_rule(rule_id: str, data: Dict[str, Any]):
-    """Trigger an alert based on a specific rule"""
-    if rule_id not in alert_rules:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
 
-    rule = alert_rules[rule_id]
+
+@app.post("/trigger/{rule_id}", response_model=AlertInDB)
+async def trigger_alert_by_rule(
+    rule_id: str,
+    data: Dict[str, Any],
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Trigger an alert based on a caller-owned rule"""
+    rule, _ = await crud.find(db_session, caller_id, AlertRuleInDB, rule_id)
+    if not rule:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found")
 
     alert_id = str(uuid.uuid4())
     now = datetime.utcnow()
@@ -676,7 +692,7 @@ async def trigger_alert_by_rule(rule_id: str, data: Dict[str, Any]):
         created_at=now,
     )
 
-    alerts[alert_id] = alert
+    await crud.create(db_session, caller_id, alert)
 
     # Broadcast
     await manager.broadcast(
