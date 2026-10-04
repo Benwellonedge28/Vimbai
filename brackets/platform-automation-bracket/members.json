@@ -28,11 +28,6 @@
       "dir": "notifications-service"
     },
     {
-      "path": "/offline-sync",
-      "name": "offline-sync-service",
-      "dir": "offline-sync-service"
-    },
-    {
       "path": "/privacy-admin-dashboard",
       "name": "privacy-admin-dashboard-service",
       "dir": "privacy-admin-dashboard-service"

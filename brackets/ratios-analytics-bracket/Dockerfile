@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY brackets/ratios-analytics-bracket/main.py ./main.py
 COPY accounting-rate-return-service ./accounting-rate-return-service
-COPY ai-readiness-service ./ai-readiness-service
 COPY analytical-procedures-service ./analytical-procedures-service
 COPY analytics-service ./analytics-service
 COPY asset-allocation-service ./asset-allocation-service

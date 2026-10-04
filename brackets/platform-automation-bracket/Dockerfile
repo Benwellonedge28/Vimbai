@@ -21,7 +21,6 @@ COPY alerts-service ./alerts-service
 COPY automation-engine-service ./automation-engine-service
 COPY fixed-assets-schedule-service ./fixed-assets-schedule-service
 COPY notifications-service ./notifications-service
-COPY offline-sync-service ./offline-sync-service
 COPY privacy-admin-dashboard-service ./privacy-admin-dashboard-service
 COPY webhook-service ./webhook-service
 

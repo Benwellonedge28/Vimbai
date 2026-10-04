@@ -20,42 +20,15 @@ PORT = int(os.getenv("PORT", "9005"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    [
-        "corporate-governance",
-        "corporate-governance-service"
-    ],
-    [
-        "fraud-risk-assessment",
-        "fraud-risk-assessment-service"
-    ],
-    [
-        "internal-control-evaluation",
-        "internal-control-evaluation-service"
-    ],
-    [
-        "internal-controls-testing",
-        "internal-controls-testing-service"
-    ],
-    [
-        "liquidity-risk",
-        "liquidity-risk-service"
-    ],
-    [
-        "market-risk",
-        "market-risk-service"
-    ],
-    [
-        "operational-risk",
-        "operational-risk-service"
-    ],
-    [
-        "risk-assessment",
-        "risk-assessment-service"
-    ],
-    [
-        "risk-return-analysis",
-        "risk-return-analysis-service"
-    ]
+    ["corporate-governance", "corporate-governance-service"],
+    ["fraud-risk-assessment", "fraud-risk-assessment-service"],
+    ["internal-control-evaluation", "internal-control-evaluation-service"],
+    ["internal-controls-testing", "internal-controls-testing-service"],
+    ["liquidity-risk", "liquidity-risk-service"],
+    ["market-risk", "market-risk-service"],
+    ["operational-risk", "operational-risk-service"],
+    ["risk-assessment", "risk-assessment-service"],
+    ["risk-return-analysis", "risk-return-analysis-service"],
 ]
 
 app = FastAPI(

@@ -20,214 +20,58 @@ PORT = int(os.getenv("PORT", "9012"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    [
-        "business-valuation",
-        "business-valuation-service"
-    ],
-    [
-        "capital-allocation",
-        "capital-allocation-service"
-    ],
-    [
-        "capital-reconstruction",
-        "capital-reconstruction-service"
-    ],
-    [
-        "capital-redemption-reserve",
-        "capital-redemption-reserve-service"
-    ],
-    [
-        "cash-management",
-        "cash-management-service"
-    ],
-    [
-        "cash-optimization",
-        "cash-optimization-service"
-    ],
-    [
-        "cash-pooling",
-        "cash-pooling-service"
-    ],
-    [
-        "commodity-hedging",
-        "commodity-hedging-service"
-    ],
-    [
-        "cost-of-capital",
-        "cost-of-capital-service"
-    ],
-    [
-        "croic",
-        "croic-service"
-    ],
-    [
-        "cvp-analysis",
-        "cvp-analysis-service"
-    ],
-    [
-        "deal-structuring",
-        "deal-structuring-service"
-    ],
-    [
-        "debentures",
-        "debentures-service"
-    ],
-    [
-        "discount-factor",
-        "discount-factor-service"
-    ],
-    [
-        "discounted-payback-period",
-        "discounted-payback-period-service"
-    ],
-    [
-        "divestiture",
-        "divestiture-service"
-    ],
-    [
-        "due-diligence",
-        "due-diligence-service"
-    ],
-    [
-        "eps",
-        "eps-service"
-    ],
-    [
-        "eva",
-        "eva-service"
-    ],
-    [
-        "exotic-derivatives",
-        "exotic-derivatives-service"
-    ],
-    [
-        "financial-planning",
-        "financial-planning-service"
-    ],
-    [
-        "foreign-exchange",
-        "foreign-exchange-service"
-    ],
-    [
-        "fund-management",
-        "fund-management-service"
-    ],
-    [
-        "futures-hedging",
-        "futures-hedging-service"
-    ],
-    [
-        "household-finance",
-        "household-finance-service"
-    ],
-    [
-        "insurance-claims",
-        "insurance-claims-service"
-    ],
-    [
-        "limiting-factor",
-        "limiting-factor-service"
-    ],
-    [
-        "liquidity-forecast",
-        "liquidity-forecast-service"
-    ],
-    [
-        "liquidity-management",
-        "liquidity-management-service"
-    ],
-    [
-        "make-or-buy-decision",
-        "make-or-buy-decision-service"
-    ],
-    [
-        "margin-safety",
-        "margin-safety-service"
-    ],
-    [
-        "merger-valuation",
-        "merger-valuation-service"
-    ],
-    [
-        "mva",
-        "mva-service"
-    ],
-    [
-        "net-present-value",
-        "net-present-value-service"
-    ],
-    [
-        "options-pricing",
-        "options-pricing-service"
-    ],
-    [
-        "payback-period",
-        "payback-period-service"
-    ],
-    [
-        "personal-finance",
-        "personal-finance-service"
-    ],
-    [
-        "portfolio-optimization",
-        "portfolio-optimization-service"
-    ],
-    [
-        "post-merger",
-        "post-merger-service"
-    ],
-    [
-        "present-value",
-        "present-value-service"
-    ],
-    [
-        "profitability-index",
-        "profitability-index-service"
-    ],
-    [
-        "rolling-forecast",
-        "rolling-forecast-service"
-    ],
-    [
-        "scenario-analysis",
-        "scenario-analysis-service"
-    ],
-    [
-        "sensitivity-analysis",
-        "sensitivity-analysis-service"
-    ],
-    [
-        "sustainable-growth",
-        "sustainable-growth-service"
-    ],
-    [
-        "swap-valuation",
-        "swap-valuation-service"
-    ],
-    [
-        "synergy-analysis",
-        "synergy-analysis-service"
-    ],
-    [
-        "time-value-of-money",
-        "time-value-of-money-service"
-    ],
-    [
-        "trade-finance",
-        "trade-finance-service"
-    ],
-    [
-        "working-capital",
-        "working-capital-service"
-    ],
-    [
-        "working-capital-finance",
-        "working-capital-finance-service"
-    ],
-    [
-        "working-capital-optimization",
-        "working-capital-optimization-service"
-    ]
+    ["business-valuation", "business-valuation-service"],
+    ["capital-allocation", "capital-allocation-service"],
+    ["capital-reconstruction", "capital-reconstruction-service"],
+    ["capital-redemption-reserve", "capital-redemption-reserve-service"],
+    ["cash-management", "cash-management-service"],
+    ["cash-optimization", "cash-optimization-service"],
+    ["cash-pooling", "cash-pooling-service"],
+    ["commodity-hedging", "commodity-hedging-service"],
+    ["cost-of-capital", "cost-of-capital-service"],
+    ["croic", "croic-service"],
+    ["cvp-analysis", "cvp-analysis-service"],
+    ["deal-structuring", "deal-structuring-service"],
+    ["debentures", "debentures-service"],
+    ["discount-factor", "discount-factor-service"],
+    ["discounted-payback-period", "discounted-payback-period-service"],
+    ["divestiture", "divestiture-service"],
+    ["due-diligence", "due-diligence-service"],
+    ["eps", "eps-service"],
+    ["eva", "eva-service"],
+    ["exotic-derivatives", "exotic-derivatives-service"],
+    ["financial-planning", "financial-planning-service"],
+    ["foreign-exchange", "foreign-exchange-service"],
+    ["fund-management", "fund-management-service"],
+    ["futures-hedging", "futures-hedging-service"],
+    ["household-finance", "household-finance-service"],
+    ["insurance-claims", "insurance-claims-service"],
+    ["limiting-factor", "limiting-factor-service"],
+    ["liquidity-forecast", "liquidity-forecast-service"],
+    ["liquidity-management", "liquidity-management-service"],
+    ["make-or-buy-decision", "make-or-buy-decision-service"],
+    ["margin-safety", "margin-safety-service"],
+    ["merger-valuation", "merger-valuation-service"],
+    ["mva", "mva-service"],
+    ["net-present-value", "net-present-value-service"],
+    ["options-pricing", "options-pricing-service"],
+    ["payback-period", "payback-period-service"],
+    ["personal-finance", "personal-finance-service"],
+    ["portfolio-optimization", "portfolio-optimization-service"],
+    ["post-merger", "post-merger-service"],
+    ["present-value", "present-value-service"],
+    ["profitability-index", "profitability-index-service"],
+    ["rolling-forecast", "rolling-forecast-service"],
+    ["scenario-analysis", "scenario-analysis-service"],
+    ["sensitivity-analysis", "sensitivity-analysis-service"],
+    ["sustainable-growth", "sustainable-growth-service"],
+    ["swap-valuation", "swap-valuation-service"],
+    ["synergy-analysis", "synergy-analysis-service"],
+    ["time-value-of-money", "time-value-of-money-service"],
+    ["trade-finance", "trade-finance-service"],
+    ["working-capital", "working-capital-service"],
+    ["working-capital-finance", "working-capital-finance-service"],
+    ["working-capital-optimization", "working-capital-optimization-service"],
 ]
 
 app = FastAPI(

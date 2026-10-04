@@ -96,14 +96,6 @@
       "strip_prefix": false
     },
     {
-      "name": "ai-readiness-service",
-      "path": "/ai-readiness",
-      "url": "http://localhost:9007",
-      "port": 8014,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "alerts-service",
       "path": "/alerts",
       "url": "http://localhost:9008",
@@ -551,14 +543,6 @@
       "strip_prefix": false
     },
     {
-      "name": "cqrs-event-sourcing-service",
-      "path": "/cqrs-event-sourcing",
-      "url": "http://localhost:9013",
-      "port": 8038,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "credit-derivatives-service",
       "path": "/credit-derivatives",
       "url": "http://localhost:9003",
@@ -623,14 +607,6 @@
       "strip_prefix": false
     },
     {
-      "name": "data-sovereignty-service",
-      "path": "/data-sovereignty",
-      "url": "http://localhost:9013",
-      "port": 8040,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "data-warehouse-service",
       "path": "/data-warehouse",
       "url": "http://localhost:9009",
@@ -691,14 +667,6 @@
       "path": "/director-emoluments",
       "url": "http://localhost:9011",
       "port": 8208,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "disaster-recovery-service",
-      "path": "/disaster-recovery",
-      "url": "http://localhost:9013",
-      "port": 8042,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -782,14 +750,6 @@
       "strip_prefix": false
     },
     {
-      "name": "edge-computing-service",
-      "path": "/edge-computing",
-      "url": "http://localhost:9013",
-      "port": 8048,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "encrypted-backup-service",
       "path": "/encrypted-backup",
       "url": "http://localhost:9013",
@@ -854,14 +814,6 @@
       "strip_prefix": false
     },
     {
-      "name": "event-streaming-service",
-      "path": "/event-streaming",
-      "url": "http://localhost:9013",
-      "port": 8050,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "events-after-reporting-service",
       "path": "/events-after-reporting",
       "url": "http://localhost:9002",
@@ -890,14 +842,6 @@
       "path": "/family-community-group",
       "url": "http://localhost:9010",
       "port": 8005,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "federated-network-service",
-      "path": "/federated-network",
-      "url": "http://localhost:9013",
-      "port": 8052,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1126,22 +1070,6 @@
       "strip_prefix": false
     },
     {
-      "name": "grpc-service",
-      "path": "/grpc",
-      "url": "http://localhost:9013",
-      "port": 8063,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "high-availability-service",
-      "path": "/high-availability",
-      "url": "http://localhost:9013",
-      "port": 8064,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "household-finance-service",
       "path": "/household-finance",
       "url": "http://localhost:9012",
@@ -1194,14 +1122,6 @@
       "path": "/income-statement",
       "url": "http://localhost:9002",
       "port": 8334,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "infrastructure-as-code-service",
-      "path": "/infrastructure-as-code",
-      "url": "http://localhost:9013",
-      "port": 8066,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1564,26 +1484,10 @@
       "strip_prefix": false
     },
     {
-      "name": "multi-cloud-service",
-      "path": "/multi-cloud",
-      "url": "http://localhost:9013",
-      "port": 8081,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "multi-currency-service",
       "path": "/multi-currency",
       "url": "http://localhost:9003",
       "port": 8349,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "multi-tenant-service",
-      "path": "/multi-tenant",
-      "url": "http://localhost:9013",
-      "port": 8082,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1632,22 +1536,6 @@
       "url": "http://localhost:8085",
       "port": 8085,
       "auth_required": true
-    },
-    {
-      "name": "observability-service",
-      "path": "/observability",
-      "url": "http://localhost:9013",
-      "port": 8086,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "offline-sync-service",
-      "path": "/offline-sync",
-      "url": "http://localhost:9008",
-      "port": 8087,
-      "auth_required": true,
-      "strip_prefix": false
     },
     {
       "name": "operational-audit-service",
@@ -1838,14 +1726,6 @@
       "path": "/petty-cash",
       "url": "http://localhost:9011",
       "port": 8097,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "plugin-extension-service",
-      "path": "/plugin-extension",
-      "url": "http://localhost:9013",
-      "port": 8100,
       "auth_required": true,
       "strip_prefix": false
     },

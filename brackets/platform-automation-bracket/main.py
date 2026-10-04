@@ -1,6 +1,6 @@
 """
 Vimbai Platform & Automation Bracket Service
-One container hosting 8 merged microservices. Each member service's
+One container hosting 7 merged microservices. Each member service's
 FastAPI app is mounted at its original gateway path prefix, so every
 external URL is unchanged.
 
@@ -20,44 +20,19 @@ PORT = int(os.getenv("PORT", "9008"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    [
-        "admin",
-        "admin-service"
-    ],
-    [
-        "alerts",
-        "alerts-service"
-    ],
-    [
-        "automation",
-        "automation-engine-service"
-    ],
-    [
-        "fixed-assets-schedule",
-        "fixed-assets-schedule-service"
-    ],
-    [
-        "notifications",
-        "notifications-service"
-    ],
-    [
-        "offline-sync",
-        "offline-sync-service"
-    ],
-    [
-        "privacy-admin-dashboard",
-        "privacy-admin-dashboard-service"
-    ],
-    [
-        "webhook",
-        "webhook-service"
-    ]
+    ["admin", "admin-service"],
+    ["alerts", "alerts-service"],
+    ["automation", "automation-engine-service"],
+    ["fixed-assets-schedule", "fixed-assets-schedule-service"],
+    ["notifications", "notifications-service"],
+    ["privacy-admin-dashboard", "privacy-admin-dashboard-service"],
+    ["webhook", "webhook-service"],
 ]
 
 app = FastAPI(
     title="Vimbai Platform & Automation Bracket Service",
     version=SERVICE_VERSION,
-    description="Bracket container for 8 Vimbai microservices.",
+    description="Bracket container for 7 Vimbai microservices.",
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))

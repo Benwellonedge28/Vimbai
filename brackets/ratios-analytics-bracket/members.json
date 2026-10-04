@@ -8,11 +8,6 @@
       "dir": "accounting-rate-return-service"
     },
     {
-      "path": "/ai-readiness",
-      "name": "ai-readiness-service",
-      "dir": "ai-readiness-service"
-    },
-    {
       "path": "/analytical-procedures",
       "name": "analytical-procedures-service",
       "dir": "analytical-procedures-service"

@@ -20,42 +20,15 @@ PORT = int(os.getenv("PORT", "9009"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    [
-        "biological-assets",
-        "biological-assets-service"
-    ],
-    [
-        "data-warehouse",
-        "data-warehouse-service"
-    ],
-    [
-        "fixed-assets",
-        "fixed-assets-service"
-    ],
-    [
-        "fixed-assets-register",
-        "fixed-assets-register-service"
-    ],
-    [
-        "inventory-valuation",
-        "inventory-valuation-service"
-    ],
-    [
-        "order-acceptance",
-        "order-acceptance-service"
-    ],
-    [
-        "project-accounting",
-        "project-accounting-service"
-    ],
-    [
-        "project-appraisal",
-        "project-appraisal-service"
-    ],
-    [
-        "subscription-plans",
-        "subscription-plans-service"
-    ]
+    ["biological-assets", "biological-assets-service"],
+    ["data-warehouse", "data-warehouse-service"],
+    ["fixed-assets", "fixed-assets-service"],
+    ["fixed-assets-register", "fixed-assets-register-service"],
+    ["inventory-valuation", "inventory-valuation-service"],
+    ["order-acceptance", "order-acceptance-service"],
+    ["project-accounting", "project-accounting-service"],
+    ["project-appraisal", "project-appraisal-service"],
+    ["subscription-plans", "subscription-plans-service"],
 ]
 
 app = FastAPI(

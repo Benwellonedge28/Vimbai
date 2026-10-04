@@ -20,270 +20,72 @@ PORT = int(os.getenv("PORT", "9011"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    [
-        "accounting-standards",
-        "accounting-standards-service"
-    ],
-    [
-        "basis-apportionment",
-        "basis-apportionment-service"
-    ],
-    [
-        "bonus-shares",
-        "bonus-shares-service"
-    ],
-    [
-        "cashbook",
-        "cashbook-service"
-    ],
-    [
-        "company-accounting",
-        "company-accounting-service"
-    ],
-    [
-        "consolidation",
-        "consolidation-service"
-    ],
-    [
-        "construction-contracts",
-        "construction-contracts-service"
-    ],
-    [
-        "continue-shutdown-decision",
-        "continue-shutdown-decision-service"
-    ],
-    [
-        "control-account-reconciliation",
-        "control-account-reconciliation-service"
-    ],
-    [
-        "cost-accounting",
-        "cost-accounting-service"
-    ],
-    [
-        "cost-centre",
-        "cost-centre-service"
-    ],
-    [
-        "departmental-accounting",
-        "departmental-accounting-service"
-    ],
-    [
-        "depreciation",
-        "depreciation-service"
-    ],
-    [
-        "director-emoluments",
-        "director-emoluments-service"
-    ],
-    [
-        "disposal-account",
-        "disposal-account-service"
-    ],
-    [
-        "disposal-group",
-        "disposal-group-service"
-    ],
-    [
-        "double-entry-principles",
-        "double-entry-principles-service"
-    ],
-    [
-        "equity-changes",
-        "equity-changes-service"
-    ],
-    [
-        "equivalent-units",
-        "equivalent-units-service"
-    ],
-    [
-        "financial-identity",
-        "financial-identity-service"
-    ],
-    [
-        "financial-integrity",
-        "financial-integrity-service"
-    ],
-    [
-        "fund-accounting",
-        "fund-accounting-service"
-    ],
-    [
-        "general-reserve",
-        "general-reserve-service"
-    ],
-    [
-        "going-concern",
-        "going-concern-service"
-    ],
-    [
-        "goodwill",
-        "goodwill-service"
-    ],
-    [
-        "government-grants",
-        "government-grants-service"
-    ],
-    [
-        "ifrs-15-revenue-recognition",
-        "ifrs-15-revenue-recognition-service"
-    ],
-    [
-        "ifrs-16-lease-accounting",
-        "ifrs-16-lease-accounting-service"
-    ],
-    [
-        "ifrs-9-financial-instruments",
-        "ifrs-9-financial-instruments-service"
-    ],
-    [
-        "intangible-assets",
-        "intangible-assets-service"
-    ],
-    [
-        "intercompany",
-        "intercompany-service"
-    ],
-    [
-        "journal-entries",
-        "journal-entries-service"
-    ],
-    [
-        "lease-management",
-        "lease-management-service"
-    ],
-    [
-        "lease-termination",
-        "lease-termination-service"
-    ],
-    [
-        "management-accounts",
-        "management-accounts-service"
-    ],
-    [
-        "net-realizable-value",
-        "net-realizable-value-service"
-    ],
-    [
-        "ordinary-shares",
-        "ordinary-shares-service"
-    ],
-    [
-        "over-under-absorption",
-        "over-under-absorption-service"
-    ],
-    [
-        "overhead-absorption-rate",
-        "overhead-absorption-rate-service"
-    ],
-    [
-        "overhead-apportionment",
-        "overhead-apportionment-service"
-    ],
-    [
-        "partnership-accounting",
-        "partnership-accounting-service"
-    ],
-    [
-        "partnership-agreement",
-        "partnership-agreement-service"
-    ],
-    [
-        "partnership-changes",
-        "partnership-changes-service"
-    ],
-    [
-        "partnership-dissolution",
-        "partnership-dissolution-service"
-    ],
-    [
-        "partnership-revaluation",
-        "partnership-revaluation-service"
-    ],
-    [
-        "partnership-sale",
-        "partnership-sale-service"
-    ],
-    [
-        "petty-cash",
-        "petty-cash-service"
-    ],
-    [
-        "preference-shares",
-        "preference-shares-service"
-    ],
-    [
-        "profit",
-        "profit-service"
-    ],
-    [
-        "profit-loss-account",
-        "profit-loss-account-service"
-    ],
-    [
-        "provisions-contingencies",
-        "provisions-contingencies-service"
-    ],
-    [
-        "related-party",
-        "related-party-service"
-    ],
-    [
-        "retained-profits",
-        "retained-profits-service"
-    ],
-    [
-        "revaluation-model",
-        "revaluation-model-service"
-    ],
-    [
-        "revaluation-reserve",
-        "revaluation-reserve-service"
-    ],
-    [
-        "revenue-recognition",
-        "revenue-recognition-service"
-    ],
-    [
-        "right-issues",
-        "right-issues-service"
-    ],
-    [
-        "share-options",
-        "share-options-service"
-    ],
-    [
-        "share-premium",
-        "share-premium-service"
-    ],
-    [
-        "share-redemption",
-        "share-redemption-service"
-    ],
-    [
-        "statutory-filing",
-        "statutory-filing-service"
-    ],
-    [
-        "substantive-testing",
-        "substantive-testing-service"
-    ],
-    [
-        "suspense-error",
-        "suspense-error-service"
-    ],
-    [
-        "throughput-accounting",
-        "throughput-accounting-service"
-    ],
-    [
-        "trading-account",
-        "trading-account-service"
-    ],
-    [
-        "transfer-pricing",
-        "transfer-pricing-service"
-    ]
+    ["accounting-standards", "accounting-standards-service"],
+    ["basis-apportionment", "basis-apportionment-service"],
+    ["bonus-shares", "bonus-shares-service"],
+    ["cashbook", "cashbook-service"],
+    ["company-accounting", "company-accounting-service"],
+    ["consolidation", "consolidation-service"],
+    ["construction-contracts", "construction-contracts-service"],
+    ["continue-shutdown-decision", "continue-shutdown-decision-service"],
+    ["control-account-reconciliation", "control-account-reconciliation-service"],
+    ["cost-accounting", "cost-accounting-service"],
+    ["cost-centre", "cost-centre-service"],
+    ["departmental-accounting", "departmental-accounting-service"],
+    ["depreciation", "depreciation-service"],
+    ["director-emoluments", "director-emoluments-service"],
+    ["disposal-account", "disposal-account-service"],
+    ["disposal-group", "disposal-group-service"],
+    ["double-entry-principles", "double-entry-principles-service"],
+    ["equity-changes", "equity-changes-service"],
+    ["equivalent-units", "equivalent-units-service"],
+    ["financial-identity", "financial-identity-service"],
+    ["financial-integrity", "financial-integrity-service"],
+    ["fund-accounting", "fund-accounting-service"],
+    ["general-reserve", "general-reserve-service"],
+    ["going-concern", "going-concern-service"],
+    ["goodwill", "goodwill-service"],
+    ["government-grants", "government-grants-service"],
+    ["ifrs-15-revenue-recognition", "ifrs-15-revenue-recognition-service"],
+    ["ifrs-16-lease-accounting", "ifrs-16-lease-accounting-service"],
+    ["ifrs-9-financial-instruments", "ifrs-9-financial-instruments-service"],
+    ["intangible-assets", "intangible-assets-service"],
+    ["intercompany", "intercompany-service"],
+    ["journal-entries", "journal-entries-service"],
+    ["lease-management", "lease-management-service"],
+    ["lease-termination", "lease-termination-service"],
+    ["management-accounts", "management-accounts-service"],
+    ["net-realizable-value", "net-realizable-value-service"],
+    ["ordinary-shares", "ordinary-shares-service"],
+    ["over-under-absorption", "over-under-absorption-service"],
+    ["overhead-absorption-rate", "overhead-absorption-rate-service"],
+    ["overhead-apportionment", "overhead-apportionment-service"],
+    ["partnership-accounting", "partnership-accounting-service"],
+    ["partnership-agreement", "partnership-agreement-service"],
+    ["partnership-changes", "partnership-changes-service"],
+    ["partnership-dissolution", "partnership-dissolution-service"],
+    ["partnership-revaluation", "partnership-revaluation-service"],
+    ["partnership-sale", "partnership-sale-service"],
+    ["petty-cash", "petty-cash-service"],
+    ["preference-shares", "preference-shares-service"],
+    ["profit", "profit-service"],
+    ["profit-loss-account", "profit-loss-account-service"],
+    ["provisions-contingencies", "provisions-contingencies-service"],
+    ["related-party", "related-party-service"],
+    ["retained-profits", "retained-profits-service"],
+    ["revaluation-model", "revaluation-model-service"],
+    ["revaluation-reserve", "revaluation-reserve-service"],
+    ["revenue-recognition", "revenue-recognition-service"],
+    ["right-issues", "right-issues-service"],
+    ["share-options", "share-options-service"],
+    ["share-premium", "share-premium-service"],
+    ["share-redemption", "share-redemption-service"],
+    ["statutory-filing", "statutory-filing-service"],
+    ["substantive-testing", "substantive-testing-service"],
+    ["suspense-error", "suspense-error-service"],
+    ["throughput-accounting", "throughput-accounting-service"],
+    ["trading-account", "trading-account-service"],
+    ["transfer-pricing", "transfer-pricing-service"],
 ]
 
 app = FastAPI(

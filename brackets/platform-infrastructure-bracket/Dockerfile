@@ -17,27 +17,14 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY brackets/platform-infrastructure-bracket/main.py ./main.py
 COPY cache-service ./cache-service
-COPY cqrs-event-sourcing-service ./cqrs-event-sourcing-service
 COPY dashboard-service ./dashboard-service
-COPY data-sovereignty-service ./data-sovereignty-service
-COPY disaster-recovery-service ./disaster-recovery-service
-COPY edge-computing-service ./edge-computing-service
 COPY encrypted-backup-service ./encrypted-backup-service
 COPY enterprise-sso-service ./enterprise-sso-service
 COPY etl-service ./etl-service
-COPY event-streaming-service ./event-streaming-service
-COPY federated-network-service ./federated-network-service
 COPY financial-state-machine-service ./financial-state-machine-service
 COPY graphql-service ./graphql-service
-COPY grpc-service ./grpc-service
-COPY high-availability-service ./high-availability-service
-COPY infrastructure-as-code-service ./infrastructure-as-code-service
 COPY management-dashboard-service ./management-dashboard-service
 COPY mfa-auth-service ./mfa-auth-service
-COPY multi-cloud-service ./multi-cloud-service
-COPY multi-tenant-service ./multi-tenant-service
-COPY observability-service ./observability-service
-COPY plugin-extension-service ./plugin-extension-service
 COPY policy-engine-service ./policy-engine-service
 COPY realtime-calculation-engine ./realtime-calculation-engine
 COPY websocket-service ./websocket-service
