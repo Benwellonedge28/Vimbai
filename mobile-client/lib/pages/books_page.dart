@@ -272,7 +272,7 @@ class _BooksPageState extends State<BooksPage> {
   }
 
   /// Long-press actions on a Book: move to a folder, invite members.
-  Future<void> _bookActions(VBook book, String folder, List<VBook> siblings) async {
+  Future<void> _bookActions(VBook book, String folder) async {
     final canInvite = book.yourRole == 'owner' || book.yourRole == 'admin';
     final action = await showModalBottomSheet<String>(
       context: context,
