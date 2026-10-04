@@ -18,7 +18,6 @@ from typing import Any, Dict, List, Optional, Type, Union, get_args, get_origin
 
 from neo4j import AsyncSession
 from zero_trust_data_service.dependencies import book_id_var
-
 from zero_trust_data_service.models import AccessAttempt, AccessPolicy
 
 BOOK_FILTER = "WHERE ($book_id IS NULL OR x.book_id = $book_id)"

@@ -28,12 +28,6 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
-from fastapi.responses import JSONResponse
-from neo4j import AsyncSession
-from pydantic import BaseModel
-
 from alerts_service import crud
 from alerts_service.dependencies import book_id_var, get_db_session, get_user_id
 from alerts_service.exceptions import AlertsError
@@ -47,6 +41,11 @@ from alerts_service.models import (
     AlertStatus,
     AlertSubscription,
 )
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
+from fastapi.responses import JSONResponse
+from neo4j import AsyncSession
+from pydantic import BaseModel
 
 load_dotenv()
 

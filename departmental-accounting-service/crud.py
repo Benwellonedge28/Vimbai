@@ -22,8 +22,6 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional, Type, Union, get_args, get_origin
 
 from departmental_accounting_service.dependencies import book_id_var
-from neo4j import AsyncSession
-
 from departmental_accounting_service.models import (
     Department,
     DepartmentAllocationResult,
@@ -32,6 +30,7 @@ from departmental_accounting_service.models import (
     DepartmentFinancials,
     InterDepartmentBilling,
 )
+from neo4j import AsyncSession
 
 BOOK_FILTER = "WHERE ($book_id IS NULL OR x.book_id = $book_id)"
 

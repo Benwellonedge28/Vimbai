@@ -20,9 +20,8 @@ from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Type, Union, get_args, get_origin
 
 from alerts_service.dependencies import book_id_var
-from neo4j import AsyncSession
-
 from alerts_service.models import AlertInDB, AlertRuleInDB
+from neo4j import AsyncSession
 
 BOOK_FILTER = "WHERE ($book_id IS NULL OR x.book_id = $book_id)"
 

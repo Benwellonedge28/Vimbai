@@ -30,15 +30,14 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from neo4j import AsyncSession
-
 from activity_based_budget_service import crud
 from activity_based_budget_service.dependencies import book_id_var, get_db_session, get_user_id
 from activity_based_budget_service.exceptions import ActivityBasedBudgetError
 from activity_based_budget_service.models import Activity, ActivityBudget, BudgetLineItem
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from neo4j import AsyncSession
 
 SERVICE_NAME = "activity-based-budget-service"
 SERVICE_VERSION = "1.0.0"

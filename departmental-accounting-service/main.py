@@ -33,9 +33,6 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request
-from neo4j import AsyncSession
-
 from departmental_accounting_service import crud
 from departmental_accounting_service.dependencies import book_id_var, get_db_session, get_user_id
 from departmental_accounting_service.exceptions import DepartmentalAccountingError
@@ -52,6 +49,8 @@ from departmental_accounting_service.models import (
     DepartmentType,
     InterDepartmentBilling,
 )
+from fastapi import Depends, FastAPI, HTTPException, Request
+from neo4j import AsyncSession
 
 app = FastAPI(
     title="Vimbai Departmental Accounting Service",

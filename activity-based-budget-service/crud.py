@@ -16,10 +16,9 @@ import uuid
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Type, Union, get_args, get_origin
 
-from neo4j import AsyncSession
 from activity_based_budget_service.dependencies import book_id_var
-
 from activity_based_budget_service.models import Activity, ActivityBudget
+from neo4j import AsyncSession
 
 BOOK_FILTER = "WHERE ($book_id IS NULL OR x.book_id = $book_id)"
 

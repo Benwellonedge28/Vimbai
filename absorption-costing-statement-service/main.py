@@ -32,11 +32,6 @@ from datetime import datetime
 from typing import List, Optional
 
 import structlog
-from fastapi import Depends, FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from neo4j import AsyncSession
-
 from absorption_costing_statement_service import crud
 from absorption_costing_statement_service.dependencies import book_id_var, get_db_session, get_user_id
 from absorption_costing_statement_service.exceptions import AbsorptionCostingStatementError
@@ -45,6 +40,10 @@ from absorption_costing_statement_service.models import (
     StatementLineItem,
     TradingAccountStatement,
 )
+from fastapi import Depends, FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from neo4j import AsyncSession
 
 SERVICE_NAME = "absorption-costing-statement-service"
 SERVICE_VERSION = "1.0.0"

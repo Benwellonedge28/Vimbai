@@ -13,9 +13,8 @@ import os
 
 import main  # noqa: F401  (isort: keep bare main import first)
 import pytest
-from fastapi.testclient import TestClient
-
 from departmental_accounting_service.database import Neo4jConnector
+from fastapi.testclient import TestClient
 
 app = main.app
 

@@ -36,7 +36,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from neo4j import AsyncSession
 from pydantic import BaseModel, Field
-
 from zero_trust_data_service import crud
 from zero_trust_data_service.dependencies import book_id_var, get_db_session, get_user_id
 from zero_trust_data_service.exceptions import ZeroTrustDataError
