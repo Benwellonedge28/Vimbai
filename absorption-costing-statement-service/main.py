@@ -1,24 +1,55 @@
+"""Vimbai Absorption Costing Statement Service. Port: 8065.
+
+Trading account and production cost statements. The two module-level
+lists (trading_statements, production_statements) were process-global
+and shared across ALL callers; they now persist to Neo4j as caller-
+owned, Book-scoped records (X-User-Id / X-Book-ID). add-expenses
+mutates the caller's own statement (delete-then-recreate upsert).
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
-Vimbai Absorption Costing Statement Service
-Generates trading account and profit statements using absorption costing.
-"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "absorption_costing_statement_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("absorption_costing_statement_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location(
+        "absorption_costing_statement_service", _os.path.join(_HERE, "__init__.py")
+    )
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["absorption_costing_statement_service"] = _pkg
+    _sys.modules["absorption_costing_statement_service"].__path__ = [_HERE]
 
 import os
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from neo4j import AsyncSession
+
+from absorption_costing_statement_service import crud
+from absorption_costing_statement_service.dependencies import book_id_var, get_db_session, get_user_id
+from absorption_costing_statement_service.exceptions import AbsorptionCostingStatementError
+from absorption_costing_statement_service.models import (
+    ProductionCostStatement,
+    StatementLineItem,
+    TradingAccountStatement,
+)
 
 SERVICE_NAME = "absorption-costing-statement-service"
 SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8065"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
+
 
 structlog.configure(
     processors=[
@@ -40,95 +71,18 @@ app.add_middleware(
 )
 
 
-class StatementLineItem(BaseModel):
-    description: str
-    amount: float
-    is_total: bool = False
-    is_subtotal: bool = False
-    indent_level: int = 0
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class TradingAccountStatement(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    period_start: datetime
-    period_end: datetime
-    line_items: List[StatementLineItem] = []
-
-    # Trading Account Section
-    opening_stock: float = 0
-    purchases: float = 0
-    carriage_inwards: float = 0
-    closing_stock: float = 0
-    cost_of_goods_sold: float = 0
-    gross_profit: float = 0
-
-    # Profit & Loss Section
-    sales_revenue: float = 0
-    distribution_costs: float = 0
-    administrative_expenses: float = 0
-    other_expenses: float = 0
-    net_profit: float = 0
-
-    status: str = "draft"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class ProductionCostStatement(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    product_id: str
-    period: str
-
-    # Production Costs
-    direct_materials_opening: float = 0
-    direct_materials_purchases: float = 0
-    direct_materials_closing: float = 0
-    direct_materials_used: float = 0
-
-    direct_labor: float = 0
-    direct_expenses: float = 0
-    prime_cost: float = 0
-
-    factory_overhead: float = 0
-    work_in_progress_opening: float = 0
-    work_in_progress_closing: float = 0
-    production_cost: float = 0
-
-    units_produced: int = 0
-    cost_per_unit: float = 0
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-trading_statements: List[TradingAccountStatement] = []
-production_statements: List[ProductionCostStatement] = []
-
-
-async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{ACCOUNTING_SERVICE_URL}{endpoint}"
-            if method == "POST":
-                response = await client.post(url, json=data)
-            else:
-                response = await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception:
-        return {}
-
-
-@app.get("/health")
-async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
-
-
-@app.get("/")
-async def root():
-    return {
-        "service": SERVICE_NAME,
-        "version": SERVICE_VERSION,
-        "description": "Absorption costing statement generation",
-    }
+@app.exception_handler(AbsorptionCostingStatementError)
+async def _acst_error(request: Request, exc: AbsorptionCostingStatementError):
+    return JSONResponse(
+        status_code=getattr(exc, "status_code", 400), content={"detail": str(exc), "error": exc.__class__.__name__}
+    )
 
 
 @app.post("/trading-account/generate")
@@ -141,6 +95,8 @@ async def generate_trading_account(
     carriage_inwards: float,
     closing_stock: float,
     sales_revenue: float,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Generate trading account statement."""
     statement = TradingAccountStatement(company_id=company_id, period_start=period_start, period_end=period_end)
@@ -174,16 +130,22 @@ async def generate_trading_account(
         StatementLineItem(description="Gross Profit", amount=statement.gross_profit, is_total=True),
     ]
 
-    trading_statements.append(statement)
+    await crud.create(db_session, caller_id, statement)
     return statement
 
 
 @app.post("/trading-account/{statement_id}/add-expenses")
 async def add_expenses_to_statement(
-    statement_id: str, distribution_costs: float = 0, administrative_expenses: float = 0, other_expenses: float = 0
+    statement_id: str,
+    distribution_costs: float = 0,
+    administrative_expenses: float = 0,
+    other_expenses: float = 0,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """Add expenses to complete profit statement."""
-    statement = next((s for s in trading_statements if s.id == statement_id), None)
+    """Add expenses to complete the caller's profit statement."""
+    statements = await crud.list_all(db_session, caller_id, TradingAccountStatement)
+    statement = next((s for s in statements if s.id == statement_id), None)
     if not statement:
         return {"error": "Statement not found"}
 
@@ -209,6 +171,9 @@ async def add_expenses_to_statement(
     )
 
     statement.status = "completed"
+    # upsert the mutated statement
+    await crud.delete_where(db_session, caller_id, TradingAccountStatement, {"id": statement_id})
+    await crud.create(db_session, caller_id, statement)
     return statement
 
 
@@ -225,6 +190,8 @@ async def generate_production_cost_statement(
     work_in_progress_opening: float,
     work_in_progress_closing: float,
     units_produced: int,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Generate production cost statement."""
     statement = ProductionCostStatement(product_id=product_id, period=period)
@@ -254,25 +221,34 @@ async def generate_production_cost_statement(
     if units_produced > 0:
         statement.cost_per_unit = statement.production_cost / units_produced
 
-    production_statements.append(statement)
+    await crud.create(db_session, caller_id, statement)
     return statement
 
 
 @app.get("/trading-account")
 async def list_trading_statements(
-    company_id: Optional[str] = None, period_start: Optional[datetime] = None, period_end: Optional[datetime] = None
+    company_id: Optional[str] = None,
+    period_start: Optional[datetime] = None,
+    period_end: Optional[datetime] = None,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """List trading account statements."""
-    result = trading_statements
+    """List the caller's trading account statements."""
+    result = await crud.list_all(db_session, caller_id, TradingAccountStatement)
     if company_id:
         result = [s for s in result if s.company_id == company_id]
     return {"statements": result}
 
 
 @app.get("/production-cost")
-async def list_production_statements(product_id: Optional[str] = None, period: Optional[str] = None):
-    """List production cost statements."""
-    result = production_statements
+async def list_production_statements(
+    product_id: Optional[str] = None,
+    period: Optional[str] = None,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's production cost statements."""
+    result = await crud.list_all(db_session, caller_id, ProductionCostStatement)
     if product_id:
         result = [s for s in result if s.product_id == product_id]
     if period:
@@ -281,9 +257,13 @@ async def list_production_statements(product_id: Optional[str] = None, period: O
 
 
 @app.get("/trading-account/{statement_id}")
-async def get_trading_statement(statement_id: str):
-    """Get trading account statement details."""
-    statement = next((s for s in trading_statements if s.id == statement_id), None)
+async def get_trading_statement(
+    statement_id: str,
+    caller_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Get the caller's trading account statement details."""
+    statement = await crud.find(db_session, caller_id, TradingAccountStatement, statement_id)
     if not statement:
         return {"error": "Statement not found"}
     return statement
