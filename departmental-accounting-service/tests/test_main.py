@@ -203,7 +203,10 @@ def test_inter_department_bills():
     assert client.get("/inter-department-bills", params={"status": "approved"}, headers=H1).json()[0]["id"] == bid
 
     # cross-scope 404
-    assert client.post(f"/inter-department-bills/{bid}/approve", params={"approved_by": "eve"}, headers=H2).status_code == 404
+    assert (
+        client.post(f"/inter-department-bills/{bid}/approve", params={"approved_by": "eve"}, headers=H2).status_code
+        == 404
+    )
 
 
 def test_financials_and_reports():

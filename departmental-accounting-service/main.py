@@ -85,9 +85,7 @@ async def _departmental_accounting_error(request: Request, exc: DepartmentalAcco
     from fastapi.responses import JSONResponse
 
     status_code = getattr(exc, "status_code", 400)
-    return JSONResponse(
-        status_code=status_code, content={"detail": str(exc), "error": exc.__class__.__name__}
-    )
+    return JSONResponse(status_code=status_code, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None):
@@ -341,9 +339,7 @@ async def deactivate_allocation_rule(
     db_session: AsyncSession = Depends(get_db_session),
 ):
     """Deactivate an allocation rule"""
-    updated = await crud.update_props(
-        db_session, user_id, DepartmentAllocationRule, rule_id, {"is_active": False}
-    )
+    updated = await crud.update_props(db_session, user_id, DepartmentAllocationRule, rule_id, {"is_active": False})
     if not updated:
         raise HTTPException(status_code=404, detail="Rule not found")
 
@@ -430,9 +426,7 @@ async def run_cost_allocation(
     # Get departments to allocate to (caller's own, active, not excluded)
     all_departments = await crud.list_all(db_session, user_id, Department)
     target_departments = [
-        d
-        for d in all_departments
-        if d.id not in pool.excluded_departments and d.status == DepartmentStatus.ACTIVE
+        d for d in all_departments if d.id not in pool.excluded_departments and d.status == DepartmentStatus.ACTIVE
     ]
 
     results = []
@@ -515,9 +509,7 @@ async def run_cost_allocation(
         )
 
     # latest-wins: replace the caller's prior results for this pool
-    await crud.delete_where(
-        db_session, user_id, DepartmentAllocationResult, {"cost_pool_id": pool.id}
-    )
+    await crud.delete_where(db_session, user_id, DepartmentAllocationResult, {"cost_pool_id": pool.id})
     for result in results:
         await crud.create(db_session, user_id, result)
     pool.status = "closed"
@@ -538,9 +530,7 @@ async def get_allocation_results(
 ):
     """Get the caller's allocation results for a cost pool"""
     results = [
-        r
-        for r in await crud.list_all(db_session, user_id, DepartmentAllocationResult)
-        if r.cost_pool_id == pool_id
+        r for r in await crud.list_all(db_session, user_id, DepartmentAllocationResult) if r.cost_pool_id == pool_id
     ]
     return results
 
