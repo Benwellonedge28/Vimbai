@@ -2516,7 +2516,7 @@
       "url": "http://localhost:9020",
       "port": 9020,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "npo-scale-service",

@@ -149,3 +149,11 @@ class DepartmentPerformanceReport(BaseModel):
     comparisons: Dict[str, Any] = {}  # vs budget, vs previous period, vs target
     recommendations: List[str] = []
     generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class DepartmentComparisonRequest(BaseModel):
+    """Body for POST /reports/department-comparison"""
+
+    department_ids: List[str]
+    period_start: datetime
+    period_end: datetime

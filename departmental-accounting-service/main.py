@@ -42,6 +42,7 @@ from departmental_accounting_service.models import (
     Department,
     DepartmentAllocationResult,
     DepartmentAllocationRule,
+    DepartmentComparisonRequest,
     DepartmentCostPool,
     DepartmentFinancials,
     DepartmentPerformanceReport,
@@ -764,15 +765,14 @@ async def get_performance_report(
 # --- Reports ---
 
 
-@app.get("/reports/department-comparison")
-async def compare_departments(
+async def _compare_departments(
+    user_id: str,
+    db_session: AsyncSession,
     department_ids: List[str],
     period_start: datetime,
     period_end: datetime,
-    user_id: str = Depends(get_user_id),
-    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """Compare financial performance across the caller's departments"""
+    """Shared comparison logic for the GET/POST report endpoints"""
     comparisons = []
 
     for dept_id in department_ids:
@@ -791,6 +791,32 @@ async def compare_departments(
             "total_net_income": str(sum(c.net_income for c in comparisons)),
         },
     }
+
+
+@app.get("/reports/department-comparison")
+async def compare_departments(
+    department_ids: List[str],
+    period_start: datetime,
+    period_end: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Compare financial performance across the caller's departments
+
+    NOTE: kept for backward compatibility - this GET accepts a JSON body.
+    New clients should use the POST alias below.
+    """
+    return await _compare_departments(user_id, db_session, department_ids, period_start, period_end)
+
+
+@app.post("/reports/department-comparison")
+async def compare_departments_post(
+    body: DepartmentComparisonRequest,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Compare financial performance across the caller's departments (body-based)"""
+    return await _compare_departments(user_id, db_session, body.department_ids, body.period_start, body.period_end)
 
 
 @app.get("/reports/cost-distribution")

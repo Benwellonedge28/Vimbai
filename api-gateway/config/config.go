@@ -88,7 +88,7 @@ func LoadConfig() *Config {
 	}
 
 	cfg.Routes = []Route{
-		{Path: "/identity", TargetURL: cfg.IdentityServiceURL, AuthRequired: false},
+		{Path: "/identity", TargetURL: cfg.IdentityServiceURL, AuthRequired: false, StripPrefix: true}, // identity-service serves /users/... at root, so the /identity prefix is stripped before proxying
 		{Path: "/accounts", TargetURL: cfg.AccountingServiceURL, AuthRequired: true},
 		{Path: "/journal-entries", TargetURL: cfg.AccountingServiceURL, AuthRequired: true},
 		{Path: "/financial-statements", TargetURL: cfg.AccountingServiceURL, AuthRequired: true},
