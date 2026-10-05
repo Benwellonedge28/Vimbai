@@ -27,7 +27,7 @@ class BookServiceEntry {
   final IconData icon;
   final WidgetBuilder page;
 
-  const BookServiceEntry({
+  BookServiceEntry({
     required this.title,
     required this.description,
     required this.icon,
@@ -47,157 +47,157 @@ const Map<String, String> kTierLabels = {
 List<BookServiceEntry> servicesForTier(String tier) {
   switch (tier) {
     case 'personal':
-      return const [
+      return [
         BookServiceEntry(
           title: 'Personal finance',
           description: 'Recurring bills and income, debts, investments and tax estimation',
           icon: Icons.person_outline,
-          page: PersonalFinancePage.new,
+          page: (context) => const PersonalFinancePage(),
         ),
         BookServiceEntry(
           title: 'Budgets',
           description: 'Budget planning with variance analysis',
           icon: Icons.savings_outlined,
-          page: BudgetsPage.new,
+          page: (context) => const BudgetsPage(),
         ),
         BookServiceEntry(
           title: 'Bank accounts',
           description: 'Connected accounts and balances',
           icon: Icons.account_balance_outlined,
-          page: BankAccountsPage.new,
+          page: (context) => const BankAccountsPage(),
         ),
       ];
     case 'household':
-      return const [
+      return [
         BookServiceEntry(
           title: 'Household finance',
           description: 'Analyze household income, expenses, assets and liabilities',
           icon: Icons.home_outlined,
-          page: HouseholdFinancePage.new,
+          page: (context) => const HouseholdFinancePage(),
         ),
         BookServiceEntry(
           title: 'Budgets',
           description: 'Household budget planning with variance analysis',
           icon: Icons.savings_outlined,
-          page: BudgetsPage.new,
+          page: (context) => const BudgetsPage(),
         ),
         BookServiceEntry(
           title: 'Bank accounts',
           description: 'Connected accounts and balances',
           icon: Icons.account_balance_outlined,
-          page: BankAccountsPage.new,
+          page: (context) => const BankAccountsPage(),
         ),
       ];
     case 'group':
-      return const [
+      return [
         BookServiceEntry(
           title: 'Group savings',
           description: 'Savings groups: members, contribution cycles and payouts',
           icon: Icons.groups_outlined,
-          page: GroupSavingsPage.new,
+          page: (context) => const GroupSavingsPage(),
         ),
         BookServiceEntry(
           title: 'Budgets',
           description: 'Shared budget planning with variance analysis',
           icon: Icons.savings_outlined,
-          page: BudgetsPage.new,
+          page: (context) => const BudgetsPage(),
         ),
       ];
     case 'nonprofit':
-      return const [
+      return [
         BookServiceEntry(
           title: 'Non-profit organizations',
           description: 'NPO profiles, size bands, donations and donor-grade reports',
           icon: Icons.volunteer_activism_outlined,
-          page: NpoPage.new,
+          page: (context) => const NpoPage(),
         ),
         BookServiceEntry(
           title: 'Balance sheet',
           description: 'Statement of financial position',
           icon: Icons.balance_outlined,
-          page: BalanceSheetPage.new,
+          page: (context) => const BalanceSheetPage(),
         ),
         BookServiceEntry(
           title: 'Income statement',
           description: 'Statement of activities',
           icon: Icons.receipt_long_outlined,
-          page: IncomeStatementPage.new,
+          page: (context) => const IncomeStatementPage(),
         ),
         BookServiceEntry(
           title: 'Budgets',
           description: 'Programme budget planning with variance analysis',
           icon: Icons.savings_outlined,
-          page: BudgetsPage.new,
+          page: (context) => const BudgetsPage(),
         ),
         BookServiceEntry(
           title: 'Bank accounts',
           description: 'Connected accounts and balances',
           icon: Icons.account_balance_outlined,
-          page: BankAccountsPage.new,
+          page: (context) => const BankAccountsPage(),
         ),
       ];
     case 'business':
     default:
-      return const [
+      return [
         BookServiceEntry(
           title: 'Chart of accounts',
           description: 'Your business account structure',
           icon: Icons.account_tree_outlined,
-          page: ChartOfAccountsPage.new,
+          page: (context) => const ChartOfAccountsPage(),
         ),
         BookServiceEntry(
           title: 'Journal entries',
           description: 'Record and review double-entry transactions',
           icon: Icons.edit_note,
-          page: JournalEntriesListPage.new,
+          page: (context) => const JournalEntriesListPage(),
         ),
         BookServiceEntry(
           title: 'Ledger',
           description: 'Account-by-account transaction history',
           icon: Icons.menu_book_outlined,
-          page: LedgerPage.new,
+          page: (context) => const LedgerPage(),
         ),
         BookServiceEntry(
           title: 'Trial balance',
           description: 'Period-end debit and credit totals',
           icon: Icons.scale_outlined,
-          page: TrialBalancePage.new,
+          page: (context) => const TrialBalancePage(),
         ),
         BookServiceEntry(
           title: 'Balance sheet',
           description: 'Financial position statement',
           icon: Icons.balance_outlined,
-          page: BalanceSheetPage.new,
+          page: (context) => const BalanceSheetPage(),
         ),
         BookServiceEntry(
           title: 'Income statement',
           description: 'Profit and loss statement',
           icon: Icons.receipt_long_outlined,
-          page: IncomeStatementPage.new,
+          page: (context) => const IncomeStatementPage(),
         ),
         BookServiceEntry(
           title: 'Cash flow statement',
           description: 'Operating, investing and financing flows',
           icon: Icons.currency_exchange,
-          page: CashFlowStatementPage.new,
+          page: (context) => const CashFlowStatementPage(),
         ),
         BookServiceEntry(
           title: 'Financial ratios',
           description: 'Liquidity, solvency and profitability ratios',
           icon: Icons.insights_outlined,
-          page: FinancialRatiosPage.new,
+          page: (context) => const FinancialRatiosPage(),
         ),
         BookServiceEntry(
           title: 'Budgets',
           description: 'Budget planning with variance analysis',
           icon: Icons.savings_outlined,
-          page: BudgetsPage.new,
+          page: (context) => const BudgetsPage(),
         ),
         BookServiceEntry(
           title: 'Bank accounts',
           description: 'Connected accounts and balances',
           icon: Icons.account_balance_outlined,
-          page: BankAccountsPage.new,
+          page: (context) => const BankAccountsPage(),
         ),
       ];
   }
