@@ -26,7 +26,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'vimbai_offline.db');
     return await openDatabase(
       path,
-      version: 2, // NEW: Increment database version
+      version: 3, // v3: multimodal_tasks gains user_id (offline capture queue)
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -109,6 +109,7 @@ class DatabaseHelper {
     await db.execute('''
           CREATE TABLE multimodal_tasks(
             id TEXT PRIMARY KEY,
+            user_id TEXT DEFAULT 'self',
             input_type TEXT,
             data TEXT, -- Base64 encoded file data or URL
             source_context TEXT,
@@ -133,6 +134,11 @@ class DatabaseHelper {
               updated_at TEXT
             )
           ''');
+    }
+    if (oldVersion < 3) {
+      // v2 -> v3: capture queue rows are replayed per-user
+      await db.execute(
+          'ALTER TABLE multimodal_tasks ADD COLUMN user_id TEXT DEFAULT \'self\'');
     }
     // Add future migrations here
   }
@@ -363,7 +369,8 @@ class DatabaseHelper {
     final taskId = uuid.v4(); // Always generate a new local ID for pending tasks
     final result = await db.insert('multimodal_tasks', {
       'id': taskId,
-      'input_type': task.inputType,
+      'user_id': task.userId,
+      'input_type': task.inputType.name, // enum member name (e.g. 'image')
       'data': task.dataUrl ?? task.rawText, // base64 for files or raw URL for URL inputs
       'source_context': task.metadata['source_context'],
       'is_synced': isSynced ? 1 : 0,
@@ -377,7 +384,20 @@ class DatabaseHelper {
     final db = await database;
     final List<Map<String, dynamic>> taskMaps = await db.query('multimodal_tasks', where: 'is_synced = ?', whereArgs: [0]);
     return List.generate(taskMaps.length, (i) {
-      return MultimodalInput.fromJson(taskMaps[i]);
+      final row = taskMaps[i];
+      final inputType = MultimodalInputType.values
+          .byName((row['input_type'] as String? ?? 'text'));
+      final data = row['data'] as String?;
+      return MultimodalInput(
+        id: row['id'] as String,
+        userId: row['user_id'] as String? ?? 'self',
+        inputType: inputType,
+        dataUrl: inputType == MultimodalInputType.text ? null : data,
+        rawText: inputType == MultimodalInputType.text ? data : null,
+        metadata: {'source_context': row['source_context']},
+        createdAt: DateTime.tryParse(row['created_at'] as String? ?? '') ?? DateTime.now(),
+        updatedAt: DateTime.tryParse(row['updated_at'] as String? ?? '') ?? DateTime.now(),
+      );
     });
   }
 
@@ -385,5 +405,18 @@ class DatabaseHelper {
     final db = await database;
     return await db.update('multimodal_tasks', {'is_synced': 1, 'updated_at': DateTime.now().toIso8601String()},
         where: 'id = ?', whereArgs: [taskId]);
+  }
+
+  /// How many records (journal entries + captures) are waiting to sync.
+  /// Powers the "pending sync" indicator in the UI.
+  Future<int> pendingSyncCount() async {
+    final db = await database;
+    final journals = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM journal_entries WHERE is_synced = 0')) ??
+        0;
+    final captures = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM multimodal_tasks WHERE is_synced = 0')) ??
+        0;
+    return journals + captures;
   }
 }

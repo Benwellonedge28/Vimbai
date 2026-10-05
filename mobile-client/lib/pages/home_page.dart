@@ -11,6 +11,7 @@ import 'package:vimbai_mobile_client/pages/multimodal_input_page.dart';
 import 'package:vimbai_mobile_client/pages/book_inbox_page.dart';
 import 'package:vimbai_mobile_client/pages/bank_accounts_page.dart';
 import 'package:vimbai_mobile_client/pages/books_page.dart';
+import 'package:vimbai_mobile_client/services/sync_service.dart';
 import 'package:vimbai_mobile_client/pages/create_book_wizard.dart';
 import 'package:vimbai_mobile_client/widgets/book_settings_sheet.dart';
 import 'package:vimbai_mobile_client/models/book_services_catalog.dart';
@@ -52,6 +53,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    SyncService.instance.start(); // offline outbox + cache refresh cycle
     _hydrateBookContext();
     _loadSortMode();
     _loadBooks();

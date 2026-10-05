@@ -7,11 +7,13 @@ import 'package:vimbai_mobile_client/services/api_client.dart';
 import 'package:vimbai_mobile_client/models/multimodal_models.dart'; // Ensure these models exist or are defined
 import 'package:vimbai_mobile_client/services/auth_service.dart'; // For getting authentication token
 import 'package:vimbai_mobile_client/services/book_context.dart';
+import 'package:vimbai_mobile_client/local_db/database_helper.dart';
 
 class MultimodalApiService {
   final String _baseUrl = AppConfig.multimodalRoute; // Via API Gateway (offline-aware client below)
   final ApiClient _client = ApiClient();
   final AuthService _authService = AuthService();
+  final DatabaseHelper _localDb = DatabaseHelper();
 
   Future<Map<String, String>> _getHeaders() async {
     final token = await _authService.getToken();
@@ -97,6 +99,52 @@ class MultimodalApiService {
     } catch (_) {
       return null;
     }
+  }
+
+  // --- Offline capture queue ---
+
+  /// Queues a capture on-device when the network is down. SyncService
+  /// replays it (with the same payload) once connectivity returns.
+  Future<void> _queueOfflineCapture({
+    required MultimodalInputType inputType,
+    String? dataUrl,
+    String? rawText,
+    required Map<String, dynamic> metadata,
+  }) async {
+    final now = DateTime.now();
+    await _localDb.insertMultimodalTask(
+      MultimodalInput(
+        id: 'local-${now.microsecondsSinceEpoch}',
+        userId: 'self',
+        inputType: inputType,
+        dataUrl: dataUrl,
+        rawText: rawText,
+        metadata: metadata,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      isSynced: false,
+    );
+  }
+
+  /// A stand-in task so capture UIs can acknowledge the (queued) capture.
+  MultimodalProcessingTaskInDB _localQueuedTask({
+    required MultimodalInputType inputType,
+    String? dataUrl,
+    String? rawText,
+    required Map<String, dynamic> metadata,
+  }) {
+    final now = DateTime.now();
+    return MultimodalProcessingTaskInDB(
+      id: 'local-${now.microsecondsSinceEpoch}',
+      userId: 'self',
+      inputType: inputType,
+      inputUrl: dataUrl,
+      inputRawText: rawText,
+      metadata: {...metadata, 'local_pending_sync': true},
+      createdAt: now,
+      updatedAt: now,
+    );
   }
 
   // --- Multimodal Processing Task Endpoints ---
@@ -235,35 +283,60 @@ class MultimodalApiService {
   Future<MultimodalProcessingTaskInDB> capturePhoto(File imageFile,
       {String? sourceContext}) async {
     final dataUrl = await _fileToDataUrl(imageFile);
-    return createTask(MultimodalProcessingTaskCreate(
-      userId: 'self',
-      inputType: MultimodalInputType.image,
-      inputUrl: dataUrl,
-      metadata: {'source_context': sourceContext ?? 'camera_photo'},
-    ));
+    final metadata = {'source_context': sourceContext ?? 'camera_photo'};
+    try {
+      return createTask(MultimodalProcessingTaskCreate(
+        userId: 'self',
+        inputType: MultimodalInputType.image,
+        inputUrl: dataUrl,
+        metadata: metadata,
+      ));
+    } on OfflineException {
+      // Offline: keep the capture on-device; SyncService will replay it.
+      await _queueOfflineCapture(
+          inputType: MultimodalInputType.image, dataUrl: dataUrl, metadata: metadata);
+      return _localQueuedTask(
+          inputType: MultimodalInputType.image, dataUrl: dataUrl, metadata: metadata);
+    }
   }
 
   /// Fire-and-forget video capture.
   Future<MultimodalProcessingTaskInDB> captureVideo(File videoFile,
       {String? sourceContext}) async {
     final dataUrl = await _fileToDataUrl(videoFile);
-    return createTask(MultimodalProcessingTaskCreate(
-      userId: 'self',
-      inputType: MultimodalInputType.video,
-      inputUrl: dataUrl,
-      metadata: {'source_context': sourceContext ?? 'camera_video'},
-    ));
+    final metadata = {'source_context': sourceContext ?? 'camera_video'};
+    try {
+      return createTask(MultimodalProcessingTaskCreate(
+        userId: 'self',
+        inputType: MultimodalInputType.video,
+        inputUrl: dataUrl,
+        metadata: metadata,
+      ));
+    } on OfflineException {
+      await _queueOfflineCapture(
+          inputType: MultimodalInputType.video, dataUrl: dataUrl, metadata: metadata);
+      return _localQueuedTask(
+          inputType: MultimodalInputType.video, dataUrl: dataUrl, metadata: metadata);
+    }
   }
 
   /// Fire-and-forget typed/pasted note.
   Future<MultimodalProcessingTaskInDB> captureText(String text,
       {String? sourceContext}) async {
-    return createTask(MultimodalProcessingTaskCreate(
-      userId: 'self',
-      inputType: MultimodalInputType.text,
-      inputRawText: text,
-      metadata: {'source_context': sourceContext ?? 'typed_note'},
-    ));
+    final metadata = {'source_context': sourceContext ?? 'typed_note'};
+    try {
+      return createTask(MultimodalProcessingTaskCreate(
+        userId: 'self',
+        inputType: MultimodalInputType.text,
+        inputRawText: text,
+        metadata: metadata,
+      ));
+    } on OfflineException {
+      await _queueOfflineCapture(
+          inputType: MultimodalInputType.text, rawText: text, metadata: metadata);
+      return _localQueuedTask(
+          inputType: MultimodalInputType.text, rawText: text, metadata: metadata);
+    }
   }
 
   // --- User Correction Endpoints (existing) ---

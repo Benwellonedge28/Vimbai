@@ -38,8 +38,24 @@ class AccountingApiService {
   /// Creates a journal entry. When offline (or [isOffline] is forced by the
   /// caller after a connectivity check), the entry is stored locally for
   /// later sync instead of being rejected.
+  /// Offline-created entries get a client-generated reference number so a
+  /// replayed push is idempotent: the server dedups on reference and the
+  /// retry turns into a 409 the client treats as already-synced.
+  JournalEntry _withClientReference(JournalEntry entry) {
+    if ((entry.referenceNumber ?? '').isNotEmpty) return entry;
+    return JournalEntry(
+      id: entry.id,
+      entryDate: entry.entryDate,
+      description: entry.description,
+      referenceNumber: 'MOB-${entry.id}',
+      sourceModule: entry.sourceModule,
+      lines: entry.lines,
+    );
+  }
+
   Future<JournalEntry> createJournalEntry(JournalEntry entry, {bool isOffline = false}) async {
     if (isOffline) {
+      entry = _withClientReference(entry);
       await _localDb.insertJournalEntry(entry, isSynced: false);
       return entry;
     }
@@ -57,6 +73,7 @@ class AccountingApiService {
       throw Exception('Failed to create journal entry: ${response.body}');
     } on OfflineException {
       // Network dropped mid-flight: keep the entry locally for later sync.
+      entry = _withClientReference(entry);
       await _localDb.insertJournalEntry(entry, isSynced: false);
       return entry;
     }
@@ -71,6 +88,11 @@ class AccountingApiService {
       body: json.encode(entry.toJson()),
     );
     if (response.statusCode == 201 || response.statusCode == 200) {
+      await _localDb.markJournalEntryAsSynced(entry.id);
+    } else if (response.statusCode == 409) {
+      // Idempotent replay: the server already stored this entry under the
+      // same reference number (e.g. a previous push succeeded but the
+      // response was lost). Treat as synced instead of duplicating.
       await _localDb.markJournalEntryAsSynced(entry.id);
     } else {
       throw Exception('Failed to sync journal entry: ${response.body}');

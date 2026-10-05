@@ -280,6 +280,19 @@ class TestLedgerWiring:
         assert report["valid"] is False
         assert report["errors"][0]["code"] == "hash_mismatch"
 
+    def test_reference_replay_is_idempotent(self):
+        """A retried mobile push (same client reference) must 409, not
+        duplicate the entry: this is what makes the offline outbox safe."""
+        payload = _je_payload(description="offline capture", ref="MOB-replay-1")
+        first = client.post("/journal-entries/", json=payload, headers=_headers())
+        assert first.status_code in (200, 201), first.text
+        count_after_first = len(_je_nodes())
+
+        replay = client.post("/journal-entries/", json=payload, headers=_headers())
+        assert replay.status_code == 409, replay.text
+        assert replay.json()["code"] == "JE_REFERENCE_NUMBER_EXISTS"
+        assert len(_je_nodes()) == count_after_first, "replay must not create a second entry"
+
     def test_reversal_pair_verifies_through_kernel(self):
         client.post("/journal-entries/", json=_je_payload(description="original"), headers=_headers())
         client.post(

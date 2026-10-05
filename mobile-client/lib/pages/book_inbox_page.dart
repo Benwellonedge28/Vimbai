@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:vimbai_mobile_client/models/multimodal_models.dart';
 import 'package:vimbai_mobile_client/services/book_context.dart';
 import 'package:vimbai_mobile_client/services/multimodal_api_service.dart';
+import 'package:vimbai_mobile_client/services/sync_service.dart';
 
 /// The Book Inbox: incomplete records wired to this Book.
 ///
@@ -29,6 +30,7 @@ class _BookInboxPageState extends State<BookInboxPage> {
   bool _loading = false;
   String? _error;
   Timer? _autoRefresh;
+  int _pendingSync = 0;
 
   @override
   void initState() {
@@ -45,6 +47,7 @@ class _BookInboxPageState extends State<BookInboxPage> {
   }
 
   Future<void> _refresh() async {
+    _pendingSync = await SyncService.instance.pendingCount();
     setState(() {
       _loading = _records.isEmpty;
       _error = null;
@@ -365,32 +368,50 @@ class _BookInboxPageState extends State<BookInboxPage> {
           IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _refresh,
-              child: Column(
-                children: [
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text('Could not load inbox: $_error',
-                          style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                    ),
-                  _summaryBar(),
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'incomplete', label: Text('Incomplete')),
-                      ButtonSegment(value: 'organized', label: Text('Organized')),
-                      ButtonSegment(value: 'all', label: Text('All')),
-                    ],
-                    selected: {_view},
-                    onSelectionChanged: (s) => _setView(s.first),
-                  ),
-                  Expanded(child: _recordsList()),
-                ],
+      body: Column(
+        children: [
+          // Offline outbox: captures/entries saved on-device that will be
+          // replayed automatically once the network returns.
+          if (_pendingSync > 0)
+            Material(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.cloud_upload_outlined),
+                title: Text('$_pendingSync record(s) saved offline - will sync when online'),
               ),
             ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                    : RefreshIndicator(
+                        onRefresh: _refresh,
+                        child: Column(
+                          children: [
+                            if (_error != null)
+                              Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Text('Could not load inbox: $_error',
+                                    style:
+                                        TextStyle(color: Theme.of(context).colorScheme.error)),
+                              ),
+                            _summaryBar(),
+                            SegmentedButton<String>(
+                              segments: const [
+                                ButtonSegment(value: 'incomplete', label: Text('Incomplete')),
+                                ButtonSegment(value: 'organized', label: Text('Organized')),
+                                ButtonSegment(value: 'all', label: Text('All')),
+                              ],
+                              selected: {_view},
+                              onSelectionChanged: (s) => _setView(s.first),
+                            ),
+                            Expanded(child: _recordsList()),
+                          ],
+                        ),
+                      ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCaptureSheet,
         icon: const Icon(Icons.photo_camera),

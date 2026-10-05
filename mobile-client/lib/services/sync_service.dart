@@ -5,12 +5,20 @@
 // is lost), then pulls fresh server data to refresh the offline cache.
 
 import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/local_db/database_helper.dart';
 import 'package:vimbai_mobile_client/services/accounting_api_service.dart';
 import 'package:vimbai_mobile_client/services/multimodal_api_service.dart';
 import 'package:vimbai_mobile_client/models/multimodal_models.dart';
 
 class SyncService {
+  /// App-wide instance. Started after login, stopped on logout.
+  static final SyncService instance = SyncService._();
+
+  SyncService._();
+
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+
   final DatabaseHelper _localDb = DatabaseHelper();
   final AccountingApiService _accountingApiService = AccountingApiService();
   final MultimodalApiService _multimodalApiService = MultimodalApiService();
@@ -20,17 +28,33 @@ class SyncService {
 
   static const Duration _syncInterval = Duration(minutes: 5);
 
-  /// Starts the periodic sync timer.
-  void startPeriodicSync() {
+  /// Starts syncing: an immediate cycle, a periodic timer, and a
+  /// connectivity listener so the outbox flushes the moment the device
+  /// regains network (not just on the next timer tick).
+  void start() {
     _syncTimer?.cancel();
     _syncTimer = Timer.periodic(_syncInterval, (_) => syncAll());
+    _connectivitySub?.cancel();
+    _connectivitySub = Connectivity()
+        .onConnectivityChanged
+        .listen((results) {
+      final online = results.any((r) => r != ConnectivityResult.none);
+      if (online) syncAll();
+    });
+    syncAll(); // catch up immediately (e.g. app resumed, user re-logged-in)
   }
 
-  /// Stops the periodic sync timer.
-  void stopPeriodicSync() {
+  /// Stops all syncing (logout).
+  void stop() {
     _syncTimer?.cancel();
     _syncTimer = null;
+    _connectivitySub?.cancel();
+    _connectivitySub = null;
   }
+
+  /// Records (journal entries + captures) waiting to sync. Used by the
+  /// UI to show a pending-sync badge.
+  Future<int> pendingCount() => _localDb.pendingSyncCount();
 
   /// Whether a sync cycle is currently running.
   bool get isSyncing => _isSyncing;
@@ -89,6 +113,6 @@ class SyncService {
   }
 
   void dispose() {
-    stopPeriodicSync();
+    stop();
   }
 }

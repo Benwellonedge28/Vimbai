@@ -391,6 +391,8 @@ async def create_journal_entry(
         "Invoicing",
         "Multimodal",
         "SupplyChain",
+        "Manual",
+        "MobileApp",
     ]:
         existing_je = await get_journal_entry_by_reference(
             session, user_id, journal_entry_data.reference_number, journal_entry_data.source_module
@@ -607,7 +609,10 @@ async def get_journal_entry_by_reference(
 
     if record:
         je_node = record["je"]
-        return JournalEntryInDB(
+        # Existence check only (the caller tests truthiness). model_construct
+        # skips validation so the empty `lines` list does not trip the
+        # min-2-lines rule meant for full hydration.
+        return JournalEntryInDB.model_construct(
             id=je_node["id"],
             user_id=user_id,
             entry_date=datetime.fromisoformat(je_node["entry_date"].iso_format()),

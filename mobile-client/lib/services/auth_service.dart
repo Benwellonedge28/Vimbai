@@ -3,7 +3,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/models/user.dart';
 import 'package:vimbai_mobile_client/services/api_client.dart';
 import 'package:vimbai_mobile_client/local_db/user_local_data.dart';
-import 'package:vimbai_mobile_client/config.dart'; // For API URL
+import 'package:vimbai_mobile_client/config.dart';
+import 'package:vimbai_mobile_client/services/sync_service.dart'; // For API URL
 
 /// Client for the identity-service via the API gateway.
 ///
@@ -138,6 +139,7 @@ class AuthService {
 
   Future<void> logout() async {
     await UserLocalData.clearUserData();
+    SyncService.instance.stop(); // halt the offline outbox until next login
   }
 
   Future<bool> isLoggedIn() async {
