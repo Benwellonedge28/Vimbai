@@ -323,6 +323,23 @@ async def create_new_journal_entry(
 
 
 @app.get(
+    "/ledger/integrity",
+    dependencies=[Depends(check_permission("accounting.read.journal_entries"))],
+)
+async def verify_ledger_integrity(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Verify the caller's journal-entry hash chain (tamper-evidence).
+
+    Walks every Book-visible journal entry in creation order and
+    recomputes each stamp. The kernel is safe Rust when the wheel is
+    built; a byte-identical Python fallback runs otherwise.
+    """
+    return await crud.verify_ledger_chain(db_session, user_id)
+
+
+@app.get(
     "/journal-entries/{entry_id}",
     response_model=models.JournalEntryInDB,
     dependencies=[Depends(check_permission("accounting.read.journal_entries"))],

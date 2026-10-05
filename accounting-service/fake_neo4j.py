@@ -58,7 +58,13 @@ class FakeSession:
         return params.get("book_id") is None or node["props"].get("book_id") == params.get("book_id")
 
     def _extract_props(self, query, params, var, label):
-        block = query[CREATE_NODE_RE.search(query).start() :]
+        return self._extract_block_props(query, CREATE_NODE_RE.search(query).start(), params)
+
+    def _extract_block_props(self, query, start, params):
+        """Extract props for ONE node-create block (stops at the next CREATE)."""
+        tail = query[start + 1 :]
+        nxt = tail.find("CREATE ")
+        block = query[start : start + 1 + nxt] if nxt != -1 else query[start:]
         props = {}
         for pm in re.finditer(r"(\w+): (?:(toFloat|toInteger|date|datetime)\(\$?(\w+)[^)]*\)?|\$(\w+))", block):
             name, wrapper, pvar, dvar = pm.group(1), pm.group(2), pm.group(3), pm.group(4)
@@ -75,6 +81,20 @@ class FakeSession:
             else:
                 props[name] = val
         return props
+
+    def _resolve_var(self, var, query, params, created):
+        """Resolve a Cypher var to a node: created nodes first, then MATCH refs."""
+        if var in created:
+            return created[var]
+        for mm in re.finditer(r"\((\w+):(\w+) \{([^}]*)\}\)", query):
+            if mm.group(1) != var:
+                continue
+            label = mm.group(2)
+            eq = {pm.group(1): params.get(pm.group(2)) for pm in re.finditer(r"(\w+): \$(\w+)", mm.group(3))}
+            for node in self.nodes:
+                if node["label"] == label and all(node["props"].get(k) == v for k, v in eq.items()):
+                    return node
+        return None
 
     def _match_nodes(self, query, params):
         m = re.search(
@@ -157,23 +177,64 @@ class FakeSession:
                     node["props"][key] = new_val
             return FakeResult([{v: n["props"]} for v, n in found])
 
-        # --- CREATE path ---
+        # --- CREATE path (multi-node: main node + children, e.g. JournalEntry + JournalLines) ---
         cm = CREATE_NODE_RE.search(query)
         if cm:
-            var, label = cm.group(1), cm.group(2)
-            props = self._extract_props(query, merged, var, label)
-            node_ref = {"label": label, "var": var, "props": props}
-            self.nodes.append(node_ref)
-            em = re.search(r"CREATE \(\w+\)-\[:(\w+)\]->\(", query)
-            if em and "user_id" in merged:
-                self.edges.append((em.group(1), merged["user_id"], node_ref))
-            return FakeResult([{var: props}])
+            created = {}
+            records = {}
+            for nm in re.finditer(r"CREATE \((\w+):(\w+) \{", query):
+                var, label = nm.group(1), nm.group(2)
+                props = self._extract_block_props(query, nm.start(), merged)
+                node_ref = {"label": label, "var": var, "props": props}
+                self.nodes.append(node_ref)
+                created[var] = node_ref
+                records[var] = props
+            # Wire every CREATE (src)-[:REL]->(dst). Sources/targets may be
+            # created vars, the user var `u`, or MATCH vars (je_match / a_match).
+            # MATCH vars are resolved within the statement segment that owns
+            # this edge, so repeated line blocks (a_match: {account_number:
+            # $line_N_...}) each bind their own account.
+            for em in re.finditer(r"CREATE \((\w+)\)-\[:(\w+)\]->\((\w+)", query):
+                src, rel, dst = em.group(1), em.group(2), em.group(3)
+                seg_start = query.rfind("MATCH", 0, em.start())
+                seg_end = query.find("MATCH", em.end())
+                seg = query[seg_start : seg_end if seg_end != -1 else len(query)]
+                dst_node = self._resolve_var(dst, seg, merged, created)
+                if dst_node is None:
+                    continue
+                if src == "u" and "user_id" in merged:
+                    self.edges.append((rel, merged["user_id"], dst_node))
+                    continue
+                src_node = self._resolve_var(src, seg, merged, created)
+                if src_node is not None:
+                    self.edges.append((rel, src_node, dst_node))
+            return FakeResult([records])
+
+        # --- COLLECT hydration (get_journal_entry: je + lines via HAS_LINE/IMPACTS) ---
+        if "COLLECT({line: jl, account: a}) AS lines_data" in query:
+            var, label, found = self._match_nodes(query, merged)
+            if not found:
+                return FakeResult([])
+            v, je_node = found[0]
+            lines_data = []
+            for rel, frm, to in self.edges:
+                if rel == "HAS_LINE" and frm is je_node:
+                    account = next(
+                        (t for r2, f2, t in self.edges if r2 == "IMPACTS" and f2 is to),
+                        None,
+                    )
+                    lines_data.append({"line": to["props"], "account": account["props"] if account else None})
+            if not lines_data:
+                lines_data = [{"line": None, "account": None}]
+            return FakeResult([{v: je_node["props"], "lines_data": lines_data}])
 
         # --- MATCH / RETURN path (list, with ORDER BY + LIMIT) ---
         var, label, found = self._match_nodes(query, merged)
-        om = re.search(r"ORDER BY (\w+)\.(\w+)", query)
+        om = re.search(r"ORDER BY (\w+)\.(\w+)( DESC| ASC)?", query)
         if om:
-            found.sort(key=lambda t: str(t[1]["props"].get(om.group(2))), reverse=True)
+            found.sort(
+                key=lambda t: str(t[1]["props"].get(om.group(2))), reverse=bool(om.group(3) and "DESC" in om.group(3))
+            )
         lm = re.search(r"LIMIT \$(\w+)", query)
         limit = merged.get(lm.group(1)) if lm else len(found)
         records = [{v: n["props"]} for v, n in found[:limit]]

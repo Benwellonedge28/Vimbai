@@ -1,0 +1,12 @@
+[build-system]
+requires = ["maturin>=1.5,<2"]
+build-backend = "maturin"
+
+[project]
+name = "vimbai-ledger-core"
+version = "0.1.0"
+description = "Vimbai ledger kernel: double-entry validation, hash chain, reversal rules (safe Rust via PyO3)"
+requires-python = ">=3.11"
+
+[tool.maturin]
+features = ["python"]

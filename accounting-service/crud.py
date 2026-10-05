@@ -1,3 +1,4 @@
+import json
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -7,6 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 from accounting_service.dependencies import book_id_var
 from accounting_service.exceptions import ConflictError, NotFoundError, ValidationError
+from accounting_service.utils import ledger_core
 
 
 async def _run(session, query, params=None, **kw):
@@ -346,6 +348,43 @@ async def create_journal_entry(
         # Optional: Validate normal balance consistency (e.g., debiting a credit-normal revenue account)
         # For now, we assume this is handled by the caller or downstream review.
 
+    # --- Ledger kernel: double-entry validation (safe Rust when built) ---
+    try:
+        ledger_core.validate_double_entry(
+            [(float(line.debit), float(line.credit)) for line in journal_entry_data.lines]
+        )
+    except ValueError as exc:
+        raise ValidationError(detail=str(exc), code="LEDGER_CORE_REJECTED")
+
+    # --- Ledger kernel: hash-chain stamp (immutable entry, tamper-evident) ---
+    prev_query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)
+    WHERE ($book_id IS NULL OR je.book_id = $book_id)
+    RETURN je
+    ORDER BY je.created_at DESC LIMIT 1
+    """
+    prev_result = await _run(session, prev_query, {"user_id": user_id})
+    prev_record = await prev_result.single()
+    prev_hash = prev_record["je"]["entry_hash"] if prev_record else ledger_core.genesis_hash()
+    entry_payload = ledger_core.build_entry_payload(
+        entry_id=entry_neo4j_id,
+        entry_date=journal_entry_data.entry_date.isoformat(),
+        description=journal_entry_data.description,
+        reference_number=journal_entry_data.reference_number,
+        source_module=journal_entry_data.source_module,
+        status=journal_entry_data.status,
+        lines=[
+            {
+                "account": line.account_number,
+                "debit": float(line.debit),
+                "credit": float(line.credit),
+                "description": line.description,
+            }
+            for line in journal_entry_data.lines
+        ],
+    )
+    entry_hash = ledger_core.hash_entry(entry_payload, prev_hash=prev_hash)
+
     # Check for existing reference number for entries from specific source modules
     if journal_entry_data.reference_number and journal_entry_data.source_module in [
         "Banking",
@@ -373,8 +412,10 @@ async def create_journal_entry(
         "reference_number": journal_entry_data.reference_number,
         "source_module": journal_entry_data.source_module,
         "status": journal_entry_data.status,
-        "fraud_flag": fraud_result.get("flag", False),
-        "fraud_score": fraud_result.get("score", 0.0),
+        "fraud_flag": getattr(fraud_result, "fraud_flag", "safe"),
+        "fraud_score": getattr(fraud_result, "fraud_score", 0.0),
+        "entry_hash": entry_hash,
+        "prev_hash": prev_hash,
         "created_at": created_at.isoformat(),
         "updated_at": updated_at.isoformat(),
     }
@@ -390,6 +431,8 @@ async def create_journal_entry(
         status: $status,
         fraud_flag: $fraud_flag,
         fraud_score: $fraud_score,
+        entry_hash: $entry_hash,
+        prev_hash: $prev_hash,
         created_at: datetime($created_at),
         updated_at: datetime($updated_at)
     })
@@ -429,6 +472,8 @@ async def create_journal_entry(
         "status": journal_entry_data.status,
         "fraud_flag": fraud_result.fraud_flag,
         "fraud_score": fraud_result.fraud_score,
+        "entry_hash": entry_hash,
+        "prev_hash": prev_hash,
         "created_at": created_at.isoformat(),
         "updated_at": updated_at.isoformat(),
         **{f"line_{i}_id": str(uuid.uuid4()) for i in range(len(journal_entry_data.lines))},  # Initialize unique IDs
@@ -459,6 +504,51 @@ async def create_journal_entry(
         created_at=datetime.fromisoformat(je_node["created_at"].iso_format()),
         updated_at=datetime.fromisoformat(je_node["updated_at"].iso_format()),
     )
+
+
+async def verify_ledger_chain(session: AsyncSession, user_id: str) -> Dict[str, Any]:
+    """Walk the caller's journal entries in creation order and verify the
+    hash chain (tamper-evidence for the immutable ledger).
+
+    Returns the kernel report: {valid, entries_checked, head_hash, errors}.
+    """
+    entries_query = """
+    MATCH (u:User {id: $user_id})-[:OWNS_JOURNAL_ENTRY]->(je:JournalEntry)
+    WHERE ($book_id IS NULL OR je.book_id = $book_id)
+    RETURN je
+    ORDER BY je.created_at
+    """
+    result = await _run(session, entries_query, {"user_id": user_id})
+    digests = []
+    async for record in result:
+        je_node = record["je"]
+        hydrated = await get_journal_entry(session, user_id, je_node["id"])
+        payload = ledger_core.build_entry_payload(
+            entry_id=je_node["id"],
+            entry_date=hydrated.entry_date.isoformat() if hydrated else je_node["entry_date"].iso_format(),
+            description=hydrated.description if hydrated else je_node["description"],
+            reference_number=hydrated.reference_number if hydrated else je_node["reference_number"],
+            source_module=hydrated.source_module if hydrated else je_node["source_module"],
+            status=hydrated.status if hydrated else je_node["status"],
+            lines=[
+                {
+                    "account": line.account_number,
+                    "debit": float(line.debit),
+                    "credit": float(line.credit),
+                    "description": line.description,
+                }
+                for line in (hydrated.lines if hydrated else [])
+            ],
+        )
+        digests.append(
+            {
+                "entry_id": je_node["id"],
+                "payload": payload,
+                "prev_hash": je_node.get("prev_hash") or ledger_core.genesis_hash(),
+                "stored_hash": je_node.get("entry_hash"),
+            }
+        )
+    return json.loads(ledger_core.verify_chain(digests))
 
 
 async def get_journal_entry(session: AsyncSession, user_id: str, entry_id: str) -> Optional[JournalEntryInDB]:
@@ -693,6 +783,7 @@ async def _send_journal_entry_for_fraud_analysis(
             fraud_score=0.0,
             fraud_flag="safe",
             reason=f"Service error: {e.response.status_code}",
+            model_version="offline-fallback",
         )
     except httpx.RequestError as e:
         print(f"Fraud Detection Service network error: {e}")
@@ -701,6 +792,7 @@ async def _send_journal_entry_for_fraud_analysis(
             fraud_score=0.0,
             fraud_flag="safe",
             reason=f"Network error: {e}",
+            model_version="offline-fallback",
         )
 
 
