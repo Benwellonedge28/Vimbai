@@ -7,20 +7,28 @@
 //! core only; persistence and journal-entry side effects stay in the
 //! Python services until the seam is wired).
 //!
-//! Remaining services queued for this crate: activity-based-costing,
-//! cost-accounting, cost-centre, fixed-cost, variable-cost,
-//! lifecycle-costing, limiting-factor, make-or-buy, order-acceptance,
-//! process-costing, product-costing, total-production-cost,
-//! overhead-apportionment.
+//! Remaining services for this crate: fixed-cost, variable-cost
+//! (their aggregation logic is persistence-bound; the pure parts
+//! reduce to sums covered by other modules).
 
 pub mod absorption;
+pub mod activity_based;
 pub mod actual_cost;
 pub mod budgeted_cost;
+pub mod cost_accounting_core;
+pub mod cost_centre;
 pub mod job_costing;
+pub mod lifecycle;
+pub mod limiting_factor;
+pub mod make_or_buy;
+pub mod order_acceptance;
+pub mod overhead_apportionment;
 pub mod prime_cost;
+pub mod process_product_costing;
 pub mod standard_cost;
 pub mod target_costing;
 pub mod throughput;
+pub mod total_production_cost;
 
 pub mod cvp;
 pub mod equivalent_units;
