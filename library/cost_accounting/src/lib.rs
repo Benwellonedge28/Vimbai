@@ -8,13 +8,20 @@
 //! Python services until the seam is wired).
 //!
 //! Remaining services queued for this crate: activity-based-costing,
-//! actual-cost, budgeted-cost, cost-accounting, cost-centre, fixed-cost,
-//! variable-cost, job-costing, lifecycle-costing, limiting-factor,
-//! make-or-buy, order-acceptance, prime-cost, process-costing,
-//! product-costing, standard-cost, target-costing, throughput-accounting,
-//! total-production-cost, overhead-apportionment.
+//! cost-accounting, cost-centre, fixed-cost, variable-cost,
+//! lifecycle-costing, limiting-factor, make-or-buy, order-acceptance,
+//! process-costing, product-costing, total-production-cost,
+//! overhead-apportionment.
 
 pub mod absorption;
+pub mod actual_cost;
+pub mod budgeted_cost;
+pub mod job_costing;
+pub mod prime_cost;
+pub mod standard_cost;
+pub mod target_costing;
+pub mod throughput;
+
 pub mod cvp;
 pub mod equivalent_units;
 pub mod marginal;
