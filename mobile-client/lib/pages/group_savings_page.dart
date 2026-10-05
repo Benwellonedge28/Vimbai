@@ -305,14 +305,15 @@ class _GroupDetailPageState extends State<GroupDetailPage>
     );
     if (ok != true) return;
     final amount = double.tryParse(amt.text.trim()) ?? 0;
-    if (amount <= 0 || memberId == null) {
+    final mid = memberId;
+    if (amount <= 0 || mid == null) {
       _toast('Enter a positive amount');
       return;
     }
     try {
       await _gs.contribute(
         widget.groupId,
-        memberId: memberId,
+        memberId: mid,
         amount: amount,
         notes: notes.text.trim(),
       );
@@ -419,68 +420,73 @@ class _GroupDetailPageState extends State<GroupDetailPage>
                               child: TabBarView(
                                 controller: _tabs,
                                 children: [
-                                  RefreshIndicator(
-                                    onRefresh: _reload,
-                                    child: ListView.builder(
-                                      itemCount: _members.length,
-                                      itemBuilder: (ctx, i) {
-                                        final m = _members[i];
-                                        return ListTile(
-                                          leading: const Icon(Icons.person_outline),
-                                          title: Text('${m['name']}'),
-                                          subtitle: Text(
-                                            'contribution: ${m['contribution_amount']}'
-                                            '${m['phone'].toString().isNotEmpty ? ' - ${m['phone']}' : ''}',
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  RefreshIndicator(
-                                    onRefresh: _reload,
-                                    child: ListView.builder(
-                                      itemCount: _contributions.length,
-                                      itemBuilder: (ctx, i) {
-                                        final c = _contributions[i];
-                                        final member = _members
-                                            .where((m) => '${m['id']}' == '${c['member_id']}')
-                                            .map((m) => '${m['name']}')
-                                        .followedBy(['member'])
-                                            .first;
-                                        return ListTile(
-                                          leading: const Icon(Icons.payments),
-                                          title: Text('$member - ${c['amount']}'),
-                                          subtitle: Text(
-                                            'cycle ${c['cycle_number']}'
-                                            '${c['notes'].toString().isNotEmpty ? ' - ${c['notes']}' : ''}',
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  RefreshIndicator(
-                                    onRefresh: _reload,
-                                    child: ListView.builder(
-                                      itemCount: _payouts.length,
-                                      itemBuilder: (ctx, i) {
-                                        final p = _payouts[i];
-                                        return ListTile(
-                                          leading: const Icon(Icons.event_outlined),
-                                          title: Text('${p['payout_amount']} - cycle ${p['cycle_number']}'),
-                                          subtitle: Text('${p['status']}'),
-                                        );
-                                      },
-                                    ),
-                                  ),
+                                  _membersTab(),
+                                  _contributionsTab(),
+                                  _payoutsTab(),
                                 ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
                   ],
                 ),
-    );
+        );
   }
+
+  Widget _membersTab() => RefreshIndicator(
+        onRefresh: _reload,
+        child: ListView.builder(
+          itemCount: _members.length,
+          itemBuilder: (ctx, i) {
+            final m = _members[i];
+            return ListTile(
+              leading: const Icon(Icons.person_outline),
+              title: Text('${m['name']}'),
+              subtitle: Text(
+                'contribution: ${m['contribution_amount']}'
+                '${m['phone'].toString().isNotEmpty ? ' - ${m['phone']}' : ''}',
+              ),
+            );
+          },
+        ),
+      );
+
+  Widget _contributionsTab() => RefreshIndicator(
+        onRefresh: _reload,
+        child: ListView.builder(
+          itemCount: _contributions.length,
+          itemBuilder: (ctx, i) {
+            final c = _contributions[i];
+            final member = _members
+                .where((m) => '${m['id']}' == '${c['member_id']}')
+                .map((m) => '${m['name']}')
+                .followedBy(const ['member'])
+                .first;
+            return ListTile(
+              leading: const Icon(Icons.payments),
+              title: Text('$member - ${c['amount']}'),
+              subtitle: Text(
+                'cycle ${c['cycle_number']}'
+                '${c['notes'].toString().isNotEmpty ? ' - ${c['notes']}' : ''}',
+              ),
+            );
+          },
+        ),
+      );
+
+  Widget _payoutsTab() => RefreshIndicator(
+        onRefresh: _reload,
+        child: ListView.builder(
+          itemCount: _payouts.length,
+          itemBuilder: (ctx, i) {
+            final p = _payouts[i];
+            return ListTile(
+              leading: const Icon(Icons.event_outlined),
+              title: Text('${p['payout_amount']} - cycle ${p['cycle_number']}'),
+              subtitle: Text('${p['status']}'),
+            );
+          },
+        ),
+      );
 }
