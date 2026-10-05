@@ -8,21 +8,11 @@ import 'package:vimbai_mobile_client/pages/login_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/services/accounting_api_service.dart'; // NEW
 import 'package:vimbai_mobile_client/pages/multimodal_input_page.dart';
+import 'package:vimbai_mobile_client/pages/bank_accounts_page.dart';
 import 'package:vimbai_mobile_client/pages/books_page.dart';
 import 'package:vimbai_mobile_client/pages/create_book_wizard.dart';
 import 'package:vimbai_mobile_client/widgets/book_settings_sheet.dart';
-import 'package:vimbai_mobile_client/pages/npo_page.dart';
-import 'package:vimbai_mobile_client/pages/personal_finance_page.dart';
-import 'package:vimbai_mobile_client/pages/bank_accounts_page.dart';
-import 'package:vimbai_mobile_client/pages/financial_ratios_page.dart';
-import 'package:vimbai_mobile_client/pages/journal_entries_list_page.dart';
-import 'package:vimbai_mobile_client/pages/chart_of_accounts_page.dart';
-import 'package:vimbai_mobile_client/pages/ledger_page.dart';
-import 'package:vimbai_mobile_client/pages/trial_balance_page.dart';
-import 'package:vimbai_mobile_client/pages/balance_sheet_page.dart';
-import 'package:vimbai_mobile_client/pages/income_statement_page.dart';
-import 'package:vimbai_mobile_client/pages/cash_flow_statement_page.dart';
-import 'package:vimbai_mobile_client/pages/budgets_page.dart';
+import 'package:vimbai_mobile_client/models/book_services_catalog.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -440,63 +430,73 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 16),
 
                   // ------------------------------------------------------
-                  // Accounting core (wired to accounting-service via gateway)
+                  // Services for this Book - each Book type (personal,
+                  // household, group, business, nonprofit) has its own
+                  // corresponding services, shown for the active Book.
                   // ------------------------------------------------------
-                  const Text(
-                    'Accounting:',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ValueListenableBuilder<int>(
+                    valueListenable: _contextTicker,
+                    builder: (context, _, __) {
+                      final b = BookContext.instance.current;
+                      if (b == null) {
+                        return Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              children: [
+                                const Text('Start or select a Book to see its services.'),
+                                TextButton(
+                                  onPressed: _openBooksPage,
+                                  child: const Text('Open Books'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      final entries = servicesForTier(b.tier);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'SERVICES FOR YOUR ${kTierLabels[b.tier] ?? b.tier.toUpperCase()}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'These services run inside "${b.name}".',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 8),
+                          ...entries.map(
+                            (e) => Card(
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              child: ListTile(
+                                leading: Icon(e.icon),
+                                title: Text(e.title),
+                                subtitle: Text(e.description),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(builder: e.page),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
-                  const SizedBox(height: 10),
-                  _navButton(context, 'Journal Entries', const JournalEntriesListPage()),
-                  _navButton(context, 'Chart of Accounts', const ChartOfAccountsPage()),
-                  _navButton(context, 'Ledger', const LedgerPage()),
-                  _navButton(context, 'Trial Balance', const TrialBalancePage()),
                   const SizedBox(height: 20),
 
                   // ------------------------------------------------------
-                  // Financial statements (wired to accounting-service)
+                  // General tools - available in every Book
                   // ------------------------------------------------------
                   const Text(
-                    'Financial Statements:',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  _navButton(context, 'Balance Sheet', const BalanceSheetPage()),
-                  _navButton(context, 'Income Statement', const IncomeStatementPage()),
-                  _navButton(context, 'Cash Flow Statement', const CashFlowStatementPage()),
-                  const SizedBox(height: 20),
-
-                  // ------------------------------------------------------
-                  // Budgets (local-first CRUD + remote variance analysis)
-                  // ------------------------------------------------------
-                  const Text(
-                    'Budgets:',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  _navButton(context, 'Budgets', const BudgetsPage()),
-                  const SizedBox(height: 20),
-
-                  const Text(
-                    'Multimodal Input:',
+                    'General tools:',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
                   _navButton(context, 'Process Image/Audio', const MultimodalInputPage()),
-                  const SizedBox(height: 10),
-                  _navButton(context, 'Your Books', const BooksPage()),
-                  const SizedBox(height: 10),
-                  _navButton(context, 'Non-profit Organizations', const NpoPage()),
-                  const SizedBox(height: 10),
-                  _navButton(context, 'Personal finance', const PersonalFinancePage()),
-                  const SizedBox(height: 20),
-                  _navButton(context, 'View Financial Ratios', const FinancialRatiosPage()),
-                  const SizedBox(height: 30),
-                  const Text(
-                    'Banking Integration:',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
                   _navButton(context, 'Manage Bank Accounts', const BankAccountsPage()),
                 ],
               ),
