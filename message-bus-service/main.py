@@ -37,6 +37,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from message_bus_service import crud
 from message_bus_service.database import Neo4jConnector
 from message_bus_service.dependencies import book_id_var, get_db_session, get_user_id
+from message_bus_service.dispatch import dispatch_event, dispatch_summary
 from message_bus_service.exceptions import MessageBusServiceError
 from message_bus_service.models import (
     DEAD_LETTER_EXCHANGE,
@@ -101,6 +102,7 @@ class EventSubscription(BaseModel):
     filter_expression: Optional[str] = None
     enabled: bool = True
     priority: EventPriority = EventPriority.NORMAL
+    secret: Optional[str] = None
 
 
 class QueueConfig(BaseModel):
@@ -306,9 +308,17 @@ async def publish_event(
     success = await event_bus.publish(event)
     if success:
         await crud.create_event(db_session, user_id, event)
+        # Autonomous reactions: webhook fan-out + built-in Book
+        # automations (alert-rule re-evaluation on transaction changes).
+        deliveries = await dispatch_event(db_session, user_id, event)
 
     if success:
-        return {"status": "published", "event_id": event.id, "event_type": event.type.value}
+        return {
+            "status": "published",
+            "event_id": event.id,
+            "event_type": event.type.value,
+            "dispatch": dispatch_summary(deliveries),
+        }
     else:
         raise HTTPException(status_code=500, detail="Failed to publish event")
 
@@ -331,10 +341,19 @@ async def publish_event_by_type(
     )
 
     success = await event_bus.publish(event)
+    deliveries = []
     if success:
         await crud.create_event(db_session, user_id, event)
+        # Autonomous reactions: webhook fan-out + built-in Book
+        # automations (alert-rule re-evaluation on transaction changes).
+        deliveries = await dispatch_event(db_session, user_id, event)
 
-    return {"status": "published" if success else "failed", "event_id": event.id, "event_type": event_type.value}
+    return {
+        "status": "published" if success else "failed",
+        "event_id": event.id,
+        "event_type": event_type.value,
+        "dispatch": dispatch_summary(deliveries),
+    }
 
 
 # --- Event Subscription ---
@@ -411,6 +430,19 @@ async def list_events(
     return filtered[:limit]
 
 
+@app.get("/events/{event_id}/deliveries")
+async def list_event_deliveries(
+    event_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Delivery attempts for one of the caller's events (audit trail)."""
+    event = await crud.get_event(db_session, user_id, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return await crud.list_deliveries(db_session, user_id, event_id)
+
+
 @app.get("/events/{event_id}")
 async def get_event(
     event_id: str,
@@ -478,6 +510,7 @@ async def trigger_journal_entry_created(
     )
     await event_bus.publish(event)
     await crud.create_event(db_session, user_id, event)
+    await dispatch_event(db_session, user_id, event)
     return {"status": "triggered", "event_id": event.id}
 
 
@@ -504,6 +537,7 @@ async def trigger_budget_variance_alert(
     )
     await event_bus.publish(event)
     await crud.create_event(db_session, user_id, event)
+    await dispatch_event(db_session, user_id, event)
     return {"status": "triggered", "event_id": event.id}
 
 
@@ -530,6 +564,7 @@ async def trigger_transaction_flagged(
     )
     await event_bus.publish(event)
     await crud.create_event(db_session, user_id, event)
+    await dispatch_event(db_session, user_id, event)
     return {"status": "triggered", "event_id": event.id}
 
 
@@ -556,6 +591,7 @@ async def trigger_approval_requested(
     )
     await event_bus.publish(event)
     await crud.create_event(db_session, user_id, event)
+    await dispatch_event(db_session, user_id, event)
     return {"status": "triggered", "event_id": event.id}
 
 

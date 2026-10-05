@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from message_bus_service.dependencies import book_id_var
-from message_bus_service.models import Event, EventPriority, EventSubscription, EventType
+from message_bus_service.models import Event, EventDelivery, EventPriority, EventSubscription, EventType
 from neo4j import AsyncSession
 
 BOOK_FILTER = "WHERE ($book_id IS NULL OR x.book_id = $book_id)"
@@ -152,6 +152,7 @@ def _sub_from_node(n: Dict) -> EventSubscription:
         filter_expression=n.get("filter_expression"),
         enabled=bool(n.get("enabled", True)),
         priority=EventPriority(n.get("priority", "normal")),
+        secret=n.get("secret"),
     )
 
 
@@ -177,6 +178,7 @@ async def create_subscription(session: AsyncSession, user_id: str, s: EventSubsc
         name: $name,
         event_types: $event_types,
         callback_url: $callback_url,
+        secret: $secret,
         filter_expression: $filter_expression,
         enabled: $enabled,
         priority: $priority
@@ -189,6 +191,7 @@ async def create_subscription(session: AsyncSession, user_id: str, s: EventSubsc
         "name": s.name,
         "event_types": json.dumps([et.value for et in s.event_types]),
         "callback_url": s.callback_url,
+        "secret": s.secret,
         "filter_expression": s.filter_expression,
         "enabled": s.enabled,
         "priority": s.priority.value,
@@ -227,3 +230,76 @@ async def delete_subscription(session: AsyncSession, user_id: str, sub_id: str) 
     DETACH DELETE x
     """
     await _run(session, query, sub_id=sub_id, user_id=user_id)
+
+
+async def create_delivery(session: AsyncSession, user_id: str, d: EventDelivery) -> EventDelivery:
+    """Persist one delivery attempt outcome (append-only audit trail)."""
+    query = """
+    MATCH (u:User {id: $user_id})
+    CREATE (x:MessageBusDelivery {
+        id: $id,
+        user_id: $user_id,
+        book_id: $book_id,
+        event_id: $event_id,
+        subscription_id: $subscription_id,
+        callback_url: $callback_url,
+        status: $status,
+        response_status: toInteger($response_status),
+        error: $error,
+        timestamp: datetime($timestamp)
+    })
+    CREATE (u)-[:OWNS_DELIVERY]->(x)
+    RETURN x
+    """
+    params = {
+        "id": d.id,
+        "event_id": d.event_id,
+        "subscription_id": d.subscription_id,
+        "callback_url": d.callback_url,
+        "status": d.status,
+        "response_status": d.response_status,
+        "error": d.error,
+        "timestamp": _iso(d.timestamp),
+    }
+    result = await _run(session, query, params, user_id=user_id)
+    records = [rec async for rec in result]
+    n = dict(records[0]["x"])
+    return EventDelivery(
+        id=n["id"],
+        event_id=n["event_id"],
+        subscription_id=n.get("subscription_id"),
+        callback_url=n["callback_url"],
+        status=n["status"],
+        response_status=n.get("response_status"),
+        error=n.get("error"),
+        timestamp=_as_dt(n.get("timestamp")),
+    )
+
+
+async def list_deliveries(session: AsyncSession, user_id: str, event_id: Optional[str] = None) -> List[EventDelivery]:
+    """List the caller's Book-visible delivery records (newest first)."""
+    extra = "AND x.event_id = $event_id" if event_id else ""
+    query = f"""
+    MATCH (u:User {{id: $user_id}})-[:OWNS_DELIVERY]->(x:MessageBusDelivery)
+    {BOOK_FILTER}
+    {extra}
+    RETURN x
+    """
+    params = {"event_id": event_id} if event_id else {}
+    result = await _run(session, query, params, user_id=user_id)
+    deliveries = []
+    async for r in result:
+        n = dict(r["x"])
+        deliveries.append(
+            EventDelivery(
+                id=n["id"],
+                event_id=n["event_id"],
+                subscription_id=n.get("subscription_id"),
+                callback_url=n["callback_url"],
+                status=n["status"],
+                response_status=n.get("response_status"),
+                error=n.get("error"),
+                timestamp=_as_dt(n.get("timestamp")),
+            )
+        )
+    return deliveries

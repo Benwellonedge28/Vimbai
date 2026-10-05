@@ -4,6 +4,7 @@ import hashlib
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -45,6 +46,18 @@ class EventType(str, Enum):
     DOCUMENT_PROCESSED = "multimodal.document.processed"
     VOICE_TRANSCRIPT_COMPLETE = "multimodal.voice.transcript_complete"
 
+    # Book CRUD Events (emitted by the API gateway for every successful
+    # write inside a Book context - the universal "something changed"
+    # signal that drives autonomous downstream reactions)
+    BOOK_RESOURCE_CREATED = "book.resource.created"
+    BOOK_RESOURCE_UPDATED = "book.resource.updated"
+    BOOK_RESOURCE_DELETED = "book.resource.deleted"
+
+    # Ledger deletion (reversing-entry corrections still surface as edits)
+    JOURNAL_ENTRY_DELETED = "accounting.journal_entry.deleted"
+    TRANSACTION_UPDATED = "banking.transaction.updated"
+    TRANSACTION_DELETED = "banking.transaction.deleted"
+
     # System Events
     SERVICE_HEALTHY = "system.service.healthy"
     SERVICE_UNHEALTHY = "system.service.unhealthy"
@@ -81,6 +94,19 @@ class EventSubscription(BaseModel):
     filter_expression: Optional[str] = None
     enabled: bool = True
     priority: EventPriority = EventPriority.NORMAL
+    secret: Optional[str] = None
+
+
+class EventDelivery(BaseModel):
+    # Outcome of one webhook delivery attempt (immutable audit record).
+    id: str = Field(default_factory=lambda: uuid4().hex[:16])
+    event_id: str
+    subscription_id: Optional[str] = None
+    callback_url: str
+    status: str  # "delivered" | "failed"
+    response_status: Optional[int] = None
+    error: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
 class QueueConfig(BaseModel):

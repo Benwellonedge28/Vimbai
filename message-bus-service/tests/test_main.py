@@ -153,3 +153,161 @@ def test_publish_endpoint_body():
     evts = client.get("/events", headers=H1).json()
     assert evts[0]["payload"] == {"feature": "dark_mode"}
     assert client.get("/events", headers=H2).json() == []
+
+
+# ---------------------------------------------------------------------------
+# Autonomous dispatch (webhook fan-out + built-in alert automation)
+# ---------------------------------------------------------------------------
+
+import hashlib  # noqa: E402
+import hmac as hmac_mod  # noqa: E402
+
+from message_bus_service import dispatch as bus_dispatch  # noqa: E402
+
+
+class _FakeResponse:
+    status_code = 200
+
+
+class _FakeAsyncClient:
+    """Records every POST and answers 200 without touching the network."""
+
+    def __init__(self, timeout=None):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    async def post(self, url, content=None, json=None, headers=None):
+        CAPTURED.append({"url": url, "content": content, "json": json, "headers": headers or {}})
+        return _FakeResponse()
+
+
+class _ExplodingAsyncClient:
+    def __init__(self, timeout=None):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
+
+    async def post(self, url, **kw):
+        raise ConnectionError("unreachable webhook endpoint")
+
+
+CAPTURED = []
+
+
+@pytest.fixture
+def fake_http(monkeypatch):
+    CAPTURED.clear()
+    monkeypatch.setattr(bus_dispatch.httpx, "AsyncClient", _FakeAsyncClient)
+    return CAPTURED
+
+
+def _create_subscription(event_type, callback_url, secret=None, headers=H1):
+    body = {
+        "id": "sub-1",
+        "name": "test hook",
+        "event_types": [event_type],
+        "callback_url": callback_url,
+        "enabled": True,
+    }
+    if secret:
+        body["secret"] = secret
+    r = client.post("/subscriptions", json=body, headers=headers)
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+def test_publish_dispatches_signed_webhook_and_audits_delivery(fake_http):
+    _create_subscription("book.resource.created", "http://example.test/hook", secret="s3cret")
+
+    r = client.post(
+        "/events/book.resource.created/publish",
+        params={"source_service": "api-gateway"},
+        json={"path": "/ledger", "method": "POST"},
+        headers=H1,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "published"
+    assert body["dispatch"]["delivered"] == 1
+    assert body["dispatch"]["failed"] == 0
+
+    # webhook fired once (plus the built-in alert automation), HMAC-signed
+    webhooks = [c for c in fake_http if "example.test" in c["url"]]
+    assert len(webhooks) == 1
+    call = webhooks[0]
+    sig = call["headers"]["X-Vimbai-Signature"]
+    expected = hmac_mod.new(b"s3cret", call["content"].encode(), hashlib.sha256).hexdigest()
+    assert sig == expected
+
+    # delivery audit trail is readable for the event, Book-scoped
+    eid = body["event_id"]
+    deliveries = client.get(f"/events/{eid}/deliveries", headers=H1).json()
+    assert len(deliveries) == 1
+    assert deliveries[0]["status"] == "delivered"
+    assert deliveries[0]["response_status"] == 200
+    assert deliveries[0]["subscription_id"] == "sub-1"
+    # foreign callers get 404 (no existence leak)
+    assert client.get(f"/events/{eid}/deliveries", headers=H2).status_code == 404
+
+
+def test_journal_event_autonomously_re_evaluates_alerts(fake_http):
+    # no subscriptions needed: this is a built-in automation
+    r = client.post(
+        "/trigger/journal-entry-created",
+        params={"entry_id": "je-9", "amount": 500.0},
+        headers=H1,
+    )
+    assert r.status_code == 200, r.text
+    assert len(fake_http) == 1
+    call = fake_http[0]
+    assert call["url"].endswith("/evaluate")
+    assert call["headers"]["X-User-Id"] == U1
+    assert call["headers"]["X-Book-ID"] == BOOK_A
+    assert call["json"]["event_type"] == "accounting.journal_entry.created"
+
+
+def test_failed_webhook_is_audited_and_publish_still_succeeds(monkeypatch):
+    _create_subscription("book.resource.updated", "http://example.test/dead")
+    monkeypatch.setattr(bus_dispatch.httpx, "AsyncClient", _ExplodingAsyncClient)
+
+    r = client.post(
+        "/events/book.resource.updated/publish",
+        params={"source_service": "api-gateway"},
+        json={"path": "/budgets/b1", "method": "PUT"},
+        headers=H1,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "published"
+    assert body["dispatch"]["failed"] == 1
+    assert body["dispatch"]["delivered"] == 0
+
+    deliveries = client.get(f"/events/{body['event_id']}/deliveries", headers=H1).json()
+    assert len(deliveries) == 1
+    assert deliveries[0]["status"] == "failed"
+    assert deliveries[0]["error"]
+
+
+def test_dispatch_is_caller_scoped(fake_http):
+    # U1 subscribes; U2's publish must not deliver to U1's webhook
+    _create_subscription("book.resource.created", "http://example.test/u1-hook", headers=H1)
+
+    r = client.post(
+        "/events/book.resource.created/publish",
+        params={"source_service": "api-gateway"},
+        json={"path": "/ledger", "method": "POST"},
+        headers=H2,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["dispatch"]["delivered"] == 0
+    # U1's webhook must not fire; only the built-in alert automation ran
+    assert all(c["url"].endswith("/evaluate") for c in fake_http)

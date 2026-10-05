@@ -157,6 +157,10 @@ func (prh *ProxyResilienceHandler) Handle(c echo.Context) error {
 		if finalRecordedResp.Body != nil {
 			c.Response().Write(finalRecordedResp.Body.Bytes())
 		}
+
+		// Autonomous Book events: publish successful writes to the bus
+		// (fire-and-forget, never blocks the client response).
+		prh.maybeEmitBookEvent(c, finalRecordedResp.Status)
 	} else {
 		// This case should ideally not be hit if everything works, implies direct proxy call without resilience.
 		// But if it was a non-auth route, it would be handled earlier.
@@ -248,6 +252,13 @@ func main() {
 		targetURL, err := url.Parse(route.TargetURL)
 		if err != nil {
 			log.Fatalf("Invalid target URL for path %s: %v", route.Path, err)
+		}
+
+		// Capture the message-bus target once so successful writes can be
+		// published as autonomous Book events (events.go).
+		if route.Path == "/message-bus" {
+			busEmitTarget = targetURL.String()
+			log.Printf("Book event emission enabled via %s", busEmitTarget)
 		}
 
 		// Create a custom reverse proxy for each route
