@@ -71,7 +71,7 @@ def auth_headers():
     """Generate valid auth headers for testing."""
     from datetime import datetime, timedelta, timezone
 
-    import jwt as pyjwt
+    from jose import jwt as pyjwt
 
     token = pyjwt.encode(
         {
