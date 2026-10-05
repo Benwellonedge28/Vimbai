@@ -10,6 +10,7 @@ import 'package:vimbai_mobile_client/services/accounting_api_service.dart'; // N
 import 'package:vimbai_mobile_client/pages/multimodal_input_page.dart';
 import 'package:vimbai_mobile_client/pages/books_page.dart';
 import 'package:vimbai_mobile_client/pages/create_book_wizard.dart';
+import 'package:vimbai_mobile_client/widgets/book_settings_sheet.dart';
 import 'package:vimbai_mobile_client/pages/npo_page.dart';
 import 'package:vimbai_mobile_client/pages/personal_finance_page.dart';
 import 'package:vimbai_mobile_client/pages/bank_accounts_page.dart';
@@ -178,6 +179,17 @@ class _HomePageState extends State<HomePage> {
       MaterialPageRoute(builder: (context) => const BooksPage()),
     );
     await _loadBooks();
+  }
+
+  /// Per-Book settings (rename, folder, members, sync) - the kebab menu
+  /// on each Book card. Applies to that Book only.
+  void _openBookSettings(VBook b) {
+    final folders = _books
+        .map((x) => x.folder)
+        .where((f) => f.isNotEmpty)
+        .toSet()
+        .toList();
+    showBookSettingsSheet(context, b, folders, onChanged: _loadBooks);
   }
 
   Future<void> _startNewBook() async {
@@ -391,11 +403,21 @@ class _HomePageState extends State<HomePage> {
                                     ? b.tier
                                     : '${b.folder} - ${b.tier}',
                               ),
-                              trailing: invited
-                                  ? const Chip(label: Text('invited'))
-                                  : (active
-                                      ? const Icon(Icons.check_circle)
-                                      : null),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (invited)
+                                    const Chip(label: Text('invited'))
+                                  else if (active)
+                                    const Icon(Icons.check_circle),
+                                  IconButton(
+                                    icon: const Icon(Icons.more_vert),
+                                    tooltip: 'Book settings',
+                                    onPressed: () =>
+                                        _openBookSettings(b),
+                                  ),
+                                ],
+                              ),
                               onTap: () => _activateBook(b),
                               onLongPress: _openBooksPage,
                             ),

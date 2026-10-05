@@ -12,6 +12,7 @@ import 'package:vimbai_mobile_client/models/book_models.dart';
 import 'package:vimbai_mobile_client/services/book_context.dart';
 import 'package:vimbai_mobile_client/services/book_sync_service.dart';
 import 'package:vimbai_mobile_client/pages/create_book_wizard.dart';
+import 'package:vimbai_mobile_client/widgets/book_settings_sheet.dart';
 import 'package:vimbai_mobile_client/services/npo_scale_service.dart';
 
 class BooksPage extends StatefulWidget {
@@ -271,6 +272,17 @@ class _BooksPageState extends State<BooksPage> {
     }
   }
 
+  /// Per-Book settings sheet (kebab menu) - rename, description,
+  /// folder, members and sync for THIS Book only.
+  void _openBookSettings(VBook b) {
+    final folders = _books
+        .map((x) => x.folder)
+        .where((f) => f.isNotEmpty)
+        .toSet()
+        .toList();
+    showBookSettingsSheet(context, b, folders, onChanged: _load);
+  }
+
   /// Long-press actions on a Book: move to a folder, invite members.
   Future<void> _bookActions(VBook book, String folder) async {
     final canInvite = book.yourRole == 'owner' || book.yourRole == 'admin';
@@ -501,14 +513,24 @@ class _BooksPageState extends State<BooksPage> {
                                 '${b.tier} - you are ${b.yourRole}'
                                 '${invited ? ' (invited)' : ''}',
                               ),
-                              trailing: invited
-                                  ? TextButton(
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (invited)
+                                    TextButton(
                                       onPressed: () => _accept(b),
                                       child: const Text('Accept'),
                                     )
-                                  : (isActive
-                                      ? const Icon(Icons.check_circle)
-                                      : null),
+                                  else if (isActive)
+                                    const Icon(Icons.check_circle),
+                                  IconButton(
+                                    icon: const Icon(Icons.more_vert),
+                                    tooltip: 'Book settings',
+                                    onPressed: () =>
+                                        _openBookSettings(b),
+                                  ),
+                                ],
+                              ),
                               onTap: invited ? null : () => _setActive(b.id),
                               onLongPress: () =>
                                   _bookActions(b, entry.key),

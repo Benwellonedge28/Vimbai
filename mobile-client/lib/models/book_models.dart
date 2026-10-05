@@ -56,6 +56,29 @@ class VBook {
         'membership_status': membershipStatus,
         'seq': seq,
       };
+
+  VBook copyWith({
+    String? name,
+    String? tier,
+    String? description,
+    String? folder,
+    String? yourRole,
+    String? membershipStatus,
+    int? seq,
+    DateTime? createdAt,
+  }) {
+    return VBook(
+      id: id,
+      name: name ?? this.name,
+      tier: tier ?? this.tier,
+      description: description ?? this.description,
+      folder: folder ?? this.folder,
+      yourRole: yourRole ?? this.yourRole,
+      membershipStatus: membershipStatus ?? this.membershipStatus,
+      seq: seq ?? this.seq,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }
 
 class BookMember {
