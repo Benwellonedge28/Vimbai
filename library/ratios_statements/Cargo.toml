@@ -1,0 +1,12 @@
+[package]
+name = "vimbai_ratios_statements"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Ratio and statement generation math: DuPont components, liquidity/efficiency/coverage ratios, consolidated statements, working capital cycles"
+
+[dependencies]
+vimbai_common = { path = "../common" }
+serde = { workspace = true }
+serde_json = { workspace = true }

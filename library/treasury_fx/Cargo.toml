@@ -1,0 +1,12 @@
+[package]
+name = "vimbai_treasury_fx"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Treasury, FX and derivatives math: options pricing, forwards, futures, swaps, hedging effectiveness, interest-rate and market risk, liquidity forecasting"
+
+[dependencies]
+vimbai_common = { path = "../common" }
+serde = { workspace = true }
+serde_json = { workspace = true }

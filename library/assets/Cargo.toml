@@ -1,0 +1,12 @@
+[package]
+name = "vimbai_assets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Asset and depreciation math: straight-line/reducing-balance/units-of-production depreciation, amortization, goodwill, impairment, inventory valuation, NRV"
+
+[dependencies]
+vimbai_common = { path = "../common" }
+serde = { workspace = true }
+serde_json = { workspace = true }

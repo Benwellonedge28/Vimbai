@@ -1,0 +1,12 @@
+[package]
+name = "vimbai_budgeting"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Budget preparation math: master budget, cash budget, capital expenditure budget, scenario budget, zero-based budget, flexible budget coordination"
+
+[dependencies]
+vimbai_common = { path = "../common" }
+serde = { workspace = true }
+serde_json = { workspace = true }

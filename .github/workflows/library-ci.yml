@@ -1,0 +1,40 @@
+name: Calculation Library CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "library/**"
+      - ".github/workflows/library-ci.yml"
+  pull_request:
+    paths:
+      - "library/**"
+      - ".github/workflows/library-ci.yml"
+
+jobs:
+  test:
+    name: Rust fmt / clippy / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Verify safe Rust only (no unsafe blocks)
+        run: |
+          ! grep -rn "unsafe" library --include="*.rs"
+
+      - name: Formatting
+        run: cargo fmt --all -- --check
+        working-directory: library
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+        working-directory: library
+
+      - name: Tests
+        run: cargo test --workspace
+        working-directory: library

@@ -1,0 +1,12 @@
+[package]
+name = "vimbai_capital_valuation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Capital budgeting & valuation math: NPV, IRR, payback, discount factors, DCF utilities"
+
+[dependencies]
+vimbai_common = { path = "../common" }
+serde = { workspace = true }
+serde_json = { workspace = true }
