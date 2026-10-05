@@ -9,6 +9,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/services/accounting_api_service.dart'; // NEW
 import 'package:vimbai_mobile_client/pages/multimodal_input_page.dart';
 import 'package:vimbai_mobile_client/pages/books_page.dart';
+import 'package:vimbai_mobile_client/pages/create_book_wizard.dart';
 import 'package:vimbai_mobile_client/pages/npo_page.dart';
 import 'package:vimbai_mobile_client/pages/personal_finance_page.dart';
 import 'package:vimbai_mobile_client/pages/bank_accounts_page.dart';
@@ -36,10 +37,32 @@ class _HomePageState extends State<HomePage> {
   final ValueNotifier<int> _contextTicker = ValueNotifier<int>(0);
   ConnectivityResult _connectivityResult = ConnectivityResult.none;
 
+  // Your Books on the home screen: searchable, sortable list.
+  List<VBook> _books = [];
+  String _searchQuery = '';
+  String _sortMode = 'nameAz';
+  static const Map<String, String> _sortLabels = {
+    'nameAz': 'Name A-Z',
+    'nameZa': 'Name Z-A',
+    'newest': 'Newest first',
+    'oldest': 'Oldest first',
+    'category': 'Category',
+    'folder': 'Folder',
+  };
+  static const Map<String, IconData> _tierIcons = {
+    'personal': Icons.person,
+    'household': Icons.home,
+    'group': Icons.groups,
+    'business': Icons.business_center,
+    'nonprofit': Icons.volunteer_activism,
+  };
+
   @override
   void initState() {
     super.initState();
     _hydrateBookContext();
+    _loadSortMode();
+    _loadBooks();
     BookContext.instance.addListener(() => _contextTicker.value++);
     _checkConnectivity();
     Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> results) {
@@ -79,6 +102,96 @@ class _HomePageState extends State<HomePage> {
 
   /// Hydrate the app-wide Book context from the persisted active book so
   /// service clients send X-Book-ID from the moment the app opens.
+  Future<void> _loadBooks() async {
+    List<VBook> books;
+    try {
+      books = await _bookSync.refreshBooksFromServer();
+    } catch (_) {
+      books = await _bookSync.localBooks();
+    }
+    if (mounted) setState(() => _books = books);
+  }
+
+  Future<void> _loadSortMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final mode = prefs.getString('home_book_sort');
+    if (mode != null && _sortLabels.containsKey(mode) && mounted) {
+      setState(() => _sortMode = mode);
+    }
+  }
+
+  Future<void> _setSortMode(String mode) async {
+    setState(() => _sortMode = mode);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('home_book_sort', mode);
+  }
+
+  /// Search + sort the Books list for the home screen.
+  List<VBook> _filteredBooks() {
+    final q = _searchQuery.trim().toLowerCase();
+    final list = _books.where((b) {
+      if (q.isEmpty) return true;
+      return b.name.toLowerCase().contains(q) ||
+          b.tier.toLowerCase().contains(q) ||
+          b.folder.toLowerCase().contains(q);
+    }).toList();
+    switch (_sortMode) {
+      case 'nameZa':
+        list.sort((a, b) => b.name.compareTo(a.name));
+      case 'newest':
+        list.sort((a, b) => (b.createdAt?.millisecondsSinceEpoch ?? 0)
+            .compareTo(a.createdAt?.millisecondsSinceEpoch ?? 0));
+      case 'oldest':
+        list.sort((a, b) => (a.createdAt?.millisecondsSinceEpoch ?? 0)
+            .compareTo(b.createdAt?.millisecondsSinceEpoch ?? 0));
+      case 'category':
+        list.sort((a, b) {
+          final c = a.tier.compareTo(b.tier);
+          return c != 0 ? c : a.name.compareTo(b.name);
+        });
+      case 'folder':
+        list.sort((a, b) {
+          final c = a.folder.compareTo(b.folder);
+          return c != 0 ? c : a.name.compareTo(b.name);
+        });
+      default:
+        list.sort((a, b) => a.name.compareTo(b.name));
+    }
+    return list;
+  }
+
+  /// Make the tapped Book the active context for every service call.
+  Future<void> _activateBook(VBook b) async {
+    if (b.membershipStatus == 'invited') {
+      // invitations are accepted on the Books page
+      await _openBooksPage();
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('active_book_id', b.id);
+    await _hydrateBookContext();
+    await _loadBooks();
+  }
+
+  Future<void> _openBooksPage() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const BooksPage()),
+    );
+    await _loadBooks();
+  }
+
+  Future<void> _startNewBook() async {
+    final created = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (context) => const CreateBookWizardPage()),
+    );
+    if (created is String && created.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('active_book_id', created);
+      await _hydrateBookContext();
+    }
+    await _loadBooks();
+  }
+
   Future<void> _hydrateBookContext() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -186,6 +299,114 @@ class _HomePageState extends State<HomePage> {
                         ),
                       );
                     },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ------------------------------------------------------
+                  // Your Books - searchable, sortable list of every Book the
+                  // user created. Tapping one makes it the active context.
+                  // ------------------------------------------------------
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'YOUR BOOKS',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            tooltip: 'Start a Book',
+                            onPressed: _startNewBook,
+                          ),
+                          PopupMenuButton<String>(
+                            icon: const Icon(Icons.sort),
+                            tooltip: 'Sort books',
+                            onSelected: _setSortMode,
+                            itemBuilder: (ctx) => _sortLabels.entries
+                                .map(
+                                  (e) => PopupMenuItem(
+                                    value: e.key,
+                                    child: Row(
+                                      children: [
+                                        if (e.key == _sortMode)
+                                          const Icon(Icons.check, size: 18)
+                                        else
+                                          const SizedBox(width: 18),
+                                        const SizedBox(width: 8),
+                                        Text(e.value),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ],
+                      ),
+                      TextField(
+                        onChanged: (v) => setState(() => _searchQuery = v),
+                        decoration: InputDecoration(
+                          hintText: 'Search books by name, folder or category',
+                          prefixIcon: const Icon(Icons.search),
+                          isDense: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (_books.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            _searchQuery.trim().isEmpty
+                                ? 'No books yet - start your first one'
+                                : 'No books match your search',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        )
+                      else ..._filteredBooks().map(
+                        (b) {
+                          final active = b.id ==
+                              BookContext.instance.current?.id;
+                          final invited = b.membershipStatus == 'invited';
+                          return Card(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            color: active
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .primaryContainer
+                                : null,
+                            child: ListTile(
+                              dense: true,
+                              leading: Icon(
+                                _tierIcons[b.tier] ?? Icons.book,
+                              ),
+                              title: Text(b.name),
+                              subtitle: Text(
+                                b.folder.isEmpty
+                                    ? b.tier
+                                    : '${b.folder} - ${b.tier}',
+                              ),
+                              trailing: invited
+                                  ? const Chip(label: Text('invited'))
+                                  : (active
+                                      ? const Icon(Icons.check_circle)
+                                      : null),
+                              onTap: () => _activateBook(b),
+                              onLongPress: _openBooksPage,
+                            ),
+                          );
+                        },
+                      ),
+                      TextButton(
+                        onPressed: _openBooksPage,
+                        child: const Text('Manage books, folders and members'),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
 
