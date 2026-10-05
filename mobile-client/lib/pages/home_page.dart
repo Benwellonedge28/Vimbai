@@ -271,6 +271,13 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
+          // Floating "create a Book" button - bottom-right, extended so it
+          // is immediately visible when the app opens.
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _startNewBook,
+            icon: const Icon(Icons.add),
+            label: const Text('Start a Book'),
+          ),
           body: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
