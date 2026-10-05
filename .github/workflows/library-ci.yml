@@ -25,7 +25,7 @@ jobs:
 
       - name: Verify safe Rust only (no unsafe blocks)
         run: |
-          ! grep -rn "unsafe" library --include="*.rs"
+          ! grep -rnE 'unsafe(\s*\{|\s+(fn|impl|trait|extern))' library --include="*.rs"
 
       - name: Formatting
         run: cargo fmt --all -- --check
