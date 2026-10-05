@@ -81,10 +81,12 @@ class AccountingApiService {
 
   /// Pushes a locally-created (unsynced) entry to the server. Used by
   /// SyncService. On success the local copy is marked as synced.
-  Future<void> pushJournalEntryToServer(JournalEntry entry) async {
+  Future<void> pushJournalEntryToServer(JournalEntry entry, {String? bookId}) async {
+    final headers = await _getHeaders();
+    if (bookId != null) headers['X-Book-ID'] = bookId;
     final response = await _client.post(
       Uri.parse('$_baseUrl/journal-entries/'),
-      headers: await _getHeaders(),
+      headers: headers,
       body: json.encode(entry.toJson()),
     );
     if (response.statusCode == 201 || response.statusCode == 200) {
@@ -253,15 +255,59 @@ class AccountingApiService {
   }
 
   Future<Account> createAccount(AccountCreate account) async {
+    try {
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/accounts/'),
+        headers: await _getHeaders(),
+        body: json.encode(account.toJson()),
+      );
+      if (response.statusCode == 201) {
+        final saved = Account.fromJson(json.decode(response.body) as Map<String, dynamic>);
+        await _localDb.insertAccount(saved, isSynced: true);
+        return saved;
+      }
+      throw Exception('Failed to create account: ${response.body}');
+    } on OfflineException {
+      // Offline: keep the account on-device; SyncService will replay it.
+      final local = Account(
+        accountNumber: account.accountNumber,
+        accountName: account.accountName,
+        accountType: account.accountType,
+        normalBalance: ['Asset', 'Expense'].contains(account.accountType) ? 'debit' : 'credit',
+        description: account.description,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await _localDb.insertAccount(local, isSynced: false);
+      return local;
+    }
+  }
+
+  /// Pushes a locally-created (unsynced) account to the server. Used by
+  /// SyncService; [bookId] restores the Book the account was created in.
+  Future<void> pushAccountToServer(Account account, {String? bookId}) async {
+    final headers = await _getHeaders();
+    if (bookId != null) headers['X-Book-ID'] = bookId;
     final response = await _client.post(
       Uri.parse('$_baseUrl/accounts/'),
-      headers: await _getHeaders(),
-      body: json.encode(account.toJson()),
+      headers: headers,
+      body: json.encode(AccountCreate(
+        accountNumber: account.accountNumber,
+        accountName: account.accountName,
+        accountType: account.accountType,
+        currentBalance: 0,
+        description: account.description,
+      ).toJson()),
     );
-    if (response.statusCode == 201) {
-      return Account.fromJson(json.decode(response.body) as Map<String, dynamic>);
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      await _localDb.markAccountAsSynced(account.accountNumber);
+    } else if (response.statusCode == 409) {
+      // Account already exists server-side (e.g. replay after a lost
+      // response): treat as synced, never duplicate.
+      await _localDb.markAccountAsSynced(account.accountNumber);
+    } else {
+      throw Exception('Failed to sync account: ${response.body}');
     }
-    throw Exception('Failed to create account: ${response.body}');
   }
 
   /// Network-first account list with offline cache fallback.

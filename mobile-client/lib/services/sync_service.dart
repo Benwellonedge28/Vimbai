@@ -76,13 +76,24 @@ class SyncService {
   }
 
   Future<void> _syncAccountingData() async {
-    // 1. Push local-only journal entries created while offline.
-    final unsynced = await _localDb.getUnsyncedJournalEntries();
-    for (final entry in unsynced) {
+    // 1. Push accounts created offline first (entries reference them).
+    final unsyncedAccounts = await _localDb.getUnsyncedAccounts();
+    for (final ref in unsyncedAccounts) {
       try {
-        await _accountingApiService.pushJournalEntryToServer(entry);
+        await _accountingApiService.pushAccountToServer(ref.item, bookId: ref.bookId);
       } catch (e) {
-        print('Failed to push journal entry ${entry.id}: $e');
+        print('Failed to push account ${ref.item.accountNumber}: $e');
+      }
+    }
+
+    // 2. Push local-only journal entries created while offline, replaying
+    // each into the Book it was originally created in.
+    final unsynced = await _localDb.getUnsyncedJournalEntriesWithBooks();
+    for (final ref in unsynced) {
+      try {
+        await _accountingApiService.pushJournalEntryToServer(ref.item, bookId: ref.bookId);
+      } catch (e) {
+        print('Failed to push journal entry ${ref.item.id}: $e');
       }
     }
 

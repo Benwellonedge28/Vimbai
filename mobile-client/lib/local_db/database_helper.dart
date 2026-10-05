@@ -4,6 +4,15 @@ import 'package:vimbai_mobile_client/models/accounting_models.dart'; // Import a
 import 'package:vimbai_mobile_client/models/finance_models.dart'; // Import finance models
 import 'package:vimbai_mobile_client/models/multimodal_models.dart'; // NEW: Import multimodal models
 import 'package:uuid/uuid.dart';
+import 'package:vimbai_mobile_client/services/book_context.dart';
+
+/// An outbox item plus the Book it was created in, so replays hit the
+/// right Book even if the user has since switched Books on the device.
+class UnsyncedRef<T> {
+  final T item;
+  final String? bookId;
+  UnsyncedRef(this.item, this.bookId);
+}
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -26,7 +35,7 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'vimbai_offline.db');
     return await openDatabase(
       path,
-      version: 3, // v3: multimodal_tasks gains user_id (offline capture queue)
+      version: 4, // v4: book-scoped offline stores + unsynced accounts + KV cache
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -44,7 +53,9 @@ class DatabaseHelper {
             description TEXT,
             parent_account_number TEXT,
             created_at TEXT,
-            updated_at TEXT
+            updated_at TEXT,
+            is_synced INTEGER DEFAULT 1,
+            book_id TEXT
           )
         ''');
 
@@ -118,6 +129,15 @@ class DatabaseHelper {
             updated_at TEXT
           )
         ''');
+
+    // v4: generic KV cache for last-known server payloads (offline reads)
+    await db.execute('''
+          CREATE TABLE offline_cache(
+            key TEXT PRIMARY KEY,
+            value TEXT,
+            updated_at TEXT
+          )
+        ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -140,12 +160,27 @@ class DatabaseHelper {
       await db.execute(
           'ALTER TABLE multimodal_tasks ADD COLUMN user_id TEXT DEFAULT \'self\'');
     }
+    if (oldVersion < 4) {
+      // v3 -> v4: total-offline support. Accounts created offline get an
+      // outbox flag; cached rows remember which Book they belong to; a
+      // generic KV cache keeps last-known server payloads readable offline.
+      await db.execute('ALTER TABLE accounts ADD COLUMN is_synced INTEGER DEFAULT 1');
+      await db.execute('ALTER TABLE accounts ADD COLUMN book_id TEXT');
+      await db.execute('ALTER TABLE journal_entries ADD COLUMN book_id TEXT');
+      await db.execute('''
+            CREATE TABLE offline_cache(
+              key TEXT PRIMARY KEY,
+              value TEXT,
+              updated_at TEXT
+            )
+          ''');
+    }
     // Add future migrations here
   }
 
 
   // --- Account CRUD ---
-  Future<int> insertAccount(Account account) async {
+  Future<int> insertAccount(Account account, {bool isSynced = true}) async {
     final db = await database;
     return await db.insert('accounts', {
       'id': account.id ?? uuid.v4(),
@@ -157,12 +192,18 @@ class DatabaseHelper {
       'parent_account_number': account.parentAccountNumber,
       'created_at': (account.createdAt ?? DateTime.now()).toIso8601String(),
       'updated_at': (account.updatedAt ?? DateTime.now()).toIso8601String(),
+      'is_synced': isSynced ? 1 : 0,
+      'book_id': BookContext.instance.current?.id,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+  /// Accounts visible in the current Book (all cached rows when no Book
+  /// is selected).
   Future<List<Account>> getAccounts() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('accounts');
+    final List<Map<String, dynamic>> maps = await db.query('accounts',
+        where: 'book_id = ? OR book_id IS NULL',
+        whereArgs: [BookContext.instance.current?.id ?? '']);
     return List.generate(maps.length, (i) {
       return Account.fromJson(maps[i]);
     });
@@ -179,6 +220,7 @@ class DatabaseHelper {
     final entryId = entry.id;
     final result = await db.insert('journal_entries', {
       'id': entryId,
+      'book_id': BookContext.instance.current?.id,
       'entry_date': entry.entryDate.toIso8601String(),
       'description': entry.description,
       'reference_number': entry.referenceNumber,
@@ -233,7 +275,7 @@ class DatabaseHelper {
   /// All journal entries currently cached locally (offline list view).
   Future<List<JournalEntry>> getAllJournalEntriesFromLocal() async {
     final db = await database;
-    final List<Map<String, dynamic>> entryMaps = await db.query('journal_entries', orderBy: 'entry_date DESC');
+    final List<Map<String, dynamic>> entryMaps = await db.query('journal_entries', where: 'book_id = ? OR book_id IS NULL', whereArgs: [BookContext.instance.current?.id ?? ''], orderBy: 'entry_date DESC');
     List<JournalEntry> entries = [];
     for (var entryMap in entryMaps) {
       final List<Map<String, dynamic>> lineMaps = await db
@@ -407,8 +449,62 @@ class DatabaseHelper {
         where: 'id = ?', whereArgs: [taskId]);
   }
 
-  /// How many records (journal entries + captures) are waiting to sync.
-  /// Powers the "pending sync" indicator in the UI.
+  /// Unsynced journal entries with the Book they were created in, so the
+  /// sync replay attaches the original Book header, not the current one.
+  Future<List<UnsyncedRef<JournalEntry>>> getUnsyncedJournalEntriesWithBooks() async {
+    final db = await database;
+    final entryMaps =
+        await db.query('journal_entries', where: 'is_synced = ?', whereArgs: [0]);
+    final refs = <UnsyncedRef<JournalEntry>>[];
+    for (final entryMap in entryMaps) {
+      final lineMaps = await db
+          .query('journal_lines', where: 'journal_entry_id = ?', whereArgs: [entryMap['id']]);
+      final lines = List.generate(lineMaps.length, (i) => JournalLine.fromJson(lineMaps[i]));
+      refs.add(UnsyncedRef(
+        JournalEntry.fromJson(
+            {...entryMap, 'lines': lines.map((l) => l.toJson()).toList()}),
+        entryMap['book_id'] as String?,
+      ));
+    }
+    return refs;
+  }
+
+  /// Accounts created offline (waiting for the sync replay).
+  Future<List<UnsyncedRef<Account>>> getUnsyncedAccounts() async {
+    final db = await database;
+    final maps =
+        await db.query('accounts', where: 'is_synced = ?', whereArgs: [0]);
+    return maps
+        .map((row) => UnsyncedRef(Account.fromJson(row), row['book_id'] as String?))
+        .toList();
+  }
+
+  Future<int> markAccountAsSynced(String accountNumber) async {
+    final db = await database;
+    return await db.update('accounts', {'is_synced': 1},
+        where: 'account_number = ?', whereArgs: [accountNumber]);
+  }
+
+  // --- Generic offline KV cache (last-known server payloads) ---
+
+  Future<void> putOfflineCache(String key, String value) async {
+    final db = await database;
+    await db.insert(
+      'offline_cache',
+      {'key': key, 'value': value, 'updated_at': DateTime.now().toIso8601String()},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<String?> getOfflineCache(String key) async {
+    final db = await database;
+    final rows = await db.query('offline_cache', where: 'key = ?', whereArgs: [key], limit: 1);
+    if (rows.isEmpty) return null;
+    return rows.first['value'] as String?;
+  }
+
+  /// How many records (accounts, journal entries, captures) are waiting
+  /// to sync. Powers the "pending sync" indicator in the UI.
   Future<int> pendingSyncCount() async {
     final db = await database;
     final journals = Sqflite.firstIntValue(
@@ -417,6 +513,9 @@ class DatabaseHelper {
     final captures = Sqflite.firstIntValue(
             await db.rawQuery('SELECT COUNT(*) FROM multimodal_tasks WHERE is_synced = 0')) ??
         0;
-    return journals + captures;
+    final accounts = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM accounts WHERE is_synced = 0')) ??
+        0;
+    return journals + captures + accounts;
   }
 }

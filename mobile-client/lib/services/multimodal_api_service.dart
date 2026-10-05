@@ -237,31 +237,54 @@ class MultimodalApiService {
   /// view: incomplete (default) | organized | all
   Future<List<MultimodalProcessingTaskInDB>> getBookInbox(
       {String view = 'incomplete', int limit = 100}) async {
-    final response = await _client.get(
-      Uri.parse('$_baseUrl/inbox?view=$view&limit=$limit'),
-      headers: await _getHeaders(),
-    );
+    final cacheKey = 'inbox_${view}_$limit';
+    try {
+      final response = await _client.get(
+        Uri.parse('$_baseUrl/inbox?view=$view&limit=$limit'),
+        headers: await _getHeaders(),
+      );
 
-    if (response.statusCode == 200) {
-      Iterable l = json.decode(response.body);
-      return List<MultimodalProcessingTaskInDB>.from(
-          l.map((model) => MultimodalProcessingTaskInDB.fromJson(model)));
-    } else {
-      throw Exception('Failed to load Book inbox: ${response.body}');
+      if (response.statusCode == 200) {
+        final records = List<MultimodalProcessingTaskInDB>.from(
+            (json.decode(response.body) as Iterable)
+                .map((model) => MultimodalProcessingTaskInDB.fromJson(model)));
+        // Cache the last-known payload so the inbox stays readable offline
+        // (potentially forever until the device reconnects).
+        await _localDb.putOfflineCache(cacheKey, response.body);
+        return records;
+      } else {
+        throw Exception('Failed to load Book inbox: ${response.body}');
+      }
+    } on OfflineException {
+      final cached = await _localDb.getOfflineCache(cacheKey);
+      if (cached != null) {
+        return List<MultimodalProcessingTaskInDB>.from(
+            (json.decode(cached) as Iterable)
+                .map((model) => MultimodalProcessingTaskInDB.fromJson(model)));
+      }
+      return const [];
     }
   }
 
   /// Per-status counts for the Book inbox (badge-friendly).
   Future<Map<String, dynamic>> getInboxSummary() async {
-    final response = await _client.get(
-      Uri.parse('$_baseUrl/inbox/summary'),
-      headers: await _getHeaders(),
-    );
+    const cacheKey = 'inbox_summary';
+    try {
+      final response = await _client.get(
+        Uri.parse('$_baseUrl/inbox/summary'),
+        headers: await _getHeaders(),
+      );
 
-    if (response.statusCode == 200) {
-      return json.decode(response.body) as Map<String, dynamic>;
-    } else {
-      throw Exception('Failed to load inbox summary: ${response.body}');
+      if (response.statusCode == 200) {
+        await _localDb.putOfflineCache(cacheKey, response.body);
+        return json.decode(response.body) as Map<String, dynamic>;
+      } else {
+        throw Exception('Failed to load inbox summary: ${response.body}');
+      }
+    } on OfflineException {
+      final cached = await _localDb.getOfflineCache(cacheKey);
+      if (cached != null) return json.decode(cached) as Map<String, dynamic>;
+      return {};
     }
   }
 
@@ -285,7 +308,7 @@ class MultimodalApiService {
     final dataUrl = await _fileToDataUrl(imageFile);
     final metadata = {'source_context': sourceContext ?? 'camera_photo'};
     try {
-      return createTask(MultimodalProcessingTaskCreate(
+      return await createTask(MultimodalProcessingTaskCreate(
         userId: 'self',
         inputType: MultimodalInputType.image,
         inputUrl: dataUrl,
@@ -306,7 +329,7 @@ class MultimodalApiService {
     final dataUrl = await _fileToDataUrl(videoFile);
     final metadata = {'source_context': sourceContext ?? 'camera_video'};
     try {
-      return createTask(MultimodalProcessingTaskCreate(
+      return await createTask(MultimodalProcessingTaskCreate(
         userId: 'self',
         inputType: MultimodalInputType.video,
         inputUrl: dataUrl,
@@ -325,7 +348,7 @@ class MultimodalApiService {
       {String? sourceContext}) async {
     final metadata = {'source_context': sourceContext ?? 'typed_note'};
     try {
-      return createTask(MultimodalProcessingTaskCreate(
+      return await createTask(MultimodalProcessingTaskCreate(
         userId: 'self',
         inputType: MultimodalInputType.text,
         inputRawText: text,
