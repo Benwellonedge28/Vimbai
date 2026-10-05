@@ -21,7 +21,7 @@ client = TestClient(app)
 def auth_headers():
     from datetime import datetime, timedelta, timezone
 
-    import jwt as pyjwt
+    from jose import jwt as pyjwt
 
     token = pyjwt.encode(
         {

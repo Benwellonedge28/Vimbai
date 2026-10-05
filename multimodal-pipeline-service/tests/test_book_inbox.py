@@ -9,9 +9,9 @@ import os
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
-import jwt as pyjwt
 import pytest
 from fastapi.testclient import TestClient
+from jose import jwt as pyjwt
 
 os.environ.setdefault("JWT_SECRET", "test-secret-key-for-testing-only")
 
