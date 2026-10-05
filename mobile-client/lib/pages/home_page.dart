@@ -8,6 +8,7 @@ import 'package:vimbai_mobile_client/pages/login_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/services/accounting_api_service.dart'; // NEW
 import 'package:vimbai_mobile_client/pages/multimodal_input_page.dart';
+import 'package:vimbai_mobile_client/pages/book_inbox_page.dart';
 import 'package:vimbai_mobile_client/pages/bank_accounts_page.dart';
 import 'package:vimbai_mobile_client/pages/books_page.dart';
 import 'package:vimbai_mobile_client/pages/create_book_wizard.dart';
@@ -496,6 +497,7 @@ class _HomePageState extends State<HomePage> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
+                  _navButton(context, 'Book inbox - capture and organize records', const BookInboxPage()),
                   _navButton(context, 'Process Image/Audio', const MultimodalInputPage()),
                   _navButton(context, 'Manage Bank Accounts', const BankAccountsPage()),
                 ],

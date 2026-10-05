@@ -215,3 +215,46 @@ async def get_user_corrections_for_task(session: AsyncSession, task_id: str) -> 
     async for record in result:
         corrections.append(_from_neo4j_props(record["uc"], UserCorrectionInDB))
     return corrections
+
+
+# --- Book Inbox (incomplete records wired to each Book) ---
+# Incomplete: captures still being processed or awaiting user action.
+# Organized: records the user accepted as complete Book records.
+
+INCOMPLETE_STATUSES = [
+    "received",
+    "processing",
+    "ai_extracted",
+    "review_pending",
+    "user_corrected",
+    "failed",
+]
+ORGANIZED_STATUSES = ["completed"]
+
+
+async def list_inbox_tasks(
+    session: AsyncSession, user_id: str, view: str = "incomplete", limit: int = 100
+) -> List[MultimodalProcessingTaskInDB]:
+    """Book-scoped inbox of capture records for the caller.
+
+    view: "incomplete" (default) | "organized" | "all"
+    """
+    all_tasks = await get_all_multimodal_processing_tasks(session, user_id)
+    if view == "organized":
+        tasks = [t for t in all_tasks if t.status in ORGANIZED_STATUSES]
+    elif view == "all":
+        tasks = all_tasks
+    else:
+        tasks = [t for t in all_tasks if t.status in INCOMPLETE_STATUSES]
+    return tasks[:limit]
+
+
+async def inbox_summary(session: AsyncSession, user_id: str) -> Dict[str, int]:
+    """Per-status counts over the caller's Book-visible captures."""
+    all_tasks = await get_all_multimodal_processing_tasks(session, user_id)
+    counts: Dict[str, int] = {s: 0 for s in INCOMPLETE_STATUSES + ORGANIZED_STATUSES}
+    for t in all_tasks:
+        counts[t.status] = counts.get(t.status, 0) + 1
+    counts["total_incomplete"] = sum(counts[s] for s in INCOMPLETE_STATUSES)
+    counts["total_organized"] = counts["completed"]
+    return counts

@@ -155,6 +155,76 @@ async def get_all_multimodal_tasks(
     return await crud.get_all_multimodal_processing_tasks(db_session, user_id)
 
 
+# --- Book Inbox endpoints (incomplete records wired to each Book) ---
+
+
+@app.get(
+    "/inbox",
+    response_model=List[models.MultimodalProcessingTaskInDB],
+    dependencies=[Depends(check_permission("multimodal.read.tasks"))],
+)
+async def get_book_inbox(
+    view: str = "incomplete",
+    limit: int = 100,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """The caller's Book inbox of captured records.
+
+    view=incomplete (default): records still being processed, awaiting
+    review, or failed. view=organized: completed Book records.
+    view=all: everything.
+    """
+    if view not in ("incomplete", "organized", "all"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="view must be one of: incomplete, organized, all",
+        )
+    limit = max(1, min(limit, 500))
+    return await crud.list_inbox_tasks(db_session, user_id, view, limit)
+
+
+@app.get(
+    "/inbox/summary",
+    dependencies=[Depends(check_permission("multimodal.read.tasks"))],
+)
+async def get_book_inbox_summary(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Per-status counts for the caller's Book inbox (badge-friendly)."""
+    return await crud.inbox_summary(db_session, user_id)
+
+
+@app.post(
+    "/inbox/{task_id}/organize",
+    response_model=models.MultimodalProcessingTaskInDB,
+    dependencies=[Depends(check_permission("multimodal.write.tasks"))],
+)
+async def organize_inbox_record(
+    task_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Accept an AI-organized record into the Book (mark completed).
+
+    Idempotent: organizing an already-completed record is a no-op.
+    """
+    task = await crud.get_multimodal_processing_task(db_session, task_id)
+    if not task or task.user_id != user_id:
+        raise NotFoundError(detail="Inbox record not found.")
+    if task.status == "completed":
+        return task
+    organized = await crud.update_multimodal_processing_task(
+        db_session,
+        task_id,
+        models.MultimodalProcessingTaskUpdate(status="completed", processing_end_time=datetime.now().astimezone()),
+    )
+    if organized is None:
+        raise NotFoundError(detail="Inbox record not found.")
+    return organized
+
+
 @app.get(
     "/tasks/{task_id}",
     response_model=models.MultimodalProcessingTaskInDB,

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vimbai_mobile_client/models/book_models.dart';
 import 'package:vimbai_mobile_client/services/book_context.dart';
 import 'package:vimbai_mobile_client/services/book_sync_service.dart';
+import 'package:vimbai_mobile_client/pages/book_inbox_page.dart';
 import 'package:vimbai_mobile_client/pages/create_book_wizard.dart';
 import 'package:vimbai_mobile_client/widgets/book_settings_sheet.dart';
 import 'package:vimbai_mobile_client/services/npo_scale_service.dart';
@@ -300,6 +301,11 @@ class _BooksPageState extends State<BooksPage> {
               ),
             ),
             ListTile(
+              leading: const Icon(Icons.inbox_outlined),
+              title: Text('Book inbox - capture & organize records'),
+              onTap: () => Navigator.pop(ctx, 'inbox'),
+            ),
+            ListTile(
               leading: const Icon(Icons.drive_file_move_outline),
               title: Text(folder.isEmpty ? 'Move to folder' : 'Change folder'),
               onTap: () => Navigator.pop(ctx, 'move'),
@@ -324,6 +330,13 @@ class _BooksPageState extends State<BooksPage> {
     switch (action) {
       case 'move':
         await _moveToFolder(book);
+      case 'inbox':
+        await _setActive(book.id);
+        if (mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const BookInboxPage()),
+          );
+        }
       case 'invite':
         await _invite(book.id);
       case 'unfile':

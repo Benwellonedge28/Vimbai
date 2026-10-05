@@ -70,7 +70,11 @@ class MultimodalApiService {
             ? 'audio/mpeg'
             : file.path.endsWith('.m4a')
                 ? 'audio/mp4'
-                : 'image/jpeg';
+                : file.path.endsWith('.mp4')
+                    ? 'video/mp4'
+                    : file.path.endsWith('.mov')
+                        ? 'video/quicktime'
+                        : 'image/jpeg';
     final b64 = base64Encode(bytes);
     return 'data:$mime;base64,$b64';
   }
@@ -178,6 +182,91 @@ class MultimodalApiService {
       throw Exception('Failed to submit user correction: ${response.body}');
     }
   }
+
+  // --- Book Inbox (incomplete records wired to each Book) ---
+
+  /// Lists the current Book's capture records.
+  /// view: incomplete (default) | organized | all
+  Future<List<MultimodalProcessingTaskInDB>> getBookInbox(
+      {String view = 'incomplete', int limit = 100}) async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/inbox?view=$view&limit=$limit'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      Iterable l = json.decode(response.body);
+      return List<MultimodalProcessingTaskInDB>.from(
+          l.map((model) => MultimodalProcessingTaskInDB.fromJson(model)));
+    } else {
+      throw Exception('Failed to load Book inbox: ${response.body}');
+    }
+  }
+
+  /// Per-status counts for the Book inbox (badge-friendly).
+  Future<Map<String, dynamic>> getInboxSummary() async {
+    final response = await _client.get(
+      Uri.parse('$_baseUrl/inbox/summary'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Failed to load inbox summary: ${response.body}');
+    }
+  }
+
+  /// Accepts an AI-organized record into the Book (marks completed).
+  Future<MultimodalProcessingTaskInDB> organizeRecord(String taskId) async {
+    final response = await _client.post(
+      Uri.parse('$_baseUrl/inbox/$taskId/organize'),
+      headers: await _getHeaders(),
+    );
+
+    if (response.statusCode == 200) {
+      return MultimodalProcessingTaskInDB.fromJson(json.decode(response.body));
+    } else {
+      throw Exception('Failed to organize record: ${response.body}');
+    }
+  }
+
+  /// Fire-and-forget photo capture: Vimbai processes it in the background.
+  Future<MultimodalProcessingTaskInDB> capturePhoto(File imageFile,
+      {String? sourceContext}) async {
+    final dataUrl = await _fileToDataUrl(imageFile);
+    return createTask(MultimodalProcessingTaskCreate(
+      userId: 'self',
+      inputType: MultimodalInputType.image,
+      inputUrl: dataUrl,
+      metadata: {'source_context': sourceContext ?? 'camera_photo'},
+    ));
+  }
+
+  /// Fire-and-forget video capture.
+  Future<MultimodalProcessingTaskInDB> captureVideo(File videoFile,
+      {String? sourceContext}) async {
+    final dataUrl = await _fileToDataUrl(videoFile);
+    return createTask(MultimodalProcessingTaskCreate(
+      userId: 'self',
+      inputType: MultimodalInputType.video,
+      inputUrl: dataUrl,
+      metadata: {'source_context': sourceContext ?? 'camera_video'},
+    ));
+  }
+
+  /// Fire-and-forget typed/pasted note.
+  Future<MultimodalProcessingTaskInDB> captureText(String text,
+      {String? sourceContext}) async {
+    return createTask(MultimodalProcessingTaskCreate(
+      userId: 'self',
+      inputType: MultimodalInputType.text,
+      inputRawText: text,
+      metadata: {'source_context': sourceContext ?? 'typed_note'},
+    ));
+  }
+
+  // --- User Correction Endpoints (existing) ---
 
   Future<List<UserCorrectionInDB>> getUserCorrections(String taskId) async {
     final response = await _client.get(

@@ -40,6 +40,28 @@ class AIProcessor:
             ai_confidence=0.95,
         )
 
+    async def _mock_video_processing(self, input_url: str) -> models.DocumentParseResult:
+        """Mocks scanning of a camera video / continuous scan: frame extraction.
+
+        Frame-level extraction confidence is intentionally lower than a
+        single still document, so video captures usually land in
+        review_pending rather than auto-organized.
+        """
+        await asyncio.sleep(2)  # Simulate processing time
+        return models.DocumentParseResult(
+            raw_text="Frame scan of physical record(s): Vendor: Sample Supplier, Date: 2026-10-05, Total: $12.50",
+            extracted_data=[
+                models.ExtractedDataField(
+                    name="vendor_name", value="Sample Supplier", confidence=0.71, data_type="string"
+                ),
+                models.ExtractedDataField(name="date", value="2026-10-05", confidence=0.68, data_type="date"),
+                models.ExtractedDataField(
+                    name="total_amount", value="12.50", confidence=0.66, data_type="currency", unit="USD"
+                ),
+            ],
+            ai_confidence=0.68,
+        )
+
     async def process_multimodal_task(self, task_id: str):
         """Main entry point for processing a multimodal task in the background."""
         task = await crud.get_multimodal_processing_task(self.db_session, task_id)
@@ -84,6 +106,28 @@ class AIProcessor:
                     ),
                     "amount": next((f.value for f in audio_result.extracted_commands if f.name == "amount"), "0.00"),
                 }
+            elif task.input_type == "video":
+                # Camera video / continuous scan: extract frames, then OCR
+                doc_result = await self._mock_video_processing(task.input_url or "")
+                result_update.document_result = doc_result
+                result_update.suggested_journal_entry = {
+                    "description": next(
+                        (f.value for f in doc_result.extracted_data if f.name == "vendor_name"), "Scanned Record"
+                    ),
+                    "amount": next((f.value for f in doc_result.extracted_data if f.name == "total_amount"), "0.00"),
+                    "date": next(
+                        (f.value for f in doc_result.extracted_data if f.name == "date"),
+                        datetime.now().date().isoformat(),
+                    ),
+                    "source": "camera_video",
+                }
+            elif task.input_type == "text":
+                # Raw text (e.g. typed or pasted note): no OCR needed
+                result_update.document_result = models.DocumentParseResult(
+                    raw_text=task.input_raw_text or "",
+                    extracted_data=[],
+                    ai_confidence=0.5,
+                )
 
             # Finalize task status based on confidence
             # If confidence is low, set to review_pending
