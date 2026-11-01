@@ -8,5 +8,6 @@ description = "Treasury, FX and derivatives math: options pricing, forwards, fut
 
 [dependencies]
 vimbai_common = { path = "../common" }
+bigdecimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

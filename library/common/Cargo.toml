@@ -9,3 +9,4 @@ description = "Shared helpers for the Vimbai calculation libraries"
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+bigdecimal = { workspace = true }

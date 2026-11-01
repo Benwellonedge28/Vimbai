@@ -3,6 +3,7 @@
 //! triangulation, IAS 21 translation, FX exposure hedging, and the
 //! multi-currency service's fixed tables.
 
+pub mod cash;
 pub mod derivatives;
 pub mod fx_hedging;
 pub mod fx_rates;
@@ -12,6 +13,12 @@ pub mod liquidity;
 pub mod multi_currency;
 pub mod options;
 
+pub use cash::{
+    add_days, calculate_liquidity_ratios, optimize_cash_flow, reconcile_bank,
+    BankReconciliationRequest, BankReconciliationResult, CashOptimizationRequest,
+    CashOptimizationResult, InvestmentOption, LiquidityRatioRequest, LiquidityRatioResult,
+    MaturityEntry, OutstandingItem, RecommendedInvestment, ReconciliationDifference,
+};
 pub use derivatives::{
     value_cross_currency_swaps, value_swaps, CounterpartyExposure, CrossCurrencySwap,
     CrossCurrencySwapRequest, CrossCurrencySwapResult, CrossCurrencySwapValuation,
@@ -58,3 +65,6 @@ pub use options::{
 
 #[cfg(test)]
 mod tests;
+
+/// Re-exported so callers of the cash module do not need two crates.
+pub use vimbai_common::Money;

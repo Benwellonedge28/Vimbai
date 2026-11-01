@@ -1499,3 +1499,242 @@ fn medium_and_high_ratings() {
     // 20,000 / 75,000 = 26.7%
     assert_eq!(high.liquidity_risk_rating, "HIGH");
 }
+
+// ------------------------------------------------------- cash management
+
+use crate::cash::*;
+use vimbai_common::Money;
+
+fn amount(text: &str) -> Money {
+    Money::parse(text).expect("valid amount")
+}
+
+fn optimization_request() -> CashOptimizationRequest {
+    CashOptimizationRequest {
+        company_id: "c1".into(),
+        current_cash: amount("750000"),
+        target_cash_balance: amount("500000"),
+        investment_options: vec![
+            InvestmentOption {
+                name: "T-Bill".into(),
+                min_investment: amount("10000"),
+                yield_rate: amount("0.052"),
+                maturity_days: 90,
+            },
+            InvestmentOption {
+                name: "Corporate paper".into(),
+                min_investment: amount("100000"),
+                yield_rate: amount("0.061"),
+                maturity_days: 30,
+            },
+            InvestmentOption {
+                name: String::new(),
+                min_investment: Money::zero(),
+                yield_rate: amount("0.048"),
+                maturity_days: 180,
+            },
+        ],
+        risk_tolerance: "moderate".into(),
+    }
+}
+
+#[test]
+fn optimization_treats_the_minimum_as_a_cap() {
+    let r = optimize_cash_flow(&optimization_request(), "2026-11-01");
+    assert_eq!(r.excess_cash.to_fixed(2), "250000.00");
+    // 30% of 250,000 is 75,000, and each instrument is measured against it:
+    // a 10,000 "minimum" caps the bill at 10,000, a 100,000 minimum cannot
+    // reach the 75,000 slice, and no minimum takes the whole slice
+    assert_eq!(r.recommended_investments[0].amount.to_fixed(2), "10000.00");
+    assert_eq!(r.recommended_investments[1].amount.to_fixed(2), "75000.00");
+    assert_eq!(r.recommended_investments[2].amount.to_fixed(2), "75000.00");
+    // the unnamed instrument falls back to T-Bill
+    assert_eq!(r.recommended_investments[2].instrument, "T-Bill");
+    // 160,000 of recommendations against 250,000 of excess: each option gets
+    // its own slice rather than sharing one pot
+    assert_eq!(
+        Money::sum(r.recommended_investments.iter().map(|i| &i.amount)).to_fixed(2),
+        "160000.00"
+    );
+}
+
+#[test]
+fn optimization_yield_is_a_flat_constant() {
+    let r = optimize_cash_flow(&optimization_request(), "2026-11-01");
+    assert_eq!(r.expected_yield.to_fixed(3), "0.045");
+    // every instrument quotes 5.2%, 6.1% and 4.8% respectively and none of it
+    // moves the plan yield
+    assert_eq!(r.recommended_investments[1].yield_rate.to_fixed(3), "0.061");
+}
+
+#[test]
+fn optimization_maturity_schedule_crosses_the_year() {
+    let r = optimize_cash_flow(&optimization_request(), "2026-11-01");
+    assert_eq!(r.maturity_schedule[0].date, "2027-01-30");
+    assert_eq!(r.maturity_schedule[1].date, "2026-12-01");
+    assert_eq!(r.maturity_schedule[2].date, "2027-04-30");
+    assert_eq!(r.maturity_schedule[0].amount.to_fixed(2), "10000.00");
+}
+
+#[test]
+fn optimization_handles_an_astronomical_balance() {
+    // 30 digits before the point: beyond any float's ability to hold the
+    // cents, and the 30% slice is still exact
+    let mut req = optimization_request();
+    req.current_cash = amount("123456789012345678901234567890.55");
+    req.target_cash_balance = amount("0");
+    req.investment_options = vec![InvestmentOption {
+        name: "Repo".into(),
+        min_investment: Money::zero(),
+        yield_rate: amount("0.03"),
+        maturity_days: 7,
+    }];
+    let r = optimize_cash_flow(&req, "2026-11-01");
+    assert_eq!(
+        r.excess_cash.to_fixed(2),
+        "123456789012345678901234567890.55"
+    );
+    assert_eq!(
+        r.recommended_investments[0].amount.to_fixed(2),
+        "37037036703703703670370370367.16"
+    );
+}
+
+#[test]
+fn optimization_with_no_excess_still_offers_nothing() {
+    let mut req = optimization_request();
+    req.current_cash = amount("400000");
+    let r = optimize_cash_flow(&req, "2026-11-01");
+    assert_eq!(r.excess_cash.to_fixed(2), "0.00");
+    assert!(r.recommended_investments.is_empty());
+    assert!(r.maturity_schedule.is_empty());
+}
+
+fn reconciliation_request() -> BankReconciliationRequest {
+    BankReconciliationRequest {
+        company_id: "c1".into(),
+        bank_account_id: "BA-1".into(),
+        statement_date: "2026-10-31".into(),
+        book_balance: amount("250000"),
+    }
+}
+
+#[test]
+fn reconciliation_uses_fixed_outstanding_items() {
+    let r = reconcile_bank(&reconciliation_request());
+    assert_eq!(r.book_balance.to_fixed(2), "250000.00");
+    // the bank balance is the book balance plus a flat 500
+    assert_eq!(r.bank_balance.to_fixed(2), "250500.00");
+    assert_eq!(r.adjusted_book_balance.to_fixed(2), "241500.00");
+    // built from book plus deposits, not from the bank balance
+    assert_eq!(r.adjusted_bank_balance.to_fixed(2), "262000.00");
+    assert_eq!(r.reconciliation_status, "review_needed");
+    assert_eq!(r.outstanding_checks.len(), 2);
+    assert_eq!(r.deposits_in_transit[0].amount.to_fixed(2), "12000.00");
+    // the statement carries no differences because the list is never filled
+    assert!(r.differences.is_empty());
+}
+
+#[test]
+fn reconciliation_ignores_the_statement_date_and_scales() {
+    // 40-digit book balance: the fixed offsets still apply exactly
+    let mut req = reconciliation_request();
+    req.book_balance = amount(&"9".repeat(40));
+    let r = reconcile_bank(&req);
+    assert_eq!(
+        r.adjusted_book_balance.to_fixed(2),
+        req.book_balance.minus(&amount("8500")).to_fixed(2)
+    );
+    assert_eq!(
+        r.adjusted_bank_balance.to_fixed(2),
+        req.book_balance.plus(&amount("12000")).to_fixed(2)
+    );
+    // still 40 significant digits, none of them floating
+    assert_eq!(r.adjusted_book_balance.to_fixed(0).len(), 40);
+    assert_eq!(r.reconciliation_status, "review_needed");
+}
+
+fn ratio_request() -> LiquidityRatioRequest {
+    LiquidityRatioRequest {
+        company_id: "c1".into(),
+        current_assets: amount("1800000"),
+        current_liabilities: amount("1200000"),
+        inventory: amount("300000"),
+        cash_and_equivalents: amount("250000"),
+        marketable_securities: amount("150000"),
+    }
+}
+
+#[test]
+fn liquidity_ratios_and_the_constant_burn() {
+    let r = calculate_liquidity_ratios(&ratio_request());
+    assert_eq!(r.current_ratio.to_fixed(4), "1.5000");
+    assert_eq!(r.quick_ratio.to_fixed(4), "1.2500");
+    assert_eq!(r.cash_ratio.to_fixed(4), "0.3333");
+    // 400,000 of cash and securities over a hard-coded 50,000 daily burn
+    assert_eq!(r.defensive_interval.to_fixed(2), "8.00");
+    // 1.5*0.3 + 1.25*0.4 + 0.3333*0.3, i.e. ratios added together
+    assert_eq!(r.liquidity_index.to_fixed(4), "1.0500");
+    // 1.5 is not above 1.5, so an otherwise healthy book is "weak"
+    assert_eq!(r.assessment, "weak");
+}
+
+#[test]
+fn liquidity_assessment_only_reads_the_current_ratio() {
+    let r = calculate_liquidity_ratios(&LiquidityRatioRequest {
+        company_id: "c1".into(),
+        current_assets: amount("3000000"),
+        current_liabilities: amount("1000000"),
+        inventory: amount("50000"),
+        cash_and_equivalents: amount("10000"),
+        marketable_securities: amount("0"),
+    });
+    assert_eq!(r.current_ratio.to_fixed(4), "3.0000");
+    assert_eq!(r.cash_ratio.to_fixed(4), "0.0100");
+    assert_eq!(r.assessment, "strong");
+}
+
+#[test]
+fn ratios_survive_a_hyperinflated_balance_sheet() {
+    let r = calculate_liquidity_ratios(&LiquidityRatioRequest {
+        company_id: "c1".into(),
+        current_assets: amount("999999999999999999999999999999.00"),
+        current_liabilities: amount("333333333333333333333333333333.00"),
+        inventory: amount("1"),
+        cash_and_equivalents: amount("1e30"),
+        marketable_securities: amount("0"),
+    });
+    assert_eq!(r.current_ratio.to_fixed(4), "3.0000");
+    assert_eq!(r.cash_ratio.to_fixed(4), "3.0000");
+    // 1e30 of cash over a 50,000 daily burn
+    assert_eq!(
+        r.defensive_interval.to_fixed(2),
+        "20000000000000000000000000.00"
+    );
+}
+
+#[test]
+fn zero_denominators_yield_zero() {
+    let r = calculate_liquidity_ratios(&LiquidityRatioRequest {
+        company_id: "c1".into(),
+        current_assets: amount("500"),
+        current_liabilities: Money::zero(),
+        ..Default::default()
+    });
+    assert_eq!(r.current_ratio.to_fixed(4), "0.0000");
+    assert_eq!(r.quick_ratio.to_fixed(4), "0.0000");
+    assert_eq!(r.cash_ratio.to_fixed(4), "0.0000");
+    assert_eq!(r.assessment, "weak");
+}
+
+#[test]
+fn calendar_helpers_handle_month_and_year_boundaries() {
+    assert_eq!(add_days("2026-11-01", 90), "2027-01-30");
+    assert_eq!(add_days("2026-12-31", 1), "2027-01-01");
+    assert_eq!(add_days("2024-02-28", 1), "2024-02-29");
+    assert_eq!(add_days("2025-02-28", 1), "2025-03-01");
+    assert_eq!(add_days("2026-11-01", 0), "2026-11-01");
+    assert_eq!(add_days("2026-11-01", -1), "2026-10-31");
+    // an unparseable date is passed straight through
+    assert_eq!(add_days("not-a-date", 5), "not-a-date");
+}

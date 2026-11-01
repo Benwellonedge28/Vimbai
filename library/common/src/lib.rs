@@ -1,6 +1,10 @@
 #![forbid(unsafe_code)]
 //! Shared helpers for all Vimbai calculation libraries.
 
+pub mod money;
+
+pub use money::{Money, MoneyError};
+
 /// Round a `f64` to `places` decimals using round-half-to-even on the
 /// shortest decimal representation, matching Python's `round()`
 /// behaviour closely enough for API-output parity.
