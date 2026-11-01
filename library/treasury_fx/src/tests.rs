@@ -1517,19 +1517,19 @@ fn optimization_request() -> CashOptimizationRequest {
         investment_options: vec![
             InvestmentOption {
                 name: "T-Bill".into(),
-                min_investment: amount("10000"),
+                min_investment: Some(amount("10000")),
                 yield_rate: amount("0.052"),
                 maturity_days: 90,
             },
             InvestmentOption {
                 name: "Corporate paper".into(),
-                min_investment: amount("100000"),
+                min_investment: Some(amount("100000")),
                 yield_rate: amount("0.061"),
                 maturity_days: 30,
             },
             InvestmentOption {
                 name: String::new(),
-                min_investment: Money::zero(),
+                min_investment: None,
                 yield_rate: amount("0.048"),
                 maturity_days: 180,
             },
@@ -1547,15 +1547,47 @@ fn optimization_treats_the_minimum_as_a_cap() {
     // reach the 75,000 slice, and no minimum takes the whole slice
     assert_eq!(r.recommended_investments[0].amount.to_fixed(2), "10000.00");
     assert_eq!(r.recommended_investments[1].amount.to_fixed(2), "75000.00");
-    assert_eq!(r.recommended_investments[2].amount.to_fixed(2), "75000.00");
+    // the third carries no cap at all, and the source defaults a missing
+    // minimum to 10,000
+    assert_eq!(r.recommended_investments[2].amount.to_fixed(2), "10000.00");
     // the unnamed instrument falls back to T-Bill
+    // an absent cap defaults to 10,000 in the source, which would have capped
+    // this instrument too; it is modelled as an explicit None so the default
+    // applies only when the key really is missing
+    assert_eq!(r.recommended_investments.len(), 3);
     assert_eq!(r.recommended_investments[2].instrument, "T-Bill");
-    // 160,000 of recommendations against 250,000 of excess: each option gets
+    // 95,000 of recommendations against 250,000 of excess: each option gets
     // its own slice rather than sharing one pot
     assert_eq!(
         Money::sum(r.recommended_investments.iter().map(|i| &i.amount)).to_fixed(2),
-        "160000.00"
+        "95000.00"
     );
+}
+
+#[test]
+fn an_explicit_zero_cap_invests_nothing() {
+    let mut req = optimization_request();
+    req.investment_options = vec![InvestmentOption {
+        name: "Zero cap".into(),
+        min_investment: Some(Money::zero()),
+        yield_rate: amount("0.05"),
+        maturity_days: 30,
+    }];
+    let r = optimize_cash_flow(&req, "2026-11-01");
+    assert!(r.recommended_investments.is_empty());
+}
+
+#[test]
+fn an_absent_cap_defaults_to_ten_thousand() {
+    let mut req = optimization_request();
+    req.investment_options = vec![InvestmentOption {
+        name: "No cap given".into(),
+        min_investment: None,
+        yield_rate: amount("0.05"),
+        maturity_days: 30,
+    }];
+    let r = optimize_cash_flow(&req, "2026-11-01");
+    assert_eq!(r.recommended_investments[0].amount.to_fixed(2), "10000.00");
 }
 
 #[test]
@@ -1585,7 +1617,7 @@ fn optimization_handles_an_astronomical_balance() {
     req.target_cash_balance = amount("0");
     req.investment_options = vec![InvestmentOption {
         name: "Repo".into(),
-        min_investment: Money::zero(),
+        min_investment: Some(amount("1000000000000000000000000000000000")),
         yield_rate: amount("0.03"),
         maturity_days: 7,
     }];

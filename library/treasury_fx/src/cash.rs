@@ -15,8 +15,11 @@ use vimbai_common::Money;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct InvestmentOption {
     pub name: String,
-    /// The source treats this as a CAP on the allocation, not a floor.
-    pub min_investment: Money,
+    /// The source treats this as a CAP on the allocation, not a floor. `None`
+    /// means the key was absent, which the source defaults to 10,000; an
+    /// explicit zero caps the allocation at nothing.
+    #[serde(default)]
+    pub min_investment: Option<Money>,
     pub yield_rate: Money,
     pub maturity_days: i64,
 }
@@ -83,11 +86,11 @@ pub fn optimize_cash_flow(req: &CashOptimizationRequest, as_of: &str) -> CashOpt
 
     let mut recommended_investments = Vec::new();
     for opt in &req.investment_options {
-        let allocation = if opt.min_investment.is_zero() || share < opt.min_investment {
-            share.clone()
-        } else {
-            opt.min_investment.clone()
-        };
+        let cap = opt
+            .min_investment
+            .clone()
+            .unwrap_or_else(|| Money::parse("10000").expect("constant"));
+        let allocation = if share < cap { share.clone() } else { cap };
         if allocation.is_zero() {
             continue;
         }
