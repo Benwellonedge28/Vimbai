@@ -186,6 +186,9 @@ impl RateBook {
     }
 
     /// `/format`.
+    // `% 3` rather than `usize::is_multiple_of`: the wheel is built in the
+    // maturin image, whose Rust is older than that method.
+    #[allow(clippy::manual_is_multiple_of)]
     pub fn format_amount(&self, code: &str, amount: f64) -> String {
         let dp = self.decimal_places(code) as usize;
         let negative = amount < 0.0;
@@ -199,7 +202,7 @@ impl RateBook {
         let mut grouped = String::new();
         let digits: Vec<char> = whole.chars().collect();
         for (i, ch) in digits.iter().enumerate() {
-            if i > 0 && (digits.len() - i).is_multiple_of(3) {
+            if i > 0 && (digits.len() - i) % 3 == 0 {
                 grouped.push(',');
             }
             grouped.push(*ch);
