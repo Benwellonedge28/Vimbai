@@ -1045,3 +1045,457 @@ fn interest_rate_short_maturity_extension() {
         .recommendations
         .contains(&"Short debt maturity - extend to reduce refinancing risk".to_string()));
 }
+
+// --------------------------------------------------------- options
+
+use crate::liquidity::*;
+use crate::options::*;
+
+#[test]
+fn normal_distribution_helpers() {
+    assert!((norm_cdf(0.0) - 0.5).abs() < 1e-15);
+    assert!((norm_cdf(1.959963984540054) - 0.975).abs() < 1e-9);
+    assert!((norm_cdf(-2.5) - 0.006209665325776132).abs() < 1e-12);
+    assert!((norm_pdf(0.0) - 0.3989422804014327).abs() < 1e-12);
+    // saturates cleanly beyond the series' useful range
+    assert_eq!(erf(6.0), 1.0);
+    assert_eq!(erf(-6.0), -1.0);
+}
+
+fn price_request() -> OptionsPricingRequest {
+    OptionsPricingRequest {
+        company_id: "c1".into(),
+        options: vec![
+            Option {
+                option_type: "call".into(),
+                strike_price: 100.0,
+                spot_price: 100.0,
+                time_to_expiry: 0.5,
+                volatility: 0.20,
+                risk_free_rate: 0.05,
+                notional: 1_000.0,
+            },
+            Option {
+                option_type: "put".into(),
+                strike_price: 105.0,
+                spot_price: 100.0,
+                time_to_expiry: 0.25,
+                volatility: 0.25,
+                risk_free_rate: 0.05,
+                notional: 500.0,
+            },
+            Option {
+                option_type: "call".into(),
+                strike_price: 70.0,
+                spot_price: 50.0,
+                time_to_expiry: 0.1,
+                volatility: 0.40,
+                risk_free_rate: 0.05,
+                notional: 200.0,
+            },
+        ],
+        current_spot: 999.0,
+    }
+}
+
+#[test]
+fn black_scholes_matches_reference_premiums() {
+    assert_eq!(
+        round_half_even(black_scholes_call(100.0, 100.0, 0.5, 0.05, 0.20), 4),
+        6.8887
+    );
+    assert_eq!(
+        round_half_even(black_scholes_put(100.0, 105.0, 0.25, 0.05, 0.25), 4),
+        7.1356
+    );
+    assert_eq!(
+        round_half_even(black_scholes_call(50.0, 70.0, 0.1, 0.05, 0.40), 4),
+        0.0102
+    );
+}
+
+#[test]
+fn option_greeks_and_moneyness() {
+    let r = price_options(&price_request());
+
+    let atm = &r.option_valuations[0];
+    assert_eq!(atm.premium, 6.8887);
+    assert_eq!(atm.premium_pct, 6.8887);
+    assert_eq!(atm.moneyness, "ATM");
+    assert_eq!(atm.delta, 0.5977);
+    assert_eq!(atm.gamma, 0.027359);
+    assert_eq!(atm.theta, -0.023);
+    assert_eq!(atm.vega, 0.2736);
+    assert_eq!(atm.intrinsic_value, 0.0);
+    // time value is the raw premium less intrinsic, never rounded
+    assert_eq!(
+        atm.time_value,
+        atm.premium - atm.intrinsic_value + (6.888728577680624 - 6.8887)
+    );
+
+    let put = &r.option_valuations[1];
+    assert_eq!(put.moneyness, "ITM");
+    assert_eq!(put.delta, -0.5901);
+    // intrinsic 105 - 100 = 5, time value the rest
+    assert_eq!(put.intrinsic_value, 5.0);
+    assert!((put.time_value - 2.1356).abs() < 1e-3);
+
+    let otm = &r.option_valuations[2];
+    assert_eq!(otm.moneyness, "OTM");
+    assert_eq!(otm.delta, 0.0053);
+}
+
+#[test]
+fn put_theta_uses_the_wrong_cdf_argument() {
+    // the source discounts the strike against cdf(-d1); the textbook put
+    // theta uses cdf(-d2), which here is a materially different figure
+    let s = 100.0_f64;
+    let k = 105.0_f64;
+    let t = 0.25_f64;
+    let rf = 0.05_f64;
+    let sigma = 0.25_f64;
+    let d1 = ((s / k).ln() + (rf + sigma * sigma / 2.0) * t) / (sigma * t.sqrt());
+    let d2 = d1 - sigma * t.sqrt();
+    let quirk = (-s * norm_pdf(d1) * sigma / (2.0 * t.sqrt())
+        - rf * k * (-rf * t).exp() * norm_cdf(-d1))
+        / 365.0;
+    let textbook = (-s * norm_pdf(d1) * sigma / (2.0 * t.sqrt())
+        - rf * k * (-rf * t).exp() * norm_cdf(-d2))
+        / 365.0;
+    let r = price_options(&OptionsPricingRequest {
+        company_id: "c1".into(),
+        options: vec![Option {
+            option_type: "put".into(),
+            strike_price: k,
+            spot_price: s,
+            time_to_expiry: t,
+            volatility: sigma,
+            risk_free_rate: rf,
+            notional: 1.0,
+        }],
+        current_spot: 0.0,
+    });
+    assert_eq!(r.option_valuations[0].theta, round_half_even(quirk, 4));
+    assert_ne!(r.option_valuations[0].theta, round_half_even(textbook, 4));
+}
+
+#[test]
+fn portfolio_greeks_are_scaled_by_notional() {
+    let r = price_options(&price_request());
+    assert_eq!(r.portfolio_summary.option_count, 3);
+    assert_eq!(r.portfolio_summary.total_premium, 10_458.55);
+    // against spot notional, not premium paid
+    assert_eq!(r.portfolio_summary.avg_premium_pct, 6.5366);
+    assert_eq!(r.greeks_summary.delta, 303.7357);
+    assert_eq!(r.greeks_summary.gamma, 43.387117);
+    assert_eq!(r.greeks_summary.theta, -40.7535);
+    assert_eq!(r.greeks_summary.vega, 371.2467);
+    assert!(r
+        .recommendations
+        .contains(&"Gamma risk elevated - monitor position closely".to_string()));
+}
+
+#[test]
+fn request_spot_is_ignored() {
+    let mut expensive = price_request();
+    expensive.current_spot = 1_000_000.0;
+    let a = price_options(&price_request());
+    let b = price_options(&expensive);
+    assert_eq!(
+        a.option_valuations[0].premium,
+        b.option_valuations[0].premium
+    );
+}
+
+// ------------------------------------------------------- liquidity
+
+fn forecast_request() -> LiquidityForecastRequest {
+    LiquidityForecastRequest {
+        company_id: "c1".into(),
+        starting_cash: 100_000.0,
+        cash_flows: vec![
+            CashFlow {
+                date: "2026-11-02".into(),
+                inflow: 50_000.0,
+                outflow: 20_000.0,
+                net: 30_000.0,
+            },
+            CashFlow {
+                date: "2026-11-03".into(),
+                inflow: 10_000.0,
+                outflow: 80_000.0,
+                net: -70_000.0,
+            },
+            CashFlow {
+                date: "2026-11-04".into(),
+                inflow: 30_000.0,
+                outflow: 25_000.0,
+                net: 5_000.0,
+            },
+            CashFlow {
+                date: "2026-11-05".into(),
+                inflow: 5_000.0,
+                outflow: 60_000.0,
+                net: -55_000.0,
+            },
+        ],
+        credit_lines_available: 200_000.0,
+        minimum_cash_requirement: 60_000.0,
+    }
+}
+
+#[test]
+fn forecast_runs_the_balance_from_the_supplied_net() {
+    let r = forecast_liquidity(&forecast_request());
+    assert_eq!(r.daily_forecast[0].balance, 130_000.0);
+    assert_eq!(r.daily_forecast[1].balance, 60_000.0);
+    assert_eq!(r.daily_forecast[3].balance, 10_000.0);
+    assert_eq!(r.forecast_summary.ending_cash, 10_000.0);
+    assert_eq!(r.forecast_summary.total_inflows, 95_000.0);
+    assert_eq!(r.forecast_summary.total_outflows, 185_000.0);
+    assert_eq!(r.forecast_summary.net_change, -90_000.0);
+    assert_eq!(r.forecast_summary.min_balance, 10_000.0);
+    assert_eq!(r.forecast_summary.credit_available, 200_000.0);
+}
+
+#[test]
+fn forecast_trusts_a_mis_stated_net() {
+    // inflow less outflow says -10,000 but the supplied net says +40,000,
+    // and the balance follows the net
+    let mut req = forecast_request();
+    req.cash_flows = vec![CashFlow {
+        date: "2026-11-02".into(),
+        inflow: 10_000.0,
+        outflow: 20_000.0,
+        net: 40_000.0,
+    }];
+    let r = forecast_liquidity(&req);
+    assert_eq!(r.daily_forecast[0].balance, 140_000.0);
+    assert_eq!(r.forecast_summary.net_change, 40_000.0);
+}
+
+#[test]
+fn gaps_use_the_rounded_balance() {
+    let r = forecast_liquidity(&forecast_request());
+    // 60,000 exactly equals the floor, so only the 10,000 day is a gap
+    assert_eq!(r.liquidity_gaps.len(), 1);
+    assert_eq!(r.liquidity_gaps[0].date, "2026-11-05");
+    assert_eq!(r.liquidity_gaps[0].shortfall, 50_000.0);
+    assert_eq!(r.liquidity_gaps[0].required_credit, 50_000.0);
+    // available credit is reported but never netted off the shortfall
+    assert_eq!(r.forecast_summary.credit_available, 200_000.0);
+    assert!(r
+        .recommendations
+        .contains(&"Liquidity gap identified - draw on credit facilities".to_string()));
+    assert!(r
+        .recommendations
+        .contains(&"Significant cash depletion - monitor closely".to_string()));
+}
+
+fn liquidity_request() -> LiquidityRequest {
+    LiquidityRequest {
+        company_id: "c1".into(),
+        cash: 250_000.0,
+        marketable_securities: 400_000.0,
+        credit_facilities_available: 300_000.0,
+        credit_facilities_total: 1_000_000.0,
+        current_assets: 1_800_000.0,
+        current_liabilities: 1_200_000.0,
+        monthly_fixed_costs: 350_000.0,
+        monthly_variable_costs: 250_000.0,
+        monthly_min_revenue: 900_000.0,
+    }
+}
+
+#[test]
+fn liquidity_coverage_includes_undrawn_credit() {
+    let r = analyze_liquidity(&liquidity_request());
+    assert_eq!(r.position.total_liquid_assets, 950_000.0);
+    assert_eq!(r.liquidity_ratios.current_ratio, 1.5);
+    assert_eq!(r.liquidity_ratios.quick_ratio, 0.5417);
+    assert_eq!(r.liquidity_ratios.cash_ratio, 0.2083);
+    assert_eq!(r.liquidity_ratios.credit_utilization, 0.7);
+    // 950,000 of "liquid assets" including 300,000 of undrawn facility
+    assert_eq!(r.coverage_days, 47.5);
+}
+
+#[test]
+fn stress_scenarios_mix_their_bases() {
+    let r = analyze_liquidity(&liquidity_request());
+    // a revenue drop charged against COSTS
+    assert_eq!(r.stress_test.revenue_drop_30.monthly_impact, 180_000.0);
+    assert_eq!(r.stress_test.revenue_drop_50.monthly_impact, 300_000.0);
+    // a payment delay charged against MINIMUM REVENUE
+    assert_eq!(r.stress_test.payment_delay_60.monthly_impact, 540_000.0);
+    assert_eq!(r.stress_test.revenue_drop_30.runway_days, 47.5 / 0.3);
+    assert_eq!(
+        r.stress_test.payment_delay_60.runway_days,
+        950_000.0 / 540_000.0 * 30.0
+    );
+}
+
+#[test]
+fn coverage_warnings_fire_together() {
+    let r = analyze_liquidity(&liquidity_request());
+    // 47.5 days is both under 30... no: under 60 only
+    assert!(!r.recommendations.iter().any(|m| m.starts_with("CRITICAL")));
+    assert!(r.recommendations.iter().any(|m| m.starts_with("WARNING")));
+    assert!(r
+        .recommendations
+        .contains(&"Quick ratio below 1.0 - focus on converting receivables to cash".to_string()));
+
+    let starved = analyze_liquidity(&LiquidityRequest {
+        credit_facilities_available: 0.0,
+        cash: 100_000.0,
+        marketable_securities: 0.0,
+        ..liquidity_request()
+    });
+    assert!(starved
+        .recommendations
+        .iter()
+        .any(|m| m.starts_with("CRITICAL")));
+    assert!(starved
+        .recommendations
+        .iter()
+        .any(|m| m.starts_with("WARNING")));
+}
+
+fn risk_request() -> LiquidityAnalysisRequest {
+    LiquidityAnalysisRequest {
+        company_id: "c1".into(),
+        reporting_date: "2026-10-31".into(),
+        liquid_assets: vec![
+            LiquidityAsset {
+                asset_id: "A1".into(),
+                asset_type: "cash".into(),
+                value: 500_000.0,
+                haircut: 0.02,
+                maturity_bucket: "0-30d".into(),
+            },
+            LiquidityAsset {
+                asset_id: "A2".into(),
+                asset_type: "corporate_bond".into(),
+                value: 300_000.0,
+                haircut: 0.15,
+                maturity_bucket: "1y+".into(),
+            },
+            LiquidityAsset {
+                asset_id: "HQLA".into(),
+                asset_type: "gilts".into(),
+                value: 700_000.0,
+                haircut: 0.0,
+                maturity_bucket: "0-30d".into(),
+            },
+        ],
+        liabilities: vec![
+            Liability {
+                liability_id: "L1".into(),
+                liability_type: "deposit".into(),
+                value: 400_000.0,
+                outflow_rate: 0.10,
+                maturity_bucket: "0-30d".into(),
+            },
+            Liability {
+                liability_id: "L2".into(),
+                liability_type: "wholesale".into(),
+                value: 600_000.0,
+                outflow_rate: 0.05,
+                maturity_bucket: "90d".into(),
+            },
+            Liability {
+                liability_id: "L3".into(),
+                liability_type: "contingent".into(),
+                value: 250_000.0,
+                outflow_rate: 0.25,
+                maturity_bucket: "1y+".into(),
+            },
+        ],
+    }
+}
+
+#[test]
+fn lcr_is_capped_and_nsfr_ignores_haircuts() {
+    let r = analyze_liquidity_risk(&risk_request());
+    assert_eq!(r.liquid_asset_buffer, 1_445_000.0);
+    // the raw ratio is 3,729% and the cap holds it at 500
+    assert_eq!(r.lcr_ratio, 500.0);
+    assert_eq!(r.liquidity_risk_rating, "LOW");
+    // 95% of liabilities over 50% of GROSS assets
+    // the source never rounds the NSFR
+    assert!((r.nsfr_ratio - 158.33333333333331).abs() < 1e-9);
+    assert_eq!(r.net_cash_position, 1_312_500.0);
+    assert_eq!(r.survival_horizon_days, 327);
+}
+
+#[test]
+fn maturity_mismatch_is_a_fixed_constant() {
+    let a = analyze_liquidity_risk(&risk_request());
+    let mut b = risk_request();
+    b.liabilities.clear();
+    b.liquid_assets.clear();
+    let other = analyze_liquidity_risk(&b);
+    // identical for every company, whatever the balance sheet
+    assert_eq!(a.maturity_mismatch.day_30, -50_000.0);
+    assert_eq!(a.maturity_mismatch.day_90, -200_000.0);
+    assert_eq!(a.maturity_mismatch.year_1, -100_000.0);
+    assert_eq!(other.maturity_mismatch.day_30, a.maturity_mismatch.day_30);
+}
+
+#[test]
+fn low_outflows_read_as_an_infinite_lcr() {
+    let r = analyze_liquidity_risk(&LiquidityAnalysisRequest {
+        company_id: "c1".into(),
+        liquid_assets: vec![LiquidityAsset {
+            value: 100_000.0,
+            ..Default::default()
+        }],
+        liabilities: vec![Liability {
+            value: 1_000_000.0,
+            outflow_rate: 0.001,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    // outflows 1,000 do not exceed the 100,000 "net inflow", so the source
+    // divides by the infinite case and the cap reports 500
+    assert_eq!(r.lcr_ratio, 500.0);
+    assert_eq!(r.liquidity_risk_rating, "LOW");
+    // survival truncates rather than rounds
+    assert_eq!(r.survival_horizon_days, 3_000);
+}
+
+#[test]
+fn medium_and_high_ratings() {
+    let medium = analyze_liquidity_risk(&LiquidityAnalysisRequest {
+        company_id: "c1".into(),
+        liquid_assets: vec![LiquidityAsset {
+            value: 90_000.0,
+            ..Default::default()
+        }],
+        liabilities: vec![Liability {
+            value: 1_000_000.0,
+            outflow_rate: 0.15,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    // 90,000 / (150,000 - 75,000) = 120%, inside the medium band
+    assert_eq!(medium.lcr_ratio, 120.0);
+    assert_eq!(medium.liquidity_risk_rating, "MEDIUM");
+
+    let high = analyze_liquidity_risk(&LiquidityAnalysisRequest {
+        company_id: "c1".into(),
+        liquid_assets: vec![LiquidityAsset {
+            value: 20_000.0,
+            ..Default::default()
+        }],
+        liabilities: vec![Liability {
+            value: 1_000_000.0,
+            outflow_rate: 0.15,
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    // 20,000 / 75,000 = 26.7%
+    assert_eq!(high.liquidity_risk_rating, "HIGH");
+}

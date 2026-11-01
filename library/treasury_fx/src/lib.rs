@@ -8,7 +8,9 @@ pub mod fx_hedging;
 pub mod fx_rates;
 pub mod fx_translation;
 pub mod hedging_analytics;
+pub mod liquidity;
 pub mod multi_currency;
+pub mod options;
 
 pub use derivatives::{
     value_cross_currency_swaps, value_swaps, CounterpartyExposure, CrossCurrencySwap,
@@ -37,10 +39,21 @@ pub use hedging_analytics::{
     FuturesHedgingResult, HedgeAction, HedgeEffectiveness, InterestRateHedgingRequest,
     InterestRateHedgingResult, PositionAnalysis, SensitivityRow,
 };
+pub use liquidity::{
+    analyze_liquidity, analyze_liquidity_risk, forecast_liquidity, CashFlow, DailyForecast,
+    ForecastSummary, Liability, LiquidityAnalysisRequest, LiquidityAnalysisResult, LiquidityAsset,
+    LiquidityForecastRequest, LiquidityForecastResult, LiquidityGap, LiquidityPosition,
+    LiquidityRatios, LiquidityRequest, LiquidityResult, MaturityMismatch, StressScenario,
+    StressTest,
+};
 pub use multi_currency::{
     convert_fixed, create_hedge, fixed_pair_rate, process_transaction, CurrencyConversionRequest,
     CurrencyConversionResponse, HedgeRequest, HedgeResponse, TransactionRequest,
     TransactionResponse,
+};
+pub use options::{
+    black_scholes_call, black_scholes_put, erf, norm_cdf, norm_pdf, price_options, GreeksSummary,
+    Option, OptionValuation, OptionsPortfolioSummary, OptionsPricingRequest, OptionsPricingResult,
 };
 
 #[cfg(test)]
