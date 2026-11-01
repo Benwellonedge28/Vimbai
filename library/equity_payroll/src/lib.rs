@@ -1,8 +1,20 @@
 #![forbid(unsafe_code)]
-//! Partnership, equity, payroll and pension math: profit appropriation, EPS, share issues/redemption, payroll computations, pension obligations
+//! Payroll and equity math: payroll runs, statutory taxes, payroll
+//! accounting journals, earnings per share (basic/diluted).
 //!
-//! Scaffold for the $name calculation library. The domain map below
-//! lists the Python services to port here; port them following the
-//! established pattern (see `variance` and `capital_valuation`):
-//! read the Python service, port formulas + serde models, add parity
-//! tests with values verified against the original.
+//! Ported from: payroll-service, payroll-accounting-service and
+//! eps-service. Queued for this crate: partnership-accounting,
+//! partnership-sale, share-options, pension-accounting, bonus-shares,
+//! right-issues, share-capital family, retained-profits.
+
+pub mod eps;
+pub mod payroll;
+pub mod payroll_accounting;
+
+pub use eps::{calculate_eps, AntiDilutiveItem, EpsOutput, OptionInput};
+pub use payroll::{
+    payroll_run, payroll_taxes, EmployeeInput, EmployeePay, PayrollRunOutput, PayrollTaxOutput,
+};
+pub use payroll_accounting::{
+    process_payroll, EmployeeSalary, JournalLine, PayrollAccountingOutput,
+};
