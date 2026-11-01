@@ -13,6 +13,7 @@
 
 pub mod amortization;
 pub mod depreciation;
+pub mod fixed_assets;
 pub mod goodwill;
 pub mod inventory;
 pub mod nrv;
@@ -22,6 +23,10 @@ pub use amortization::{amortization, AmortizationAsset, AmortizationOutput, Amor
 pub use depreciation::{
     depreciation_batch, depreciation_method, DepreciationAsset, DepreciationMethodOutput,
     DepreciationOutput, MethodScheduleRow,
+};
+pub use fixed_assets::{
+    analyze_fixed_assets, AssetSummary, CapitalExpenditurePlan, CategoryAnalysis, FixedAsset,
+    FixedAssetsAnalysis, FixedAssetsError, FixedAssetsRequest, ScheduleRow,
 };
 pub use goodwill::{impairment_test, Cgu, ImpairmentResult, TestMethod};
 pub use inventory::{inventory_valuation, InventoryOutput, Purchase, Sale, ValuationMethod};

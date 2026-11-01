@@ -18,7 +18,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY brackets/operations-inventory-bracket/main.py ./main.py
 COPY biological-assets-service ./biological-assets-service
 COPY data-warehouse-service ./data-warehouse-service
-COPY fixed-assets-service ./fixed-assets-service
 COPY fixed-assets-register-service ./fixed-assets-register-service
 COPY inventory-valuation-service ./inventory-valuation-service
 COPY project-accounting-service ./project-accounting-service

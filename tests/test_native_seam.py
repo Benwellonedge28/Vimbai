@@ -273,3 +273,95 @@ def test_tax_calculation_matches_the_service():
     assert set(service["breakdown"]) == set(rust["breakdown"])
     for bracket, amount in service["breakdown"].items():
         assert Decimal(str(amount)) == Decimal(str(rust["breakdown"][bracket])), bracket
+
+
+# --- fixed assets -----------------------------------------------------------
+# The register report is the last Python-only calculator in the assets family:
+# a book summary, a ten-asset schedule, category totals and a capex split.
+
+FIXED_ASSETS_REGISTER = {
+    "company_id": "c1",
+    "capital_budget": 200000.0,
+    "target_capitalization_rate": 0.4,
+    "assets": [
+        {
+            "asset_id": "a1",
+            "asset_name": "Truck",
+            "category": "vehicle",
+            "purchase_date": "2022-01-01",
+            "purchase_cost": 60000.0,
+            "salvage_value": 6000.0,
+            "useful_life_years": 5,
+            "depreciation_method": "straight_line",
+            "accumulated_depreciation": 36000.0,
+        },
+        {
+            "asset_id": "a2",
+            "asset_name": "Rig",
+            "category": "equipment",
+            "purchase_date": "2024-01-01",
+            "purchase_cost": 30000.0,
+            "salvage_value": 3000.0,
+            "useful_life_years": 10,
+            "depreciation_method": "straight_line",
+            "accumulated_depreciation": 5400.0,
+        },
+        {
+            "asset_id": "a3",
+            "asset_name": "Old rig",
+            "category": "equipment",
+            "purchase_date": "2018-01-01",
+            "purchase_cost": 10000.0,
+            "salvage_value": 1000.0,
+            "useful_life_years": 5,
+            "depreciation_method": "straight_line",
+            "accumulated_depreciation": 9000.0,
+        },
+    ],
+}
+
+
+def _fixed_assets_pair(request):
+    import json
+
+    client = TestClient(load_service("fixed-assets-service").main.app)
+    served = client.post("/analyze", json=request)
+    assert served.status_code == 200, served.text
+    return served.json(), json.loads(native.fixed_assets_json(json.dumps(request)))
+
+
+def test_fixed_assets_matches_the_service():
+    service, rust = _fixed_assets_pair(FIXED_ASSETS_REGISTER)
+
+    assert service["asset_summary"]["total_assets"] == rust["asset_summary"]["total_assets"]
+    for key in ("total_cost", "net_book_value"):
+        assert Decimal(str(service["asset_summary"][key])) == Decimal(str(rust["asset_summary"][key])), key
+
+    assert len(service["depreciation_schedule"]) == len(rust["depreciation_schedule"])
+    for served_row, rust_row in zip(service["depreciation_schedule"], rust["depreciation_schedule"]):
+        assert served_row["asset_id"] == rust_row["asset_id"]
+        for key in ("net_book_value", "remaining_life_years", "annual_depreciation"):
+            assert Decimal(str(served_row[key])) == Decimal(str(rust_row[key])), key
+
+    for served_row, rust_row in zip(service["asset_category_analysis"], rust["asset_category_analysis"]):
+        assert served_row["category"] == rust_row["category"]
+        for key in ("total_cost", "accumulated_dep", "net_value"):
+            assert Decimal(str(served_row[key])) == Decimal(str(rust_row[key])), key
+
+    for key in ("capital_budget", "replacement_needs", "expansion_allocations"):
+        assert Decimal(str(service["capital_expenditure_plan"][key])) == Decimal(
+            str(rust["capital_expenditure_plan"][key])
+        ), key
+
+    assert service["recommendations"] == rust["recommendations"]
+
+
+def test_fixed_assets_flags_an_aged_register_on_both_sides():
+    import copy
+
+    request = copy.deepcopy(FIXED_ASSETS_REGISTER)
+    request["assets"][0]["accumulated_depreciation"] = 60000.0
+    service, rust = _fixed_assets_pair(request)
+
+    assert service["recommendations"] == rust["recommendations"]
+    assert "High accumulated depreciation - plan for asset renewal" in rust["recommendations"]

@@ -143,6 +143,11 @@ STATEMENT_PAYROLL_PORTS = {
 
 # The tax pair retires only after the seam reproduces their figures; those
 # parity cases live in tests/test_native_seam.py.
+# fixed-assets-service retires on the same evidence, in the assets family.
+FIXED_ASSETS_PORTS = {
+    "fixed-assets-service",
+}
+
 TAX_PORTS = {
     "corporate-tax-service",
     "tax-calculation-service",

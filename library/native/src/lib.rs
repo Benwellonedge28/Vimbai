@@ -14,6 +14,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use serde_json::Value;
 
+use vimbai_assets::{analyze_fixed_assets, FixedAssetsRequest};
 use vimbai_common::{Money, MoneyError};
 use vimbai_tax::statutory::{statutory_corporate_tax, CorporateTaxInput};
 use vimbai_tax::{calculate_tax, TaxBracket, TaxType};
@@ -155,6 +156,16 @@ fn tax_calculation_json(payload: &str, brackets: Option<&str>) -> PyResult<Strin
     serde_json::to_string(&result).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
+/// fixed-assets-service's composite register report.
+#[pyfunction]
+fn fixed_assets_json(payload: &str) -> PyResult<String> {
+    let request: FixedAssetsRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let report =
+        analyze_fixed_assets(&request).map_err(|e| seam_error(SeamError(e.to_string())))?;
+    serde_json::to_string(&report).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -162,6 +173,7 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(analyze_treasury_json, m)?)?;
     m.add_function(wrap_pyfunction!(corporate_tax_json, m)?)?;
     m.add_function(wrap_pyfunction!(tax_calculation_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fixed_assets_json, m)?)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

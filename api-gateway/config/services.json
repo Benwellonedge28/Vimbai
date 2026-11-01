@@ -838,14 +838,6 @@
       "strip_prefix": false
     },
     {
-      "name": "fixed-assets-service",
-      "path": "/fixed-assets",
-      "url": "http://localhost:9009",
-      "port": 8329,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "foreign-currency-translation-service",
       "path": "/foreign-currency-translation",
       "url": "http://localhost:9003",

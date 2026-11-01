@@ -13,11 +13,6 @@
       "dir": "data-warehouse-service"
     },
     {
-      "path": "/fixed-assets",
-      "name": "fixed-assets-service",
-      "dir": "fixed-assets-service"
-    },
-    {
       "path": "/fixed-assets-register",
       "name": "fixed-assets-register-service",
       "dir": "fixed-assets-register-service"
