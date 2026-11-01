@@ -131,3 +131,60 @@ def test_shim_reports_the_extension_it_loaded():
     assert native_seam.available()
     assert native_seam.version() == native.__version__
     assert native_seam.sum_amounts(["0.1", "0.2"]) == Decimal("0.3")
+
+
+BOOKS = [
+    {
+        "company_id": "comp-a",
+        "total_cash": 500000,
+        "monthly_inflow": 200000,
+        "monthly_outflow": 150000,
+        "short_term_debt": 30000,
+        "total_debt": 100000,
+        "investments": 200000,
+        "fx_exposure": 50000,
+    },
+    {
+        "company_id": "comp-b",
+        "total_cash": 100,
+        "monthly_inflow": 0,
+        "monthly_outflow": 0,
+        "short_term_debt": 0,
+        "total_debt": 0,
+        "investments": 0,
+        "fx_exposure": 0,
+    },
+    {
+        "company_id": "comp-c",
+        "total_cash": 100000,
+        "monthly_inflow": 40000,
+        "monthly_outflow": 90000,
+        "short_term_debt": 80000,
+        "total_debt": 300000,
+        "investments": 10000,
+        "fx_exposure": -50000,
+    },
+]
+
+
+@pytest.mark.parametrize("book", BOOKS, ids=lambda b: b["company_id"])
+def test_python_engine_matches_rust_engine(analytics_client, monkeypatch, book):
+    """The fallback and the calculator of record must not drift apart."""
+    monkeypatch.setenv("VIMBAI_CALC_ENGINE", "rust")
+    rust = analytics_client.post("/analyze", json=book).json()
+    monkeypatch.setenv("VIMBAI_CALC_ENGINE", "python")
+    python = analytics_client.post("/analyze", json=book).json()
+
+    assert _amounts(rust, RATIOS) == _amounts(python, RATIOS)
+    rust_kpis = {kpi["name"]: kpi for kpi in rust["kpis"]}
+    for kpi in python["kpis"]:
+        twin = rust_kpis[kpi["name"]]
+        assert Decimal(kpi["value"]) == Decimal(twin["value"]), kpi["name"]
+        assert kpi["status"] == twin["status"], kpi["name"]
+
+
+def test_health_says_which_calculator_answers(analytics_client, monkeypatch):
+    monkeypatch.setenv("VIMBAI_CALC_ENGINE", "auto")
+    assert analytics_client.get("/health").json()["calc_engine"] == "rust"
+    monkeypatch.setenv("VIMBAI_CALC_ENGINE", "python")
+    assert analytics_client.get("/health").json()["calc_engine"] == "python"

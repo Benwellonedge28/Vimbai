@@ -48,3 +48,10 @@ Services reach it through `shared/native_seam.py`, which raises rather than
 falling back to float maths when the wheel is missing. `tests/test_native_seam.py`
 runs the same request through the treasury analytics service and the Rust seam
 and compares every KPI, so the two implementations cannot drift silently.
+
+The treasury analytics service now computes its KPI set through this seam
+(`treasury-analytics-service/engine.py`). `VIMBAI_CALC_ENGINE` picks the
+calculator: `auto` uses Rust when the wheel is present, `rust` refuses to
+start without it, `python` pins the reference implementation. `/health`
+reports which one answered, so a deployment running on the fallback says so
+rather than leaving you to guess.
