@@ -83,8 +83,8 @@ jobs:
       # is tagged for the glibc the runtime images carry, not the runner's
       - name: Build the wheel
         run: |
-          docker run --rm -v "$PWD/library/native:/io" ghcr.io/pyo3/maturin:v1.7.4 \
-            build --release -o /io/dist
+          docker run --rm -v "$PWD:/work" -w /work/library/native ghcr.io/pyo3/maturin:v1.7.4 \
+            build --release -o dist
 
       - name: Attach it to the rolling release
         env:
