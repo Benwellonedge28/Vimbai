@@ -365,3 +365,113 @@ def test_fixed_assets_flags_an_aged_register_on_both_sides():
 
     assert service["recommendations"] == rust["recommendations"]
     assert "High accumulated depreciation - plan for asset renewal" in rust["recommendations"]
+
+
+# --- depreciation and amortisation -----------------------------------------
+# Both families were already in the assets crate, but the services still owned
+# the public endpoints, so they only retire once the seam reproduces them.
+
+DEPRECIATION_ASSETS = [
+    {"asset_id": "a1", "cost": 60000.0, "salvage": 6000.0, "useful_life_years": 5},
+    {"asset_id": "a2", "cost": 30000.0, "salvage": 0.0, "useful_life_years": 10},
+]
+
+
+def test_depreciation_batch_matches_the_service():
+    import json
+
+    client = TestClient(load_service("depreciation-service").main.app)
+    request = {
+        "company_id": "c1",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "method": "declining_balance",
+        "assets": DEPRECIATION_ASSETS,
+    }
+    served = client.post("/calculate", json=request)
+    assert served.status_code == 200, served.text
+    service = served.json()
+
+    rust = json.loads(native.depreciation_json(json.dumps(DEPRECIATION_ASSETS), "declining_balance"))
+    assert Decimal(str(service["total_depreciation"])) == Decimal(str(rust["total_depreciation"]))
+    for served_row, rust_row in zip(service["asset_depreciation"], rust["asset_depreciation"]):
+        assert served_row["asset_id"] == rust_row["asset_id"]
+        for key in ("annual_depreciation", "accumulated"):
+            assert Decimal(str(served_row[key])) == Decimal(str(rust_row[key])), key
+
+    # The five-year schedule repeats total * 0.9 in both implementations.
+    assert [row["depreciation"] for row in service["schedule"]] == [row["depreciation"] for row in rust["schedule"]]
+
+
+def test_depreciation_method_matches_the_service():
+    import json
+
+    client = TestClient(load_service("depreciation-service").main.app)
+    request = {
+        "method": "double_declining",
+        "cost": 60000.0,
+        "salvage_value": 6000.0,
+        "useful_life": 5,
+    }
+    service = client.post("/method", json=request).json()
+    rust = json.loads(native.depreciation_method_json(60000.0, 6000.0, 5, "double_declining"))
+
+    for key in ("annual_depreciation", "monthly_depreciation"):
+        assert Decimal(str(service[key])) == Decimal(str(rust[key])), key
+    # The crate names the ladder `schedule`; the service calls it
+    # `depreciation_schedule`.
+    assert len(service["depreciation_schedule"]) == len(rust["schedule"])
+    for served_row, rust_row in zip(service["depreciation_schedule"], rust["schedule"]):
+        assert served_row["year"] == rust_row["year"]
+        for key in ("depreciation", "accumulated", "book_value"):
+            assert Decimal(str(served_row[key])) == Decimal(str(rust_row[key])), key
+
+
+def test_amortization_matches_the_service():
+    import json
+
+    client = TestClient(load_service("amortization-service").main.app)
+    request = {
+        "company_id": "c1",
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+        "intangibles": [
+            {
+                "intangible_id": "i1",
+                "type": "software",
+                "cost": 120000.0,
+                "residual_value": 0.0,
+                "useful_life_years": 5,
+                "accumulated_amortization": 40000.0,
+                "method": "reducing_balance",
+                "rate": 0.25,
+            },
+            {
+                "intangible_id": "i2",
+                "type": "patent",
+                "cost": 50000.0,
+                "residual_value": 5000.0,
+                "useful_life_years": 9,
+                "accumulated_amortization": 15000.0,
+                "method": "straight_line",
+                "rate": 0.0,
+            },
+        ],
+    }
+    service = client.post("/calculate", json=request).json()
+    rust = json.loads(native.amortization_json(json.dumps(request["intangibles"])))
+
+    for key in ("total_amortization", "total_net_book_value"):
+        assert Decimal(str(service[key])) == Decimal(str(rust[key])), key
+
+    assert len(service["schedules"]) == len(rust["schedules"])
+    for served_row, rust_row in zip(service["schedules"], rust["schedules"]):
+        assert served_row["intangible_id"] == rust_row["intangible_id"]
+        for key in (
+            "annual_amortization",
+            "monthly_amortization",
+            "accumulated_amortization",
+            "net_book_value",
+            "remaining_life_years",
+        ):
+            assert Decimal(str(served_row[key])) == Decimal(str(rust_row[key])), key

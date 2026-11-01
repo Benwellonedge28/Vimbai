@@ -22,7 +22,7 @@ pub mod revaluation;
 pub use amortization::{amortization, AmortizationAsset, AmortizationOutput, AmortizationRow};
 pub use depreciation::{
     depreciation_batch, depreciation_method, DepreciationAsset, DepreciationMethodOutput,
-    DepreciationOutput, MethodScheduleRow,
+    DepreciationOutput, DepreciationScheduleRow, MethodScheduleRow,
 };
 pub use fixed_assets::{
     analyze_fixed_assets, AssetSummary, CapitalExpenditurePlan, CategoryAnalysis, FixedAsset,

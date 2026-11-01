@@ -146,6 +146,8 @@ STATEMENT_PAYROLL_PORTS = {
 # fixed-assets-service retires on the same evidence, in the assets family.
 FIXED_ASSETS_PORTS = {
     "fixed-assets-service",
+    "depreciation-service",
+    "amortization-service",
 }
 
 TAX_PORTS = {

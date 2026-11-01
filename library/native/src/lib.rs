@@ -14,7 +14,10 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use serde_json::Value;
 
-use vimbai_assets::{analyze_fixed_assets, FixedAssetsRequest};
+use vimbai_assets::{
+    amortization, analyze_fixed_assets, depreciation_batch, depreciation_method, AmortizationAsset,
+    DepreciationAsset, FixedAssetsRequest,
+};
 use vimbai_common::{Money, MoneyError};
 use vimbai_tax::statutory::{statutory_corporate_tax, CorporateTaxInput};
 use vimbai_tax::{calculate_tax, TaxBracket, TaxType};
@@ -166,6 +169,38 @@ fn fixed_assets_json(payload: &str) -> PyResult<String> {
     serde_json::to_string(&report).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
+/// depreciation-service `/calculate`, including its placeholder schedule.
+#[pyfunction]
+#[pyo3(signature = (payload, method = "straight_line"))]
+fn depreciation_json(payload: &str, method: &str) -> PyResult<String> {
+    let assets: Vec<DepreciationAsset> =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let output = depreciation_batch(method, &assets);
+    serde_json::to_string(&output).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// depreciation-service `/method`: one asset, one ladder.
+#[pyfunction]
+#[pyo3(signature = (cost, salvage_value, useful_life, method = "straight_line"))]
+fn depreciation_method_json(
+    cost: f64,
+    salvage_value: f64,
+    useful_life: i64,
+    method: &str,
+) -> PyResult<String> {
+    let output = depreciation_method(method, cost, salvage_value, useful_life);
+    serde_json::to_string(&output).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// amortization-service `/calculate`.
+#[pyfunction]
+fn amortization_json(payload: &str) -> PyResult<String> {
+    let intangibles: Vec<AmortizationAsset> =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let output = amortization(&intangibles);
+    serde_json::to_string(&output).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -174,6 +209,9 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(corporate_tax_json, m)?)?;
     m.add_function(wrap_pyfunction!(tax_calculation_json, m)?)?;
     m.add_function(wrap_pyfunction!(fixed_assets_json, m)?)?;
+    m.add_function(wrap_pyfunction!(depreciation_json, m)?)?;
+    m.add_function(wrap_pyfunction!(depreciation_method_json, m)?)?;
+    m.add_function(wrap_pyfunction!(amortization_json, m)?)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

@@ -53,11 +53,6 @@
       "dir": "departmental-accounting-service"
     },
     {
-      "path": "/depreciation",
-      "name": "depreciation-service",
-      "dir": "depreciation-service"
-    },
-    {
       "path": "/director-emoluments",
       "name": "director-emoluments-service",
       "dir": "director-emoluments-service"

@@ -88,14 +88,6 @@
       "strip_prefix": false
     },
     {
-      "name": "amortization-service",
-      "path": "/amortization",
-      "url": "http://localhost:9003",
-      "port": 8357,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "analytical-procedures-service",
       "path": "/analytical-procedures",
       "url": "http://localhost:9007",
@@ -579,14 +571,6 @@
       "path": "/departmental-accounting",
       "url": "http://localhost:9011",
       "port": 8100,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "depreciation-service",
-      "path": "/depreciation",
-      "url": "http://localhost:9011",
-      "port": 8356,
       "auth_required": true,
       "strip_prefix": false
     },

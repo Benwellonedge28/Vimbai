@@ -22,10 +22,20 @@ pub struct AssetDepreciationRow {
     pub accumulated: f64,
 }
 
+/// The service publishes a five-year schedule on `/calculate` that is not a
+/// real schedule: every year repeats `total * 0.9`. Kept as-is because the
+/// endpoint's consumers read it as a forecast placeholder.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DepreciationScheduleRow {
+    pub year: i64,
+    pub depreciation: f64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DepreciationOutput {
     pub total_depreciation: f64,
     pub asset_depreciation: Vec<AssetDepreciationRow>,
+    pub schedule: Vec<DepreciationScheduleRow>,
 }
 
 /// Batch `/calculate`. Python quirks kept: declining balance ignores
@@ -52,9 +62,16 @@ pub fn depreciation_batch(method: &str, assets: &[DepreciationAsset]) -> Depreci
             accumulated: py_round2(annual),
         });
     }
+    let placeholder = py_round2(total * 0.9);
     DepreciationOutput {
         total_depreciation: py_round2(total),
         asset_depreciation: rows,
+        schedule: (1..=5)
+            .map(|year| DepreciationScheduleRow {
+                year,
+                depreciation: placeholder,
+            })
+            .collect(),
     }
 }
 
@@ -69,6 +86,7 @@ pub struct MethodScheduleRow {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DepreciationMethodOutput {
     pub annual_depreciation: f64,
+    pub monthly_depreciation: f64,
     pub schedule: Vec<MethodScheduleRow>,
 }
 
@@ -106,6 +124,7 @@ pub fn depreciation_method(
     }
     DepreciationMethodOutput {
         annual_depreciation: py_round2(annual),
+        monthly_depreciation: py_round2(annual / 12.0),
         schedule,
     }
 }

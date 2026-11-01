@@ -26,7 +26,6 @@ COPY construction-contracts-service ./construction-contracts-service
 COPY continue-shutdown-decision-service ./continue-shutdown-decision-service
 COPY control-account-reconciliation-service ./control-account-reconciliation-service
 COPY departmental-accounting-service ./departmental-accounting-service
-COPY depreciation-service ./depreciation-service
 COPY director-emoluments-service ./director-emoluments-service
 COPY disposal-account-service ./disposal-account-service
 COPY disposal-group-service ./disposal-group-service

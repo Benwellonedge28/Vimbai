@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY brackets/treasury-banking-bracket/main.py ./main.py
 COPY acquisition-financing-service ./acquisition-financing-service
-COPY amortization-service ./amortization-service
 COPY authorized-share-capital-service ./authorized-share-capital-service
 COPY bad-debts-recovery-service ./bad-debts-recovery-service
 COPY bank-fee-analysis-service ./bank-fee-analysis-service

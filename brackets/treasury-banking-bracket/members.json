@@ -8,11 +8,6 @@
       "dir": "acquisition-financing-service"
     },
     {
-      "path": "/amortization",
-      "name": "amortization-service",
-      "dir": "amortization-service"
-    },
-    {
       "path": "/authorized-share-capital",
       "name": "authorized-share-capital-service",
       "dir": "authorized-share-capital-service"
