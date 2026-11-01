@@ -221,3 +221,151 @@ mod tests {
         assert_eq!(g.partner_goodwill_shares[0], ("p1".to_string(), 30000.0));
     }
 }
+
+// ---------------------------------------------------------------------
+// partnership-accounting-service `/allocate`: salary + interest on
+// capital first, residual (floored at 0) split by profit share pct.
+// When every partner's pct is 0, they get an equal split.
+// ---------------------------------------------------------------------
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PartnerInput {
+    pub partner_id: String,
+    pub name: String,
+    pub capital_contribution: f64,
+    pub salary: f64,
+    pub drawings: f64,
+    pub profit_share_pct: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PartnerAccount {
+    pub partner_id: String,
+    pub name: String,
+    pub opening_capital: f64,
+    pub salary: f64,
+    pub interest_on_capital: f64,
+    pub profit_share: f64,
+    pub drawings: f64,
+    pub closing_capital: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AllocationOutput {
+    pub company_id: String,
+    pub period: String,
+    pub total_salary: f64,
+    pub total_interest: f64,
+    pub total_profit_share: f64,
+    pub residual_profit: f64,
+    pub partner_accounts: Vec<PartnerAccount>,
+}
+
+pub fn allocate_profit(
+    company_id: &str,
+    period: &str,
+    net_profit: f64,
+    interest_rate_on_capital: f64,
+    partners: &[PartnerInput],
+) -> AllocationOutput {
+    let total_salary: f64 = partners.iter().map(|p| p.salary).sum();
+    let total_interest: f64 = partners
+        .iter()
+        .map(|p| p.capital_contribution * interest_rate_on_capital)
+        .sum();
+
+    // Python floors the residual at zero before sharing.
+    let residual = (net_profit - total_salary - total_interest).max(0.0);
+
+    let total_share_pct: f64 = partners.iter().map(|p| p.profit_share_pct).sum();
+    let equal_share = if total_share_pct == 0.0 && !partners.is_empty() {
+        100.0 / partners.len() as f64
+    } else {
+        0.0
+    };
+
+    let mut total_profit_share = 0.0;
+    let mut accounts = Vec::with_capacity(partners.len());
+
+    for p in partners {
+        let pct = if total_share_pct == 0.0 {
+            equal_share
+        } else {
+            p.profit_share_pct
+        };
+        let interest = p.capital_contribution * interest_rate_on_capital;
+        let profit_share = residual * (pct / 100.0);
+        total_profit_share += profit_share;
+        let closing = p.capital_contribution + p.salary + interest + profit_share - p.drawings;
+
+        accounts.push(PartnerAccount {
+            partner_id: p.partner_id.clone(),
+            name: p.name.clone(),
+            opening_capital: p.capital_contribution,
+            salary: p.salary,
+            interest_on_capital: py_round2(interest),
+            profit_share: py_round2(profit_share),
+            drawings: p.drawings,
+            closing_capital: py_round2(closing),
+        });
+    }
+
+    AllocationOutput {
+        company_id: company_id.to_string(),
+        period: period.to_string(),
+        total_salary: py_round2(total_salary),
+        total_interest: py_round2(total_interest),
+        total_profit_share: py_round2(total_profit_share),
+        residual_profit: py_round2(residual),
+        partner_accounts: accounts,
+    }
+}
+
+#[cfg(test)]
+mod allocation_tests {
+    use super::*;
+
+    fn p(id: &str, cap: f64, salary: f64, drawings: f64, pct: f64) -> PartnerInput {
+        PartnerInput {
+            partner_id: id.into(),
+            name: id.into(),
+            capital_contribution: cap,
+            salary,
+            drawings,
+            profit_share_pct: pct,
+        }
+    }
+
+    #[test]
+    fn salary_interest_then_residual_split() {
+        // residual = 100000 - (30000+20000) - (50000+30000)*10% = 42000
+        let partners = vec![
+            p("a", 50_000.0, 30_000.0, 5_000.0, 60.0),
+            p("b", 30_000.0, 20_000.0, 2_000.0, 40.0),
+        ];
+        let r = allocate_profit("c1", "2026", 100_000.0, 0.10, &partners);
+        assert_eq!(r.total_salary, 50_000.0);
+        assert_eq!(r.total_interest, 8_000.0);
+        assert_eq!(r.residual_profit, 42_000.0);
+        assert_eq!(r.partner_accounts[0].profit_share, 25_200.0);
+        assert_eq!(r.partner_accounts[1].profit_share, 16_800.0);
+        // a: 50000+30000+5000+25200-5000
+        assert_eq!(r.partner_accounts[0].closing_capital, 105_200.0);
+    }
+
+    #[test]
+    fn loss_floors_residual_at_zero() {
+        let partners = vec![p("a", 10_000.0, 0.0, 0.0, 100.0)];
+        let r = allocate_profit("c1", "2026", -50_000.0, 0.10, &partners);
+        assert_eq!(r.residual_profit, 0.0);
+        assert_eq!(r.partner_accounts[0].profit_share, 0.0);
+    }
+
+    #[test]
+    fn all_zero_pcts_get_equal_split() {
+        let partners = vec![p("a", 0.0, 0.0, 0.0, 0.0), p("b", 0.0, 0.0, 0.0, 0.0)];
+        let r = allocate_profit("c1", "2026", 30_000.0, 0.0, &partners);
+        assert_eq!(r.partner_accounts[0].profit_share, 15_000.0);
+        assert_eq!(r.partner_accounts[1].profit_share, 15_000.0);
+    }
+}
