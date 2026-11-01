@@ -23,7 +23,7 @@ jobs:
     env:
       KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check for kubeconfig
         id: check
