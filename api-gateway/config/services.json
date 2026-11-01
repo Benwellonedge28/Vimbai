@@ -279,14 +279,6 @@
       "strip_prefix": false
     },
     {
-      "name": "budget-service",
-      "path": "/budget",
-      "url": "http://localhost:9001",
-      "port": 8024,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "business-combination-service",
       "path": "/business-combination",
       "url": "http://localhost:9010",
@@ -335,14 +327,6 @@
       "strip_prefix": false
     },
     {
-      "name": "capital-expenditure-budget-service",
-      "path": "/capital-expenditure-budget",
-      "url": "http://localhost:9001",
-      "port": 8178,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "capital-reconstruction-service",
       "path": "/capital-reconstruction",
       "url": "http://localhost:9012",
@@ -355,14 +339,6 @@
       "path": "/capital-redemption-reserve",
       "url": "http://localhost:9012",
       "port": 8027,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "cash-budget-service",
-      "path": "/cash-budget",
-      "url": "http://localhost:9001",
-      "port": 8171,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -886,14 +862,6 @@
       "strip_prefix": false
     },
     {
-      "name": "flexible-budget-service",
-      "path": "/flexible-budget",
-      "url": "http://localhost:9001",
-      "port": 8058,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "foreign-currency-translation-service",
       "path": "/foreign-currency-translation",
       "url": "http://localhost:9003",
@@ -1237,30 +1205,6 @@
       "strip_prefix": false
     },
     {
-      "name": "labour-cost-variance-service",
-      "path": "/labour-cost-variance",
-      "url": "http://localhost:9001",
-      "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "labour-efficiency-variance-service",
-      "path": "/labour-efficiency-variance",
-      "url": "http://localhost:9001",
-      "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "labour-rate-variance-service",
-      "path": "/labour-rate-variance",
-      "url": "http://localhost:9001",
-      "port": 8074,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "lease-management-service",
       "path": "/lease-management",
       "url": "http://localhost:9011",
@@ -1337,38 +1281,6 @@
       "path": "/market-risk",
       "url": "http://localhost:9005",
       "port": 8165,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "master-budget-service",
-      "path": "/master-budget",
-      "url": "http://localhost:9001",
-      "port": 8172,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "material-cost-variance-service",
-      "path": "/material-cost-variance",
-      "url": "http://localhost:9001",
-      "port": 8078,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "material-price-variance-service",
-      "path": "/material-price-variance",
-      "url": "http://localhost:9001",
-      "port": 8079,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "material-usage-variance-service",
-      "path": "/material-usage-variance",
-      "url": "http://localhost:9001",
-      "port": 8080,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1921,22 +1833,6 @@
       "strip_prefix": false
     },
     {
-      "name": "sales-price-variance-service",
-      "path": "/sales-price-variance",
-      "url": "http://localhost:9001",
-      "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "sales-volume-variance-service",
-      "path": "/sales-volume-variance",
-      "url": "http://localhost:9001",
-      "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "scenario-analysis-service",
       "path": "/scenario-analysis",
       "url": "http://localhost:9012",
@@ -2248,14 +2144,6 @@
       "strip_prefix": false
     },
     {
-      "name": "variance-service",
-      "path": "/variance",
-      "url": "http://localhost:9001",
-      "port": 8139,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "vat-reporting-service",
       "path": "/vat-reporting",
       "url": "http://localhost:9002",
@@ -2315,14 +2203,6 @@
       "path": "/xbrl-reporting",
       "url": "http://localhost:9002",
       "port": 8274,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "zero-based-budget-service",
-      "path": "/zero-based-budget",
-      "url": "http://localhost:9001",
-      "port": 8176,
       "auth_required": true,
       "strip_prefix": false
     },

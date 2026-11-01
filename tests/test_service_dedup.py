@@ -27,6 +27,11 @@ directories stay in the repository; only registration was removed):
    CI coverage: the Python maths is the reference the parity tests check
    the Rust against, so its regression tests stay in test-core.yml.
 
+5. Variance and budget calculators - nine variance services (the
+   vimbai_variance crate) and six budget services (the vimbai_budgeting
+   crate). Same treatment as the cost calculators: out of the gateway and
+   the cluster, retained in CI as the parity reference.
+
 These tests pin every family to its de-registered state.
 """
 
@@ -89,7 +94,27 @@ COST_CALCULATOR_PORTS = {
     "equivalent-units-service",
 }
 
-ALL_DEREGISTERED = RISK_DUPLICATES | PLATFORM_TEMPLATE_DUPLICATES | CALCULATOR_PORTS | COST_CALCULATOR_PORTS
+VARIANCE_BUDGET_PORTS = {
+    "variance-service",
+    "material-cost-variance-service",
+    "material-price-variance-service",
+    "material-usage-variance-service",
+    "labour-cost-variance-service",
+    "labour-rate-variance-service",
+    "labour-efficiency-variance-service",
+    "sales-price-variance-service",
+    "sales-volume-variance-service",
+    "master-budget-service",
+    "cash-budget-service",
+    "capital-expenditure-budget-service",
+    "flexible-budget-service",
+    "zero-based-budget-service",
+    "budget-service",
+}
+
+ALL_DEREGISTERED = (
+    RISK_DUPLICATES | PLATFORM_TEMPLATE_DUPLICATES | CALCULATOR_PORTS | COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS
+)
 
 # Families whose Python code is no longer run anywhere, so their names must stay
 # out of the CI matrix too. The cost calculators keep their tests by design.
@@ -146,7 +171,7 @@ def test_ported_calculator_keeps_its_reference_implementation(ported):
     assert os.path.isfile(os.path.join(_ROOT, ported, "main.py"))
 
 
-@pytest.mark.parametrize("ported", sorted(COST_CALCULATOR_PORTS))
+@pytest.mark.parametrize("ported", sorted(COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS))
 def test_cost_calculator_keeps_its_ci_coverage(ported):
     # the Python reference maths stays tested even though it is not deployed
     ci = open(os.path.join(_ROOT, ".github", "workflows", "test-core.yml")).read()
@@ -157,5 +182,5 @@ def test_cost_calculators_absent_from_brackets():
     for bracket in ("costing-budgeting-bracket",):
         members = json.load(open(os.path.join(_ROOT, "brackets", bracket, "members.json")))
         names = {m["name"] for m in members} if isinstance(members, list) else set(members)
-        overlap = names & COST_CALCULATOR_PORTS
+        overlap = names & (COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS)
         assert not overlap, f"{bracket} still mounts {sorted(overlap)}"

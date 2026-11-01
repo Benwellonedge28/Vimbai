@@ -28,69 +28,14 @@
       "dir": "balanced-scorecard-service"
     },
     {
-      "path": "/budget",
-      "name": "budget-service",
-      "dir": "budget-service"
-    },
-    {
       "path": "/capital-budgeting",
       "name": "capital-budgeting-service",
       "dir": "capital-budgeting-service"
     },
     {
-      "path": "/capital-expenditure-budget",
-      "name": "capital-expenditure-budget-service",
-      "dir": "capital-expenditure-budget-service"
-    },
-    {
-      "path": "/cash-budget",
-      "name": "cash-budget-service",
-      "dir": "cash-budget-service"
-    },
-    {
-      "path": "/flexible-budget",
-      "name": "flexible-budget-service",
-      "dir": "flexible-budget-service"
-    },
-    {
       "path": "/job-costing",
       "name": "job-costing-service",
       "dir": "job-costing-service"
-    },
-    {
-      "path": "/labour-cost-variance",
-      "name": "labour-cost-variance-service",
-      "dir": "labour-cost-variance-service"
-    },
-    {
-      "path": "/labour-efficiency-variance",
-      "name": "labour-efficiency-variance-service",
-      "dir": "labour-efficiency-variance-service"
-    },
-    {
-      "path": "/labour-rate-variance",
-      "name": "labour-rate-variance-service",
-      "dir": "labour-rate-variance-service"
-    },
-    {
-      "path": "/master-budget",
-      "name": "master-budget-service",
-      "dir": "master-budget-service"
-    },
-    {
-      "path": "/material-cost-variance",
-      "name": "material-cost-variance-service",
-      "dir": "material-cost-variance-service"
-    },
-    {
-      "path": "/material-price-variance",
-      "name": "material-price-variance-service",
-      "dir": "material-price-variance-service"
-    },
-    {
-      "path": "/material-usage-variance",
-      "name": "material-usage-variance-service",
-      "dir": "material-usage-variance-service"
     },
     {
       "path": "/process-costing",
@@ -103,29 +48,9 @@
       "dir": "product-costing-service"
     },
     {
-      "path": "/sales-price-variance",
-      "name": "sales-price-variance-service",
-      "dir": "sales-price-variance-service"
-    },
-    {
-      "path": "/sales-volume-variance",
-      "name": "sales-volume-variance-service",
-      "dir": "sales-volume-variance-service"
-    },
-    {
       "path": "/scenario-budget",
       "name": "scenario-budget-service",
       "dir": "scenario-budget-service"
-    },
-    {
-      "path": "/variance",
-      "name": "variance-service",
-      "dir": "variance-service"
-    },
-    {
-      "path": "/zero-based-budget",
-      "name": "zero-based-budget-service",
-      "dir": "zero-based-budget-service"
     },
     {
       "path": "/zero-based-budgeting",
