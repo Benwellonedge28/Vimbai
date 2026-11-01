@@ -36,3 +36,4 @@ pub use master::{prepare_master_budget, MasterBudgetRequest, MasterBudgetResult}
 pub use zero_based::{
     prepare_zero_based_budget, PrioritizedItem, ZeroBasedRequest, ZeroBasedResult,
 };
+pub mod scenario;
