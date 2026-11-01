@@ -3,6 +3,7 @@
 //! triangulation, IAS 21 translation, FX exposure hedging, and the
 //! multi-currency service's fixed tables.
 
+pub mod analytics;
 pub mod cash;
 pub mod derivatives;
 pub mod fx_hedging;

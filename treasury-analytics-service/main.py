@@ -19,6 +19,7 @@ if "treasury_analytics_service" not in _sys.modules or not hasattr(
     _sys.modules["treasury_analytics_service"].__path__ = [_HERE]
 
 import os
+from decimal import ROUND_HALF_EVEN, Decimal, getcontext, localcontext
 
 import structlog
 from fastapi import Depends, FastAPI, Request
@@ -40,6 +41,38 @@ structlog.configure(
     cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
+
+# Vimbai holds any figure at any magnitude: the default 28-digit decimal
+# context cannot even represent a 30-digit balance.
+getcontext().prec = 200
+getcontext().rounding = ROUND_HALF_EVEN
+
+
+def _working_precision(*values: Decimal) -> int:
+    needed = 60
+    for value in values:
+        if isinstance(value, Decimal) and value.is_finite():
+            needed = max(needed, value.adjusted() + len(value.as_tuple().digits) + 40)
+    return needed
+
+
+def round_ratio(value: Decimal, places: int = 10) -> Decimal:
+    """Trim a ratio to ten places: enough for any reading, and it removes the
+    repeating-tail noise a division leaves behind."""
+    with localcontext() as ctx:
+        ctx.prec = _working_precision(value) + places
+        ctx.rounding = ROUND_HALF_EVEN
+        return value.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_EVEN)
+
+
+def divide_money(numerator: Decimal, denominator: Decimal) -> Decimal:
+    """Divide two amounts at a precision wide enough for both."""
+    with localcontext() as ctx:
+        ctx.prec = _working_precision(numerator, denominator)
+        ctx.rounding = ROUND_HALF_EVEN
+        return numerator / denominator
+
+
 app = FastAPI(title="Vimbai Treasury Analytics Service", version="2.0.0", docs_url="/docs")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
@@ -74,10 +107,26 @@ async def analyze_treasury(
 ):
     """Compute treasury KPIs (pure calculation) and persist the snapshot for the caller's Book."""
     net_flow = req.monthly_inflow - req.monthly_outflow
-    cash_adequacy = req.total_cash / max(1, req.monthly_outflow) * 30 if req.monthly_outflow > 0 else 999
-    debt_service = (req.short_term_debt / max(1, req.monthly_inflow)) * 100 if req.monthly_inflow > 0 else 0
-    yield_pct = (req.investments * 0.05) / max(1, req.total_cash) * 100 if req.total_cash > 0 else 0
-    fx_score = min(100, (req.fx_exposure / max(1, req.total_cash)) * 100)
+    one = Decimal(1)
+    hundred = Decimal(100)
+    cash_adequacy = (
+        round_ratio(divide_money(req.total_cash, max(one, req.monthly_outflow)) * 30)
+        if req.monthly_outflow > 0
+        else Decimal(999)
+    )
+    debt_service = (
+        round_ratio(divide_money(req.short_term_debt, max(one, req.monthly_inflow)) * hundred)
+        if req.monthly_inflow > 0
+        else Decimal(0)
+    )
+    # a flat 5% of investments, whatever the instruments actually earn
+    yield_pct = (
+        round_ratio(divide_money(req.investments * Decimal("0.05"), max(one, req.total_cash)) * hundred)
+        if req.total_cash > 0
+        else Decimal(0)
+    )
+    # capped at 100 but never floored: a net receivable scores negative
+    fx_score = min(hundred, round_ratio(divide_money(req.fx_exposure, max(one, req.total_cash)) * hundred))
 
     kpis = [
         models.TreasuryKPI(
@@ -91,7 +140,7 @@ async def analyze_treasury(
             name="Cash Runway",
             value=cash_adequacy,
             unit="days",
-            benchmark=90,
+            benchmark=Decimal(90),
             status="good" if cash_adequacy > 90 else "warning" if cash_adequacy > 30 else "critical",
             description="Days of cash available at current burn",
         ),
@@ -99,7 +148,7 @@ async def analyze_treasury(
             name="Debt Service Ratio",
             value=debt_service,
             unit="%",
-            benchmark=30,
+            benchmark=Decimal(30),
             status="good" if debt_service < 30 else "warning" if debt_service < 50 else "critical",
             description="Short-term debt as % of monthly inflow",
         ),
@@ -107,7 +156,7 @@ async def analyze_treasury(
             name="Investment Yield",
             value=yield_pct,
             unit="%",
-            benchmark=5,
+            benchmark=Decimal(5),
             status="good" if yield_pct >= 5 else "warning",
             description="Estimated annual yield on investments",
         ),
@@ -115,16 +164,16 @@ async def analyze_treasury(
             name="FX Risk Score",
             value=fx_score,
             unit="score",
-            benchmark=20,
+            benchmark=Decimal(20),
             status="good" if fx_score < 20 else "warning" if fx_score < 50 else "critical",
             description="Foreign exchange exposure risk",
         ),
         models.TreasuryKPI(
             name="Cash Utilization",
             value=(
-                (1 - req.total_cash / max(1, req.total_cash + req.investments)) * 100
+                round_ratio((one - divide_money(req.total_cash, max(one, req.total_cash + req.investments))) * hundred)
                 if (req.total_cash + req.investments) > 0
-                else 0
+                else Decimal(0)
             ),
             unit="%",
             benchmark=70,

@@ -1952,3 +1952,127 @@ fn operations_survive_a_hyperinflated_book() {
         "999999999999999999999999999999.00"
     );
 }
+
+// ------------------------------------------------ treasury analytics
+
+use crate::analytics::*;
+
+fn analytics_request() -> TreasuryAnalyticsRequest {
+    TreasuryAnalyticsRequest {
+        company_id: "c1".into(),
+        total_cash: amount_of("2000000"),
+        monthly_inflow: amount_of("800000"),
+        monthly_outflow: amount_of("500000"),
+        short_term_debt: amount_of("150000"),
+        total_debt: amount_of("900000"),
+        investments: amount_of("700000"),
+        fx_exposure: amount_of("300000"),
+    }
+}
+
+fn kpi<'a>(r: &'a TreasuryAnalyticsResult, name: &str) -> &'a TreasuryKpi {
+    r.kpis.iter().find(|k| k.name == name).expect("kpi present")
+}
+
+#[test]
+fn analytics_match_the_python_figures() {
+    let r = analyze_treasury(&analytics_request());
+    assert_eq!(kpi(&r, "Net Cash Flow").value.to_fixed(2), "300000.00");
+    assert_eq!(r.cash_adequacy_days.to_fixed(2), "120.00");
+    assert_eq!(r.debt_service_ratio.to_fixed(2), "18.75");
+    // Python reports 1.7500000000000002 here; the decimal answer is 1.75
+    assert_eq!(r.investment_yield.to_fixed(2), "1.75");
+    assert_eq!(r.fx_risk_score.to_fixed(2), "15.00");
+    assert_eq!(
+        kpi(&r, "Cash Utilization").value.round(4).to_fixed(4),
+        "25.9259"
+    );
+    assert_eq!(kpi(&r, "Net Cash Flow").status, "good");
+    assert_eq!(kpi(&r, "Cash Runway").status, "good");
+    assert_eq!(kpi(&r, "Debt Service Ratio").status, "good");
+    assert_eq!(kpi(&r, "Investment Yield").status, "warning");
+    assert_eq!(kpi(&r, "FX Risk Score").status, "good");
+}
+
+#[test]
+fn zero_outflow_reports_an_unlimited_runway() {
+    let mut req = analytics_request();
+    req.monthly_outflow = Money::zero();
+    let r = analyze_treasury(&req);
+    assert_eq!(r.cash_adequacy_days.to_fixed(2), "999.00");
+    assert_eq!(kpi(&r, "Cash Runway").status, "good");
+}
+
+#[test]
+fn zero_inflow_gives_a_zero_debt_service_ratio() {
+    let mut req = analytics_request();
+    req.monthly_inflow = Money::zero();
+    let r = analyze_treasury(&req);
+    assert_eq!(r.debt_service_ratio.to_fixed(2), "0.00");
+    assert_eq!(kpi(&r, "Debt Service Ratio").status, "good");
+    // and the net flow simply mirrors the outflow
+    assert_eq!(kpi(&r, "Net Cash Flow").value.to_fixed(2), "-500000.00");
+    assert_eq!(kpi(&r, "Net Cash Flow").status, "warning");
+}
+
+#[test]
+fn yield_is_a_flat_five_percent_of_investments() {
+    let mut req = analytics_request();
+    // 5% of 700,000 against 2,000,000 of cash is 1.75%, whatever the
+    // instruments actually earn
+    assert_eq!(analyze_treasury(&req).investment_yield.to_fixed(2), "1.75");
+    req.investments = amount_of("4000000");
+    assert_eq!(analyze_treasury(&req).investment_yield.to_fixed(2), "10.00");
+}
+
+#[test]
+fn fx_score_is_capped_but_not_floored() {
+    let mut req = analytics_request();
+    req.fx_exposure = amount_of("9000000");
+    // 450% of cash is capped at 100 and rated critical
+    assert_eq!(analyze_treasury(&req).fx_risk_score.to_fixed(2), "100.00");
+    assert_eq!(
+        kpi(&analyze_treasury(&req), "FX Risk Score").status,
+        "critical"
+    );
+
+    // a negative exposure is a net receivable: the score goes negative and
+    // the band test rates it good, which is the source's behaviour
+    req.fx_exposure = amount_of("-400000");
+    let r = analyze_treasury(&req);
+    assert_eq!(r.fx_risk_score.to_fixed(2), "-20.00");
+    assert_eq!(kpi(&r, "FX Risk Score").status, "good");
+}
+
+#[test]
+fn utilisation_is_always_good() {
+    let mut req = analytics_request();
+    req.investments = Money::zero();
+    let r = analyze_treasury(&req);
+    // nothing invested, so nothing is deployed: 0% either way
+    assert_eq!(kpi(&r, "Cash Utilization").value.to_fixed(2), "0.00");
+    assert_eq!(kpi(&r, "Cash Utilization").status, "good");
+}
+
+#[test]
+fn an_empty_book_reports_zero_not_an_error() {
+    let r = analyze_treasury(&TreasuryAnalyticsRequest::default());
+    assert_eq!(r.cash_adequacy_days.to_fixed(2), "999.00");
+    assert_eq!(r.debt_service_ratio.to_fixed(2), "0.00");
+    assert_eq!(r.investment_yield.to_fixed(2), "0.00");
+    assert_eq!(r.fx_risk_score.to_fixed(2), "0.00");
+    assert_eq!(kpi(&r, "Cash Utilization").value.to_fixed(2), "0.00");
+}
+
+#[test]
+fn analytics_survive_a_hyperinflated_book() {
+    let mut req = analytics_request();
+    req.total_cash = amount_of("1e30");
+    req.monthly_outflow = amount_of("1e28");
+    req.investments = amount_of("5e29");
+    let r = analyze_treasury(&req);
+    // 1e30 of cash against 1e28 of monthly burn is 3,000 days of runway
+    assert_eq!(r.cash_adequacy_days.to_fixed(2), "3000.00");
+    // 5% of 5e29 is 2.5e28, which is 2.5% of the cash
+    assert_eq!(r.investment_yield.to_fixed(2), "2.50");
+}

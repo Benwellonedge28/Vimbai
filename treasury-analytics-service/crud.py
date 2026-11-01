@@ -10,6 +10,7 @@ returns the caller's latest Book-visible snapshot for the company.
 
 import json
 import uuid
+from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from neo4j import AsyncSession
@@ -31,10 +32,12 @@ def _snapshot_from_node(n: Dict[str, Any]) -> AnalyticsResponse:
     return AnalyticsResponse(
         company_id=n["company_id"],
         kpis=json.loads(n.get("kpis", "[]") or "[]"),
-        cash_adequacy_days=float(n.get("cash_adequacy_days", 0)),
-        debt_service_ratio=float(n.get("debt_service_ratio", 0)),
-        investment_yield=float(n.get("investment_yield", 0)),
-        fx_risk_score=float(n.get("fx_risk_score", 0)),
+        # stored as strings so a 30-digit figure survives the round trip;
+        # pydantic turns each back into a Decimal
+        cash_adequacy_days=Decimal(str(n.get("cash_adequacy_days", 0))),
+        debt_service_ratio=Decimal(str(n.get("debt_service_ratio", 0))),
+        investment_yield=Decimal(str(n.get("investment_yield", 0))),
+        fx_risk_score=Decimal(str(n.get("fx_risk_score", 0))),
     )
 
 
@@ -55,10 +58,10 @@ async def save_snapshot(session: AsyncSession, user_id: str, resp: AnalyticsResp
         book_id: $book_id,
         company_id: $company_id,
         kpis: $kpis,
-        cash_adequacy_days: toFloat($cash_adequacy_days),
-        debt_service_ratio: toFloat($debt_service_ratio),
-        investment_yield: toFloat($investment_yield),
-        fx_risk_score: toFloat($fx_risk_score)
+        cash_adequacy_days: $cash_adequacy_days,
+        debt_service_ratio: $debt_service_ratio,
+        investment_yield: $investment_yield,
+        fx_risk_score: $fx_risk_score
     }})
     CREATE (u)-[:OWNS_SNAPSHOT]->(x)
     """
@@ -68,11 +71,11 @@ async def save_snapshot(session: AsyncSession, user_id: str, resp: AnalyticsResp
         id=str(uuid.uuid4()),
         user_id=user_id,
         company_id=resp.company_id,
-        kpis=json.dumps([k.model_dump() for k in resp.kpis]),
-        cash_adequacy_days=resp.cash_adequacy_days,
-        debt_service_ratio=resp.debt_service_ratio,
-        investment_yield=resp.investment_yield,
-        fx_risk_score=resp.fx_risk_score,
+        kpis=json.dumps([k.model_dump(mode="json") for k in resp.kpis]),
+        cash_adequacy_days=str(resp.cash_adequacy_days),
+        debt_service_ratio=str(resp.debt_service_ratio),
+        investment_yield=str(resp.investment_yield),
+        fx_risk_score=str(resp.fx_risk_score),
     )
 
 

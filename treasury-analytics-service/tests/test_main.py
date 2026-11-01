@@ -6,6 +6,7 @@ latest-wins overwrite, /kpi read-back, ownership and Book isolation.
 
 import importlib.util
 import os
+from decimal import Decimal
 
 import main
 import pytest
@@ -61,24 +62,24 @@ def test_analyze_kpi_semantics():
     data = resp.json()
     kpis = {k["name"]: k for k in data["kpis"]}
     assert len(kpis) == 6
-    assert kpis["Net Cash Flow"]["value"] == 50000
+    assert Decimal(kpis["Net Cash Flow"]["value"]) == Decimal(50000)
     assert kpis["Net Cash Flow"]["status"] == "good"
     # cash_adequacy = 500000/150000*30 = 100 days -> good (>90)
-    assert round(kpis["Cash Runway"]["value"], 1) == 100.0
+    assert Decimal(kpis["Cash Runway"]["value"]) == Decimal(100)
     assert kpis["Cash Runway"]["status"] == "good"
     # debt_service = 100000/200000*100 = 50 -> critical (not <50)
-    assert round(kpis["Debt Service Ratio"]["value"], 1) == 50.0
+    assert Decimal(kpis["Debt Service Ratio"]["value"]) == Decimal(50)
     assert kpis["Debt Service Ratio"]["status"] == "critical"
     # yield = (100000*0.05)/500000*100 = 1 -> warning
-    assert round(kpis["Investment Yield"]["value"], 2) == 1.0
+    assert Decimal(kpis["Investment Yield"]["value"]) == Decimal(1)
     assert kpis["Investment Yield"]["status"] == "warning"
     # fx = min(100, 50000/500000*100) = 10 -> good
-    assert kpis["FX Risk Score"]["value"] == 10
+    assert Decimal(kpis["FX Risk Score"]["value"]) == Decimal(10)
     assert kpis["FX Risk Score"]["status"] == "good"
-    assert data["cash_adequacy_days"] == 100
-    assert data["debt_service_ratio"] == 50
-    assert data["investment_yield"] == 1
-    assert data["fx_risk_score"] == 10
+    assert Decimal(data["cash_adequacy_days"]) == Decimal(100)
+    assert Decimal(data["debt_service_ratio"]) == Decimal(50)
+    assert Decimal(data["investment_yield"]) == Decimal(1)
+    assert Decimal(data["fx_risk_score"]) == Decimal(10)
 
 
 def test_kpi_persistence_and_latest_wins():
@@ -86,13 +87,13 @@ def test_kpi_persistence_and_latest_wins():
 
     client.post("/analyze", json=_req(cash=500000), headers=H1)
     stored = client.get("/kpi/co-ta", headers=H1).json()
-    assert stored["cash_adequacy_days"] == 100
+    assert Decimal(stored["cash_adequacy_days"]) == Decimal(100)
     assert len(stored["kpis"]) == 6
 
     # latest-wins: re-analyze overwrites the previous snapshot
     client.post("/analyze", json=_req(cash=100000), headers=H1)
     stored = client.get("/kpi/co-ta", headers=H1).json()
-    assert stored["cash_adequacy_days"] == 20
+    assert Decimal(stored["cash_adequacy_days"]) == Decimal(20)
     # only one snapshot per company per caller
     snap_nodes = [n for n in _fake_session.nodes if n.get("label") == "TreasuryAnalyticsSnapshot"]
     assert len(snap_nodes) == 1
@@ -105,8 +106,8 @@ def test_book_a_b_isolation():
     hb = {"X-User-Id": U1, "X-Book-ID": BOOK_B}
     client.post("/analyze", json=_req(cash=500000), headers=H1)
     client.post("/analyze", json=_req(cash=900000), headers=hb)
-    assert client.get("/kpi/co-ta", headers=H1).json()["cash_adequacy_days"] == 100
-    assert client.get("/kpi/co-ta", headers=hb).json()["cash_adequacy_days"] == 180
+    assert Decimal(client.get("/kpi/co-ta", headers=H1).json()["cash_adequacy_days"]) == Decimal(100)
+    assert Decimal(client.get("/kpi/co-ta", headers=hb).json()["cash_adequacy_days"]) == Decimal(180)
     # personal view sees the Book-A snapshot when no Book header is sent
     # (fake default: no header -> Book filter passes all, both Books have one;
     #  per-Book views each return exactly their own)
@@ -119,8 +120,8 @@ def test_book_a_b_isolation():
 def test_edge_cases_kept():
     # zero outflow -> 999 runway; zero inflow -> 0 debt service
     data = client.post("/analyze", json=_req(outflow=0, inflow=0), headers=H1).json()
-    assert data["cash_adequacy_days"] == 999
-    assert data["debt_service_ratio"] == 0
+    assert Decimal(data["cash_adequacy_days"]) == Decimal(999)
+    assert Decimal(data["debt_service_ratio"]) == Decimal(0)
     kpis = {k["name"]: k for k in data["kpis"]}
     assert kpis["Cash Runway"]["status"] == "good"
     assert kpis["Debt Service Ratio"]["status"] == "good"
@@ -129,3 +130,31 @@ def test_edge_cases_kept():
 def test_x_user_id_required():
     assert client.post("/analyze", json=_req()).status_code in (401, 403, 422)
     assert client.get("/kpi/co-ta").status_code in (401, 403, 422)
+
+
+def test_any_amount_survives_analysis_and_storage():
+    """A 30-digit book keeps its digits through the KPI maths and the snapshot."""
+    huge = "123456789012345678901234567890.55"
+    resp = client.post(
+        "/analyze",
+        json={
+            "company_id": "co-huge",
+            "total_cash": huge,
+            "monthly_inflow": "1",
+            "monthly_outflow": "1",
+            "short_term_debt": "0",
+            "total_debt": "0",
+            "investments": "1",
+            "fx_exposure": "0",
+        },
+        headers=H1,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    # runway = huge / 1 * 30, to ten places, with no float truncation
+    assert Decimal(body["cash_adequacy_days"]) == Decimal("3703703670370370367037037036716.5000000000")
+
+    stored = client.get("/kpi/co-huge", headers=H1).json()
+    # the snapshot round trip is exact, because amounts are stored as strings
+    assert Decimal(stored["cash_adequacy_days"]) == Decimal(body["cash_adequacy_days"])
+    assert isinstance(stored["kpis"][0]["value"], str)
