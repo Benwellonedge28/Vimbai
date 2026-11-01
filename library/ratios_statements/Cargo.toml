@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Ratio and statement generation math: DuPont components, liquidity/efficiency/coverage ratios, consolidated statements, working capital cycles"
+description = "Ratio analysis and financial statement generation"
 
 [dependencies]
 vimbai_common = { path = "../common" }

@@ -1,8 +1,13 @@
 #![forbid(unsafe_code)]
-//! Ratio and statement generation math: DuPont components, liquidity/efficiency/coverage ratios, consolidated statements, working capital cycles
+//! Ratio analysis and statement generation.
 //!
-//! Scaffold for the $name calculation library. The domain map below
-//! lists the Python services to port here; port them following the
-//! established pattern (see `variance` and `capital_valuation`):
-//! read the Python service, port formulas + serde models, add parity
-//! tests with values verified against the original.
+//! Ported so far: ratio-analysis-service. Queued: financial-statements,
+//! comparative-financial-statements, income-statement, balance-sheet,
+//! trading-account, profit-loss-account, management-accounts,
+//! working-capital family, consolidation.
+
+pub mod ratios;
+pub mod statements;
+
+pub use ratios::{calculate_ratios, BalanceSheet, IncomeStatement, RatioInput, RatioOutput};
+pub use statements::{prepare_statements, StatementsInput, StatementsOutput};
