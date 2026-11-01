@@ -1,5 +1,8 @@
 [workspace]
 resolver = "2"
+# native/ is its own workspace: it links against libpython and must not be
+# pulled into `cargo test --workspace` for the calculation crates.
+exclude = ["native"]
 members = [
     "common",
     "variance",

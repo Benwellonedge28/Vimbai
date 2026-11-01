@@ -26,3 +26,25 @@
 //! bit-identical outputs when these libraries replace the HTTP calls,
 //! use [`vimbai_common::py_round2`] etc. rather than ad-hoc rounding.
 EOF
+
+## Python seam (`native/`)
+
+`library/native` builds `vimbai_native`, a PyO3 extension that exposes the
+calculation crates to the Python services. It is its own workspace so the
+calculation crates never link against libpython.
+
+It is also the only crate in the project without `#![forbid(unsafe_code)]`:
+PyO3 needs `unsafe` to cross the interpreter boundary. It holds no financial
+logic, only adapters that parse decimal strings into `Money`, call a safe
+library function, and render the result back as a string.
+
+```bash
+cd library/native
+maturin build --release -o dist
+pip install dist/*.whl
+```
+
+Services reach it through `shared/native_seam.py`, which raises rather than
+falling back to float maths when the wheel is missing. `tests/test_native_seam.py`
+runs the same request through the treasury analytics service and the Rust seam
+and compares every KPI, so the two implementations cannot drift silently.

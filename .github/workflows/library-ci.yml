@@ -25,7 +25,9 @@ jobs:
 
       - name: Verify safe Rust only (no unsafe blocks)
         run: |
-          ! grep -rnE 'unsafe(\s*\{|\s+(fn|impl|trait|extern))' library --include="*.rs"
+          # native/ is the one deliberate exception: PyO3 needs unsafe to cross
+          # the interpreter boundary, and it holds no financial logic.
+          ! grep -rnE 'unsafe(\s*\{|\s+(fn|impl|trait|extern))' library --include="*.rs" --exclude-dir=native
 
       - name: Formatting
         run: cargo fmt --all -- --check
@@ -38,3 +40,30 @@ jobs:
       - name: Tests
         run: cargo test --workspace
         working-directory: library
+
+  seam:
+    name: Python seam (maturin build, parity tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build and install the extension
+        run: |
+          python -m pip install --upgrade pip maturin pytest fastapi httpx pydantic structlog neo4j
+          maturin build --release -o dist
+          pip install dist/*.whl
+        working-directory: library/native
+
+      - name: Seam unit tests
+        run: cargo test
+        working-directory: library/native
+
+      - name: Parity with the Python services
+        run: python -m pytest tests/test_native_seam.py -q

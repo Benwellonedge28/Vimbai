@@ -17,3 +17,8 @@ web-frontend/node_modules/
 # local sqlite databases
 book-sync-service/*.db
 *.sqlite3
+
+# Rust seam build artefacts
+library/native/target/
+library/native/dist/
+*.whl
