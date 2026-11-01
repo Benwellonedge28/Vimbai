@@ -5,6 +5,7 @@ Integration tests for Treasury Management, Compliance, and Analytics services.
 import importlib.util
 import os
 import sys
+from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
@@ -188,8 +189,13 @@ class TestTreasuryAnalytics:
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["kpis"]) >= 5
-        assert data["cash_adequacy_days"] > 0
-        assert data["debt_service_ratio"] >= 0
+        # amounts are strings on the wire so any figure survives intact
+        assert Decimal(data["cash_adequacy_days"]) > 0
+        assert Decimal(data["debt_service_ratio"]) >= 0
+        # 500,000 of cash against 150,000 of monthly burn is 100 days
+        assert Decimal(data["cash_adequacy_days"]) == Decimal(100)
+        # 30,000 of short-term debt against 200,000 of inflow is 15%
+        assert Decimal(data["debt_service_ratio"]) == Decimal(15)
 
     def test_kpi_lookup(self, analytics_client):
         analytics_client.post(
