@@ -48,11 +48,6 @@
       "dir": "product-costing-service"
     },
     {
-      "path": "/scenario-budget",
-      "name": "scenario-budget-service",
-      "dir": "scenario-budget-service"
-    },
-    {
       "path": "/zero-based-budgeting",
       "name": "zero-based-budgeting-service",
       "dir": "zero-based-budgeting-service"

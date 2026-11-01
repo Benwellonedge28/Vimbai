@@ -1,6 +1,6 @@
 """
 Vimbai Costing & Budgeting Bracket Service
-One container hosting 11 merged microservices. Each member service's
+One container hosting 10 merged microservices. Each member service's
 FastAPI app is mounted at its original gateway path prefix, so every
 external URL is unchanged.
 
@@ -20,23 +20,52 @@ PORT = int(os.getenv("PORT", "9001"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    ["absorption-costing", "absorption-costing-service"],
-    ["absorption-costing-statement", "absorption-costing-statement-service"],
-    ["activity-based-budget", "activity-based-budget-service"],
-    ["appropriation-control", "appropriation-control-service"],
-    ["balanced-scorecard", "balanced-scorecard-service"],
-    ["capital-budgeting", "capital-budgeting-service"],
-    ["job-costing", "job-costing-service"],
-    ["process-costing", "process-costing-service"],
-    ["product-costing", "product-costing-service"],
-    ["scenario-budget", "scenario-budget-service"],
-    ["zero-based-budgeting", "zero-based-budgeting-service"],
+    [
+        "absorption-costing",
+        "absorption-costing-service"
+    ],
+    [
+        "absorption-costing-statement",
+        "absorption-costing-statement-service"
+    ],
+    [
+        "activity-based-budget",
+        "activity-based-budget-service"
+    ],
+    [
+        "appropriation-control",
+        "appropriation-control-service"
+    ],
+    [
+        "balanced-scorecard",
+        "balanced-scorecard-service"
+    ],
+    [
+        "capital-budgeting",
+        "capital-budgeting-service"
+    ],
+    [
+        "job-costing",
+        "job-costing-service"
+    ],
+    [
+        "process-costing",
+        "process-costing-service"
+    ],
+    [
+        "product-costing",
+        "product-costing-service"
+    ],
+    [
+        "zero-based-budgeting",
+        "zero-based-budgeting-service"
+    ]
 ]
 
 app = FastAPI(
     title="Vimbai Costing & Budgeting Bracket Service",
     version=SERVICE_VERSION,
-    description="Bracket container for 11 Vimbai microservices.",
+    description="Bracket container for 10 Vimbai microservices.",
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))

@@ -20,19 +20,58 @@ PORT = int(os.getenv("PORT", "9013"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    ["cache", "cache-service"],
-    ["dashboard", "dashboard-service"],
-    ["encrypted-backup", "encrypted-backup-service"],
-    ["enterprise-sso", "enterprise-sso-service"],
-    ["etl", "etl-service"],
-    ["financial-state-machine", "financial-state-machine-service"],
-    ["graphql", "graphql-service"],
-    ["management-dashboard", "management-dashboard-service"],
-    ["mfa-auth", "mfa-auth-service"],
-    ["policy", "policy-engine-service"],
-    ["realtime-calculation", "realtime-calculation-engine"],
-    ["websocket", "websocket-service"],
-    ["zero-trust-data", "zero-trust-data-service"],
+    [
+        "cache",
+        "cache-service"
+    ],
+    [
+        "dashboard",
+        "dashboard-service"
+    ],
+    [
+        "encrypted-backup",
+        "encrypted-backup-service"
+    ],
+    [
+        "enterprise-sso",
+        "enterprise-sso-service"
+    ],
+    [
+        "etl",
+        "etl-service"
+    ],
+    [
+        "financial-state-machine",
+        "financial-state-machine-service"
+    ],
+    [
+        "graphql",
+        "graphql-service"
+    ],
+    [
+        "management-dashboard",
+        "management-dashboard-service"
+    ],
+    [
+        "mfa-auth",
+        "mfa-auth-service"
+    ],
+    [
+        "policy",
+        "policy-engine-service"
+    ],
+    [
+        "realtime-calculation",
+        "realtime-calculation-engine"
+    ],
+    [
+        "websocket",
+        "websocket-service"
+    ],
+    [
+        "zero-trust-data",
+        "zero-trust-data-service"
+    ]
 ]
 
 app = FastAPI(

@@ -25,7 +25,6 @@ COPY capital-budgeting-service ./capital-budgeting-service
 COPY job-costing-service ./job-costing-service
 COPY process-costing-service ./process-costing-service
 COPY product-costing-service ./product-costing-service
-COPY scenario-budget-service ./scenario-budget-service
 COPY zero-based-budgeting-service ./zero-based-budgeting-service
 
 USER vimbai

@@ -1825,14 +1825,6 @@
       "strip_prefix": false
     },
     {
-      "name": "scenario-budget-service",
-      "path": "/scenario-budget",
-      "url": "http://localhost:9001",
-      "port": 8175,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "scenario-modeling-service",
       "path": "/scenario-modeling",
       "url": "http://localhost:8122",
