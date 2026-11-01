@@ -8,9 +8,11 @@
 
 pub mod annual_report;
 pub mod balance_sheet;
+pub mod basis_apportionment;
 pub mod comparative;
 pub mod consolidation;
 pub mod income_statement;
+pub mod ledger_controls;
 pub mod management_accounts;
 pub mod management_reporting;
 pub mod profit_loss;
@@ -25,6 +27,9 @@ pub use balance_sheet::{
     balance_sheet_ratios, generate_totals, BalanceSheetInput, BalanceSheetRatios,
     BalanceSheetTotals,
 };
+pub use basis_apportionment::{
+    apportion, ApportionedCentre, ApportionmentBasis, ApportionmentResult, CostCentreBasis,
+};
 pub use comparative::{
     generate_periods, horizontal_analysis, horizontal_items, trend_analysis, variance_analysis,
     HorizontalItem, PeriodData, TrendItem, TrendPoint, VarianceLine, VarianceReport,
@@ -35,6 +40,11 @@ pub use consolidation::{
     SubFinancials, Subsidiary,
 };
 pub use income_statement::{prepare_income_statement, IncomeStatementInput, IncomeStatementOutput};
+pub use ledger_controls::{
+    analyze_bank_fees, analyze_suspense, analyze_times_interest_earned, BankCharge,
+    BankFeeAnalysis, BankFeeInput, CovenantCompliance, CoverageMetrics, SuspenseAnalysis,
+    SuspenseError, SuspenseInput, TieAnalysis, TieInput,
+};
 pub use management_accounts::{prepare_management_accounts, ManagementAccounts};
 pub use management_reporting::{
     generate_management_report, ManagementReport, PerformanceSummary, ReportKpis,
