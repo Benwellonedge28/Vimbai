@@ -16,6 +16,7 @@ pub mod group;
 pub mod rd_credit;
 pub mod returns;
 pub mod risk;
+pub mod statutory;
 pub mod transfer_pricing;
 
 pub use capital_gains::{capital_gains_tax, CapitalGainsResult};
@@ -28,4 +29,8 @@ pub use group::{consolidate_group_tax, GroupTaxRequest, GroupTaxResult, Subsidia
 pub use rd_credit::{rd_credit_claim, Expenditure, RdClaimResult};
 pub use returns::{prepare_tax_return, TaxComponent, TaxReturnRequest, TaxReturnResult};
 pub use risk::{assess_tax_risk, RiskLevel, TaxRisk, TaxRiskAssessment, TaxRiskRequest};
+pub use statutory::{
+    statutory_corporate_tax, CorporateTaxInput, CorporateTaxResult, Installment, TaxAdjustment,
+    TaxCredit,
+};
 pub use transfer_pricing::{transfer_pricing, TransferPricingResult};
