@@ -16,6 +16,8 @@ use vimbai_common::py_round2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaxAdjustment {
+    /// The service calls this `type`; `kind` stays as the Rust-side name.
+    #[serde(rename = "type", alias = "kind")]
     pub kind: String,
     pub amount: f64,
     #[serde(default)]

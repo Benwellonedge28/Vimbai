@@ -463,14 +463,6 @@
       "strip_prefix": false
     },
     {
-      "name": "corporate-tax-service",
-      "path": "/corporate-tax",
-      "url": "http://localhost:9004",
-      "port": 8034,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "cost-of-capital-service",
       "path": "/cost-of-capital",
       "url": "http://localhost:9012",
@@ -1900,14 +1892,6 @@
       "path": "/tax-audit",
       "url": "http://localhost:9004",
       "port": 8130,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "tax-calculation-service",
-      "path": "/tax-calculation",
-      "url": "http://localhost:9004",
-      "port": 8000,
       "auth_required": true,
       "strip_prefix": false
     },

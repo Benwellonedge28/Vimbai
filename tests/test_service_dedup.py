@@ -141,6 +141,13 @@ STATEMENT_PAYROLL_PORTS = {
     "payroll-accounting-service",
 }
 
+# The tax pair retires only after the seam reproduces their figures; those
+# parity cases live in tests/test_native_seam.py.
+TAX_PORTS = {
+    "corporate-tax-service",
+    "tax-calculation-service",
+}
+
 ABSORPTION_MARGIN_PORTS = {
     "over-under-absorption-service",
     "margin-safety-service",

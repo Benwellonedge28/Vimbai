@@ -19,7 +19,6 @@ COPY brackets/tax-audit-investigation-bracket/main.py ./main.py
 COPY audit-compliance-service ./audit-compliance-service
 COPY audit-evidence-service ./audit-evidence-service
 COPY audit-sampling-service ./audit-sampling-service
-COPY corporate-tax-service ./corporate-tax-service
 COPY forensic-accounting-service ./forensic-accounting-service
 COPY group-tax-service ./group-tax-service
 COPY it-audit-service ./it-audit-service
@@ -30,7 +29,6 @@ COPY sox-compliance-service ./sox-compliance-service
 COPY tax-service ./tax-service
 COPY tax-accounting-service ./tax-accounting-service
 COPY tax-audit-service ./tax-audit-service
-COPY tax-calculation-service ./tax-calculation-service
 COPY tax-compliance-service ./tax-compliance-service
 COPY tax-planning-service ./tax-planning-service
 COPY tax-provision-service ./tax-provision-service

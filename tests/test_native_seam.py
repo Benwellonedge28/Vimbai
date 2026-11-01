@@ -10,6 +10,7 @@ import sys
 from decimal import Decimal
 
 import pytest
+from fastapi.testclient import TestClient
 
 from tests.conftest import load_service
 from tests.test_treasury_services import analytics_client  # noqa: F401 - fixture
@@ -188,3 +189,87 @@ def test_health_says_which_calculator_answers(analytics_client, monkeypatch):
     assert analytics_client.get("/health").json()["calc_engine"] == "rust"
     monkeypatch.setenv("VIMBAI_CALC_ENGINE", "python")
     assert analytics_client.get("/health").json()["calc_engine"] == "python"
+
+
+# --- tax family -------------------------------------------------------------
+# corporate-tax-service and tax-calculation-service are the next two services
+# the seam is meant to replace, so the same rule applies: the figures match or
+# the seam does not ship.
+
+CORPORATE_TAX_REQUEST = {
+    "company_id": "c1",
+    "fiscal_year": 2026,
+    "accounting_profit": 500000.0,
+    "adjustments": [
+        {"type": "addition", "amount": 20000.0, "description": "disallowed"},
+        {"type": "deduction", "amount": 5000.0, "description": "exempt"},
+    ],
+    "statutory_rate": 0.25,
+    "credits": [{"amount": 3000.0, "description": "credit"}],
+    "estimated_payments": 40000.0,
+}
+
+
+def test_corporate_tax_matches_the_service():
+    import json
+
+    client = TestClient(load_service("corporate-tax-service").main.app)
+    served = client.post("/calculate", json=CORPORATE_TAX_REQUEST)
+    assert served.status_code == 200, served.text
+    service = served.json()
+
+    rust = json.loads(native.corporate_tax_json(json.dumps(CORPORATE_TAX_REQUEST)))
+    for key in (
+        "taxable_income",
+        "tax_before_credits",
+        "total_credits",
+        "net_tax_liability",
+        "effective_rate",
+        "balance_due",
+    ):
+        assert Decimal(str(service[key])) == Decimal(str(rust[key])), key
+
+    assert len(service["installment_schedule"]) == len(rust["installment_schedule"])
+    for served_row, rust_row in zip(service["installment_schedule"], rust["installment_schedule"]):
+        assert served_row["quarter"] == rust_row["quarter"]
+        assert served_row["due_date"] == rust_row["due_date"]
+        assert Decimal(str(served_row["amount"])) == Decimal(str(rust_row["amount"]))
+
+
+def test_corporate_tax_floors_a_loss_at_zero_on_both_sides():
+    import json
+
+    request = dict(CORPORATE_TAX_REQUEST, accounting_profit=10000.0, credits=[], estimated_payments=0.0)
+    request["adjustments"] = [{"type": "deduction", "amount": 25000.0, "description": "exempt"}]
+
+    client = TestClient(load_service("corporate-tax-service").main.app)
+    service = client.post("/calculate", json=request).json()
+    rust = json.loads(native.corporate_tax_json(json.dumps(request)))
+
+    assert Decimal(str(service["taxable_income"])) == Decimal("0")
+    assert Decimal(str(rust["taxable_income"])) == Decimal(str(service["taxable_income"]))
+    assert Decimal(str(service["balance_due"])) == Decimal(str(rust["balance_due"]))
+
+
+def test_tax_calculation_matches_the_service():
+    import json
+
+    request = {
+        "company_id": "c1",
+        "tax_type": "income_tax",
+        "country": "ZW",
+        "taxable_amount": 120000.0,
+        "deductions": 20000.0,
+        "fiscal_year": 2026,
+    }
+    client = TestClient(load_service("tax-calculation-service").main.app)
+    served = client.post("/calculate", json=request)
+    assert served.status_code == 200, served.text
+    service = served.json()
+
+    rust = json.loads(native.tax_calculation_json(json.dumps(request)))
+    for key in ("tax_owed", "effective_rate", "marginal_rate"):
+        assert Decimal(str(service[key])) == Decimal(str(rust[key])), key
+    assert set(service["breakdown"]) == set(rust["breakdown"])
+    for bracket, amount in service["breakdown"].items():
+        assert Decimal(str(amount)) == Decimal(str(rust["breakdown"][bracket])), bracket

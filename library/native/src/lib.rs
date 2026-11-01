@@ -15,6 +15,8 @@ use pyo3::prelude::*;
 use serde_json::Value;
 
 use vimbai_common::{Money, MoneyError};
+use vimbai_tax::statutory::{statutory_corporate_tax, CorporateTaxInput};
+use vimbai_tax::{calculate_tax, TaxBracket, TaxType};
 use vimbai_treasury_fx::analytics::{analyze_treasury, TreasuryAnalyticsRequest};
 
 /// Anything the seam refuses, described in words the calling service can log.
@@ -102,11 +104,64 @@ fn render_amounts(value: Value) -> Value {
     }
 }
 
+/// corporate-tax-service's statutory liability, from and to the service's own
+/// JSON envelope. The service owns validation; the seam only computes.
+#[pyfunction]
+fn corporate_tax_json(payload: &str) -> PyResult<String> {
+    let input: CorporateTaxInput =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let result = statutory_corporate_tax(&input);
+    serde_json::to_string(&result).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// tax-calculation-service's bracket engine. Brackets arrive as JSON so the
+/// caller can pass the country's own ladder; omitted, the ZW fixture applies.
+#[pyfunction]
+#[pyo3(signature = (payload, brackets = None))]
+fn tax_calculation_json(payload: &str, brackets: Option<&str>) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Request {
+        company_id: String,
+        tax_type: String,
+        country: String,
+        taxable_amount: f64,
+        deductions: f64,
+        fiscal_year: i64,
+    }
+
+    let req: Request = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let parsed_brackets: Option<Vec<TaxBracket>> = match brackets {
+        Some(raw) => Some(serde_json::from_str(raw).map_err(|e| seam_error(SeamError::from(e)))?),
+        None => None,
+    };
+    let tax_type = match req.tax_type.to_ascii_lowercase().as_str() {
+        "vat" => TaxType::Vat,
+        "withholding" => TaxType::Withholding,
+        "capital_gains" => TaxType::CapitalGains,
+        "paye" => TaxType::Paye,
+        // "income_tax" is what the service calls the progressive ladder.
+        "income_tax" | "corporate" => TaxType::Corporate,
+        _ => TaxType::Corporate,
+    };
+    let result = calculate_tax(
+        &req.company_id,
+        tax_type,
+        &req.country,
+        req.taxable_amount,
+        req.deductions,
+        parsed_brackets.as_deref(),
+        req.fiscal_year,
+    );
+    serde_json::to_string(&result).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
     m.add_function(wrap_pyfunction!(allocate, m)?)?;
     m.add_function(wrap_pyfunction!(analyze_treasury_json, m)?)?;
+    m.add_function(wrap_pyfunction!(corporate_tax_json, m)?)?;
+    m.add_function(wrap_pyfunction!(tax_calculation_json, m)?)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

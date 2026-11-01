@@ -1,6 +1,6 @@
 """
 Vimbai Tax, Audit & Investigation Bracket Service
-One container hosting 20 merged microservices. Each member service's
+One container hosting 18 merged microservices. Each member service's
 FastAPI app is mounted at its original gateway path prefix, so every
 external URL is unchanged.
 
@@ -23,7 +23,6 @@ MEMBERS = [
     ["audit-compliance", "audit-compliance-service"],
     ["audit-evidence", "audit-evidence-service"],
     ["audit-sampling", "audit-sampling-service"],
-    ["corporate-tax", "corporate-tax-service"],
     ["forensic-accounting", "forensic-accounting-service"],
     ["group-tax", "group-tax-service"],
     ["it-audit", "it-audit-service"],
@@ -34,7 +33,6 @@ MEMBERS = [
     ["tax", "tax-service"],
     ["tax-accounting", "tax-accounting-service"],
     ["tax-audit", "tax-audit-service"],
-    ["tax-calculation", "tax-calculation-service"],
     ["tax-compliance", "tax-compliance-service"],
     ["tax-planning", "tax-planning-service"],
     ["tax-provision", "tax-provision-service"],
@@ -45,7 +43,7 @@ MEMBERS = [
 app = FastAPI(
     title="Vimbai Tax, Audit & Investigation Bracket Service",
     version=SERVICE_VERSION,
-    description="Bracket container for 20 Vimbai microservices.",
+    description="Bracket container for 18 Vimbai microservices.",
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
