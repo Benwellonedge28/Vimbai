@@ -16,7 +16,12 @@ directories stay in the repository; only registration was removed):
    ("platform capability" placeholders with zero domain logic, none
    referenced by the frontend).
 
-These tests pin both families to their de-registered state.
+3. Calculator family - treasury-operations-service and treasury-cash-service
+   were stateless calculators (no session, no persistence, no frontend
+   reference) whose figures now come from the Rust library. Their source
+   stays as the reference implementation; only registration was removed.
+
+These tests pin every family to its de-registered state.
 """
 
 import json
@@ -51,7 +56,12 @@ PLATFORM_TEMPLATE_DUPLICATES = {
     "offline-sync-service",
 }
 
-ALL_DEREGISTERED = RISK_DUPLICATES | PLATFORM_TEMPLATE_DUPLICATES
+CALCULATOR_PORTS = {
+    "treasury-operations-service",
+    "treasury-cash-service",
+}
+
+ALL_DEREGISTERED = RISK_DUPLICATES | PLATFORM_TEMPLATE_DUPLICATES | CALCULATOR_PORTS
 
 
 def test_gateway_has_no_duplicate_routes():
@@ -61,6 +71,8 @@ def test_gateway_has_no_duplicate_routes():
         assert dup not in registered, f"{dup} must stay de-registered from the gateway"
     # the canonical services stay routed
     assert "risk-assessment-service" in registered
+    # treasury analytics keeps answering, on the Rust engine
+    assert "treasury-analytics-service" in registered
 
 
 @pytest.mark.parametrize("dup", sorted(ALL_DEREGISTERED))
@@ -86,3 +98,17 @@ def test_duplicate_source_dir_still_exists(dup):
     # standing rule: no repository files are ever deleted
     assert os.path.isdir(os.path.join(_ROOT, dup))
     assert os.path.isfile(os.path.join(_ROOT, dup, "main.py"))
+
+
+def test_brackets_do_not_mount_ported_calculators():
+    for bracket in ("treasury-banking-bracket",):
+        members = json.load(open(os.path.join(_ROOT, "brackets", bracket, "members.json")))
+        names = {m["name"] for m in members} if isinstance(members, list) else set(members)
+        for ported in CALCULATOR_PORTS:
+            assert ported not in names, f"{bracket} must not mount {ported}"
+
+
+@pytest.mark.parametrize("ported", sorted(CALCULATOR_PORTS))
+def test_ported_calculator_keeps_its_reference_implementation(ported):
+    # the Python maths stays as the reference the Rust port is tested against
+    assert os.path.isfile(os.path.join(_ROOT, ported, "main.py"))

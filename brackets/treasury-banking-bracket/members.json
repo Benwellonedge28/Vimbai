@@ -178,11 +178,6 @@
       "dir": "treasury-analytics-service"
     },
     {
-      "path": "/treasury-cash",
-      "name": "treasury-cash-service",
-      "dir": "treasury-cash-service"
-    },
-    {
       "path": "/treasury-compliance",
       "name": "treasury-compliance-service",
       "dir": "treasury-compliance-service"
@@ -191,11 +186,6 @@
       "path": "/treasury-management",
       "name": "treasury-management-service",
       "dir": "treasury-management-service"
-    },
-    {
-      "path": "/treasury-operations",
-      "name": "treasury-operations-service",
-      "dir": "treasury-operations-service"
     },
     {
       "path": "/treasury-policy",

@@ -2344,14 +2344,6 @@
       "strip_prefix": false
     },
     {
-      "name": "treasury-cash-service",
-      "path": "/treasury-cash",
-      "url": "http://localhost:9003",
-      "port": 8345,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "treasury-compliance-service",
       "path": "/treasury-compliance",
       "url": "http://localhost:9003",
@@ -2364,14 +2356,6 @@
       "path": "/treasury-management",
       "url": "http://localhost:9003",
       "port": 8136,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "treasury-operations-service",
-      "path": "/treasury-operations",
-      "url": "http://localhost:9003",
-      "port": 8257,
       "auth_required": true,
       "strip_prefix": false
     },

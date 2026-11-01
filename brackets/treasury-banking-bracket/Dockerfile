@@ -51,10 +51,8 @@ COPY provision-doubtful-debts-service ./provision-doubtful-debts-service
 COPY sovereign-treasury-service ./sovereign-treasury-service
 COPY times-interest-earned-service ./times-interest-earned-service
 COPY treasury-analytics-service ./treasury-analytics-service
-COPY treasury-cash-service ./treasury-cash-service
 COPY treasury-compliance-service ./treasury-compliance-service
 COPY treasury-management-service ./treasury-management-service
-COPY treasury-operations-service ./treasury-operations-service
 COPY treasury-policy-service ./treasury-policy-service
 COPY treasury-risk-service ./treasury-risk-service
 
