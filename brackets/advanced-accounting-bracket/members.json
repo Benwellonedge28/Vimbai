@@ -173,11 +173,6 @@
       "dir": "ordinary-shares-service"
     },
     {
-      "path": "/over-under-absorption",
-      "name": "over-under-absorption-service",
-      "dir": "over-under-absorption-service"
-    },
-    {
       "path": "/overhead-absorption-rate",
       "name": "overhead-absorption-rate-service",
       "dir": "overhead-absorption-rate-service"

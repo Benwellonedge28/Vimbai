@@ -50,7 +50,6 @@ COPY lease-termination-service ./lease-termination-service
 COPY management-accounts-service ./management-accounts-service
 COPY net-realizable-value-service ./net-realizable-value-service
 COPY ordinary-shares-service ./ordinary-shares-service
-COPY over-under-absorption-service ./over-under-absorption-service
 COPY overhead-absorption-rate-service ./overhead-absorption-rate-service
 COPY partnership-accounting-service ./partnership-accounting-service
 COPY partnership-agreement-service ./partnership-agreement-service

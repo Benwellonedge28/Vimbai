@@ -32,6 +32,10 @@ directories stay in the repository; only registration was removed):
    crate). Same treatment as the cost calculators: out of the gateway and
    the cluster, retained in CI as the parity reference.
 
+6. Absorption and margin calculators - over/under absorption and margin
+   of safety waited until the cost-accounting crate could reproduce them;
+   once it did they joined the same de-registered, CI-retained treatment.
+
 These tests pin every family to its de-registered state.
 """
 
@@ -112,6 +116,11 @@ VARIANCE_BUDGET_PORTS = {
     "budget-service",
 }
 
+ABSORPTION_MARGIN_PORTS = {
+    "over-under-absorption-service",
+    "margin-safety-service",
+}
+
 ALL_DEREGISTERED = (
     RISK_DUPLICATES | PLATFORM_TEMPLATE_DUPLICATES | CALCULATOR_PORTS | COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS
 )
@@ -171,7 +180,7 @@ def test_ported_calculator_keeps_its_reference_implementation(ported):
     assert os.path.isfile(os.path.join(_ROOT, ported, "main.py"))
 
 
-@pytest.mark.parametrize("ported", sorted(COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS))
+@pytest.mark.parametrize("ported", sorted(COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS | ABSORPTION_MARGIN_PORTS))
 def test_cost_calculator_keeps_its_ci_coverage(ported):
     # the Python reference maths stays tested even though it is not deployed
     ci = open(os.path.join(_ROOT, ".github", "workflows", "test-core.yml")).read()
@@ -182,5 +191,5 @@ def test_cost_calculators_absent_from_brackets():
     for bracket in ("costing-budgeting-bracket",):
         members = json.load(open(os.path.join(_ROOT, "brackets", bracket, "members.json")))
         names = {m["name"] for m in members} if isinstance(members, list) else set(members)
-        overlap = names & (COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS)
+        overlap = names & (COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS | ABSORPTION_MARGIN_PORTS)
         assert not overlap, f"{bracket} still mounts {sorted(overlap)}"

@@ -143,11 +143,6 @@
       "dir": "liquidity-management-service"
     },
     {
-      "path": "/margin-safety",
-      "name": "margin-safety-service",
-      "dir": "margin-safety-service"
-    },
-    {
       "path": "/merger-valuation",
       "name": "merger-valuation-service",
       "dir": "merger-valuation-service"

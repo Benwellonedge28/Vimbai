@@ -1269,14 +1269,6 @@
       "strip_prefix": false
     },
     {
-      "name": "margin-safety-service",
-      "path": "/margin-safety",
-      "url": "http://localhost:9012",
-      "port": 8076,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "market-risk-service",
       "path": "/market-risk",
       "url": "http://localhost:9005",
@@ -1398,14 +1390,6 @@
       "path": "/org-authorization",
       "url": "http://localhost:9010",
       "port": 8008,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "over-under-absorption-service",
-      "path": "/over-under-absorption",
-      "url": "http://localhost:9011",
-      "port": 8091,
       "auth_required": true,
       "strip_prefix": false
     },

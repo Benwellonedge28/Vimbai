@@ -44,7 +44,6 @@ COPY household-finance-service ./household-finance-service
 COPY insurance-claims-service ./insurance-claims-service
 COPY liquidity-forecast-service ./liquidity-forecast-service
 COPY liquidity-management-service ./liquidity-management-service
-COPY margin-safety-service ./margin-safety-service
 COPY merger-valuation-service ./merger-valuation-service
 COPY mva-service ./mva-service
 COPY net-present-value-service ./net-present-value-service
