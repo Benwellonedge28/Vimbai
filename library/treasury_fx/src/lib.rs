@@ -11,6 +11,7 @@ pub mod fx_translation;
 pub mod hedging_analytics;
 pub mod liquidity;
 pub mod multi_currency;
+pub mod operations;
 pub mod options;
 
 pub use cash::{
@@ -57,6 +58,10 @@ pub use multi_currency::{
     convert_fixed, create_hedge, fixed_pair_rate, process_transaction, CurrencyConversionRequest,
     CurrencyConversionResponse, HedgeRequest, HedgeResponse, TransactionRequest,
     TransactionResponse,
+};
+pub use operations::{
+    analyze_treasury_operations, BankBalanceSummary, PolicyCompliance, TransactionsSummary,
+    TreasuryOperationsRequest, TreasuryOperationsResult, TreasuryTransaction,
 };
 pub use options::{
     black_scholes_call, black_scholes_put, erf, norm_cdf, norm_pdf, price_options, GreeksSummary,

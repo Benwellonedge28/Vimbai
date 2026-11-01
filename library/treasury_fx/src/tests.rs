@@ -1770,3 +1770,185 @@ fn calendar_helpers_handle_month_and_year_boundaries() {
     // an unparseable date is passed straight through
     assert_eq!(add_days("not-a-date", 5), "not-a-date");
 }
+
+// ------------------------------------------------ treasury operations
+
+use crate::operations::*;
+use std::collections::BTreeMap;
+
+fn txn(id: &str, kind: &str, amount: &str, status: &str) -> TreasuryTransaction {
+    TreasuryTransaction {
+        transaction_id: id.into(),
+        transaction_type: kind.into(),
+        amount: amount_of(amount),
+        currency: "USD".into(),
+        counterparty: "CP".into(),
+        status: status.into(),
+    }
+}
+
+fn amount_of(text: &str) -> Money {
+    Money::parse(text).expect("valid amount")
+}
+
+fn operations_request() -> TreasuryOperationsRequest {
+    let mut cash = BTreeMap::new();
+    cash.insert("ACC-A".to_string(), amount_of("750000.75"));
+    cash.insert("ACC-B".to_string(), amount_of("400000.50"));
+    let mut limits = BTreeMap::new();
+    limits.insert("max_single".to_string(), amount_of("500000"));
+    limits.insert("min_cash".to_string(), amount_of("1000000"));
+    TreasuryOperationsRequest {
+        company_id: "c1".into(),
+        transactions: vec![
+            txn("T1", "inflow", "500000.55", "completed"),
+            txn("T2", "outflow", "250000.25", "pending"),
+            txn("T3", "outflow", "12000.10", "failed"),
+            txn("T4", "inflow", "3000.00", "failed"),
+            txn("T5", "outflow", "1000.00", "completed"),
+        ],
+        bank_balances: cash,
+        treasury_policy_limits: limits,
+    }
+}
+
+#[test]
+fn operations_match_the_python_figures() {
+    let r = analyze_treasury_operations(&operations_request());
+    assert_eq!(r.total_cash.to_fixed(2), "1150001.25");
+    let s = &r.transactions_summary;
+    assert_eq!(s.total_transactions, 5);
+    assert_eq!(s.total_inflows.to_fixed(2), "503000.55");
+    assert_eq!(s.total_outflows.to_fixed(2), "263000.35");
+    assert_eq!(s.net_flow.to_fixed(2), "240000.20");
+    assert_eq!(s.pending, 1);
+    assert_eq!(s.failed, 2);
+    assert_eq!(r.policy_compliance.limits_defined, 2);
+    assert_eq!(r.policy_compliance.compliance_rate.to_fixed(2), "0.95");
+    assert_eq!(r.bank_balance_summary.bank_count, 2);
+    assert_eq!(
+        r.bank_balance_summary.largest_balance.to_fixed(2),
+        "750000.75"
+    );
+    assert_eq!(r.alerts, vec!["High failure rate: 2 failed transactions"]);
+    assert_eq!(
+        r.recommendations,
+        vec!["Review failed transactions and resolve issues"]
+    );
+}
+
+#[test]
+fn failed_transactions_still_move_the_net_flow() {
+    // status never filters a total: both failed transactions are counted
+    let mut req = operations_request();
+    req.transactions = vec![
+        txn("F1", "inflow", "100", "failed"),
+        txn("F2", "outflow", "40", "failed"),
+    ];
+    let r = analyze_treasury_operations(&req);
+    assert_eq!(r.transactions_summary.net_flow.to_fixed(2), "60.00");
+    assert_eq!(r.transactions_summary.failed, 2);
+}
+
+#[test]
+fn failure_alert_needs_more_than_five_percent() {
+    // 1 failure in 20 is not above 5%, so it is silent
+    let mut req = operations_request();
+    req.transactions = (0..20)
+        .map(|i| {
+            txn(
+                &format!("T{i}"),
+                "inflow",
+                "100",
+                if i == 0 { "failed" } else { "completed" },
+            )
+        })
+        .collect();
+    assert!(analyze_treasury_operations(&req).alerts.is_empty());
+
+    // one failure in 19 is above 5% and trips it
+    req.transactions.truncate(19);
+    let alerts = analyze_treasury_operations(&req).alerts;
+    assert_eq!(alerts, vec!["High failure rate: 1 failed transactions"]);
+}
+
+#[test]
+fn pending_alert_needs_more_than_twenty() {
+    let mut req = operations_request();
+    req.transactions = (0..20)
+        .map(|i| txn(&format!("P{i}"), "inflow", "1", "pending"))
+        .collect();
+    assert!(analyze_treasury_operations(&req)
+        .alerts
+        .iter()
+        .all(|a| !a.starts_with("Many pending")));
+    req.transactions.push(txn("P20", "inflow", "1", "pending"));
+    let alerts = analyze_treasury_operations(&req).alerts;
+    assert!(alerts.iter().any(|a| a == "Many pending transactions: 21"));
+}
+
+#[test]
+fn low_cash_recommendation_is_strict() {
+    let mut req = operations_request();
+    req.bank_balances = BTreeMap::new();
+    req.bank_balances
+        .insert("only".into(), amount_of("1000000"));
+    // exactly the threshold, so no recommendation
+    assert!(analyze_treasury_operations(&req)
+        .recommendations
+        .iter()
+        .all(|r| !r.contains("low")));
+
+    req.bank_balances
+        .insert("only".into(), amount_of("999999.99"));
+    assert!(analyze_treasury_operations(&req)
+        .recommendations
+        .iter()
+        .any(|r| r.contains("Cash position is low")));
+}
+
+#[test]
+fn unknown_transaction_types_are_ignored() {
+    let mut req = operations_request();
+    req.transactions = vec![
+        txn("U1", "transfer", "500", "completed"),
+        txn("U2", "Inflow", "700", "completed"),
+    ];
+    let r = analyze_treasury_operations(&req);
+    // neither "transfer" nor a capitalised "Inflow" counts
+    assert_eq!(r.transactions_summary.total_inflows.to_fixed(2), "0.00");
+    assert_eq!(r.transactions_summary.total_outflows.to_fixed(2), "0.00");
+    assert_eq!(r.transactions_summary.net_flow.to_fixed(2), "0.00");
+}
+
+#[test]
+fn operations_survive_a_hyperinflated_book() {
+    let mut req = operations_request();
+    req.bank_balances = BTreeMap::new();
+    req.bank_balances
+        .insert("ZWG".into(), amount_of("123456789012345678901234567890.55"));
+    req.bank_balances.insert("USD".into(), amount_of("0.45"));
+    req.transactions = vec![
+        txn("H1", "inflow", "1e30", "completed"),
+        txn("H2", "outflow", "1", "completed"),
+    ];
+    let r = analyze_treasury_operations(&req);
+    // the cents of a 30-digit balance survive the summation: .55 plus .45
+    // lands on a whole unit rather than on a binary approximation of it
+    assert_eq!(
+        r.total_cash.to_fixed(2),
+        "123456789012345678901234567891.00"
+    );
+    assert_eq!(
+        r.bank_balance_summary.largest_balance.to_fixed(2),
+        "123456789012345678901234567890.55"
+    );
+    assert_eq!(
+        r.transactions_summary.total_inflows.to_fixed(2),
+        "1000000000000000000000000000000.00"
+    );
+    assert_eq!(
+        r.transactions_summary.net_flow.to_fixed(2),
+        "999999999999999999999999999999.00"
+    );
+}
