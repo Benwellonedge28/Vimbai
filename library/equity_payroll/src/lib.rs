@@ -17,6 +17,7 @@ pub mod pension;
 pub mod retained_profits;
 pub mod share_capital;
 pub mod share_options;
+pub mod share_registry;
 
 pub use eps::{calculate_eps, AntiDilutiveItem, EpsOutput, OptionInput};
 pub use partnership::{allocate_profit, AllocationOutput, PartnerAccount, PartnerInput};
@@ -30,4 +31,9 @@ pub use payroll::{
 };
 pub use payroll_accounting::{
     process_payroll, EmployeeSalary, JournalLine, PayrollAccountingOutput,
+};
+pub use share_registry::{
+    buyback_shares, capital_summary, issue_shares, issue_with_journal, new_share_class,
+    CapitalSummary, ClassSummary, Journal, ShareBuybackResult, ShareClassState,
+    ShareIssuanceResult,
 };
