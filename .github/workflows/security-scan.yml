@@ -16,12 +16,26 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Resolve scan base
+        id: base
+        run: |
+          # On a push the event carries the previous commit. On a schedule or a
+          # manual dispatch there is no event base, and asking TruffleHog to
+          # compare a branch with itself aborts the scan, so fall back to the
+          # previous commit and, failing that, scan the filesystem.
+          base="${{ github.event.before }}"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ] || [ "$base" = "${{ github.sha }}" ]; then
+            base="$(git rev-parse HEAD~1 2>/dev/null || echo '')"
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "scanning from '${base:-the filesystem}' to HEAD"
       - name: TruffleHog Secret Scan
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
+          base: ${{ steps.base.outputs.base }}
           head: HEAD
+          extra_args: --only-verified
 
   dependency-scan:
     runs-on: ubuntu-latest
