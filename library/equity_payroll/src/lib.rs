@@ -9,10 +9,12 @@
 
 pub mod eps;
 pub mod partnership;
+pub mod partnership_changes;
 pub mod partnership_closure;
 pub mod payroll;
 pub mod payroll_accounting;
 pub mod pension;
+pub mod retained_profits;
 pub mod share_capital;
 pub mod share_options;
 
