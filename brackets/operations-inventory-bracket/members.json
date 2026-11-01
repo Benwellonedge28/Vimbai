@@ -28,11 +28,6 @@
       "dir": "inventory-valuation-service"
     },
     {
-      "path": "/order-acceptance",
-      "name": "order-acceptance-service",
-      "dir": "order-acceptance-service"
-    },
-    {
       "path": "/project-accounting",
       "name": "project-accounting-service",
       "dir": "project-accounting-service"

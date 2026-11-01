@@ -25,8 +25,6 @@ COPY consolidation-service ./consolidation-service
 COPY construction-contracts-service ./construction-contracts-service
 COPY continue-shutdown-decision-service ./continue-shutdown-decision-service
 COPY control-account-reconciliation-service ./control-account-reconciliation-service
-COPY cost-accounting-service ./cost-accounting-service
-COPY cost-centre-service ./cost-centre-service
 COPY departmental-accounting-service ./departmental-accounting-service
 COPY depreciation-service ./depreciation-service
 COPY director-emoluments-service ./director-emoluments-service
@@ -34,7 +32,6 @@ COPY disposal-account-service ./disposal-account-service
 COPY disposal-group-service ./disposal-group-service
 COPY double-entry-principles-service ./double-entry-principles-service
 COPY equity-changes-service ./equity-changes-service
-COPY equivalent-units-service ./equivalent-units-service
 COPY financial-identity-service ./financial-identity-service
 COPY financial-integrity-service ./financial-integrity-service
 COPY fund-accounting-service ./fund-accounting-service
@@ -55,7 +52,6 @@ COPY net-realizable-value-service ./net-realizable-value-service
 COPY ordinary-shares-service ./ordinary-shares-service
 COPY over-under-absorption-service ./over-under-absorption-service
 COPY overhead-absorption-rate-service ./overhead-absorption-rate-service
-COPY overhead-apportionment-service ./overhead-apportionment-service
 COPY partnership-accounting-service ./partnership-accounting-service
 COPY partnership-agreement-service ./partnership-agreement-service
 COPY partnership-changes-service ./partnership-changes-service
@@ -79,7 +75,6 @@ COPY share-redemption-service ./share-redemption-service
 COPY statutory-filing-service ./statutory-filing-service
 COPY substantive-testing-service ./substantive-testing-service
 COPY suspense-error-service ./suspense-error-service
-COPY throughput-accounting-service ./throughput-accounting-service
 COPY trading-account-service ./trading-account-service
 COPY transfer-pricing-service ./transfer-pricing-service
 

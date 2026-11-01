@@ -1,6 +1,6 @@
 """
 Vimbai Advanced Accounting Bracket Service
-One container hosting 66 merged microservices. Each member service's
+One container hosting 61 merged microservices. Each member service's
 FastAPI app is mounted at its original gateway path prefix, so every
 external URL is unchanged.
 
@@ -29,8 +29,6 @@ MEMBERS = [
     ["construction-contracts", "construction-contracts-service"],
     ["continue-shutdown-decision", "continue-shutdown-decision-service"],
     ["control-account-reconciliation", "control-account-reconciliation-service"],
-    ["cost-accounting", "cost-accounting-service"],
-    ["cost-centre", "cost-centre-service"],
     ["departmental-accounting", "departmental-accounting-service"],
     ["depreciation", "depreciation-service"],
     ["director-emoluments", "director-emoluments-service"],
@@ -38,7 +36,6 @@ MEMBERS = [
     ["disposal-group", "disposal-group-service"],
     ["double-entry-principles", "double-entry-principles-service"],
     ["equity-changes", "equity-changes-service"],
-    ["equivalent-units", "equivalent-units-service"],
     ["financial-identity", "financial-identity-service"],
     ["financial-integrity", "financial-integrity-service"],
     ["fund-accounting", "fund-accounting-service"],
@@ -59,7 +56,6 @@ MEMBERS = [
     ["ordinary-shares", "ordinary-shares-service"],
     ["over-under-absorption", "over-under-absorption-service"],
     ["overhead-absorption-rate", "overhead-absorption-rate-service"],
-    ["overhead-apportionment", "overhead-apportionment-service"],
     ["partnership-accounting", "partnership-accounting-service"],
     ["partnership-agreement", "partnership-agreement-service"],
     ["partnership-changes", "partnership-changes-service"],
@@ -83,7 +79,6 @@ MEMBERS = [
     ["statutory-filing", "statutory-filing-service"],
     ["substantive-testing", "substantive-testing-service"],
     ["suspense-error", "suspense-error-service"],
-    ["throughput-accounting", "throughput-accounting-service"],
     ["trading-account", "trading-account-service"],
     ["transfer-pricing", "transfer-pricing-service"],
 ]
@@ -91,7 +86,7 @@ MEMBERS = [
 app = FastAPI(
     title="Vimbai Advanced Accounting Bracket Service",
     version=SERVICE_VERSION,
-    description="Bracket container for 66 Vimbai microservices.",
+    description="Bracket container for 61 Vimbai microservices.",
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))

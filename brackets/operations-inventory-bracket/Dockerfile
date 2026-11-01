@@ -21,7 +21,6 @@ COPY data-warehouse-service ./data-warehouse-service
 COPY fixed-assets-service ./fixed-assets-service
 COPY fixed-assets-register-service ./fixed-assets-register-service
 COPY inventory-valuation-service ./inventory-valuation-service
-COPY order-acceptance-service ./order-acceptance-service
 COPY project-accounting-service ./project-accounting-service
 COPY project-appraisal-service ./project-appraisal-service
 COPY subscription-plans-service ./subscription-plans-service

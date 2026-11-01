@@ -42,10 +42,8 @@ COPY fund-management-service ./fund-management-service
 COPY futures-hedging-service ./futures-hedging-service
 COPY household-finance-service ./household-finance-service
 COPY insurance-claims-service ./insurance-claims-service
-COPY limiting-factor-service ./limiting-factor-service
 COPY liquidity-forecast-service ./liquidity-forecast-service
 COPY liquidity-management-service ./liquidity-management-service
-COPY make-or-buy-decision-service ./make-or-buy-decision-service
 COPY margin-safety-service ./margin-safety-service
 COPY merger-valuation-service ./merger-valuation-service
 COPY mva-service ./mva-service

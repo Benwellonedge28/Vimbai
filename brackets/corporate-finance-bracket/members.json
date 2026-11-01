@@ -133,11 +133,6 @@
       "dir": "insurance-claims-service"
     },
     {
-      "path": "/limiting-factor",
-      "name": "limiting-factor-service",
-      "dir": "limiting-factor-service"
-    },
-    {
       "path": "/liquidity-forecast",
       "name": "liquidity-forecast-service",
       "dir": "liquidity-forecast-service"
@@ -146,11 +141,6 @@
       "path": "/liquidity-management",
       "name": "liquidity-management-service",
       "dir": "liquidity-management-service"
-    },
-    {
-      "path": "/make-or-buy-decision",
-      "name": "make-or-buy-decision-service",
-      "dir": "make-or-buy-decision-service"
     },
     {
       "path": "/margin-safety",

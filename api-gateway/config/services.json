@@ -72,22 +72,6 @@
       "strip_prefix": false
     },
     {
-      "name": "activity-based-costing-service",
-      "path": "/activity-based-costing",
-      "url": "http://localhost:9001",
-      "port": 8179,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "actual-cost-service",
-      "path": "/actual-cost",
-      "url": "http://localhost:9001",
-      "port": 8013,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "admin-service",
       "path": "/admin",
       "url": "http://localhost:9008",
@@ -303,14 +287,6 @@
       "strip_prefix": false
     },
     {
-      "name": "budgeted-cost-service",
-      "path": "/budgeted-cost",
-      "url": "http://localhost:9001",
-      "port": 8025,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "business-combination-service",
       "path": "/business-combination",
       "url": "http://localhost:9010",
@@ -515,22 +491,6 @@
       "path": "/corporate-tax",
       "url": "http://localhost:9004",
       "port": 8034,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "cost-accounting-service",
-      "path": "/cost-accounting",
-      "url": "http://localhost:9011",
-      "port": 8035,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "cost-centre-service",
-      "path": "/cost-centre",
-      "url": "http://localhost:9011",
-      "port": 8036,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -782,14 +742,6 @@
       "strip_prefix": false
     },
     {
-      "name": "equivalent-units-service",
-      "path": "/equivalent-units",
-      "url": "http://localhost:9011",
-      "port": 8186,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "esg-reporting-service",
       "path": "/esg-reporting",
       "url": "http://localhost:9002",
@@ -930,14 +882,6 @@
       "path": "/fixed-assets",
       "url": "http://localhost:9009",
       "port": 8329,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "fixed-cost-service",
-      "path": "/fixed-cost",
-      "url": "http://localhost:9001",
-      "port": 8057,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1333,22 +1277,6 @@
       "strip_prefix": false
     },
     {
-      "name": "lifecycle-costing-service",
-      "path": "/lifecycle-costing",
-      "url": "http://localhost:9001",
-      "port": 8182,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "limiting-factor-service",
-      "path": "/limiting-factor",
-      "url": "http://localhost:9012",
-      "port": 8075,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "liquidity-forecast-service",
       "path": "/liquidity-forecast",
       "url": "http://localhost:9012",
@@ -1369,14 +1297,6 @@
       "path": "/liquidity-risk",
       "url": "http://localhost:9005",
       "port": 8164,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "make-or-buy-decision-service",
-      "path": "/make-or-buy-decision",
-      "url": "http://localhost:9012",
-      "port": 8000,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1409,14 +1329,6 @@
       "path": "/margin-safety",
       "url": "http://localhost:9012",
       "port": 8076,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "marginal-costing-service",
-      "path": "/marginal-costing",
-      "url": "http://localhost:9001",
-      "port": 8077,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1562,14 +1474,6 @@
       "strip_prefix": false
     },
     {
-      "name": "order-acceptance-service",
-      "path": "/order-acceptance",
-      "url": "http://localhost:9009",
-      "port": 8089,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "ordinary-shares-service",
       "path": "/ordinary-shares",
       "url": "http://localhost:9011",
@@ -1598,14 +1502,6 @@
       "path": "/overhead-absorption-rate",
       "url": "http://localhost:9011",
       "port": 8092,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "overhead-apportionment-service",
-      "path": "/overhead-apportionment",
-      "url": "http://localhost:9011",
-      "port": 8093,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1773,14 +1669,6 @@
       "path": "/present-value",
       "url": "http://localhost:9012",
       "port": 8103,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "prime-cost-service",
-      "path": "/prime-cost",
-      "url": "http://localhost:9001",
-      "port": 8104,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -2136,14 +2024,6 @@
       "strip_prefix": false
     },
     {
-      "name": "standard-cost-service",
-      "path": "/standard-cost",
-      "url": "http://localhost:9001",
-      "port": 8128,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "statutory-filing-service",
       "path": "/statutory-filing",
       "url": "http://localhost:9011",
@@ -2196,14 +2076,6 @@
       "path": "/synergy-analysis",
       "url": "http://localhost:9012",
       "port": 8243,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "target-costing-service",
-      "path": "/target-costing",
-      "url": "http://localhost:9001",
-      "port": 8183,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -2280,14 +2152,6 @@
       "strip_prefix": false
     },
     {
-      "name": "throughput-accounting-service",
-      "path": "/throughput-accounting",
-      "url": "http://localhost:9011",
-      "port": 8184,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "time-value-of-money-service",
       "path": "/time-value-of-money",
       "url": "http://localhost:9012",
@@ -2300,14 +2164,6 @@
       "path": "/times-interest-earned",
       "url": "http://localhost:9003",
       "port": 8218,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "total-production-cost-service",
-      "path": "/total-production-cost",
-      "url": "http://localhost:9001",
-      "port": 8133,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -2388,14 +2244,6 @@
       "path": "/trial-balance",
       "url": "http://localhost:9002",
       "port": 8137,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "variable-cost-service",
-      "path": "/variable-cost",
-      "url": "http://localhost:9001",
-      "port": 8138,
       "auth_required": true,
       "strip_prefix": false
     },

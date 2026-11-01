@@ -48,16 +48,6 @@
       "dir": "control-account-reconciliation-service"
     },
     {
-      "path": "/cost-accounting",
-      "name": "cost-accounting-service",
-      "dir": "cost-accounting-service"
-    },
-    {
-      "path": "/cost-centre",
-      "name": "cost-centre-service",
-      "dir": "cost-centre-service"
-    },
-    {
       "path": "/departmental-accounting",
       "name": "departmental-accounting-service",
       "dir": "departmental-accounting-service"
@@ -91,11 +81,6 @@
       "path": "/equity-changes",
       "name": "equity-changes-service",
       "dir": "equity-changes-service"
-    },
-    {
-      "path": "/equivalent-units",
-      "name": "equivalent-units-service",
-      "dir": "equivalent-units-service"
     },
     {
       "path": "/financial-identity",
@@ -196,11 +181,6 @@
       "path": "/overhead-absorption-rate",
       "name": "overhead-absorption-rate-service",
       "dir": "overhead-absorption-rate-service"
-    },
-    {
-      "path": "/overhead-apportionment",
-      "name": "overhead-apportionment-service",
-      "dir": "overhead-apportionment-service"
     },
     {
       "path": "/partnership-accounting",
@@ -316,11 +296,6 @@
       "path": "/suspense-error",
       "name": "suspense-error-service",
       "dir": "suspense-error-service"
-    },
-    {
-      "path": "/throughput-accounting",
-      "name": "throughput-accounting-service",
-      "dir": "throughput-accounting-service"
     },
     {
       "path": "/trading-account",

@@ -1,6 +1,6 @@
 """
 Vimbai Costing & Budgeting Bracket Service
-One container hosting 37 merged microservices. Each member service's
+One container hosting 26 merged microservices. Each member service's
 FastAPI app is mounted at its original gateway path prefix, so every
 external URL is unchanged.
 
@@ -23,37 +23,26 @@ MEMBERS = [
     ["absorption-costing", "absorption-costing-service"],
     ["absorption-costing-statement", "absorption-costing-statement-service"],
     ["activity-based-budget", "activity-based-budget-service"],
-    ["activity-based-costing", "activity-based-costing-service"],
-    ["actual-cost", "actual-cost-service"],
     ["appropriation-control", "appropriation-control-service"],
     ["balanced-scorecard", "balanced-scorecard-service"],
     ["budget", "budget-service"],
-    ["budgeted-cost", "budgeted-cost-service"],
     ["capital-budgeting", "capital-budgeting-service"],
     ["capital-expenditure-budget", "capital-expenditure-budget-service"],
     ["cash-budget", "cash-budget-service"],
-    ["fixed-cost", "fixed-cost-service"],
     ["flexible-budget", "flexible-budget-service"],
     ["job-costing", "job-costing-service"],
     ["labour-cost-variance", "labour-cost-variance-service"],
     ["labour-efficiency-variance", "labour-efficiency-variance-service"],
     ["labour-rate-variance", "labour-rate-variance-service"],
-    ["lifecycle-costing", "lifecycle-costing-service"],
-    ["marginal-costing", "marginal-costing-service"],
     ["master-budget", "master-budget-service"],
     ["material-cost-variance", "material-cost-variance-service"],
     ["material-price-variance", "material-price-variance-service"],
     ["material-usage-variance", "material-usage-variance-service"],
-    ["prime-cost", "prime-cost-service"],
     ["process-costing", "process-costing-service"],
     ["product-costing", "product-costing-service"],
     ["sales-price-variance", "sales-price-variance-service"],
     ["sales-volume-variance", "sales-volume-variance-service"],
     ["scenario-budget", "scenario-budget-service"],
-    ["standard-cost", "standard-cost-service"],
-    ["target-costing", "target-costing-service"],
-    ["total-production-cost", "total-production-cost-service"],
-    ["variable-cost", "variable-cost-service"],
     ["variance", "variance-service"],
     ["zero-based-budget", "zero-based-budget-service"],
     ["zero-based-budgeting", "zero-based-budgeting-service"],
@@ -62,7 +51,7 @@ MEMBERS = [
 app = FastAPI(
     title="Vimbai Costing & Budgeting Bracket Service",
     version=SERVICE_VERSION,
-    description="Bracket container for 37 Vimbai microservices.",
+    description="Bracket container for 26 Vimbai microservices.",
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
