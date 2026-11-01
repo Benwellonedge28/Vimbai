@@ -1,4 +1,5 @@
-FROM python:3.10-slim-buster
+# bookworm carries a glibc new enough for the manylinux_2_28 wheel
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 

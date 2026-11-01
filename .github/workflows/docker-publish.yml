@@ -99,6 +99,9 @@ jobs:
           context: ./${{ matrix.service }}
           platforms: linux/amd64
           push: true
+          # only the analytics service answers from the Rust library so far
+          build-args: |
+            VIMBAI_NATIVE_WHEEL_URL=${{ matrix.service == 'treasury-analytics-service' && vars.VIMBAI_NATIVE_WHEEL_URL || '' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
