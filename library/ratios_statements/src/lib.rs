@@ -3,12 +3,14 @@
 //!
 //! Ported: ratio-analysis, financial-statements, income-statement,
 //! balance-sheet, comparative-financial-statements, trading account,
-//! profit and loss. Queued: management accounts, working capital family,
-//! consolidation.
+//! profit and loss, management accounts and reporting. Queued: working
+//! capital family, consolidation.
 
 pub mod balance_sheet;
 pub mod comparative;
 pub mod income_statement;
+pub mod management_accounts;
+pub mod management_reporting;
 pub mod profit_loss;
 pub mod ratios;
 pub mod statements;
@@ -23,6 +25,10 @@ pub use comparative::{
     HorizontalItem, PeriodData, TrendItem, TrendPoint, VarianceLine, VarianceReport,
 };
 pub use income_statement::{prepare_income_statement, IncomeStatementInput, IncomeStatementOutput};
+pub use management_accounts::{prepare_management_accounts, ManagementAccounts};
+pub use management_reporting::{
+    generate_management_report, ManagementReport, PerformanceSummary, ReportKpis,
+};
 pub use profit_loss::{compare_pnl, prepare_pnl, PnLComparison, PnLInput, PnLStatement};
 pub use ratios::{calculate_ratios, BalanceSheet, IncomeStatement, RatioInput, RatioOutput};
 pub use statements::{prepare_statements, StatementsInput, StatementsOutput};
