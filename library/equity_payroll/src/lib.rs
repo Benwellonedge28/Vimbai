@@ -8,8 +8,11 @@
 //! right-issues, share-capital family, retained-profits.
 
 pub mod eps;
+pub mod partnership;
 pub mod payroll;
 pub mod payroll_accounting;
+pub mod pension;
+pub mod share_options;
 
 pub use eps::{calculate_eps, AntiDilutiveItem, EpsOutput, OptionInput};
 pub use payroll::{
