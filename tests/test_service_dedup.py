@@ -143,6 +143,16 @@ STATEMENT_PAYROLL_PORTS = {
 
 # The tax pair retires only after the seam reproduces their figures; those
 # parity cases live in tests/test_native_seam.py.
+# Investor return metrics, ported into ratios_statements::investor_metrics and
+# proven field-for-field by tests/test_native_seam.py.
+INVESTOR_METRIC_PORTS = {
+    "du-pont-service",
+    "asset-turnover-service",
+    "croic-service",
+    "eva-service",
+    "eps-service",
+}
+
 # fixed-assets-service retires on the same evidence, in the assets family.
 FIXED_ASSETS_PORTS = {
     "fixed-assets-service",

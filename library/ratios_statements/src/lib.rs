@@ -12,6 +12,7 @@ pub mod basis_apportionment;
 pub mod comparative;
 pub mod consolidation;
 pub mod income_statement;
+pub mod investor_metrics;
 pub mod ledger_controls;
 pub mod management_accounts;
 pub mod management_reporting;
@@ -40,6 +41,12 @@ pub use consolidation::{
     SubFinancials, Subsidiary,
 };
 pub use income_statement::{prepare_income_statement, IncomeStatementInput, IncomeStatementOutput};
+pub use investor_metrics::{
+    asset_turnover, croic, du_pont_analysis, eps, eva, AntiDilutiveItem, CroicMetrics, CroicPeriod,
+    CroicRequest, CroicResponse, DuPontMetrics, DuPontRequest, DuPontResponse, EpsRequest,
+    EpsResponse, EvaMetrics, EvaRequest, EvaResponse, ShareOption, ShareOptionInput,
+    TurnoverMetrics, TurnoverRequest, TurnoverResponse,
+};
 pub use ledger_controls::{
     analyze_bank_fees, analyze_suspense, analyze_times_interest_earned, BankCharge,
     BankFeeAnalysis, BankFeeInput, CovenantCompliance, CoverageMetrics, SuspenseAnalysis,

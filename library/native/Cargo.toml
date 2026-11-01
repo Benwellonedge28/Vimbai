@@ -18,6 +18,7 @@ serde_json = "1"
 bigdecimal = { version = "0.4", features = ["serde"] }
 vimbai_common = { path = "../common" }
 vimbai_assets = { path = "../assets" }
+vimbai_ratios_statements = { path = "../ratios_statements" }
 vimbai_tax = { path = "../tax" }
 vimbai_treasury_fx = { path = "../treasury_fx" }
 

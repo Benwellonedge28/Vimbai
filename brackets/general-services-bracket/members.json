@@ -13,11 +13,6 @@
       "dir": "business-documents-service"
     },
     {
-      "path": "/du-pont",
-      "name": "du-pont-service",
-      "dir": "du-pont-service"
-    },
-    {
       "path": "/family-community-group",
       "name": "family-community-group-service",
       "dir": "family-community-group-service"

@@ -475,3 +475,145 @@ def test_amortization_matches_the_service():
             "remaining_life_years",
         ):
             assert Decimal(str(served_row[key])) == Decimal(str(rust_row[key])), key
+
+
+# --- investor return metrics ------------------------------------------------
+# Five small calculators that decide a rating or a recommendation as well as a
+# number, so the commentary is compared too, not just the ratios.
+
+DUPONT_REQUEST = {
+    "company_id": "c1",
+    "period": "FY2026",
+    "net_income": 180000.0,
+    "revenue": 1200000.0,
+    "total_assets": 900000.0,
+    "total_equity": 400000.0,
+    "ebt": 240000.0,
+    "ebit": 300000.0,
+    "total_debt": 300000.0,
+}
+
+TURNOVER_REQUEST = {
+    "company_id": "c1",
+    "period": "FY2026",
+    "revenue": 1200000.0,
+    "cost_of_goods_sold": 700000.0,
+    "total_assets": 900000.0,
+    "fixed_assets": 500000.0,
+    "current_assets": 400000.0,
+    "current_liabilities": 250000.0,
+    "accounts_receivable": 180000.0,
+    "inventory": 140000.0,
+    "accounts_payable": 95000.0,
+}
+
+CROIC_REQUEST = {
+    "company_id": "c1",
+    "operating_cash_flow": 210000.0,
+    "capital_expenditures": 90000.0,
+    "total_assets": 900000.0,
+    "current_liabilities": 250000.0,
+    "tax_rate": 0.25,
+    "periods": ["2022", "2023", "2024", "2025", "2026"],
+}
+
+EVA_REQUEST = {
+    "company_id": "c1",
+    "period": "FY2026",
+    "ebit": 300000.0,
+    "tax_rate": 0.25,
+    "total_assets": 900000.0,
+    "current_liabilities": 250000.0,
+    "debt": 300000.0,
+    "equity": 400000.0,
+    "cost_of_debt": 0.08,
+    "cost_of_equity": 0.14,
+    "expected_growth": 0.05,
+}
+
+EPS_REQUEST = {
+    "company_id": "c1",
+    "period": "FY2026",
+    "net_profit_attributable": 180000.0,
+    "weighted_average_shares": 100000.0,
+    "discontinued_operations_profit": 20000.0,
+    "potential_dilutive_shares": [
+        {
+            "id": "opt1",
+            "number_of_options": 12000.0,
+            "exercise_price": 15.0,
+            "average_market_price": 20.0,
+        },
+        {
+            "id": "opt2",
+            "number_of_options": 5000.0,
+            "exercise_price": 25.0,
+            "average_market_price": 20.0,
+        },
+    ],
+    "anti_dilutive_items": [{"anti_dilutive_shares": 1500.0}],
+}
+
+
+def _whole_body_parity(service_name, path, request, seam_call):
+    """Every key the service publishes must survive the round trip."""
+    import json
+
+    client = TestClient(load_service(service_name).main.app)
+    served = client.post(path, json=request)
+    assert served.status_code == 200, served.text
+
+    rust = json.loads(seam_call(json.dumps(request)))
+    return served.json(), rust
+
+
+def test_du_pont_matches_the_service():
+    service, rust = _whole_body_parity("du-pont-service", "/analyze", DUPONT_REQUEST, native.du_pont_json)
+    assert service["du_pont_metrics"] == rust["du_pont_metrics"]
+    assert service["three_factor_breakdown"] == rust["three_factor_breakdown"]
+    assert service["five_factor_breakdown"] == rust["five_factor_breakdown"]
+    assert service["peer_comparison"] == rust["peer_comparison"]
+    assert service["conclusions"] == rust["conclusions"]
+
+
+def test_asset_turnover_matches_the_service():
+    service, rust = _whole_body_parity(
+        "asset-turnover-service", "/analyze", TURNOVER_REQUEST, native.asset_turnover_json
+    )
+    assert service["turnover_metrics"] == rust["turnover_metrics"]
+    assert service["industry_benchmark"] == rust["industry_benchmark"]
+    assert service["efficiency_assessment"] == rust["efficiency_assessment"]
+    assert service["improvement_areas"] == rust["improvement_areas"]
+    assert service["recommendations"] == rust["recommendations"]
+
+
+def test_croic_matches_the_service():
+    service, rust = _whole_body_parity("croic-service", "/calculate", CROIC_REQUEST, native.croic_json)
+    assert service["current_croic"] == rust["current_croic"]
+    assert service["historical_croic"] == rust["historical_croic"]
+    assert service["croic_vs_industry"] == rust["croic_vs_industry"]
+    assert service["recommendations"] == rust["recommendations"]
+
+
+def test_eva_matches_the_service():
+    service, rust = _whole_body_parity("eva-service", "/calculate", EVA_REQUEST, native.eva_json)
+    assert service["eva_metrics"] == rust["eva_metrics"]
+    assert service["eva_by_segment"] == rust["eva_by_segment"]
+    assert service["eva_momentum"] == rust["eva_momentum"]
+    assert service["wealth_created"] == rust["wealth_created"]
+    assert service["recommendations"] == rust["recommendations"]
+
+
+def test_eps_matches_the_service():
+    service, rust = _whole_body_parity("eps-service", "/calculate", EPS_REQUEST, native.eps_json)
+    for key in (
+        "basic_eps",
+        "diluted_eps",
+        "eps_from_continuing_operations",
+        "weighted_average_shares",
+        "diluted_shares",
+        "dilutive_effect",
+        "anti_dilutive_effect",
+    ):
+        assert Decimal(str(service[key])) == Decimal(str(rust[key])), key
+    assert service["potential_dilutive_instruments"] == rust["potential_dilutive_instruments"]

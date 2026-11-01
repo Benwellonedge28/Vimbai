@@ -128,14 +128,6 @@
       "strip_prefix": false
     },
     {
-      "name": "asset-turnover-service",
-      "path": "/asset-turnover",
-      "url": "http://localhost:9007",
-      "port": 8216,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "audit-compliance-service",
       "path": "/audit-compliance",
       "url": "http://localhost:9004",
@@ -479,14 +471,6 @@
       "strip_prefix": false
     },
     {
-      "name": "croic-service",
-      "path": "/croic",
-      "url": "http://localhost:9012",
-      "port": 8214,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "cross-currency-swap-service",
       "path": "/cross-currency-swap",
       "url": "http://localhost:9003",
@@ -646,14 +630,6 @@
       "strip_prefix": false
     },
     {
-      "name": "du-pont-service",
-      "path": "/du-pont",
-      "url": "http://localhost:9010",
-      "port": 8211,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "due-diligence-service",
       "path": "/due-diligence",
       "url": "http://localhost:9012",
@@ -678,14 +654,6 @@
       "strip_prefix": false
     },
     {
-      "name": "eps-service",
-      "path": "/eps",
-      "url": "http://localhost:9012",
-      "port": 8207,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "equity-changes-service",
       "path": "/equity-changes",
       "url": "http://localhost:9011",
@@ -706,14 +674,6 @@
       "path": "/etl",
       "url": "http://localhost:9013",
       "port": 8363,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "eva-service",
-      "path": "/eva",
-      "url": "http://localhost:9012",
-      "port": 8212,
       "auth_required": true,
       "strip_prefix": false
     },

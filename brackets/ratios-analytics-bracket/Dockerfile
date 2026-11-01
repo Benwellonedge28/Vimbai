@@ -20,7 +20,6 @@ COPY accounting-rate-return-service ./accounting-rate-return-service
 COPY analytical-procedures-service ./analytical-procedures-service
 COPY analytics-service ./analytics-service
 COPY asset-allocation-service ./asset-allocation-service
-COPY asset-turnover-service ./asset-turnover-service
 COPY distributed-workflow-orchestration-service ./distributed-workflow-orchestration-service
 COPY financial-distress-prediction-service ./financial-distress-prediction-service
 COPY financial-forecasting-service ./financial-forecasting-service

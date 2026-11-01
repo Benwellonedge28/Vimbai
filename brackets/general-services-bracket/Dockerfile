@@ -18,7 +18,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY brackets/general-services-bracket/main.py ./main.py
 COPY business-combination-service ./business-combination-service
 COPY business-documents-service ./business-documents-service
-COPY du-pont-service ./du-pont-service
 COPY family-community-group-service ./family-community-group-service
 COPY forward-contracts-service ./forward-contracts-service
 COPY org-authorization-engine ./org-authorization-engine

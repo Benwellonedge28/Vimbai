@@ -23,11 +23,6 @@
       "dir": "asset-allocation-service"
     },
     {
-      "path": "/asset-turnover",
-      "name": "asset-turnover-service",
-      "dir": "asset-turnover-service"
-    },
-    {
       "path": "/distributed-workflow-orchestration",
       "name": "distributed-workflow-orchestration-service",
       "dir": "distributed-workflow-orchestration-service"

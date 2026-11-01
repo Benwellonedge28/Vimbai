@@ -314,8 +314,18 @@ dependencies = [
  "serde_json",
  "vimbai_assets",
  "vimbai_common",
+ "vimbai_ratios_statements",
  "vimbai_tax",
  "vimbai_treasury_fx",
+]
+
+[[package]]
+name = "vimbai_ratios_statements"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "vimbai_common",
 ]
 
 [[package]]

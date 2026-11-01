@@ -19,6 +19,10 @@ use vimbai_assets::{
     DepreciationAsset, FixedAssetsRequest,
 };
 use vimbai_common::{Money, MoneyError};
+use vimbai_ratios_statements::{
+    asset_turnover, croic, du_pont_analysis, eps, eva, CroicRequest, DuPontRequest, EpsRequest,
+    EvaRequest, TurnoverRequest,
+};
 use vimbai_tax::statutory::{statutory_corporate_tax, CorporateTaxInput};
 use vimbai_tax::{calculate_tax, TaxBracket, TaxType};
 use vimbai_treasury_fx::analytics::{analyze_treasury, TreasuryAnalyticsRequest};
@@ -201,6 +205,51 @@ fn amortization_json(payload: &str) -> PyResult<String> {
     serde_json::to_string(&output).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
+/// du_pont-service, body in and body out.
+#[pyfunction]
+fn du_pont_json(payload: &str) -> PyResult<String> {
+    let request: DuPontRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = du_pont_analysis(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// asset_turnover-service, body in and body out.
+#[pyfunction]
+fn asset_turnover_json(payload: &str) -> PyResult<String> {
+    let request: TurnoverRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = asset_turnover(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// croic-service, body in and body out.
+#[pyfunction]
+fn croic_json(payload: &str) -> PyResult<String> {
+    let request: CroicRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = croic(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// eva-service, body in and body out.
+#[pyfunction]
+fn eva_json(payload: &str) -> PyResult<String> {
+    let request: EvaRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = eva(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// eps-service, body in and body out.
+#[pyfunction]
+fn eps_json(payload: &str) -> PyResult<String> {
+    let request: EpsRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = eps(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -212,6 +261,11 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(depreciation_json, m)?)?;
     m.add_function(wrap_pyfunction!(depreciation_method_json, m)?)?;
     m.add_function(wrap_pyfunction!(amortization_json, m)?)?;
+    m.add_function(wrap_pyfunction!(du_pont_json, m)?)?;
+    m.add_function(wrap_pyfunction!(asset_turnover_json, m)?)?;
+    m.add_function(wrap_pyfunction!(croic_json, m)?)?;
+    m.add_function(wrap_pyfunction!(eva_json, m)?)?;
+    m.add_function(wrap_pyfunction!(eps_json, m)?)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

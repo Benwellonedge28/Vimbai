@@ -48,11 +48,6 @@
       "dir": "cost-of-capital-service"
     },
     {
-      "path": "/croic",
-      "name": "croic-service",
-      "dir": "croic-service"
-    },
-    {
       "path": "/cvp-analysis",
       "name": "cvp-analysis-service",
       "dir": "cvp-analysis-service"
@@ -86,16 +81,6 @@
       "path": "/due-diligence",
       "name": "due-diligence-service",
       "dir": "due-diligence-service"
-    },
-    {
-      "path": "/eps",
-      "name": "eps-service",
-      "dir": "eps-service"
-    },
-    {
-      "path": "/eva",
-      "name": "eva-service",
-      "dir": "eva-service"
     },
     {
       "path": "/exotic-derivatives",
