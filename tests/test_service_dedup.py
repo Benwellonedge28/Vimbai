@@ -123,6 +123,15 @@ VARIANCE_BUDGET_PORTS = {
 
 SCENARIO_BUDGET_PORTS = {"scenario-budget-service"}
 
+# IFRS 2, 9, 15 and 16 are the cleanest transpositions in the library: pure
+# calculators with no state, so the Rust crates own the answers now.
+IFRS_CALCULATOR_PORTS = {
+    "ifrs-2-share-based-payment-service",
+    "ifrs-9-financial-instruments-service",
+    "ifrs-15-revenue-recognition-service",
+    "ifrs-16-lease-accounting-service",
+}
+
 ABSORPTION_MARGIN_PORTS = {
     "over-under-absorption-service",
     "margin-safety-service",

@@ -990,38 +990,6 @@
       "strip_prefix": false
     },
     {
-      "name": "ifrs-15-revenue-recognition-service",
-      "path": "/ifrs-15-revenue-recognition",
-      "url": "http://localhost:9011",
-      "port": 8148,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "ifrs-16-lease-accounting-service",
-      "path": "/ifrs-16-lease-accounting",
-      "url": "http://localhost:9011",
-      "port": 8147,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "ifrs-2-share-based-payment-service",
-      "path": "/ifrs-2-share-based-payment",
-      "url": "http://localhost:9003",
-      "port": 8150,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "ifrs-9-financial-instruments-service",
-      "path": "/ifrs-9-financial-instruments",
-      "url": "http://localhost:9011",
-      "port": 8149,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "ifrs-reporting-service",
       "path": "/ifrs-reporting",
       "url": "http://localhost:9002",

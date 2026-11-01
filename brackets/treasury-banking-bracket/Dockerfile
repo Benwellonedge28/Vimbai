@@ -34,7 +34,6 @@ COPY currency-hedging-service ./currency-hedging-service
 COPY debt-covenants-service ./debt-covenants-service
 COPY debt-management-service ./debt-management-service
 COPY foreign-currency-translation-service ./foreign-currency-translation-service
-COPY ifrs-2-share-based-payment-service ./ifrs-2-share-based-payment-service
 COPY initial-investment-service ./initial-investment-service
 COPY interest-rate-hedging-service ./interest-rate-hedging-service
 COPY interest-rate-risk-service ./interest-rate-risk-service

@@ -93,11 +93,6 @@
       "dir": "foreign-currency-translation-service"
     },
     {
-      "path": "/ifrs-2-share-based-payment",
-      "name": "ifrs-2-share-based-payment-service",
-      "dir": "ifrs-2-share-based-payment-service"
-    },
-    {
       "path": "/initial-investment",
       "name": "initial-investment-service",
       "dir": "initial-investment-service"

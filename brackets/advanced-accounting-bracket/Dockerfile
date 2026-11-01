@@ -39,9 +39,6 @@ COPY general-reserve-service ./general-reserve-service
 COPY going-concern-service ./going-concern-service
 COPY goodwill-service ./goodwill-service
 COPY government-grants-service ./government-grants-service
-COPY ifrs-15-revenue-recognition-service ./ifrs-15-revenue-recognition-service
-COPY ifrs-16-lease-accounting-service ./ifrs-16-lease-accounting-service
-COPY ifrs-9-financial-instruments-service ./ifrs-9-financial-instruments-service
 COPY intangible-assets-service ./intangible-assets-service
 COPY intercompany-service ./intercompany-service
 COPY journal-entries-service ./journal-entries-service

@@ -118,21 +118,6 @@
       "dir": "government-grants-service"
     },
     {
-      "path": "/ifrs-15-revenue-recognition",
-      "name": "ifrs-15-revenue-recognition-service",
-      "dir": "ifrs-15-revenue-recognition-service"
-    },
-    {
-      "path": "/ifrs-16-lease-accounting",
-      "name": "ifrs-16-lease-accounting-service",
-      "dir": "ifrs-16-lease-accounting-service"
-    },
-    {
-      "path": "/ifrs-9-financial-instruments",
-      "name": "ifrs-9-financial-instruments-service",
-      "dir": "ifrs-9-financial-instruments-service"
-    },
-    {
       "path": "/intangible-assets",
       "name": "intangible-assets-service",
       "dir": "intangible-assets-service"
