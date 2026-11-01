@@ -74,15 +74,17 @@ jobs:
     # the maturin image avoids depending on the runner's glibc.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    container: ghcr.io/pyo3/maturin:v1.7.4
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
+      # built inside the maturin image rather than on the runner, so the wheel
+      # is tagged for the glibc the runtime images carry, not the runner's
       - name: Build the wheel
-        run: maturin build --release -o dist
-        working-directory: library/native
+        run: |
+          docker run --rm -v "$PWD/library/native:/io" ghcr.io/pyo3/maturin:v1.7.4 \
+            build --release -o /io/dist
 
       - name: Attach it to the rolling release
         env:
