@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -13,7 +14,7 @@ class SovereignAccount(BaseModel):
     book_id: Optional[str] = None
     country: str
     account_type: str  # consolidated_revenue, stabilization_fund, debt_management, foreign_reserves
-    balance: float
+    balance: Decimal
     currency: str = "USD"
     description: str = ""
 
@@ -24,10 +25,10 @@ class SovereignDebt(BaseModel):
     book_id: Optional[str] = None
     country: str
     instrument: str  # treasury_bill, government_bond, external_debt, eurobond
-    principal: float
-    interest_rate: float
+    principal: Decimal
+    interest_rate: Decimal
     maturity_date: datetime
-    outstanding: float
+    outstanding: Decimal
     currency: str = "USD"
 
 
@@ -36,11 +37,11 @@ class FiscalPosition(BaseModel):
     book_id: Optional[str] = None
     country: str
     fiscal_year: str
-    total_revenue: float
-    total_expenditure: float
-    fiscal_deficit: float = 0
-    deficit_to_gdp: float = 0
-    total_debt: float = 0
-    debt_to_gdp: float = 0
-    foreign_reserves: float = 0
-    months_import_cover: float = 0
+    total_revenue: Decimal
+    total_expenditure: Decimal
+    fiscal_deficit: Decimal = Decimal("0")
+    deficit_to_gdp: Decimal = Decimal("0")
+    total_debt: Decimal = Decimal("0")
+    debt_to_gdp: Decimal = Decimal("0")
+    foreign_reserves: Decimal = Decimal("0")
+    months_import_cover: Decimal = Decimal("0")

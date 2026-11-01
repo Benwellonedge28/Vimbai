@@ -2,6 +2,7 @@
 
 import importlib.util
 import os
+from decimal import Decimal
 
 import main
 import pytest
@@ -63,7 +64,7 @@ def test_create_and_list_accounts():
     data = client.get("/accounts/ZWE", headers=H1).json()
     assert data["country"] == "ZWE"
     assert len(data["accounts"]) == 2
-    assert data["total_balance"] == 350000.0
+    assert Decimal(data["total_balance"]) == Decimal("350000")
 
     # user isolation: other user sees nothing
     assert client.get("/accounts/ZWE", headers=H2).json()["accounts"] == []
@@ -87,9 +88,9 @@ def test_register_and_list_debt():
 
     data = client.get("/debt/ZWE", headers=H1).json()
     assert len(data["debts"]) == 2
-    assert data["total_debt"] == 650000.0
+    assert Decimal(data["total_debt"]) == Decimal("650000")
     assert data["instruments"] == 2
-    assert data["debts"][0]["outstanding"] == 500000.0
+    assert Decimal(data["debts"][0]["outstanding"]) == Decimal("500000")
 
     # other user and other Book see nothing
     assert client.get("/debt/ZWE", headers=H2).json()["debts"] == []
@@ -109,14 +110,14 @@ def test_fiscal_position_upsert_and_scope():
     assert resp.status_code == 200, resp.text
     pos = resp.json()
     assert pos["book_id"] == BOOK_A
-    assert pos["fiscal_deficit"] == 500000.0
+    assert Decimal(pos["fiscal_deficit"]) == Decimal("500000")
 
     # upsert overwrites same user+country position
     payload["total_revenue"] = 4600000.0
     pos2 = client.post("/fiscal-position", json=payload, headers=H1).json()
-    assert pos2["fiscal_deficit"] == -100000.0
+    assert Decimal(pos2["fiscal_deficit"]) == Decimal("-100000")
     all_pos = client.get("/fiscal-position/ZWE", headers=H1).json()
-    assert all_pos["total_revenue"] == 4600000.0
+    assert Decimal(all_pos["total_revenue"]) == Decimal(4600000)
 
     # other user 404s, other Book 404s
     assert client.get("/fiscal-position/ZWE", headers=H2).status_code == 404
@@ -133,3 +134,34 @@ def test_fiscal_position_missing_404():
 def test_x_user_id_required():
     assert client.post("/accounts", json=_account()).status_code in (401, 403, 422)
     assert client.get("/accounts/ZWE").status_code in (401, 403, 422)
+
+
+def test_sovereign_amounts_keep_every_digit():
+    """National figures outrun a float: 30 digits survive the round trip."""
+    huge = "123456789012345678901234567890.55"
+    created = client.post(
+        "/accounts",
+        json={"country": "ZWE", "account_type": "stabilization_fund", "balance": huge, "currency": "USD"},
+        headers=H1,
+    )
+    assert created.status_code == 200
+    assert Decimal(created.json()["balance"]) == Decimal(huge)
+
+    listed = client.get("/accounts/ZWE", headers=H1).json()
+    assert Decimal(listed["total_balance"]) == Decimal(huge)
+
+    registered = client.post(
+        "/debt",
+        json={
+            "country": "ZWE",
+            "instrument": "eurobond",
+            "principal": huge,
+            "interest_rate": "7.25",
+            "maturity_date": "2031-01-01T00:00:00Z",
+            "outstanding": huge,
+        },
+        headers=H1,
+    )
+    assert registered.status_code == 200
+    assert Decimal(registered.json()["outstanding"]) == Decimal(huge)
+    assert Decimal(client.get("/debt/ZWE", headers=H1).json()["total_debt"]) == Decimal(huge)

@@ -8,6 +8,7 @@ applies the Book filter `WHERE ($book_id IS NULL OR x.book_id = $book_id)`.
 
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from neo4j import AsyncSession
@@ -50,7 +51,7 @@ def _account_from_node(n: Dict[str, Any], user_id: str) -> SovereignAccount:
         book_id=n.get("book_id"),
         country=n["country"],
         account_type=n.get("account_type", ""),
-        balance=float(n.get("balance", 0)),
+        balance=Decimal(str(n.get("balance", 0))),
         currency=n.get("currency", "USD"),
         description=n.get("description", ""),
     )
@@ -63,10 +64,10 @@ def _debt_from_node(n: Dict[str, Any], user_id: str) -> SovereignDebt:
         book_id=n.get("book_id"),
         country=n["country"],
         instrument=n.get("instrument", ""),
-        principal=float(n.get("principal", 0)),
-        interest_rate=float(n.get("interest_rate", 0)),
+        principal=Decimal(str(n.get("principal", 0))),
+        interest_rate=Decimal(str(n.get("interest_rate", 0))),
         maturity_date=_as_dt(n.get("maturity_date")) or _now(),
-        outstanding=float(n.get("outstanding", 0)),
+        outstanding=Decimal(str(n.get("outstanding", 0))),
         currency=n.get("currency", "USD"),
     )
 
@@ -77,14 +78,14 @@ def _position_from_node(n: Dict[str, Any], user_id: str) -> FiscalPosition:
         book_id=n.get("book_id"),
         country=n["country"],
         fiscal_year=n.get("fiscal_year", ""),
-        total_revenue=float(n.get("total_revenue", 0)),
-        total_expenditure=float(n.get("total_expenditure", 0)),
-        fiscal_deficit=float(n.get("fiscal_deficit", 0)),
-        deficit_to_gdp=float(n.get("deficit_to_gdp", 0)),
-        total_debt=float(n.get("total_debt", 0)),
-        debt_to_gdp=float(n.get("debt_to_gdp", 0)),
-        foreign_reserves=float(n.get("foreign_reserves", 0)),
-        months_import_cover=float(n.get("months_import_cover", 0)),
+        total_revenue=Decimal(str(n.get("total_revenue", 0))),
+        total_expenditure=Decimal(str(n.get("total_expenditure", 0))),
+        fiscal_deficit=Decimal(str(n.get("fiscal_deficit", 0))),
+        deficit_to_gdp=Decimal(str(n.get("deficit_to_gdp", 0))),
+        total_debt=Decimal(str(n.get("total_debt", 0))),
+        debt_to_gdp=Decimal(str(n.get("debt_to_gdp", 0))),
+        foreign_reserves=Decimal(str(n.get("foreign_reserves", 0))),
+        months_import_cover=Decimal(str(n.get("months_import_cover", 0))),
     )
 
 
@@ -97,7 +98,7 @@ async def create_account(session: AsyncSession, user_id: str, account: Sovereign
         book_id: $book_id,
         country: $country,
         account_type: $account_type,
-        balance: toFloat($balance),
+        balance: $balance,
         currency: $currency,
         description: $description,
         created_at: datetime($created_at)
@@ -110,7 +111,7 @@ async def create_account(session: AsyncSession, user_id: str, account: Sovereign
         "user_id": user_id,
         "country": account.country,
         "account_type": account.account_type,
-        "balance": account.balance,
+        "balance": str(account.balance),
         "currency": account.currency,
         "description": account.description,
         "created_at": _now().isoformat(),
@@ -140,10 +141,10 @@ async def register_debt(session: AsyncSession, user_id: str, debt: SovereignDebt
         book_id: $book_id,
         country: $country,
         instrument: $instrument,
-        principal: toFloat($principal),
-        interest_rate: toFloat($interest_rate),
+        principal: $principal,
+        interest_rate: $interest_rate,
         maturity_date: datetime($maturity_date),
-        outstanding: toFloat($outstanding),
+        outstanding: $outstanding,
         currency: $currency,
         created_at: datetime($created_at)
     })
@@ -158,7 +159,7 @@ async def register_debt(session: AsyncSession, user_id: str, debt: SovereignDebt
         "principal": debt.principal,
         "interest_rate": debt.interest_rate,
         "maturity_date": debt.maturity_date.isoformat(),
-        "outstanding": debt.outstanding,
+        "outstanding": str(debt.outstanding),
         "currency": debt.currency,
         "created_at": _now().isoformat(),
     }
@@ -201,14 +202,14 @@ async def set_fiscal_position(session: AsyncSession, user_id: str, pos: FiscalPo
         MATCH (u:User {{id: $user_id}})-[:OWNS_FISCAL_POSITION]->(x:FiscalPosition {{country: $country}})
         {BOOK_FILTER}
         SET x.fiscal_year = $fiscal_year,
-            x.total_revenue = toFloat($total_revenue),
-            x.total_expenditure = toFloat($total_expenditure),
-            x.fiscal_deficit = toFloat($fiscal_deficit),
-            x.deficit_to_gdp = toFloat($deficit_to_gdp),
-            x.total_debt = toFloat($total_debt),
-            x.debt_to_gdp = toFloat($debt_to_gdp),
-            x.foreign_reserves = toFloat($foreign_reserves),
-            x.months_import_cover = toFloat($months_import_cover)
+            x.total_revenue = $total_revenue,
+            x.total_expenditure = $total_expenditure,
+            x.fiscal_deficit = $fiscal_deficit,
+            x.deficit_to_gdp = $deficit_to_gdp,
+            x.total_debt = $total_debt,
+            x.debt_to_gdp = $debt_to_gdp,
+            x.foreign_reserves = $foreign_reserves,
+            x.months_import_cover = $months_import_cover
         RETURN x
         """
     else:
@@ -220,14 +221,14 @@ async def set_fiscal_position(session: AsyncSession, user_id: str, pos: FiscalPo
             book_id: $book_id,
             country: $country,
             fiscal_year: $fiscal_year,
-            total_revenue: toFloat($total_revenue),
-            total_expenditure: toFloat($total_expenditure),
-            fiscal_deficit: toFloat($fiscal_deficit),
-            deficit_to_gdp: toFloat($deficit_to_gdp),
-            total_debt: toFloat($total_debt),
-            debt_to_gdp: toFloat($debt_to_gdp),
-            foreign_reserves: toFloat($foreign_reserves),
-            months_import_cover: toFloat($months_import_cover),
+            total_revenue: $total_revenue,
+            total_expenditure: $total_expenditure,
+            fiscal_deficit: $fiscal_deficit,
+            deficit_to_gdp: $deficit_to_gdp,
+            total_debt: $total_debt,
+            debt_to_gdp: $debt_to_gdp,
+            foreign_reserves: $foreign_reserves,
+            months_import_cover: $months_import_cover,
             created_at: datetime($created_at)
         })
         CREATE (u)-[:OWNS_FISCAL_POSITION]->(x)
@@ -238,14 +239,14 @@ async def set_fiscal_position(session: AsyncSession, user_id: str, pos: FiscalPo
         "user_id": user_id,
         "country": pos.country,
         "fiscal_year": pos.fiscal_year,
-        "total_revenue": pos.total_revenue,
-        "total_expenditure": pos.total_expenditure,
-        "fiscal_deficit": pos.fiscal_deficit,
-        "deficit_to_gdp": pos.deficit_to_gdp,
-        "total_debt": pos.total_debt,
-        "debt_to_gdp": pos.debt_to_gdp,
-        "foreign_reserves": pos.foreign_reserves,
-        "months_import_cover": pos.months_import_cover,
+        "total_revenue": str(pos.total_revenue),
+        "total_expenditure": str(pos.total_expenditure),
+        "fiscal_deficit": str(pos.fiscal_deficit),
+        "deficit_to_gdp": str(pos.deficit_to_gdp),
+        "total_debt": str(pos.total_debt),
+        "debt_to_gdp": str(pos.debt_to_gdp),
+        "foreign_reserves": str(pos.foreign_reserves),
+        "months_import_cover": str(pos.months_import_cover),
         "created_at": _now().isoformat(),
     }
     result = await _run(session, query, params)

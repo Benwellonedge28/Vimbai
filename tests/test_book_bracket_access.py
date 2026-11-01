@@ -11,6 +11,7 @@ import importlib
 import importlib.util
 import os
 import sys
+from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
@@ -1134,10 +1135,12 @@ def test_sovereign_treasury_accessible_in_book(sovereign_treasury_client):
     # account visible in the Book, invisible to the other Book
     mine = sovereign_treasury_client.get("/sovereign-treasury/accounts/ZW-BA", headers=H).json()
     assert any(a["id"] == account_id for a in mine["accounts"])
-    assert mine["total_balance"] == 100000
+    # sovereign amounts travel as strings: a national debt has more digits
+    # than a float can hold
+    assert Decimal(mine["total_balance"]) == Decimal(100000)
     other = sovereign_treasury_client.get("/sovereign-treasury/accounts/ZW-BA", headers=H_OTHER).json()
     assert all(a["id"] != account_id for a in other["accounts"])
-    assert other["total_balance"] == 0
+    assert Decimal(other["total_balance"]) == Decimal(0)
 
     # debt registered in the Book stays invisible to the other Book
     debt = sovereign_treasury_client.post(
@@ -1155,9 +1158,9 @@ def test_sovereign_treasury_accessible_in_book(sovereign_treasury_client):
     )
     assert debt.status_code == 200, debt.text
     debts = sovereign_treasury_client.get("/sovereign-treasury/debt/ZW-BA", headers=H).json()
-    assert debts["total_debt"] == 480000
+    assert Decimal(debts["total_debt"]) == Decimal(480000)
     other_debts = sovereign_treasury_client.get("/sovereign-treasury/debt/ZW-BA", headers=H_OTHER).json()
-    assert other_debts["total_debt"] == 0
+    assert Decimal(other_debts["total_debt"]) == Decimal(0)
 
     # fiscal position set in the Book is Book-gated
     pos = sovereign_treasury_client.post(
@@ -1172,7 +1175,7 @@ def test_sovereign_treasury_accessible_in_book(sovereign_treasury_client):
         headers=H,
     )
     assert pos.status_code == 200, pos.text
-    assert pos.json()["fiscal_deficit"] == 500000
+    assert Decimal(pos.json()["fiscal_deficit"]) == Decimal(500000)
     assert (
         sovereign_treasury_client.get("/sovereign-treasury/fiscal-position/ZW-BA", headers=H_OTHER).status_code == 404
     )

@@ -19,6 +19,7 @@ if "sovereign_treasury_service" not in _sys.modules or not hasattr(
     _sys.modules["sovereign_treasury_service"].__path__ = [_HERE]
 
 import os
+from decimal import Decimal, getcontext
 
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -41,6 +42,11 @@ structlog.configure(
     cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
+
+# Vimbai holds any figure at any magnitude: the default 28-digit decimal
+# context cannot even represent a 30-digit balance, and summing two of them
+# would silently round the total.
+getcontext().prec = 200
 app = FastAPI(title="Vimbai Sovereign Treasury Service", version="2.0.0", docs_url="/docs")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
@@ -81,7 +87,7 @@ async def create_account(
 ):
     item = await crud.create_account(db_session, user_id, account)
     logger.info("account_created", country=item.country, type=item.account_type, balance=item.balance)
-    return {"id": item.id, "type": item.account_type, "balance": item.balance}
+    return {"id": item.id, "type": item.account_type, "balance": str(item.balance)}
 
 
 @app.get("/accounts/{country}")
@@ -91,7 +97,8 @@ async def get_accounts(
     db_session: AsyncSession = Depends(get_db_session),
 ):
     accounts = await crud.list_accounts(db_session, user_id, country)
-    return {"country": country, "accounts": accounts, "total_balance": sum(a.balance for a in accounts)}
+    total = sum((a.balance for a in accounts), Decimal("0"))
+    return {"country": country, "accounts": accounts, "total_balance": str(total)}
 
 
 @app.post("/debt")
@@ -102,7 +109,7 @@ async def register_debt(
 ):
     item = await crud.register_debt(db_session, user_id, debt)
     logger.info("debt_registered", country=item.country, instrument=item.instrument, outstanding=item.outstanding)
-    return {"id": item.id, "instrument": item.instrument, "outstanding": item.outstanding}
+    return {"id": item.id, "instrument": item.instrument, "outstanding": str(item.outstanding)}
 
 
 @app.get("/debt/{country}")
@@ -112,8 +119,8 @@ async def get_debt(
     db_session: AsyncSession = Depends(get_db_session),
 ):
     debts = await crud.list_debts(db_session, user_id, country)
-    total = sum(d.outstanding for d in debts)
-    return {"country": country, "debts": debts, "total_debt": total, "instruments": len(debts)}
+    total = sum((d.outstanding for d in debts), Decimal("0"))
+    return {"country": country, "debts": debts, "total_debt": str(total), "instruments": len(debts)}
 
 
 @app.post("/fiscal-position", response_model=models.FiscalPosition)
