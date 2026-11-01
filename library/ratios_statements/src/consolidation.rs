@@ -540,3 +540,208 @@ mod tests {
         assert!(!bargain.impairment_test_required);
     }
 }
+
+// ------------------------------------------------- currency translation
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CurrencyTranslationInput {
+    pub parent_id: String,
+    pub period: String,
+    pub local_currency: String,
+    pub reporting_currency: String,
+    /// Account name to balance, in the caller's order.
+    pub balances: Vec<(String, f64)>,
+    /// Currency to rate. Only the local currency's entry is ever used.
+    pub exchange_rates: Vec<(String, f64)>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CurrencyTranslation {
+    pub parent_id: String,
+    pub local_currency: String,
+    pub reporting_currency: String,
+    pub translated_balances: Vec<(String, f64)>,
+    pub translation_adjustment: f64,
+    pub cumulative_translation_adjustment: f64,
+}
+
+/// `/currency-translation`.
+///
+/// PYTHON QUIRKS, all preserved:
+/// - one rate is looked up by the *local* currency name and applied to every
+///   account, so per-account or historical rates in `exchange_rates` are
+///   ignored;
+/// - a missing local rate silently translates at 1.0, leaving balances
+///   untouched rather than raising;
+/// - the adjustment only picks up accounts whose name contains "equity"
+///   (case-insensitive) and is computed on the untranslated balance;
+/// - the cumulative adjustment is a flat 1.5 times the period adjustment.
+pub fn translate_currency(req: &CurrencyTranslationInput) -> CurrencyTranslation {
+    let rate = req
+        .exchange_rates
+        .iter()
+        .find(|(c, _)| *c == req.local_currency)
+        .map(|(_, r)| *r)
+        .unwrap_or(1.0);
+
+    let mut translated = Vec::new();
+    let mut translation_adj = 0.0;
+    for (account, balance) in &req.balances {
+        translated.push((account.clone(), vimbai_common::py_round2(balance * rate)));
+        if account.to_lowercase().contains("equity") {
+            translation_adj += balance * (rate - 1.0);
+        }
+    }
+
+    CurrencyTranslation {
+        parent_id: req.parent_id.clone(),
+        local_currency: req.local_currency.clone(),
+        reporting_currency: req.reporting_currency.clone(),
+        translated_balances: translated,
+        translation_adjustment: vimbai_common::py_round2(translation_adj),
+        cumulative_translation_adjustment: vimbai_common::py_round2(translation_adj * 1.5),
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ValidationRuleResult {
+    pub rule: String,
+    pub status: String,
+    pub details: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ConsolidationValidation {
+    pub parent_id: String,
+    pub period: String,
+    pub is_valid: bool,
+    pub validation_results: Vec<ValidationRuleResult>,
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+/// `/validate`.
+///
+/// PYTHON QUIRK: this endpoint cannot fail. Every caller rule is echoed as
+/// "passed", the balance-sheet and intercompany checks are appended as
+/// passed without being evaluated, and `errors` is always empty, so
+/// `is_valid` is unconditionally true. Kept as-is for parity; callers must
+/// not treat a pass here as evidence that anything balanced.
+pub fn validate_consolidation(
+    parent_id: &str,
+    period: &str,
+    rules: &[String],
+) -> ConsolidationValidation {
+    let mut results: Vec<ValidationRuleResult> = rules
+        .iter()
+        .map(|r| ValidationRuleResult {
+            rule: r.clone(),
+            status: "passed".to_string(),
+            details: None,
+        })
+        .collect();
+    results.push(ValidationRuleResult {
+        rule: "balance_sheet_balanced".to_string(),
+        status: "passed".to_string(),
+        details: Some("Assets = Liabilities + Equity".to_string()),
+    });
+    results.push(ValidationRuleResult {
+        rule: "intercompany_eliminated".to_string(),
+        status: "passed".to_string(),
+        details: Some("All intercompany transactions eliminated".to_string()),
+    });
+
+    ConsolidationValidation {
+        parent_id: parent_id.to_string(),
+        period: period.to_string(),
+        is_valid: true,
+        validation_results: results,
+        warnings: Vec::new(),
+        errors: Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod currency_tests {
+    use super::*;
+
+    fn input() -> CurrencyTranslationInput {
+        CurrencyTranslationInput {
+            parent_id: "parent".into(),
+            period: "2026".into(),
+            local_currency: "ZWL".into(),
+            reporting_currency: "USD".into(),
+            balances: vec![
+                ("Trade Receivables".into(), 10_000.0),
+                ("Shareholders Equity".into(), 40_000.0),
+                ("Retained Earnings".into(), 5_000.0),
+            ],
+            exchange_rates: vec![("ZWL".into(), 0.5), ("EUR".into(), 1.2)],
+        }
+    }
+
+    #[test]
+    fn one_rate_applies_to_every_account() {
+        let r = translate_currency(&input());
+        assert_eq!(
+            r.translated_balances[0],
+            ("Trade Receivables".to_string(), 5_000.0)
+        );
+        assert_eq!(
+            r.translated_balances[1],
+            ("Shareholders Equity".to_string(), 20_000.0)
+        );
+        assert_eq!(
+            r.translated_balances[2],
+            ("Retained Earnings".to_string(), 2_500.0)
+        );
+        assert_eq!(r.local_currency, "ZWL");
+        assert_eq!(r.reporting_currency, "USD");
+    }
+
+    #[test]
+    fn adjustment_only_counts_equity_accounts_case_insensitively() {
+        let r = translate_currency(&input());
+        // only "Shareholders Equity" matches the substring test, so
+        // Retained Earnings is excluded: 40,000 * (0.5 - 1) = -20,000
+        assert_eq!(r.translation_adjustment, -20_000.0);
+        // the reported cumulative figure is a flat 1.5x, not a running balance
+        assert_eq!(r.cumulative_translation_adjustment, -30_000.0);
+    }
+
+    #[test]
+    fn uppercase_equity_names_still_match() {
+        let r = translate_currency(&CurrencyTranslationInput {
+            balances: vec![("OWNERS EQUITY RESERVE".into(), 2_000.0)],
+            ..input()
+        });
+        assert_eq!(r.translated_balances[0].1, 1_000.0);
+        assert_eq!(r.translation_adjustment, -1_000.0);
+    }
+
+    #[test]
+    fn missing_local_rate_translates_at_parity() {
+        let r = translate_currency(&CurrencyTranslationInput {
+            local_currency: "GBP".into(),
+            ..input()
+        });
+        assert_eq!(r.translated_balances[0].1, 10_000.0);
+        assert_eq!(r.translation_adjustment, 0.0);
+        assert_eq!(r.cumulative_translation_adjustment, 0.0);
+    }
+
+    #[test]
+    fn validation_always_passes() {
+        let r = validate_consolidation("parent", "2026", &["trial_balance_ties".into()]);
+        assert!(r.is_valid);
+        assert!(r.errors.is_empty());
+        assert!(r.warnings.is_empty());
+        assert_eq!(r.validation_results.len(), 3);
+        assert_eq!(r.validation_results[0].rule, "trial_balance_ties");
+        assert!(r.validation_results.iter().all(|v| v.status == "passed"));
+        assert_eq!(
+            r.validation_results[2].details.as_deref(),
+            Some("All intercompany transactions eliminated")
+        );
+    }
+}
