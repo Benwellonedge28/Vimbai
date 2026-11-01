@@ -1,17 +1,32 @@
-"""
-Vimbai Rolling Forecast Service
+"""Vimbai Rolling Forecast Service
 Creates rolling forecasts that update periodically with actual data.
+
+This file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias before importing sibling modules.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "rolling_forecast_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("rolling_forecast_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("rolling_forecast_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["rolling_forecast_service"] = _pkg
+    _sys.modules["rolling_forecast_service"].__path__ = [_HERE]
 import os
-import uuid
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from rolling_forecast_service import crud, models
+from rolling_forecast_service.dependencies import book_id_var, get_db_session, get_user_id
+from rolling_forecast_service.exceptions import NotFoundError, RollingForecastError
 
 SERVICE_NAME = "rolling-forecast-service"
 SERVICE_VERSION = "1.0.0"
@@ -44,29 +59,19 @@ except ImportError:
     TRACER = None
 
 
-class ForecastPeriod(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    period: str  # YYYY-MM
-    forecast_value: float
-    actual_value: Optional[float] = None
-    variance: Optional[float] = None
-    variance_pct: Optional[float] = None
-    is_actual: bool = False
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
-class RollingForecast(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    metric: str  # revenue, expenses, cash_flow, headcount
-    frequency: str = "monthly"  # weekly, monthly, quarterly
-    horizon_periods: int = 12
-    periods: List[ForecastPeriod] = []
-    current_period: str = ""
-    last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+@app.exception_handler(RollingForecastError)
+async def _rolling_forecast_error(request: Request, exc: RollingForecastError):
+    from fastapi.responses import JSONResponse
 
-
-forecasts: List[RollingForecast] = []
+    status = 404 if isinstance(exc, NotFoundError) else 400
+    return JSONResponse(status_code=status, content={"detail": str(exc), "error": exc.__class__.__name__})
 
 
 @app.get("/")
@@ -75,21 +80,25 @@ async def health_check():
     return {"status": "healthy", "service": SERVICE_NAME, "version": SERVICE_VERSION}
 
 
-@app.post("/forecasts", response_model=RollingForecast)
+@app.post("/forecasts", response_model=models.RollingForecast)
 async def create_forecast(
     name: str,
     metric: str,
     frequency: str = "monthly",
     horizon_periods: int = 12,
     forecast_values: List[Dict[str, Any]] = [],
+    user_id: str = Depends(get_user_id),
+    db_session=Depends(get_db_session),
 ):
-    """Create a rolling forecast."""
-    valid_freqs = ["weekly", "monthly", "quarterly"]
-    if frequency not in valid_freqs:
-        raise HTTPException(status_code=400, detail=f"Invalid frequency. Must be one of {valid_freqs}")
+    """Create a rolling forecast for the caller's Book."""
+    if frequency not in models.VALID_FREQUENCIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid frequency. Must be one of {models.VALID_FREQUENCIES}",
+        )
 
-    periods = [ForecastPeriod(period=p["period"], forecast_value=p["forecast_value"]) for p in forecast_values]
-    forecast = RollingForecast(
+    periods = [models.ForecastPeriod(period=p["period"], forecast_value=p["forecast_value"]) for p in forecast_values]
+    forecast = models.RollingForecast(
         name=name,
         metric=metric,
         frequency=frequency,
@@ -97,34 +106,41 @@ async def create_forecast(
         periods=periods,
         current_period=periods[0].period if periods else "",
     )
-    forecasts.append(forecast)
-    logger.info("Rolling forecast created", forecast_id=forecast.id, name=name, metric=metric)
-    return forecast
+    created = await crud.create_forecast(db_session, user_id, forecast)
+    logger.info("Rolling forecast created", forecast_id=created.id, name=name, metric=metric)
+    return created
 
 
-@app.get("/forecasts", response_model=List[RollingForecast])
-async def list_forecasts(metric: Optional[str] = None):
-    """List rolling forecasts."""
-    if metric:
-        return [f for f in forecasts if f.metric == metric]
-    return forecasts
+@app.get("/forecasts", response_model=List[models.RollingForecast])
+async def list_forecasts(
+    metric: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session=Depends(get_db_session),
+):
+    """List the caller's Book-visible forecasts."""
+    return await crud.list_forecasts(db_session, user_id, metric)
 
 
-@app.get("/forecasts/{forecast_id}", response_model=RollingForecast)
-async def get_forecast(forecast_id: str):
-    """Get a specific forecast."""
-    forecast = next((f for f in forecasts if f.id == forecast_id), None)
-    if not forecast:
-        raise HTTPException(status_code=404, detail="Forecast not found")
-    return forecast
+@app.get("/forecasts/{forecast_id}", response_model=models.RollingForecast)
+async def get_forecast(
+    forecast_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session=Depends(get_db_session),
+):
+    """Get a specific forecast; cross-scope reads 404."""
+    return await crud.get_forecast(db_session, user_id, forecast_id)
 
 
 @app.post("/forecasts/{forecast_id}/update-actual")
-async def update_actual(forecast_id: str, period: str, actual_value: float):
-    """Update actual values and roll the forecast forward."""
-    forecast = next((f for f in forecasts if f.id == forecast_id), None)
-    if not forecast:
-        raise HTTPException(status_code=404, detail="Forecast not found")
+async def update_actual(
+    forecast_id: str,
+    period: str,
+    actual_value: float,
+    user_id: str = Depends(get_user_id),
+    db_session=Depends(get_db_session),
+):
+    """Record an actual against a forecast period, keeping the original quirks."""
+    forecast = await crud.get_forecast(db_session, user_id, forecast_id)
 
     period_entry = next((p for p in forecast.periods if p.period == period), None)
     if period_entry:
@@ -135,7 +151,7 @@ async def update_actual(forecast_id: str, period: str, actual_value: float):
             (period_entry.variance / period_entry.forecast_value * 100) if period_entry.forecast_value else 0
         )
 
-    forecast.last_updated = datetime.now(timezone.utc)
+    await crud.save_periods(db_session, user_id, forecast, forecast.periods)
     logger.info("Actual updated", forecast_id=forecast_id, period=period, actual=actual_value)
     return {
         "forecast_id": forecast_id,
@@ -146,16 +162,19 @@ async def update_actual(forecast_id: str, period: str, actual_value: float):
 
 
 @app.post("/forecasts/{forecast_id}/roll")
-async def roll_forecast(forecast_id: str, new_periods: List[Dict[str, Any]] = []):
-    """Roll the forecast forward by adding new periods."""
-    forecast = next((f for f in forecasts if f.id == forecast_id), None)
-    if not forecast:
-        raise HTTPException(status_code=404, detail="Forecast not found")
+async def roll_forecast(
+    forecast_id: str,
+    new_periods: List[Dict[str, Any]] = [],
+    user_id: str = Depends(get_user_id),
+    db_session=Depends(get_db_session),
+):
+    """Roll the forecast forward by appending periods."""
+    forecast = await crud.get_forecast(db_session, user_id, forecast_id)
 
     for p in new_periods:
-        forecast.periods.append(ForecastPeriod(period=p["period"], forecast_value=p["forecast_value"]))
+        forecast.periods.append(models.ForecastPeriod(period=p["period"], forecast_value=p["forecast_value"]))
 
-    forecast.last_updated = datetime.now(timezone.utc)
+    await crud.save_periods(db_session, user_id, forecast, forecast.periods)
     logger.info("Forecast rolled forward", forecast_id=forecast_id, new_periods=len(new_periods))
     return {"forecast_id": forecast_id, "total_periods": len(forecast.periods)}
 

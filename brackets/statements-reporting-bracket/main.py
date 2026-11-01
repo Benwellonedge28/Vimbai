@@ -20,102 +20,30 @@ PORT = int(os.getenv("PORT", "9002"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    [
-        "annual-report",
-        "annual-report-service"
-    ],
-    [
-        "balance-sheet",
-        "balance-sheet-service"
-    ],
-    [
-        "cash-flow-statement",
-        "cash-flow-statement-service"
-    ],
-    [
-        "comparative-financial-statements",
-        "comparative-financial-statements-service"
-    ],
-    [
-        "esg-reporting",
-        "esg-reporting-service"
-    ],
-    [
-        "events-after-reporting",
-        "events-after-reporting-service"
-    ],
-    [
-        "financial-reporting",
-        "financial-reporting-service"
-    ],
-    [
-        "financial-statements",
-        "financial-statements-service"
-    ],
-    [
-        "general-ledger",
-        "general-ledger-service"
-    ],
-    [
-        "ifrs-reporting",
-        "ifrs-reporting-service"
-    ],
-    [
-        "income-statement",
-        "income-statement-service"
-    ],
-    [
-        "interim-financial-reporting",
-        "interim-financial-reporting-service"
-    ],
-    [
-        "management-reporting",
-        "management-reporting-service"
-    ],
-    [
-        "purchases-ledger-control",
-        "purchases-ledger-control-service"
-    ],
-    [
-        "regulatory-reporting",
-        "regulatory-reporting-service"
-    ],
-    [
-        "report-automation",
-        "report-automation-service"
-    ],
-    [
-        "report-distribution",
-        "report-distribution-service"
-    ],
-    [
-        "reporting",
-        "reporting-service"
-    ],
-    [
-        "sales-ledger-control",
-        "sales-ledger-control-service"
-    ],
-    [
-        "segment-reporting",
-        "segment-reporting-service"
-    ],
-    [
-        "treasury-reporting",
-        "treasury-reporting-service"
-    ],
-    [
-        "trial-balance",
-        "trial-balance-service"
-    ],
-    [
-        "vat-reporting",
-        "vat-reporting-service"
-    ],
-    [
-        "xbrl-reporting",
-        "xbrl-reporting-service"
-    ]
+    ["annual-report", "annual-report-service"],
+    ["balance-sheet", "balance-sheet-service"],
+    ["cash-flow-statement", "cash-flow-statement-service"],
+    ["comparative-financial-statements", "comparative-financial-statements-service"],
+    ["esg-reporting", "esg-reporting-service"],
+    ["events-after-reporting", "events-after-reporting-service"],
+    ["financial-reporting", "financial-reporting-service"],
+    ["financial-statements", "financial-statements-service"],
+    ["general-ledger", "general-ledger-service"],
+    ["ifrs-reporting", "ifrs-reporting-service"],
+    ["income-statement", "income-statement-service"],
+    ["interim-financial-reporting", "interim-financial-reporting-service"],
+    ["management-reporting", "management-reporting-service"],
+    ["purchases-ledger-control", "purchases-ledger-control-service"],
+    ["regulatory-reporting", "regulatory-reporting-service"],
+    ["report-automation", "report-automation-service"],
+    ["report-distribution", "report-distribution-service"],
+    ["reporting", "reporting-service"],
+    ["sales-ledger-control", "sales-ledger-control-service"],
+    ["segment-reporting", "segment-reporting-service"],
+    ["treasury-reporting", "treasury-reporting-service"],
+    ["trial-balance", "trial-balance-service"],
+    ["vat-reporting", "vat-reporting-service"],
+    ["xbrl-reporting", "xbrl-reporting-service"],
 ]
 
 app = FastAPI(

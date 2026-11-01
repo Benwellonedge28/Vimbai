@@ -20,46 +20,16 @@ PORT = int(os.getenv("PORT", "9001"))
 
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
-    [
-        "absorption-costing",
-        "absorption-costing-service"
-    ],
-    [
-        "absorption-costing-statement",
-        "absorption-costing-statement-service"
-    ],
-    [
-        "activity-based-budget",
-        "activity-based-budget-service"
-    ],
-    [
-        "appropriation-control",
-        "appropriation-control-service"
-    ],
-    [
-        "balanced-scorecard",
-        "balanced-scorecard-service"
-    ],
-    [
-        "capital-budgeting",
-        "capital-budgeting-service"
-    ],
-    [
-        "job-costing",
-        "job-costing-service"
-    ],
-    [
-        "process-costing",
-        "process-costing-service"
-    ],
-    [
-        "product-costing",
-        "product-costing-service"
-    ],
-    [
-        "zero-based-budgeting",
-        "zero-based-budgeting-service"
-    ]
+    ["absorption-costing", "absorption-costing-service"],
+    ["absorption-costing-statement", "absorption-costing-statement-service"],
+    ["activity-based-budget", "activity-based-budget-service"],
+    ["appropriation-control", "appropriation-control-service"],
+    ["balanced-scorecard", "balanced-scorecard-service"],
+    ["capital-budgeting", "capital-budgeting-service"],
+    ["job-costing", "job-costing-service"],
+    ["process-costing", "process-costing-service"],
+    ["product-costing", "product-costing-service"],
+    ["zero-based-budgeting", "zero-based-budgeting-service"],
 ]
 
 app = FastAPI(

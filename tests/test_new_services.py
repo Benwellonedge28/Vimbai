@@ -865,7 +865,21 @@ class TestLifecycleCostingService:
 
 class TestRollingForecastService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("rolling-forecast-service"))
+        # Load first: main.py self-bootstraps the rolling_forecast_service package.
+        app = load_service_app("rolling-forecast-service")
+        pkg = sys.modules["rolling_forecast_service"]
+        if not hasattr(pkg, "_ci_fake_session"):
+            fake_path = os.path.join(REPO_ROOT, "rolling-forecast-service", "fake_neo4j.py")
+            spec = importlib.util.spec_from_file_location("rf_fake_neo4j_ci", fake_path)
+            fake_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(fake_mod)
+            sys.modules["rf_fake_neo4j_ci"] = fake_mod
+            pkg._ci_fake_session = fake_mod.FakeSession()
+            import rolling_forecast_service.database as db
+
+            db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(pkg._ci_fake_session))
+        self.client = TestClient(app)
+        self.headers = {"X-User-Id": "ci-user", "X-Book-ID": "ci-book"}
 
     def test_health(self):
         resp = self.client.get("/health")
@@ -886,6 +900,7 @@ class TestRollingForecastService:
                 {"period": "2026-02", "forecast_value": 110000},
                 {"period": "2026-03", "forecast_value": 120000},
             ],
+            headers=self.headers,
         )
         forecast_id = resp.json()["id"]
         assert resp.status_code == 200
@@ -893,6 +908,7 @@ class TestRollingForecastService:
         actual_resp = self.client.post(
             f"/forecasts/{forecast_id}/update-actual",
             params={"period": "2026-01", "actual_value": 95000},
+            headers=self.headers,
         )
         data = actual_resp.json()
         assert actual_resp.status_code == 200
