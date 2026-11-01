@@ -8,6 +8,7 @@
 
 pub mod balance_sheet;
 pub mod comparative;
+pub mod consolidation;
 pub mod income_statement;
 pub mod management_accounts;
 pub mod management_reporting;
@@ -24,6 +25,11 @@ pub use balance_sheet::{
 pub use comparative::{
     generate_periods, horizontal_analysis, horizontal_items, trend_analysis, variance_analysis,
     HorizontalItem, PeriodData, TrendItem, TrendPoint, VarianceLine, VarianceReport,
+};
+pub use consolidation::{
+    calculate_goodwill, calculate_nci, consolidate, process_eliminations, ConsolidatedStatement,
+    ConsolidationInput, Eliminations, GoodwillCalculation, IntercompanyTransaction, NciCalculation,
+    SubFinancials, Subsidiary,
 };
 pub use income_statement::{prepare_income_statement, IncomeStatementInput, IncomeStatementOutput};
 pub use management_accounts::{prepare_management_accounts, ManagementAccounts};
