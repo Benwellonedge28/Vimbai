@@ -6,6 +6,7 @@
 //! profit and loss, management accounts and reporting, working capital
 //! family. Queued: consolidation.
 
+pub mod annual_report;
 pub mod balance_sheet;
 pub mod comparative;
 pub mod consolidation;
@@ -16,8 +17,10 @@ pub mod profit_loss;
 pub mod ratios;
 pub mod statements;
 pub mod trading_account;
+pub mod transfer_pricing;
 pub mod working_capital;
 
+pub use annual_report::{prepare_annual_report, AnnualReport, AnnualReportInput, ReportSection};
 pub use balance_sheet::{
     balance_sheet_ratios, generate_totals, BalanceSheetInput, BalanceSheetRatios,
     BalanceSheetTotals,
@@ -40,6 +43,10 @@ pub use profit_loss::{compare_pnl, prepare_pnl, PnLComparison, PnLInput, PnLStat
 pub use ratios::{calculate_ratios, BalanceSheet, IncomeStatement, RatioInput, RatioOutput};
 pub use statements::{prepare_statements, StatementsInput, StatementsOutput};
 pub use trading_account::{generate_trading_account, TradingAccountInput, TradingAccountResult};
+pub use transfer_pricing::{
+    analyze_transfer_pricing, PricingMethod, TransferPricingAnalysis, TransferPricingInput,
+    TransferTransaction,
+};
 pub use working_capital::{
     analyze_wc_finance, analyze_working_capital, calculate_factoring, optimize_working_capital,
     FactoringInput, FactoringResult, WcAnalysis, WcError, WcFinanceInput, WcFinanceResult,
