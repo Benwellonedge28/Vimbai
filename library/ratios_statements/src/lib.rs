@@ -3,8 +3,8 @@
 //!
 //! Ported: ratio-analysis, financial-statements, income-statement,
 //! balance-sheet, comparative-financial-statements, trading account,
-//! profit and loss, management accounts and reporting. Queued: working
-//! capital family, consolidation.
+//! profit and loss, management accounts and reporting, working capital
+//! family. Queued: consolidation.
 
 pub mod balance_sheet;
 pub mod comparative;
@@ -15,6 +15,7 @@ pub mod profit_loss;
 pub mod ratios;
 pub mod statements;
 pub mod trading_account;
+pub mod working_capital;
 
 pub use balance_sheet::{
     balance_sheet_ratios, generate_totals, BalanceSheetInput, BalanceSheetRatios,
@@ -33,3 +34,8 @@ pub use profit_loss::{compare_pnl, prepare_pnl, PnLComparison, PnLInput, PnLStat
 pub use ratios::{calculate_ratios, BalanceSheet, IncomeStatement, RatioInput, RatioOutput};
 pub use statements::{prepare_statements, StatementsInput, StatementsOutput};
 pub use trading_account::{generate_trading_account, TradingAccountInput, TradingAccountResult};
+pub use working_capital::{
+    analyze_wc_finance, analyze_working_capital, calculate_factoring, optimize_working_capital,
+    FactoringInput, FactoringResult, WcAnalysis, WcError, WcFinanceInput, WcFinanceResult,
+    WcOptimization, WcOptimizeInput,
+};
