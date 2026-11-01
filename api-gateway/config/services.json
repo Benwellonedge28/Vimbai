@@ -830,14 +830,6 @@
       "strip_prefix": false
     },
     {
-      "name": "financial-statements-service",
-      "path": "/financial-statements",
-      "url": "http://localhost:9002",
-      "port": 8332,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "fixed-assets-register-service",
       "path": "/fixed-assets-register",
       "url": "http://localhost:9009",
@@ -994,14 +986,6 @@
       "path": "/ifrs-reporting",
       "url": "http://localhost:9002",
       "port": 8268,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "income-statement-service",
-      "path": "/income-statement",
-      "url": "http://localhost:9002",
-      "port": 8334,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1438,22 +1422,6 @@
       "path": "/payment-optimization",
       "url": "http://localhost:9003",
       "port": 8261,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "payroll-accounting-service",
-      "path": "/payroll-accounting",
-      "url": "http://localhost:9006",
-      "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "payroll-service",
-      "path": "/payroll",
-      "url": "http://localhost:9006",
-      "port": 8354,
       "auth_required": true,
       "strip_prefix": false
     },

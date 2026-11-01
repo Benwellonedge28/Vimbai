@@ -20,8 +20,6 @@ COPY accounts-payable-service ./accounts-payable-service
 COPY accounts-receivable-service ./accounts-receivable-service
 COPY benefits-admin-service ./benefits-admin-service
 COPY expense-tracking-service ./expense-tracking-service
-COPY payroll-service ./payroll-service
-COPY payroll-accounting-service ./payroll-accounting-service
 COPY pension-accounting-service ./pension-accounting-service
 
 USER vimbai

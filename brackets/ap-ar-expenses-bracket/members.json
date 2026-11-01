@@ -23,16 +23,6 @@
       "dir": "expense-tracking-service"
     },
     {
-      "path": "/payroll",
-      "name": "payroll-service",
-      "dir": "payroll-service"
-    },
-    {
-      "path": "/payroll-accounting",
-      "name": "payroll-accounting-service",
-      "dir": "payroll-accounting-service"
-    },
-    {
       "path": "/pension-accounting",
       "name": "pension-accounting-service",
       "dir": "pension-accounting-service"

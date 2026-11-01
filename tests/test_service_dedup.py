@@ -132,6 +132,15 @@ IFRS_CALCULATOR_PORTS = {
     "ifrs-16-lease-accounting-service",
 }
 
+# Statements and the payroll pair: same story, straight transpositions of
+# statements.rs, income_statement.rs, payroll.rs and payroll_accounting.rs.
+STATEMENT_PAYROLL_PORTS = {
+    "financial-statements-service",
+    "income-statement-service",
+    "payroll-service",
+    "payroll-accounting-service",
+}
+
 ABSORPTION_MARGIN_PORTS = {
     "over-under-absorption-service",
     "margin-safety-service",

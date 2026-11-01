@@ -38,11 +38,6 @@
       "dir": "financial-reporting-service"
     },
     {
-      "path": "/financial-statements",
-      "name": "financial-statements-service",
-      "dir": "financial-statements-service"
-    },
-    {
       "path": "/general-ledger",
       "name": "general-ledger-service",
       "dir": "general-ledger-service"
@@ -51,11 +46,6 @@
       "path": "/ifrs-reporting",
       "name": "ifrs-reporting-service",
       "dir": "ifrs-reporting-service"
-    },
-    {
-      "path": "/income-statement",
-      "name": "income-statement-service",
-      "dir": "income-statement-service"
     },
     {
       "path": "/interim-financial-reporting",

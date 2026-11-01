@@ -23,10 +23,8 @@ COPY comparative-financial-statements-service ./comparative-financial-statements
 COPY esg-reporting-service ./esg-reporting-service
 COPY events-after-reporting-service ./events-after-reporting-service
 COPY financial-reporting-service ./financial-reporting-service
-COPY financial-statements-service ./financial-statements-service
 COPY general-ledger-service ./general-ledger-service
 COPY ifrs-reporting-service ./ifrs-reporting-service
-COPY income-statement-service ./income-statement-service
 COPY interim-financial-reporting-service ./interim-financial-reporting-service
 COPY management-reporting-service ./management-reporting-service
 COPY purchases-ledger-control-service ./purchases-ledger-control-service
