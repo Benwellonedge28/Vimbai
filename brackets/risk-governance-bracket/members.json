@@ -23,11 +23,6 @@
       "dir": "internal-controls-testing-service"
     },
     {
-      "path": "/liquidity-risk",
-      "name": "liquidity-risk-service",
-      "dir": "liquidity-risk-service"
-    },
-    {
       "path": "/market-risk",
       "name": "market-risk-service",
       "dir": "market-risk-service"

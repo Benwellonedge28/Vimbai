@@ -46,6 +46,10 @@ use vimbai_treasury_fx::hedging_analytics::{
     analyze_commodity_hedge, analyze_futures_hedge, analyze_interest_rate_hedge,
     CommodityHedgingRequest, FuturesHedgingRequest, InterestRateHedgingRequest,
 };
+use vimbai_treasury_fx::liquidity::{
+    analyze_liquidity, analyze_liquidity_risk, forecast_liquidity, LiquidityAnalysisRequest,
+    LiquidityForecastRequest, LiquidityRequest,
+};
 use vimbai_treasury_fx::multi_currency::{
     convert_fixed, create_hedge, process_transaction, CurrencyConversionRequest, HedgeRequest,
     TransactionRequest,
@@ -573,6 +577,31 @@ fn fx_exotic_derivatives_json(payload: &str) -> PyResult<String> {
     }
 }
 
+fn json_out<T: serde::Serialize>(value: &T) -> PyResult<String> {
+    serde_json::to_string(value).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+#[pyfunction]
+fn liquidity_forecast_json(payload: &str) -> PyResult<String> {
+    let req: LiquidityForecastRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&forecast_liquidity(&req))
+}
+
+#[pyfunction]
+fn liquidity_management_json(payload: &str) -> PyResult<String> {
+    let req: LiquidityRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&analyze_liquidity(&req))
+}
+
+#[pyfunction]
+fn liquidity_risk_json(payload: &str) -> PyResult<String> {
+    let req: LiquidityAnalysisRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&analyze_liquidity_risk(&req))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -621,6 +650,9 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fx_interest_rate_hedging_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_translation_json, m)?)?;
 
+    m.add_function(wrap_pyfunction!(liquidity_forecast_json, m)?)?;
+    m.add_function(wrap_pyfunction!(liquidity_management_json, m)?)?;
+    m.add_function(wrap_pyfunction!(liquidity_risk_json, m)?)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

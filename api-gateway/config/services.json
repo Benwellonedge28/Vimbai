@@ -997,30 +997,6 @@
       "strip_prefix": false
     },
     {
-      "name": "liquidity-forecast-service",
-      "path": "/liquidity-forecast",
-      "url": "http://localhost:9012",
-      "port": 8260,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "liquidity-management-service",
-      "path": "/liquidity-management",
-      "url": "http://localhost:9012",
-      "port": 8239,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "liquidity-risk-service",
-      "path": "/liquidity-risk",
-      "url": "http://localhost:9005",
-      "port": 8164,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "management-accounts-service",
       "path": "/management-accounts",
       "url": "http://localhost:9011",

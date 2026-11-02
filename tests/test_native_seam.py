@@ -1175,3 +1175,90 @@ def test_exotic_barrier_matches_the_service():
 
 def test_exotic_put_matches_the_service():
     _exotic_parity(_exotic("vanilla", is_call=False))
+
+
+# --- liquidity family -------------------------------------------------------
+
+LIQUIDITY_FORECAST_REQUEST = {
+    "company_id": "c1",
+    "starting_cash": 250000.0,
+    "cash_flows": [
+        {"date": "2026-11-05", "inflow": 90000.0, "outflow": 40000.0, "net": 50000.0},
+        {"date": "2026-11-12", "inflow": 30000.0, "outflow": 120000.0, "net": -90000.0},
+        {"date": "2026-11-19", "inflow": 60000.0, "outflow": 55000.0, "net": 5000.0},
+    ],
+    "credit_lines_available": 100000.0,
+    "minimum_cash_requirement": 200000.0,
+}
+
+LIQUIDITY_MANAGEMENT_REQUEST = {
+    "company_id": "c1",
+    "cash": 120000.0,
+    "marketable_securities": 80000.0,
+    "credit_facilities_available": 150000.0,
+    "credit_facilities_total": 300000.0,
+    "current_assets": 600000.0,
+    "current_liabilities": 350000.0,
+    "monthly_fixed_costs": 180000.0,
+    "monthly_variable_costs": 90000.0,
+    "monthly_min_revenue": 150000.0,
+}
+
+LIQUIDITY_RISK_REQUEST = {
+    "company_id": "c1",
+    "reporting_date": "2026-11-02",
+    "liquid_assets": [
+        {"asset_id": "a1", "asset_type": "cash", "value": 90000.0, "haircut": 0.0, "maturity_bucket": "0-1m"},
+        {"asset_id": "a2", "asset_type": "receivables", "value": 70000.0, "haircut": 0.15, "maturity_bucket": "1-3m"},
+    ],
+    "liabilities": [
+        {
+            "liability_id": "l1",
+            "liability_type": "payables",
+            "value": 120000.0,
+            "outflow_rate": 0.6,
+            "maturity_bucket": "0-1m",
+        },
+        {
+            "liability_id": "l2",
+            "liability_type": "debt",
+            "value": 80000.0,
+            "outflow_rate": 0.25,
+            "maturity_bucket": "1-3m",
+        },
+    ],
+    "cash_flows": {"0-1m": [-20000.0, -15000.0], "1-3m": [-30000.0, 10000.0]},
+}
+
+
+def _liquidity_parity(service_dir, path, seam_name, request):
+    client = TestClient(load_service(service_dir).main.app)
+    served = client.post(path, json=request)
+    assert served.status_code == 200, served.text
+    rust = __import__("json").loads(getattr(native, seam_name)(__import__("json").dumps(request)))
+    _bodies_match(served.json(), rust, service_dir)
+    return served.json(), rust
+
+
+def test_liquidity_forecast_matches_the_service():
+    served, rust = _liquidity_parity(
+        "liquidity-forecast-service", "/forecast", "liquidity_forecast_json", LIQUIDITY_FORECAST_REQUEST
+    )
+    assert len(served["daily_forecast"]) == len(rust["daily_forecast"]) == 3
+    assert rust["forecast_summary"]["min_balance"] == served["forecast_summary"]["min_balance"]
+
+
+def test_liquidity_management_matches_the_service():
+    served, rust = _liquidity_parity(
+        "liquidity-management-service", "/analyze", "liquidity_management_json", LIQUIDITY_MANAGEMENT_REQUEST
+    )
+    assert rust["liquidity_ratios"] == served["liquidity_ratios"]
+    assert rust["coverage_days"] == served["coverage_days"]
+
+
+def test_liquidity_risk_matches_the_service():
+    served, rust = _liquidity_parity(
+        "liquidity-risk-service", "/analyze", "liquidity_risk_json", LIQUIDITY_RISK_REQUEST
+    )
+    assert rust["liquidity_risk_rating"] == served["liquidity_risk_rating"]
+    assert rust["lcr_ratio"] == served["lcr_ratio"]

@@ -20,7 +20,6 @@ COPY corporate-governance-service ./corporate-governance-service
 COPY fraud-risk-assessment-service ./fraud-risk-assessment-service
 COPY internal-control-evaluation-service ./internal-control-evaluation-service
 COPY internal-controls-testing-service ./internal-controls-testing-service
-COPY liquidity-risk-service ./liquidity-risk-service
 COPY market-risk-service ./market-risk-service
 COPY operational-risk-service ./operational-risk-service
 COPY risk-assessment-service ./risk-assessment-service

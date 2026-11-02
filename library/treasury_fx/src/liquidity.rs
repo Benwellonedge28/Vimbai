@@ -319,8 +319,12 @@ pub struct LiquidityAnalysisRequest {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MaturityMismatch {
+    /// Published under the service's key names.
+    #[serde(rename = "30_day")]
     pub day_30: f64,
+    #[serde(rename = "90_day")]
     pub day_90: f64,
+    #[serde(rename = "1_year")]
     pub year_1: f64,
 }
 

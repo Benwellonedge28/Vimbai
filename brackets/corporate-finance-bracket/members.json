@@ -88,16 +88,6 @@
       "dir": "insurance-claims-service"
     },
     {
-      "path": "/liquidity-forecast",
-      "name": "liquidity-forecast-service",
-      "dir": "liquidity-forecast-service"
-    },
-    {
-      "path": "/liquidity-management",
-      "name": "liquidity-management-service",
-      "dir": "liquidity-management-service"
-    },
-    {
       "path": "/merger-valuation",
       "name": "merger-valuation-service",
       "dir": "merger-valuation-service"
