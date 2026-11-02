@@ -1552,14 +1552,6 @@
       "auth_required": true
     },
     {
-      "name": "segment-reporting-service",
-      "path": "/segment-reporting",
-      "url": "http://localhost:9002",
-      "port": 8374,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "selling-price-reduction-service",
       "path": "/selling-price-reduction",
       "url": "http://localhost:9010",

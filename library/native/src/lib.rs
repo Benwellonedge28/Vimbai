@@ -25,6 +25,7 @@ use vimbai_capital_valuation::capital_returns::{
     discount_factor_table_range, discounted_payback, simple_rate, wacc,
 };
 use vimbai_common::{Money, MoneyError};
+use vimbai_ifrs::segments::{report_segments, SegmentReportRequest};
 use vimbai_ratios_statements::working_capital::{
     analyze_wc_finance, analyze_working_capital, calculate_factoring, optimize_working_capital,
     FactoringInput, WcAnalysisInput, WcFinanceInput, WcOptimizeInput,
@@ -586,6 +587,14 @@ fn json_out<T: serde::Serialize>(value: &T) -> PyResult<String> {
     serde_json::to_string(value).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
+/// `/report` on the segment reporting service.
+#[pyfunction]
+fn segment_report_json(payload: &str) -> PyResult<String> {
+    let req: SegmentReportRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&report_segments(&req))
+}
+
 /// The four working-capital endpoints. `/optimize` answers a zero denominator
 /// with a 400 whose detail names the field, so it is raised as one.
 #[pyfunction]
@@ -721,6 +730,7 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fx_interest_rate_hedging_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_translation_json, m)?)?;
 
+    m.add_function(wrap_pyfunction!(segment_report_json, m)?)?;
     m.add_function(wrap_pyfunction!(wc_analyze_json, m)?)?;
     m.add_function(wrap_pyfunction!(wc_optimize_json, m)?)?;
     m.add_function(wrap_pyfunction!(wc_finance_json, m)?)?;

@@ -1395,3 +1395,55 @@ def test_working_capital_finance_matches_the_service():
 
 def test_working_capital_factoring_matches_the_service():
     _wc_parity_without_id("/factoring", "wc_factoring_json", FACTORING_REQUEST)
+
+
+SEGMENT_REPORT_REQUEST = {
+    "company_id": "c1",
+    "fiscal_year": 2026,
+    "segments": [
+        {
+            "segment_id": "retail",
+            "name": "Retail",
+            "segment_type": "business",
+            "revenue": 800000.0,
+            "expenses": 680000.0,
+            "assets": 1600000.0,
+            "liabilities": 400000.0,
+            "profit_or_loss": 120000.0,
+        },
+        {
+            "segment_id": "wholesale",
+            "name": "Wholesale",
+            "segment_type": "business",
+            "revenue": 150000.0,
+            "expenses": 140000.0,
+            "assets": 300000.0,
+            "liabilities": 90000.0,
+            "profit_or_loss": 10000.0,
+        },
+        {
+            "segment_id": "other",
+            "name": "Other",
+            "segment_type": "geographical",
+            "revenue": 50000.0,
+            "expenses": 48000.0,
+            "assets": 100000.0,
+            "profit_or_loss": 2000.0,
+        },
+    ],
+    "reconciliation_revenue": -25000.0,
+    "reconciliation_expenses": 4000.0,
+}
+
+
+def test_segment_reporting_matches_the_service():
+    client = TestClient(load_service("segment-reporting-service").main.app)
+    served = client.post("/report", json=SEGMENT_REPORT_REQUEST)
+    assert served.status_code == 200, served.text
+    served = served.json()
+    rust = __import__("json").loads(native.segment_report_json(__import__("json").dumps(SEGMENT_REPORT_REQUEST)))
+    served.pop("id")
+    _bodies_match(served, rust)
+    # 5% of revenue is under every IFRS 8 bar, so "other" is not reportable
+    assert rust["reportable_segments"] == 2
+    assert rust["segments"][2]["is_reportable"] is False

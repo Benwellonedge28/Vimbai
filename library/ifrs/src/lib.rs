@@ -5,11 +5,12 @@
 //!
 //! Ported so far: IFRS 2 share-based payment (see `share_based`), IFRS 9
 //! instruments (see `instruments`), IFRS 15 revenue (see `revenue`) and
-//! IFRS 16 leases (see `lease_accounting`).
+//! IFRS 16 leases (see `lease_accounting`) and IFRS 8 segments (see `segments`).
 
 pub mod instruments;
 pub mod lease_accounting;
 pub mod revenue;
+pub mod segments;
 pub mod share_based;
 
 pub use lease_accounting::{

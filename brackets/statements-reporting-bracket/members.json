@@ -88,11 +88,6 @@
       "dir": "sales-ledger-control-service"
     },
     {
-      "path": "/segment-reporting",
-      "name": "segment-reporting-service",
-      "dir": "segment-reporting-service"
-    },
-    {
       "path": "/treasury-reporting",
       "name": "treasury-reporting-service",
       "dir": "treasury-reporting-service"
