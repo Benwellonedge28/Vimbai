@@ -1055,3 +1055,124 @@ class TestOverheadApportionment:
             centres,
         )
         assert rust["cost_centre_apportionments"] == reference["cost_centre_apportionments"]
+
+
+class TestCostCentreSummary:
+    """The stored cost centre summary, checked against the Rust seam and the reference."""
+
+    @staticmethod
+    def _client():
+        app = load_service("cost-centre-service").main.app
+        service_dir = os.path.join(REPO_ROOT, "cost-centre-service")
+
+        fake_path = os.path.join(service_dir, "fake_neo4j.py")
+        spec = importlib.util.spec_from_file_location("seam_cc_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+
+        pkg_name = "cost_centre_service"
+        pkg = sys.modules.get(pkg_name)
+        if pkg is None or not hasattr(pkg, "__path__"):
+            alias = types.ModuleType(pkg_name)
+            alias.__path__ = [service_dir]
+            sys.modules[pkg_name] = alias
+
+        db = importlib.import_module(f"{pkg_name}.database")
+        session = fake.FakeSession()
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
+        return TestClient(app)
+
+    @pytest.mark.parametrize("allocated", [0.0, 40.0, 725.5])
+    def test_totals_match_the_reference(self, monkeypatch, allocated):
+        client = self._client()
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", "rust")
+        assert client.get("/health").json()["calculation_engine"] == "rust"
+
+        centre = client.post(
+            "/cost-centres/create",
+            params={"centre_code": "CC-SEAM", "centre_name": "Machining", "centre_type": "production"},
+            headers=_H,
+        ).json()
+
+        for cost_type, amount in (("direct", 100.0), ("indirect", 50.0), ("overhead", 25.0), ("recharge", 10.0)):
+            client.post(
+                "/costs/add",
+                params={
+                    "cost_centre_id": centre["id"],
+                    "cost_code": "C-1",
+                    "cost_description": cost_type,
+                    "amount": amount,
+                    "cost_type": cost_type,
+                    "period": "2026-11",
+                },
+                headers=_H,
+            )
+
+        served = client.post(
+            "/summary/generate",
+            params={
+                "cost_centre_id": centre["id"],
+                "period": "2026-11",
+                "allocated_service_costs": allocated,
+            },
+            headers=_H,
+        ).json()
+
+        rust = _seam(
+            "cost_centre_summary_json",
+            {
+                "cost_centre_id": centre["id"],
+                "period": "2026-11",
+                "allocated_service_costs": allocated,
+                "costs": [
+                    {
+                        "cost_centre_id": centre["id"],
+                        "cost_code": "C-1",
+                        "cost_description": cost_type,
+                        "amount": amount,
+                        "cost_type": cost_type,
+                        "period": "2026-11",
+                    }
+                    for cost_type, amount in (
+                        ("direct", 100.0),
+                        ("indirect", 50.0),
+                        ("overhead", 25.0),
+                        ("recharge", 10.0),
+                    )
+                ],
+            },
+        )
+        for key in (
+            "total_direct_costs",
+            "total_indirect_costs",
+            "total_overhead",
+            "allocated_service_costs",
+            "total_cost",
+        ):
+            assert served[key] == rust[key], key
+
+        calc = importlib.import_module("cost_centre_service.calc")
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", "python")
+        reference = calc.summary(
+            [
+                {
+                    "cost_centre_id": centre["id"],
+                    "cost_code": "C-1",
+                    "cost_description": cost_type,
+                    "amount": amount,
+                    "cost_type": cost_type,
+                    "period": "2026-11",
+                }
+                for cost_type, amount in (
+                    ("direct", 100.0),
+                    ("indirect", 50.0),
+                    ("overhead", 25.0),
+                    ("recharge", 10.0),
+                )
+            ],
+            centre["id"],
+            "2026-11",
+            allocated,
+        )
+        for key in ("total_direct_costs", "total_overhead", "total_cost"):
+            assert rust[key] == reference[key], key

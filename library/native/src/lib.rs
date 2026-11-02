@@ -36,6 +36,7 @@ use vimbai_cost_accounting::actual_cost::{
 use vimbai_cost_accounting::budgeted_cost::{
     compare_output, cost_breakdown, create_budgeted_cost, flexible_budget, total_budget, BudgetItem,
 };
+use vimbai_cost_accounting::cost_centre::{generate_summary, CostCentreCost as SummaryCost};
 use vimbai_cost_accounting::job_costing::{add_cost, CostType, JobCosts};
 use vimbai_cost_accounting::labour_variance::{analyse_labour_variance, LabourVarianceRequest};
 use vimbai_cost_accounting::limiting_factor::{
@@ -1863,10 +1864,32 @@ struct CostCentreDatumRaw2 {
     basis_values: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
+/// `/summary/generate` on cost-centre-service.
+#[pyfunction]
+fn cost_centre_summary_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        cost_centre_id: String,
+        period: String,
+        #[serde(default)]
+        allocated_service_costs: f64,
+        #[serde(default)]
+        costs: Vec<SummaryCost>,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&generate_summary(
+        &b.costs,
+        &b.cost_centre_id,
+        &b.period,
+        b.allocated_service_costs,
+    ))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
     m.add_function(wrap_pyfunction!(allocate, m)?)?;
+    m.add_function(wrap_pyfunction!(cost_centre_summary_json, m)?)?;
     m.add_function(wrap_pyfunction!(overhead_apportion_json, m)?)?;
     m.add_function(wrap_pyfunction!(overhead_batch_apportion_json, m)?)?;
     m.add_function(wrap_pyfunction!(analyze_treasury_json, m)?)?;
