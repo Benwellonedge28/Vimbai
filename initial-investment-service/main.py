@@ -3,15 +3,30 @@ Vimbai Initial Investment Service
 Handles initial investment calculations for capital projects.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "initial_investment_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("initial_investment_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("initial_investment_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["initial_investment_service"] = _pkg
+    _sys.modules["initial_investment_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from initial_investment_service import crud
+from initial_investment_service.dependencies import book_id_var, get_db_session, get_user_id
+from initial_investment_service.models import InitialInvestment, InvestmentDetail
+from neo4j import AsyncSession
 
 SERVICE_NAME = "initial-investment-service"
 SERVICE_VERSION = "1.0.0"
@@ -37,24 +52,11 @@ app.add_middleware(
 )
 
 
-class InvestmentDetail(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    item: str
-    amount: float
-    category: str  # asset, working_capital, installation, other
-
-
-class InitialInvestment(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    project_name: str
-    items: List[InvestmentDetail]
-    total_investment: float = 0
-    scrap_value: float = 0
-    net_investment: float = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-investments: List[InitialInvestment] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/health")
@@ -75,6 +77,8 @@ async def create_initial_investment(
     working_capital: float = 0,
     other_costs: float = 0,
     scrap_value: float = 0,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Create initial investment calculation."""
     items = [
@@ -97,8 +101,7 @@ async def create_initial_investment(
         scrap_value=scrap_value,
         net_investment=net_investment,
     )
-    investments.append(inv)
-    return inv
+    return await crud.create(session, user_id, inv)
 
 
 @app.post("/simple")
@@ -138,18 +141,28 @@ async def investment_with_capital_allowance(
 
 
 @app.get("/list")
-async def list_investments():
+async def list_investments(
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List all initial investments."""
-    return {"investments": investments}
+    return {"investments": await crud.list_all(session, user_id, InitialInvestment)}
 
 
 @app.get("/get/{investment_id}")
-async def get_investment(investment_id: str):
-    """Get specific investment by ID."""
-    for inv in investments:
-        if inv.id == investment_id:
-            return inv
-    return {"error": "Investment not found"}
+async def get_investment(
+    investment_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
+    """Get specific investment by ID.
+
+    The original answered 200 with an {"error": ...} body; that contract is kept.
+    """
+    inv = await crud.find(session, user_id, InitialInvestment, investment_id)
+    if inv is None:
+        return {"error": "Investment not found"}
+    return inv
 
 
 if __name__ == "__main__":

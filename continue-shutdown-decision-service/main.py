@@ -3,16 +3,33 @@ Vimbai Continue/Shutdown Decision Service
 Helps decide whether to continue or shutdown a department/product.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "continue_shutdown_decision_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("continue_shutdown_decision_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location(
+        "continue_shutdown_decision_service", _os.path.join(_HERE, "__init__.py")
+    )
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["continue_shutdown_decision_service"] = _pkg
+    _sys.modules["continue_shutdown_decision_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from continue_shutdown_decision_service import crud
+from continue_shutdown_decision_service.dependencies import book_id_var, get_db_session, get_user_id
+from continue_shutdown_decision_service.models import ContinueShutdownDecision, CostAnalysis
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "continue-shutdown-decision-service"
 SERVICE_VERSION = "1.0.0"
@@ -40,33 +57,11 @@ app.add_middleware(
 )
 
 
-class CostAnalysis(BaseModel):
-    # If continuing
-    revenue: float = 0
-    variable_costs: float = 0
-    contribution: float = 0
-    avoidable_fixed_costs: float = 0  # Fixed costs saved if shutdown
-    unavoidable_fixed_costs: float = 0  # Costs that continue even if shutdown
-
-
-class ContinueShutdownDecision(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    entity_id: str  # Department or product ID
-    entity_name: str
-    entity_type: str  # department, product, division
-    period: str
-    cost_analysis: CostAnalysis
-    shutdown_costs: float = 0  # Additional costs from shutdown (redundancy, etc.)
-    shutdown_savings: float = 0  # Savings from shutdown
-    net_shutdown_benefit: float = 0
-    contribution_if_continue: float = 0
-    financial_outcome_continue: float = 0  # Profit if continue
-    financial_outcome_shutdown: float = 0  # Profit if shutdown
-    recommendation: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-decisions: List[ContinueShutdownDecision] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -104,6 +99,8 @@ async def analyze_continue_shutdown(
     unavoidable_fixed_costs: float,
     shutdown_costs: float = 0,
     shutdown_savings: float = 0,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Analyze continue vs shutdown decision."""
     cost_analysis = CostAnalysis(
@@ -150,8 +147,7 @@ async def analyze_continue_shutdown(
         recommendation=recommendation,
     )
 
-    decisions.append(decision)
-    return decision
+    return await crud.create(session, user_id, decision)
 
 
 @app.post("/quick-analysis")
@@ -180,9 +176,14 @@ async def quick_shutdown_analysis(entity_name: str, contribution: float, unavoid
 
 
 @app.get("/decisions")
-async def list_decisions(entity_id: Optional[str] = None, entity_type: Optional[str] = None):
+async def list_decisions(
+    entity_id: Optional[str] = None,
+    entity_type: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List decisions."""
-    result = decisions
+    result = await crud.list_all(session, user_id, ContinueShutdownDecision)
     if entity_id:
         result = [d for d in result if d.entity_id == entity_id]
     if entity_type:
@@ -191,10 +192,17 @@ async def list_decisions(entity_id: Optional[str] = None, entity_type: Optional[
 
 
 @app.get("/decisions/{decision_id}")
-async def get_decision(decision_id: str):
-    """Get decision details."""
-    decision = next((d for d in decisions if d.id == decision_id), None)
-    if not decision:
+async def get_decision(
+    decision_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
+    """Get decision details.
+
+    The original answered 200 with an {"error": ...} body; that contract is kept.
+    """
+    decision = await crud.find(session, user_id, ContinueShutdownDecision, decision_id)
+    if decision is None:
         return {"error": "Decision not found"}
     return decision
 

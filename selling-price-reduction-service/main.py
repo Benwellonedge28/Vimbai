@@ -3,16 +3,33 @@ Vimbai Selling Price Reduction Decision Service
 Analyzes proposed selling price reductions.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "selling_price_reduction_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("selling_price_reduction_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location(
+        "selling_price_reduction_service", _os.path.join(_HERE, "__init__.py")
+    )
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["selling_price_reduction_service"] = _pkg
+    _sys.modules["selling_price_reduction_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from selling_price_reduction_service import crud
+from selling_price_reduction_service.dependencies import book_id_var, get_db_session, get_user_id
+from selling_price_reduction_service.models import PriceReductionAnalysis
 
 SERVICE_NAME = "selling-price-reduction-service"
 SERVICE_VERSION = "1.0.0"
@@ -40,29 +57,11 @@ app.add_middleware(
 )
 
 
-class PriceReductionAnalysis(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    product_id: str
-    product_name: str
-    current_price: float
-    proposed_price: float
-    price_reduction: float = 0
-    price_reduction_percentage: float = 0
-    current_contribution_per_unit: float = 0
-    new_contribution_per_unit: float = 0
-    contribution_change_per_unit: float = 0
-    current_expected_sales: float = 0
-    new_expected_sales: float = 0
-    current_total_contribution: float = 0
-    new_total_contribution: float = 0
-    contribution_difference: float = 0
-    minimum_price_for_target_contribution: float = 0
-    recommendation: str = ""
-    break_even_volume_increase: float = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-analyses: List[PriceReductionAnalysis] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -98,6 +97,8 @@ async def analyze_price_reduction(
     current_expected_sales: float,
     new_expected_sales: Optional[float] = None,
     target_contribution: Optional[float] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Analyze selling price reduction decision."""
     analysis = PriceReductionAnalysis(
@@ -154,8 +155,7 @@ async def analyze_price_reduction(
     else:
         analysis.recommendation = "INDIFFERENT"
 
-    analyses.append(analysis)
-    return analysis
+    return await crud.create(session, user_id, analysis)
 
 
 @app.post("/discount-analysis")
@@ -198,9 +198,13 @@ async def analyze_discount_levels(
 
 
 @app.get("/analyses")
-async def list_analyses(product_id: Optional[str] = None):
+async def list_analyses(
+    product_id: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List price reduction analyses."""
-    result = analyses
+    result = await crud.list_all(session, user_id, PriceReductionAnalysis)
     if product_id:
         result = [a for a in result if a.product_id == product_id]
     return {"analyses": result}
