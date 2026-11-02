@@ -1,4 +1,4 @@
-"""Cost accounting calculations shared by the cost services.
+"""Marginal costing calculations.
 
 The figures come from the Rust library when its extension is installed; the
 Python maths stays here as the reference implementation and as the fallback for
@@ -9,6 +9,7 @@ VIMBAI_CALC_ENGINE selects the engine: "auto" (default) uses Rust when it is
 available, "rust" refuses to start without it, "python" pins the reference.
 """
 
+import json
 import os
 
 
@@ -16,12 +17,12 @@ class EngineUnavailable(RuntimeError):
     """Raised when the requested engine cannot be used."""
 
 
-def _seam():
+def _extension():
     try:
-        from shared import native_seam
-    except ImportError:  # pragma: no cover - the services always ship ../shared
+        import vimbai_native
+    except ImportError:
         return None
-    return native_seam if native_seam.available() else None
+    return vimbai_native
 
 
 def engine_in_use() -> str:
@@ -29,27 +30,35 @@ def engine_in_use() -> str:
     requested = os.getenv("VIMBAI_CALC_ENGINE", "auto").strip().lower()
     if requested in ("python", "reference"):
         return "python"
-    if _seam() is None:
+    if _extension() is None:
         if requested == "rust":
             raise EngineUnavailable("VIMBAI_CALC_ENGINE=rust but the vimbai_native extension is not installed")
         return "python"
     return "rust"
 
 
+def _call(name, payload):
+    """Ask the extension for one figure set, or None when it is not installed."""
+    native = _extension()
+    if native is None:
+        return None
+    return json.loads(getattr(native, name)(json.dumps(payload)))
+
+
 def marginal_cost_item(name, code, variable_cost, fixed_cost, units, driver):
     """A marginal cost item: total cost and unit variable cost."""
-    seam = _seam()
-    if seam is not None:
-        answer = seam.marginal_cost_item(
-            {
-                "cost_name": name,
-                "cost_code": code,
-                "variable_cost": variable_cost,
-                "fixed_cost": fixed_cost,
-                "units": units,
-                "cost_driver": driver,
-            }
-        )
+    answer = _call(
+        "marginal_cost_item_json",
+        {
+            "cost_name": name,
+            "cost_code": code,
+            "variable_cost": variable_cost,
+            "fixed_cost": fixed_cost,
+            "units": units,
+            "cost_driver": driver,
+        },
+    )
+    if answer is not None:
         return {
             "total_cost": answer["total_cost"],
             "unit_variable_cost": answer["unit_variable_cost"],
@@ -63,17 +72,17 @@ def marginal_cost_item(name, code, variable_cost, fixed_cost, units, driver):
 
 def marginal_income_statement(company_id, period, sales_revenue, variable_costs, fixed_costs):
     """Total variable costs, contribution and profit for a period."""
-    seam = _seam()
-    if seam is not None:
-        answer = seam.marginal_income_statement(
-            {
-                "company_id": company_id,
-                "period": period,
-                "sales_revenue": sales_revenue,
-                "variable_costs": dict(variable_costs),
-                "fixed_costs": fixed_costs,
-            }
-        )
+    answer = _call(
+        "marginal_income_statement_json",
+        {
+            "company_id": company_id,
+            "period": period,
+            "sales_revenue": sales_revenue,
+            "variable_costs": dict(variable_costs),
+            "fixed_costs": fixed_costs,
+        },
+    )
+    if answer is not None:
         return {
             "total_variable_costs": answer["total_variable_costs"],
             "contribution": answer["contribution"],
@@ -91,17 +100,17 @@ def marginal_income_statement(company_id, period, sales_revenue, variable_costs,
 
 def marginal_contribution(product_id, selling_price, variable_cost_per_unit, units_sold, fixed_costs):
     """Per-unit contribution, margin ratio, total contribution and profit."""
-    seam = _seam()
-    if seam is not None:
-        answer = seam.marginal_contribution(
-            {
-                "product_id": product_id,
-                "selling_price": selling_price,
-                "variable_cost_per_unit": variable_cost_per_unit,
-                "units_sold": units_sold,
-                "fixed_costs": fixed_costs,
-            }
-        )
+    answer = _call(
+        "marginal_contribution_json",
+        {
+            "product_id": product_id,
+            "selling_price": selling_price,
+            "variable_cost_per_unit": variable_cost_per_unit,
+            "units_sold": units_sold,
+            "fixed_costs": fixed_costs,
+        },
+    )
+    if answer is not None:
         return {
             "contribution_per_unit": answer["contribution_per_unit"],
             "contribution_margin_ratio": answer["contribution_margin_ratio"],
@@ -120,16 +129,16 @@ def marginal_contribution(product_id, selling_price, variable_cost_per_unit, uni
 
 def marginal_forecast(selling_price, variable_cost_per_unit, fixed_costs, expected_units):
     """Forecast profit under marginal costing."""
-    seam = _seam()
-    if seam is not None:
-        answer = seam.marginal_forecast(
-            {
-                "selling_price": selling_price,
-                "variable_cost_per_unit": variable_cost_per_unit,
-                "fixed_costs": fixed_costs,
-                "expected_units": expected_units,
-            }
-        )
+    answer = _call(
+        "marginal_forecast_json",
+        {
+            "selling_price": selling_price,
+            "variable_cost_per_unit": variable_cost_per_unit,
+            "fixed_costs": fixed_costs,
+            "expected_units": expected_units,
+        },
+    )
+    if answer is not None:
         return {
             "contribution_per_unit": answer["contribution_per_unit"],
             "contribution_margin_ratio": answer["contribution_margin_ratio"],

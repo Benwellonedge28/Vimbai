@@ -9,6 +9,7 @@ VIMBAI_CALC_ENGINE selects the engine: "auto" (default) uses Rust when it is
 available, "rust" refuses to start without it, "python" pins the reference.
 """
 
+import json
 import os
 
 
@@ -16,12 +17,12 @@ class EngineUnavailable(RuntimeError):
     """Raised when the requested engine cannot be used."""
 
 
-def _seam():
+def _extension():
     try:
-        from shared import native_seam
-    except ImportError:  # pragma: no cover - service always ships ../shared
+        import vimbai_native
+    except ImportError:
         return None
-    return native_seam if native_seam.available() else None
+    return vimbai_native
 
 
 def engine_in_use() -> str:
@@ -29,11 +30,19 @@ def engine_in_use() -> str:
     requested = os.getenv("VIMBAI_CALC_ENGINE", "auto").strip().lower()
     if requested in ("python", "reference"):
         return "python"
-    if _seam() is None:
+    if _extension() is None:
         if requested == "rust":
             raise EngineUnavailable("VIMBAI_CALC_ENGINE=rust but the vimbai_native extension is not installed")
         return "python"
     return "rust"
+
+
+def _call(name, payload):
+    """Ask the extension for one figure set, or None when it is not installed."""
+    native = _extension()
+    if native is None:
+        return None
+    return json.loads(getattr(native, name)(json.dumps(payload)))
 
 
 def product_cost(
@@ -65,9 +74,9 @@ def product_cost(
         "opening_stock": opening_stock,
         "closing_stock": closing_stock,
     }
-    seam = _seam()
-    if seam is not None:
-        return seam.absorption_product_cost(payload)
+    answer = _call("absorption_product_cost_json", payload)
+    if answer is not None:
+        return answer
 
     prime_cost = direct_materials + direct_labor + direct_expenses
     total_production_cost = prime_cost + manufacturing_overhead
@@ -81,14 +90,11 @@ def product_cost(
 
 def absorbed_overhead(overhead_cost: float, absorption_base_units: float) -> dict:
     """The absorption rate and the overhead absorbed over the base."""
-    seam = _seam()
-    if seam is not None:
-        answer = seam.overhead_absorption(
-            {
-                "overhead_cost": overhead_cost,
-                "absorption_base_units": absorption_base_units,
-            }
-        )
+    answer = _call(
+        "absorption_overhead_json",
+        {"overhead_cost": overhead_cost, "absorption_base_units": absorption_base_units},
+    )
+    if answer is not None:
         return {
             "overhead_absorption_rate": answer["overhead_absorption_rate"],
             "absorbed_overhead": answer["absorbed_overhead"],
@@ -100,9 +106,11 @@ def absorbed_overhead(overhead_cost: float, absorption_base_units: float) -> dic
 
 def cost_plus(product_cost: float, markup_percentage: float) -> dict:
     """Markup amount and selling price."""
-    seam = _seam()
-    if seam is not None:
-        answer = seam.cost_plus_pricing({"product_cost": product_cost, "markup_percentage": markup_percentage})
+    answer = _call(
+        "absorption_cost_plus_json",
+        {"product_cost": product_cost, "markup_percentage": markup_percentage},
+    )
+    if answer is not None:
         return {
             "markup_amount": answer["markup_amount"],
             "selling_price": answer["selling_price"],

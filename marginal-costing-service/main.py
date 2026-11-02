@@ -3,18 +3,30 @@ Vimbai Marginal Costing Service
 Manages variable costing / marginal costing methods.
 """
 
+import importlib.util
 import os
+import os as _os
+import sys as _sys
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "marginal_costing_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("marginal_costing_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("marginal_costing_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["marginal_costing_service"] = _pkg
+    _sys.modules["marginal_costing_service"].__path__ = [_HERE]
 
 import httpx
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from marginal_costing_service import cost_calc
 from pydantic import BaseModel, Field
-
-from shared import cost_calc
 
 SERVICE_NAME = "marginal-costing-service"
 SERVICE_VERSION = "1.0.0"
