@@ -1,18 +1,43 @@
 """
 Vimbai Retained Profits Service
-Manages retained profits and profit appropriations.
+Profit appropriations, interim dividends and prior year adjustments. Port: 8036
+
+Persistence is Neo4j, scoped to the caller and the Book. The file may be imported
+bare (bracket mounts, uvicorn main:app), so it bootstraps its own package alias
+first.
+
+FIXED LATENT BUG: every journal posted to the accounting service carried datetime
+objects in its body, so the payload never serialised, the exception was swallowed
+and journal_entry_id always came back empty on all three records. The dates are
+serialised now.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "retained_profits_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("retained_profits_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("retained_profits_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["retained_profits_service"] = _pkg
+    _sys.modules["retained_profits_service"].__path__ = [_HERE]
+
 import os
-import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from retained_profits_service import crud
+from retained_profits_service.dependencies import book_id_var, get_db_session, get_user_id
+from retained_profits_service.exceptions import NotFoundError
 
 SERVICE_NAME = "retained-profits-service"
 SERVICE_VERSION = "1.0.0"
@@ -40,51 +65,11 @@ app.add_middleware(
 )
 
 
-class ProfitAppropriation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    financial_year: str
-    period_start: datetime
-    period_end: datetime
-    net_profit: float
-    appropriations: Dict[str, float] = {}  # type -> amount
-    total_appropriations: float = 0
-    balance_carried_forward: float = 0
-    opening_retained_earnings: float = 0
-    closing_retained_earnings: float = 0
-    journal_entry_id: Optional[str] = None
-    status: str = "draft"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class InterimDividend(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    amount: float
-    per_share_amount: float
-    total_shares: int
-    declaration_date: datetime
-    payment_date: Optional[datetime] = None
-    journal_entry_id: Optional[str] = None
-    status: str = "declared"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class PriorYearAdjustment(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    adjustment_type: str  # correction_of_error, change_in_accounting_policy
-    description: str
-    amount: float
-    affected_year: str
-    journal_entry_id: Optional[str] = None
-    adjustment_date: datetime
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-appropriations: List[ProfitAppropriation] = []
-interim_dividends: List[InterimDividend] = []
-prior_year_adjustments: List[PriorYearAdjustment] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -118,80 +103,88 @@ async def create_appropriation(
     period_end: datetime,
     net_profit: float,
     opening_retained_earnings: float,
-    appropriations: Dict[str, float],  # e.g., {"dividends": 50000, "general_reserve": 20000}
+    appropriations: Dict[str, float],
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Create profit appropriation statement."""
-    appropriation = ProfitAppropriation(
+    entries = [{"account_code": "3300", "description": "Retained Earnings", "debit": net_profit, "credit": 0}]
+    for _alloc_type, amount in appropriations.items():
+        entries.append({"account_code": "3300", "description": "Retained Earnings", "debit": 0, "credit": amount})
+
+    journal_entry = {
+        "date": period_end.isoformat(),
+        "description": f"Profit appropriation for {financial_year}",
+        "entries": entries,
+        "reference": "APPROP-PENDING",
+    }
+    result = await call_accounting_service("POST", "/journal-entries", journal_entry)
+
+    appropriation = await crud.create_appropriation(
+        db_session,
+        user_id,
         company_id=company_id,
         financial_year=financial_year,
         period_start=period_start,
         period_end=period_end,
         net_profit=net_profit,
-        appropriations=appropriations,
         opening_retained_earnings=opening_retained_earnings,
+        appropriations=appropriations,
+        journal_entry_id=result.get("id"),
     )
-    appropriation.total_appropriations = sum(appropriations.values())
-    appropriation.balance_carried_forward = net_profit - appropriation.total_appropriations
-    appropriation.closing_retained_earnings = opening_retained_earnings + appropriation.balance_carried_forward
-
-    entries = [
-        {"account_code": "3300", "description": "Retained Earnings", "debit": net_profit, "credit": 0},
-    ]
-    for alloc_type, amount in appropriations.items():
-        entries.append({"account_code": "3300", "description": f"Retained Earnings", "debit": 0, "credit": amount})
-
-    journal_entry = {
-        "date": period_end,
-        "description": f"Profit appropriation for {financial_year}",
-        "entries": entries,
-        "reference": f"APPROP-{appropriation.id[:8]}",
-    }
-    result = await call_accounting_service("POST", "/journal-entries", journal_entry)
-    appropriation.journal_entry_id = result.get("id")
-    appropriation.status = "approved"
-    appropriations.append(appropriation)
-
     return appropriation
 
 
 @app.post("/interim-dividends/declare")
 async def declare_interim_dividend(
-    company_id: str, amount: float, per_share_amount: float, total_shares: int, declaration_date: datetime
+    company_id: str,
+    amount: float,
+    per_share_amount: float,
+    total_shares: int,
+    declaration_date: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Declare interim dividend."""
-    dividend = InterimDividend(
-        company_id=company_id,
-        amount=amount,
-        per_share_amount=per_share_amount,
-        total_shares=total_shares,
-        declaration_date=declaration_date,
-    )
-
     journal_entry = {
-        "date": declaration_date,
+        "date": declaration_date.isoformat(),
         "description": "Declaration of interim dividend",
         "entries": [
             {"account_code": "3300", "description": "Retained Earnings", "debit": amount, "credit": 0},
             {"account_code": "2310", "description": "Dividend Payable", "debit": 0, "credit": amount},
         ],
-        "reference": f"INTERIM-DIV-{dividend.id[:8]}",
+        "reference": "INTERIM-DIV-PENDING",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
-    dividend.journal_entry_id = result.get("id")
-    interim_dividends.append(dividend)
 
-    return dividend
+    return await crud.declare_dividend(
+        db_session,
+        user_id,
+        company_id=company_id,
+        amount=amount,
+        per_share_amount=per_share_amount,
+        total_shares=total_shares,
+        declaration_date=declaration_date,
+        journal_entry_id=result.get("id"),
+    )
 
 
 @app.post("/interim-dividends/{dividend_id}/pay")
-async def pay_interim_dividend(dividend_id: str, payment_date: datetime):
+async def pay_interim_dividend(
+    dividend_id: str,
+    payment_date: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Pay interim dividend."""
-    dividend = next((d for d in interim_dividends if d.id == dividend_id), None)
-    if not dividend:
+    try:
+        dividend = await crud.pay_dividend(db_session, user_id, dividend_id, payment_date)
+    except NotFoundError:
+        # the original answers 200 with an error body here, not a 404
         return {"error": "Dividend not found"}
 
     journal_entry = {
-        "date": payment_date,
+        "date": payment_date.isoformat(),
         "description": "Payment of interim dividend",
         "entries": [
             {"account_code": "2310", "description": "Dividend Payable", "debit": dividend.amount, "credit": 0},
@@ -200,9 +193,6 @@ async def pay_interim_dividend(dividend_id: str, payment_date: datetime):
         "reference": f"INTERIM-DIV-PAY-{dividend_id[:8]}",
     }
     await call_accounting_service("POST", "/journal-entries", journal_entry)
-    dividend.payment_date = payment_date
-    dividend.status = "paid"
-
     return dividend
 
 
@@ -214,23 +204,14 @@ async def create_prior_year_adjustment(
     amount: float,
     affected_year: str,
     adjustment_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Create prior year adjustment."""
-    if adjustment_date is None:
-        adjustment_date = datetime.utcnow()
+    adjustment_date = adjustment_date or datetime.utcnow()
 
-    adjustment = PriorYearAdjustment(
-        company_id=company_id,
-        adjustment_type=adjustment_type,
-        description=description,
-        amount=amount,
-        affected_year=affected_year,
-        adjustment_date=adjustment_date,
-    )
-
-    # Prior year adjustments affect opening retained earnings
     journal_entry = {
-        "date": adjustment_date,
+        "date": adjustment_date.isoformat(),
         "description": f"Prior year adjustment: {description}",
         "entries": [
             {
@@ -246,60 +227,62 @@ async def create_prior_year_adjustment(
                 "credit": amount if amount > 0 else 0,
             },
         ],
-        "reference": f"PYA-{adjustment.id[:8]}",
+        "reference": "PYA-PENDING",
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
-    adjustment.journal_entry_id = result.get("id")
-    prior_year_adjustments.append(adjustment)
 
-    return adjustment
+    return await crud.create_adjustment(
+        db_session,
+        user_id,
+        company_id=company_id,
+        adjustment_type=adjustment_type,
+        description=description,
+        amount=amount,
+        affected_year=affected_year,
+        adjustment_date=adjustment_date,
+        journal_entry_id=result.get("id"),
+    )
 
 
 @app.get("/appropriations")
-async def list_appropriations(company_id: Optional[str] = None, financial_year: Optional[str] = None):
+async def list_appropriations(
+    company_id: Optional[str] = None,
+    financial_year: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List profit appropriations."""
-    result = appropriations
-    if company_id:
-        result = [a for a in result if a.company_id == company_id]
-    if financial_year:
-        result = [a for a in result if a.financial_year == financial_year]
-    return {"appropriations": result}
+    return {"appropriations": await crud.list_appropriations(db_session, user_id, company_id, financial_year)}
 
 
 @app.get("/interim-dividends")
-async def list_interim_dividends(company_id: Optional[str] = None):
+async def list_interim_dividends(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List interim dividends."""
-    result = interim_dividends
-    if company_id:
-        result = [d for d in result if d.company_id == company_id]
-    return {"interim_dividends": result}
+    return {"interim_dividends": await crud.list_dividends(db_session, user_id, company_id)}
 
 
 @app.get("/adjustments")
-async def list_adjustments(company_id: Optional[str] = None):
+async def list_adjustments(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List prior year adjustments."""
-    result = prior_year_adjustments
-    if company_id:
-        result = [a for a in result if a.company_id == company_id]
-    return {"adjustments": result}
+    return {"adjustments": await crud.list_adjustments(db_session, user_id, company_id)}
 
 
 @app.get("/summary/{company_id}")
-async def get_retained_earnings_summary(company_id: str):
+async def get_retained_earnings_summary(
+    company_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get retained earnings summary."""
-    company_appropriations = [a for a in appropriations if a.company_id == company_id]
-    company_adjustments = [a for a in prior_year_adjustments if a.company_id == company_id]
-
-    total_carried_forward = sum(a.balance_carried_forward for a in company_appropriations)
-    total_adjustments = sum(a.amount for a in company_adjustments)
-
-    return {
-        "company_id": company_id,
-        "total_carried_forward": total_carried_forward,
-        "total_prior_year_adjustments": total_adjustments,
-        "net_retained_earnings": total_carried_forward + total_adjustments,
-        "last_appropriation": company_appropriations[-1] if company_appropriations else None,
-    }
+    return await crud.summarise(db_session, user_id, company_id)
 
 
 if __name__ == "__main__":
