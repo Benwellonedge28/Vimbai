@@ -909,3 +909,59 @@ class TestJobCostingRollup:
             assert rust["aggregated"] is True
             assert rust["total_cost"] == 2700.0
             assert rust["gross_profit"] == 2300.0
+
+
+class TestTotalProductionCost:
+    """The persisted production cost record, checked against the reference maths."""
+
+    @pytest.mark.parametrize(
+        "units, wip_opening, wip_closing",
+        [(100, 200.0, 120.0), (0, 0.0, 0.0), (7, 900.0, 1250.5)],
+    )
+    def test_calculation_matches_the_reference(self, monkeypatch, units, wip_opening, wip_closing):
+        app = load_service("total-production-cost-service").main.app
+        service_dir = os.path.join(REPO_ROOT, "total-production-cost-service")
+
+        fake_path = os.path.join(service_dir, "fake_neo4j.py")
+        spec = importlib.util.spec_from_file_location("seam_tpc_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+
+        pkg_name = "total_production_cost_service"
+        pkg = sys.modules.get(pkg_name)
+        if pkg is None or not hasattr(pkg, "__path__"):
+            alias = types.ModuleType(pkg_name)
+            alias.__path__ = [service_dir]
+            sys.modules[pkg_name] = alias
+
+        db = importlib.import_module(f"{pkg_name}.database")
+        session = fake.FakeSession()
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
+
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", "rust")
+        client = TestClient(app)
+        assert client.get("/health").json()["calculation_engine"] == "rust"
+
+        params = {
+            "product_id": "PRD-SEAM",
+            "department_id": "DEPT-SEAM",
+            "period": "2026-10",
+            "direct_materials": 1000.0,
+            "direct_labor": 500.0,
+            "direct_expenses": 100.0,
+            "factory_rent": 300.0,
+            "factory_depreciation": 150.0,
+            "factory_insurance": 50.0,
+            "factory_maintenance": 100.0,
+            "other_overhead": 25.0,
+            "wip_opening": wip_opening,
+            "wip_closing": wip_closing,
+            "units_produced": units,
+        }
+        served = client.post("/calculate", params=params, headers=_H)
+        assert served.status_code == 200, served.text
+        service = served.json()
+
+        rust = _seam("production_total_cost_json", params)
+        for key in ("prime_cost", "total_overhead", "total_production_cost", "cost_per_unit"):
+            assert service[key] == rust[key], key

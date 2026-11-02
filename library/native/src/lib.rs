@@ -29,6 +29,7 @@ use vimbai_capital_valuation::capital_returns::{
 use vimbai_common::{Money, MoneyError};
 use vimbai_cost_accounting::absorption::{cost_plus_pricing, overhead_absorption, product_cost};
 use vimbai_cost_accounting::labour_variance::{analyse_labour_variance, LabourVarianceRequest};
+use vimbai_cost_accounting::total_production_cost::calculate_total_production_cost;
 use vimbai_cost_accounting::job_costing::{add_cost, CostType, JobCosts};
 use vimbai_cost_accounting::actual_cost::{
     actual_labour_cost, actual_material_cost, compare_actual_to_budget, total_actual_cost,
@@ -1642,6 +1643,58 @@ fn job_add_cost_json(payload: &str) -> PyResult<String> {
     }))
 }
 
+#[pyfunction]
+fn production_total_cost_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        product_id: String,
+        #[serde(default)]
+        department_id: String,
+        #[serde(default)]
+        period: String,
+        #[serde(default)]
+        direct_materials: f64,
+        #[serde(default)]
+        direct_labor: f64,
+        #[serde(default)]
+        direct_expenses: f64,
+        #[serde(default)]
+        factory_rent: f64,
+        #[serde(default)]
+        factory_depreciation: f64,
+        #[serde(default)]
+        factory_insurance: f64,
+        #[serde(default)]
+        factory_maintenance: f64,
+        #[serde(default)]
+        other_overhead: f64,
+        #[serde(default)]
+        wip_opening: f64,
+        #[serde(default)]
+        wip_closing: f64,
+        #[serde(default)]
+        units_produced: i64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&calculate_total_production_cost(
+        &b.product_id,
+        &b.department_id,
+        &b.period,
+        b.direct_materials,
+        b.direct_labor,
+        b.direct_expenses,
+        b.factory_rent,
+        b.factory_depreciation,
+        b.factory_insurance,
+        b.factory_maintenance,
+        b.other_overhead,
+        b.wip_opening,
+        b.wip_closing,
+        b.units_produced,
+    ))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -1726,6 +1779,7 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(actual_compare_budget_json, m)?)?;
     m.add_function(wrap_pyfunction!(actual_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(job_add_cost_json, m)?)?;
+    m.add_function(wrap_pyfunction!(production_total_cost_json, m)?)?;
     m.add_function(wrap_pyfunction!(material_cost_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(simple_material_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(multi_material_variance_json, m)?)?;

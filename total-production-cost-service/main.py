@@ -3,16 +3,31 @@ Vimbai Total Production Cost Service
 Calculates total cost of production (Prime Cost + Factory Overhead).
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "total_production_cost_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("total_production_cost_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("total_production_cost_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["total_production_cost_service"] = _pkg
+    _sys.modules["total_production_cost_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from total_production_cost_service import calc, crud
+from total_production_cost_service.dependencies import book_id_var, get_db_session, get_user_id
+from total_production_cost_service.models import ProductionCostCalculation
 
 SERVICE_NAME = "total-production-cost-service"
 SERVICE_VERSION = "1.0.0"
@@ -40,39 +55,11 @@ app.add_middleware(
 )
 
 
-class ProductionCostCalculation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    product_id: str
-    department_id: str
-    period: str
-
-    # Prime Cost Components
-    direct_materials: float = 0
-    direct_labor: float = 0
-    direct_expenses: float = 0
-    prime_cost: float = 0
-
-    # Factory Overhead
-    factory_rent: float = 0
-    factory_depreciation: float = 0
-    factory_insurance: float = 0
-    factory_maintenance: float = 0
-    other_overhead: float = 0
-    total_overhead: float = 0
-
-    # Work in Progress
-    wip_opening: float = 0
-    wip_closing: float = 0
-
-    # Total Production Cost
-    total_production_cost: float = 0
-    units_produced: int = 0
-    cost_per_unit: float = 0
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-production_costs: List[ProductionCostCalculation] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -90,7 +77,12 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 
 @app.get("/health")
 async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "status": "healthy",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.get("/")
@@ -98,7 +90,7 @@ async def root():
     return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Total production cost calculation"}
 
 
-@app.post("/calculate")
+@app.post("/calculate", response_model=ProductionCostCalculation)
 async def calculate_total_production_cost(
     product_id: str,
     department_id: str,
@@ -114,48 +106,40 @@ async def calculate_total_production_cost(
     wip_opening: float = 0,
     wip_closing: float = 0,
     units_produced: int = 0,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Calculate total production cost."""
-    calc = ProductionCostCalculation(
-        product_id=product_id,
-        department_id=department_id,
-        period=period,
-        direct_materials=direct_materials,
-        direct_labor=direct_labor,
-        direct_expenses=direct_expenses,
-        factory_rent=factory_rent,
-        factory_depreciation=factory_depreciation,
-        factory_insurance=factory_insurance,
-        factory_maintenance=factory_maintenance,
-        other_overhead=other_overhead,
-        wip_opening=wip_opening,
-        wip_closing=wip_closing,
-        units_produced=units_produced,
+    figures = calc.calculate(
+        product_id,
+        department_id,
+        period,
+        direct_materials,
+        direct_labor,
+        direct_expenses,
+        factory_rent,
+        factory_depreciation,
+        factory_insurance,
+        factory_maintenance,
+        other_overhead,
+        wip_opening,
+        wip_closing,
+        units_produced,
     )
-
-    # Calculate Prime Cost
-    calc.prime_cost = direct_materials + direct_labor + direct_expenses
-
-    # Calculate Total Overhead
-    calc.total_overhead = factory_rent + factory_depreciation + factory_insurance + factory_maintenance + other_overhead
-
-    # Calculate Total Production Cost
-    calc.total_production_cost = calc.prime_cost + calc.total_overhead + wip_opening - wip_closing
-
-    # Calculate Cost Per Unit
-    if units_produced > 0:
-        calc.cost_per_unit = calc.total_production_cost / units_produced
-
-    production_costs.append(calc)
-    return calc
+    record = ProductionCostCalculation(**figures)
+    return await crud.create(session, user_id, record)
 
 
 @app.get("/calculations")
 async def list_calculations(
-    product_id: Optional[str] = None, department_id: Optional[str] = None, period: Optional[str] = None
+    product_id: Optional[str] = None,
+    department_id: Optional[str] = None,
+    period: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """List production cost calculations."""
-    result = production_costs
+    result = await crud.list_all(session, user_id, ProductionCostCalculation)
     if product_id:
         result = [c for c in result if c.product_id == product_id]
     if department_id:
@@ -166,33 +150,41 @@ async def list_calculations(
 
 
 @app.get("/calculations/{product_id}/latest")
-async def get_latest_calculation(product_id: str):
+async def get_latest_calculation(
+    product_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """Get latest production cost calculation."""
-    calc = next((c for c in reversed(production_costs) if c.product_id == product_id), None)
-    if not calc:
+    calcs = await crud.list_all(session, user_id, ProductionCostCalculation)
+    matching = [c for c in calcs if c.product_id == product_id]
+    if not matching:
         return {"error": "Calculation not found"}
-    return calc
+    return max(matching, key=lambda c: c.created_at)
 
 
 @app.get("/summary")
-async def get_production_cost_summary(department_id: Optional[str] = None, period: Optional[str] = None):
+async def get_production_cost_summary(
+    department_id: Optional[str] = None,
+    period: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """Get summary of production costs."""
-    calcs = production_costs
+    calcs = await crud.list_all(session, user_id, ProductionCostCalculation)
     if department_id:
         calcs = [c for c in calcs if c.department_id == department_id]
     if period:
         calcs = [c for c in calcs if c.period == period]
 
+    total_production_cost = sum(c.total_production_cost for c in calcs)
+    total_units = sum(c.units_produced for c in calcs)
     return {
         "total_prime_cost": sum(c.prime_cost for c in calcs),
         "total_overhead": sum(c.total_overhead for c in calcs),
-        "total_production_cost": sum(c.total_production_cost for c in calcs),
-        "total_units_produced": sum(c.units_produced for c in calcs),
-        "average_cost_per_unit": (
-            sum(c.total_production_cost for c in calcs) / sum(c.units_produced for c in calcs)
-            if sum(c.units_produced for c in calcs) > 0
-            else 0
-        ),
+        "total_production_cost": total_production_cost,
+        "total_units_produced": total_units,
+        "average_cost_per_unit": (total_production_cost / total_units if total_units > 0 else 0),
         "calculations_count": len(calcs),
     }
 

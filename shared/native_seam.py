@@ -254,3 +254,8 @@ def actual_variance(payload: Dict[str, Any]) -> Dict[str, Any]:
 def job_add_cost(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Apply one cost entry to a job's running totals."""
     return _call("job_add_cost_json", payload)
+
+
+def production_total_cost(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Prime cost, factory overhead, WIP adjustment and cost per unit."""
+    return _call("production_total_cost_json", payload)
