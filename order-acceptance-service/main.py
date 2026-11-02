@@ -3,6 +3,20 @@ Vimbai Order Acceptance Below Selling Price Service
 Analyzes whether to accept orders below normal selling price.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "order_acceptance_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("order_acceptance_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("order_acceptance_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["order_acceptance_service"] = _pkg
+    _sys.modules["order_acceptance_service"].__path__ = [_HERE]
+
 import os
 import uuid
 from datetime import datetime
@@ -12,6 +26,7 @@ import httpx
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from order_acceptance_service import calc
 from pydantic import BaseModel, Field
 
 SERVICE_NAME = "order-acceptance-service"
@@ -84,7 +99,12 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 
 @app.get("/health")
 async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "status": "healthy",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.get("/")
@@ -108,72 +128,24 @@ async def analyze_order_acceptance(
     displaced_contribution_per_unit: float = 0,
 ):
     """Analyze order acceptance decision."""
-    decision = OrderAcceptanceDecision(
-        order_id=order_id,
-        product_id=product_id,
-        product_name=product_name,
-        customer_name=customer_name,
-        normal_selling_price=normal_selling_price,
-        offered_price=offered_price,
-        variable_cost_per_unit=variable_cost_per_unit,
-        units_requested=units_requested,
-        total_fixed_cost_incremental=incremental_fixed_costs,
+    figures = calc.analyze(
+        order_id,
+        product_id,
+        product_name,
+        customer_name,
+        normal_selling_price,
+        offered_price,
+        variable_cost_per_unit,
+        units_requested,
+        full_cost_per_unit,
+        incremental_fixed_costs,
+        displaced_sales_units,
+        displaced_contribution_per_unit,
     )
-
-    # Calculate price difference
-    decision.price_below_normal = normal_selling_price - offered_price
-    decision.price_below_normal_percentage = (
-        decision.price_below_normal / normal_selling_price * 100 if normal_selling_price > 0 else 0
-    )
-
-    # Calculate contributions
-    decision.contribution_per_unit_at_normal = normal_selling_price - variable_cost_per_unit
-    decision.contribution_per_unit_at_offered = offered_price - variable_cost_per_unit
-    decision.contribution_from_order = decision.contribution_per_unit_at_offered * units_requested
-
-    # Calculate total relevant cost
-    variable_cost_total = variable_cost_per_unit * units_requested
-    decision.total_relevant_cost = variable_cost_total + incremental_fixed_costs
-
-    # Calculate minimum acceptable price
-    if units_requested > 0:
-        # Price that covers variable cost + incremental fixed costs
-        decision.minimum_acceptable_price = variable_cost_per_unit + (incremental_fixed_costs / units_requested)
-
-    # Calculate opportunity cost (contribution lost from displaced sales)
-    decision.opportunity_cost = displaced_sales_units * displaced_contribution_per_unit
-
-    # Calculate net contribution
-    decision.net_contribution = decision.contribution_from_order - decision.opportunity_cost
-
-    # Full cost if provided
-    if full_cost_per_unit:
-        decision.full_cost_per_unit = full_cost_per_unit
-
-    # Make recommendation
-    if decision.opportunity_cost == 0:
-        if decision.contribution_per_unit_at_offered > 0:
-            decision.recommendation = "ACCEPT"
-            decision.conditions = ["Positive contribution generated"]
-        else:
-            decision.recommendation = "REJECT"
-            decision.conditions = ["Negative contribution - would lose money"]
-    else:
-        if decision.net_contribution > 0:
-            decision.recommendation = "ACCEPT_WITH_CONDITIONS"
-            decision.conditions = [
-                f"Net contribution: {decision.net_contribution}",
-                f"Consider impact on existing customers",
-            ]
-        elif decision.net_contribution == 0:
-            decision.recommendation = "INDIFFERENT"
-            decision.conditions = ["Consider strategic value of customer relationship"]
-        else:
-            decision.recommendation = "REJECT"
-            decision.conditions = [
-                f"Net contribution negative: {decision.net_contribution}",
-                "Would reduce overall profitability",
-            ]
+    full_cost = figures.pop("full_cost_per_unit")
+    decision = OrderAcceptanceDecision(**figures)
+    if full_cost is not None:
+        decision.full_cost_per_unit = full_cost
 
     decisions.append(decision)
     return decision
@@ -188,38 +160,7 @@ async def analyze_one_time_order(
     has_spare_capacity: bool = True,
 ):
     """Quick analysis for one-time special order."""
-    contribution_per_unit = offered_price - variable_cost_per_unit
-    total_contribution = contribution_per_unit * units
-
-    minimum_price = variable_cost_per_unit
-
-    if has_spare_capacity:
-        if contribution_per_unit > 0:
-            recommendation = "ACCEPT"
-            reason = f"Spare capacity available. Generates {total_contribution} contribution."
-        else:
-            recommendation = "REJECT"
-            reason = "Price below variable cost."
-    else:
-        if contribution_per_unit > 0:
-            recommendation = "CONSIDER"
-            reason = "No spare capacity - would need to reduce regular production"
-        else:
-            recommendation = "REJECT"
-            reason = "Price below variable cost"
-
-    return {
-        "product_name": product_name,
-        "offered_price": offered_price,
-        "variable_cost_per_unit": variable_cost_per_unit,
-        "units": units,
-        "contribution_per_unit": contribution_per_unit,
-        "total_contribution": total_contribution,
-        "minimum_acceptable_price": minimum_price,
-        "has_spare_capacity": has_spare_capacity,
-        "recommendation": recommendation,
-        "reason": reason,
-    }
+    return calc.one_time_order(product_name, offered_price, variable_cost_per_unit, units, has_spare_capacity)
 
 
 @app.get("/decisions")

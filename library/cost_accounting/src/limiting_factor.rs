@@ -8,12 +8,17 @@ use serde::{Deserialize, Serialize};
 pub struct ProductWithFactor {
     pub product_id: String,
     pub product_name: String,
+    #[serde(default)]
     pub demand: f64,
     pub contribution_per_unit: f64,
     pub factor_per_unit: f64,
+    #[serde(default)]
     pub contribution_per_factor_unit: f64,
+    #[serde(default)]
     pub ranking: usize,
+    #[serde(default)]
     pub units_to_produce: f64,
+    #[serde(default)]
     pub total_contribution: f64,
 }
 

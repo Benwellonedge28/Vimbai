@@ -29,6 +29,10 @@ use vimbai_capital_valuation::capital_returns::{
 use vimbai_common::{Money, MoneyError};
 use vimbai_cost_accounting::absorption::{cost_plus_pricing, overhead_absorption, product_cost};
 use vimbai_cost_accounting::labour_variance::{analyse_labour_variance, LabourVarianceRequest};
+use vimbai_cost_accounting::limiting_factor::{
+    analyze_limiting_factor, compare_products_for_factor, ProductWithFactor,
+};
+use vimbai_cost_accounting::order_acceptance::{analyze_one_time_order, analyze_order_acceptance};
 use vimbai_cost_accounting::prime_cost::{
     direct_cost_item, prime_cost, prime_cost_from_items, DirectCostItem,
 };
@@ -1191,6 +1195,115 @@ fn throughput_accounting_json(payload: &str) -> PyResult<String> {
     json_out(&analyze_throughput(&request))
 }
 
+#[pyfunction]
+fn limiting_factor_analyze_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        limiting_factor: String,
+        #[serde(default)]
+        factor_type: String,
+        #[serde(default)]
+        total_available: f64,
+        #[serde(default)]
+        products: Vec<ProductWithFactor>,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&analyze_limiting_factor(
+        &body.limiting_factor,
+        &body.factor_type,
+        body.total_available,
+        &body.products,
+    ))
+}
+
+#[pyfunction]
+fn limiting_factor_compare_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        products: Vec<ProductWithFactor>,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&serde_json::json!({
+        "ranked_products": compare_products_for_factor(&body.products),
+    }))
+}
+
+#[pyfunction]
+fn order_acceptance_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        order_id: String,
+        #[serde(default)]
+        product_id: String,
+        #[serde(default)]
+        product_name: String,
+        #[serde(default)]
+        customer_name: String,
+        #[serde(default)]
+        normal_selling_price: f64,
+        #[serde(default)]
+        offered_price: f64,
+        #[serde(default)]
+        variable_cost_per_unit: f64,
+        #[serde(default)]
+        units_requested: f64,
+        #[serde(default)]
+        full_cost_per_unit: Option<f64>,
+        #[serde(default)]
+        incremental_fixed_costs: f64,
+        #[serde(default)]
+        displaced_sales_units: f64,
+        #[serde(default)]
+        displaced_contribution_per_unit: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&analyze_order_acceptance(
+        &b.order_id,
+        &b.product_id,
+        &b.product_name,
+        &b.customer_name,
+        b.normal_selling_price,
+        b.offered_price,
+        b.variable_cost_per_unit,
+        b.units_requested,
+        b.full_cost_per_unit,
+        b.incremental_fixed_costs,
+        b.displaced_sales_units,
+        b.displaced_contribution_per_unit,
+    ))
+}
+
+#[pyfunction]
+fn one_time_order_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        product_name: String,
+        #[serde(default)]
+        offered_price: f64,
+        #[serde(default)]
+        variable_cost_per_unit: f64,
+        #[serde(default)]
+        units: f64,
+        #[serde(default = "yes")]
+        has_spare_capacity: bool,
+    }
+    fn yes() -> bool {
+        true
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&analyze_one_time_order(
+        &b.product_name,
+        b.offered_price,
+        b.variable_cost_per_unit,
+        b.units,
+        b.has_spare_capacity,
+    ))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -1253,6 +1366,10 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(prime_cost_json, m)?)?;
     m.add_function(wrap_pyfunction!(prime_cost_from_items_json, m)?)?;
     m.add_function(wrap_pyfunction!(throughput_accounting_json, m)?)?;
+    m.add_function(wrap_pyfunction!(limiting_factor_analyze_json, m)?)?;
+    m.add_function(wrap_pyfunction!(limiting_factor_compare_json, m)?)?;
+    m.add_function(wrap_pyfunction!(order_acceptance_json, m)?)?;
+    m.add_function(wrap_pyfunction!(one_time_order_json, m)?)?;
     m.add_function(wrap_pyfunction!(material_cost_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(simple_material_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(multi_material_variance_json, m)?)?;

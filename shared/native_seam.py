@@ -144,3 +144,23 @@ def prime_cost_from_items(payload: Dict[str, Any]) -> Dict[str, Any]:
 def throughput_accounting(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Throughput analysis: ranking, optimal mix and constraint utilization."""
     return _call("throughput_accounting_json", payload)
+
+
+def limiting_factor(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Optimal production plan under a single scarce resource."""
+    return _call("limiting_factor_analyze_json", payload)
+
+
+def limiting_factor_compare(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Products ranked by contribution per unit of the scarce resource."""
+    return _call("limiting_factor_compare_json", payload)
+
+
+def order_acceptance(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Accept or reject a special order, with the conditions that decide it."""
+    return _call("order_acceptance_json", payload)
+
+
+def one_time_order(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Quick one-time-order check against spare capacity."""
+    return _call("one_time_order_json", payload)

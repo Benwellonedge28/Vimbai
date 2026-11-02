@@ -3,6 +3,20 @@ Vimbai Limiting Factor Service
 Optimizes production when resources are scarce.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "limiting_factor_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("limiting_factor_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("limiting_factor_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["limiting_factor_service"] = _pkg
+    _sys.modules["limiting_factor_service"].__path__ = [_HERE]
+
 import os
 import uuid
 from datetime import datetime
@@ -13,6 +27,7 @@ import httpx
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from limiting_factor_service import calc
 from pydantic import BaseModel, Field
 
 SERVICE_NAME = "limiting-factor-service"
@@ -94,7 +109,12 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 
 @app.get("/health")
 async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "status": "healthy",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.get("/")
@@ -117,52 +137,13 @@ async def analyze_limiting_factor(
         total_available=total_available,
     )
 
-    # Calculate contribution per factor unit for each product
-    for prod in products:
-        product = ProductWithFactor(
-            product_id=prod["product_id"],
-            product_name=prod["product_name"],
-            demand=prod["demand"],
-            contribution_per_unit=prod["contribution_per_unit"],
-            factor_per_unit=prod["factor_per_unit"],
-        )
+    figures = calc.analyze(limiting_factor, factor_type, total_available, products)
+    analysis.factor_used = figures["factor_used"]
+    analysis.factor_remaining = figures["factor_remaining"]
+    analysis.total_contribution = figures["total_contribution"]
+    analysis.optimal_production_plan = figures["optimal_production_plan"]
+    analysis.products = [ProductWithFactor(**p) for p in figures["products"]]
 
-        if prod["factor_per_unit"] > 0:
-            product.contribution_per_factor_unit = prod["contribution_per_unit"] / prod["factor_per_unit"]
-
-        analysis.products.append(product)
-
-    # Sort by contribution per factor unit (highest first)
-    analysis.products.sort(key=lambda x: x.contribution_per_factor_unit, reverse=True)
-
-    # Rank products
-    for i, product in enumerate(analysis.products, 1):
-        product.ranking = i
-
-    # Allocate resources optimally
-    remaining_factor = total_available
-
-    for product in analysis.products:
-        # Calculate max units possible
-        if product.factor_per_unit > 0:
-            max_units_by_factor = remaining_factor / product.factor_per_unit
-            product.units_to_produce = min(product.demand, max_units_by_factor)
-        else:
-            product.units_to_produce = product.demand
-
-        # Update remaining factor
-        factor_used = product.units_to_produce * product.factor_per_unit
-        remaining_factor -= factor_used
-        analysis.factor_used += factor_used
-
-        # Calculate contribution
-        product.total_contribution = product.units_to_produce * product.contribution_per_unit
-        analysis.total_contribution += product.total_contribution
-
-        # Add to optimal plan
-        analysis.optimal_production_plan[product.product_id] = product.units_to_produce
-
-    analysis.factor_remaining = remaining_factor
     analyses.append(analysis)
     return analysis
 
@@ -172,29 +153,7 @@ async def compare_products_for_factor(
     products: List[Dict[str, Any]],  # [{product_id, product_name, contribution_per_unit, factor_per_unit}]
 ):
     """Compare products to determine ranking."""
-    comparisons = []
-
-    for prod in products:
-        contribution_per_factor = 0
-        if prod["factor_per_unit"] > 0:
-            contribution_per_factor = prod["contribution_per_unit"] / prod["factor_per_unit"]
-
-        comparisons.append(
-            {
-                "product_id": prod["product_id"],
-                "product_name": prod["product_name"],
-                "contribution_per_unit": prod["contribution_per_unit"],
-                "factor_per_unit": prod["factor_per_unit"],
-                "contribution_per_factor_unit": contribution_per_factor,
-            }
-        )
-
-    # Sort by contribution per factor unit
-    comparisons.sort(key=lambda x: x["contribution_per_factor_unit"], reverse=True)
-
-    # Add rankings
-    for i, comp in enumerate(comparisons, 1):
-        comp["ranking"] = i
+    comparisons = calc.compare(products)
 
     return {"ranked_products": comparisons}
 

@@ -470,3 +470,195 @@ class TestPrimeCostAndThroughput:
             assert service[key] == rust[key], key
         assert service["product_ranking"] == rust["product_ranking"]
         assert service["optimal_mix"] == rust["optimal_mix"]
+
+
+class TestLimitingFactorAndOrderAcceptance:
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    @pytest.mark.parametrize(
+        "products",
+        [
+            [
+                {
+                    "product_id": "A",
+                    "product_name": "Alpha",
+                    "demand": 100,
+                    "contribution_per_unit": 24,
+                    "factor_per_unit": 4,
+                },
+                {
+                    "product_id": "B",
+                    "product_name": "Beta",
+                    "demand": 80,
+                    "contribution_per_unit": 15,
+                    "factor_per_unit": 1,
+                },
+                {
+                    "product_id": "C",
+                    "product_name": "Gamma",
+                    "demand": 40,
+                    "contribution_per_unit": 30,
+                    "factor_per_unit": 0,
+                },
+            ],
+            [
+                {
+                    "product_id": "S",
+                    "product_name": "Solo",
+                    "demand": 12.5,
+                    "contribution_per_unit": 8.4,
+                    "factor_per_unit": 2.5,
+                },
+            ],
+        ],
+    )
+    def test_limiting_factor_matches_the_service(self, monkeypatch, engine, products):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        client = TestClient(load_service("limiting-factor-service").main.app)
+        assert client.get("/health").json()["calculation_engine"] == engine
+
+        params = [
+            ("limiting_factor", "machine hours"),
+            ("factor_type", "capacity"),
+            ("total_available", "160"),
+        ]
+        served = client.post("/analyze", params=params, json=products)
+        assert served.status_code == 200, served.text
+        service = served.json()
+
+        rust = _seam(
+            "limiting_factor_analyze_json",
+            {
+                "limiting_factor": "machine hours",
+                "factor_type": "capacity",
+                "total_available": 160.0,
+                "products": products,
+            },
+        )
+
+        for key in ("factor_used", "factor_remaining", "total_contribution"):
+            assert service[key] == rust[key], key
+        assert service["optimal_production_plan"] == rust["optimal_production_plan"]
+        assert [
+            (p["product_id"], p["ranking"], p["units_to_produce"], p["contribution_per_factor_unit"])
+            for p in service["products"]
+        ] == [
+            (p["product_id"], p["ranking"], p["units_to_produce"], p["contribution_per_factor_unit"])
+            for p in rust["products"]
+        ]
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    def test_limiting_factor_compare_matches_the_service(self, monkeypatch, engine):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        client = TestClient(load_service("limiting-factor-service").main.app)
+        products = [
+            {"product_id": "A", "product_name": "Alpha", "contribution_per_unit": 24, "factor_per_unit": 4},
+            {"product_id": "B", "product_name": "Beta", "contribution_per_unit": 15, "factor_per_unit": 1},
+            {"product_id": "C", "product_name": "Gamma", "contribution_per_unit": 30, "factor_per_unit": 0},
+        ]
+        served = client.post("/compare-products", json=products)
+        assert served.status_code == 200, served.text
+        rust = _seam("limiting_factor_compare_json", {"products": products})
+        assert served.json()["ranked_products"] == rust["ranked_products"]
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {
+                "order_id": "ORD-1",
+                "product_id": "PRD-1",
+                "product_name": "Widget",
+                "customer_name": "Acme",
+                "normal_selling_price": 100.0,
+                "offered_price": 85.0,
+                "variable_cost_per_unit": 60.0,
+                "units_requested": 500.0,
+            },
+            {
+                "order_id": "ORD-2",
+                "product_id": "PRD-2",
+                "product_name": "Gadget",
+                "customer_name": "Beta Ltd",
+                "normal_selling_price": 200.0,
+                "offered_price": 150.0,
+                "variable_cost_per_unit": 90.0,
+                "units_requested": 200.0,
+                "full_cost_per_unit": 130.0,
+                "incremental_fixed_costs": 4000.0,
+                "displaced_sales_units": 60.0,
+                "displaced_contribution_per_unit": 110.0,
+            },
+            {
+                "order_id": "ORD-3",
+                "product_id": "PRD-3",
+                "product_name": "Bolt",
+                "customer_name": "Gamma",
+                "normal_selling_price": 50.0,
+                "offered_price": 40.0,
+                "variable_cost_per_unit": 45.0,
+                "units_requested": 100.0,
+                "displaced_sales_units": 100.0,
+                "displaced_contribution_per_unit": 5.0,
+            },
+        ],
+    )
+    def test_order_acceptance_matches_the_service(self, monkeypatch, engine, params):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        module = load_service("order-acceptance-service").main
+        module.decisions.clear()
+        client = TestClient(module.app)
+        assert client.get("/health").json()["calculation_engine"] == engine
+
+        served = client.post("/analyze", params=params)
+        assert served.status_code == 200, served.text
+        service = served.json()
+
+        payload = dict(params)
+        payload.setdefault("full_cost_per_unit", None)
+        rust = _seam("order_acceptance_json", payload)
+
+        for key in (
+            "price_below_normal",
+            "price_below_normal_percentage",
+            "contribution_per_unit_at_normal",
+            "contribution_per_unit_at_offered",
+            "contribution_from_order",
+            "total_relevant_cost",
+            "minimum_acceptable_price",
+            "opportunity_cost",
+            "net_contribution",
+            "total_fixed_cost_incremental",
+            "recommendation",
+        ):
+            assert service[key] == rust[key], key
+        # the service model keeps a float full cost, the library reports "not given"
+        assert (service["full_cost_per_unit"] or None) == rust["full_cost_per_unit"]
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    @pytest.mark.parametrize(
+        "params",
+        [
+            {"product_name": "Widget", "offered_price": 90.0, "variable_cost_per_unit": 60.0, "units": 100.0},
+            {
+                "product_name": "Gadget",
+                "offered_price": 80.0,
+                "variable_cost_per_unit": 60.0,
+                "units": 250.0,
+                "has_spare_capacity": False,
+            },
+            {
+                "product_name": "Bolt",
+                "offered_price": 40.0,
+                "variable_cost_per_unit": 45.0,
+                "units": 10.0,
+            },
+        ],
+    )
+    def test_one_time_order_matches_the_service(self, monkeypatch, engine, params):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        client = TestClient(load_service("order-acceptance-service").main.app)
+
+        served = client.post("/one-time-order", params=params)
+        assert served.status_code == 200, served.text
+        rust = _seam("one_time_order_json", params)
+        assert served.json() == rust
