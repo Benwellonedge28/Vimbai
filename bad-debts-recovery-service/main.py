@@ -1,19 +1,40 @@
 """
 Vimbai Bad Debts Recovery Service
-Tracks and records recovery of previously written-off bad debts.
+Tracks and records recovery of previously written-off bad debts. Port: 8033
+
+Debts and their recovery journals live in Neo4j, scoped to the caller and the
+Book. The file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias first.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "bad_debts_recovery_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("bad_debts_recovery_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("bad_debts_recovery_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["bad_debts_recovery_service"] = _pkg
+    _sys.modules["bad_debts_recovery_service"].__path__ = [_HERE]
+
 import os
-import uuid
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from enum import Enum  # noqa: F401 - kept for callers importing from main
+from typing import Any, Dict, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI, HTTPException, status
+from bad_debts_recovery_service import crud
+from bad_debts_recovery_service.dependencies import book_id_var, get_db_session, get_user_id
+from bad_debts_recovery_service.exceptions import ConflictError, NotFoundError
+from bad_debts_recovery_service.models import RecoveryStatus
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "bad-debts-recovery-service"
 SERVICE_VERSION = "1.0.0"
@@ -41,42 +62,11 @@ app.add_middleware(
 )
 
 
-class RecoveryStatus(str, Enum):
-    PENDING = "pending"
-    PARTIAL = "partial"
-    COMPLETED = "completed"
-    UNRECOVERABLE = "unrecoverable"
-
-
-class RecoveryEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    original_debt_id: str
-    debtor_name: str
-    original_amount: float
-    written_off_amount: float
-    recovered_amount: float = 0
-    recovery_date: Optional[datetime] = None
-    status: RecoveryStatus = RecoveryStatus.PENDING
-    payment_method: Optional[str] = None
-    reference: Optional[str] = None
-    notes: Optional[str] = None
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class RecoveryJournal(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    recovery_id: str
-    amount: float
-    date: datetime
-    description: str
-    journal_entry_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-# In-memory storage
-bad_debts_records: List[RecoveryEntry] = []
-recovery_journals: List[RecoveryJournal] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -128,16 +118,19 @@ async def register_bad_debt(
     written_off_amount: float,
     written_off_date: datetime,
     notes: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Register a bad debt for recovery tracking."""
-    entry = RecoveryEntry(
-        original_debt_id=debt_id,
+    entry = await crud.register_debt(
+        db_session,
+        user_id,
+        debt_id=debt_id,
         debtor_name=debtor_name,
         original_amount=original_amount,
         written_off_amount=written_off_amount,
         notes=notes,
     )
-    bad_debts_records.append(entry)
     await call_audit_service("CREATE", "bad_debt", debt_id, {"amount": written_off_amount})
     return entry
 
@@ -149,27 +142,29 @@ async def record_recovery(
     recovery_date: Optional[datetime] = None,
     payment_method: Optional[str] = None,
     reference: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Record recovery of a bad debt."""
-    entry = next((e for e in bad_debts_records if e.original_debt_id == debt_id), None)
-    if not entry:
+    try:
+        existing = await crud.get_debt(db_session, user_id, debt_id)
+    except NotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bad debt record not found")
-
-    if entry.status == RecoveryStatus.COMPLETED:
+    if existing.status == RecoveryStatus.COMPLETED:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Recovery already completed")
 
-    recovery_date = recovery_date or datetime.utcnow()
+    recovered_on = recovery_date or datetime.utcnow()
 
-    # Create journal entry
+    # the journal the accounting service keeps, unchanged in shape
     journal_entry = {
-        "date": recovery_date,
-        "description": f"Recovery of bad debt from {entry.debtor_name}",
+        "date": recovered_on,
+        "description": f"Recovery of bad debt from {existing.debtor_name}",
         "entries": [
             {"account_code": "1000", "description": "Cash/Bank", "debit": amount, "credit": 0},
             {
                 "account_code": "1310",
                 "description": "Provision for Doubtful Debts",
-                "debit": amount if entry.recovered_amount == 0 else 0,
+                "debit": amount if existing.recovered_amount == 0 else 0,
                 "credit": 0,
             },
             {"account_code": "6400", "description": "Bad Debts Recovered", "debit": 0, "credit": amount},
@@ -178,25 +173,21 @@ async def record_recovery(
     }
     result = await call_accounting_service("POST", "/journal-entries", journal_entry)
 
-    # Record the recovery
-    recovery = RecoveryJournal(
-        recovery_id=debt_id,
-        amount=amount,
-        date=recovery_date,
-        description=f"Recovery from {entry.debtor_name}",
-        journal_entry_id=result.get("id"),
-    )
-    recovery_journals.append(recovery)
-
-    entry.recovered_amount += amount
-    entry.recovery_date = recovery_date
-    entry.payment_method = payment_method
-    entry.reference = reference
-
-    if entry.recovered_amount >= entry.written_off_amount:
-        entry.status = RecoveryStatus.COMPLETED
-    else:
-        entry.status = RecoveryStatus.PARTIAL
+    try:
+        entry, recovery = await crud.record_recovery(
+            db_session,
+            user_id,
+            debt_id=debt_id,
+            amount=amount,
+            recovery_date=recovered_on,
+            payment_method=payment_method,
+            reference=reference,
+            journal_entry_id=result.get("id"),
+        )
+    except NotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bad debt record not found")
+    except ConflictError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Recovery already completed")
 
     await call_audit_service(
         "RECOVER", "bad_debt", debt_id, {"amount": amount, "total_recovered": entry.recovered_amount}
@@ -205,45 +196,36 @@ async def record_recovery(
 
 
 @app.get("/bad-debts")
-async def list_bad_debts(status: Optional[RecoveryStatus] = None):
+async def list_bad_debts(
+    status_filter: Optional[RecoveryStatus] = Query(None, alias="status"),
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List all bad debt records."""
-    result = bad_debts_records
-    if status:
-        result = [e for e in result if e.status == status]
-    return {"records": result, "total": len(result)}
+    records = await crud.list_debts(db_session, user_id, status_filter)
+    return {"records": records, "total": len(records)}
 
 
 @app.get("/bad-debts/{debt_id}")
-async def get_bad_debt(debt_id: str):
+async def get_bad_debt(
+    debt_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get bad debt details."""
-    entry = next((e for e in bad_debts_records if e.original_debt_id == debt_id), None)
-    if not entry:
+    try:
+        return await crud.get_debt(db_session, user_id, debt_id)
+    except NotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bad debt record not found")
-    return entry
 
 
 @app.get("/recovery-summary")
-async def get_recovery_summary():
+async def get_recovery_summary(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get recovery summary statistics."""
-    total_bad_debts = len(bad_debts_records)
-    total_written_off = sum(e.written_off_amount for e in bad_debts_records)
-    total_recovered = sum(e.recovered_amount for e in bad_debts_records)
-    pending = sum(
-        e.written_off_amount - e.recovered_amount for e in bad_debts_records if e.status != RecoveryStatus.COMPLETED
-    )
-
-    return {
-        "total_bad_debts": total_bad_debts,
-        "total_written_off": total_written_off,
-        "total_recovered": total_recovered,
-        "pending_recovery": pending,
-        "recovery_rate": (total_recovered / total_written_off * 100) if total_written_off > 0 else 0,
-        "status_breakdown": {
-            "pending": len([e for e in bad_debts_records if e.status == RecoveryStatus.PENDING]),
-            "partial": len([e for e in bad_debts_records if e.status == RecoveryStatus.PARTIAL]),
-            "completed": len([e for e in bad_debts_records if e.status == RecoveryStatus.COMPLETED]),
-        },
-    }
+    return crud.summarise(await crud.list_debts(db_session, user_id))
 
 
 if __name__ == "__main__":
