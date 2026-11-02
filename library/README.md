@@ -44,6 +44,12 @@ maturin build --release -o dist
 pip install dist/*.whl
 ```
 
+The seam now covers cost accounting as well: absorption costing (product cost card,
+overhead absorption, cost-plus), marginal costing (cost item, income statement,
+contribution analysis, profit forecast) and target costing. `target_cost_json`
+takes `component_costs` as `[[name, cost], ...]` pairs so the component analysis
+keeps the caller's insertion order, which the Python dict relied on.
+
 Services reach it through `shared/native_seam.py`, which raises rather than
 falling back to float maths when the wheel is missing. `tests/test_native_seam.py`
 runs the same request through the treasury analytics service and the Rust seam

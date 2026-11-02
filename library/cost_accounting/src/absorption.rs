@@ -5,7 +5,6 @@
 //! persistence remain in the Python service until the seam is wired).
 
 use serde::{Deserialize, Serialize};
-use vimbai_common::py_round2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProductCostOutput {
@@ -30,7 +29,9 @@ pub struct ProductCostOutput {
 /// Absorption product cost card
 /// (absorption-costing-service `/product-costs/calculate`):
 /// prime = DM + DL + DE; total = prime + overhead;
-/// cost_per_unit = total / units (0 when units <= 0).
+/// cost_per_unit = total / units (0 when units <= 0), left unrounded because the
+/// Python service reports the raw quotient (2150 over 3 units is 716.6666666666666,
+/// not 716.67).
 pub fn product_cost(
     product_id: &str,
     product_name: &str,
@@ -63,7 +64,7 @@ pub fn product_cost(
         closing_stock,
         prime_cost,
         total_production_cost,
-        cost_per_unit: py_round2(cost_per_unit),
+        cost_per_unit,
     }
 }
 
@@ -138,6 +139,16 @@ mod tests {
         assert_eq!(c.cost_per_unit, 10.0);
         let zero = product_cost("p", "X", "p", 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
         assert_eq!(zero.cost_per_unit, 0.0);
+    }
+
+    #[test]
+    fn unit_cost_keeps_the_raw_quotient() {
+        // The Python service divides and reports the result unrounded.
+        let c = product_cost(
+            "p", "W", "2026-10", 1200.0, 800.0, 150.0, 0.0, 3.0, 0.0, 0.0,
+        );
+        assert_eq!(c.cost_per_unit, 2150.0 / 3.0);
+        assert_ne!(c.cost_per_unit, 716.67);
     }
 
     #[test]

@@ -27,10 +27,15 @@ use vimbai_capital_valuation::capital_returns::{
     discount_factor_table_range, discounted_payback, simple_rate, wacc,
 };
 use vimbai_common::{Money, MoneyError};
+use vimbai_cost_accounting::absorption::{cost_plus_pricing, overhead_absorption, product_cost};
 use vimbai_cost_accounting::labour_variance::{analyse_labour_variance, LabourVarianceRequest};
+use vimbai_cost_accounting::marginal::{
+    contribution_analysis, forecast_profit, marginal_cost_item, marginal_income_statement,
+};
 use vimbai_cost_accounting::material_variance::{
     material_cost_variance, multi_material_variance, simple_material_variance, MaterialInput,
 };
+use vimbai_cost_accounting::target_costing::{calculate_target_cost, TargetCostRequest};
 use vimbai_ifrs::interim::{
     effective_tax_rate as interim_tax_rate, prepare as interim_prepare,
     year_to_date as interim_ytd, InterimPeriod, InterimReportRequest,
@@ -917,6 +922,200 @@ fn liquidity_risk_json(payload: &str) -> PyResult<String> {
     json_out(&analyze_liquidity_risk(&req))
 }
 
+// ---------------------------------------------------------------------------
+// Cost accounting seam
+//
+// Absorption, marginal and target costing. Every function below is a plain
+// adapter: parse the payload, call the safe library function, render the result.
+// ---------------------------------------------------------------------------
+
+/// `/product-costs/calculate` on the absorption costing service: the product
+/// cost card, prime cost, total production cost and cost per unit.
+#[pyfunction]
+fn absorption_product_cost_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        product_id: String,
+        #[serde(default)]
+        product_name: String,
+        #[serde(default)]
+        period: String,
+        direct_materials: f64,
+        direct_labor: f64,
+        #[serde(default)]
+        direct_expenses: f64,
+        #[serde(default)]
+        manufacturing_overhead: f64,
+        #[serde(default)]
+        units_produced: f64,
+        #[serde(default)]
+        opening_stock: f64,
+        #[serde(default)]
+        closing_stock: f64,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&product_cost(
+        &body.product_id,
+        &body.product_name,
+        &body.period,
+        body.direct_materials,
+        body.direct_labor,
+        body.direct_expenses,
+        body.manufacturing_overhead,
+        body.units_produced,
+        body.opening_stock,
+        body.closing_stock,
+    ))
+}
+
+/// `/overhead/absorption` on the absorption costing service: the absorption
+/// rate and the overhead it absorbs over the base.
+#[pyfunction]
+fn absorption_overhead_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        product_id: String,
+        #[serde(default)]
+        period: String,
+        overhead_cost: f64,
+        #[serde(default)]
+        absorption_base: String,
+        absorption_base_units: f64,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&overhead_absorption(
+        &body.product_id,
+        &body.period,
+        body.overhead_cost,
+        &body.absorption_base,
+        body.absorption_base_units,
+    ))
+}
+
+/// `/cost-plus` on the absorption costing service: markup and selling price.
+#[pyfunction]
+fn absorption_cost_plus_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        product_cost: f64,
+        markup_percentage: f64,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&cost_plus_pricing(
+        body.product_cost,
+        body.markup_percentage,
+    ))
+}
+
+/// `/calculate` on the target costing service. `component_costs` is sent as
+/// `[[name, cost], ...]` pairs so the component analysis keeps the caller's
+/// insertion order, which the Python dict relied on.
+#[pyfunction]
+fn target_cost_json(payload: &str) -> PyResult<String> {
+    let request: TargetCostRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&calculate_target_cost(&request))
+}
+
+/// `/costs/add` on the marginal costing service: a registered marginal cost item.
+#[pyfunction]
+fn marginal_cost_item_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        cost_name: String,
+        #[serde(default)]
+        cost_code: String,
+        variable_cost: f64,
+        #[serde(default)]
+        fixed_cost: f64,
+        #[serde(default)]
+        units: f64,
+        #[serde(default)]
+        cost_driver: String,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&marginal_cost_item(
+        &body.cost_name,
+        &body.cost_code,
+        body.variable_cost,
+        body.fixed_cost,
+        body.units,
+        &body.cost_driver,
+    ))
+}
+
+/// `/income-statement/generate` on the marginal costing service.
+#[pyfunction]
+fn marginal_income_statement_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        company_id: String,
+        #[serde(default)]
+        period: String,
+        sales_revenue: f64,
+        #[serde(default)]
+        variable_costs: std::collections::BTreeMap<String, f64>,
+        #[serde(default)]
+        fixed_costs: f64,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&marginal_income_statement(
+        &body.company_id,
+        &body.period,
+        body.sales_revenue,
+        &body.variable_costs,
+        body.fixed_costs,
+    ))
+}
+
+/// `/contribution/analyze` on the marginal costing service.
+#[pyfunction]
+fn marginal_contribution_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        product_id: String,
+        selling_price: f64,
+        variable_cost_per_unit: f64,
+        #[serde(default)]
+        units_sold: f64,
+        #[serde(default)]
+        fixed_costs: f64,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&contribution_analysis(
+        &body.product_id,
+        body.selling_price,
+        body.variable_cost_per_unit,
+        body.units_sold,
+        body.fixed_costs,
+    ))
+}
+
+/// `/profit-forecast` on the marginal costing service.
+#[pyfunction]
+fn marginal_forecast_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        selling_price: f64,
+        variable_cost_per_unit: f64,
+        #[serde(default)]
+        fixed_costs: f64,
+        #[serde(default)]
+        expected_units: f64,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&forecast_profit(
+        body.selling_price,
+        body.variable_cost_per_unit,
+        body.fixed_costs,
+        body.expected_units,
+    ))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -967,6 +1166,14 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_function(wrap_pyfunction!(capital_budgeting_json, m)?)?;
     m.add_function(wrap_pyfunction!(financial_forecast_json, m)?)?;
+    m.add_function(wrap_pyfunction!(absorption_product_cost_json, m)?)?;
+    m.add_function(wrap_pyfunction!(absorption_overhead_json, m)?)?;
+    m.add_function(wrap_pyfunction!(absorption_cost_plus_json, m)?)?;
+    m.add_function(wrap_pyfunction!(target_cost_json, m)?)?;
+    m.add_function(wrap_pyfunction!(marginal_cost_item_json, m)?)?;
+    m.add_function(wrap_pyfunction!(marginal_income_statement_json, m)?)?;
+    m.add_function(wrap_pyfunction!(marginal_contribution_json, m)?)?;
+    m.add_function(wrap_pyfunction!(marginal_forecast_json, m)?)?;
     m.add_function(wrap_pyfunction!(labour_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(material_cost_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(simple_material_variance_json, m)?)?;
