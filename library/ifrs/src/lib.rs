@@ -8,6 +8,7 @@
 //! IFRS 16 leases (see `lease_accounting`) and IFRS 8 segments (see `segments`).
 
 pub mod instruments;
+pub mod interim;
 pub mod lease_accounting;
 pub mod revenue;
 pub mod segments;

@@ -219,6 +219,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vimbai_reporting"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "vimbai_common",
+]
+
+[[package]]
 name = "vimbai_tax"
 version = "0.1.0"
 dependencies = [

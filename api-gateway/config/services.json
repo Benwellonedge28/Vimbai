@@ -96,14 +96,6 @@
       "strip_prefix": false
     },
     {
-      "name": "annual-report-service",
-      "path": "/annual-report",
-      "url": "http://localhost:9002",
-      "port": 8210,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "appropriation-control-service",
       "path": "/appropriation-control",
       "url": "http://localhost:9001",
@@ -842,14 +834,6 @@
       "path": "/interest-rate-risk",
       "url": "http://localhost:9003",
       "port": 8170,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "interim-financial-reporting-service",
-      "path": "/interim-financial-reporting",
-      "url": "http://localhost:9002",
-      "port": 8141,
       "auth_required": true,
       "strip_prefix": false
     },

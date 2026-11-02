@@ -25,6 +25,10 @@ use vimbai_capital_valuation::capital_returns::{
     discount_factor_table_range, discounted_payback, simple_rate, wacc,
 };
 use vimbai_common::{Money, MoneyError};
+use vimbai_ifrs::interim::{
+    effective_tax_rate as interim_tax_rate, prepare as interim_prepare,
+    year_to_date as interim_ytd, InterimPeriod, InterimReportRequest,
+};
 use vimbai_ifrs::segments::{report_segments, SegmentReportRequest};
 use vimbai_ratios_statements::comparative::{
     analyze as comparative_analyze, horizontal_analysis as comparative_horizontal, trend_series,
@@ -38,6 +42,7 @@ use vimbai_ratios_statements::{
     asset_turnover, croic, du_pont_analysis, eps, eva, CroicRequest, DuPontRequest, EpsRequest,
     EvaRequest, TurnoverRequest,
 };
+use vimbai_reporting::annual::{prepare_annual_report, AnnualReportRequest};
 use vimbai_tax::statutory::{statutory_corporate_tax, CorporateTaxInput};
 use vimbai_tax::{calculate_tax, TaxBracket, TaxType};
 use vimbai_treasury_fx::analytics::{analyze_treasury, TreasuryAnalyticsRequest};
@@ -650,6 +655,43 @@ fn comparative_variance_json(payload: &str) -> PyResult<String> {
     json_out(&report)
 }
 
+/// `/prepare` on the annual report service.
+#[pyfunction]
+fn annual_report_json(payload: &str) -> PyResult<String> {
+    let req: AnnualReportRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&prepare_annual_report(&req))
+}
+
+/// `/prepare` on the interim financial reporting service.
+#[pyfunction]
+fn interim_report_json(payload: &str) -> PyResult<String> {
+    let req: InterimReportRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    if !(1..=4).contains(&req.period.period_number) {
+        return Err(seam_error(SeamError(
+            "period_number must be between 1 and 4".to_string(),
+        )));
+    }
+    json_out(&interim_prepare(&req))
+}
+
+/// `/year-to-date` on the interim financial reporting service.
+#[pyfunction]
+fn interim_ytd_json(payload: &str) -> PyResult<String> {
+    let period: InterimPeriod =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&interim_ytd(&period))
+}
+
+/// `/effective-tax-rate` on the interim financial reporting service.
+#[pyfunction]
+fn interim_tax_json(payload: &str) -> PyResult<String> {
+    let period: InterimPeriod =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&interim_tax_rate(&period))
+}
+
 /// `/report` on the segment reporting service.
 #[pyfunction]
 fn segment_report_json(payload: &str) -> PyResult<String> {
@@ -793,6 +835,10 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fx_interest_rate_hedging_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_translation_json, m)?)?;
 
+    m.add_function(wrap_pyfunction!(annual_report_json, m)?)?;
+    m.add_function(wrap_pyfunction!(interim_report_json, m)?)?;
+    m.add_function(wrap_pyfunction!(interim_ytd_json, m)?)?;
+    m.add_function(wrap_pyfunction!(interim_tax_json, m)?)?;
     m.add_function(wrap_pyfunction!(comparative_analyze_json, m)?)?;
     m.add_function(wrap_pyfunction!(comparative_horizontal_json, m)?)?;
     m.add_function(wrap_pyfunction!(comparative_trend_json, m)?)?;

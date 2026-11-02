@@ -3,11 +3,6 @@
   "port": 9002,
   "members": [
     {
-      "path": "/annual-report",
-      "name": "annual-report-service",
-      "dir": "annual-report-service"
-    },
-    {
       "path": "/balance-sheet",
       "name": "balance-sheet-service",
       "dir": "balance-sheet-service"
@@ -41,11 +36,6 @@
       "path": "/ifrs-reporting",
       "name": "ifrs-reporting-service",
       "dir": "ifrs-reporting-service"
-    },
-    {
-      "path": "/interim-financial-reporting",
-      "name": "interim-financial-reporting-service",
-      "dir": "interim-financial-reporting-service"
     },
     {
       "path": "/management-reporting",

@@ -1538,3 +1538,70 @@ def test_comparative_variance_matches_the_service():
     _bodies_match(served.json(), rust)
     assert rust["total_favorable_variance"] == 35.0
     assert rust["total_unfavorable_variance"] == 20.0
+
+
+ANNUAL_REPORT_REQUEST = {
+    "company_id": "c1",
+    "fiscal_year": "2026",
+    "report_type": "annual",
+    "jurisdiction": "ZW",
+    "sections_included": [
+        {"name": "Directors Report", "required": True, "status": "completed"},
+        {"name": "Financial Statements", "required": True, "status": "completed"},
+        {"name": "Sustainability", "required": False, "status": "pending"},
+    ],
+    "audit_opinion": "qualified",
+    "regulatory_filings": ["SEC Filing", "Tax Return"],
+}
+
+
+def test_annual_report_matches_the_service():
+    client = TestClient(load_service("annual-report-service").main.app)
+    served = client.post("/prepare", json=ANNUAL_REPORT_REQUEST)
+    assert served.status_code == 200, served.text
+    rust = __import__("json").loads(native.annual_report_json(__import__("json").dumps(ANNUAL_REPORT_REQUEST)))
+    _bodies_match(served.json(), rust)
+    # a pending optional section still holds the report, and the opinion is noted
+    assert rust["report_status"] == "In preparation (qualified opinion)"
+    assert rust["outstanding_items"] == ["All required sections completed"]
+
+
+INTERIM_PERIOD = {
+    "period_type": "quarterly",
+    "year": 2026,
+    "period_number": 3,
+    "start_date": "2026-07-01",
+    "end_date": "2026-09-30",
+}
+
+
+def test_interim_report_matches_the_service():
+    body = {
+        "company_id": "c1",
+        "period": INTERIM_PERIOD,
+        "include_comparatives": True,
+        "accounting_standard": "IFRS",
+    }
+    client = TestClient(load_service("interim-financial-reporting-service").main.app)
+    served = client.post("/prepare", json=body)
+    assert served.status_code == 200, served.text
+    rust = __import__("json").loads(native.interim_report_json(__import__("json").dumps(body)))
+    _bodies_match(served.json(), rust)
+    # net cash flow is the service's fixed 200k, not the sum of the activities
+    assert rust["cash_flow"]["net_cash_flow"] == 200000.0
+    assert rust["comparative_balance_sheet"] is None
+    assert rust["year_to_date"] == rust["revenue"]
+
+
+def test_interim_year_to_date_and_tax_match_the_service():
+    client = TestClient(load_service("interim-financial-reporting-service").main.app)
+    served_ytd = client.post("/year-to-date", json=INTERIM_PERIOD)
+    assert served_ytd.status_code == 200, served_ytd.text
+    rust_ytd = __import__("json").loads(native.interim_ytd_json(__import__("json").dumps(INTERIM_PERIOD)))
+    _bodies_match(served_ytd.json(), rust_ytd)
+
+    served_tax = client.post("/effective-tax-rate", json=INTERIM_PERIOD)
+    assert served_tax.status_code == 200, served_tax.text
+    rust_tax = __import__("json").loads(native.interim_tax_json(__import__("json").dumps(INTERIM_PERIOD)))
+    _bodies_match(served_tax.json(), rust_tax)
+    assert rust_tax["difference"] == 0.0
