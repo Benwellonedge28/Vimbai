@@ -37,7 +37,6 @@ COPY investment-monitoring-service ./investment-monitoring-service
 COPY investment-portfolio-service ./investment-portfolio-service
 COPY investment-property-service ./investment-property-service
 COPY issued-share-capital-service ./issued-share-capital-service
-COPY multi-currency-service ./multi-currency-service
 COPY payment-gateway-service ./payment-gateway-service
 COPY payment-optimization-service ./payment-optimization-service
 COPY provision-bad-debts-service ./provision-bad-debts-service

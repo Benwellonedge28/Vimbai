@@ -108,11 +108,6 @@
       "dir": "issued-share-capital-service"
     },
     {
-      "path": "/multi-currency",
-      "name": "multi-currency-service",
-      "dir": "multi-currency-service"
-    },
-    {
       "path": "/payment-gateway",
       "name": "payment-gateway-service",
       "dir": "payment-gateway-service"

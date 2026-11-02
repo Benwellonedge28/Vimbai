@@ -35,11 +35,16 @@ use vimbai_treasury_fx::analytics::{analyze_treasury, TreasuryAnalyticsRequest};
 use vimbai_treasury_fx::derivatives::{
     value_cross_currency_swaps, value_swaps, CrossCurrencySwapRequest, SwapValuationRequest,
 };
+use vimbai_treasury_fx::forwards::{analyze_forward_contracts, ForwardContractRequest};
 use vimbai_treasury_fx::fx_hedging::{analyze_currency_hedge, CurrencyHedgingRequest};
 use vimbai_treasury_fx::fx_translation::{translate_financials, TranslationRequest};
 use vimbai_treasury_fx::hedging_analytics::{
     analyze_commodity_hedge, analyze_futures_hedge, analyze_interest_rate_hedge,
     CommodityHedgingRequest, FuturesHedgingRequest, InterestRateHedgingRequest,
+};
+use vimbai_treasury_fx::multi_currency::{
+    convert_fixed, create_hedge, process_transaction, CurrencyConversionRequest, HedgeRequest,
+    TransactionRequest,
 };
 
 /// Anything the seam refuses, described in words the calling service can log.
@@ -502,6 +507,45 @@ fn fx_translation_json(payload: &str) -> PyResult<String> {
     serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
+/// forward-contracts-service `/analyze`.
+#[pyfunction]
+fn fx_forward_contracts_json(payload: &str) -> PyResult<String> {
+    let request: ForwardContractRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = analyze_forward_contracts(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// multi-currency-service `/convert`. The timestamp is supplied by the caller
+/// so the seam stays pure.
+#[pyfunction]
+#[pyo3(signature = (payload, converted_at = ""))]
+fn fx_multi_currency_convert_json(payload: &str, converted_at: &str) -> PyResult<String> {
+    let request: CurrencyConversionRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = convert_fixed(&request, converted_at);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// multi-currency-service `/transaction`.
+#[pyfunction]
+fn fx_multi_currency_transaction_json(payload: &str) -> PyResult<String> {
+    let request: TransactionRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = process_transaction(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// multi-currency-service `/hedge`; the service mints the id, so it is passed in.
+#[pyfunction]
+#[pyo3(signature = (payload, hedge_id = ""))]
+fn fx_multi_currency_hedge_json(payload: &str, hedge_id: &str) -> PyResult<String> {
+    let request: HedgeRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = create_hedge(&request, hedge_id);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -537,6 +581,10 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(arr_average_profit_json, m)?)?;
     m.add_function(wrap_pyfunction!(arr_average_capital_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_currency_hedging_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_forward_contracts_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_multi_currency_convert_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_multi_currency_transaction_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_multi_currency_hedge_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_cross_currency_swap_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_swap_valuation_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_futures_hedging_json, m)?)?;

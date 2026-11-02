@@ -18,11 +18,6 @@
       "dir": "family-community-group-service"
     },
     {
-      "path": "/forward-contracts",
-      "name": "forward-contracts-service",
-      "dir": "forward-contracts-service"
-    },
-    {
       "path": "/org-authorization",
       "name": "org-authorization-engine",
       "dir": "org-authorization-engine"

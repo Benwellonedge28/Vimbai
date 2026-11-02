@@ -6,6 +6,7 @@
 pub mod analytics;
 pub mod cash;
 pub mod derivatives;
+pub mod forwards;
 pub mod fx_hedging;
 pub mod fx_rates;
 pub mod fx_translation;

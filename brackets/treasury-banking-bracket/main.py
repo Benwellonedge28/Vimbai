@@ -1,6 +1,6 @@
 """
 Vimbai Treasury & Banking Bracket Service
-One container hosting 33 merged microservices. Each member service's
+One container hosting 32 merged microservices. Each member service's
 FastAPI app is mounted at its original gateway path prefix, so every
 external URL is unchanged.
 
@@ -41,7 +41,6 @@ MEMBERS = [
     ["investment-portfolio", "investment-portfolio-service"],
     ["investment-property", "investment-property-service"],
     ["issued-share-capital", "issued-share-capital-service"],
-    ["multi-currency", "multi-currency-service"],
     ["payment-gateway", "payment-gateway-service"],
     ["payment-optimization", "payment-optimization-service"],
     ["provision-bad-debts", "provision-bad-debts-service"],
@@ -58,7 +57,7 @@ MEMBERS = [
 app = FastAPI(
     title="Vimbai Treasury & Banking Bracket Service",
     version=SERVICE_VERSION,
-    description="Bracket container for 33 Vimbai microservices.",
+    description="Bracket container for 32 Vimbai microservices.",
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))

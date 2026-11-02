@@ -965,3 +965,100 @@ def test_currency_hedging_matches_the_service():
         CURRENCY_HEDGING_REQUEST,
         native.fx_currency_hedging_json,
     )
+
+
+# --- forwards and multi-currency -------------------------------------------
+# forward-contracts is a fresh port; multi-currency was already in the crate and
+# only needed the seam. Both are compared whole, minus the ids and timestamps
+# the services mint themselves.
+
+FORWARD_CONTRACTS_REQUEST = {
+    "company_id": "c1",
+    "contracts": [
+        {
+            "contract_id": "f1",
+            "currency_pair": "USD/ZWG",
+            "notional": 500000.0,
+            "spot_rate": 25.0,
+            "forward_rate": 27.0,
+            "delivery_date": "2027-05-02",
+        },
+        {
+            "contract_id": "f2",
+            "currency_pair": "USD/ZWG",
+            "notional": 250000.0,
+            "spot_rate": 26.0,
+            "forward_rate": 25.5,
+            "delivery_date": "2027-05-02",
+        },
+    ],
+    "current_spot_rate": 26.5,
+    "risk_free_rate_domestic": 0.12,
+    "risk_free_rate_foreign": 0.05,
+    "volatility": 0.15,
+}
+
+MULTI_CURRENCY_CONVERT_REQUEST = {
+    "company_id": "c1",
+    "amount": 10000.0,
+    "from_currency": "USD",
+    "to_currency": "EUR",
+    "conversion_date": "2026-11-02",
+}
+
+MULTI_CURRENCY_TRANSACTION_REQUEST = {
+    "company_id": "c1",
+    "transaction_id": "t1",
+    "amount": 5000.0,
+    "currency": "EUR",
+    "transaction_type": "payment",
+    "counterparty_currency": "GBP",
+}
+
+MULTI_CURRENCY_HEDGE_REQUEST = {
+    "company_id": "c1",
+    "exposure_amount": 250000.0,
+    "currency_pair": "EURUSD",
+    "hedge_type": "forward",
+    "tenor": 6,
+    "notional": 250000.0,
+}
+
+
+def test_forward_contracts_match_the_service():
+    _hedging_parity(
+        "forward-contracts-service",
+        "/analyze",
+        FORWARD_CONTRACTS_REQUEST,
+        native.fx_forward_contracts_json,
+    )
+
+
+def test_multi_currency_convert_matches_the_service():
+    # converted_at is the service's clock read; the seam takes it as an argument.
+    _hedging_parity(
+        "multi-currency-service",
+        "/convert",
+        MULTI_CURRENCY_CONVERT_REQUEST,
+        lambda payload: native.fx_multi_currency_convert_json(payload, "2026-11-02T00:00:00"),
+        drop=("converted_at",),
+    )
+
+
+def test_multi_currency_transaction_matches_the_service():
+    _hedging_parity(
+        "multi-currency-service",
+        "/transaction",
+        MULTI_CURRENCY_TRANSACTION_REQUEST,
+        native.fx_multi_currency_transaction_json,
+    )
+
+
+def test_multi_currency_hedge_matches_the_service():
+    _hedging_parity(
+        "multi-currency-service",
+        "/hedge",
+        MULTI_CURRENCY_HEDGE_REQUEST,
+        lambda payload: native.fx_multi_currency_hedge_json(payload, "hedge-1"),
+        drop=("hedge_id",),
+    )

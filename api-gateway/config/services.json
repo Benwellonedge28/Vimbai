@@ -742,14 +742,6 @@
       "strip_prefix": false
     },
     {
-      "name": "forward-contracts-service",
-      "path": "/forward-contracts",
-      "url": "http://localhost:9010",
-      "port": 8247,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "fraud-risk-assessment-service",
       "path": "/fraud-risk-assessment",
       "url": "http://localhost:9005",
@@ -1096,14 +1088,6 @@
       "path": "/mfa-auth",
       "url": "http://localhost:9013",
       "port": 8007,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "multi-currency-service",
-      "path": "/multi-currency",
-      "url": "http://localhost:9003",
-      "port": 8349,
       "auth_required": true,
       "strip_prefix": false
     },
