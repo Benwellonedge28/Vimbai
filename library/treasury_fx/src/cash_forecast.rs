@@ -79,9 +79,11 @@ pub struct CashFlowForecastResult {
     pub scenarios: std::collections::BTreeMap<String, ScenarioRow>,
 }
 
+/// Python checks `day % 1 == 0` for a daily item, which is always true; the
+/// match arm simply returns true here.
 fn due(item: &CashFlowItem, day: i64) -> bool {
     match item.frequency.as_str() {
-        "daily" => day % 1 == 0,
+        "daily" => true,
         "weekly" => day % 7 == 0,
         _ => false,
     }
