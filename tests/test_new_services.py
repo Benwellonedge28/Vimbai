@@ -543,7 +543,20 @@ class TestInvestmentMonitoringService:
 
 class TestIntangibleAssetsService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("intangible-assets-service"))
+        import importlib.util
+        import os as _os
+
+        app = load_service_app("intangible-assets-service")
+        svc_dir = _os.path.join(REPO_ROOT, "intangible-assets-service")
+        spec = importlib.util.spec_from_file_location("ia_root_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
+        fake_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake_mod)
+        self._session = fake_mod.FakeSession()
+        import intangible_assets_service.database as db
+
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "root-ia-user"})
 
     def test_health(self):
         resp = self.client.get("/health")
