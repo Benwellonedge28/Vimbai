@@ -10,6 +10,7 @@ The extension is built from library/native (`maturin build`). Every amount
 crosses the boundary as a decimal string.
 """
 
+import json
 from decimal import Decimal
 from typing import Any, Dict, List, Sequence
 
@@ -71,3 +72,60 @@ def treasury_analytics(payload: Dict[str, Any]) -> Dict[str, Any]:
     for key, value in payload.items():
         exact[key] = value if isinstance(value, str) else _amount(value)
     return json.loads(_extension().analyze_treasury_json(json.dumps(exact)))
+
+
+# --- cost accounting -------------------------------------------------------
+#
+# Absorption, marginal and target costing. The services keep their Python maths
+# as the reference implementation; these wrappers reach the Rust library when
+# the extension is installed.
+
+
+def _call(name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Call one seam function with a JSON payload and return its JSON answer."""
+    raw = getattr(_extension(), name)(json.dumps(payload))
+    return json.loads(raw)
+
+
+def absorption_product_cost(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Product cost card: prime cost, total production cost, cost per unit."""
+    return _call("absorption_product_cost_json", payload)
+
+
+def overhead_absorption(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Overhead absorption rate and the overhead it absorbs."""
+    return _call("absorption_overhead_json", payload)
+
+
+def cost_plus_pricing(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Cost-plus pricing: markup amount and selling price."""
+    return _call("absorption_cost_plus_json", payload)
+
+
+def target_cost(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Target costing, including the per-component reduction analysis.
+
+    `component_costs` must be `[[name, cost], ...]` pairs so the analysis keeps
+    the caller's insertion order.
+    """
+    return _call("target_cost_json", payload)
+
+
+def marginal_cost_item(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """A marginal cost item with its total and unit variable cost."""
+    return _call("marginal_cost_item_json", payload)
+
+
+def marginal_income_statement(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Marginal income statement: total variable costs, contribution, profit."""
+    return _call("marginal_income_statement_json", payload)
+
+
+def marginal_contribution(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Product contribution analysis."""
+    return _call("marginal_contribution_json", payload)
+
+
+def marginal_forecast(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Profit forecast under marginal costing."""
+    return _call("marginal_forecast_json", payload)

@@ -14,6 +14,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from shared import cost_calc
+
 SERVICE_NAME = "marginal-costing-service"
 SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8066"))
@@ -99,7 +101,12 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 
 @app.get("/health")
 async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "status": "healthy",
+        "calculation_engine": cost_calc.engine_in_use(),
+    }
 
 
 @app.get("/")
@@ -125,8 +132,9 @@ async def add_marginal_cost(
         units=units,
         cost_driver=cost_driver,
     )
-    cost.total_cost = variable_cost + fixed_cost
-    cost.unit_variable_cost = variable_cost / units if units > 0 else 0
+    figures = cost_calc.marginal_cost_item(cost_name, cost_code, variable_cost, fixed_cost, units, cost_driver)
+    cost.total_cost = figures["total_cost"]
+    cost.unit_variable_cost = figures["unit_variable_cost"]
     marginal_costs.append(cost)
     return cost
 
@@ -136,7 +144,8 @@ async def generate_marginal_income_statement(
     company_id: str, period: str, sales_revenue: float, variable_costs: Dict[str, float], fixed_costs: float
 ):
     """Generate marginal income statement."""
-    total_variable_costs = sum(variable_costs.values())
+    figures = cost_calc.marginal_income_statement(company_id, period, sales_revenue, variable_costs, fixed_costs)
+    total_variable_costs = figures["total_variable_costs"]
 
     statement = MarginalIncomeStatement(
         company_id=company_id,
@@ -147,11 +156,8 @@ async def generate_marginal_income_statement(
         variable_cost_breakdown=variable_costs,
     )
 
-    # Calculate Contribution
-    statement.contribution = sales_revenue - total_variable_costs
-
-    # Calculate Profit
-    statement.profit = statement.contribution - fixed_costs
+    statement.contribution = figures["contribution"]
+    statement.profit = figures["profit"]
 
     income_statements.append(statement)
     return statement
@@ -169,18 +175,13 @@ async def analyze_contribution(
         fixed_costs_allocated=fixed_costs,
     )
 
-    # Calculate Contribution per Unit
-    analysis.contribution_per_unit = selling_price - variable_cost_per_unit
-
-    # Calculate Contribution Margin Ratio
-    if selling_price > 0:
-        analysis.contribution_margin_ratio = (analysis.contribution_per_unit / selling_price) * 100
-
-    # Calculate Total Contribution
-    analysis.total_contribution = analysis.contribution_per_unit * units_sold
-
-    # Calculate Profit
-    analysis.profit_from_product = analysis.total_contribution - fixed_costs
+    figures = cost_calc.marginal_contribution(
+        product_id, selling_price, variable_cost_per_unit, units_sold, fixed_costs
+    )
+    analysis.contribution_per_unit = figures["contribution_per_unit"]
+    analysis.contribution_margin_ratio = figures["contribution_margin_ratio"]
+    analysis.total_contribution = figures["total_contribution"]
+    analysis.profit_from_product = figures["profit_from_product"]
 
     contribution_analyses.append(analysis)
     return analysis
@@ -191,19 +192,17 @@ async def forecast_profit(
     selling_price: float, variable_cost_per_unit: float, fixed_costs: float, expected_units: float
 ):
     """Forecast profit using marginal costing."""
-    contribution_per_unit = selling_price - variable_cost_per_unit
-    total_contribution = contribution_per_unit * expected_units
-    forecast_profit = total_contribution - fixed_costs
+    figures = cost_calc.marginal_forecast(selling_price, variable_cost_per_unit, fixed_costs, expected_units)
 
     return {
         "selling_price": selling_price,
         "variable_cost_per_unit": variable_cost_per_unit,
-        "contribution_per_unit": contribution_per_unit,
-        "contribution_margin_ratio": (contribution_per_unit / selling_price * 100) if selling_price > 0 else 0,
+        "contribution_per_unit": figures["contribution_per_unit"],
+        "contribution_margin_ratio": figures["contribution_margin_ratio"],
         "expected_units": expected_units,
-        "total_contribution": total_contribution,
+        "total_contribution": figures["total_contribution"],
         "fixed_costs": fixed_costs,
-        "forecast_profit": forecast_profit,
+        "forecast_profit": figures["forecast_profit"],
     }
 
 

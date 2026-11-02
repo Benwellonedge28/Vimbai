@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
-from absorption_costing_service import crud
+from absorption_costing_service import calc, crud
 from absorption_costing_service.dependencies import book_id_var, get_db_session, get_user_id
 from absorption_costing_service.exceptions import AbsorptionCostingError
 from absorption_costing_service.models import CostComponent, OverheadAbsorption, ProductCost
@@ -60,6 +60,7 @@ structlog.configure(
     cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
+
 
 app = FastAPI(title="Vimbai Absorption Costing Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(
@@ -96,7 +97,12 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 
 @app.get("/health")
 async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "status": "healthy",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.get("/")
@@ -134,15 +140,21 @@ async def calculate_product_cost(
         closing_stock=closing_stock,
     )
 
-    # Calculate prime cost
-    product_cost.prime_cost = direct_materials + direct_labor + direct_expenses
-
-    # Calculate total production cost
-    product_cost.total_production_cost = product_cost.prime_cost + manufacturing_overhead
-
-    # Calculate cost per unit
-    if units_produced > 0:
-        product_cost.cost_per_unit = product_cost.total_production_cost / units_produced
+    figures = calc.product_cost(
+        product_id,
+        product_name,
+        period,
+        direct_materials,
+        direct_labor,
+        direct_expenses,
+        manufacturing_overhead,
+        units_produced,
+        opening_stock,
+        closing_stock,
+    )
+    product_cost.prime_cost = figures["prime_cost"]
+    product_cost.total_production_cost = figures["total_production_cost"]
+    product_cost.cost_per_unit = figures["cost_per_unit"]
 
     # Add cost components if provided
     if cost_components:
@@ -197,10 +209,9 @@ async def calculate_overhead_absorption(
         absorption_base_units=absorption_base_units,
     )
 
-    # Calculate overhead absorption rate
-    if absorption_base_units > 0:
-        absorption.overhead_absorption_rate = overhead_cost / absorption_base_units
-        absorption.absorbed_overhead = absorption.overhead_absorption_rate * absorption_base_units
+    figures = calc.absorbed_overhead(overhead_cost, absorption_base_units)
+    absorption.overhead_absorption_rate = figures["overhead_absorption_rate"]
+    absorption.absorbed_overhead = figures["absorbed_overhead"]
 
     await crud.create(db_session, caller_id, absorption)
     return absorption
@@ -209,14 +220,13 @@ async def calculate_overhead_absorption(
 @app.post("/cost-plus")
 async def calculate_cost_plus_pricing(product_cost: float, markup_percentage: float):
     """Calculate selling price using cost-plus pricing (pure calculation)."""
-    markup_amount = product_cost * (markup_percentage / 100)
-    selling_price = product_cost + markup_amount
+    figures = calc.cost_plus(product_cost, markup_percentage)
 
     return {
         "product_cost": product_cost,
         "markup_percentage": markup_percentage,
-        "markup_amount": markup_amount,
-        "selling_price": selling_price,
+        "markup_amount": figures["markup_amount"],
+        "selling_price": figures["selling_price"],
     }
 
 

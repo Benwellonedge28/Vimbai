@@ -278,3 +278,82 @@ def test_marginal_income_statement_matches_the_service(body):
 
     for key in ("total_variable_costs", "contribution", "profit"):
         assert service[key] == rust[key], key
+
+
+class TestEngineSwitch:
+    """Both engines must answer with the same figures, and /health must say which."""
+
+    def _absorption(self, monkeypatch, engine):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        return _absorption_client()
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    def test_absorption_answers_are_engine_independent(self, monkeypatch, engine):
+        client = self._absorption(monkeypatch, engine)
+        health = client.get("/health").json()
+        assert health["calculation_engine"] == engine
+
+        params = {
+            "product_id": "PRD-9",
+            "product_name": "Widget",
+            "period": "2026-10",
+            "direct_materials": 1200.0,
+            "direct_labor": 800.0,
+            "direct_expenses": 150.0,
+            "manufacturing_overhead": 240.0,
+            "units_produced": 7,
+        }
+        body = client.post("/product-costs/calculate", params=params, headers=_H).json()
+        assert body["prime_cost"] == 2150.0
+        assert body["total_production_cost"] == 2390.0
+        assert body["cost_per_unit"] == 2390.0 / 7
+
+        absorbed = client.post(
+            "/overhead/absorption",
+            params={
+                "product_id": "PRD-9",
+                "period": "2026-10",
+                "overhead_cost": 9000.0,
+                "absorption_base": "machine_hours",
+                "absorption_base_units": 120.0,
+            },
+            headers=_H,
+        ).json()
+        assert absorbed["overhead_absorption_rate"] == 75.0
+        assert absorbed["absorbed_overhead"] == 9000.0
+
+        priced = client.post("/cost-plus", params={"product_cost": 250.0, "markup_percentage": 12.5})
+        assert priced.json()["selling_price"] == 281.25
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    def test_marginal_answers_are_engine_independent(self, monkeypatch, engine):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        client = TestClient(load_service("marginal-costing-service").main.app)
+        assert client.get("/health").json()["calculation_engine"] == engine
+
+        forecast = client.post(
+            "/profit-forecast",
+            params={
+                "selling_price": 50.0,
+                "variable_cost_per_unit": 30.0,
+                "fixed_costs": 15000.0,
+                "expected_units": 1200.0,
+            },
+        ).json()
+        assert forecast["contribution_per_unit"] == 20.0
+        assert forecast["total_contribution"] == 24000.0
+        assert forecast["forecast_profit"] == 9000.0
+
+        statement = client.post(
+            "/income-statement/generate",
+            params={
+                "company_id": "comp-1",
+                "period": "2026-10",
+                "sales_revenue": 900000.0,
+                "fixed_costs": 200000.0,
+            },
+            json={"materials": 300000.0, "labour": 150000.0},
+        ).json()
+        assert statement["total_variable_costs"] == 450000.0
+        assert statement["contribution"] == 450000.0
+        assert statement["profit"] == 250000.0

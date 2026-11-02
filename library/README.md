@@ -55,6 +55,12 @@ falling back to float maths when the wheel is missing. `tests/test_native_seam.p
 runs the same request through the treasury analytics service and the Rust seam
 and compares every KPI, so the two implementations cannot drift silently.
 
+The absorption and marginal costing services compute through the seam too. Each
+keeps its Python maths as the reference implementation and picks its calculator
+with `VIMBAI_CALC_ENGINE` (`auto`, `rust`, `python`), and `/health` reports which
+one answered. tests/test_cost_accounting_seam.py runs both engines against the
+same figures and compares them with the extension directly.
+
 The treasury analytics service now computes its KPI set through this seam
 (`treasury-analytics-service/engine.py`). `VIMBAI_CALC_ENGINE` picks the
 calculator: `auto` uses Rust when the wheel is present, `rust` refuses to
