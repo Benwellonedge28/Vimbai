@@ -1,25 +1,36 @@
+"""Vimbai Fixed Cost Service - classify and analyse fixed costs. Port: 8062
+
+Costs and the analyses run against them live in Neo4j, scoped to the caller and
+the Book. The file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias first.
 """
-Vimbai Fixed Cost Service
-Manages fixed cost classification and analysis.
-"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "fixed_cost_service" not in _sys.modules or not hasattr(_sys.modules.get("fixed_cost_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("fixed_cost_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["fixed_cost_service"] = _pkg
+    _sys.modules["fixed_cost_service"].__path__ = [_HERE]
 
 import os
-import uuid
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
-import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fixed_cost_service import crud
+from fixed_cost_service.dependencies import book_id_var, get_db_session, get_user_id
+from neo4j import AsyncSession
 
 SERVICE_NAME = "fixed-cost-service"
 SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8062"))
-AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
     processors=[
@@ -41,57 +52,11 @@ app.add_middleware(
 )
 
 
-class CostBehavior(str, Enum):
-    FIXED = "fixed"
-    VARIABLE = "variable"
-    SEMI_VARIABLE = "semi_variable"
-    STEP_FIXED = "step_fixed"
-
-
-class FixedCost(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    cost_name: str
-    cost_code: str
-    amount: float
-    cost_behavior: str = "fixed"
-    relevant_range_min: float = 0
-    relevant_range_max: float = 0
-    period_type: str = "monthly"  # daily, weekly, monthly, quarterly, annual
-    committed_cost: bool = False  # Committed vs Discretionary
-    controllable: bool = True
-    department_id: Optional[str] = None
-    product_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class FixedCostAnalysis(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    analysis_period_start: datetime
-    analysis_period_end: datetime
-    total_fixed_costs: float = 0
-    committed_costs: float = 0
-    discretionary_costs: float = 0
-    controllable_costs: float = 0
-    non_controllable_costs: float = 0
-    fixed_cost_details: List[Dict[str, Any]] = []
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-fixed_costs: List[FixedCost] = []
-fixed_cost_analyses: List[FixedCostAnalysis] = []
-
-
-async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{ACCOUNTING_SERVICE_URL}{endpoint}"
-            if method == "POST":
-                response = await client.post(url, json=data)
-            else:
-                response = await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception:
-        return {}
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/health")
@@ -115,9 +80,13 @@ async def add_fixed_cost(
     controllable: bool = True,
     department_id: Optional[str] = None,
     product_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Add a fixed cost item."""
-    cost = FixedCost(
+    cost = await crud.add_cost(
+        db_session,
+        user_id,
         cost_name=cost_name,
         cost_code=cost_code,
         amount=amount,
@@ -128,7 +97,7 @@ async def add_fixed_cost(
         department_id=department_id,
         product_id=product_id,
     )
-    fixed_costs.append(cost)
+    logger.info("fixed_cost_added", cost_code=cost_code, amount=amount)
     return cost
 
 
@@ -138,20 +107,17 @@ async def update_fixed_cost(
     amount: Optional[float] = None,
     committed_cost: Optional[bool] = None,
     controllable: Optional[bool] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Update fixed cost details."""
-    cost = next((c for c in fixed_costs if c.id == cost_id), None)
-    if not cost:
+    try:
+        return await crud.update_cost(
+            db_session, user_id, cost_id, amount=amount, committed_cost=committed_cost, controllable=controllable
+        )
+    except crud.NotFoundError:
+        # the original answers 200 with this body rather than a 404
         return {"error": "Cost not found"}
-
-    if amount is not None:
-        cost.amount = amount
-    if committed_cost is not None:
-        cost.committed_cost = committed_cost
-    if controllable is not None:
-        cost.controllable = controllable
-
-    return cost
 
 
 @app.post("/analyze")
@@ -160,85 +126,56 @@ async def analyze_fixed_costs(
     analysis_period_end: datetime,
     department_id: Optional[str] = None,
     product_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Analyze fixed costs for a period."""
-    costs = fixed_costs
-    if department_id:
-        costs = [c for c in costs if c.department_id == department_id]
-    if product_id:
-        costs = [c for c in costs if c.product_id == product_id]
-
-    analysis = FixedCostAnalysis(analysis_period_start=analysis_period_start, analysis_period_end=analysis_period_end)
-
-    for cost in costs:
-        cost_detail = {
-            "cost_id": cost.id,
-            "cost_name": cost.cost_name,
-            "cost_code": cost.cost_code,
-            "amount": cost.amount,
-            "committed": cost.committed_cost,
-            "controllable": cost.controllable,
-        }
-        analysis.fixed_cost_details.append(cost_detail)
-        analysis.total_fixed_costs += cost.amount
-
-        if cost.committed_cost:
-            analysis.committed_costs += cost.amount
-        else:
-            analysis.discretionary_costs += cost.amount
-
-        if cost.controllable:
-            analysis.controllable_costs += cost.amount
-        else:
-            analysis.non_controllable_costs += cost.amount
-
-    fixed_cost_analyses.append(analysis)
+    analysis = await crud.analyse_costs(
+        db_session,
+        user_id,
+        analysis_period_start,
+        analysis_period_end,
+        department_id or "",
+        product_id or "",
+    )
+    logger.info("fixed_cost_analysed", total=analysis.total_fixed_costs, items=len(analysis.fixed_cost_details))
     return analysis
 
 
 @app.get("/costs")
 async def list_fixed_costs(
-    department_id: Optional[str] = None, product_id: Optional[str] = None, committed: Optional[bool] = None
+    department_id: Optional[str] = None,
+    product_id: Optional[str] = None,
+    committed: Optional[bool] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List fixed costs."""
-    result = fixed_costs
-    if department_id:
-        result = [c for c in result if c.department_id == department_id]
-    if product_id:
-        result = [c for c in result if c.product_id == product_id]
-    if committed is not None:
-        result = [c for c in result if c.committed_cost == committed]
-    return {"fixed_costs": result}
+    costs = await crud.list_costs(db_session, user_id, department_id or "", product_id or "", committed)
+    return {"fixed_costs": costs}
 
 
 @app.get("/analyses")
-async def list_analyses(period_start: Optional[datetime] = None, period_end: Optional[datetime] = None):
+async def list_analyses(
+    period_start: Optional[datetime] = None,
+    period_end: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List fixed cost analyses."""
-    result = fixed_cost_analyses
-    if period_start:
-        result = [a for a in result if a.analysis_period_start >= period_start]
-    if period_end:
-        result = [a for a in result if a.analysis_period_end <= period_end]
-    return {"analyses": result}
+    return {"analyses": await crud.list_analyses(db_session, user_id, period_start, period_end)}
 
 
 @app.get("/summary")
-async def get_fixed_cost_summary(department_id: Optional[str] = None, product_id: Optional[str] = None):
+async def get_fixed_cost_summary(
+    department_id: Optional[str] = None,
+    product_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get fixed cost summary."""
-    costs = fixed_costs
-    if department_id:
-        costs = [c for c in costs if c.department_id == department_id]
-    if product_id:
-        costs = [c for c in costs if c.product_id == product_id]
-
-    return {
-        "total_fixed_costs": sum(c.amount for c in costs),
-        "committed_costs": sum(c.amount for c in costs if c.committed_cost),
-        "discretionary_costs": sum(c.amount for c in costs if not c.committed_cost),
-        "controllable_costs": sum(c.amount for c in costs if c.controllable),
-        "non_controllable_costs": sum(c.amount for c in costs if not c.controllable),
-        "total_cost_items": len(costs),
-    }
+    costs = await crud.list_costs(db_session, user_id, department_id or "", product_id or "")
+    return crud.summarise(costs)
 
 
 if __name__ == "__main__":
