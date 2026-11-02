@@ -1,17 +1,38 @@
 """
 Vimbai Lease Termination Service
-Manages lease terminations, early exit penalties, and settlement calculations.
+Lease exit workflow with settlements.
+
+Terminations and settlements live in Neo4j, scoped to the caller and the Book. The
+file may be imported bare (bracket mounts, uvicorn main:app), so it bootstraps its
+own package alias first.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "lease_termination_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("lease_termination_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("lease_termination_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["lease_termination_service"] = _pkg
+    _sys.modules["lease_termination_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from lease_termination_service import crud
+from lease_termination_service.dependencies import book_id_var, get_db_session, get_user_id
+from lease_termination_service.exceptions import ConflictError, NotFoundError
+from lease_termination_service.models import LeaseTermination, TerminationSettlement
+from neo4j import AsyncSession
 
 SERVICE_NAME = "lease-termination-service"
 SERVICE_VERSION = "1.0.0"
@@ -36,42 +57,20 @@ app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
 
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
+
+
 try:
     from shared.tracing import setup_tracing
 
     TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
     TRACER = None
-
-
-class LeaseTermination(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    lease_id: str
-    termination_date: datetime
-    original_end_date: datetime
-    remaining_payments: int
-    remaining_payment_amount: float
-    early_termination_penalty: float = 0.0
-    settlement_amount: float = 0.0
-    reason: str = ""
-    status: str = "pending"  # pending, approved, completed, rejected
-    approved_by: str = ""
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
-
-
-class TerminationSettlement(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    termination_id: str
-    remaining_lease_payments: float
-    early_termination_penalty: float
-    asset_return_value: float = 0.0
-    net_settlement: float
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-terminations: List[LeaseTermination] = []
-settlements: List[TerminationSettlement] = []
 
 
 @app.get("/")
@@ -89,92 +88,101 @@ async def create_termination(
     remaining_payment_amount: float,
     early_termination_penalty: float = 0.0,
     reason: str = "",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Initiate a lease termination."""
-    settlement = remaining_payments * remaining_payment_amount + early_termination_penalty
-
-    termination = LeaseTermination(
+    termination = await crud.create_termination(
+        db_session,
+        user_id,
         lease_id=lease_id,
         termination_date=termination_date,
         original_end_date=original_end_date,
         remaining_payments=remaining_payments,
         remaining_payment_amount=remaining_payment_amount,
         early_termination_penalty=early_termination_penalty,
-        settlement_amount=settlement,
         reason=reason,
     )
-    terminations.append(termination)
     logger.info("Lease termination initiated", termination_id=termination.id, lease_id=lease_id)
     return termination
 
 
 @app.get("/terminations", response_model=List[LeaseTermination])
-async def list_terminations(status: Optional[str] = None):
+async def list_terminations(
+    status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List lease terminations."""
-    if status:
-        return [t for t in terminations if t.status == status]
-    return terminations
+    return await crud.list_terminations(db_session, user_id, status)
 
 
 @app.get("/terminations/{termination_id}", response_model=LeaseTermination)
-async def get_termination(termination_id: str):
+async def get_termination(
+    termination_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get a specific termination."""
-    term = next((t for t in terminations if t.id == termination_id), None)
-    if not term:
+    try:
+        return await crud.get_termination(db_session, user_id, termination_id)
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Termination not found")
-    return term
 
 
 @app.post("/terminations/{termination_id}/settlement", response_model=TerminationSettlement)
-async def calculate_settlement(termination_id: str, asset_return_value: float = 0.0):
+async def calculate_settlement(
+    termination_id: str,
+    asset_return_value: float = 0.0,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Calculate and record the settlement for a lease termination."""
-    term = next((t for t in terminations if t.id == termination_id), None)
-    if not term:
+    try:
+        settlement = await crud.calculate_settlement(db_session, user_id, termination_id, asset_return_value)
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Termination not found")
-
-    remaining_payments_value = term.remaining_payments * term.remaining_payment_amount
-    net_settlement = remaining_payments_value + term.early_termination_penalty - asset_return_value
-
-    settlement = TerminationSettlement(
+    logger.info(
+        "Settlement calculated",
         termination_id=termination_id,
-        remaining_lease_payments=remaining_payments_value,
-        early_termination_penalty=term.early_termination_penalty,
-        asset_return_value=asset_return_value,
-        net_settlement=net_settlement,
+        net_settlement=settlement.net_settlement,
     )
-    settlements.append(settlement)
-    logger.info("Settlement calculated", termination_id=termination_id, net_settlement=net_settlement)
     return settlement
 
 
 @app.put("/terminations/{termination_id}/approve")
-async def approve_termination(termination_id: str, approved_by: str):
+async def approve_termination(
+    termination_id: str,
+    approved_by: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Approve a lease termination."""
-    term = next((t for t in terminations if t.id == termination_id), None)
-    if not term:
+    try:
+        result = await crud.approve_termination(db_session, user_id, termination_id, approved_by)
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Termination not found")
-    if term.status != "pending":
-        raise HTTPException(status_code=400, detail="Termination is not pending")
-
-    term.status = "approved"
-    term.approved_by = approved_by
+    except ConflictError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     logger.info("Lease termination approved", termination_id=termination_id)
-    return {"termination_id": termination_id, "status": "approved"}
+    return result
 
 
 @app.put("/terminations/{termination_id}/complete")
-async def complete_termination(termination_id: str):
+async def complete_termination(
+    termination_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Complete a lease termination."""
-    term = next((t for t in terminations if t.id == termination_id), None)
-    if not term:
+    try:
+        result = await crud.complete_termination(db_session, user_id, termination_id)
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Termination not found")
-    if term.status != "approved":
-        raise HTTPException(status_code=400, detail="Termination must be approved first")
-
-    term.status = "completed"
-    term.completed_at = datetime.now(timezone.utc)
+    except ConflictError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     logger.info("Lease termination completed", termination_id=termination_id)
-    return {"termination_id": termination_id, "status": "completed"}
+    return result
 
 
 if __name__ == "__main__":
