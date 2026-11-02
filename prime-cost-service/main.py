@@ -3,6 +3,18 @@ Vimbai Prime Cost Service
 Calculates prime cost (direct materials + direct labor + direct expenses).
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "prime_costing_service" not in _sys.modules or not hasattr(_sys.modules.get("prime_costing_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("prime_costing_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["prime_costing_service"] = _pkg
+    _sys.modules["prime_costing_service"].__path__ = [_HERE]
+
 import os
 import uuid
 from datetime import datetime
@@ -12,6 +24,7 @@ import httpx
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prime_costing_service import calc
 from pydantic import BaseModel, Field
 
 SERVICE_NAME = "prime-cost-service"
@@ -82,7 +95,12 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 
 @app.get("/health")
 async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "status": "healthy",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.get("/")
@@ -114,16 +132,9 @@ async def calculate_prime_cost(
         direct_expenses=direct_expenses,
     )
 
-    # Calculate Prime Cost
-    calculation.prime_cost = direct_materials + direct_labor + direct_expenses
-
-    # Build breakdown
-    calculation.cost_breakdown = {
-        "direct_materials": direct_materials,
-        "direct_labor": direct_labor,
-        "direct_expenses": direct_expenses,
-        "prime_cost": calculation.prime_cost,
-    }
+    figures = calc.prime_cost(product_id, period, direct_materials, direct_labor, direct_expenses)
+    calculation.prime_cost = figures["prime_cost"]
+    calculation.cost_breakdown = figures["cost_breakdown"]
 
     prime_cost_calculations.append(calculation)
     return calculation
@@ -132,26 +143,17 @@ async def calculate_prime_cost(
 @app.post("/calculate-with-items")
 async def calculate_prime_cost_from_items(product_id: str, period: str):
     """Calculate prime cost from direct cost items."""
-    items = [i for i in direct_cost_items if i.product_id == product_id]
-
-    direct_materials = sum(i.amount for i in items if i.item_type == "direct_material")
-    direct_labor = sum(i.amount for i in items if i.item_type == "direct_labor")
-    direct_expenses = sum(i.amount for i in items if i.item_type == "direct_expense")
+    figures = calc.prime_cost_from_items(product_id, period, direct_cost_items)
 
     calculation = PrimeCostCalculation(
         product_id=product_id,
         period=period,
-        direct_materials=direct_materials,
-        direct_labor=direct_labor,
-        direct_expenses=direct_expenses,
+        direct_materials=figures["direct_materials"],
+        direct_labor=figures["direct_labor"],
+        direct_expenses=figures["direct_expenses"],
     )
-    calculation.prime_cost = direct_materials + direct_labor + direct_expenses
-    calculation.cost_breakdown = {
-        "direct_materials": direct_materials,
-        "direct_labor": direct_labor,
-        "direct_expenses": direct_expenses,
-        "prime_cost": calculation.prime_cost,
-    }
+    calculation.prime_cost = figures["prime_cost"]
+    calculation.cost_breakdown = figures["cost_breakdown"]
 
     prime_cost_calculations.append(calculation)
     return calculation

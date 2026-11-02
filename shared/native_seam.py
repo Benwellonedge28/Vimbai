@@ -129,3 +129,18 @@ def marginal_contribution(payload: Dict[str, Any]) -> Dict[str, Any]:
 def marginal_forecast(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Profit forecast under marginal costing."""
     return _call("marginal_forecast_json", payload)
+
+
+def prime_cost(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Prime cost from explicit components, with the cost breakdown."""
+    return _call("prime_cost_json", payload)
+
+
+def prime_cost_from_items(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Prime cost aggregated from direct cost items for one product."""
+    return _call("prime_cost_from_items_json", payload)
+
+
+def throughput_accounting(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Throughput analysis: ranking, optimal mix and constraint utilization."""
+    return _call("throughput_accounting_json", payload)

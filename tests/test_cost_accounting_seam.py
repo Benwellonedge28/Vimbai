@@ -357,3 +357,116 @@ class TestEngineSwitch:
         assert statement["total_variable_costs"] == 450000.0
         assert statement["contribution"] == 450000.0
         assert statement["profit"] == 250000.0
+
+
+class TestPrimeCostAndThroughput:
+    """The same requests must answer identically through both engines."""
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    def test_prime_cost_matches_the_service(self, monkeypatch, engine):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        client = TestClient(load_service("prime-cost-service").main.app)
+        assert client.get("/health").json()["calculation_engine"] == engine
+
+        params = {
+            "product_id": "PRD-1",
+            "period": "2026-10",
+            "direct_materials": 640.0,
+            "direct_labor": 260.0,
+            "direct_expenses": 40.5,
+        }
+        served = client.post("/calculate", params=params)
+        assert served.status_code == 200, served.text
+        service = served.json()
+
+        rust = _seam("prime_cost_json", params)
+
+        assert service["prime_cost"] == rust["prime_cost"] == 940.5
+        assert service["cost_breakdown"] == rust["cost_breakdown"]
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    def test_prime_cost_from_items_matches_the_service(self, monkeypatch, engine):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        module = load_service("prime-cost-service").main
+        module.direct_cost_items.clear()  # the service keeps its items in memory
+        client = TestClient(module.app)
+
+        items = [
+            {"item_name": "Steel", "item_type": "direct_material", "amount": 300.0, "units": 10, "product_id": "PRD-7"},
+            {"item_name": "Brass", "item_type": "direct_material", "amount": 120.0, "units": 4, "product_id": "PRD-7"},
+            {"item_name": "Fitter", "item_type": "direct_labor", "amount": 450.0, "units": 1, "product_id": "PRD-7"},
+            {"item_name": "Freight", "item_type": "direct_expense", "amount": 30.0, "units": 1, "product_id": "PRD-7"},
+            {
+                "item_name": "Other job",
+                "item_type": "direct_material",
+                "amount": 999.0,
+                "units": 1,
+                "product_id": "PRD-8",
+            },
+        ]
+        for item in items:
+            assert client.post("/direct-costs/add", params=item).status_code == 200
+
+        served = client.post("/calculate-with-items", params={"product_id": "PRD-7", "period": "2026-10"})
+        assert served.status_code == 200, served.text
+        service = served.json()
+
+        rust = _seam(
+            "prime_cost_from_items_json",
+            {"product_id": "PRD-7", "period": "2026-10", "items": items},
+        )
+
+        assert service["prime_cost"] == rust["prime_cost"] == 900.0
+        assert service["cost_breakdown"] == rust["cost_breakdown"]
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {
+                "company_id": "comp-1",
+                "operating_expenses": 4000.0,
+                "available_constraint_minutes": 480,
+                "products": [
+                    {"name": "A", "selling_price": 120.0, "material_cost": 60.0, "time_on_constraint": 4, "demand": 40},
+                    {"name": "B", "selling_price": 90.0, "material_cost": 30.0, "time_on_constraint": 10, "demand": 30},
+                    {"name": "C", "selling_price": 200.0, "material_cost": 120.0, "time_on_constraint": 0, "demand": 5},
+                ],
+            },
+            {
+                "company_id": "comp-2",
+                "operating_expenses": 0.0,
+                "available_constraint_minutes": 240,
+                "products": [
+                    {
+                        "name": "Only",
+                        "selling_price": 50.0,
+                        "material_cost": 50.0,
+                        "time_on_constraint": 3,
+                        "demand": 100,
+                    },
+                ],
+            },
+        ],
+    )
+    def test_throughput_accounting_matches_the_service(self, monkeypatch, engine, body):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        client = TestClient(load_service("throughput-accounting-service").main.app)
+        assert client.get("/health").json()["calculation_engine"] == engine
+
+        served = client.post("/analyze", json=body)
+        assert served.status_code == 200, served.text
+        service = served.json()
+
+        rust = _seam("throughput_accounting_json", body)
+
+        for key in (
+            "total_throughput",
+            "operating_expenses",
+            "net_profit",
+            "roi",
+            "constraint_utilization",
+        ):
+            assert service[key] == rust[key], key
+        assert service["product_ranking"] == rust["product_ranking"]
+        assert service["optimal_mix"] == rust["optimal_mix"]

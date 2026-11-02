@@ -29,6 +29,10 @@ use vimbai_capital_valuation::capital_returns::{
 use vimbai_common::{Money, MoneyError};
 use vimbai_cost_accounting::absorption::{cost_plus_pricing, overhead_absorption, product_cost};
 use vimbai_cost_accounting::labour_variance::{analyse_labour_variance, LabourVarianceRequest};
+use vimbai_cost_accounting::prime_cost::{
+    direct_cost_item, prime_cost, prime_cost_from_items, DirectCostItem,
+};
+use vimbai_cost_accounting::throughput::{analyze_throughput, ThroughputRequest};
 use vimbai_cost_accounting::marginal::{
     contribution_analysis, forecast_profit, marginal_cost_item, marginal_income_statement,
 };
@@ -1116,6 +1120,77 @@ fn marginal_forecast_json(payload: &str) -> PyResult<String> {
     ))
 }
 
+#[pyfunction]
+fn prime_cost_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        product_id: String,
+        #[serde(default)]
+        period: String,
+        #[serde(default)]
+        direct_materials: f64,
+        #[serde(default)]
+        direct_labor: f64,
+        #[serde(default)]
+        direct_expenses: f64,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&prime_cost(
+        &body.product_id,
+        &body.period,
+        body.direct_materials,
+        body.direct_labor,
+        body.direct_expenses,
+    ))
+}
+
+#[pyfunction]
+fn prime_cost_from_items_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Item {
+        #[serde(default)]
+        item_name: String,
+        #[serde(default)]
+        item_type: String,
+        #[serde(default)]
+        amount: f64,
+        #[serde(default = "one")]
+        units: f64,
+        #[serde(default)]
+        product_id: Option<String>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        product_id: String,
+        #[serde(default)]
+        period: String,
+        #[serde(default)]
+        items: Vec<Item>,
+    }
+
+    fn one() -> f64 {
+        1.0
+    }
+
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let items: Vec<DirectCostItem> = body
+        .items
+        .into_iter()
+        .map(|i| direct_cost_item(&i.item_name, &i.item_type, i.amount, i.units, i.product_id.as_deref()))
+        .collect();
+    json_out(&prime_cost_from_items(&body.product_id, &body.period, &items))
+}
+
+#[pyfunction]
+fn throughput_accounting_json(payload: &str) -> PyResult<String> {
+    let request: ThroughputRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&analyze_throughput(&request))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -1175,6 +1250,9 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(marginal_contribution_json, m)?)?;
     m.add_function(wrap_pyfunction!(marginal_forecast_json, m)?)?;
     m.add_function(wrap_pyfunction!(labour_variance_json, m)?)?;
+    m.add_function(wrap_pyfunction!(prime_cost_json, m)?)?;
+    m.add_function(wrap_pyfunction!(prime_cost_from_items_json, m)?)?;
+    m.add_function(wrap_pyfunction!(throughput_accounting_json, m)?)?;
     m.add_function(wrap_pyfunction!(material_cost_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(simple_material_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(multi_material_variance_json, m)?)?;
