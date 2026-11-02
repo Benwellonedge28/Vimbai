@@ -877,3 +877,35 @@ class TestBudgetedAndActualCosts:
         served = client.post(f"/{path}", params=params)
         assert served.status_code == 200, served.text
         assert served.json() == _seam(seam_name, params)
+
+
+class TestJobCostingRollup:
+    """The service's own rollup path, checked against the reference maths."""
+
+    @pytest.mark.parametrize("cost_type", ["materials", "labor", "overhead", "subcontractor", "travel"])
+    def test_rollup_matches_the_reference(self, monkeypatch, cost_type):
+        load_service("job-costing-service")  # sets up the package alias
+        from job_costing_service import calc
+
+        class Job:
+            materials_cost = 1200.0
+            labor_cost = 800.0
+            overhead_cost = 400.0
+            subcontractor_cost = 0.0
+
+        stored = dict(total_cost=2400.0, gross_profit=2600.0, gross_margin=52.0)
+
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", "rust")
+        rust = calc.apply_cost(Job(), cost_type, 300.0, 5000.0, **stored)
+
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", "python")
+        reference = calc.apply_cost(Job(), cost_type, 300.0, 5000.0, **stored)
+
+        assert rust == reference
+        if cost_type == "travel":
+            assert rust["aggregated"] is False
+            assert rust["total_cost"] == 2400.0
+        else:
+            assert rust["aggregated"] is True
+            assert rust["total_cost"] == 2700.0
+            assert rust["gross_profit"] == 2300.0

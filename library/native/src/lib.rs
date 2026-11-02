@@ -29,6 +29,7 @@ use vimbai_capital_valuation::capital_returns::{
 use vimbai_common::{Money, MoneyError};
 use vimbai_cost_accounting::absorption::{cost_plus_pricing, overhead_absorption, product_cost};
 use vimbai_cost_accounting::labour_variance::{analyse_labour_variance, LabourVarianceRequest};
+use vimbai_cost_accounting::job_costing::{add_cost, CostType, JobCosts};
 use vimbai_cost_accounting::actual_cost::{
     actual_labour_cost, actual_material_cost, compare_actual_to_budget, total_actual_cost,
     variance_breakdown,
@@ -1563,6 +1564,84 @@ fn actual_variance_json(payload: &str) -> PyResult<String> {
     ))
 }
 
+#[pyfunction]
+fn job_add_cost_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        materials_cost: f64,
+        #[serde(default)]
+        labor_cost: f64,
+        #[serde(default)]
+        overhead_cost: f64,
+        #[serde(default)]
+        subcontractor_cost: f64,
+        #[serde(default)]
+        contract_value: f64,
+        #[serde(default)]
+        cost_type: String,
+        #[serde(default)]
+        amount: f64,
+        /// Stored totals, echoed untouched when the cost type is unknown.
+        #[serde(default)]
+        total_cost: Option<f64>,
+        #[serde(default)]
+        gross_profit: Option<f64>,
+        #[serde(default)]
+        gross_margin: Option<f64>,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let job = JobCosts {
+        materials_cost: b.materials_cost,
+        labor_cost: b.labor_cost,
+        overhead_cost: b.overhead_cost,
+        subcontractor_cost: b.subcontractor_cost,
+    };
+    // Unknown cost types are recorded by the service but never aggregated, so
+    // the totals stay exactly as they came in.
+    let kind = match b.cost_type.as_str() {
+        // the service spells this one in the plural
+        "materials" => Some(CostType::Material),
+        "labor" => Some(CostType::Labor),
+        "overhead" => Some(CostType::Overhead),
+        "subcontractor" => Some(CostType::Subcontractor),
+        _ => None,
+    };
+    let (updated, totals) = match kind {
+        Some(kind) => {
+            let (updated, totals) = add_cost(&job, kind, b.amount, b.contract_value);
+            (updated, Some(totals))
+        }
+        None => (job.clone(), None),
+    };
+    let total_cost = match &totals {
+        Some(t) => t.total_cost,
+        None => b.total_cost.unwrap_or_else(|| {
+            job.materials_cost + job.labor_cost + job.overhead_cost + job.subcontractor_cost
+        }),
+    };
+    let (gross_profit, gross_margin) = match &totals {
+        Some(t) => (t.gross_profit, t.gross_margin),
+        None => {
+            let profit = b.gross_profit.unwrap_or(b.contract_value - total_cost);
+            let margin = b
+                .gross_margin
+                .unwrap_or((profit / b.contract_value.max(1.0)) * 100.0);
+            (profit, margin)
+        }
+    };
+    json_out(&serde_json::json!({
+        "aggregated": kind.is_some(),
+        "materials_cost": updated.materials_cost,
+        "labor_cost": updated.labor_cost,
+        "overhead_cost": updated.overhead_cost,
+        "subcontractor_cost": updated.subcontractor_cost,
+        "total_cost": total_cost,
+        "gross_profit": gross_profit,
+        "gross_margin": gross_margin,
+    }))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -1646,6 +1725,7 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(actual_total_json, m)?)?;
     m.add_function(wrap_pyfunction!(actual_compare_budget_json, m)?)?;
     m.add_function(wrap_pyfunction!(actual_variance_json, m)?)?;
+    m.add_function(wrap_pyfunction!(job_add_cost_json, m)?)?;
     m.add_function(wrap_pyfunction!(material_cost_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(simple_material_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(multi_material_variance_json, m)?)?;

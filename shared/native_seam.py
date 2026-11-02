@@ -249,3 +249,8 @@ def actual_compare_budget(payload: Dict[str, Any]) -> Dict[str, Any]:
 def actual_variance(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Variance by cost category."""
     return _call("actual_variance_json", payload)
+
+
+def job_add_cost(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply one cost entry to a job's running totals."""
+    return _call("job_add_cost_json", payload)

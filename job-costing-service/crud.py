@@ -15,9 +15,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from job_costing_service import calc
 from job_costing_service.dependencies import book_id_var
 from job_costing_service.exceptions import NotFoundError
-from job_costing_service.models import COST_TYPES, Job, JobCostEntry, JobCostEntryCreate, JobCreate
+from job_costing_service.models import Job, JobCostEntry, JobCostEntryCreate, JobCreate
 from neo4j import AsyncSession
 
 BOOK_FILTER = "WHERE ($book_id IS NULL OR x.book_id = $book_id)"
@@ -177,12 +178,25 @@ async def add_cost(session: AsyncSession, user_id: str, job_id: str, payload: Jo
     # Recompute aggregates server side from the new entry (only the four
     # known cost types roll up; unknown types are stored but not aggregated,
     # matching the original service behavior).
-    if payload.cost_type in COST_TYPES:
-        field = f"{payload.cost_type}_cost"
-        setattr(job, field, getattr(job, field) + payload.amount)
-        job.total_cost = job.materials_cost + job.labor_cost + job.overhead_cost + job.subcontractor_cost
-        job.gross_profit = job.contract_value - job.total_cost
-        job.gross_margin = (job.gross_profit / max(1, job.contract_value)) * 100
+    totals = calc.apply_cost(
+        job,
+        payload.cost_type,
+        payload.amount,
+        job.contract_value,
+        job.total_cost,
+        job.gross_profit,
+        job.gross_margin,
+    )
+    for field in (
+        "materials_cost",
+        "labor_cost",
+        "overhead_cost",
+        "subcontractor_cost",
+        "total_cost",
+        "gross_profit",
+        "gross_margin",
+    ):
+        setattr(job, field, totals[field])
 
     entry_id = str(uuid.uuid4())
     now = _now()
