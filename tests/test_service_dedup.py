@@ -146,6 +146,9 @@ STATEMENT_PAYROLL_PORTS = {
 # The hedging and FX family, ported into treasury_fx and proven body-for-body
 # by tests/test_native_seam.py.
 HEDGING_FX_PORTS = {
+    "working-capital-service",
+    "working-capital-optimization-service",
+    "working-capital-finance-service",
     "cash-flow-forecasting-service",
     "liquidity-forecast-service",
     "liquidity-management-service",

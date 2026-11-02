@@ -1855,30 +1855,6 @@
       "auth_required": true
     },
     {
-      "name": "working-capital-finance-service",
-      "path": "/working-capital-finance",
-      "url": "http://localhost:9012",
-      "port": 8190,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "working-capital-optimization-service",
-      "path": "/working-capital-optimization",
-      "url": "http://localhost:9012",
-      "port": 8168,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "working-capital-service",
-      "path": "/working-capital",
-      "url": "http://localhost:9012",
-      "port": 8237,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "xbrl-reporting-service",
       "path": "/xbrl-reporting",
       "url": "http://localhost:9002",

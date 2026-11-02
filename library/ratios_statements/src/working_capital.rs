@@ -1,7 +1,8 @@
 //! The working capital family: analysis, working-capital finance with
 //! invoice factoring, and cycle optimisation.
 use serde::{Deserialize, Serialize};
-use vimbai_common::py_round2;
+use std::collections::BTreeMap;
+use vimbai_common::{py_round, py_round2};
 
 fn ratio(num: f64, den: f64) -> f64 {
     if den == 0.0 {
@@ -15,8 +16,9 @@ fn round4(v: f64) -> f64 {
     (v * 10_000.0).round() / 10_000.0
 }
 
+/// Python's round(x, 1), which is half-even: 11.25 becomes 11.2, not 11.3.
 fn round1(v: f64) -> f64 {
-    (v * 10.0).round() / 10.0
+    py_round(v, 1)
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -238,7 +240,8 @@ pub struct WcOptimization {
     pub current_ratio: f64,
     pub quick_ratio: f64,
     pub net_working_capital: f64,
-    pub recommendations: Vec<(String, String)>,
+    /// Published as a JSON object keyed DSO/DPO/DIO.
+    pub recommendations: BTreeMap<String, String>,
 }
 
 /// Which input the optimisation divided by zero.
@@ -297,8 +300,8 @@ pub fn optimize_working_capital(req: &WcOptimizeInput) -> Result<WcOptimization,
     let dio = req.inventory / req.cogs * req.days_analysis;
     let ccc = dso + dio - dpo;
 
-    let mut recommendations = Vec::new();
-    recommendations.push((
+    let mut recommendations = BTreeMap::new();
+    recommendations.insert(
         "DSO".to_string(),
         if dso > 60.0 {
             "Consider tighter credit policies, early payment discounts, or invoice factoring"
@@ -306,8 +309,8 @@ pub fn optimize_working_capital(req: &WcOptimizeInput) -> Result<WcOptimization,
             "DSO is within acceptable range"
         }
         .to_string(),
-    ));
-    recommendations.push((
+    );
+    recommendations.insert(
         "DPO".to_string(),
         if dpo < 45.0 {
             "Negotiate extended payment terms with suppliers to improve cash flow"
@@ -315,8 +318,8 @@ pub fn optimize_working_capital(req: &WcOptimizeInput) -> Result<WcOptimization,
             "DPO is well managed"
         }
         .to_string(),
-    ));
-    recommendations.push((
+    );
+    recommendations.insert(
         "DIO".to_string(),
         if dio > 90.0 {
             "Implement just-in-time inventory, review slow-moving stock, improve demand forecasting"
@@ -324,7 +327,7 @@ pub fn optimize_working_capital(req: &WcOptimizeInput) -> Result<WcOptimization,
             "Inventory turnover is satisfactory"
         }
         .to_string(),
-    ));
+    );
 
     // NOTE: current assets here are receivables plus inventory only.
     let current_assets = req.accounts_receivable + req.inventory;
@@ -506,10 +509,8 @@ mod tests {
         assert_eq!(r.current_ratio, 4.67);
         assert_eq!(r.quick_ratio, 2.0);
         assert_eq!(r.recommendations.len(), 3);
-        assert!(r.recommendations[0]
-            .1
-            .starts_with("Consider tighter credit"));
-        assert!(r.recommendations[2].1.starts_with("Implement just-in-time"));
+        assert!(r.recommendations["DSO"].starts_with("Consider tighter credit"));
+        assert!(r.recommendations["DIO"].starts_with("Implement just-in-time"));
     }
 
     #[test]
@@ -520,8 +521,8 @@ mod tests {
             ..optimize_input()
         })
         .unwrap();
-        assert!(r.recommendations[0].1.contains("acceptable range"));
-        assert!(r.recommendations[2].1.contains("satisfactory"));
+        assert!(r.recommendations["DSO"].contains("acceptable range"));
+        assert!(r.recommendations["DIO"].contains("satisfactory"));
     }
 
     #[test]

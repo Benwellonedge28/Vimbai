@@ -50,9 +50,6 @@ COPY sustainable-growth-service ./sustainable-growth-service
 COPY synergy-analysis-service ./synergy-analysis-service
 COPY time-value-of-money-service ./time-value-of-money-service
 COPY trade-finance-service ./trade-finance-service
-COPY working-capital-service ./working-capital-service
-COPY working-capital-finance-service ./working-capital-finance-service
-COPY working-capital-optimization-service ./working-capital-optimization-service
 
 USER vimbai
 

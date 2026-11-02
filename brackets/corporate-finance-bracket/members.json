@@ -171,21 +171,6 @@
       "path": "/trade-finance",
       "name": "trade-finance-service",
       "dir": "trade-finance-service"
-    },
-    {
-      "path": "/working-capital",
-      "name": "working-capital-service",
-      "dir": "working-capital-service"
-    },
-    {
-      "path": "/working-capital-finance",
-      "name": "working-capital-finance-service",
-      "dir": "working-capital-finance-service"
-    },
-    {
-      "path": "/working-capital-optimization",
-      "name": "working-capital-optimization-service",
-      "dir": "working-capital-optimization-service"
     }
   ]
 }

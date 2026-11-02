@@ -25,6 +25,10 @@ use vimbai_capital_valuation::capital_returns::{
     discount_factor_table_range, discounted_payback, simple_rate, wacc,
 };
 use vimbai_common::{Money, MoneyError};
+use vimbai_ratios_statements::working_capital::{
+    analyze_wc_finance, analyze_working_capital, calculate_factoring, optimize_working_capital,
+    FactoringInput, WcAnalysisInput, WcFinanceInput, WcOptimizeInput,
+};
 use vimbai_ratios_statements::{
     asset_turnover, croic, du_pont_analysis, eps, eva, CroicRequest, DuPontRequest, EpsRequest,
     EvaRequest, TurnoverRequest,
@@ -582,6 +586,42 @@ fn json_out<T: serde::Serialize>(value: &T) -> PyResult<String> {
     serde_json::to_string(value).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
+/// The four working-capital endpoints. `/optimize` answers a zero denominator
+/// with a 400 whose detail names the field, so it is raised as one.
+#[pyfunction]
+fn wc_analyze_json(payload: &str) -> PyResult<String> {
+    let req: WcAnalysisInput =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&analyze_working_capital(&req))
+}
+
+#[pyfunction]
+fn wc_optimize_json(payload: &str) -> PyResult<String> {
+    let req: WcOptimizeInput =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    match optimize_working_capital(&req) {
+        Ok(out) => json_out(&out),
+        Err(err) => Err(seam_error(SeamError(format!(
+            "{} must be greater than zero",
+            err.field()
+        )))),
+    }
+}
+
+#[pyfunction]
+fn wc_finance_json(payload: &str) -> PyResult<String> {
+    let req: WcFinanceInput =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&analyze_wc_finance(&req))
+}
+
+#[pyfunction]
+fn wc_factoring_json(payload: &str) -> PyResult<String> {
+    let req: FactoringInput =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&calculate_factoring(&req))
+}
+
 /// `/forecast` on the cash-flow forecasting service. `forecast_date` is the
 /// caller's clock reading, stamped by the service rather than the maths.
 #[pyfunction]
@@ -681,6 +721,10 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fx_interest_rate_hedging_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_translation_json, m)?)?;
 
+    m.add_function(wrap_pyfunction!(wc_analyze_json, m)?)?;
+    m.add_function(wrap_pyfunction!(wc_optimize_json, m)?)?;
+    m.add_function(wrap_pyfunction!(wc_finance_json, m)?)?;
+    m.add_function(wrap_pyfunction!(wc_factoring_json, m)?)?;
     m.add_function(wrap_pyfunction!(cash_flow_forecast_json, m)?)?;
     m.add_function(wrap_pyfunction!(liquidity_forecast_json, m)?)?;
     m.add_function(wrap_pyfunction!(liquidity_management_json, m)?)?;

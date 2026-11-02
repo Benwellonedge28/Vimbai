@@ -880,11 +880,15 @@ def _bodies_match(service, rust, path=""):
         assert len(service) == len(rust), f"length differs at {path}"
         for index, (left, right) in enumerate(zip(service, rust)):
             _bodies_match(left, right, f"{path}[{index}]")
+    elif (
+        isinstance(service, (int, float))
+        and isinstance(rust, (int, float))
+        and not isinstance(service, bool)
+        and not isinstance(rust, bool)
+    ):
+        assert Decimal(str(service)) == Decimal(str(rust)), f"{path}: {service} vs {rust}"
     else:
-        try:
-            assert Decimal(str(service)) == Decimal(str(rust)), f"{path}: {service} vs {rust}"
-        except ArithmeticError:
-            assert service == rust, f"{path}: {service!r} vs {rust!r}"
+        assert service == rust, f"{path}: {service!r} vs {rust!r}"
 
 
 def _hedging_parity(service_name, path, request, seam_call, drop=()):
@@ -1298,3 +1302,96 @@ def test_cash_flow_forecast_matches_the_service():
     # 45 days is 7 weekly buckets, one of them partial
     assert len(rust["weekly_summary"]) == 7
     assert len(rust["monthly_summary"]) == 2
+
+
+# --- working capital family --------------------------------------------------
+
+WC_ANALYSIS_REQUEST = {
+    "company_id": "c1",
+    "current_assets": 420000.0,
+    "current_liabilities": 260000.0,
+    "inventory": 90000.0,
+    "accounts_receivable": 120000.0,
+    "cash": 60000.0,
+    "accounts_payable": 85000.0,
+    "short_term_debt": 70000.0,
+    "cost_of_goods_sold": 720000.0,
+    "revenue": 1200000.0,
+}
+
+WC_OPTIMIZE_REQUEST = {
+    "company_id": "c1",
+    "reporting_date": "2026-11-02",
+    "accounts_receivable": 120000.0,
+    "accounts_payable": 85000.0,
+    "inventory": 90000.0,
+    "revenue": 1200000.0,
+    "cogs": 720000.0,
+    "purchases": 700000.0,
+    "days_analysis": 90,
+}
+
+WC_FINANCE_REQUEST = {
+    "company_id": "c1",
+    "period": "FY2026",
+    "current_assets": 420000.0,
+    "current_liabilities": 260000.0,
+    "inventory": 90000.0,
+    "accounts_receivable": 120000.0,
+    "accounts_payable": 85000.0,
+    "annual_revenue": 1200000.0,
+    "cogs": 720000.0,
+}
+
+FACTORING_REQUEST = {
+    "company_id": "c1",
+    "invoice_amount": 250000.0,
+    "advance_rate": 0.8,
+    "factor_fee_rate": 0.02,
+    "discount_rate": 0.12,
+}
+
+
+def _wc_parity(service_dir, path, seam_name, request):
+    client = TestClient(load_service(service_dir).main.app)
+    served = client.post(path, json=request)
+    assert served.status_code == 200, served.text
+    rust = __import__("json").loads(getattr(native, seam_name)(__import__("json").dumps(request)))
+    _bodies_match(served.json(), rust)
+    return served.json(), rust
+
+
+def test_working_capital_analysis_matches_the_service():
+    served, rust = _wc_parity("working-capital-service", "/analyze", "wc_analyze_json", WC_ANALYSIS_REQUEST)
+    # the cycle is DSO + DIO - DPO, so a long payable tail shortens it
+    assert rust["cash_conversion_cycle"] == served["cash_conversion_cycle"]
+
+
+def test_working_capital_optimization_matches_the_service():
+    served, rust = _wc_parity(
+        "working-capital-optimization-service",
+        "/optimize",
+        "wc_optimize_json",
+        WC_OPTIMIZE_REQUEST,
+    )
+    assert rust["cash_conversion_cycle"] == served["cash_conversion_cycle"]
+
+
+def _wc_parity_without_id(path, seam_name, request):
+    """The finance endpoints mint a uuid per report, so that key is skipped."""
+    client = TestClient(load_service("working-capital-finance-service").main.app)
+    served = client.post(path, json=request)
+    assert served.status_code == 200, served.text
+    served = served.json()
+    rust = __import__("json").loads(getattr(native, seam_name)(__import__("json").dumps(request)))
+    served.pop("id", None)
+    _bodies_match(served, rust)
+    return served, rust
+
+
+def test_working_capital_finance_matches_the_service():
+    _wc_parity_without_id("/analyze", "wc_finance_json", WC_FINANCE_REQUEST)
+
+
+def test_working_capital_factoring_matches_the_service():
+    _wc_parity_without_id("/factoring", "wc_factoring_json", FACTORING_REQUEST)
