@@ -23,10 +23,16 @@ if "marginal_costing_service" not in _sys.modules or not hasattr(
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from marginal_costing_service import cost_calc
-from pydantic import BaseModel, Field
+from marginal_costing_service import cost_calc, crud
+from marginal_costing_service.dependencies import book_id_var, get_db_session, get_user_id
+from marginal_costing_service.models import (
+    ContributionAnalysis,
+    MarginalCost,
+    MarginalIncomeStatement,
+)
+from neo4j import AsyncSession
 
 SERVICE_NAME = "marginal-costing-service"
 SERVICE_VERSION = "1.0.0"
@@ -54,48 +60,11 @@ app.add_middleware(
 )
 
 
-class MarginalCost(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    cost_name: str
-    cost_code: str
-    variable_cost: float  # Marginal/Variable cost
-    fixed_cost: float = 0  # Period cost
-    total_cost: float = 0
-    unit_variable_cost: float = 0
-    units: float = 1
-    cost_driver: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class MarginalIncomeStatement(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    period: str
-    sales_revenue: float
-    total_variable_costs: float
-    contribution: float = 0
-    fixed_costs: float
-    profit: float = 0
-    variable_cost_breakdown: Dict[str, float] = {}
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class ContributionAnalysis(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    product_id: str
-    selling_price: float
-    variable_cost_per_unit: float
-    contribution_per_unit: float = 0
-    contribution_margin_ratio: float = 0
-    total_contribution: float = 0
-    fixed_costs_allocated: float = 0
-    profit_from_product: float = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-marginal_costs: List[MarginalCost] = []
-income_statements: List[MarginalIncomeStatement] = []
-contribution_analyses: List[ContributionAnalysis] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -123,7 +92,7 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Marginal costing management"}
+    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Marginal costing calculations"}
 
 
 @app.post("/costs/add")
@@ -134,6 +103,8 @@ async def add_marginal_cost(
     fixed_cost: float = 0,
     units: float = 1,
     cost_driver: str = "units",
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Add a marginal cost item."""
     cost = MarginalCost(
@@ -147,13 +118,18 @@ async def add_marginal_cost(
     figures = cost_calc.marginal_cost_item(cost_name, cost_code, variable_cost, fixed_cost, units, cost_driver)
     cost.total_cost = figures["total_cost"]
     cost.unit_variable_cost = figures["unit_variable_cost"]
-    marginal_costs.append(cost)
-    return cost
+    return await crud.create(session, user_id, cost)
 
 
 @app.post("/income-statement/generate")
 async def generate_marginal_income_statement(
-    company_id: str, period: str, sales_revenue: float, variable_costs: Dict[str, float], fixed_costs: float
+    company_id: str,
+    period: str,
+    sales_revenue: float,
+    variable_costs: Dict[str, float],
+    fixed_costs: float,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Generate marginal income statement."""
     figures = cost_calc.marginal_income_statement(company_id, period, sales_revenue, variable_costs, fixed_costs)
@@ -171,13 +147,18 @@ async def generate_marginal_income_statement(
     statement.contribution = figures["contribution"]
     statement.profit = figures["profit"]
 
-    income_statements.append(statement)
-    return statement
+    return await crud.create(session, user_id, statement)
 
 
 @app.post("/contribution/analyze")
 async def analyze_contribution(
-    product_id: str, selling_price: float, variable_cost_per_unit: float, units_sold: float, fixed_costs: float = 0
+    product_id: str,
+    selling_price: float,
+    variable_cost_per_unit: float,
+    units_sold: float,
+    fixed_costs: float = 0,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Analyze contribution for a product."""
     analysis = ContributionAnalysis(
@@ -195,8 +176,7 @@ async def analyze_contribution(
     analysis.total_contribution = figures["total_contribution"]
     analysis.profit_from_product = figures["profit_from_product"]
 
-    contribution_analyses.append(analysis)
-    return analysis
+    return await crud.create(session, user_id, analysis)
 
 
 @app.post("/profit-forecast")
@@ -219,9 +199,14 @@ async def forecast_profit(
 
 
 @app.get("/income-statements")
-async def list_income_statements(company_id: Optional[str] = None, period: Optional[str] = None):
+async def list_income_statements(
+    company_id: Optional[str] = None,
+    period: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List marginal income statements."""
-    result = income_statements
+    result = await crud.list_all(session, user_id, MarginalIncomeStatement)
     if company_id:
         result = [s for s in result if s.company_id == company_id]
     if period:
@@ -230,25 +215,33 @@ async def list_income_statements(company_id: Optional[str] = None, period: Optio
 
 
 @app.get("/contributions")
-async def list_contribution_analyses(product_id: Optional[str] = None):
+async def list_contribution_analyses(
+    product_id: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List contribution analyses."""
-    result = contribution_analyses
+    result = await crud.list_all(session, user_id, ContributionAnalysis)
     if product_id:
         result = [c for c in result if c.product_id == product_id]
     return {"contributions": result}
 
 
 @app.get("/summary")
-async def get_marginal_cost_summary():
+async def get_marginal_cost_summary(
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """Get marginal cost summary."""
-    total_variable = sum(c.variable_cost for c in marginal_costs)
-    total_fixed = sum(c.fixed_cost for c in marginal_costs)
+    costs = await crud.list_all(session, user_id, MarginalCost)
+    total_variable = sum(c.variable_cost for c in costs)
+    total_fixed = sum(c.fixed_cost for c in costs)
 
     return {
         "total_variable_costs": total_variable,
         "total_fixed_costs": total_fixed,
         "total_costs": total_variable + total_fixed,
-        "cost_items": len(marginal_costs),
+        "cost_items": len(costs),
     }
 
 

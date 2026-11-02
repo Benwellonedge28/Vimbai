@@ -209,8 +209,8 @@ def test_target_costing_matches_the_service(body):
     ],
 )
 def test_marginal_profit_forecast_matches_the_service(params):
-    client = TestClient(load_service("marginal-costing-service").main.app)
-    served = client.post("/profit-forecast", params=params)
+    client = _fake_client("marginal-costing-service", "marginal_costing_service", "mc")
+    served = client.post("/profit-forecast", params=params, headers=_H)
     assert served.status_code == 200, served.text
     service = served.json()
 
@@ -245,8 +245,8 @@ def test_marginal_profit_forecast_matches_the_service(params):
     ],
 )
 def test_marginal_contribution_matches_the_service(params):
-    client = TestClient(load_service("marginal-costing-service").main.app)
-    served = client.post("/contribution/analyze", params=params)
+    client = _fake_client("marginal-costing-service", "marginal_costing_service", "mc")
+    served = client.post("/contribution/analyze", params=params, headers=_H)
     assert served.status_code == 200, served.text
     service = served.json()
 
@@ -281,7 +281,7 @@ def test_marginal_contribution_matches_the_service(params):
     ],
 )
 def test_marginal_income_statement_matches_the_service(body):
-    client = TestClient(load_service("marginal-costing-service").main.app)
+    client = _fake_client("marginal-costing-service", "marginal_costing_service", "mc")
     # the scalar figures are query parameters; only the breakdown travels in the body
     served = client.post(
         "/income-statement/generate",
@@ -292,6 +292,7 @@ def test_marginal_income_statement_matches_the_service(body):
             "fixed_costs": body["fixed_costs"],
         },
         json=body["variable_costs"],
+        headers=_H,
     )
     assert served.status_code == 200, served.text
     service = served.json()
@@ -350,7 +351,7 @@ class TestEngineSwitch:
     @pytest.mark.parametrize("engine", ["python", "rust"])
     def test_marginal_answers_are_engine_independent(self, monkeypatch, engine):
         monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
-        client = TestClient(load_service("marginal-costing-service").main.app)
+        client = _fake_client("marginal-costing-service", "marginal_costing_service", "mc")
         assert client.get("/health").json()["calculation_engine"] == engine
 
         forecast = client.post(
@@ -361,6 +362,7 @@ class TestEngineSwitch:
                 "fixed_costs": 15000.0,
                 "expected_units": 1200.0,
             },
+            headers=_H,
         ).json()
         assert forecast["contribution_per_unit"] == 20.0
         assert forecast["total_contribution"] == 24000.0
@@ -375,6 +377,7 @@ class TestEngineSwitch:
                 "fixed_costs": 200000.0,
             },
             json={"materials": 300000.0, "labour": 150000.0},
+            headers=_H,
         ).json()
         assert statement["total_variable_costs"] == 450000.0
         assert statement["contribution"] == 450000.0
@@ -387,7 +390,7 @@ class TestPrimeCostAndThroughput:
     @pytest.mark.parametrize("engine", ["python", "rust"])
     def test_prime_cost_matches_the_service(self, monkeypatch, engine):
         monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
-        client = TestClient(load_service("prime-cost-service").main.app)
+        client = _fake_client("prime-cost-service", "prime_costing_service", "pc")
         assert client.get("/health").json()["calculation_engine"] == engine
 
         params = {
@@ -397,7 +400,7 @@ class TestPrimeCostAndThroughput:
             "direct_labor": 260.0,
             "direct_expenses": 40.5,
         }
-        served = client.post("/calculate", params=params)
+        served = client.post("/calculate", params=params, headers=_H)
         assert served.status_code == 200, served.text
         service = served.json()
 
@@ -409,9 +412,7 @@ class TestPrimeCostAndThroughput:
     @pytest.mark.parametrize("engine", ["python", "rust"])
     def test_prime_cost_from_items_matches_the_service(self, monkeypatch, engine):
         monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
-        module = load_service("prime-cost-service").main
-        module.direct_cost_items.clear()  # the service keeps its items in memory
-        client = TestClient(module.app)
+        client = _fake_client("prime-cost-service", "prime_costing_service", "pc")
 
         items = [
             {"item_name": "Steel", "item_type": "direct_material", "amount": 300.0, "units": 10, "product_id": "PRD-7"},
@@ -427,9 +428,9 @@ class TestPrimeCostAndThroughput:
             },
         ]
         for item in items:
-            assert client.post("/direct-costs/add", params=item).status_code == 200
+            assert client.post("/direct-costs/add", params=item, headers=_H).status_code == 200
 
-        served = client.post("/calculate-with-items", params={"product_id": "PRD-7", "period": "2026-10"})
+        served = client.post("/calculate-with-items", params={"product_id": "PRD-7", "period": "2026-10"}, headers=_H)
         assert served.status_code == 200, served.text
         service = served.json()
 

@@ -16,16 +16,16 @@ if "prime_costing_service" not in _sys.modules or not hasattr(_sys.modules.get("
     _sys.modules["prime_costing_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from prime_costing_service import calc
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from prime_costing_service import calc, crud
+from prime_costing_service.dependencies import book_id_var, get_db_session, get_user_id
+from prime_costing_service.models import DirectCostItem, PrimeCostCalculation
 
 SERVICE_NAME = "prime-cost-service"
 SERVICE_VERSION = "1.0.0"
@@ -53,31 +53,11 @@ app.add_middleware(
 )
 
 
-class DirectCostItem(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    item_name: str
-    item_type: str  # direct_material, direct_labor, direct_expense
-    amount: float
-    units: float = 1
-    cost_per_unit: float = 0
-    product_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class PrimeCostCalculation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    product_id: str
-    period: str
-    direct_materials: float = 0
-    direct_labor: float = 0
-    direct_expenses: float = 0
-    prime_cost: float = 0
-    cost_breakdown: Dict[str, float] = {}
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-direct_cost_items: List[DirectCostItem] = []
-prime_cost_calculations: List[PrimeCostCalculation] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -110,18 +90,29 @@ async def root():
 
 @app.post("/direct-costs/add")
 async def add_direct_cost_item(
-    item_name: str, item_type: str, amount: float, units: float = 1, product_id: Optional[str] = None
+    item_name: str,
+    item_type: str,
+    amount: float,
+    units: float = 1,
+    product_id: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Add a direct cost item."""
     item = DirectCostItem(item_name=item_name, item_type=item_type, amount=amount, units=units, product_id=product_id)
     item.cost_per_unit = amount / units if units > 0 else 0
-    direct_cost_items.append(item)
-    return item
+    return await crud.create(session, user_id, item)
 
 
 @app.post("/calculate")
 async def calculate_prime_cost(
-    product_id: str, period: str, direct_materials: float, direct_labor: float, direct_expenses: float = 0
+    product_id: str,
+    period: str,
+    direct_materials: float,
+    direct_labor: float,
+    direct_expenses: float = 0,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Calculate prime cost for a product."""
     calculation = PrimeCostCalculation(
@@ -136,14 +127,19 @@ async def calculate_prime_cost(
     calculation.prime_cost = figures["prime_cost"]
     calculation.cost_breakdown = figures["cost_breakdown"]
 
-    prime_cost_calculations.append(calculation)
-    return calculation
+    return await crud.create(session, user_id, calculation)
 
 
 @app.post("/calculate-with-items")
-async def calculate_prime_cost_from_items(product_id: str, period: str):
+async def calculate_prime_cost_from_items(
+    product_id: str,
+    period: str,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """Calculate prime cost from direct cost items."""
-    figures = calc.prime_cost_from_items(product_id, period, direct_cost_items)
+    items = await crud.list_all(session, user_id, DirectCostItem)
+    figures = calc.prime_cost_from_items(product_id, period, items)
 
     calculation = PrimeCostCalculation(
         product_id=product_id,
@@ -155,23 +151,30 @@ async def calculate_prime_cost_from_items(product_id: str, period: str):
     calculation.prime_cost = figures["prime_cost"]
     calculation.cost_breakdown = figures["cost_breakdown"]
 
-    prime_cost_calculations.append(calculation)
-    return calculation
+    return await crud.create(session, user_id, calculation)
 
 
 @app.get("/calculations")
-async def list_calculations(product_id: Optional[str] = None):
+async def list_calculations(
+    product_id: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List prime cost calculations."""
-    result = prime_cost_calculations
+    result = await crud.list_all(session, user_id, PrimeCostCalculation)
     if product_id:
         result = [c for c in result if c.product_id == product_id]
     return {"calculations": result}
 
 
 @app.get("/direct-costs")
-async def list_direct_cost_items(product_id: Optional[str] = None):
+async def list_direct_cost_items(
+    product_id: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List direct cost items."""
-    result = direct_cost_items
+    result = await crud.list_all(session, user_id, DirectCostItem)
     if product_id:
         result = [i for i in result if i.product_id == product_id]
     return {"items": result}
