@@ -375,14 +375,6 @@
       "strip_prefix": false
     },
     {
-      "name": "comparative-financial-statements-service",
-      "path": "/comparative-financial-statements",
-      "url": "http://localhost:9002",
-      "port": 8142,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "consolidation-service",
       "path": "/consolidation",
       "url": "http://localhost:9011",

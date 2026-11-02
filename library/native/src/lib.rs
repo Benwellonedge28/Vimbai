@@ -26,6 +26,10 @@ use vimbai_capital_valuation::capital_returns::{
 };
 use vimbai_common::{Money, MoneyError};
 use vimbai_ifrs::segments::{report_segments, SegmentReportRequest};
+use vimbai_ratios_statements::comparative::{
+    analyze as comparative_analyze, horizontal_analysis as comparative_horizontal, trend_series,
+    variance_analysis as comparative_variance, ComparativeRequest, TrendSeries, VarianceReport,
+};
 use vimbai_ratios_statements::working_capital::{
     analyze_wc_finance, analyze_working_capital, calculate_factoring, optimize_working_capital,
     FactoringInput, WcAnalysisInput, WcFinanceInput, WcOptimizeInput,
@@ -587,6 +591,65 @@ fn json_out<T: serde::Serialize>(value: &T) -> PyResult<String> {
     serde_json::to_string(value).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
+/// `/analyze` on the comparative statements service. Three to ten periods.
+#[pyfunction]
+fn comparative_analyze_json(payload: &str) -> PyResult<String> {
+    let req: ComparativeRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    if !(3..=10).contains(&req.number_of_periods) {
+        return Err(seam_error(SeamError(
+            "number_of_periods must be between 3 and 10".to_string(),
+        )));
+    }
+    json_out(&comparative_analyze(&req))
+}
+
+/// `/horizontal-analysis`: one item, current against prior.
+#[pyfunction]
+fn comparative_horizontal_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        current_value: f64,
+        prior_value: f64,
+        item_name: String,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&comparative_horizontal(
+        body.current_value,
+        body.prior_value,
+        &body.item_name,
+    ))
+}
+
+/// `/trend-analysis`: a series indexed to its first period. Fewer than two
+/// periods is a 400.
+#[pyfunction]
+fn comparative_trend_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        values: Vec<f64>,
+        periods: Vec<String>,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let series: TrendSeries = trend_series(&body.values, &body.periods)
+        .ok_or_else(|| seam_error(SeamError("At least 2 periods required".to_string())))?;
+    json_out(&series)
+}
+
+/// `/variance-analysis`: budget against actual, item by item.
+#[pyfunction]
+fn comparative_variance_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        budgeted: Vec<f64>,
+        actual: Vec<f64>,
+        items: Vec<String>,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let report: VarianceReport = comparative_variance(&body.budgeted, &body.actual, &body.items);
+    json_out(&report)
+}
+
 /// `/report` on the segment reporting service.
 #[pyfunction]
 fn segment_report_json(payload: &str) -> PyResult<String> {
@@ -730,6 +793,10 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fx_interest_rate_hedging_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_translation_json, m)?)?;
 
+    m.add_function(wrap_pyfunction!(comparative_analyze_json, m)?)?;
+    m.add_function(wrap_pyfunction!(comparative_horizontal_json, m)?)?;
+    m.add_function(wrap_pyfunction!(comparative_trend_json, m)?)?;
+    m.add_function(wrap_pyfunction!(comparative_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(segment_report_json, m)?)?;
     m.add_function(wrap_pyfunction!(wc_analyze_json, m)?)?;
     m.add_function(wrap_pyfunction!(wc_optimize_json, m)?)?;

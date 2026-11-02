@@ -32,8 +32,10 @@ pub use basis_apportionment::{
     apportion, ApportionedCentre, ApportionmentBasis, ApportionmentResult, CostCentreBasis,
 };
 pub use comparative::{
-    generate_periods, horizontal_analysis, horizontal_items, trend_analysis, variance_analysis,
-    HorizontalItem, PeriodData, TrendItem, TrendPoint, VarianceLine, VarianceReport,
+    analyze, generate_periods, horizontal_analysis, horizontal_items, trend_analysis, trend_series,
+    variance_analysis, ComparativeAnalysis, ComparativeRequest, HorizontalChange, HorizontalItem,
+    PeriodData, RatioComparison, SummaryStatistics, TrendItem, TrendSeries, VarianceLine,
+    VarianceReport,
 };
 pub use consolidation::{
     calculate_goodwill, calculate_nci, consolidate, process_eliminations, ConsolidatedStatement,

@@ -18,11 +18,6 @@
       "dir": "cash-flow-statement-service"
     },
     {
-      "path": "/comparative-financial-statements",
-      "name": "comparative-financial-statements-service",
-      "dir": "comparative-financial-statements-service"
-    },
-    {
       "path": "/esg-reporting",
       "name": "esg-reporting-service",
       "dir": "esg-reporting-service"

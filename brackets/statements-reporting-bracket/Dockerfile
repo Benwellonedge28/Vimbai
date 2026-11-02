@@ -19,7 +19,6 @@ COPY brackets/statements-reporting-bracket/main.py ./main.py
 COPY annual-report-service ./annual-report-service
 COPY balance-sheet-service ./balance-sheet-service
 COPY cash-flow-statement-service ./cash-flow-statement-service
-COPY comparative-financial-statements-service ./comparative-financial-statements-service
 COPY esg-reporting-service ./esg-reporting-service
 COPY events-after-reporting-service ./events-after-reporting-service
 COPY financial-reporting-service ./financial-reporting-service

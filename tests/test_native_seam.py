@@ -1447,3 +1447,94 @@ def test_segment_reporting_matches_the_service():
     # 5% of revenue is under every IFRS 8 bar, so "other" is not reportable
     assert rust["reportable_segments"] == 2
     assert rust["segments"][2]["is_reportable"] is False
+
+
+COMPARATIVE_REQUEST = {
+    "company_id": "c1",
+    "current_period": "2026",
+    "prior_period": "2025",
+    "number_of_periods": 5,
+}
+
+
+def _comparative_analyze(body):
+    return __import__("json").loads(native.comparative_analyze_json(__import__("json").dumps(body)))
+
+
+def test_comparative_analyze_matches_the_service():
+    # The trend block is switched off because the service cannot build it (see
+    # the test below); everything else must line up exactly.
+    body = dict(COMPARATIVE_REQUEST, include_trend=False)
+    client = TestClient(load_service("comparative-financial-statements-service").main.app)
+    served = client.post("/analyze", json=body)
+    assert served.status_code == 200, served.text
+    rust = _comparative_analyze(body)
+    _bodies_match(served.json(), rust)
+    assert rust["periods"] == ["Period 1", "Period 2", "Period 3", "Period 4", "Period 5"]
+    assert len(rust["horizontal_analysis"]) == 10
+
+
+def test_comparative_analyze_trend_is_fixed_rather_than_faithful():
+    """The service asks its period dicts for "Revenue", "Net Profit" and so on,
+    but they are keyed revenue, net_profit, ... so every request that includes
+    the trend raised a KeyError and answered 500. The port indexes by field and
+    answers, which is the intent the crash hid."""
+    client = TestClient(
+        load_service("comparative-financial-statements-service").main.app,
+        raise_server_exceptions=False,
+    )
+    assert client.post("/analyze", json=COMPARATIVE_REQUEST).status_code == 500
+    rust = _comparative_analyze(COMPARATIVE_REQUEST)
+    assert [t["item_name"] for t in rust["trend_analysis"]] == [
+        "Revenue",
+        "Net Profit",
+        "Total Assets",
+        "Operating Profit",
+    ]
+
+
+def test_comparative_analyze_refuses_a_short_series():
+    bad = dict(COMPARATIVE_REQUEST, number_of_periods=2)
+    client = TestClient(load_service("comparative-financial-statements-service").main.app)
+    assert client.post("/analyze", json=bad).status_code == 422
+    with pytest.raises(ValueError, match="between 3 and 10"):
+        native.comparative_analyze_json(__import__("json").dumps(bad))
+
+
+def test_comparative_horizontal_matches_the_service():
+    params = {"current_value": 120.0, "prior_value": 100.0, "item_name": "Revenue"}
+    client = TestClient(load_service("comparative-financial-statements-service").main.app)
+    served = client.post("/horizontal-analysis", params=params)
+    assert served.status_code == 200, served.text
+    rust = __import__("json").loads(native.comparative_horizontal_json(__import__("json").dumps(params)))
+    _bodies_match(served.json(), rust)
+    assert rust["interpretation"] == "Favorable"
+
+
+def test_comparative_trend_matches_the_service():
+    body = {"values": [100.0, 110.0, 121.0], "periods": ["2023", "2024", "2025"]}
+    client = TestClient(load_service("comparative-financial-statements-service").main.app)
+    served = client.post("/trend-analysis", json=body)
+    assert served.status_code == 200, served.text
+    rust = __import__("json").loads(native.comparative_trend_json(__import__("json").dumps(body)))
+    _bodies_match(served.json(), rust)
+    # two periods is the floor, and the seam says so the same way
+    short = {"values": [100.0], "periods": ["2026"]}
+    assert client.post("/trend-analysis", json=short).status_code == 400
+    with pytest.raises(ValueError, match="At least 2 periods"):
+        native.comparative_trend_json(__import__("json").dumps(short))
+
+
+def test_comparative_variance_matches_the_service():
+    body = {
+        "budgeted": [100.0, 200.0, 50.0, 0.0],
+        "actual": [120.0, 180.0, 50.0, 15.0],
+        "items": ["Sales", "Costs", "Rent", "New line"],
+    }
+    client = TestClient(load_service("comparative-financial-statements-service").main.app)
+    served = client.post("/variance-analysis", json=body)
+    assert served.status_code == 200, served.text
+    rust = __import__("json").loads(native.comparative_variance_json(__import__("json").dumps(body)))
+    _bodies_match(served.json(), rust)
+    assert rust["total_favorable_variance"] == 35.0
+    assert rust["total_unfavorable_variance"] == 20.0
