@@ -662,3 +662,50 @@ class TestLimitingFactorAndOrderAcceptance:
         assert served.status_code == 200, served.text
         rust = _seam("one_time_order_json", params)
         assert served.json() == rust
+
+
+class TestStandardCosting:
+    CASES = [
+        ("material-standard", "standard_material_json", {"standard_price_per_unit": 12.5, "standard_quantity": 480}),
+        ("labour-standard", "standard_labour_json", {"standard_rate_per_hour": 18.75, "standard_hours": 32}),
+        ("overhead-standard", "standard_overhead_json", {"overhead_rate": 7.4, "standard_activity_level": 900}),
+        (
+            "total-standard",
+            "standard_total_json",
+            {"standard_direct_material": 6000.0, "standard_direct_labour": 600.0, "standard_overhead": 6660.0},
+        ),
+        (
+            "per-unit",
+            "standard_per_unit_json",
+            {
+                "standard_material_cost": 6000.0,
+                "standard_labour_cost": 600.0,
+                "standard_overhead": 6660.0,
+                "units_produced": 300,
+            },
+        ),
+        (
+            "per-unit",
+            "standard_per_unit_json",
+            {
+                "standard_material_cost": 10.0,
+                "standard_labour_cost": 5.0,
+                "standard_overhead": 1.0,
+                "units_produced": 0,
+            },
+        ),
+        ("variance-analysis", "standard_variance_json", {"standard_cost": 13260.0, "actual_cost": 13000.0}),
+        ("variance-analysis", "standard_variance_json", {"standard_cost": 900.0, "actual_cost": 940.5}),
+        ("variance-analysis", "standard_variance_json", {"standard_cost": 500.0, "actual_cost": 500.0}),
+    ]
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    @pytest.mark.parametrize("path, seam_name, params", CASES)
+    def test_standard_costing_matches_the_service(self, monkeypatch, engine, path, seam_name, params):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        client = TestClient(load_service("standard-cost-service").main.app)
+        assert client.get("/health").json()["calculation_engine"] == engine
+
+        served = client.post(f"/{path}", params=params)
+        assert served.status_code == 200, served.text
+        assert served.json() == _seam(seam_name, params)

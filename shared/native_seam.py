@@ -164,3 +164,33 @@ def order_acceptance(payload: Dict[str, Any]) -> Dict[str, Any]:
 def one_time_order(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Quick one-time-order check against spare capacity."""
     return _call("one_time_order_json", payload)
+
+
+def standard_material(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Standard material cost: standard price times standard quantity."""
+    return _call("standard_material_json", payload)
+
+
+def standard_labour(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Standard labour cost: standard rate times standard hours."""
+    return _call("standard_labour_json", payload)
+
+
+def standard_overhead(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Standard overhead cost: rate times standard activity level."""
+    return _call("standard_overhead_json", payload)
+
+
+def standard_total(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Total standard cost across material, labour and overhead."""
+    return _call("standard_total_json", payload)
+
+
+def standard_per_unit(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Standard cost per unit, rounded to two decimals."""
+    return _call("standard_per_unit_json", payload)
+
+
+def standard_variance(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Standard versus actual cost variance with its interpretation."""
+    return _call("standard_variance_json", payload)

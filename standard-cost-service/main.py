@@ -3,6 +3,18 @@ Vimbai Standard Cost Service
 Handles standard cost calculations.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "standard_cost_service" not in _sys.modules or not hasattr(_sys.modules.get("standard_cost_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("standard_cost_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["standard_cost_service"] = _pkg
+    _sys.modules["standard_cost_service"].__path__ = [_HERE]
+
 import os
 import uuid
 from datetime import datetime
@@ -12,6 +24,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from standard_cost_service import calc
 
 SERVICE_NAME = "standard-cost-service"
 SERVICE_VERSION = "1.0.0"
@@ -39,7 +52,12 @@ app.add_middleware(
 
 @app.get("/health")
 async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "status": "healthy",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.get("/")
@@ -50,34 +68,19 @@ async def root():
 @app.post("/material-standard")
 async def calculate_material_standard_cost(standard_price_per_unit: float, standard_quantity: float):
     """Calculate standard material cost."""
-    standard_cost = standard_price_per_unit * standard_quantity
-    return {
-        "standard_price_per_unit": standard_price_per_unit,
-        "standard_quantity": standard_quantity,
-        "standard_material_cost": standard_cost,
-    }
+    return calc.material(standard_price_per_unit, standard_quantity)
 
 
 @app.post("/labour-standard")
 async def calculate_labour_standard_cost(standard_rate_per_hour: float, standard_hours: float):
     """Calculate standard labour cost."""
-    standard_cost = standard_rate_per_hour * standard_hours
-    return {
-        "standard_rate_per_hour": standard_rate_per_hour,
-        "standard_hours": standard_hours,
-        "standard_labour_cost": standard_cost,
-    }
+    return calc.labour(standard_rate_per_hour, standard_hours)
 
 
 @app.post("/overhead-standard")
 async def calculate_overhead_standard_cost(overhead_rate: float, standard_activity_level: float):
     """Calculate standard overhead cost."""
-    standard_cost = overhead_rate * standard_activity_level
-    return {
-        "overhead_rate": overhead_rate,
-        "standard_activity_level": standard_activity_level,
-        "standard_overhead_cost": standard_cost,
-    }
+    return calc.overhead(overhead_rate, standard_activity_level)
 
 
 @app.post("/total-standard")
@@ -85,13 +88,7 @@ async def calculate_total_standard_cost(
     standard_direct_material: float, standard_direct_labour: float, standard_overhead: float
 ):
     """Calculate total standard cost."""
-    total = standard_direct_material + standard_direct_labour + standard_overhead
-    return {
-        "standard_direct_material": standard_direct_material,
-        "standard_direct_labour": standard_direct_labour,
-        "standard_overhead": standard_overhead,
-        "total_standard_cost": total,
-    }
+    return calc.total(standard_direct_material, standard_direct_labour, standard_overhead)
 
 
 @app.post("/per-unit")
@@ -99,29 +96,13 @@ async def calculate_standard_cost_per_unit(
     standard_material_cost: float, standard_labour_cost: float, standard_overhead: float, units_produced: float
 ):
     """Calculate standard cost per unit."""
-    total_standard = standard_material_cost + standard_labour_cost + standard_overhead
-    cost_per_unit = total_standard / units_produced if units_produced > 0 else 0
-
-    return {
-        "standard_material_cost": standard_material_cost,
-        "standard_labour_cost": standard_labour_cost,
-        "standard_overhead": standard_overhead,
-        "total_standard_cost": total_standard,
-        "units_produced": units_produced,
-        "standard_cost_per_unit": round(cost_per_unit, 2),
-    }
+    return calc.per_unit(standard_material_cost, standard_labour_cost, standard_overhead, units_produced)
 
 
 @app.post("/variance-analysis")
 async def standard_cost_variance_analysis(standard_cost: float, actual_cost: float):
     """Analyze variance between standard and actual cost."""
-    variance = standard_cost - actual_cost
-    return {
-        "standard_cost": standard_cost,
-        "actual_cost": actual_cost,
-        "variance": variance,
-        "interpretation": "Favorable" if variance > 0 else "Adverse" if variance < 0 else "None",
-    }
+    return calc.variance(standard_cost, actual_cost)
 
 
 if __name__ == "__main__":

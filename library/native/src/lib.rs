@@ -33,6 +33,10 @@ use vimbai_cost_accounting::limiting_factor::{
     analyze_limiting_factor, compare_products_for_factor, ProductWithFactor,
 };
 use vimbai_cost_accounting::order_acceptance::{analyze_one_time_order, analyze_order_acceptance};
+use vimbai_cost_accounting::standard_cost::{
+    labour_standard, material_standard, overhead_standard, standard_per_unit, total_standard,
+    variance_analysis,
+};
 use vimbai_cost_accounting::prime_cost::{
     direct_cost_item, prime_cost, prime_cost_from_items, DirectCostItem,
 };
@@ -1304,6 +1308,99 @@ fn one_time_order_json(payload: &str) -> PyResult<String> {
     ))
 }
 
+#[pyfunction]
+fn standard_material_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        standard_price_per_unit: f64,
+        #[serde(default)]
+        standard_quantity: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&material_standard(b.standard_price_per_unit, b.standard_quantity))
+}
+
+#[pyfunction]
+fn standard_labour_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        standard_rate_per_hour: f64,
+        #[serde(default)]
+        standard_hours: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&labour_standard(b.standard_rate_per_hour, b.standard_hours))
+}
+
+#[pyfunction]
+fn standard_overhead_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        overhead_rate: f64,
+        #[serde(default)]
+        standard_activity_level: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&overhead_standard(b.overhead_rate, b.standard_activity_level))
+}
+
+#[pyfunction]
+fn standard_total_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        standard_direct_material: f64,
+        #[serde(default)]
+        standard_direct_labour: f64,
+        #[serde(default)]
+        standard_overhead: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&total_standard(
+        b.standard_direct_material,
+        b.standard_direct_labour,
+        b.standard_overhead,
+    ))
+}
+
+#[pyfunction]
+fn standard_per_unit_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        standard_material_cost: f64,
+        #[serde(default)]
+        standard_labour_cost: f64,
+        #[serde(default)]
+        standard_overhead: f64,
+        #[serde(default)]
+        units_produced: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&standard_per_unit(
+        b.standard_material_cost,
+        b.standard_labour_cost,
+        b.standard_overhead,
+        b.units_produced,
+    ))
+}
+
+#[pyfunction]
+fn standard_variance_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        standard_cost: f64,
+        #[serde(default)]
+        actual_cost: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&variance_analysis(b.standard_cost, b.actual_cost))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -1370,6 +1467,12 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(limiting_factor_compare_json, m)?)?;
     m.add_function(wrap_pyfunction!(order_acceptance_json, m)?)?;
     m.add_function(wrap_pyfunction!(one_time_order_json, m)?)?;
+    m.add_function(wrap_pyfunction!(standard_material_json, m)?)?;
+    m.add_function(wrap_pyfunction!(standard_labour_json, m)?)?;
+    m.add_function(wrap_pyfunction!(standard_overhead_json, m)?)?;
+    m.add_function(wrap_pyfunction!(standard_total_json, m)?)?;
+    m.add_function(wrap_pyfunction!(standard_per_unit_json, m)?)?;
+    m.add_function(wrap_pyfunction!(standard_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(material_cost_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(simple_material_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(multi_material_variance_json, m)?)?;
