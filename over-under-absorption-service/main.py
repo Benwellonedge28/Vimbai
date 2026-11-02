@@ -3,16 +3,32 @@ Vimbai Over/Under Absorption Service
 Calculates over or under absorption of overheads.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "over_under_absorption_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("over_under_absorption_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("over_under_absorption_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["over_under_absorption_service"] = _pkg
+    _sys.modules["over_under_absorption_service"].__path__ = [_HERE]
+
 import os
-import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from over_under_absorption_service import crud
+from over_under_absorption_service.dependencies import book_id_var, get_db_session, get_user_id
+from over_under_absorption_service.models import OverUnderAbsorption, VarianceAnalysis
 
 SERVICE_NAME = "over-under-absorption-service"
 SERVICE_VERSION = "1.0.0"
@@ -40,41 +56,11 @@ app.add_middleware(
 )
 
 
-class OverUnderAbsorption(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    cost_centre_name: str
-    cost_centre_id: str
-    period: str
-    budgeted_overhead: float
-    actual_overhead: float
-    budgeted_base_units: float
-    actual_base_units: float
-    absorption_rate: float
-    overhead_absorbed: float
-    over_absorption: float = 0
-    under_absorption: float = 0
-    total_variance: float = 0
-    cause: str = ""  # overhead_spending, volume, efficiency
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class VarianceAnalysis(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    cost_centre_name: str
-    period: str
-    overhead_absorbed: float
-    actual_overhead: float
-    spending_variance: float = 0  # budget vs actual overhead
-    volume_variance: float = 0  # actual vs budgeted activity
-    capacity_variance: float = 0  # idle capacity
-    efficiency_variance: float = 0  # actual vs standard rate
-    total_variance: float = 0
-    over_or_under: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-absorption_records: List[OverUnderAbsorption] = []
-variance_analyses: List[VarianceAnalysis] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -110,6 +96,8 @@ async def calculate_over_under_absorption(
     budgeted_base_units: float,
     actual_base_units: float,
     absorption_rate: float,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Calculate over or under absorption."""
     # Calculate overhead absorbed
@@ -142,8 +130,7 @@ async def calculate_over_under_absorption(
     else:
         record.cause = "volume"
 
-    absorption_records.append(record)
-    return record
+    return await crud.create(session, user_id, record)
 
 
 @app.post("/simple-calculation")
@@ -229,6 +216,8 @@ async def comprehensive_variance_analysis(
     budgeted_base_units: float,
     actual_base_units: float,
     absorption_rate: float,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Comprehensive variance analysis."""
     # Overhead absorbed
@@ -257,7 +246,7 @@ async def comprehensive_variance_analysis(
         total_variance=total_variance,
         over_or_under="over" if is_over else "under",
     )
-    variance_analyses.append(analysis)
+    await crud.create(session, user_id, analysis)
 
     return {
         "cost_centre_name": cost_centre_name,
@@ -302,9 +291,14 @@ async def adjust_over_under(over_absorption: float, under_absorption: float, wri
 
 
 @app.get("/records")
-async def list_records(cost_centre_id: Optional[str] = None, period: Optional[str] = None):
+async def list_records(
+    cost_centre_id: Optional[str] = None,
+    period: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List over/under absorption records."""
-    result = absorption_records
+    result = await crud.list_all(session, user_id, OverUnderAbsorption)
     if cost_centre_id:
         result = [r for r in result if r.cost_centre_id == cost_centre_id]
     if period:
@@ -313,9 +307,12 @@ async def list_records(cost_centre_id: Optional[str] = None, period: Optional[st
 
 
 @app.get("/analyses")
-async def list_analyses():
+async def list_analyses(
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List variance analyses."""
-    return {"analyses": variance_analyses}
+    return {"analyses": await crud.list_all(session, user_id, VarianceAnalysis)}
 
 
 if __name__ == "__main__":

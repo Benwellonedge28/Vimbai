@@ -21,15 +21,34 @@ Capabilities:
   - Quick CVP calculations for ad-hoc queries
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "cvp_analysis_service" not in _sys.modules or not hasattr(_sys.modules.get("cvp_analysis_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("cvp_analysis_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["cvp_analysis_service"] = _pkg
+    _sys.modules["cvp_analysis_service"].__path__ = [_HERE]
+
 import os
-import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from cvp_analysis_service import crud
+from cvp_analysis_service.dependencies import book_id_var, get_db_session, get_user_id
+from cvp_analysis_service.models import (
+    ContributionRequest,
+    CVPAnalysis,
+    MultiProductItem,
+    MultiProductRequest,
+)
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 # ============================================================================
 # Configuration
@@ -68,76 +87,11 @@ app.add_middleware(
 # ============================================================================
 
 
-class CVPAnalysis(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    entity_id: str
-    entity_name: str
-    analysis_date: datetime
-
-    # Inputs
-    selling_price_per_unit: float
-    variable_cost_per_unit: float
-    fixed_costs: float
-    expected_sales_units: float = 0.0
-    target_profit: float = 0.0
-
-    # Contribution
-    contribution_per_unit: float = 0.0
-    contribution_margin_ratio: float = 0.0
-
-    # Break-even
-    break_even_units: float = 0.0
-    break_even_revenue: float = 0.0
-
-    # Target profit
-    units_for_target_profit: float = 0.0
-    revenue_for_target_profit: float = 0.0
-
-    # Margin of safety
-    expected_sales_revenue: float = 0.0
-    margin_of_safety_units: float = 0.0
-    margin_of_safety_revenue: float = 0.0
-    margin_of_safety_percentage: float = 0.0
-
-    # Additional metrics
-    profit_at_expected_sales: float = 0.0
-    degree_of_operating_leverage: float = 0.0
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class ContributionRequest(BaseModel):
-    entity_id: str
-    entity_name: str
-    selling_price_per_unit: float
-    variable_cost_per_unit: float
-    units_sold: float = 0.0
-
-
-class MultiProductItem(BaseModel):
-    product_name: str
-    selling_price: float
-    variable_cost: float
-    expected_proportion: float  # percentage of total sales mix
-
-
-class MultiProductRequest(BaseModel):
-    entity_id: str
-    entity_name: str
-    fixed_costs: float
-    products: List[MultiProductItem]
-    target_profit: float = 0.0
-
-
-# ============================================================================
-# In-Memory Storage
-# ============================================================================
-
-analyses: List[CVPAnalysis] = []
-
-# ============================================================================
-# Helper
-# ============================================================================
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 def _perform_cvp(
@@ -231,6 +185,8 @@ async def perform_cvp_analysis(
     fixed_costs: float,
     expected_sales_units: float = 0.0,
     target_profit: float = 0.0,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Perform a comprehensive CVP analysis including break-even, target profit, margin of safety, and operating leverage."""
     logger.info("Performing CVP analysis", entity=entity_id)
@@ -243,8 +199,7 @@ async def perform_cvp_analysis(
         expected_sales_units,
         target_profit,
     )
-    analyses.append(analysis)
-    return analysis
+    return await crud.create(session, user_id, analysis)
 
 
 @app.post("/quick-analysis")
@@ -401,18 +356,26 @@ async def multi_product_analysis(request: MultiProductRequest):
 
 
 @app.get("/analyses")
-async def list_analyses(entity_id: Optional[str] = None):
+async def list_analyses(
+    entity_id: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List stored CVP analyses."""
-    result = analyses
+    result = await crud.list_all(session, user_id, CVPAnalysis)
     if entity_id:
         result = [a for a in result if a.entity_id == entity_id]
     return {"total": len(result), "analyses": result}
 
 
 @app.get("/analyses/{analysis_id}")
-async def get_analysis(analysis_id: str):
+async def get_analysis(
+    analysis_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """Get a specific CVP analysis by ID."""
-    analysis = next((a for a in analyses if a.id == analysis_id), None)
+    analysis = await crud.find(session, user_id, CVPAnalysis, analysis_id)
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
     return analysis
