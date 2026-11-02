@@ -1116,7 +1116,20 @@ class TestReportAutomationService:
 
 class TestDisposalGroupService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("disposal-group-service"))
+        import importlib.util
+        import os as _os
+
+        app = load_service_app("disposal-group-service")
+        svc_dir = _os.path.join(REPO_ROOT, "disposal-group-service")
+        spec = importlib.util.spec_from_file_location("dg_root_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
+        fake_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake_mod)
+        self._session = fake_mod.FakeSession()
+        import disposal_group_service.database as db
+
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "root-dg-user"})
 
     def test_health(self):
         resp = self.client.get("/health")

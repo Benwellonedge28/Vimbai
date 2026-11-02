@@ -1,17 +1,36 @@
 """
 Vimbai Disposal Group Service
-Manages disposal groups for held-for-sale classification under IFRS 5.
+IFRS 5 held-for-sale disposal groups, their assets, and impairment testing.
+
+Groups, assets and impairment tests live in Neo4j, scoped to the caller and the
+Book. The file may be imported bare (bracket mounts, uvicorn main:app), so it
+bootstraps its own package alias first.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "disposal_group_service" not in _sys.modules or not hasattr(_sys.modules.get("disposal_group_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("disposal_group_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["disposal_group_service"] = _pkg
+    _sys.modules["disposal_group_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from disposal_group_service import crud
+from disposal_group_service.dependencies import book_id_var, get_db_session, get_user_id
+from disposal_group_service.exceptions import NotFoundError
+from disposal_group_service.models import DisposalAsset, DisposalGroup, ImpairmentTest
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "disposal-group-service"
 SERVICE_VERSION = "1.0.0"
@@ -36,50 +55,20 @@ app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
 
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
+
+
 try:
     from shared.tracing import setup_tracing
 
     TRACER = setup_tracing(service_name=SERVICE_NAME, instrument_app=app)
 except ImportError:
     TRACER = None
-
-
-class DisposalAsset(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    asset_id: str
-    asset_name: str
-    carrying_amount: float
-    fair_value: float = 0.0
-    classification: str  # noncurrent_asset, subsidiary, business_segment
-
-
-class DisposalGroup(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    description: str = ""
-    disposal_method: str = "sale"  # sale, abandonment, spin_off, exchange
-    status: str = "held_for_sale"  # held_for_sale, sold, withdrawn
-    classification_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    expected_disposal_date: Optional[datetime] = None
-    total_carrying_amount: float = 0.0
-    total_fair_value: float = 0.0
-    impairment_loss: float = 0.0
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-class ImpairmentTest(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    group_id: str
-    carrying_amount: float
-    fair_value_less_costs: float
-    impairment_amount: float
-    tested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    notes: str = ""
-
-
-disposal_groups: List[DisposalGroup] = []
-disposal_assets: Dict[str, List[DisposalAsset]] = {}
-impairment_tests: List[ImpairmentTest] = []
 
 
 @app.get("/")
@@ -90,27 +79,34 @@ async def health_check():
 
 @app.post("/groups", response_model=DisposalGroup)
 async def create_group(
-    name: str, description: str = "", disposal_method: str = "sale", expected_disposal_date: Optional[datetime] = None
+    name: str,
+    description: str = "",
+    disposal_method: str = "sale",
+    expected_disposal_date: Optional[datetime] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Create a disposal group (held-for-sale classification)."""
-    group = DisposalGroup(
+    group = await crud.create_group(
+        db_session,
+        user_id,
         name=name,
         description=description,
         disposal_method=disposal_method,
         expected_disposal_date=expected_disposal_date,
     )
-    disposal_groups.append(group)
-    disposal_assets[group.id] = []
     logger.info("Disposal group created", group_id=group.id, name=name)
     return group
 
 
 @app.get("/groups", response_model=List[DisposalGroup])
-async def list_groups(status: Optional[str] = None):
+async def list_groups(
+    status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List disposal groups."""
-    if status:
-        return [g for g in disposal_groups if g.status == status]
-    return disposal_groups
+    return await crud.list_groups(db_session, user_id, status)
 
 
 @app.post("/groups/{group_id}/assets", response_model=DisposalAsset)
@@ -121,67 +117,69 @@ async def add_asset(
     carrying_amount: float,
     fair_value: float = 0.0,
     classification: str = "noncurrent_asset",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Add an asset to a disposal group."""
-    group = next((g for g in disposal_groups if g.id == group_id), None)
-    if not group:
+    try:
+        asset = await crud.add_asset(
+            db_session,
+            user_id,
+            group_id,
+            asset_id=asset_id,
+            asset_name=asset_name,
+            carrying_amount=carrying_amount,
+            fair_value=fair_value,
+            classification=classification,
+        )
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Disposal group not found")
-
-    asset = DisposalAsset(
-        asset_id=asset_id,
-        asset_name=asset_name,
-        carrying_amount=carrying_amount,
-        fair_value=fair_value,
-        classification=classification,
-    )
-    disposal_assets[group_id].append(asset)
-    group.total_carrying_amount += carrying_amount
-    group.total_fair_value += fair_value
     logger.info("Asset added to disposal group", group_id=group_id, asset_id=asset_id)
     return asset
 
 
 @app.get("/groups/{group_id}/assets", response_model=List[DisposalAsset])
-async def list_assets(group_id: str):
+async def list_assets(
+    group_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List assets in a disposal group."""
-    return disposal_assets.get(group_id, [])
+    return await crud.list_assets(db_session, user_id, group_id)
 
 
 @app.post("/groups/{group_id}/impairment-test", response_model=ImpairmentTest)
-async def test_impairment(group_id: str, fair_value_less_costs: float, notes: str = ""):
+async def test_impairment(
+    group_id: str,
+    fair_value_less_costs: float,
+    notes: str = "",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Perform impairment test on disposal group (IFRS 5)."""
-    group = next((g for g in disposal_groups if g.id == group_id), None)
-    if not group:
+    try:
+        test = await crud.test_impairment(db_session, user_id, group_id, fair_value_less_costs, notes)
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Disposal group not found")
-
-    impairment = max(0, group.total_carrying_amount - fair_value_less_costs)
-    group.impairment_loss = impairment
-
-    test = ImpairmentTest(
-        group_id=group_id,
-        carrying_amount=group.total_carrying_amount,
-        fair_value_less_costs=fair_value_less_costs,
-        impairment_amount=impairment,
-        notes=notes,
-    )
-    impairment_tests.append(test)
-    logger.info("Impairment test completed", group_id=group_id, impairment=impairment)
+    logger.info("Impairment test completed", group_id=group_id, impairment=test.impairment_amount)
     return test
 
 
 @app.put("/groups/{group_id}/status")
-async def update_status(group_id: str, status: str):
+async def update_status(
+    group_id: str,
+    status: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Update disposal group status."""
-    valid_statuses = ["held_for_sale", "sold", "withdrawn"]
-    if status not in valid_statuses:
-        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {valid_statuses}")
+    if status not in crud.VALID_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {crud.VALID_STATUSES}")
 
-    group = next((g for g in disposal_groups if g.id == group_id), None)
-    if not group:
+    try:
+        return await crud.update_status(db_session, user_id, group_id, status)
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Disposal group not found")
-
-    group.status = status
-    return {"group_id": group_id, "status": status}
 
 
 if __name__ == "__main__":
