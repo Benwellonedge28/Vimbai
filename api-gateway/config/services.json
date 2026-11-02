@@ -287,14 +287,6 @@
       "strip_prefix": false
     },
     {
-      "name": "capital-budgeting-service",
-      "path": "/capital-budgeting",
-      "url": "http://localhost:9001",
-      "port": 8232,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "capital-reconstruction-service",
       "path": "/capital-reconstruction",
       "url": "http://localhost:9012",
@@ -618,14 +610,6 @@
       "path": "/financial-distress-prediction",
       "url": "http://localhost:9007",
       "port": 8169,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "financial-forecasting-service",
-      "path": "/financial-forecasting",
-      "url": "http://localhost:9007",
-      "port": 8287,
       "auth_required": true,
       "strip_prefix": false
     },

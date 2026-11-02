@@ -28,11 +28,6 @@
       "dir": "financial-distress-prediction-service"
     },
     {
-      "path": "/financial-forecasting",
-      "name": "financial-forecasting-service",
-      "dir": "financial-forecasting-service"
-    },
-    {
       "path": "/internal-rate-return",
       "name": "internal-rate-return-service",
       "dir": "internal-rate-return-service"

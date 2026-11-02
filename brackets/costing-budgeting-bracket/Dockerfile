@@ -21,7 +21,6 @@ COPY absorption-costing-statement-service ./absorption-costing-statement-service
 COPY activity-based-budget-service ./activity-based-budget-service
 COPY appropriation-control-service ./appropriation-control-service
 COPY balanced-scorecard-service ./balanced-scorecard-service
-COPY capital-budgeting-service ./capital-budgeting-service
 COPY job-costing-service ./job-costing-service
 COPY process-costing-service ./process-costing-service
 COPY product-costing-service ./product-costing-service

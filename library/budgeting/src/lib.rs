@@ -15,6 +15,7 @@ pub mod budget;
 pub mod capex;
 pub mod cash;
 pub mod flexible;
+pub mod forecasting;
 pub mod master;
 pub mod zero_based;
 
@@ -31,6 +32,10 @@ pub use cash::{
 pub use flexible::{
     flex_budget, flex_multi_level, flex_variance_analysis, flexed_cost_per_unit, prepare_flexed,
     FlexMultiLevel, FlexReason, FlexVariance, FlexedPrepared,
+};
+pub use forecasting::{
+    forecast_metric, ForecastRequest as MetricForecastRequest,
+    ForecastResult as MetricForecastResult,
 };
 pub use master::{prepare_master_budget, MasterBudgetRequest, MasterBudgetResult};
 pub use zero_based::{

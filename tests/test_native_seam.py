@@ -1795,3 +1795,55 @@ def test_multi_material_variance_matches_the_service():
     _bodies_match(served.json(), rust)
     assert rust["total_variance"] == -190.0
     assert rust["materials"][1]["material"] == "Unknown"
+
+
+CAPITAL_BUDGET_BODY = {
+    "company_id": "c1",
+    "planning_period": "2026",
+    "cost_of_capital": 0.1,
+    "capital_budget_limit": 200000,
+    "projects": [
+        {"id": "p1", "initial_investment": 100000, "cash_flows": [40000, 40000, 40000]},
+        {"id": "p2", "initial_investment": 50000, "cash_flows": [10000]},
+        {"id": "p3", "initial_investment": 10000, "cash_flows": [30000]},
+    ],
+}
+
+
+def test_capital_budgeting_matches_the_service():
+    client = TestClient(load_service("capital-budgeting-service").main.app)
+    served = client.post("/analyze", json=CAPITAL_BUDGET_BODY)
+    assert served.status_code == 200, served.text
+    rust = __import__("json").loads(native.capital_budgeting_json(__import__("json").dumps(CAPITAL_BUDGET_BODY)))
+    _bodies_match(served.json(), rust)
+    # only the project that pays back inside its flow list is funded
+    assert rust["optimal_portfolio"] == ["p3"]
+    # the reported irr is a linear stand-in, not a root: 0.1 + npv/investment*0.1
+    assert rust["projects_analyzed"][0]["irr"] == 0.0995
+
+
+FORECAST_BODIES = [
+    {"historical_values": [10, 40, 15, 45], "method": "auto"},
+    {"historical_values": [10, 20, 30, 40], "method": "auto"},
+    {"historical_values": [5, 5, 5], "method": "linear"},
+    {"historical_values": [40, 30, 20, 10], "method": "linear"},
+    {"historical_values": [10, 12], "method": "auto"},
+    {"historical_values": [1200, 1310, 1425, 1600, 1580], "method": "exponential"},
+]
+
+
+def test_financial_forecast_matches_the_service_for_every_path():
+    client = TestClient(load_service("financial-forecasting-service").main.app)
+    for body in FORECAST_BODIES:
+        request = {"company_id": "c1", "metric_name": "revenue", "periods_ahead": 3, **body}
+        served = client.post("/forecast", json=request)
+        assert served.status_code == 200, served.text
+        served_body = served.json()
+        rust = __import__("json").loads(
+            native.financial_forecast_json(
+                __import__("json").dumps({**request, "report_id": "11111111-2222-3333-4444-555555555555"})
+            )
+        )
+        served_body.pop("id")
+        rust.pop("id")
+        _bodies_match(served_body, rust, str(body))

@@ -28,11 +28,6 @@
       "dir": "balanced-scorecard-service"
     },
     {
-      "path": "/capital-budgeting",
-      "name": "capital-budgeting-service",
-      "dir": "capital-budgeting-service"
-    },
-    {
       "path": "/job-costing",
       "name": "job-costing-service",
       "dir": "job-costing-service"

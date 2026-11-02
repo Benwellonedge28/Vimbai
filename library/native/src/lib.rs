@@ -18,6 +18,8 @@ use vimbai_assets::{
     amortization, analyze_fixed_assets, depreciation_batch, depreciation_method, AmortizationAsset,
     DepreciationAsset, FixedAssetsRequest,
 };
+use vimbai_budgeting::forecasting::{forecast_metric, ForecastRequest as MetricForecastRequest};
+use vimbai_capital_valuation::capital_budgeting::{analyse_capital_budget, CapitalBudgetRequest};
 use vimbai_capital_valuation::capital_returns::{
     accounting_rate_of_return, annuity_factor, annuity_factor_percent, arr_decision,
     arr_from_annual_profits, average_capital, average_profit, compound_rate, cost_of_capital,
@@ -662,6 +664,28 @@ fn comparative_variance_json(payload: &str) -> PyResult<String> {
     json_out(&report)
 }
 
+/// `/analyze` on the capital budgeting service. The service mints a uuid per
+/// request only through its response model, so nothing is passed in here.
+#[pyfunction]
+fn capital_budgeting_json(payload: &str) -> PyResult<String> {
+    let request: CapitalBudgetRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&analyse_capital_budget(&request))
+}
+
+/// `/forecast` on the financial forecasting service: history in, projection out.
+#[pyfunction]
+fn financial_forecast_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(flatten)]
+        request: MetricForecastRequest,
+        report_id: String,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&forecast_metric(&body.request, &body.report_id))
+}
+
 /// `/analyze` on the labour cost variance service. The service mints a uuid for
 /// each result, so the id is an input here.
 #[pyfunction]
@@ -941,6 +965,8 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fx_interest_rate_hedging_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_translation_json, m)?)?;
 
+    m.add_function(wrap_pyfunction!(capital_budgeting_json, m)?)?;
+    m.add_function(wrap_pyfunction!(financial_forecast_json, m)?)?;
     m.add_function(wrap_pyfunction!(labour_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(material_cost_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(simple_material_variance_json, m)?)?;

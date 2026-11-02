@@ -21,7 +21,6 @@ COPY analytics-service ./analytics-service
 COPY asset-allocation-service ./asset-allocation-service
 COPY distributed-workflow-orchestration-service ./distributed-workflow-orchestration-service
 COPY financial-distress-prediction-service ./financial-distress-prediction-service
-COPY financial-forecasting-service ./financial-forecasting-service
 COPY internal-rate-return-service ./internal-rate-return-service
 COPY kpi-tracking-service ./kpi-tracking-service
 COPY performance-benchmarking-service ./performance-benchmarking-service

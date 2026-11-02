@@ -11,12 +11,17 @@
 //! divestiture, post-merger, synergy-analysis) are queued to port here;
 //! see `queued.rs` for their formula inventory.
 
+pub mod capital_budgeting;
 pub mod capital_returns;
 pub mod dcf;
 pub mod irr;
 pub mod payback;
 pub mod queued;
 
+pub use capital_budgeting::{
+    analyse_capital_budget, AppraisedProject, CapitalBudgetRequest, CapitalBudgetResult,
+    ProjectInput,
+};
 pub use dcf::{
     annuity_factor, discount_factor, discount_factor_percent, discount_factor_table,
     discount_factor_table_range, npv, npv_percent, npv_project_comparison, profitability_index,
