@@ -1262,3 +1262,39 @@ def test_liquidity_risk_matches_the_service():
     )
     assert rust["liquidity_risk_rating"] == served["liquidity_risk_rating"]
     assert rust["lcr_ratio"] == served["lcr_ratio"]
+
+
+CASH_FLOW_FORECAST_REQUEST = {
+    "company_id": "c1",
+    "starting_cash": 100000.0,
+    "inflows": [
+        {"category": "sales", "amount": 25000.0, "frequency": "daily", "certainty": "high"},
+        {"category": "retainer", "amount": 20000.0, "frequency": "weekly", "certainty": "medium"},
+        {"category": "grant", "amount": 50000.0, "frequency": "monthly", "certainty": "low"},
+    ],
+    "outflows": [
+        {"category": "payroll", "amount": 29000.0, "frequency": "daily", "certainty": "high"},
+        {"category": "rent", "amount": 50000.0, "frequency": "monthly", "certainty": "high"},
+    ],
+    "forecast_period_days": 45,
+    "scenario": "base",
+}
+
+
+def test_cash_flow_forecast_matches_the_service():
+    request = CASH_FLOW_FORECAST_REQUEST
+    client = TestClient(load_service("cash-flow-forecasting-service").main.app)
+    served = client.post("/forecast", json=request)
+    assert served.status_code == 200, served.text
+    served = served.json()
+    # forecast_date is the service's clock reading, so it is passed in.
+    rust = __import__("json").loads(
+        native.cash_flow_forecast_json(__import__("json").dumps(request), served["forecast_date"])
+    )
+    _bodies_match(served, rust)
+    # monthly items are ignored, so every day carries the same daily figures
+    outflows = {day["outflow"] for day in rust["daily_forecasts"]}
+    assert outflows == {29000.0}
+    # 45 days is 7 weekly buckets, one of them partial
+    assert len(rust["weekly_summary"]) == 7
+    assert len(rust["monthly_summary"]) == 2

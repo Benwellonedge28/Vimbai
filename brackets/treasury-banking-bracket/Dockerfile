@@ -24,7 +24,6 @@ COPY bank-feed-service ./bank-feed-service
 COPY bank-reconciliation-service ./bank-reconciliation-service
 COPY bank-relationship-service ./bank-relationship-service
 COPY cash-flow-service ./cash-flow-service
-COPY cash-flow-forecasting-service ./cash-flow-forecasting-service
 COPY credit-risk-analysis-service ./credit-risk-analysis-service
 COPY currency-service ./currency-service
 COPY debt-covenants-service ./debt-covenants-service

@@ -43,11 +43,6 @@
       "dir": "cash-flow-service"
     },
     {
-      "path": "/cash-flow-forecasting",
-      "name": "cash-flow-forecasting-service",
-      "dir": "cash-flow-forecasting-service"
-    },
-    {
       "path": "/credit-risk-analysis",
       "name": "credit-risk-analysis-service",
       "dir": "credit-risk-analysis-service"

@@ -319,14 +319,6 @@
       "strip_prefix": false
     },
     {
-      "name": "cash-flow-forecasting-service",
-      "path": "/cash-flow-forecasting",
-      "url": "http://localhost:9003",
-      "port": 8238,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "cash-flow-service",
       "path": "/cash-flow",
       "url": "http://localhost:9003",

@@ -5,6 +5,7 @@
 
 pub mod analytics;
 pub mod cash;
+pub mod cash_forecast;
 pub mod credit_derivatives;
 pub mod derivatives;
 pub mod exotics;

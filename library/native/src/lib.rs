@@ -32,6 +32,7 @@ use vimbai_ratios_statements::{
 use vimbai_tax::statutory::{statutory_corporate_tax, CorporateTaxInput};
 use vimbai_tax::{calculate_tax, TaxBracket, TaxType};
 use vimbai_treasury_fx::analytics::{analyze_treasury, TreasuryAnalyticsRequest};
+use vimbai_treasury_fx::cash_forecast::{forecast_cash_flow, CashFlowForecastRequest};
 use vimbai_treasury_fx::credit_derivatives::{
     analyze_credit_derivatives, CreditDerivativesRequest,
 };
@@ -581,6 +582,36 @@ fn json_out<T: serde::Serialize>(value: &T) -> PyResult<String> {
     serde_json::to_string(value).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
+/// `/forecast` on the cash-flow forecasting service. `forecast_date` is the
+/// caller's clock reading, stamped by the service rather than the maths.
+#[pyfunction]
+#[pyo3(signature = (payload, forecast_date = ""))]
+fn cash_flow_forecast_json(payload: &str, forecast_date: &str) -> PyResult<String> {
+    let req: CashFlowForecastRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let out = forecast_cash_flow(&req);
+    let mut value = serde_json::to_value(&out).map_err(|e| seam_error(SeamError::from(e)))?;
+    if let Some(map) = value.as_object_mut() {
+        map.insert(
+            "forecast_date".to_string(),
+            serde_json::Value::String(forecast_date.to_string()),
+        );
+        // The rollups name their period key differently.
+        for (key, label) in [("weekly_summary", "week"), ("monthly_summary", "month")] {
+            if let Some(rows) = map.get_mut(key).and_then(|v| v.as_array_mut()) {
+                for row in rows {
+                    if let Some(obj) = row.as_object_mut() {
+                        if let Some(index) = obj.remove("index") {
+                            obj.insert(label.to_string(), index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    serde_json::to_string(&value).map_err(|e| seam_error(SeamError::from(e)))
+}
+
 #[pyfunction]
 fn liquidity_forecast_json(payload: &str) -> PyResult<String> {
     let req: LiquidityForecastRequest =
@@ -650,6 +681,7 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fx_interest_rate_hedging_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_translation_json, m)?)?;
 
+    m.add_function(wrap_pyfunction!(cash_flow_forecast_json, m)?)?;
     m.add_function(wrap_pyfunction!(liquidity_forecast_json, m)?)?;
     m.add_function(wrap_pyfunction!(liquidity_management_json, m)?)?;
     m.add_function(wrap_pyfunction!(liquidity_risk_json, m)?)?;
