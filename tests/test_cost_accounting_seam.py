@@ -46,6 +46,28 @@ def _absorption_client():
     return TestClient(app)
 
 
+def _fake_client(service, package, tag):
+    """Load a converted service with its fake graph bound, so writes are accepted."""
+    app = load_service(service).main.app
+    service_dir = os.path.join(REPO_ROOT, service)
+
+    fake_path = os.path.join(service_dir, "fake_neo4j.py")
+    spec = importlib.util.spec_from_file_location(f"seam_{tag}_fake", fake_path)
+    fake = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fake)
+
+    pkg = sys.modules.get(package)
+    if pkg is None or not hasattr(pkg, "__path__"):
+        alias = types.ModuleType(package)
+        alias.__path__ = [service_dir]
+        sys.modules[package] = alias
+
+    db = importlib.import_module(f"{package}.database")
+    session = fake.FakeSession()
+    db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
+    return TestClient(app)
+
+
 def _seam(fn, payload):
     return json.loads(getattr(native, fn)(json.dumps(payload)))
 
@@ -513,7 +535,7 @@ class TestLimitingFactorAndOrderAcceptance:
     )
     def test_limiting_factor_matches_the_service(self, monkeypatch, engine, products):
         monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
-        client = TestClient(load_service("limiting-factor-service").main.app)
+        client = _fake_client("limiting-factor-service", "limiting_factor_service", "lf")
         assert client.get("/health").json()["calculation_engine"] == engine
 
         params = [
@@ -521,7 +543,7 @@ class TestLimitingFactorAndOrderAcceptance:
             ("factor_type", "capacity"),
             ("total_available", "160"),
         ]
-        served = client.post("/analyze", params=params, json=products)
+        served = client.post("/analyze", params=params, json=products, headers=_H)
         assert served.status_code == 200, served.text
         service = served.json()
 
@@ -549,13 +571,13 @@ class TestLimitingFactorAndOrderAcceptance:
     @pytest.mark.parametrize("engine", ["python", "rust"])
     def test_limiting_factor_compare_matches_the_service(self, monkeypatch, engine):
         monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
-        client = TestClient(load_service("limiting-factor-service").main.app)
+        client = _fake_client("limiting-factor-service", "limiting_factor_service", "lf")
         products = [
             {"product_id": "A", "product_name": "Alpha", "contribution_per_unit": 24, "factor_per_unit": 4},
             {"product_id": "B", "product_name": "Beta", "contribution_per_unit": 15, "factor_per_unit": 1},
             {"product_id": "C", "product_name": "Gamma", "contribution_per_unit": 30, "factor_per_unit": 0},
         ]
-        served = client.post("/compare-products", json=products)
+        served = client.post("/compare-products", json=products, headers=_H)
         assert served.status_code == 200, served.text
         rust = _seam("limiting_factor_compare_json", {"products": products})
         assert served.json()["ranked_products"] == rust["ranked_products"]
@@ -604,12 +626,10 @@ class TestLimitingFactorAndOrderAcceptance:
     )
     def test_order_acceptance_matches_the_service(self, monkeypatch, engine, params):
         monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
-        module = load_service("order-acceptance-service").main
-        module.decisions.clear()
-        client = TestClient(module.app)
+        client = _fake_client("order-acceptance-service", "order_acceptance_service", "oa")
         assert client.get("/health").json()["calculation_engine"] == engine
 
-        served = client.post("/analyze", params=params)
+        served = client.post("/analyze", params=params, headers=_H)
         assert served.status_code == 200, served.text
         service = served.json()
 
@@ -1277,3 +1297,37 @@ class TestMarginOfSafety:
         ).json()
         rust_target = _seam("target_mos_json", {"break_even_revenue": 75000.0, "target_mos_percentage": 25.0})
         assert target["required_sales_revenue"] == rust_target["required_sales_revenue"]
+
+
+@pytest.mark.parametrize(
+    "service, package, fake_name",
+    [
+        ("limiting-factor-service", "limiting_factor_service", "lf"),
+        ("order-acceptance-service", "order_acceptance_service", "oa"),
+    ],
+)
+def test_persisted_cost_decisions_are_caller_scoped(service, package, fake_name):
+    """Each converted costing service stores its work per caller and per Book."""
+    app = load_service(service).main.app
+    service_dir = os.path.join(REPO_ROOT, service)
+
+    fake_path = os.path.join(service_dir, "fake_neo4j.py")
+    spec = importlib.util.spec_from_file_location(f"seam_{fake_name}_fake", fake_path)
+    fake = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fake)
+
+    pkg = sys.modules.get(package)
+    if pkg is None or not hasattr(pkg, "__path__"):
+        alias = types.ModuleType(package)
+        alias.__path__ = [service_dir]
+        sys.modules[package] = alias
+
+    db = importlib.import_module(f"{package}.database")
+    session = fake.FakeSession()
+    db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
+    client = TestClient(app)
+
+    other = {"X-User-Id": "seam-other", "X-Book-ID": _H["X-Book-ID"]}
+    listing = client.get(f"/{'analyses' if fake_name == 'lf' else 'decisions'}", headers=other)
+    assert listing.status_code == 200
+    assert list(listing.json().values()) == [[]]

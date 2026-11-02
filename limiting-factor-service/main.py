@@ -18,16 +18,21 @@ if "limiting_factor_service" not in _sys.modules or not hasattr(
     _sys.modules["limiting_factor_service"].__path__ = [_HERE]
 
 import os
-import uuid
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from limiting_factor_service import calc
+from limiting_factor_service import calc, crud
+from limiting_factor_service.dependencies import book_id_var, get_db_session, get_user_id
+from limiting_factor_service.models import (
+    LimitingFactorAnalysis,
+    LimitingFactorType,
+    ProductWithFactor,
+)
+from neo4j import AsyncSession
 from pydantic import BaseModel, Field
 
 SERVICE_NAME = "limiting-factor-service"
@@ -56,42 +61,11 @@ app.add_middleware(
 )
 
 
-class LimitingFactorType(str, Enum):
-    MACHINE_HOURS = "machine_hours"
-    LABOR_HOURS = "labor_hours"
-    MATERIAL_KG = "material_kg"
-    MATERIAL_UNITS = "material_units"
-    SPACE = "space"
-    BUDGET = "budget"
-
-
-class ProductWithFactor(BaseModel):
-    product_id: str
-    product_name: str
-    demand: float
-    contribution_per_unit: float
-    factor_per_unit: float  # Resource usage per unit
-    contribution_per_factor_unit: float = 0
-    ranking: int = 0
-    units_to_produce: float = 0
-    total_contribution: float = 0
-
-
-class LimitingFactorAnalysis(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    analysis_date: datetime
-    limiting_factor: str
-    factor_type: str
-    total_available: float
-    factor_used: float = 0
-    factor_remaining: float = 0
-    products: List[ProductWithFactor] = []
-    total_contribution: float = 0
-    optimal_production_plan: Dict[str, float] = {}  # product_id -> units
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-analyses: List[LimitingFactorAnalysis] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -128,6 +102,8 @@ async def analyze_limiting_factor(
     factor_type: str,
     total_available: float,
     products: List[Dict[str, Any]],  # [{product_id, product_name, demand, contribution_per_unit, factor_per_unit}]
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Analyze optimal production with limiting factor."""
     analysis = LimitingFactorAnalysis(
@@ -144,8 +120,7 @@ async def analyze_limiting_factor(
     analysis.optimal_production_plan = figures["optimal_production_plan"]
     analysis.products = [ProductWithFactor(**p) for p in figures["products"]]
 
-    analyses.append(analysis)
-    return analysis
+    return await crud.create(session, user_id, analysis)
 
 
 @app.post("/compare-products")
@@ -159,18 +134,26 @@ async def compare_products_for_factor(
 
 
 @app.get("/analyses")
-async def list_analyses(limiting_factor: Optional[str] = None):
+async def list_analyses(
+    limiting_factor: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List limiting factor analyses."""
-    result = analyses
+    result = await crud.list_all(session, user_id, LimitingFactorAnalysis)
     if limiting_factor:
         result = [a for a in result if a.limiting_factor == limiting_factor]
     return {"analyses": result}
 
 
 @app.get("/analyses/{analysis_id}")
-async def get_analysis(analysis_id: str):
+async def get_analysis(
+    analysis_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """Get analysis details."""
-    analysis = next((a for a in analyses if a.id == analysis_id), None)
+    analysis = await crud.find(session, user_id, LimitingFactorAnalysis, analysis_id)
     if not analysis:
         return {"error": "Analysis not found"}
     return analysis

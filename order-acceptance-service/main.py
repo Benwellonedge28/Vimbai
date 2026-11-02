@@ -17,16 +17,31 @@ if "order_acceptance_service" not in _sys.modules or not hasattr(
     _sys.modules["order_acceptance_service"] = _pkg
     _sys.modules["order_acceptance_service"].__path__ = [_HERE]
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "order_acceptance_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("order_acceptance_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("order_acceptance_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["order_acceptance_service"] = _pkg
+    _sys.modules["order_acceptance_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from order_acceptance_service import calc
+from neo4j import AsyncSession
+from order_acceptance_service import calc, crud
+from order_acceptance_service.dependencies import book_id_var, get_db_session, get_user_id
+from order_acceptance_service.models import OrderAcceptanceDecision
 from pydantic import BaseModel, Field
 
 SERVICE_NAME = "order-acceptance-service"
@@ -55,33 +70,11 @@ app.add_middleware(
 )
 
 
-class OrderAcceptanceDecision(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    order_id: str
-    product_id: str
-    product_name: str
-    customer_name: str
-    normal_selling_price: float
-    offered_price: float
-    price_below_normal: float = 0
-    price_below_normal_percentage: float = 0
-    variable_cost_per_unit: float
-    full_cost_per_unit: float = 0
-    contribution_per_unit_at_normal: float = 0
-    contribution_per_unit_at_offered: float = 0
-    contribution_from_order: float = 0
-    total_fixed_cost_incremental: float = 0
-    units_requested: float
-    total_relevant_cost: float = 0
-    minimum_acceptable_price: float = 0
-    opportunity_cost: float = 0  # Contribution lost from displaced regular sales
-    net_contribution: float = 0
-    recommendation: str = ""
-    conditions: List[str] = []
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-decisions: List[OrderAcceptanceDecision] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -126,6 +119,8 @@ async def analyze_order_acceptance(
     incremental_fixed_costs: float = 0,
     displaced_sales_units: float = 0,
     displaced_contribution_per_unit: float = 0,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Analyze order acceptance decision."""
     figures = calc.analyze(
@@ -147,8 +142,7 @@ async def analyze_order_acceptance(
     if full_cost is not None:
         decision.full_cost_per_unit = full_cost
 
-    decisions.append(decision)
-    return decision
+    return await crud.create(session, user_id, decision)
 
 
 @app.post("/one-time-order")
@@ -165,10 +159,14 @@ async def analyze_one_time_order(
 
 @app.get("/decisions")
 async def list_decisions(
-    order_id: Optional[str] = None, product_id: Optional[str] = None, recommendation: Optional[str] = None
+    order_id: Optional[str] = None,
+    product_id: Optional[str] = None,
+    recommendation: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """List order acceptance decisions."""
-    result = decisions
+    result = await crud.list_all(session, user_id, OrderAcceptanceDecision)
     if order_id:
         result = [d for d in result if d.order_id == order_id]
     if product_id:
