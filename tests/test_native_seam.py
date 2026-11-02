@@ -1783,23 +1783,15 @@ MULTI_MATERIAL_BODY = {
 }
 
 
-def test_multi_material_endpoint_only_takes_multipart_and_breaks():
-    """Pinned quirk: a bare `list` parameter made FastAPI read this as multipart
-    form data, so a JSON client gets 422 and a multipart client trips over the
-    string it is handed. Nothing can call it successfully today."""
+def test_multi_material_variance_matches_the_service():
+    """The endpoint used to declare a bare `list`, which FastAPI read as multipart
+    form data: a JSON client got a 422 and a multipart client died on 'str has no
+    attribute read'. Worse, newer pydantic refuses to build the route at all, so
+    the module would not import. It now takes a list of material dicts."""
     client = TestClient(load_service("material-cost-variance-service").main.app)
-    assert client.post("/multi-material", json=MULTI_MATERIAL_BODY).status_code == 422
-
-
-def test_multi_material_totals_match_the_per_material_endpoint():
-    """The bill of materials is the sum of what /calculate reports per material."""
-    client = TestClient(load_service("material-cost-variance-service").main.app)
-    served_total = 0.0
-    for m in MULTI_MATERIAL_BODY["materials"]:
-        params = {k: m[k] for k in ("standard_price", "actual_price", "standard_quantity", "actual_quantity")}
-        served_total += client.post("/calculate", params=params).json()["total_material_cost_variance"]
+    served = client.post("/multi-material", json=MULTI_MATERIAL_BODY["materials"])
+    assert served.status_code == 200, served.text
     rust = __import__("json").loads(native.multi_material_variance_json(__import__("json").dumps(MULTI_MATERIAL_BODY)))
-    assert rust["total_variance"] == served_total == -190.0
-    assert rust["materials"][0]["material"] == "steel"
-    # an unnamed material falls back, as the service's .get("name", "Unknown") did
+    _bodies_match(served.json(), rust)
+    assert rust["total_variance"] == -190.0
     assert rust["materials"][1]["material"] == "Unknown"

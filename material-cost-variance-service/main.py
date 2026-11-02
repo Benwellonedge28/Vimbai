@@ -7,7 +7,7 @@ Total Material Variance = Standard Cost - Actual Cost
 import os
 import uuid
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import structlog
 from fastapi import FastAPI
@@ -95,7 +95,7 @@ async def simple_material_variance(standard_cost: float, actual_cost: float):
 
 
 @app.post("/multi-material")
-async def multi_material_variance(materials: list):
+async def multi_material_variance(materials: List[Dict[str, Any]]):
     """Calculate variance for multiple materials."""
     total_std = 0
     total_actual = 0
