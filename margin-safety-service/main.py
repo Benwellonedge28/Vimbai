@@ -3,16 +3,29 @@ Vimbai Margin of Safety Service
 Calculates margin of safety for products and businesses.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "margin_safety_service" not in _sys.modules or not hasattr(_sys.modules.get("margin_safety_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("margin_safety_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["margin_safety_service"] = _pkg
+    _sys.modules["margin_safety_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from margin_safety_service import calc, crud
+from margin_safety_service.dependencies import book_id_var, get_db_session, get_user_id
+from margin_safety_service.models import MarginOfSafety
+from neo4j import AsyncSession
 
 SERVICE_NAME = "margin-safety-service"
 SERVICE_VERSION = "1.0.0"
@@ -40,24 +53,11 @@ app.add_middleware(
 )
 
 
-class MarginOfSafety(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    entity_id: str
-    entity_name: str
-    period: str
-    current_output: float
-    current_revenue: float
-    break_even_output: float
-    break_even_revenue: float
-    margin_of_safety_units: float = 0
-    margin_of_safety_revenue: float = 0
-    margin_of_safety_percentage: float = 0
-    margin_of_safety_ratio: float = 0
-    risk_level: str = ""  # low, medium, high
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-margins: List[MarginOfSafety] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -75,7 +75,12 @@ async def call_accounting_service(method: str, endpoint: str, data: Optional[Dic
 
 @app.get("/health")
 async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "status": "healthy",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.get("/")
@@ -92,42 +97,27 @@ async def calculate_margin_of_safety(
     current_revenue: float,
     break_even_output: float,
     break_even_revenue: float,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Calculate margin of safety."""
+    result = calc.margin_of_safety(current_output, current_revenue, break_even_output, break_even_revenue)
+
     mos = MarginOfSafety(
         entity_id=entity_id,
         entity_name=entity_name,
         period=period,
-        current_output=current_output,
-        current_revenue=current_revenue,
-        break_even_output=break_even_output,
-        break_even_revenue=break_even_revenue,
+        current_output=result["current_output"],
+        current_revenue=result["current_revenue"],
+        break_even_output=result["break_even_output"],
+        break_even_revenue=result["break_even_revenue"],
+        margin_of_safety_units=result["margin_of_safety_units"],
+        margin_of_safety_revenue=result["margin_of_safety_revenue"],
+        margin_of_safety_percentage=result["margin_of_safety_percentage"],
+        margin_of_safety_ratio=result["margin_of_safety_ratio"],
+        risk_level=result["risk_level"],
     )
-
-    # Calculate margin of safety in units
-    mos.margin_of_safety_units = current_output - break_even_output
-
-    # Calculate margin of safety in revenue
-    mos.margin_of_safety_revenue = current_revenue - break_even_revenue
-
-    # Calculate margin of safety percentage
-    if current_revenue > 0:
-        mos.margin_of_safety_percentage = (mos.margin_of_safety_revenue / current_revenue) * 100
-
-    # Calculate margin of safety ratio
-    if current_output > 0:
-        mos.margin_of_safety_ratio = mos.margin_of_safety_units / current_output
-
-    # Determine risk level
-    if mos.margin_of_safety_percentage >= 20:
-        mos.risk_level = "low"
-    elif mos.margin_of_safety_percentage >= 10:
-        mos.risk_level = "medium"
-    else:
-        mos.risk_level = "high"
-
-    margins.append(mos)
-    return mos
+    return await crud.create(session, user_id, mos)
 
 
 @app.post("/calculate-from-data")
@@ -139,59 +129,26 @@ async def calculate_from_basic_data(
     expected_sales_units: float,
 ):
     """Calculate margin of safety from basic data."""
-    contribution = selling_price - variable_cost_per_unit
-    break_even_units = fixed_costs / contribution if contribution > 0 else 0
-    break_even_revenue = break_even_units * selling_price
-    current_revenue = expected_sales_units * selling_price
-
-    mos_units = expected_sales_units - break_even_units
-    mos_revenue = current_revenue - break_even_revenue
-    mos_percentage = (mos_revenue / current_revenue * 100) if current_revenue > 0 else 0
-
-    if mos_percentage >= 20:
-        risk_level = "low"
-    elif mos_percentage >= 10:
-        risk_level = "medium"
-    else:
-        risk_level = "high"
-
-    return {
-        "entity_name": entity_name,
-        "current_sales_units": expected_sales_units,
-        "current_revenue": current_revenue,
-        "break_even_units": break_even_units,
-        "break_even_revenue": break_even_revenue,
-        "margin_of_safety_units": mos_units,
-        "margin_of_safety_revenue": mos_revenue,
-        "margin_of_safety_percentage": mos_percentage,
-        "risk_level": risk_level,
-    }
+    result = calc.margin_from_data(selling_price, fixed_costs, variable_cost_per_unit, expected_sales_units)
+    return {"entity_name": entity_name, **result}
 
 
 @app.post("/target-mos")
 async def calculate_sales_for_target_mos(entity_name: str, break_even_revenue: float, target_mos_percentage: float):
     """Calculate sales revenue needed for target margin of safety."""
-    # MOS% = (Sales - BEP) / Sales
-    # MOS% = 1 - (BEP / Sales)
-    # Sales = BEP / (1 - MOS%)
-
-    if target_mos_percentage < 100:
-        required_sales = break_even_revenue / (1 - target_mos_percentage / 100)
-    else:
-        required_sales = float("inf")
-
-    return {
-        "entity_name": entity_name,
-        "break_even_revenue": break_even_revenue,
-        "target_mos_percentage": target_mos_percentage,
-        "required_sales_revenue": required_sales,
-    }
+    result = calc.target_mos(break_even_revenue, target_mos_percentage)
+    return {"entity_name": entity_name, **result}
 
 
 @app.get("/margins")
-async def list_margins(entity_id: Optional[str] = None, risk_level: Optional[str] = None):
+async def list_margins(
+    entity_id: Optional[str] = None,
+    risk_level: Optional[str] = None,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List margin of safety calculations."""
-    result = margins
+    result = await crud.list_all(session, user_id, MarginOfSafety)
     if entity_id:
         result = [m for m in result if m.entity_id == entity_id]
     if risk_level:

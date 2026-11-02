@@ -42,6 +42,9 @@ use vimbai_cost_accounting::labour_variance::{analyse_labour_variance, LabourVar
 use vimbai_cost_accounting::limiting_factor::{
     analyze_limiting_factor, compare_products_for_factor, ProductWithFactor,
 };
+use vimbai_cost_accounting::margin_safety::{
+    margin_from_basic_data, margin_of_safety, sales_for_target_mos,
+};
 use vimbai_cost_accounting::marginal::{
     contribution_analysis, forecast_profit, marginal_cost_item, marginal_income_statement,
 };
@@ -1885,10 +1888,73 @@ fn cost_centre_summary_json(payload: &str) -> PyResult<String> {
     ))
 }
 
+/// `/calculate` on margin-safety-service.
+#[pyfunction]
+fn margin_of_safety_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        current_output: f64,
+        current_revenue: f64,
+        break_even_output: f64,
+        break_even_revenue: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&margin_of_safety(
+        b.current_output,
+        b.current_revenue,
+        b.break_even_output,
+        b.break_even_revenue,
+    ))
+}
+
+/// `/calculate-from-data` on margin-safety-service.
+#[pyfunction]
+fn margin_from_data_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        selling_price: f64,
+        fixed_costs: f64,
+        variable_cost_per_unit: f64,
+        expected_sales_units: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&margin_from_basic_data(
+        b.selling_price,
+        b.fixed_costs,
+        b.variable_cost_per_unit,
+        b.expected_sales_units,
+    ))
+}
+
+/// `/target-mos` on margin-safety-service. A target of 100% or more is
+/// infinity, which JSON cannot carry, so it is reported as null.
+#[pyfunction]
+fn target_mos_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        break_even_revenue: f64,
+        target_mos_percentage: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let required = sales_for_target_mos(b.break_even_revenue, b.target_mos_percentage);
+    let mut out = serde_json::json!({
+        "break_even_revenue": b.break_even_revenue,
+        "target_mos_percentage": b.target_mos_percentage,
+        "required_sales_revenue": required,
+    });
+    if !required.is_finite() {
+        out["required_sales_revenue"] = serde_json::Value::Null;
+    }
+    json_out(&out)
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
     m.add_function(wrap_pyfunction!(allocate, m)?)?;
+    m.add_function(wrap_pyfunction!(margin_of_safety_json, m)?)?;
+    m.add_function(wrap_pyfunction!(margin_from_data_json, m)?)?;
+    m.add_function(wrap_pyfunction!(target_mos_json, m)?)?;
     m.add_function(wrap_pyfunction!(cost_centre_summary_json, m)?)?;
     m.add_function(wrap_pyfunction!(overhead_apportion_json, m)?)?;
     m.add_function(wrap_pyfunction!(overhead_batch_apportion_json, m)?)?;

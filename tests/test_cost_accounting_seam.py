@@ -1176,3 +1176,104 @@ class TestCostCentreSummary:
         )
         for key in ("total_direct_costs", "total_overhead", "total_cost"):
             assert rust[key] == reference[key], key
+
+
+class TestMarginOfSafety:
+    """The stored margin record, checked against the Rust seam and the reference."""
+
+    @staticmethod
+    def _client():
+        app = load_service("margin-safety-service").main.app
+        service_dir = os.path.join(REPO_ROOT, "margin-safety-service")
+
+        fake_path = os.path.join(service_dir, "fake_neo4j.py")
+        spec = importlib.util.spec_from_file_location("seam_mos_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+
+        pkg_name = "margin_safety_service"
+        pkg = sys.modules.get(pkg_name)
+        if pkg is None or not hasattr(pkg, "__path__"):
+            alias = types.ModuleType(pkg_name)
+            alias.__path__ = [service_dir]
+            sys.modules[pkg_name] = alias
+
+        db = importlib.import_module(f"{pkg_name}.database")
+        session = fake.FakeSession()
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
+        return TestClient(app)
+
+    @pytest.mark.parametrize(
+        "output, revenue, be_output, be_revenue",
+        [(2000.0, 100000.0, 1500.0, 75000.0), (0.0, 0.0, 100.0, 5000.0), (900.0, 45000.0, 900.0, 45000.0)],
+    )
+    def test_stored_margin_matches_the_reference(self, monkeypatch, output, revenue, be_output, be_revenue):
+        client = self._client()
+
+        # the python pin is the reference, then the seam is checked against it
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", "python")
+        reference = self._calculate(client, output, revenue, be_output, be_revenue)
+
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", "rust")
+        assert client.get("/health").json()["calculation_engine"] == "rust"
+        served = self._calculate(client, output, revenue, be_output, be_revenue)
+
+        for key in (
+            "margin_of_safety_units",
+            "margin_of_safety_revenue",
+            "margin_of_safety_percentage",
+            "margin_of_safety_ratio",
+            "risk_level",
+        ):
+            assert served[key] == reference[key], key
+
+    @staticmethod
+    def _calculate(client, output, revenue, be_output, be_revenue):
+        return client.post(
+            "/calculate",
+            params={
+                "entity_id": "ENT-SEAM",
+                "entity_name": "Machining",
+                "period": "2026-11",
+                "current_output": output,
+                "current_revenue": revenue,
+                "break_even_output": be_output,
+                "break_even_revenue": be_revenue,
+            },
+            headers=_H,
+        ).json()
+
+    def test_derived_and_target_paths_match_the_seam(self, monkeypatch):
+        client = self._client()
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", "rust")
+
+        derived = client.post(
+            "/calculate-from-data",
+            params={
+                "entity_name": "Assembly",
+                "selling_price": 50.0,
+                "fixed_costs": 30000.0,
+                "variable_cost_per_unit": 20.0,
+                "expected_sales_units": 2000.0,
+            },
+            headers=_H,
+        ).json()
+        rust_derived = _seam(
+            "margin_from_data_json",
+            {
+                "selling_price": 50.0,
+                "fixed_costs": 30000.0,
+                "variable_cost_per_unit": 20.0,
+                "expected_sales_units": 2000.0,
+            },
+        )
+        for key in ("break_even_units", "margin_of_safety_units", "risk_level"):
+            assert derived[key] == rust_derived[key], key
+
+        target = client.post(
+            "/target-mos",
+            params={"entity_name": "Machining", "break_even_revenue": 75000.0, "target_mos_percentage": 25.0},
+            headers=_H,
+        ).json()
+        rust_target = _seam("target_mos_json", {"break_even_revenue": 75000.0, "target_mos_percentage": 25.0})
+        assert target["required_sales_revenue"] == rust_target["required_sales_revenue"]
