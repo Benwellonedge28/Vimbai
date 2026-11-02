@@ -1,18 +1,31 @@
+"""Vimbai Cash Flow Service - project cash flow schedules. Port: 8100
+
+Schedules persist as :CashFlowSummary nodes, scoped to the caller and the Book;
+the four calculators stay pure. This file may be imported bare (bracket mounts,
+uvicorn main:app), so it bootstraps its own package alias first.
 """
-Vimbai Cash Flow Service
-Handles cash flow inflows and outflows for investment appraisal.
-"""
+
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "cash_flow_service" not in _sys.modules or not hasattr(_sys.modules.get("cash_flow_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("cash_flow_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["cash_flow_service"] = _pkg
+    _sys.modules["cash_flow_service"].__path__ = [_HERE]
 
 import os
-import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-import httpx
 import structlog
-from fastapi import FastAPI
+from cash_flow_service import crud, models
+from cash_flow_service.dependencies import book_id_var, get_db_session, get_user_id
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "cash-flow-service"
 SERVICE_VERSION = "1.0.0"
@@ -38,27 +51,11 @@ app.add_middleware(
 )
 
 
-class CashFlowEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    year: int
-    inflow: float = 0
-    outflow: float = 0
-    net_flow: float = 0
-    description: str = ""
-
-
-class CashFlowSummary(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    project_name: str
-    initial_investment: float
-    entries: List[CashFlowEntry]
-    total_inflows: float = 0
-    total_outflows: float = 0
-    total_net_flow: float = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-cash_flows: List[CashFlowSummary] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/health")
@@ -71,48 +68,33 @@ async def root():
     return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "description": "Cash flow inflows and outflows"}
 
 
-@app.post("/create")
+@app.post("/create", response_model=models.CashFlowSummary)
 async def create_cash_flow(
     project_name: str,
     initial_investment: float,
     yearly_inflows: List[float],
     yearly_outflows: Optional[List[float]] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Create cash flow schedule for a project."""
-    entries = []
-    for i, inflow in enumerate(yearly_inflows):
-        outflow = yearly_outflows[i] if yearly_outflows and i < len(yearly_outflows) else 0
-        net_flow = inflow - outflow
-        entries.append(CashFlowEntry(year=i + 1, inflow=inflow, outflow=outflow, net_flow=net_flow))
-
-    total_inflows = sum(e.inflow for e in entries)
-    total_outflows = sum(e.outflow for e in entries)
-    total_net_flow = sum(e.net_flow for e in entries)
-
-    summary = CashFlowSummary(
-        project_name=project_name,
-        initial_investment=initial_investment,
-        entries=entries,
-        total_inflows=total_inflows,
-        total_outflows=total_outflows,
-        total_net_flow=total_net_flow,
+    summary = await crud.create_summary(
+        db_session, user_id, project_name, initial_investment, yearly_inflows, yearly_outflows
     )
-    cash_flows.append(summary)
+    logger.info("cash_flow_created", project_name=project_name, years=len(summary.entries), net=summary.total_net_flow)
     return summary
 
 
 @app.post("/inflows")
 async def calculate_inflows(inflows: List[float]):
     """Calculate total inflows."""
-    total = sum(inflows)
-    return {"inflows": inflows, "total_inflows": total}
+    return {"inflows": inflows, "total_inflows": sum(inflows)}
 
 
 @app.post("/outflows")
 async def calculate_outflows(outflows: List[float]):
     """Calculate total outflows."""
-    total = sum(outflows)
-    return {"outflows": outflows, "total_outflows": total}
+    return {"outflows": outflows, "total_outflows": sum(outflows)}
 
 
 @app.post("/net-flows")
@@ -124,8 +106,7 @@ async def calculate_net_flows(inflows: List[float], outflows: List[float]):
         inflows = inflows + [0] * (len(outflows) - len(inflows))
 
     net_flows = [i - o for i, o in zip(inflows, outflows)]
-    total_net = sum(net_flows)
-    return {"net_flows": net_flows, "total_net_flow": total_net}
+    return {"net_flows": net_flows, "total_net_flow": sum(net_flows)}
 
 
 @app.post("/cumulative-flows")
@@ -140,18 +121,26 @@ async def calculate_cumulative_flows(net_flows: List[float]):
 
 
 @app.get("/list")
-async def list_cash_flows():
-    """List all cash flow summaries."""
-    return {"cash_flows": cash_flows}
+async def list_cash_flows(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """List the caller's cash flow schedules."""
+    return {"cash_flows": await crud.list_summaries(db_session, user_id)}
 
 
 @app.get("/get/{cash_flow_id}")
-async def get_cash_flow(cash_flow_id: str):
+async def get_cash_flow(
+    cash_flow_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get specific cash flow by ID."""
-    for cf in cash_flows:
-        if cf.id == cash_flow_id:
-            return cf
-    return {"error": "Cash flow not found"}
+    summary = await crud.get_summary(db_session, user_id, cash_flow_id)
+    if summary is None:
+        # the original answers 200 with this body rather than 404
+        return {"error": "Cash flow not found"}
+    return summary
 
 
 if __name__ == "__main__":
