@@ -32,9 +32,13 @@ use vimbai_ratios_statements::{
 use vimbai_tax::statutory::{statutory_corporate_tax, CorporateTaxInput};
 use vimbai_tax::{calculate_tax, TaxBracket, TaxType};
 use vimbai_treasury_fx::analytics::{analyze_treasury, TreasuryAnalyticsRequest};
+use vimbai_treasury_fx::credit_derivatives::{
+    analyze_credit_derivatives, CreditDerivativesRequest,
+};
 use vimbai_treasury_fx::derivatives::{
     value_cross_currency_swaps, value_swaps, CrossCurrencySwapRequest, SwapValuationRequest,
 };
+use vimbai_treasury_fx::exotics::{price_derivative, DerivativeRequest};
 use vimbai_treasury_fx::forwards::{analyze_forward_contracts, ForwardContractRequest};
 use vimbai_treasury_fx::fx_hedging::{analyze_currency_hedge, CurrencyHedgingRequest};
 use vimbai_treasury_fx::fx_translation::{translate_financials, TranslationRequest};
@@ -546,6 +550,29 @@ fn fx_multi_currency_hedge_json(payload: &str, hedge_id: &str) -> PyResult<Strin
     serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
+/// credit-derivatives-service `/analyze`.
+#[pyfunction]
+fn fx_credit_derivatives_json(payload: &str) -> PyResult<String> {
+    let request: CreditDerivativesRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = analyze_credit_derivatives(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// exotic-derivatives-service `/price`. Degenerate inputs come back as an
+/// error object, matching the shape the service returns for a bad request.
+#[pyfunction]
+fn fx_exotic_derivatives_json(payload: &str) -> PyResult<String> {
+    let request: DerivativeRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    match price_derivative(&request) {
+        Ok(response) => {
+            serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+        }
+        Err(err) => Ok(serde_json::json!({ "error": err.to_string() }).to_string()),
+    }
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -582,6 +609,8 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(arr_average_capital_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_currency_hedging_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_forward_contracts_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_credit_derivatives_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_exotic_derivatives_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_multi_currency_convert_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_multi_currency_transaction_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_multi_currency_hedge_json, m)?)?;

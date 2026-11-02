@@ -63,11 +63,6 @@
       "dir": "due-diligence-service"
     },
     {
-      "path": "/exotic-derivatives",
-      "name": "exotic-derivatives-service",
-      "dir": "exotic-derivatives-service"
-    },
-    {
       "path": "/financial-planning",
       "name": "financial-planning-service",
       "dir": "financial-planning-service"

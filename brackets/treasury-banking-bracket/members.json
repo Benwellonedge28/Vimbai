@@ -48,11 +48,6 @@
       "dir": "cash-flow-forecasting-service"
     },
     {
-      "path": "/credit-derivatives",
-      "name": "credit-derivatives-service",
-      "dir": "credit-derivatives-service"
-    },
-    {
       "path": "/credit-risk-analysis",
       "name": "credit-risk-analysis-service",
       "dir": "credit-risk-analysis-service"

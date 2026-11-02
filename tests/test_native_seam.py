@@ -1062,3 +1062,116 @@ def test_multi_currency_hedge_matches_the_service():
         lambda payload: native.fx_multi_currency_hedge_json(payload, "hedge-1"),
         drop=("hedge_id",),
     )
+
+
+# --- credit and exotic derivatives -----------------------------------------
+
+CREDIT_DERIVATIVES_REQUEST = {
+    "company_id": "c1",
+    "positions": [
+        {
+            "position_id": "p1",
+            "instrument_type": "CDS",
+            "reference_entity": "Bank A",
+            "notional": 5000000.0,
+            "spread": 250.0,
+            "rating": "BBB",
+            "maturity_years": 5.0,
+        },
+        {
+            "position_id": "p2",
+            "instrument_type": "CDS_INDEX",
+            "reference_entity": "CDX IG",
+            "notional": 2000000.0,
+            "spread": 180.0,
+            "rating": "A",
+            "maturity_years": 3.0,
+        },
+    ],
+    "risk_free_rate": 0.05,
+    "recovery_rate": 0.4,
+    "credit_spreads": {"Bank A": 220.0, "CDX IG": 200.0},
+}
+
+EXOTIC_VANILLA = {
+    "option_type": "vanilla",
+    "underlying": "ZWG/USD",
+    "spot_price": 100.0,
+    "strike_price": 105.0,
+    "volatility": 0.25,
+    "risk_free_rate": 0.06,
+    "time_to_expiry": 1.0,
+    "barrier_price": 0,
+    "barrier_type": "",
+    "is_call": True,
+    "observations": 12,
+}
+
+
+def _exotic(option_type, **overrides):
+    import copy
+
+    request = copy.deepcopy(EXOTIC_VANILLA)
+    request["option_type"] = option_type
+    request.update(overrides)
+    return request
+
+
+def test_credit_derivatives_match_the_service():
+    _hedging_parity(
+        "credit-derivatives-service",
+        "/analyze",
+        CREDIT_DERIVATIVES_REQUEST,
+        native.fx_credit_derivatives_json,
+    )
+
+
+def _exotic_parity(request):
+    import json
+
+    client = TestClient(load_service("exotic-derivatives-service").main.app)
+    served = client.post("/price", json=request)
+    assert served.status_code == 200, served.text
+    service = served.json()
+    rust = json.loads(native.fx_exotic_derivatives_json(json.dumps(request)))
+    for key in (
+        "estimated_price",
+        "delta",
+        "gamma",
+        "vega",
+        "theta",
+        "rho",
+    ):
+        assert Decimal(str(service[key])) == Decimal(str(rust[key])), (
+            request["option_type"],
+            key,
+            service[key],
+            rust[key],
+        )
+    assert service["model_used"] == rust["model_used"]
+    assert service["notes"] == rust["notes"]
+
+
+def test_exotic_vanilla_matches_the_service():
+    _exotic_parity(_exotic("vanilla"))
+
+
+def test_exotic_asian_matches_the_service():
+    _exotic_parity(_exotic("asian"))
+
+
+def test_exotic_lookback_matches_the_service():
+    _exotic_parity(_exotic("lookback"))
+
+
+def test_exotic_binary_matches_the_service():
+    _exotic_parity(_exotic("binary"))
+
+
+def test_exotic_barrier_matches_the_service():
+    _exotic_parity(_exotic("barrier", barrier_price=110.0, barrier_type="knock_out"))
+    _exotic_parity(_exotic("barrier", barrier_price=90.0, barrier_type="knock_in"))
+
+
+def test_exotic_put_matches_the_service():
+    _exotic_parity(_exotic("vanilla", is_call=False))

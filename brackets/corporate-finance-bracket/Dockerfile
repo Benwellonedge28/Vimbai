@@ -28,7 +28,6 @@ COPY deal-structuring-service ./deal-structuring-service
 COPY debentures-service ./debentures-service
 COPY divestiture-service ./divestiture-service
 COPY due-diligence-service ./due-diligence-service
-COPY exotic-derivatives-service ./exotic-derivatives-service
 COPY financial-planning-service ./financial-planning-service
 COPY foreign-exchange-service ./foreign-exchange-service
 COPY fund-management-service ./fund-management-service

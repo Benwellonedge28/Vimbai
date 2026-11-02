@@ -431,14 +431,6 @@
       "strip_prefix": false
     },
     {
-      "name": "credit-derivatives-service",
-      "path": "/credit-derivatives",
-      "url": "http://localhost:9003",
-      "port": 8254,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "credit-risk-analysis-service",
       "path": "/credit-risk-analysis",
       "url": "http://localhost:9003",
@@ -626,14 +618,6 @@
       "path": "/events-after-reporting",
       "url": "http://localhost:9002",
       "port": 8206,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "exotic-derivatives-service",
-      "path": "/exotic-derivatives",
-      "url": "http://localhost:9012",
-      "port": 8000,
       "auth_required": true,
       "strip_prefix": false
     },
