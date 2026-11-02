@@ -38,11 +38,6 @@
       "dir": "purchases-ledger-control-service"
     },
     {
-      "path": "/regulatory-reporting",
-      "name": "regulatory-reporting-service",
-      "dir": "regulatory-reporting-service"
-    },
-    {
       "path": "/report-automation",
       "name": "report-automation-service",
       "dir": "report-automation-service"

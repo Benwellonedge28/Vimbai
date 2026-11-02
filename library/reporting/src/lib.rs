@@ -6,6 +6,7 @@
 pub mod annual;
 pub mod financial;
 pub mod management;
+pub mod regulatory;
 
 pub use annual::{
     prepare_annual_report, AnnualReport, AnnualReportRequest, ReportSection, SectionInput,
@@ -17,3 +18,4 @@ pub use management::{
     generate_management_report, ManagementKpis, ManagementReport, ManagementReportingRequest,
     PerformanceSummary,
 };
+pub use regulatory::{generate_report, ReportRequest, ReportResult, ValidationCheck};

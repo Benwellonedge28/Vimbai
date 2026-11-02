@@ -1385,14 +1385,6 @@
       "strip_prefix": false
     },
     {
-      "name": "regulatory-reporting-service",
-      "path": "/regulatory-reporting",
-      "url": "http://localhost:9002",
-      "port": 8351,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "related-party-service",
       "path": "/related-party",
       "url": "http://localhost:9011",

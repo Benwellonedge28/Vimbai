@@ -23,7 +23,6 @@ COPY events-after-reporting-service ./events-after-reporting-service
 COPY general-ledger-service ./general-ledger-service
 COPY ifrs-reporting-service ./ifrs-reporting-service
 COPY purchases-ledger-control-service ./purchases-ledger-control-service
-COPY regulatory-reporting-service ./regulatory-reporting-service
 COPY report-automation-service ./report-automation-service
 COPY report-distribution-service ./report-distribution-service
 COPY reporting-service ./reporting-service

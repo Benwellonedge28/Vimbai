@@ -1670,3 +1670,31 @@ def test_financial_report_matches_the_service():
         "current_ratio": 1.6,
         "debt_to_equity": 0.6,
     }
+
+
+REGULATORY_BODY = {
+    "company_id": "c1",
+    "report_type": "prudential",
+    "period": "2026-09",
+    "jurisdiction": "ZW",
+    "data": {"capital_ratio": 11.9, "tier_one": 1234567.891},
+    "report_id": "11111111-2222-3333-4444-555555555555",
+    "submission_deadline": "2026-12-02",
+}
+
+
+def test_regulatory_report_matches_the_service():
+    served_body = {k: v for k, v in REGULATORY_BODY.items() if k not in ("report_id", "submission_deadline")}
+    client = TestClient(load_service("regulatory-reporting-service").main.app)
+    served = client.post("/generate", json=served_body)
+    assert served.status_code == 200, served.text
+    served = served.json()
+    rust = __import__("json").loads(native.regulatory_report_json(__import__("json").dumps(REGULATORY_BODY)))
+    # the service draws both of these itself; the seam takes them as inputs
+    for field in ("id", "submission_deadline"):
+        served.pop(field)
+        rust.pop(field)
+    _bodies_match(served, rust)
+    assert rust["status"] == "validation_failed"
+    assert rust["filing_reference"] == "REG-ZW-PRUDENTIAL-202609"
+    assert rust["summary"]["tier_one"] == 1234567.89
