@@ -1,25 +1,41 @@
 """
-Vimbai Basis of Apportionment Service
-Handles different basis for apportioning costs to cost centres.
+Vimbai Basis Apportionment Service
+Apportioning overhead costs across cost centres by the classical bases.
+
+Rules and results live in Neo4j, scoped to the caller and the Book. The file may be
+imported bare (bracket mounts, uvicorn main:app), so it bootstraps its own package
+alias first.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "basis_apportionment_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("basis_apportionment_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("basis_apportionment_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["basis_apportionment_service"] = _pkg
+    _sys.modules["basis_apportionment_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-import httpx
 import structlog
-from fastapi import FastAPI
+from basis_apportionment_service import crud
+from basis_apportionment_service.dependencies import book_id_var, get_db_session, get_user_id
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "basis-apportionment-service"
 SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "8070"))
 AUDIT_SERVICE_URL = os.getenv("AUDIT_SERVICE_URL", "http://localhost:8010")
-ACCOUNTING_SERVICE_URL = os.getenv("ACCOUNTING_SERVICE_URL", "http://localhost:8000")
 
 structlog.configure(
     processors=[
@@ -41,6 +57,13 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
+
+
 class ApportionmentBasis(str, Enum):
     FLOOR_AREA = "floor_area"
     VOLUME = "volume"
@@ -55,48 +78,6 @@ class ApportionmentBasis(str, Enum):
     UNITS = "units"
 
 
-class CostCentreData(BaseModel):
-    cost_centre_id: str
-    cost_centre_name: str
-    basis_value: float  # The value used for apportionment
-
-
-class ApportionmentRule(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    cost_type: str  # rent, rates, depreciation, insurance, maintenance, etc.
-    basis: str  # floor_area, volume, cost, etc.
-    description: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class ApportionmentResult(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    cost_type: str
-    total_cost: float
-    basis: str
-    cost_centres: List[Dict[str, Any]] = []
-    total_apportioned: float = 0
-    unapportioned: float = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-apportionment_rules: List[ApportionmentRule] = []
-apportionment_results: List[ApportionmentResult] = []
-
-
-async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            url = f"{ACCOUNTING_SERVICE_URL}{endpoint}"
-            if method == "POST":
-                response = await client.post(url, json=data)
-            else:
-                response = await client.get(url)
-            return response.json() if response.status_code in [200, 201] else {}
-    except Exception:
-        return {}
-
-
 @app.get("/health")
 async def health_check():
     return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
@@ -108,17 +89,24 @@ async def root():
 
 
 @app.post("/rules/create")
-async def create_apportionment_rule(cost_type: str, basis: str, description: str):
+async def create_apportionment_rule(
+    cost_type: str,
+    basis: str,
+    description: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Create an apportionment rule."""
-    rule = ApportionmentRule(cost_type=cost_type, basis=basis, description=description)
-    apportionment_rules.append(rule)
-    return rule
+    return await crud.create_rule(db_session, user_id, cost_type=cost_type, basis=basis, description=description)
 
 
 @app.get("/rules")
-async def list_apportionment_rules():
+async def list_apportionment_rules(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List all apportionment rules."""
-    return {"rules": apportionment_rules}
+    return {"rules": await crud.list_rules(db_session, user_id)}
 
 
 @app.post("/apportion/floor-area")
@@ -126,31 +114,19 @@ async def apportion_by_floor_area(
     cost_type: str,
     total_cost: float,
     cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, floor_area}]
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Apportion costs by floor area."""
-    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="floor_area")
-
-    total_floor_area = sum(c.get("floor_area", 0) for c in cost_centre_data)
-
-    for centre in cost_centre_data:
-        floor_area = centre.get("floor_area", 0)
-        if total_floor_area > 0:
-            proportion = floor_area / total_floor_area
-            apportioned_cost = total_cost * proportion
-            result.cost_centres.append(
-                {
-                    "cost_centre_id": centre["cost_centre_id"],
-                    "cost_centre_name": centre["cost_centre_name"],
-                    "floor_area": floor_area,
-                    "proportion": proportion,
-                    "apportioned_cost": apportioned_cost,
-                }
-            )
-            result.total_apportioned += apportioned_cost
-
-    result.unapportioned = total_cost - result.total_apportioned
-    apportionment_results.append(result)
-    return result
+    return await crud.apportion(
+        db_session,
+        user_id,
+        cost_type=cost_type,
+        total_cost=total_cost,
+        basis="floor_area",
+        basis_key="floor_area",
+        cost_centre_data=cost_centre_data,
+    )
 
 
 @app.post("/apportion/volume")
@@ -158,31 +134,19 @@ async def apportion_by_volume(
     cost_type: str,
     total_cost: float,
     cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, volume}]
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Apportion costs by volume (space occupied)."""
-    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="volume")
-
-    total_volume = sum(c.get("volume", 0) for c in cost_centre_data)
-
-    for centre in cost_centre_data:
-        volume = centre.get("volume", 0)
-        if total_volume > 0:
-            proportion = volume / total_volume
-            apportioned_cost = total_cost * proportion
-            result.cost_centres.append(
-                {
-                    "cost_centre_id": centre["cost_centre_id"],
-                    "cost_centre_name": centre["cost_centre_name"],
-                    "volume": volume,
-                    "proportion": proportion,
-                    "apportioned_cost": apportioned_cost,
-                }
-            )
-            result.total_apportioned += apportioned_cost
-
-    result.unapportioned = total_cost - result.total_apportioned
-    apportionment_results.append(result)
-    return result
+    return await crud.apportion(
+        db_session,
+        user_id,
+        cost_type=cost_type,
+        total_cost=total_cost,
+        basis="volume",
+        basis_key="volume",
+        cost_centre_data=cost_centre_data,
+    )
 
 
 @app.post("/apportion/cost")
@@ -190,63 +154,39 @@ async def apportion_by_cost(
     cost_type: str,
     total_cost: float,
     cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, asset_cost}]
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Apportion costs by cost/value of assets."""
-    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="cost")
-
-    total_asset_cost = sum(c.get("asset_cost", 0) for c in cost_centre_data)
-
-    for centre in cost_centre_data:
-        asset_cost = centre.get("asset_cost", 0)
-        if total_asset_cost > 0:
-            proportion = asset_cost / total_asset_cost
-            apportioned_cost = total_cost * proportion
-            result.cost_centres.append(
-                {
-                    "cost_centre_id": centre["cost_centre_id"],
-                    "cost_centre_name": centre["cost_centre_name"],
-                    "asset_cost": asset_cost,
-                    "proportion": proportion,
-                    "apportioned_cost": apportioned_cost,
-                }
-            )
-            result.total_apportioned += apportioned_cost
-
-    result.unapportioned = total_cost - result.total_apportioned
-    apportionment_results.append(result)
-    return result
+    return await crud.apportion(
+        db_session,
+        user_id,
+        cost_type=cost_type,
+        total_cost=total_cost,
+        basis="cost",
+        basis_key="asset_cost",
+        cost_centre_data=cost_centre_data,
+    )
 
 
 @app.post("/apportion/net-book-value")
 async def apportion_by_net_book_value(
     cost_type: str,
     total_cost: float,
-    cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, nbv}]
+    cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, net_book_value}]
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Apportion costs by net book value of machinery."""
-    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="net_book_value")
-
-    total_nbv = sum(c.get("net_book_value", 0) for c in cost_centre_data)
-
-    for centre in cost_centre_data:
-        nbv = centre.get("net_book_value", 0)
-        if total_nbv > 0:
-            proportion = nbv / total_nbv
-            apportioned_cost = total_cost * proportion
-            result.cost_centres.append(
-                {
-                    "cost_centre_id": centre["cost_centre_id"],
-                    "cost_centre_name": centre["cost_centre_name"],
-                    "net_book_value": nbv,
-                    "proportion": proportion,
-                    "apportioned_cost": apportioned_cost,
-                }
-            )
-            result.total_apportioned += apportioned_cost
-
-    result.unapportioned = total_cost - result.total_apportioned
-    apportionment_results.append(result)
-    return result
+    return await crud.apportion(
+        db_session,
+        user_id,
+        cost_type=cost_type,
+        total_cost=total_cost,
+        basis="net_book_value",
+        basis_key="net_book_value",
+        cost_centre_data=cost_centre_data,
+    )
 
 
 @app.post("/apportion/replacement-value")
@@ -254,31 +194,19 @@ async def apportion_by_replacement_value(
     cost_type: str,
     total_cost: float,
     cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, replacement_value}]
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Apportion costs by replacement value of assets."""
-    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="replacement_value")
-
-    total_replacement = sum(c.get("replacement_value", 0) for c in cost_centre_data)
-
-    for centre in cost_centre_data:
-        replacement_value = centre.get("replacement_value", 0)
-        if total_replacement > 0:
-            proportion = replacement_value / total_replacement
-            apportioned_cost = total_cost * proportion
-            result.cost_centres.append(
-                {
-                    "cost_centre_id": centre["cost_centre_id"],
-                    "cost_centre_name": centre["cost_centre_name"],
-                    "replacement_value": replacement_value,
-                    "proportion": proportion,
-                    "apportioned_cost": apportioned_cost,
-                }
-            )
-            result.total_apportioned += apportioned_cost
-
-    result.unapportioned = total_cost - result.total_apportioned
-    apportionment_results.append(result)
-    return result
+    return await crud.apportion(
+        db_session,
+        user_id,
+        cost_type=cost_type,
+        total_cost=total_cost,
+        basis="replacement_value",
+        basis_key="replacement_value",
+        cost_centre_data=cost_centre_data,
+    )
 
 
 @app.post("/apportion/personnel")
@@ -286,31 +214,19 @@ async def apportion_by_personnel(
     cost_type: str,
     total_cost: float,
     cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, number_of_personnel}]
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Apportion costs by number of personnel."""
-    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="number_of_personnel")
-
-    total_personnel = sum(c.get("number_of_personnel", 0) for c in cost_centre_data)
-
-    for centre in cost_centre_data:
-        personnel = centre.get("number_of_personnel", 0)
-        if total_personnel > 0:
-            proportion = personnel / total_personnel
-            apportioned_cost = total_cost * proportion
-            result.cost_centres.append(
-                {
-                    "cost_centre_id": centre["cost_centre_id"],
-                    "cost_centre_name": centre["cost_centre_name"],
-                    "number_of_personnel": personnel,
-                    "proportion": proportion,
-                    "apportioned_cost": apportioned_cost,
-                }
-            )
-            result.total_apportioned += apportioned_cost
-
-    result.unapportioned = total_cost - result.total_apportioned
-    apportionment_results.append(result)
-    return result
+    return await crud.apportion(
+        db_session,
+        user_id,
+        cost_type=cost_type,
+        total_cost=total_cost,
+        basis="number_of_personnel",
+        basis_key="number_of_personnel",
+        cost_centre_data=cost_centre_data,
+    )
 
 
 @app.post("/apportion/requisitions")
@@ -318,40 +234,29 @@ async def apportion_by_requisitions(
     cost_type: str,
     total_cost: float,
     cost_centre_data: List[Dict[str, Any]],  # [{cost_centre_id, cost_centre_name, number_of_requisitions}]
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Apportion costs by number of requisitions."""
-    result = ApportionmentResult(cost_type=cost_type, total_cost=total_cost, basis="number_of_requisitions")
-
-    total_requisitions = sum(c.get("number_of_requisitions", 0) for c in cost_centre_data)
-
-    for centre in cost_centre_data:
-        requisitions = centre.get("number_of_requisitions", 0)
-        if total_requisitions > 0:
-            proportion = requisitions / total_requisitions
-            apportioned_cost = total_cost * proportion
-            result.cost_centres.append(
-                {
-                    "cost_centre_id": centre["cost_centre_id"],
-                    "cost_centre_name": centre["cost_centre_name"],
-                    "number_of_requisitions": requisitions,
-                    "proportion": proportion,
-                    "apportioned_cost": apportioned_cost,
-                }
-            )
-            result.total_apportioned += apportioned_cost
-
-    result.unapportioned = total_cost - result.total_apportioned
-    apportionment_results.append(result)
-    return result
+    return await crud.apportion(
+        db_session,
+        user_id,
+        cost_type=cost_type,
+        total_cost=total_cost,
+        basis="number_of_requisitions",
+        basis_key="number_of_requisitions",
+        cost_centre_data=cost_centre_data,
+    )
 
 
 @app.get("/results")
-async def list_apportionment_results(cost_type: Optional[str] = None):
+async def list_apportionment_results(
+    cost_type: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List apportionment results."""
-    result = apportionment_results
-    if cost_type:
-        result = [r for r in result if r.cost_type == cost_type]
-    return {"results": result}
+    return {"results": await crud.list_results(db_session, user_id, cost_type)}
 
 
 if __name__ == "__main__":
