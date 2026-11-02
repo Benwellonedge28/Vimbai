@@ -112,7 +112,20 @@ class TestProfitLossService:
 
 class TestTradingAccountService:
     def setup_method(self):
-        self.client = TestClient(load_service_app("trading-account-service"))
+        import importlib.util
+        import os as _os
+
+        app = load_service_app("trading-account-service")
+        svc_dir = _os.path.join(REPO_ROOT, "trading-account-service")
+        spec = importlib.util.spec_from_file_location("ta_root_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
+        fake_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake_mod)
+        self._session = fake_mod.FakeSession()
+        import trading_account_service.database as db
+
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
+        self.client = TestClient(app)
+        self.client.headers.update({"X-User-Id": "root-ta-user"})
 
     def test_trading_account(self):
         resp = self.client.post(
