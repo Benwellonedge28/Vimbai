@@ -965,3 +965,93 @@ class TestTotalProductionCost:
         rust = _seam("production_total_cost_json", params)
         for key in ("prime_cost", "total_overhead", "total_production_cost", "cost_per_unit"):
             assert service[key] == rust[key], key
+
+
+class TestOverheadApportionment:
+    """The stored apportionment, checked against the Rust seam and the reference maths."""
+
+    @staticmethod
+    def _client():
+        app = load_service("overhead-apportionment-service").main.app
+        service_dir = os.path.join(REPO_ROOT, "overhead-apportionment-service")
+
+        fake_path = os.path.join(service_dir, "fake_neo4j.py")
+        spec = importlib.util.spec_from_file_location("seam_oa_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+
+        pkg_name = "overhead_apportionment_service"
+        pkg = sys.modules.get(pkg_name)
+        if pkg is None or not hasattr(pkg, "__path__"):
+            alias = types.ModuleType(pkg_name)
+            alias.__path__ = [service_dir]
+            sys.modules[pkg_name] = alias
+
+        db = importlib.import_module(f"{pkg_name}.database")
+        session = fake.FakeSession()
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
+        return TestClient(app)
+
+    @pytest.mark.parametrize(
+        "basis, amount",
+        [("floor_area", 10000.0), ("machine_hours", 5000.0), ("personnel", 0.0)],
+    )
+    def test_split_matches_the_reference(self, monkeypatch, basis, amount):
+        client = self._client()
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", "rust")
+
+        centres = [
+            {"cost_centre_id": "c1", "cost_centre_name": "Machining", "floor_area": 300, "machine_hours": 90},
+            {"cost_centre_id": "c2", "cost_centre_name": "Assembly", "floor_area": 700, "machine_hours": 10},
+            {
+                "cost_centre_id": "c3",
+                "cost_centre_name": "Packing",
+                "floor_area": 0,
+                "machine_hours": 0,
+                "personnel": 4,
+            },
+        ]
+        overhead = client.post(
+            "/overheads/add",
+            params={
+                "overhead_name": "Factory rent",
+                "overhead_code": "OH-1",
+                "total_amount": amount,
+                "basis": basis,
+            },
+            headers=_H,
+        ).json()
+
+        served = client.post(
+            "/apportion",
+            params={"overhead_id": overhead["id"], "period": "2026-11"},
+            json=centres,
+            headers=_H,
+        ).json()
+
+        rust = _seam(
+            "overhead_apportion_json",
+            {
+                "overhead_id": overhead["id"],
+                "overhead_name": "Factory rent",
+                "total_amount": amount,
+                "basis": basis,
+                "period": "2026-11",
+                "cost_centre_data": centres,
+            },
+        )
+        assert served["cost_centre_apportionments"] == rust["cost_centre_apportionments"]
+
+        calc = importlib.import_module("overhead_apportionment_service.calc")
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", "python")
+        reference = calc.apportion(
+            {
+                "overhead_id": overhead["id"],
+                "overhead_name": "Factory rent",
+                "total_amount": amount,
+                "basis": basis,
+            },
+            "2026-11",
+            centres,
+        )
+        assert rust["cost_centre_apportionments"] == reference["cost_centre_apportionments"]

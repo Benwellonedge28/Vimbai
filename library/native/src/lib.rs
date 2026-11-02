@@ -28,9 +28,7 @@ use vimbai_capital_valuation::capital_returns::{
 };
 use vimbai_common::{Money, MoneyError};
 use vimbai_cost_accounting::absorption::{cost_plus_pricing, overhead_absorption, product_cost};
-use vimbai_cost_accounting::labour_variance::{analyse_labour_variance, LabourVarianceRequest};
-use vimbai_cost_accounting::total_production_cost::calculate_total_production_cost;
-use vimbai_cost_accounting::job_costing::{add_cost, CostType, JobCosts};
+use vimbai_cost_accounting::activity_based::{calculate_abc, AbcRequest};
 use vimbai_cost_accounting::actual_cost::{
     actual_labour_cost, actual_material_cost, compare_actual_to_budget, total_actual_cost,
     variance_breakdown,
@@ -38,26 +36,32 @@ use vimbai_cost_accounting::actual_cost::{
 use vimbai_cost_accounting::budgeted_cost::{
     compare_output, cost_breakdown, create_budgeted_cost, flexible_budget, total_budget, BudgetItem,
 };
-use vimbai_cost_accounting::activity_based::{calculate_abc, AbcRequest};
+use vimbai_cost_accounting::job_costing::{add_cost, CostType, JobCosts};
+use vimbai_cost_accounting::labour_variance::{analyse_labour_variance, LabourVarianceRequest};
 use vimbai_cost_accounting::limiting_factor::{
     analyze_limiting_factor, compare_products_for_factor, ProductWithFactor,
 };
-use vimbai_cost_accounting::order_acceptance::{analyze_one_time_order, analyze_order_acceptance};
-use vimbai_cost_accounting::standard_cost::{
-    labour_standard, material_standard, overhead_standard, standard_per_unit, total_standard,
-    variance_analysis,
-};
-use vimbai_cost_accounting::prime_cost::{
-    direct_cost_item, prime_cost, prime_cost_from_items, DirectCostItem,
-};
-use vimbai_cost_accounting::throughput::{analyze_throughput, ThroughputRequest};
 use vimbai_cost_accounting::marginal::{
     contribution_analysis, forecast_profit, marginal_cost_item, marginal_income_statement,
 };
 use vimbai_cost_accounting::material_variance::{
     material_cost_variance, multi_material_variance, simple_material_variance, MaterialInput,
 };
+use vimbai_cost_accounting::order_acceptance::{analyze_one_time_order, analyze_order_acceptance};
+use vimbai_cost_accounting::overhead_apportionment::{
+    apportion_overhead, batch_apportion_overheads, CostCentreDatum,
+    OverheadItem as ApportionOverheadItem,
+};
+use vimbai_cost_accounting::prime_cost::{
+    direct_cost_item, prime_cost, prime_cost_from_items, DirectCostItem,
+};
+use vimbai_cost_accounting::standard_cost::{
+    labour_standard, material_standard, overhead_standard, standard_per_unit, total_standard,
+    variance_analysis,
+};
 use vimbai_cost_accounting::target_costing::{calculate_target_cost, TargetCostRequest};
+use vimbai_cost_accounting::throughput::{analyze_throughput, ThroughputRequest};
+use vimbai_cost_accounting::total_production_cost::calculate_total_production_cost;
 use vimbai_ifrs::interim::{
     effective_tax_rate as interim_tax_rate, prepare as interim_prepare,
     year_to_date as interim_ytd, InterimPeriod, InterimReportRequest,
@@ -1197,9 +1201,21 @@ fn prime_cost_from_items_json(payload: &str) -> PyResult<String> {
     let items: Vec<DirectCostItem> = body
         .items
         .into_iter()
-        .map(|i| direct_cost_item(&i.item_name, &i.item_type, i.amount, i.units, i.product_id.as_deref()))
+        .map(|i| {
+            direct_cost_item(
+                &i.item_name,
+                &i.item_type,
+                i.amount,
+                i.units,
+                i.product_id.as_deref(),
+            )
+        })
         .collect();
-    json_out(&prime_cost_from_items(&body.product_id, &body.period, &items))
+    json_out(&prime_cost_from_items(
+        &body.product_id,
+        &body.period,
+        &items,
+    ))
 }
 
 #[pyfunction]
@@ -1328,7 +1344,10 @@ fn standard_material_json(payload: &str) -> PyResult<String> {
         standard_quantity: f64,
     }
     let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    json_out(&material_standard(b.standard_price_per_unit, b.standard_quantity))
+    json_out(&material_standard(
+        b.standard_price_per_unit,
+        b.standard_quantity,
+    ))
 }
 
 #[pyfunction]
@@ -1354,7 +1373,10 @@ fn standard_overhead_json(payload: &str) -> PyResult<String> {
         standard_activity_level: f64,
     }
     let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    json_out(&overhead_standard(b.overhead_rate, b.standard_activity_level))
+    json_out(&overhead_standard(
+        b.overhead_rate,
+        b.standard_activity_level,
+    ))
 }
 
 #[pyfunction]
@@ -1413,7 +1435,8 @@ fn standard_variance_json(payload: &str) -> PyResult<String> {
 
 #[pyfunction]
 fn abc_calculate_json(payload: &str) -> PyResult<String> {
-    let request: AbcRequest = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let request: AbcRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
     json_out(&calculate_abc(&request))
 }
 
@@ -1422,15 +1445,27 @@ fn budget_create_json(payload: &str) -> PyResult<String> {
     #[derive(serde::Deserialize)]
     struct Body {
         #[serde(default)]
-        department: String,        #[serde(default)]
-        period: String,        #[serde(default)]
-        direct_material: f64,        #[serde(default)]
-        direct_labour: f64,        #[serde(default)]
-        overhead: f64,        #[serde(default)]
+        department: String,
+        #[serde(default)]
+        period: String,
+        #[serde(default)]
+        direct_material: f64,
+        #[serde(default)]
+        direct_labour: f64,
+        #[serde(default)]
+        overhead: f64,
+        #[serde(default)]
         other_costs: f64,
     }
     let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    json_out(&create_budgeted_cost(&b.department, &b.period, b.direct_material, b.direct_labour, b.overhead, b.other_costs))
+    json_out(&create_budgeted_cost(
+        &b.department,
+        &b.period,
+        b.direct_material,
+        b.direct_labour,
+        b.overhead,
+        b.other_costs,
+    ))
 }
 
 #[pyfunction]
@@ -1438,12 +1473,18 @@ fn budget_flexible_json(payload: &str) -> PyResult<String> {
     #[derive(serde::Deserialize)]
     struct Body {
         #[serde(default)]
-        budgeted_cost_per_unit: f64,        #[serde(default)]
-        actual_output: f64,        #[serde(default)]
+        budgeted_cost_per_unit: f64,
+        #[serde(default)]
+        actual_output: f64,
+        #[serde(default)]
         budgeted_output: f64,
     }
     let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    json_out(&flexible_budget(b.budgeted_cost_per_unit, b.actual_output, b.budgeted_output))
+    json_out(&flexible_budget(
+        b.budgeted_cost_per_unit,
+        b.actual_output,
+        b.budgeted_output,
+    ))
 }
 
 #[pyfunction]
@@ -1462,12 +1503,18 @@ fn budget_compare_output_json(payload: &str) -> PyResult<String> {
     #[derive(serde::Deserialize)]
     struct Body {
         #[serde(default)]
-        budgeted_units: f64,        #[serde(default)]
-        actual_units: f64,        #[serde(default)]
+        budgeted_units: f64,
+        #[serde(default)]
+        actual_units: f64,
+        #[serde(default)]
         budgeted_cost_per_unit: f64,
     }
     let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    json_out(&compare_output(b.budgeted_units, b.actual_units, b.budgeted_cost_per_unit))
+    json_out(&compare_output(
+        b.budgeted_units,
+        b.actual_units,
+        b.budgeted_cost_per_unit,
+    ))
 }
 
 #[pyfunction]
@@ -1475,9 +1522,12 @@ fn budget_breakdown_json(payload: &str) -> PyResult<String> {
     #[derive(serde::Deserialize)]
     struct Body {
         #[serde(default)]
-        total_budgeted_cost: f64,        #[serde(default)]
-        material_percent: f64,        #[serde(default)]
-        labour_percent: f64,        #[serde(default)]
+        total_budgeted_cost: f64,
+        #[serde(default)]
+        material_percent: f64,
+        #[serde(default)]
+        labour_percent: f64,
+        #[serde(default)]
         overhead_percent: f64,
     }
     let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
@@ -1498,11 +1548,15 @@ fn actual_material_json(payload: &str) -> PyResult<String> {
     #[derive(serde::Deserialize)]
     struct Body {
         #[serde(default)]
-        actual_quantity: f64,        #[serde(default)]
+        actual_quantity: f64,
+        #[serde(default)]
         actual_price_per_unit: f64,
     }
     let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    json_out(&actual_material_cost(b.actual_quantity, b.actual_price_per_unit))
+    json_out(&actual_material_cost(
+        b.actual_quantity,
+        b.actual_price_per_unit,
+    ))
 }
 
 #[pyfunction]
@@ -1510,7 +1564,8 @@ fn actual_labour_json(payload: &str) -> PyResult<String> {
     #[derive(serde::Deserialize)]
     struct Body {
         #[serde(default)]
-        actual_hours: f64,        #[serde(default)]
+        actual_hours: f64,
+        #[serde(default)]
         actual_rate_per_hour: f64,
     }
     let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
@@ -1522,12 +1577,18 @@ fn actual_total_json(payload: &str) -> PyResult<String> {
     #[derive(serde::Deserialize)]
     struct Body {
         #[serde(default)]
-        actual_direct_material: f64,        #[serde(default)]
-        actual_direct_labour: f64,        #[serde(default)]
+        actual_direct_material: f64,
+        #[serde(default)]
+        actual_direct_labour: f64,
+        #[serde(default)]
         actual_overhead: f64,
     }
     let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    json_out(&total_actual_cost(b.actual_direct_material, b.actual_direct_labour, b.actual_overhead))
+    json_out(&total_actual_cost(
+        b.actual_direct_material,
+        b.actual_direct_labour,
+        b.actual_overhead,
+    ))
 }
 
 #[pyfunction]
@@ -1535,7 +1596,8 @@ fn actual_compare_budget_json(payload: &str) -> PyResult<String> {
     #[derive(serde::Deserialize)]
     struct Body {
         #[serde(default)]
-        actual_cost: f64,        #[serde(default)]
+        actual_cost: f64,
+        #[serde(default)]
         budgeted_cost: f64,
     }
     let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
@@ -1547,11 +1609,16 @@ fn actual_variance_json(payload: &str) -> PyResult<String> {
     #[derive(serde::Deserialize)]
     struct Body {
         #[serde(default)]
-        actual_material: f64,        #[serde(default)]
-        budgeted_material: f64,        #[serde(default)]
-        actual_labour: f64,        #[serde(default)]
-        budgeted_labour: f64,        #[serde(default)]
-        actual_overhead: f64,        #[serde(default)]
+        actual_material: f64,
+        #[serde(default)]
+        budgeted_material: f64,
+        #[serde(default)]
+        actual_labour: f64,
+        #[serde(default)]
+        budgeted_labour: f64,
+        #[serde(default)]
+        actual_overhead: f64,
+        #[serde(default)]
         budgeted_overhead: f64,
     }
     let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
@@ -1617,9 +1684,9 @@ fn job_add_cost_json(payload: &str) -> PyResult<String> {
     };
     let total_cost = match &totals {
         Some(t) => t.total_cost,
-        None => b.total_cost.unwrap_or_else(|| {
-            job.materials_cost + job.labor_cost + job.overhead_cost + job.subcontractor_cost
-        }),
+        None => b.total_cost.unwrap_or(
+            job.materials_cost + job.labor_cost + job.overhead_cost + job.subcontractor_cost,
+        ),
     };
     let (gross_profit, gross_margin) = match &totals {
         Some(t) => (t.gross_profit, t.gross_margin),
@@ -1695,10 +1762,113 @@ fn production_total_cost_json(payload: &str) -> PyResult<String> {
     ))
 }
 
+/// `/apportion` on overhead-apportionment-service. One overhead, one period.
+#[pyfunction]
+fn overhead_apportion_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        overhead_id: String,
+        overhead_name: String,
+        total_amount: f64,
+        basis: String,
+        period: String,
+        #[serde(default)]
+        cost_centre_data: Vec<CostCentreDatumRaw>,
+    }
+    #[derive(serde::Deserialize)]
+    struct CostCentreDatumRaw {
+        cost_centre_id: String,
+        cost_centre_name: String,
+        #[serde(flatten)]
+        basis_values: std::collections::BTreeMap<String, serde_json::Value>,
+    }
+    fn numbers(raw: Vec<CostCentreDatumRaw>) -> Vec<CostCentreDatum> {
+        raw.into_iter()
+            .map(|c| CostCentreDatum {
+                cost_centre_id: c.cost_centre_id,
+                cost_centre_name: c.cost_centre_name,
+                basis_values: c
+                    .basis_values
+                    .into_iter()
+                    .filter_map(|(k, v)| v.as_f64().map(|n| (k, n)))
+                    .collect(),
+            })
+            .collect()
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let overhead = ApportionOverheadItem {
+        overhead_id: b.overhead_id,
+        overhead_name: b.overhead_name,
+        total_amount: b.total_amount,
+        basis: b.basis,
+    };
+    json_out(&apportion_overhead(
+        &overhead,
+        &b.period,
+        &numbers(b.cost_centre_data),
+    ))
+}
+
+/// `/batch-apportion` on overhead-apportionment-service. Every overhead for a period.
+#[pyfunction]
+fn overhead_batch_apportion_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        period: String,
+        #[serde(default)]
+        overheads: Vec<BatchOverheadRaw>,
+        #[serde(default)]
+        cost_centre_data: Vec<serde_json::Value>,
+    }
+    #[derive(serde::Deserialize)]
+    struct BatchOverheadRaw {
+        overhead_id: String,
+        overhead_name: String,
+        total_amount: f64,
+        basis: String,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let overheads: Vec<ApportionOverheadItem> = b
+        .overheads
+        .into_iter()
+        .map(|o| ApportionOverheadItem {
+            overhead_id: o.overhead_id,
+            overhead_name: o.overhead_name,
+            total_amount: o.total_amount,
+            basis: o.basis,
+        })
+        .collect();
+    let centres: Vec<CostCentreDatum> = b
+        .cost_centre_data
+        .into_iter()
+        .filter_map(|raw| serde_json::from_value::<CostCentreDatumRaw2>(raw).ok())
+        .map(|c| CostCentreDatum {
+            cost_centre_id: c.cost_centre_id,
+            cost_centre_name: c.cost_centre_name,
+            basis_values: c
+                .basis_values
+                .into_iter()
+                .filter_map(|(k, v)| v.as_f64().map(|n| (k, n)))
+                .collect(),
+        })
+        .collect();
+    json_out(&batch_apportion_overheads(&overheads, &b.period, &centres))
+}
+
+#[derive(serde::Deserialize)]
+struct CostCentreDatumRaw2 {
+    cost_centre_id: String,
+    cost_centre_name: String,
+    #[serde(flatten)]
+    basis_values: std::collections::BTreeMap<String, serde_json::Value>,
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
     m.add_function(wrap_pyfunction!(allocate, m)?)?;
+    m.add_function(wrap_pyfunction!(overhead_apportion_json, m)?)?;
+    m.add_function(wrap_pyfunction!(overhead_batch_apportion_json, m)?)?;
     m.add_function(wrap_pyfunction!(analyze_treasury_json, m)?)?;
     m.add_function(wrap_pyfunction!(corporate_tax_json, m)?)?;
     m.add_function(wrap_pyfunction!(tax_calculation_json, m)?)?;
