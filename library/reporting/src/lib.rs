@@ -4,7 +4,16 @@
 //! what the books say is done.
 
 pub mod annual;
+pub mod financial;
+pub mod management;
 
 pub use annual::{
     prepare_annual_report, AnnualReport, AnnualReportRequest, ReportSection, SectionInput,
+};
+pub use financial::{
+    generate_financial_report, FinancialReport, FinancialReportingRequest, KeyMetrics,
+};
+pub use management::{
+    generate_management_report, ManagementKpis, ManagementReport, ManagementReportingRequest,
+    PerformanceSummary,
 };

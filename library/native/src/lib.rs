@@ -43,6 +43,8 @@ use vimbai_ratios_statements::{
     EvaRequest, TurnoverRequest,
 };
 use vimbai_reporting::annual::{prepare_annual_report, AnnualReportRequest};
+use vimbai_reporting::financial::{generate_financial_report, FinancialReportingRequest};
+use vimbai_reporting::management::{generate_management_report, ManagementReportingRequest};
 use vimbai_tax::statutory::{statutory_corporate_tax, CorporateTaxInput};
 use vimbai_tax::{calculate_tax, TaxBracket, TaxType};
 use vimbai_treasury_fx::analytics::{analyze_treasury, TreasuryAnalyticsRequest};
@@ -655,6 +657,36 @@ fn comparative_variance_json(payload: &str) -> PyResult<String> {
     json_out(&report)
 }
 
+/// `/generate` on the management reporting service. The report date is passed
+/// in rather than read from the clock, so a report can be reproduced.
+#[pyfunction]
+fn management_report_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(flatten)]
+        request: ManagementReportingRequest,
+        report_date: String,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&generate_management_report(
+        &body.request,
+        &body.report_date,
+    ))
+}
+
+/// `/generate` on the financial reporting service, same date convention.
+#[pyfunction]
+fn financial_report_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(flatten)]
+        request: FinancialReportingRequest,
+        report_date: String,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&generate_financial_report(&body.request, &body.report_date))
+}
+
 /// `/prepare` on the annual report service.
 #[pyfunction]
 fn annual_report_json(payload: &str) -> PyResult<String> {
@@ -835,6 +867,8 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fx_interest_rate_hedging_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_translation_json, m)?)?;
 
+    m.add_function(wrap_pyfunction!(management_report_json, m)?)?;
+    m.add_function(wrap_pyfunction!(financial_report_json, m)?)?;
     m.add_function(wrap_pyfunction!(annual_report_json, m)?)?;
     m.add_function(wrap_pyfunction!(interim_report_json, m)?)?;
     m.add_function(wrap_pyfunction!(interim_ytd_json, m)?)?;

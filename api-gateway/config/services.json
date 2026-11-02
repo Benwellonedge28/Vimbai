@@ -654,14 +654,6 @@
       "strip_prefix": false
     },
     {
-      "name": "financial-reporting-service",
-      "path": "/financial-reporting",
-      "url": "http://localhost:9002",
-      "port": 8267,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "financial-state-machine-service",
       "path": "/financial-state-machine",
       "url": "http://localhost:9013",
@@ -977,14 +969,6 @@
       "path": "/management-dashboard",
       "url": "http://localhost:9013",
       "port": 8271,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "management-reporting-service",
-      "path": "/management-reporting",
-      "url": "http://localhost:9002",
-      "port": 8269,
       "auth_required": true,
       "strip_prefix": false
     },

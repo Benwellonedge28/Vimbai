@@ -9,4 +9,5 @@ description = "Report preparation: annual report checklists and filing readiness
 [dependencies]
 vimbai_common = { path = "../common" }
 serde = { workspace = true }
-serde_json = { workspace = true }
+# preserve_order keeps a caller's line items in the order they arrived
+serde_json = { workspace = true, features = ["preserve_order"] }

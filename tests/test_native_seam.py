@@ -1605,3 +1605,68 @@ def test_interim_year_to_date_and_tax_match_the_service():
     rust_tax = __import__("json").loads(native.interim_tax_json(__import__("json").dumps(INTERIM_PERIOD)))
     _bodies_match(served_tax.json(), rust_tax)
     assert rust_tax["difference"] == 0.0
+
+
+MANAGEMENT_BODY = {
+    "company_id": "c1",
+    "period": "2026-10",
+    "actuals": {"revenue": 1000000, "cogs": 600000, "opex": 250000, "net_income": 90000},
+    "budget": {"revenue": 950000, "cogs": 620000, "opex": 240000},
+    # required by the service model, though nothing in the report reads it
+    "forecast": {"revenue": 980000},
+    "report_date": "2026-11-02T00:00:00",
+}
+
+
+def test_management_report_matches_the_service():
+    served_body = {k: v for k, v in MANAGEMENT_BODY.items() if k != "report_date"}
+    client = TestClient(load_service("management-reporting-service").main.app)
+    served = client.post("/generate", json=served_body)
+    assert served.status_code == 200, served.text
+    served = served.json()
+    rust = __import__("json").loads(native.management_report_json(__import__("json").dumps(MANAGEMENT_BODY)))
+    served.pop("report_date")
+    rust.pop("report_date")
+    _bodies_match(served, rust)
+    # the lines follow the order the caller sent them in
+    assert [v["line_item"] for v in rust["variance_analysis"]] == [
+        "revenue",
+        "cogs",
+        "opex",
+        "net_income",
+    ]
+    assert rust["recommendations"] == []
+
+
+FINANCIAL_BODY = {
+    "company_id": "c1",
+    "period": "2026",
+    "balance_sheet": {
+        "current_assets": 400000,
+        "non_current_assets": 1600000,
+        "current_liabilities": 250000,
+        "non_current_liabilities": 500000,
+    },
+    "income_statement": {"revenue": 2000000, "cogs": 1100000, "net_income": 150000},
+    "cash_flow": {"operating": 300000, "investing": -100000, "financing": -50000},
+    "report_date": "2026-11-02T00:00:00",
+}
+
+
+def test_financial_report_matches_the_service():
+    served_body = {k: v for k, v in FINANCIAL_BODY.items() if k != "report_date"}
+    client = TestClient(load_service("financial-reporting-service").main.app)
+    served = client.post("/generate", json=served_body)
+    assert served.status_code == 200, served.text
+    served = served.json()
+    rust = __import__("json").loads(native.financial_report_json(__import__("json").dumps(FINANCIAL_BODY)))
+    served.pop("report_date")
+    rust.pop("report_date")
+    _bodies_match(served, rust)
+    assert rust["financial_statements"]["balance_sheet"]["total_equity"] == 1250000.0
+    assert rust["key_metrics"] == {
+        "roe": 12.0,
+        "roa": 7.5,
+        "current_ratio": 1.6,
+        "debt_to_equity": 0.6,
+    }
