@@ -3,15 +3,30 @@ Vimbai Lifecycle Costing Service
 Calculates total cost of ownership across asset lifecycle phases.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "lifecycle_costing_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("lifecycle_costing_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("lifecycle_costing_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["lifecycle_costing_service"] = _pkg
+    _sys.modules["lifecycle_costing_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from lifecycle_costing_service import crud
+from lifecycle_costing_service.dependencies import book_id_var, get_db_session, get_user_id
+from lifecycle_costing_service.models import LifecycleCostModel, LifecyclePhase
+from neo4j import AsyncSession
 
 SERVICE_NAME = "lifecycle-costing-service"
 SERVICE_VERSION = "1.0.0"
@@ -44,27 +59,11 @@ except ImportError:
     TRACER = None
 
 
-class LifecyclePhase(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    phase: str  # acquisition, operation, maintenance, disposal
-    description: str = ""
-    duration_years: int = 0
-    annual_cost: float = 0.0
-    one_time_cost: float = 0.0
-
-
-class LifecycleCostModel(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    asset_name: str
-    description: str = ""
-    phases: List[LifecyclePhase] = []
-    total_lifecycle_cost: float = 0.0
-    annual_equivalent_cost: float = 0.0
-    discount_rate: float = 0.1
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
-cost_models: List[LifecycleCostModel] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -79,6 +78,8 @@ async def create_model(
     description: str = "",
     discount_rate: float = 0.1,
     phases: List[Dict[str, Any]] = [],
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
 ):
     """Create a lifecycle cost model with phases."""
     phase_list = [LifecyclePhase(**p) for p in phases]
@@ -98,30 +99,42 @@ async def create_model(
         annual_equivalent_cost=round(annual_equiv, 2),
         discount_rate=discount_rate,
     )
-    cost_models.append(model)
-    logger.info("Lifecycle cost model created", model_id=model.id, asset=asset_name, total=total)
-    return model
+    stored = await crud.create(session, user_id, model)
+    logger.info("Lifecycle cost model created", model_id=stored.id, asset=asset_name, total=total)
+    return stored
 
 
 @app.get("/models", response_model=List[LifecycleCostModel])
-async def list_models():
+async def list_models(
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """List all lifecycle cost models."""
-    return cost_models
+    return await crud.list_all(session, user_id, LifecycleCostModel)
 
 
 @app.get("/models/{model_id}", response_model=LifecycleCostModel)
-async def get_model(model_id: str):
+async def get_model(
+    model_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """Get a specific cost model."""
-    model = next((m for m in cost_models if m.id == model_id), None)
+    model = await crud.find(session, user_id, LifecycleCostModel, model_id)
     if not model:
         raise HTTPException(status_code=404, detail="Cost model not found")
     return model
 
 
 @app.post("/compare")
-async def compare_models(model_ids: List[str]):
+async def compare_models(
+    model_ids: List[str],
+    session: AsyncSession = Depends(get_db_session),
+    user_id: str = Depends(get_user_id),
+):
     """Compare multiple lifecycle cost models."""
-    models_to_compare = [m for m in cost_models if m.id in model_ids]
+    owned = await crud.list_all(session, user_id, LifecycleCostModel)
+    models_to_compare = [m for m in owned if m.id in model_ids]
     if not models_to_compare:
         raise HTTPException(status_code=404, detail="No matching models found")
 
