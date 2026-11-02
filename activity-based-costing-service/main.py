@@ -4,10 +4,27 @@ Port: 8179
 ABC cost pools, activity drivers, unit-level/batch-level costs
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "activity_based_costing_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("activity_based_costing_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location(
+        "activity_based_costing_service", _os.path.join(_HERE, "__init__.py")
+    )
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["activity_based_costing_service"] = _pkg
+    _sys.modules["activity_based_costing_service"].__path__ = [_HERE]
+
 from typing import Any, Dict, List
 
 import httpx
 import structlog
+from activity_based_costing_service import calc
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -59,62 +76,24 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
 
 @app.get("/")
 async def health_check():
-    return {"status": "healthy", "service": "activity-based-costing", "version": "1.0.0"}
+    return {
+        "status": "healthy",
+        "service": "activity-based-costing",
+        "version": "1.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/calculate", response_model=ABCResponse)
 async def calculate_abc(request: ABCRequest):
     logger.info("Calculating ABC", company=request.company_id)
 
-    activity_rates = []
-    for activity in request.activities:
-        rate = activity.cost_pool / activity.driver_volume if activity.driver_volume else 0
-        activity_rates.append(
-            {
-                "activity_id": activity.activity_id,
-                "activity_name": activity.activity_name,
-                "activity_type": activity.activity_type,
-                "rate_per_driver": round(rate, 2),
-            }
-        )
-
-    product_costs = []
-    total_overhead = 0
-
-    for product in request.products:
-        unit_cost = sum(
-            product.unit_level_drivers.get(a.activity_id, 0) * (a.cost_pool / a.driver_volume if a.driver_volume else 0)
-            for a in request.activities
-            if a.activity_type == "unit_level"
-        )
-
-        batch_cost = sum(
-            product.batch_level_drivers.get(a.activity_id, 0)
-            * (a.cost_pool / a.driver_volume if a.driver_volume else 0)
-            for a in request.activities
-            if a.activity_type == "batch_level"
-        )
-
-        product_cost = unit_cost + batch_cost + sum(product.product_level_activities.values())
-        total_overhead += product_cost
-
-        product_costs.append(
-            {
-                "product_id": product.product_id,
-                "product_name": product.product_name,
-                "unit_level_cost": round(unit_cost, 2),
-                "batch_level_cost": round(batch_cost, 2),
-                "product_level_cost": round(sum(product.product_level_activities.values()), 2),
-                "total_product_cost": round(product_cost, 2),
-            }
-        )
-
     return ABCResponse(
-        company_id=request.company_id,
-        activity_rates=activity_rates,
-        product_costs=product_costs,
-        unit_costs={p.product_id: round(sum(p.unit_level_drivers.values()), 2) for p in request.products},
-        total_overhead_allocated=total_overhead,
+        **calc.calculate(
+            request.company_id,
+            [a.model_dump() for a in request.activities],
+            [p.model_dump() for p in request.products],
+        )
     )
 
 

@@ -194,3 +194,8 @@ def standard_per_unit(payload: Dict[str, Any]) -> Dict[str, Any]:
 def standard_variance(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Standard versus actual cost variance with its interpretation."""
     return _call("standard_variance_json", payload)
+
+
+def abc_calculate(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Activity-based costing across the three driver levels."""
+    return _call("abc_calculate_json", payload)

@@ -29,6 +29,7 @@ use vimbai_capital_valuation::capital_returns::{
 use vimbai_common::{Money, MoneyError};
 use vimbai_cost_accounting::absorption::{cost_plus_pricing, overhead_absorption, product_cost};
 use vimbai_cost_accounting::labour_variance::{analyse_labour_variance, LabourVarianceRequest};
+use vimbai_cost_accounting::activity_based::{calculate_abc, AbcRequest};
 use vimbai_cost_accounting::limiting_factor::{
     analyze_limiting_factor, compare_products_for_factor, ProductWithFactor,
 };
@@ -1401,6 +1402,12 @@ fn standard_variance_json(payload: &str) -> PyResult<String> {
     json_out(&variance_analysis(b.standard_cost, b.actual_cost))
 }
 
+#[pyfunction]
+fn abc_calculate_json(payload: &str) -> PyResult<String> {
+    let request: AbcRequest = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&calculate_abc(&request))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -1473,6 +1480,7 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(standard_total_json, m)?)?;
     m.add_function(wrap_pyfunction!(standard_per_unit_json, m)?)?;
     m.add_function(wrap_pyfunction!(standard_variance_json, m)?)?;
+    m.add_function(wrap_pyfunction!(abc_calculate_json, m)?)?;
     m.add_function(wrap_pyfunction!(material_cost_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(simple_material_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(multi_material_variance_json, m)?)?;

@@ -709,3 +709,68 @@ class TestStandardCosting:
         served = client.post(f"/{path}", params=params)
         assert served.status_code == 200, served.text
         assert served.json() == _seam(seam_name, params)
+
+
+class TestActivityBasedCosting:
+    BODY = {
+        "company_id": "comp-9",
+        "activities": [
+            {
+                "activity_id": "machining",
+                "activity_name": "Machining",
+                "activity_type": "unit_level",
+                "cost_pool": 10000,
+                "cost_driver": "machine_hours",
+                "driver_volume": 1000,
+            },
+            {
+                "activity_id": "setup",
+                "activity_name": "Setup",
+                "activity_type": "batch_level",
+                "cost_pool": 5000,
+                "cost_driver": "batches",
+                "driver_volume": 50,
+            },
+            {
+                "activity_id": "design",
+                "activity_name": "Design",
+                "activity_type": "product_level",
+                "cost_pool": 2000,
+                "cost_driver": "designs",
+                "driver_volume": 0,
+            },
+        ],
+        "products": [
+            {
+                "product_id": "p1",
+                "product_name": "Widget",
+                "unit_level_drivers": {"machining": 120},
+                "batch_level_drivers": {"setup": 4},
+                "product_level_activities": {"design": 250.0},
+            },
+            {
+                "product_id": "p2",
+                "product_name": "Gadget",
+                "unit_level_drivers": {"machining": 45, "idle": 7},
+                "batch_level_drivers": {},
+                "product_level_activities": {},
+            },
+        ],
+    }
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    def test_abc_matches_the_service(self, monkeypatch, engine):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        client = TestClient(load_service("activity-based-costing-service").main.app)
+        assert client.get("/").json()["calculation_engine"] == engine
+
+        served = client.post("/calculate", json=self.BODY)
+        assert served.status_code == 200, served.text
+        service = served.json()
+
+        rust = _seam("abc_calculate_json", self.BODY)
+
+        assert service["activity_rates"] == rust["activity_rates"]
+        assert service["product_costs"] == rust["product_costs"]
+        assert service["unit_costs"] == rust["unit_costs"]
+        assert service["total_overhead_allocated"] == rust["total_overhead_allocated"]
