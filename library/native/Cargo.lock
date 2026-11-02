@@ -344,6 +344,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vimbai_cost_accounting"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "vimbai_common",
+]
+
+[[package]]
 name = "vimbai_ifrs"
 version = "0.1.0"
 dependencies = [
@@ -363,6 +372,7 @@ dependencies = [
  "vimbai_assets",
  "vimbai_capital_valuation",
  "vimbai_common",
+ "vimbai_cost_accounting",
  "vimbai_ifrs",
  "vimbai_ratios_statements",
  "vimbai_reporting",

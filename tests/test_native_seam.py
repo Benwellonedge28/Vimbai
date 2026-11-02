@@ -1698,3 +1698,108 @@ def test_regulatory_report_matches_the_service():
     assert rust["status"] == "validation_failed"
     assert rust["filing_reference"] == "REG-ZW-PRUDENTIAL-202609"
     assert rust["summary"]["tier_one"] == 1234567.89
+
+
+LABOUR_BODY = {
+    "company_id": "c1",
+    "period": "2026-10",
+    "departments": [
+        {
+            "department": "assembly",
+            "standard_rate": 20,
+            "actual_rate": 22,
+            "standard_hours": 1000,
+            "actual_hours": 1100,
+            "standard_output": 500,
+            "actual_output": 520,
+        },
+        {
+            "department": "finishing",
+            "standard_rate": 18,
+            "actual_rate": 17,
+            "standard_hours": 800,
+            "actual_hours": 750,
+            "standard_output": 400,
+            "actual_output": 410,
+        },
+    ],
+    "report_id": "11111111-2222-3333-4444-555555555555",
+}
+
+
+def test_labour_variance_matches_the_service():
+    served_body = {k: v for k, v in LABOUR_BODY.items() if k != "report_id"}
+    client = TestClient(load_service("labour-cost-variance-service").main.app)
+    served = client.post("/analyze", json=served_body)
+    assert served.status_code == 200, served.text
+    served = served.json()
+    rust = __import__("json").loads(native.labour_variance_json(__import__("json").dumps(LABOUR_BODY)))
+    served.pop("id")
+    rust.pop("id")
+    _bodies_match(served, rust)
+    assert rust["total_cost_variance"] == 1390.0
+    assert rust["departments"][1]["favorable_rate"] is True
+
+
+MATERIAL_BODY = {
+    "standard_price": 10,
+    "actual_price": 11,
+    "standard_quantity": 100,
+    "actual_quantity": 110,
+}
+
+
+def test_material_cost_variance_matches_the_service():
+    client = TestClient(load_service("material-cost-variance-service").main.app)
+    served = client.post("/calculate", params=MATERIAL_BODY)
+    assert served.status_code == 200, served.text
+    rust = __import__("json").loads(native.material_cost_variance_json(__import__("json").dumps(MATERIAL_BODY)))
+    _bodies_match(served.json(), rust)
+    assert rust["total_material_cost_variance"] == -210.0
+
+
+def test_simple_material_variance_matches_the_service():
+    client = TestClient(load_service("material-cost-variance-service").main.app)
+    served = client.post("/simple", params={"standard_cost": 100, "actual_cost": 100})
+    rust = __import__("json").loads(
+        native.simple_material_variance_json(__import__("json").dumps({"standard_cost": 100, "actual_cost": 100}))
+    )
+    _bodies_match(served.json(), rust)
+    # a tie reads Adverse here, unlike /calculate which has a None state
+    assert rust["type"] == "Adverse"
+
+
+MULTI_MATERIAL_BODY = {
+    "materials": [
+        {
+            "name": "steel",
+            "standard_price": 10,
+            "actual_price": 11,
+            "standard_quantity": 100,
+            "actual_quantity": 110,
+        },
+        {"standard_price": 2, "actual_price": 2, "standard_quantity": 50, "actual_quantity": 40},
+    ]
+}
+
+
+def test_multi_material_endpoint_only_takes_multipart_and_breaks():
+    """Pinned quirk: a bare `list` parameter made FastAPI read this as multipart
+    form data, so a JSON client gets 422 and a multipart client trips over the
+    string it is handed. Nothing can call it successfully today."""
+    client = TestClient(load_service("material-cost-variance-service").main.app)
+    assert client.post("/multi-material", json=MULTI_MATERIAL_BODY).status_code == 422
+
+
+def test_multi_material_totals_match_the_per_material_endpoint():
+    """The bill of materials is the sum of what /calculate reports per material."""
+    client = TestClient(load_service("material-cost-variance-service").main.app)
+    served_total = 0.0
+    for m in MULTI_MATERIAL_BODY["materials"]:
+        params = {k: m[k] for k in ("standard_price", "actual_price", "standard_quantity", "actual_quantity")}
+        served_total += client.post("/calculate", params=params).json()["total_material_cost_variance"]
+    rust = __import__("json").loads(native.multi_material_variance_json(__import__("json").dumps(MULTI_MATERIAL_BODY)))
+    assert rust["total_variance"] == served_total == -190.0
+    assert rust["materials"][0]["material"] == "steel"
+    # an unnamed material falls back, as the service's .get("name", "Unknown") did
+    assert rust["materials"][1]["material"] == "Unknown"

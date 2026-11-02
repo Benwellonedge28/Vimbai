@@ -25,6 +25,10 @@ use vimbai_capital_valuation::capital_returns::{
     discount_factor_table_range, discounted_payback, simple_rate, wacc,
 };
 use vimbai_common::{Money, MoneyError};
+use vimbai_cost_accounting::labour_variance::{analyse_labour_variance, LabourVarianceRequest};
+use vimbai_cost_accounting::material_variance::{
+    material_cost_variance, multi_material_variance, simple_material_variance, MaterialInput,
+};
 use vimbai_ifrs::interim::{
     effective_tax_rate as interim_tax_rate, prepare as interim_prepare,
     year_to_date as interim_ytd, InterimPeriod, InterimReportRequest,
@@ -658,6 +662,55 @@ fn comparative_variance_json(payload: &str) -> PyResult<String> {
     json_out(&report)
 }
 
+/// `/analyze` on the labour cost variance service. The service mints a uuid for
+/// each result, so the id is an input here.
+#[pyfunction]
+fn labour_variance_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(flatten)]
+        request: LabourVarianceRequest,
+        report_id: String,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&analyse_labour_variance(&body.request, &body.report_id))
+}
+
+/// `/calculate` on the material cost variance service: four figures in, the
+/// total and its price and usage split out.
+#[pyfunction]
+fn material_cost_variance_json(payload: &str) -> PyResult<String> {
+    let input: MaterialInput =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&material_cost_variance(&input))
+}
+
+/// `/simple` on the same service: two costs, no split.
+#[pyfunction]
+fn simple_material_variance_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        standard_cost: f64,
+        actual_cost: f64,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&simple_material_variance(
+        body.standard_cost,
+        body.actual_cost,
+    ))
+}
+
+/// `/multi-material`: a bill of materials in, one line per material out.
+#[pyfunction]
+fn multi_material_variance_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        materials: Vec<MaterialInput>,
+    }
+    let body: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&multi_material_variance(&body.materials))
+}
+
 /// `/generate` on the regulatory reporting service. The return id and the
 /// submission deadline are inputs; the service draws one from a UUID generator
 /// and counts thirty days from the clock.
@@ -888,6 +941,10 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(fx_interest_rate_hedging_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_translation_json, m)?)?;
 
+    m.add_function(wrap_pyfunction!(labour_variance_json, m)?)?;
+    m.add_function(wrap_pyfunction!(material_cost_variance_json, m)?)?;
+    m.add_function(wrap_pyfunction!(simple_material_variance_json, m)?)?;
+    m.add_function(wrap_pyfunction!(multi_material_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(regulatory_report_json, m)?)?;
     m.add_function(wrap_pyfunction!(management_report_json, m)?)?;
     m.add_function(wrap_pyfunction!(financial_report_json, m)?)?;

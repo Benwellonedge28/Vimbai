@@ -18,9 +18,11 @@ pub mod budgeted_cost;
 pub mod cost_accounting_core;
 pub mod cost_centre;
 pub mod job_costing;
+pub mod labour_variance;
 pub mod lifecycle;
 pub mod limiting_factor;
 pub mod make_or_buy;
+pub mod material_variance;
 pub mod order_acceptance;
 pub mod overhead_apportionment;
 pub mod overhead_variance;
@@ -49,9 +51,17 @@ pub use cvp::{
 pub use equivalent_units::{
     equivalent_units, EquivalentUnitsMethod, EquivalentUnitsOutput, EquivalentUnitsRequest,
 };
+pub use labour_variance::{
+    analyse_labour_variance, DepartmentVariance, LabourData, LabourVarianceRequest,
+    LabourVarianceResult,
+};
 pub use marginal::{
     contribution_analysis, forecast_profit, marginal_cost_item, marginal_income_statement,
     ContributionAnalysisOutput, MarginalCostOutput, MarginalIncomeStatementOutput,
+};
+pub use material_variance::{
+    material_cost_variance, multi_material_variance, simple_material_variance, MaterialInput,
+    MaterialVariance, MultiMaterialVariance, SimpleVariance,
 };
 pub use overhead::{
     labour_cost_rate, labour_hours_rate, machine_hours_rate, material_cost_rate, oar,
