@@ -43,11 +43,6 @@
       "dir": "commodity-hedging-service"
     },
     {
-      "path": "/cost-of-capital",
-      "name": "cost-of-capital-service",
-      "dir": "cost-of-capital-service"
-    },
-    {
       "path": "/cvp-analysis",
       "name": "cvp-analysis-service",
       "dir": "cvp-analysis-service"
@@ -61,16 +56,6 @@
       "path": "/debentures",
       "name": "debentures-service",
       "dir": "debentures-service"
-    },
-    {
-      "path": "/discount-factor",
-      "name": "discount-factor-service",
-      "dir": "discount-factor-service"
-    },
-    {
-      "path": "/discounted-payback-period",
-      "name": "discounted-payback-period-service",
-      "dir": "discounted-payback-period-service"
     },
     {
       "path": "/divestiture",

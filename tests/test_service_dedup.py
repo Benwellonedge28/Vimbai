@@ -143,6 +143,14 @@ STATEMENT_PAYROLL_PORTS = {
 
 # The tax pair retires only after the seam reproduces their figures; those
 # parity cases live in tests/test_native_seam.py.
+# Capital-return calculators, ported into capital_valuation::capital_returns.
+CAPITAL_RETURN_PORTS = {
+    "cost-of-capital-service",
+    "discount-factor-service",
+    "discounted-payback-period-service",
+    "accounting-rate-return-service",
+}
+
 # Investor return metrics, ported into ratios_statements::investor_metrics and
 # proven field-for-field by tests/test_native_seam.py.
 INVESTOR_METRIC_PORTS = {

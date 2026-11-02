@@ -11,6 +11,7 @@
 //! divestiture, post-merger, synergy-analysis) are queued to port here;
 //! see `queued.rs` for their formula inventory.
 
+pub mod capital_returns;
 pub mod dcf;
 pub mod irr;
 pub mod payback;

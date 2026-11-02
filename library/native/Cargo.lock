@@ -296,6 +296,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vimbai_capital_valuation"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "vimbai_common",
+]
+
+[[package]]
 name = "vimbai_common"
 version = "0.1.0"
 dependencies = [
@@ -313,6 +322,7 @@ dependencies = [
  "serde",
  "serde_json",
  "vimbai_assets",
+ "vimbai_capital_valuation",
  "vimbai_common",
  "vimbai_ratios_statements",
  "vimbai_tax",

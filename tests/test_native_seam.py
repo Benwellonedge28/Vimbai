@@ -617,3 +617,127 @@ def test_eps_matches_the_service():
     ):
         assert Decimal(str(service[key])) == Decimal(str(rust[key])), key
     assert service["potential_dilutive_instruments"] == rust["potential_dilutive_instruments"]
+
+
+# --- capital-return calculators ---------------------------------------------
+# Cost of capital, discount factors, discounted payback and ARR are query-param
+# endpoints, so each call is made with params on the service side and as plain
+# arguments through the seam.
+
+
+def _params_parity(service_name, path, params, seam_call):
+    import json
+
+    client = TestClient(load_service(service_name).main.app)
+    served = client.post(path, params=params)
+    assert served.status_code == 200, served.text
+    return served.json(), json.loads(seam_call(*params.values()))
+
+
+def test_cost_of_capital_matches_the_service():
+    params = {"interest_rate": 0.12, "risk_premium": 0.03}
+    service, rust = _params_parity("cost-of-capital-service", "/calculate", params, native.coc_calculate_json)
+    assert service == rust
+
+
+def test_wacc_matches_the_service():
+    params = {
+        "equity_value": 400000.0,
+        "cost_of_equity": 0.14,
+        "debt_value": 300000.0,
+        "cost_of_debt": 0.08,
+        "tax_rate": 25.0,
+    }
+    service, rust = _params_parity("cost-of-capital-service", "/wacc", params, native.coc_wacc_json)
+    for key in ("total_capital", "after_tax_cost_debt", "equity_weight", "debt_weight"):
+        assert Decimal(str(service[key])) == Decimal(str(rust[key])), key
+    assert service["wacc"] == rust["wacc"]
+    assert service["wacc_percent"] == rust["wacc_percent"]
+
+
+def test_cagr_matches_the_service():
+    params = {"present_value": 100000.0, "future_value": 161051.0, "years": 5}
+    service, rust = _params_parity("cost-of-capital-service", "/compound-rate", params, native.coc_compound_rate_json)
+    assert service["compound_rate"] == rust["compound_rate"]
+    assert service["rate_percent"] == rust["rate_percent"]
+
+
+def test_discount_factor_matches_the_service():
+    service, rust = _params_parity(
+        "discount-factor-service",
+        "/calculate",
+        {"rate": 0.1, "years": 3},
+        native.df_calculate_json,
+    )
+    assert Decimal(str(service["discount_factor"])) == Decimal(str(rust["discount_factor"]))
+
+
+def test_annuity_factor_matches_the_service():
+    service, rust = _params_parity(
+        "discount-factor-service",
+        "/annuity-factor",
+        {"rate": 0.1, "years": 5},
+        native.df_annuity_json,
+    )
+    assert Decimal(str(service["annuity_factor"])) == Decimal(str(rust["annuity_factor"]))
+    assert service["formula"] == rust["formula"]
+
+
+def test_discount_factor_range_matches_the_service():
+    service, rust = _params_parity(
+        "discount-factor-service",
+        "/table-range",
+        {"rate_start": 0.05, "rate_end": 0.08, "rate_step": 0.01, "years": 3},
+        native.df_table_range_json,
+    )
+    assert len(service["factors"]) == len(rust["factors"])
+    for served_row, rust_row in zip(service["factors"], rust["factors"]):
+        assert served_row["rate"] == rust_row["rate"]
+        assert Decimal(str(served_row["discount_factor"])) == Decimal(str(rust_row["discount_factor"]))
+
+
+def test_discounted_payback_matches_the_service():
+    import json
+
+    # The cash flows are the JSON body; the two scalars are query params.
+    params = {"initial_investment": 100000.0, "discount_rate": 0.1}
+    client = TestClient(load_service("discounted-payback-period-service").main.app)
+    served = client.post("/calculate", params=params, json=[40000.0, 50000.0, 60000.0])
+    assert served.status_code == 200, served.text
+    service = served.json()
+
+    rust = json.loads(native.discounted_payback_json(100000.0, [40000.0, 50000.0, 60000.0], 0.1))
+    assert Decimal(str(service["discounted_payback_period"])) == Decimal(str(rust["discounted_payback_period"]))
+    assert service["payback_achieved_in_year"] == rust["payback_achieved_in_year"]
+    assert service["note"] == rust["note"]
+    for served_row, rust_row in zip(service["discounted_cash_flow_schedule"], rust["discounted_cash_flow_schedule"]):
+        for key in ("discount_factor", "present_value", "cumulative_pv"):
+            assert Decimal(str(served_row[key])) == Decimal(str(rust_row[key])), key
+
+
+def test_arr_matches_the_service():
+    params = {
+        "initial_investment": 200000.0,
+        "residual_value": 20000.0,
+        "total_profits": 150000.0,
+        "years": 3,
+    }
+    service, rust = _params_parity("accounting-rate-return-service", "/calculate", params, native.arr_calculate_json)
+    for key in (
+        "average_annual_profit",
+        "average_investment",
+        "arr_percentage",
+        "arr_decimal",
+    ):
+        assert Decimal(str(service[key])) == Decimal(str(rust[key])), key
+
+
+def test_arr_decision_matches_the_service():
+    service, rust = _params_parity(
+        "accounting-rate-return-service",
+        "/decision",
+        {"arr": 18.5, "target_return": 12.0},
+        native.arr_decision_json,
+    )
+    assert service["decision"] == rust["decision"]
+    assert Decimal(str(service["difference"])) == Decimal(str(rust["difference"]))

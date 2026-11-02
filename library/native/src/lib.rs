@@ -18,6 +18,12 @@ use vimbai_assets::{
     amortization, analyze_fixed_assets, depreciation_batch, depreciation_method, AmortizationAsset,
     DepreciationAsset, FixedAssetsRequest,
 };
+use vimbai_capital_valuation::capital_returns::{
+    accounting_rate_of_return, annuity_factor, annuity_factor_percent, arr_decision,
+    arr_from_annual_profits, average_capital, average_profit, compound_rate, cost_of_capital,
+    cost_of_capital_percent, discount_factor, discount_factor_percent, discount_factor_table,
+    discount_factor_table_range, discounted_payback, simple_rate, wacc,
+};
 use vimbai_common::{Money, MoneyError};
 use vimbai_ratios_statements::{
     asset_turnover, croic, du_pont_analysis, eps, eva, CroicRequest, DuPontRequest, EpsRequest,
@@ -250,6 +256,180 @@ fn eps_json(payload: &str) -> PyResult<String> {
     serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
+#[pyfunction]
+fn coc_calculate_json(interest_rate: f64, risk_premium: f64) -> PyResult<String> {
+    let value = cost_of_capital(interest_rate, risk_premium);
+    serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+#[pyfunction]
+fn coc_from_percent_json(
+    interest_rate_percent: f64,
+    risk_premium_percent: f64,
+) -> PyResult<String> {
+    let value = cost_of_capital_percent(interest_rate_percent, risk_premium_percent);
+    serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+#[pyfunction]
+fn coc_wacc_json(
+    equity_value: f64,
+    cost_of_equity: f64,
+    debt_value: f64,
+    cost_of_debt: f64,
+    tax_rate: f64,
+) -> PyResult<String> {
+    match wacc(
+        equity_value,
+        cost_of_equity,
+        debt_value,
+        cost_of_debt,
+        tax_rate,
+    ) {
+        Ok(value) => {
+            serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+        }
+        Err(message) => Ok(serde_json::json!({"error": message}).to_string()),
+    }
+}
+
+#[pyfunction]
+fn coc_simple_rate_json(principal: f64, amount_after: f64, years: i64) -> PyResult<String> {
+    match simple_rate(principal, amount_after, years) {
+        Ok(value) => {
+            serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+        }
+        Err(message) => Ok(serde_json::json!({"error": message}).to_string()),
+    }
+}
+
+#[pyfunction]
+fn coc_compound_rate_json(present_value: f64, future_value: f64, years: i64) -> PyResult<String> {
+    match compound_rate(present_value, future_value, years) {
+        Ok(value) => {
+            serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+        }
+        Err(message) => Ok(serde_json::json!({"error": message}).to_string()),
+    }
+}
+
+#[pyfunction]
+fn df_calculate_json(rate: f64, years: i64) -> PyResult<String> {
+    match discount_factor(rate, years) {
+        Ok(value) => {
+            serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+        }
+        Err(message) => Ok(serde_json::json!({"error": message}).to_string()),
+    }
+}
+
+#[pyfunction]
+fn df_percent_json(rate_percent: f64, years: i64) -> PyResult<String> {
+    let value = discount_factor_percent(rate_percent, years);
+    serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+#[pyfunction]
+fn df_annuity_json(rate: f64, years: i64) -> PyResult<String> {
+    let value = annuity_factor(rate, years);
+    serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+#[pyfunction]
+fn df_annuity_percent_json(rate_percent: f64, years: i64) -> PyResult<String> {
+    let value = annuity_factor_percent(rate_percent, years);
+    serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+#[pyfunction]
+fn df_table_json(base_rate: f64, years: Vec<i64>) -> PyResult<String> {
+    let value = discount_factor_table(base_rate, &years);
+    serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+#[pyfunction]
+fn df_table_range_json(
+    rate_start: f64,
+    rate_end: f64,
+    rate_step: f64,
+    years: i64,
+) -> PyResult<String> {
+    match discount_factor_table_range(rate_start, rate_end, rate_step, years) {
+        Ok(value) => {
+            serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+        }
+        Err(message) => Ok(serde_json::json!({"error": message}).to_string()),
+    }
+}
+
+#[pyfunction]
+fn discounted_payback_json(
+    initial_investment: f64,
+    cash_flows: Vec<f64>,
+    discount_rate: f64,
+) -> PyResult<String> {
+    let value = discounted_payback(initial_investment, &cash_flows, discount_rate);
+    serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+#[pyfunction]
+fn arr_calculate_json(
+    initial_investment: f64,
+    residual_value: f64,
+    total_profits: f64,
+    years: i64,
+) -> PyResult<String> {
+    match accounting_rate_of_return(initial_investment, residual_value, total_profits, years) {
+        Ok(value) => {
+            serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+        }
+        Err(message) => Ok(serde_json::json!({"error": message}).to_string()),
+    }
+}
+
+#[pyfunction]
+fn arr_from_profits_json(
+    annual_profits: Vec<f64>,
+    initial_investment: f64,
+    residual_value: f64,
+) -> PyResult<String> {
+    match arr_from_annual_profits(&annual_profits, initial_investment, residual_value) {
+        Ok(value) => {
+            serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+        }
+        Err(message) => Ok(serde_json::json!({"error": message}).to_string()),
+    }
+}
+
+/// `/compare`: projects arrive as (name, initial, residual, profits) tuples.
+#[pyfunction]
+fn arr_compare_json(projects: Vec<(String, f64, f64, Vec<f64>)>) -> PyResult<String> {
+    let value = vimbai_capital_valuation::capital_returns::arr_comparison(&projects);
+    serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+#[pyfunction]
+fn arr_decision_json(arr: f64, target_return: f64) -> PyResult<String> {
+    let value = arr_decision(arr, target_return);
+    serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+#[pyfunction]
+fn arr_average_profit_json(total_profits: f64, years: i64) -> PyResult<String> {
+    match average_profit(total_profits, years) {
+        Ok(value) => {
+            serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+        }
+        Err(message) => Ok(serde_json::json!({"error": message}).to_string()),
+    }
+}
+
+#[pyfunction]
+fn arr_average_capital_json(initial_investment: f64, residual_value: f64) -> PyResult<String> {
+    let value = average_capital(initial_investment, residual_value);
+    serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -266,6 +446,25 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(croic_json, m)?)?;
     m.add_function(wrap_pyfunction!(eva_json, m)?)?;
     m.add_function(wrap_pyfunction!(eps_json, m)?)?;
+    m.add_function(wrap_pyfunction!(coc_calculate_json, m)?)?;
+    m.add_function(wrap_pyfunction!(coc_from_percent_json, m)?)?;
+    m.add_function(wrap_pyfunction!(coc_wacc_json, m)?)?;
+    m.add_function(wrap_pyfunction!(coc_simple_rate_json, m)?)?;
+    m.add_function(wrap_pyfunction!(coc_compound_rate_json, m)?)?;
+    m.add_function(wrap_pyfunction!(df_calculate_json, m)?)?;
+    m.add_function(wrap_pyfunction!(df_percent_json, m)?)?;
+    m.add_function(wrap_pyfunction!(df_annuity_json, m)?)?;
+    m.add_function(wrap_pyfunction!(df_annuity_percent_json, m)?)?;
+    m.add_function(wrap_pyfunction!(df_table_json, m)?)?;
+    m.add_function(wrap_pyfunction!(df_table_range_json, m)?)?;
+    m.add_function(wrap_pyfunction!(discounted_payback_json, m)?)?;
+    m.add_function(wrap_pyfunction!(arr_calculate_json, m)?)?;
+    m.add_function(wrap_pyfunction!(arr_from_profits_json, m)?)?;
+    m.add_function(wrap_pyfunction!(arr_compare_json, m)?)?;
+    m.add_function(wrap_pyfunction!(arr_decision_json, m)?)?;
+    m.add_function(wrap_pyfunction!(arr_average_profit_json, m)?)?;
+    m.add_function(wrap_pyfunction!(arr_average_capital_json, m)?)?;
+
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

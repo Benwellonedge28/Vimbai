@@ -17,14 +17,6 @@
       "strip_prefix": false
     },
     {
-      "name": "accounting-rate-return-service",
-      "path": "/accounting-rate-return",
-      "url": "http://localhost:9007",
-      "port": 8012,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "accounting-service",
       "path": "/accounting",
       "url": "http://localhost:8000",
@@ -447,14 +439,6 @@
       "strip_prefix": false
     },
     {
-      "name": "cost-of-capital-service",
-      "path": "/cost-of-capital",
-      "url": "http://localhost:9012",
-      "port": 8037,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "credit-derivatives-service",
       "path": "/credit-derivatives",
       "url": "http://localhost:9003",
@@ -563,22 +547,6 @@
       "path": "/director-emoluments",
       "url": "http://localhost:9011",
       "port": 8208,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "discount-factor-service",
-      "path": "/discount-factor",
-      "url": "http://localhost:9012",
-      "port": 8043,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "discounted-payback-period-service",
-      "path": "/discounted-payback-period",
-      "url": "http://localhost:9012",
-      "port": 8044,
       "auth_required": true,
       "strip_prefix": false
     },

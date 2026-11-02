@@ -3,11 +3,6 @@
   "port": 9007,
   "members": [
     {
-      "path": "/accounting-rate-return",
-      "name": "accounting-rate-return-service",
-      "dir": "accounting-rate-return-service"
-    },
-    {
       "path": "/analytical-procedures",
       "name": "analytical-procedures-service",
       "dir": "analytical-procedures-service"

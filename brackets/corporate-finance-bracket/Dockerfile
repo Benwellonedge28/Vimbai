@@ -24,12 +24,9 @@ COPY cash-management-service ./cash-management-service
 COPY cash-optimization-service ./cash-optimization-service
 COPY cash-pooling-service ./cash-pooling-service
 COPY commodity-hedging-service ./commodity-hedging-service
-COPY cost-of-capital-service ./cost-of-capital-service
 COPY cvp-analysis-service ./cvp-analysis-service
 COPY deal-structuring-service ./deal-structuring-service
 COPY debentures-service ./debentures-service
-COPY discount-factor-service ./discount-factor-service
-COPY discounted-payback-period-service ./discounted-payback-period-service
 COPY divestiture-service ./divestiture-service
 COPY due-diligence-service ./due-diligence-service
 COPY exotic-derivatives-service ./exotic-derivatives-service
