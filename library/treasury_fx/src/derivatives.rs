@@ -2,6 +2,7 @@
 //! swap valuation, futures positions, commodity hedges and interest rate
 //! sensitivity.
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 use crate::fx_rates::round_half_even;
 
@@ -24,8 +25,9 @@ pub struct CrossCurrencySwap {
 pub struct CrossCurrencySwapRequest {
     pub company_id: String,
     pub swaps: Vec<CrossCurrencySwap>,
-    pub fx_spot: Vec<(String, f64)>,
-    pub ois_rates: Vec<(String, f64)>,
+    /// Sent as JSON objects by the service, so they arrive as maps.
+    pub fx_spot: BTreeMap<String, f64>,
+    pub ois_rates: BTreeMap<String, f64>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -48,7 +50,8 @@ pub struct CrossCurrencySwapValuation {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CurrencyExposure {
     pub total_mtm: f64,
-    pub by_currency: Vec<(String, f64)>,
+    /// Serialised as a JSON object, matching the service.
+    pub by_currency: BTreeMap<String, f64>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -59,15 +62,15 @@ pub struct CrossCurrencySwapResult {
     pub recommendations: Vec<String>,
 }
 
-fn lookup(table: &[(String, f64)], key: &str) -> Option<f64> {
-    table.iter().find(|(k, _)| k == key).map(|(_, v)| *v)
+fn lookup(table: &BTreeMap<String, f64>, key: &str) -> Option<f64> {
+    table.get(key).copied()
 }
 
-fn add_exposure(map: &mut Vec<(String, f64)>, key: &str, delta: f64) {
-    if let Some(slot) = map.iter_mut().find(|(k, _)| k == key) {
-        slot.1 += delta;
+fn add_exposure(map: &mut BTreeMap<String, f64>, key: &str, delta: f64) {
+    if let Some(slot) = map.get_mut(key) {
+        *slot += delta;
     } else {
-        map.push((key.to_string(), delta));
+        map.insert(key.to_string(), delta);
     }
 }
 
@@ -94,7 +97,7 @@ fn add_exposure(map: &mut Vec<(String, f64)>, key: &str, delta: f64) {
 pub fn value_cross_currency_swaps(req: &CrossCurrencySwapRequest) -> CrossCurrencySwapResult {
     let mut swap_valuations = Vec::new();
     let mut total_mtm = 0.0;
-    let mut exposure_by_currency: Vec<(String, f64)> = Vec::new();
+    let mut exposure_by_currency: BTreeMap<String, f64> = BTreeMap::new();
 
     for swap in &req.swaps {
         let rate_1 = lookup(&req.ois_rates, &swap.currency_1).unwrap_or(swap.rate_1);
@@ -197,13 +200,17 @@ pub struct Swap {
 pub struct SwapValuationRequest {
     pub company_id: String,
     pub swaps: Vec<Swap>,
-    pub current_yield_curve: Vec<(String, f64)>,
+    /// Sent as a JSON object by the service. Carried but unused, exactly as in
+    /// the Python valuation, which discounts off the single OIS rate.
+    pub current_yield_curve: BTreeMap<String, f64>,
     pub ois_rate: f64,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SwapValuation {
     pub swap_id: String,
+    /// The service calls this key `type`.
+    #[serde(rename = "type")]
     pub swap_type: String,
     pub notional: f64,
     pub fixed_rate: f64,
@@ -309,7 +316,9 @@ pub fn value_swaps(req: &SwapValuationRequest) -> SwapValuationResult {
         .sum();
 
     let counterparty_exposure = CounterpartyExposure {
-        net_exposure: round_half_even((receive_fixed + pay_fixed).max(0.0), 2),
+        // `pay_fixed` is a negative sum, so subtracting it adds the magnitude,
+        // which is what the service's max(receive - pay, 0) does.
+        net_exposure: round_half_even((receive_fixed - pay_fixed).max(0.0), 2),
         gross_exposure: round_half_even(receive_fixed + pay_fixed.abs(), 2),
         // the largest single market value, which can itself be negative
         largest_exposure: if swap_valuations.is_empty() {

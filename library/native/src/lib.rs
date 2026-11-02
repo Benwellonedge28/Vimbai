@@ -32,6 +32,15 @@ use vimbai_ratios_statements::{
 use vimbai_tax::statutory::{statutory_corporate_tax, CorporateTaxInput};
 use vimbai_tax::{calculate_tax, TaxBracket, TaxType};
 use vimbai_treasury_fx::analytics::{analyze_treasury, TreasuryAnalyticsRequest};
+use vimbai_treasury_fx::derivatives::{
+    value_cross_currency_swaps, value_swaps, CrossCurrencySwapRequest, SwapValuationRequest,
+};
+use vimbai_treasury_fx::fx_hedging::{analyze_currency_hedge, CurrencyHedgingRequest};
+use vimbai_treasury_fx::fx_translation::{translate_financials, TranslationRequest};
+use vimbai_treasury_fx::hedging_analytics::{
+    analyze_commodity_hedge, analyze_futures_hedge, analyze_interest_rate_hedge,
+    CommodityHedgingRequest, FuturesHedgingRequest, InterestRateHedgingRequest,
+};
 
 /// Anything the seam refuses, described in words the calling service can log.
 #[derive(Debug)]
@@ -430,6 +439,69 @@ fn arr_average_capital_json(initial_investment: f64, residual_value: f64) -> PyR
     serde_json::to_string(&value).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
+/// `analyze_currency_hedge` with the service's own request and response bodies.
+#[pyfunction]
+fn fx_currency_hedging_json(payload: &str) -> PyResult<String> {
+    let request: CurrencyHedgingRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = analyze_currency_hedge(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// `value_cross_currency_swaps` with the service's own request and response bodies.
+#[pyfunction]
+fn fx_cross_currency_swap_json(payload: &str) -> PyResult<String> {
+    let request: CrossCurrencySwapRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = value_cross_currency_swaps(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// `value_swaps` with the service's own request and response bodies.
+#[pyfunction]
+fn fx_swap_valuation_json(payload: &str) -> PyResult<String> {
+    let request: SwapValuationRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = value_swaps(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// `analyze_futures_hedge` with the service's own request and response bodies.
+#[pyfunction]
+fn fx_futures_hedging_json(payload: &str) -> PyResult<String> {
+    let request: FuturesHedgingRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = analyze_futures_hedge(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// `analyze_commodity_hedge` with the service's own request and response bodies.
+#[pyfunction]
+fn fx_commodity_hedging_json(payload: &str) -> PyResult<String> {
+    let request: CommodityHedgingRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = analyze_commodity_hedge(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// `analyze_interest_rate_hedge` with the service's own request and response bodies.
+#[pyfunction]
+fn fx_interest_rate_hedging_json(payload: &str) -> PyResult<String> {
+    let request: InterestRateHedgingRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = analyze_interest_rate_hedge(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
+/// `translate_financials` with the service's own request and response bodies.
+#[pyfunction]
+fn fx_translation_json(payload: &str) -> PyResult<String> {
+    let request: TranslationRequest =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let response = translate_financials(&request);
+    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -464,6 +536,13 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(arr_decision_json, m)?)?;
     m.add_function(wrap_pyfunction!(arr_average_profit_json, m)?)?;
     m.add_function(wrap_pyfunction!(arr_average_capital_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_currency_hedging_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_cross_currency_swap_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_swap_valuation_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_futures_hedging_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_commodity_hedging_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_interest_rate_hedging_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_translation_json, m)?)?;
 
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())

@@ -58,19 +58,9 @@
       "dir": "credit-risk-analysis-service"
     },
     {
-      "path": "/cross-currency-swap",
-      "name": "cross-currency-swap-service",
-      "dir": "cross-currency-swap-service"
-    },
-    {
       "path": "/currency",
       "name": "currency-service",
       "dir": "currency-service"
-    },
-    {
-      "path": "/currency-hedging",
-      "name": "currency-hedging-service",
-      "dir": "currency-hedging-service"
     },
     {
       "path": "/debt-covenants",
@@ -83,19 +73,9 @@
       "dir": "debt-management-service"
     },
     {
-      "path": "/foreign-currency-translation",
-      "name": "foreign-currency-translation-service",
-      "dir": "foreign-currency-translation-service"
-    },
-    {
       "path": "/initial-investment",
       "name": "initial-investment-service",
       "dir": "initial-investment-service"
-    },
-    {
-      "path": "/interest-rate-hedging",
-      "name": "interest-rate-hedging-service",
-      "dir": "interest-rate-hedging-service"
     },
     {
       "path": "/interest-rate-risk",

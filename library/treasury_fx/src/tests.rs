@@ -4,6 +4,7 @@ use crate::fx_hedging::*;
 use crate::fx_rates::*;
 use crate::fx_translation::*;
 use crate::multi_currency::*;
+use std::collections::BTreeMap;
 
 fn currencies() -> Vec<Currency> {
     vec![
@@ -575,11 +576,11 @@ fn xccs(tenor: f64, with_ois: bool) -> CrossCurrencySwapRequest {
             tenor_years: tenor,
             exchange_at_inception: true,
         }],
-        fx_spot: vec![("USD/EUR".to_string(), 0.92)],
+        fx_spot: BTreeMap::from([("USD/EUR".to_string(), 0.92)]),
         ois_rates: if with_ois {
-            vec![("USD".to_string(), 0.04), ("EUR".to_string(), 0.03)]
+            BTreeMap::from([("USD".to_string(), 0.04), ("EUR".to_string(), 0.03)])
         } else {
-            vec![]
+            BTreeMap::new()
         },
     }
 }
@@ -634,7 +635,7 @@ fn long_tenor_coupon_cancels_when_no_ois_is_supplied() {
 #[test]
 fn cross_currency_swap_without_ois_uses_contract_rates() {
     let mut req = xccs(2.5, false);
-    req.fx_spot = vec![];
+    req.fx_spot = BTreeMap::new();
     req.swaps[0].notional_1 = 500_000.0;
     req.swaps[0].currency_1 = "USD".into();
     req.swaps[0].rate_1 = 0.05;
@@ -661,10 +662,8 @@ fn cross_currency_exposure_is_signed_and_flagged() {
     req.swaps.push(extra);
     let r = value_cross_currency_swaps(&req);
     let map = &r.currency_exposure.by_currency;
-    let usd = map.iter().find(|(k, _)| k == "USD").unwrap();
-    let eur = map.iter().find(|(k, _)| k == "EUR").unwrap();
-    assert_eq!(usd.1, 1_000_000.0);
-    assert_eq!(eur.1, -920_000.0);
+    assert_eq!(map.get("USD").copied(), Some(1_000_000.0));
+    assert_eq!(map.get("EUR").copied(), Some(-920_000.0));
     assert_eq!(map.len(), 4);
     assert!(r
         .recommendations
@@ -687,7 +686,7 @@ fn swap_request(swaps: Vec<Swap>, ois: f64) -> SwapValuationRequest {
     SwapValuationRequest {
         company_id: "c1".into(),
         swaps,
-        current_yield_curve: vec![("3y".to_string(), 0.032)],
+        current_yield_curve: BTreeMap::from([("3y".to_string(), 0.032)]),
         ois_rate: ois,
     }
 }
@@ -745,8 +744,10 @@ fn swap_portfolio_split_and_concentration() {
     assert!((r.portfolio_summary.total_mtm - legs).abs() < 1e-6);
     assert_eq!(r.portfolio_summary.swap_count, 2);
     // net exposure floors at zero, gross exposure adds the absolute value
+    // pay_fixed_pv is negative and is SUBTRACTED, so a net payer shows a
+    // positive net exposure, exactly as the Python service reports it.
     let expected_net = round_half_even(
-        (r.portfolio_summary.receive_fixed_pv + negative).max(0.0),
+        (r.portfolio_summary.receive_fixed_pv - r.portfolio_summary.pay_fixed_pv).max(0.0),
         2,
     );
     let expected_gross = round_half_even(r.portfolio_summary.receive_fixed_pv + negative.abs(), 2);
@@ -877,7 +878,7 @@ fn commodity_request() -> CommodityHedgingRequest {
             },
         ],
         hedge_ratio: 0.6,
-        budget_rate: vec![("Copper".to_string(), 8_800.0)],
+        budget_rate: BTreeMap::from([("Copper".to_string(), 8_800.0)]),
     }
 }
 
@@ -935,7 +936,7 @@ fn commodity_zero_variance_reads_as_under_budget() {
             ..Default::default()
         }],
         hedge_ratio: 0.3,
-        budget_rate: vec![],
+        budget_rate: BTreeMap::new(),
     });
     assert_eq!(r.budget_impact.variance, 0.0);
     assert_eq!(r.budget_impact.status, "Under Budget");
@@ -1774,7 +1775,6 @@ fn calendar_helpers_handle_month_and_year_boundaries() {
 // ------------------------------------------------ treasury operations
 
 use crate::operations::*;
-use std::collections::BTreeMap;
 
 fn txn(id: &str, kind: &str, amount: &str, status: &str) -> TreasuryTransaction {
     TreasuryTransaction {

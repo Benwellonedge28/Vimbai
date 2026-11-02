@@ -741,3 +741,227 @@ def test_arr_decision_matches_the_service():
     )
     assert service["decision"] == rust["decision"]
     assert Decimal(str(service["difference"])) == Decimal(str(rust["difference"]))
+
+
+# --- hedging and FX family --------------------------------------------------
+# Seven small services that were already in treasury_fx but still owned their
+# endpoints. Nothing new to port: parity is the gate, so the crate answers only
+# once it reproduces the service bodies.
+
+FUTURES_HEDGING_REQUEST = {
+    "company_id": "c1",
+    "positions": [
+        {
+            "future_id": "f1",
+            "contract_month": "2026-06",
+            "position_size": 10.0,
+            "entry_price": 100.0,
+            "current_price": 112.0,
+            "contract_size": 100.0,
+        }
+    ],
+    "spot_exposure": 120000.0,
+    "target_hedge_ratio": 0.8,
+    "basis_risk": 0.02,
+}
+
+COMMODITY_HEDGING_REQUEST = {
+    "company_id": "c1",
+    "exposures": [
+        {
+            "commodity": "copper",
+            "exposure_type": "long",
+            "volume": 50.0,
+            "unit": "tonnes",
+            "current_price": 8200.0,
+            "budget_price": 7800.0,
+            "volatility": 0.18,
+        }
+    ],
+    "hedge_ratio": 0.7,
+    "budget_rate": {"copper": 7800.0},
+}
+
+INTEREST_RATE_HEDGING_REQUEST = {
+    "company_id": "c1",
+    "exposures": [
+        {
+            "debt_id": "d1",
+            "principal": 500000.0,
+            "current_rate": 0.11,
+            "rate_type": "variable",
+            "maturity_years": 3.0,
+            "reference_rate": "SOFR",
+        }
+    ],
+    "total_debt": 500000.0,
+    "variable_debt": 500000.0,
+    "rate_shock_scenarios": [-0.02, 0.0, 0.02],
+    "yield_curve_slope": 0.015,
+}
+
+TRANSLATION_REQUEST = {
+    "company_id": "c1",
+    "subsidiary": "Vimbai ZW",
+    "functional_currency": "USD",
+    "presentation_currency": "ZWG",
+    "closing_rate": 26.5,
+    "avg_rate": 25.0,
+    "historical_rate": 24.0,
+    "net_assets": [
+        {"account": "Property", "amount": 400000.0, "is_monetary": False},
+        {"account": "Receivables", "amount": 120000.0, "is_monetary": True},
+    ],
+    "income_statement": [{"account": "Revenue", "amount": 900000.0, "is_monetary": False}],
+    "goodwill": 50000.0,
+}
+
+SWAP_VALUATION_REQUEST = {
+    "company_id": "c1",
+    "swaps": [
+        {
+            "swap_id": "s1",
+            "swap_type": "interest_rate",
+            "notional": 1000000.0,
+            "fixed_rate": 0.08,
+            "floating_rate": 0.095,
+            "tenor_years": 3,
+            "payment_frequency": "annual",
+        }
+    ],
+    "current_yield_curve": {"1Y": 0.09, "3Y": 0.095},
+    "ois_rate": 0.085,
+}
+
+CROSS_CURRENCY_SWAP_REQUEST = {
+    "company_id": "c1",
+    "swaps": [
+        {
+            "swap_id": "x1",
+            "notional_1": 1000000.0,
+            "currency_1": "USD",
+            "rate_1": 0.05,
+            "notional_2": 26500000.0,
+            "currency_2": "ZWG",
+            "rate_2": 0.12,
+            "tenor_years": 3.0,
+            "exchange_at_inception": True,
+        }
+    ],
+    "fx_spot": {"USD/ZWG": 26.5},
+    "ois_rates": {"USD": 0.05, "ZWG": 0.12},
+}
+
+CURRENCY_HEDGING_REQUEST = {
+    "company_id": "c1",
+    "exposures": [
+        {
+            "currency_pair": "USD/ZWG",
+            "exposure_amount": 250000.0,
+            "spot_rate": 26.5,
+            "expected_rate": 28.0,
+            "volatility": 0.14,
+        }
+    ],
+    "current_hedge_ratio": 0.4,
+    "target_hedge_ratio": 0.75,
+    "risk_aversion": 0.6,
+}
+
+
+def _bodies_match(service, rust, path=""):
+    """Recursively compare two JSON bodies, treating floats as decimals."""
+    if isinstance(service, dict) and isinstance(rust, dict):
+        for key in set(service) | set(rust):
+            assert key in service, f"extra key in rust at {path}.{key}"
+            assert key in rust, f"missing key in rust at {path}.{key}"
+            _bodies_match(service[key], rust[key], f"{path}.{key}")
+    elif isinstance(service, list) and isinstance(rust, list):
+        assert len(service) == len(rust), f"length differs at {path}"
+        for index, (left, right) in enumerate(zip(service, rust)):
+            _bodies_match(left, right, f"{path}[{index}]")
+    else:
+        try:
+            assert Decimal(str(service)) == Decimal(str(rust)), f"{path}: {service} vs {rust}"
+        except ArithmeticError:
+            assert service == rust, f"{path}: {service!r} vs {rust!r}"
+
+
+def _hedging_parity(service_name, path, request, seam_call, drop=()):
+    import json
+
+    client = TestClient(load_service(service_name).main.app)
+    served = client.post(path, json=request)
+    assert served.status_code == 200, served.text
+    service = served.json()
+    rust = json.loads(seam_call(json.dumps(request)))
+    for key in drop:
+        service.pop(key, None)
+        rust.pop(key, None)
+    _bodies_match(service, rust)
+    return service, rust
+
+
+def test_futures_hedging_matches_the_service():
+    _hedging_parity(
+        "futures-hedging-service",
+        "/analyze",
+        FUTURES_HEDGING_REQUEST,
+        native.fx_futures_hedging_json,
+    )
+
+
+def test_commodity_hedging_matches_the_service():
+    _hedging_parity(
+        "commodity-hedging-service",
+        "/analyze",
+        COMMODITY_HEDGING_REQUEST,
+        native.fx_commodity_hedging_json,
+    )
+
+
+def test_interest_rate_hedging_matches_the_service():
+    _hedging_parity(
+        "interest-rate-hedging-service",
+        "/analyze",
+        INTEREST_RATE_HEDGING_REQUEST,
+        native.fx_interest_rate_hedging_json,
+    )
+
+
+def test_fx_translation_matches_the_service():
+    # The service mints a uuid per translation; the crate is stateless.
+    _hedging_parity(
+        "foreign-currency-translation-service",
+        "/translate",
+        TRANSLATION_REQUEST,
+        native.fx_translation_json,
+        drop=("id",),
+    )
+
+
+def test_swap_valuation_matches_the_service():
+    _hedging_parity(
+        "swap-valuation-service",
+        "/value",
+        SWAP_VALUATION_REQUEST,
+        native.fx_swap_valuation_json,
+    )
+
+
+def test_cross_currency_swap_matches_the_service():
+    _hedging_parity(
+        "cross-currency-swap-service",
+        "/value",
+        CROSS_CURRENCY_SWAP_REQUEST,
+        native.fx_cross_currency_swap_json,
+    )
+
+
+def test_currency_hedging_matches_the_service():
+    _hedging_parity(
+        "currency-hedging-service",
+        "/analyze",
+        CURRENCY_HEDGING_REQUEST,
+        native.fx_currency_hedging_json,
+    )

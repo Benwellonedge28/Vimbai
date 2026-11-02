@@ -143,6 +143,18 @@ STATEMENT_PAYROLL_PORTS = {
 
 # The tax pair retires only after the seam reproduces their figures; those
 # parity cases live in tests/test_native_seam.py.
+# The hedging and FX family, ported into treasury_fx and proven body-for-body
+# by tests/test_native_seam.py.
+HEDGING_FX_PORTS = {
+    "currency-hedging-service",
+    "cross-currency-swap-service",
+    "swap-valuation-service",
+    "futures-hedging-service",
+    "commodity-hedging-service",
+    "interest-rate-hedging-service",
+    "foreign-currency-translation-service",
+}
+
 # Capital-return calculators, ported into capital_valuation::capital_returns.
 CAPITAL_RETURN_PORTS = {
     "cost-of-capital-service",

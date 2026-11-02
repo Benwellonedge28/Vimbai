@@ -38,11 +38,6 @@
       "dir": "cash-pooling-service"
     },
     {
-      "path": "/commodity-hedging",
-      "name": "commodity-hedging-service",
-      "dir": "commodity-hedging-service"
-    },
-    {
       "path": "/cvp-analysis",
       "name": "cvp-analysis-service",
       "dir": "cvp-analysis-service"
@@ -86,11 +81,6 @@
       "path": "/fund-management",
       "name": "fund-management-service",
       "dir": "fund-management-service"
-    },
-    {
-      "path": "/futures-hedging",
-      "name": "futures-hedging-service",
-      "dir": "futures-hedging-service"
     },
     {
       "path": "/household-finance",
@@ -181,11 +171,6 @@
       "path": "/sustainable-growth",
       "name": "sustainable-growth-service",
       "dir": "sustainable-growth-service"
-    },
-    {
-      "path": "/swap-valuation",
-      "name": "swap-valuation-service",
-      "dir": "swap-valuation-service"
     },
     {
       "path": "/synergy-analysis",

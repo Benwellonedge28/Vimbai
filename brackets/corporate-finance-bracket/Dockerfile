@@ -23,7 +23,6 @@ COPY capital-redemption-reserve-service ./capital-redemption-reserve-service
 COPY cash-management-service ./cash-management-service
 COPY cash-optimization-service ./cash-optimization-service
 COPY cash-pooling-service ./cash-pooling-service
-COPY commodity-hedging-service ./commodity-hedging-service
 COPY cvp-analysis-service ./cvp-analysis-service
 COPY deal-structuring-service ./deal-structuring-service
 COPY debentures-service ./debentures-service
@@ -33,7 +32,6 @@ COPY exotic-derivatives-service ./exotic-derivatives-service
 COPY financial-planning-service ./financial-planning-service
 COPY foreign-exchange-service ./foreign-exchange-service
 COPY fund-management-service ./fund-management-service
-COPY futures-hedging-service ./futures-hedging-service
 COPY household-finance-service ./household-finance-service
 COPY insurance-claims-service ./insurance-claims-service
 COPY liquidity-forecast-service ./liquidity-forecast-service
@@ -52,7 +50,6 @@ COPY rolling-forecast-service ./rolling-forecast-service
 COPY scenario-analysis-service ./scenario-analysis-service
 COPY sensitivity-analysis-service ./sensitivity-analysis-service
 COPY sustainable-growth-service ./sustainable-growth-service
-COPY swap-valuation-service ./swap-valuation-service
 COPY synergy-analysis-service ./synergy-analysis-service
 COPY time-value-of-money-service ./time-value-of-money-service
 COPY trade-finance-service ./trade-finance-service

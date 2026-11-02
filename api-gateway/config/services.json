@@ -375,14 +375,6 @@
       "strip_prefix": false
     },
     {
-      "name": "commodity-hedging-service",
-      "path": "/commodity-hedging",
-      "url": "http://localhost:9012",
-      "port": 8253,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "company-accounting-service",
       "path": "/company-accounting",
       "url": "http://localhost:9011",
@@ -451,22 +443,6 @@
       "path": "/credit-risk-analysis",
       "url": "http://localhost:9003",
       "port": 8163,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "cross-currency-swap-service",
-      "path": "/cross-currency-swap",
-      "url": "http://localhost:9003",
-      "port": 8256,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "currency-hedging-service",
-      "path": "/currency-hedging",
-      "url": "http://localhost:9003",
-      "port": 8251,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -750,14 +726,6 @@
       "strip_prefix": false
     },
     {
-      "name": "foreign-currency-translation-service",
-      "path": "/foreign-currency-translation",
-      "url": "http://localhost:9003",
-      "port": 8373,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "foreign-exchange-service",
       "path": "/foreign-exchange",
       "url": "http://localhost:9012",
@@ -802,14 +770,6 @@
       "path": "/fund-management",
       "url": "http://localhost:9012",
       "port": 8266,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "futures-hedging-service",
-      "path": "/futures-hedging",
-      "url": "http://localhost:9012",
-      "port": 8250,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -914,14 +874,6 @@
       "path": "/intercompany",
       "url": "http://localhost:9011",
       "port": 8350,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "interest-rate-hedging-service",
-      "path": "/interest-rate-hedging",
-      "url": "http://localhost:9003",
-      "port": 8252,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1764,14 +1716,6 @@
       "path": "/sustainable-growth",
       "url": "http://localhost:9012",
       "port": 8215,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "swap-valuation-service",
-      "path": "/swap-valuation",
-      "url": "http://localhost:9012",
-      "port": 8249,
       "auth_required": true,
       "strip_prefix": false
     },

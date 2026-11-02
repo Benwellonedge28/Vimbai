@@ -27,14 +27,10 @@ COPY cash-flow-service ./cash-flow-service
 COPY cash-flow-forecasting-service ./cash-flow-forecasting-service
 COPY credit-derivatives-service ./credit-derivatives-service
 COPY credit-risk-analysis-service ./credit-risk-analysis-service
-COPY cross-currency-swap-service ./cross-currency-swap-service
 COPY currency-service ./currency-service
-COPY currency-hedging-service ./currency-hedging-service
 COPY debt-covenants-service ./debt-covenants-service
 COPY debt-management-service ./debt-management-service
-COPY foreign-currency-translation-service ./foreign-currency-translation-service
 COPY initial-investment-service ./initial-investment-service
-COPY interest-rate-hedging-service ./interest-rate-hedging-service
 COPY interest-rate-risk-service ./interest-rate-risk-service
 COPY investment-appraisal-service ./investment-appraisal-service
 COPY investment-monitoring-service ./investment-monitoring-service

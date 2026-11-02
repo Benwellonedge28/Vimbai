@@ -1,5 +1,6 @@
 //! Futures, commodity and interest rate hedge analytics.
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 use crate::fx_rates::round_half_even;
 
@@ -154,7 +155,8 @@ pub struct CommodityHedgingRequest {
     pub company_id: String,
     pub exposures: Vec<CommodityExposure>,
     pub hedge_ratio: f64,
-    pub budget_rate: Vec<(String, f64)>,
+    /// Commodity → budget price. Sent as a JSON object by the service.
+    pub budget_rate: BTreeMap<String, f64>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -223,9 +225,8 @@ pub fn analyze_commodity_hedge(req: &CommodityHedgingRequest) -> CommodityHedgin
         let exposure_value = exp.volume * exp.current_price;
         let budget_price = req
             .budget_rate
-            .iter()
-            .find(|(k, _)| k == &exp.commodity)
-            .map(|(_, v)| *v)
+            .get(&exp.commodity)
+            .copied()
             .unwrap_or(exp.budget_price);
         let budget_value = exp.volume * budget_price;
         let price_upside = (exp.current_price - exp.budget_price).max(0.0) * exp.volume;

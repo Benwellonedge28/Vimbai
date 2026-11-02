@@ -101,9 +101,9 @@ async def value_swaps(request: SwapValuationRequest):
     }
 
     recommendations = []
-    if total_mtm < 0 and abs(total_mtm) > sum(s["notional"] for s in request.swaps) * 0.1:
+    if total_mtm < 0 and abs(total_mtm) > sum(s.notional for s in request.swaps) * 0.1:
         recommendations.append("Significant negative MTM - monitor counterparty risk")
-    if counterparty_exposure["largest_exposure"] > sum(s["notional"] for s in request.swaps) * 0.3:
+    if counterparty_exposure["largest_exposure"] > sum(s.notional for s in request.swaps) * 0.3:
         recommendations.append("Concentrated exposure to single counterparty - consider diversification")
 
     return SwapValuationResponse(
