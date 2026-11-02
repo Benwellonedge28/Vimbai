@@ -80,7 +80,10 @@ jobs:
           if [ -f ${{ matrix.service }}/requirements.txt ]; then
             pip install -r ${{ matrix.service }}/requirements.txt 2>/dev/null || true
           fi
-          pip install pytest pytest-cov pytest-asyncio httpx fastapi pydantic structlog
+          # neo4j is imported at module scope by the Neo4j-backed services;
+          # install it here so a missing pin in one requirements.txt cannot
+          # break collection (see tests/test_service_requirements.py).
+          pip install pytest pytest-cov pytest-asyncio httpx fastapi pydantic structlog neo4j==5.19.0
       - name: Run Tests (if present)
         run: |
           if [ -d "${{ matrix.service }}/tests" ]; then

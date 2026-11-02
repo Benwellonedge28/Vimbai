@@ -1,4 +1,5 @@
 fastapi
+neo4j==5.19.0
 uvicorn
 pydantic
 structlog
