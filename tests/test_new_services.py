@@ -778,8 +778,22 @@ class TestCashManagementService:
 
 
 class TestIFRSReportingService:
+    """IFRS reporting is Book-scoped since the Neo4j conversion; the fake driver is
+    bound the same way as the other converted services."""
+
     def setup_method(self):
-        self.client = TestClient(load_service_app("ifrs-reporting-service"))
+        app = load_service_app("ifrs-reporting-service")
+
+        fake_path = os.path.join(REPO_ROOT, "ifrs-reporting-service", "fake_neo4j.py")
+        spec = importlib.util.spec_from_file_location("ifrs_root_fake", fake_path)
+        fake = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(fake)
+
+        db = importlib.import_module("ifrs_reporting_service.database")
+        self._session = fake.FakeSession()
+        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(self._session))
+        self._headers = {"X-User-Id": "user-ifrs", "X-Book-ID": "book-ifrs"}
+        self.client = TestClient(app)
 
     def test_health(self):
         resp = self.client.get("/health")
@@ -796,6 +810,7 @@ class TestIFRSReportingService:
                 "reporting_date": "2026-12-31T00:00:00",
             },
             json={"assets": 500000, "liabilities": 200000},
+            headers=self._headers,
         )
         report_id = resp.json()["id"]
         assert resp.status_code == 200
@@ -807,6 +822,7 @@ class TestIFRSReportingService:
                 "title": "Accounting Policies",
                 "ifrs_reference": "IAS1.10",
             },
+            headers=self._headers,
         )
         assert note_resp.status_code == 200
         assert note_resp.json()["title"] == "Accounting Policies"

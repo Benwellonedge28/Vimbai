@@ -1,17 +1,36 @@
 """
 Vimbai IFRS Reporting Service
-Generates IFRS-compliant financial statements and disclosure notes.
+IFRS financial reports, their figures and their disclosure notes.
+
+Reports and notes live in Neo4j, scoped to the caller and the Book. The file may be
+imported bare (bracket mounts, uvicorn main:app), so it bootstraps its own package
+alias first.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "ifrs_reporting_service" not in _sys.modules or not hasattr(_sys.modules.get("ifrs_reporting_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("ifrs_reporting_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["ifrs_reporting_service"] = _pkg
+    _sys.modules["ifrs_reporting_service"].__path__ = [_HERE]
+
 import os
-import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from ifrs_reporting_service import crud
+from ifrs_reporting_service.dependencies import book_id_var, get_db_session, get_user_id
+from ifrs_reporting_service.exceptions import ConflictError, NotFoundError
+from ifrs_reporting_service.models import DisclosureNote, IFRSReport
+from neo4j import AsyncSession
 
 SERVICE_NAME = "ifrs-reporting-service"
 SERVICE_VERSION = "1.0.0"
@@ -44,30 +63,11 @@ except ImportError:
     TRACER = None
 
 
-class IFRSReport(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    report_type: str  # balance_sheet, income_statement, cash_flow, equity_changes, notes
-    ifrs_standard: str  # IAS1, IFRS16, IFRS15, IFRS9, IAS36, etc.
-    period: str  # YYYY-MM or YYYY
-    reporting_date: datetime
-    data: Dict[str, Any] = {}
-    disclosures: List[Dict[str, Any]] = []
-    status: str = "draft"  # draft, reviewed, approved, published
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    approved_by: str = ""
-
-
-class DisclosureNote(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    report_id: str
-    note_number: int
-    title: str
-    content: str = ""
-    ifrs_reference: str = ""
-
-
-reports: List[IFRSReport] = []
-notes: List[DisclosureNote] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 @app.get("/")
@@ -83,87 +83,109 @@ async def create_report(
     period: str,
     reporting_date: datetime,
     data: Dict[str, Any] = {},
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Create an IFRS report."""
     valid_types = ["balance_sheet", "income_statement", "cash_flow", "equity_changes", "notes"]
     if report_type not in valid_types:
         raise HTTPException(status_code=400, detail=f"Invalid report type. Must be one of {valid_types}")
 
-    report = IFRSReport(
+    report = await crud.create_report(
+        db_session,
+        user_id,
         report_type=report_type,
         ifrs_standard=ifrs_standard,
         period=period,
         reporting_date=reporting_date,
         data=data,
     )
-    reports.append(report)
     logger.info("IFRS report created", report_id=report.id, type=report_type, standard=ifrs_standard)
     return report
 
 
 @app.get("/reports", response_model=List[IFRSReport])
 async def list_reports(
-    report_type: Optional[str] = None, ifrs_standard: Optional[str] = None, status: Optional[str] = None
+    report_type: Optional[str] = None,
+    ifrs_standard: Optional[str] = None,
+    status: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """List IFRS reports."""
-    result = reports
-    if report_type:
-        result = [r for r in result if r.report_type == report_type]
-    if ifrs_standard:
-        result = [r for r in result if r.ifrs_standard == ifrs_standard]
-    if status:
-        result = [r for r in result if r.status == status]
-    return result
+    return await crud.list_reports(
+        db_session, user_id, report_type=report_type, ifrs_standard=ifrs_standard, status=status
+    )
 
 
 @app.get("/reports/{report_id}", response_model=IFRSReport)
-async def get_report(report_id: str):
+async def get_report(
+    report_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get a specific IFRS report."""
-    report = next((r for r in reports if r.id == report_id), None)
-    if not report:
+    try:
+        return await crud.get_report(db_session, user_id, report_id)
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Report not found")
-    return report
 
 
 @app.post("/reports/{report_id}/notes", response_model=DisclosureNote)
-async def add_note(report_id: str, note_number: int, title: str, content: str = "", ifrs_reference: str = ""):
+async def add_note(
+    report_id: str,
+    note_number: int,
+    title: str,
+    content: str = "",
+    ifrs_reference: str = "",
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Add a disclosure note to an IFRS report."""
-    report = next((r for r in reports if r.id == report_id), None)
-    if not report:
+    try:
+        note = await crud.add_note(
+            db_session,
+            user_id,
+            report_id,
+            note_number=note_number,
+            title=title,
+            content=content,
+            ifrs_reference=ifrs_reference,
+        )
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    note = DisclosureNote(
-        report_id=report_id,
-        note_number=note_number,
-        title=title,
-        content=content,
-        ifrs_reference=ifrs_reference,
-    )
-    notes.append(note)
-    report.disclosures.append({"note_number": note_number, "title": title})
     logger.info("Disclosure note added", report_id=report_id, note_number=note_number)
     return note
 
 
 @app.get("/reports/{report_id}/notes", response_model=List[DisclosureNote])
-async def list_notes(report_id: str):
+async def list_notes(
+    report_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List disclosure notes for a report."""
-    return [n for n in notes if n.report_id == report_id]
+    return await crud.list_notes(db_session, user_id, report_id)
 
 
 @app.put("/reports/{report_id}/approve")
-async def approve_report(report_id: str, approved_by: str):
+async def approve_report(
+    report_id: str,
+    approved_by: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Approve and publish an IFRS report."""
-    report = next((r for r in reports if r.id == report_id), None)
-    if not report:
+    try:
+        report = await crud.approve_report(db_session, user_id, report_id, approved_by)
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="Report not found")
-    if report.status not in ("draft", "reviewed"):
-        raise HTTPException(status_code=400, detail=f"Report cannot be approved from {report.status} state")
+    except ConflictError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-    report.status = "approved"
-    report.approved_by = approved_by
     logger.info("IFRS report approved", report_id=report_id)
-    return {"report_id": report_id, "status": "approved", "approved_by": approved_by}
+    return {"report_id": report_id, "status": "approved", "approved_by": report.approved_by}
 
 
 if __name__ == "__main__":
