@@ -65,7 +65,9 @@ pub fn flexible_budget(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BudgetItem {
+    #[serde(default)]
     pub item: String,
+    #[serde(default)]
     pub amount: f64,
 }
 

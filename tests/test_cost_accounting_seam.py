@@ -774,3 +774,106 @@ class TestActivityBasedCosting:
         assert service["product_costs"] == rust["product_costs"]
         assert service["unit_costs"] == rust["unit_costs"]
         assert service["total_overhead_allocated"] == rust["total_overhead_allocated"]
+
+
+class TestBudgetedAndActualCosts:
+    BUDGET_CASES = [
+        (
+            "create",
+            "budget_create_json",
+            {
+                "department": "Assembly",
+                "period": "2026-11",
+                "direct_material": 12000.0,
+                "direct_labour": 4500.0,
+                "overhead": 3200.5,
+                "other_costs": 300.0,
+            },
+        ),
+        (
+            "flexible-budget",
+            "budget_flexible_json",
+            {"budgeted_cost_per_unit": 42.5, "actual_output": 1800, "budgeted_output": 1600},
+        ),
+        (
+            "compare-output",
+            "budget_compare_output_json",
+            {"budgeted_units": 1600, "actual_units": 1800, "budgeted_cost_per_unit": 42.5},
+        ),
+        (
+            "cost-breakdown",
+            "budget_breakdown_json",
+            {
+                "total_budgeted_cost": 20000.0,
+                "material_percent": 50,
+                "labour_percent": 30,
+                "overhead_percent": 20,
+            },
+        ),
+        (
+            "cost-breakdown",
+            "budget_breakdown_json",
+            {
+                "total_budgeted_cost": 20000.0,
+                "material_percent": 50,
+                "labour_percent": 30,
+                "overhead_percent": 10,
+            },
+        ),
+    ]
+
+    ACTUAL_CASES = [
+        ("material-actual", "actual_material_json", {"actual_quantity": 480, "actual_price_per_unit": 12.75}),
+        ("labour-actual", "actual_labour_json", {"actual_hours": 320, "actual_rate_per_hour": 18.4}),
+        (
+            "total-actual",
+            "actual_total_json",
+            {"actual_direct_material": 6120.0, "actual_direct_labour": 5888.0, "actual_overhead": 3200.0},
+        ),
+        ("compare-to-budget", "actual_compare_budget_json", {"actual_cost": 15208.0, "budgeted_cost": 16000.0}),
+        ("compare-to-budget", "actual_compare_budget_json", {"actual_cost": 16000.0, "budgeted_cost": 16000.0}),
+        ("compare-to-budget", "actual_compare_budget_json", {"actual_cost": 16500.0, "budgeted_cost": 0}),
+        (
+            "variance-breakdown",
+            "actual_variance_json",
+            {
+                "actual_material": 6120.0,
+                "budgeted_material": 6000.0,
+                "actual_labour": 5888.0,
+                "budgeted_labour": 6000.0,
+                "actual_overhead": 3200.0,
+                "budgeted_overhead": 4000.0,
+            },
+        ),
+    ]
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    @pytest.mark.parametrize("path, seam_name, params", BUDGET_CASES)
+    def test_budgeted_cost_matches_the_service(self, monkeypatch, engine, path, seam_name, params):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        client = TestClient(load_service("budgeted-cost-service").main.app)
+        assert client.get("/health").json()["calculation_engine"] == engine
+
+        served = client.post(f"/{path}", params=params)
+        assert served.status_code == 200, served.text
+        assert served.json() == _seam(seam_name, params)
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    def test_total_budget_matches_the_service(self, monkeypatch, engine):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        client = TestClient(load_service("budgeted-cost-service").main.app)
+        items = [{"item": "material", "amount": 12000}, {"item": "labour", "amount": 4500}, {"item": "overhead"}]
+        served = client.post("/total-budget", json=items)
+        assert served.status_code == 200, served.text
+        assert served.json() == _seam("budget_total_json", {"budgeted_costs": items})
+
+    @pytest.mark.parametrize("engine", ["python", "rust"])
+    @pytest.mark.parametrize("path, seam_name, params", ACTUAL_CASES)
+    def test_actual_cost_matches_the_service(self, monkeypatch, engine, path, seam_name, params):
+        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
+        client = TestClient(load_service("actual-cost-service").main.app)
+        assert client.get("/health").json()["calculation_engine"] == engine
+
+        served = client.post(f"/{path}", params=params)
+        assert served.status_code == 200, served.text
+        assert served.json() == _seam(seam_name, params)

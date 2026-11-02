@@ -29,6 +29,13 @@ use vimbai_capital_valuation::capital_returns::{
 use vimbai_common::{Money, MoneyError};
 use vimbai_cost_accounting::absorption::{cost_plus_pricing, overhead_absorption, product_cost};
 use vimbai_cost_accounting::labour_variance::{analyse_labour_variance, LabourVarianceRequest};
+use vimbai_cost_accounting::actual_cost::{
+    actual_labour_cost, actual_material_cost, compare_actual_to_budget, total_actual_cost,
+    variance_breakdown,
+};
+use vimbai_cost_accounting::budgeted_cost::{
+    compare_output, cost_breakdown, create_budgeted_cost, flexible_budget, total_budget, BudgetItem,
+};
 use vimbai_cost_accounting::activity_based::{calculate_abc, AbcRequest};
 use vimbai_cost_accounting::limiting_factor::{
     analyze_limiting_factor, compare_products_for_factor, ProductWithFactor,
@@ -1408,6 +1415,154 @@ fn abc_calculate_json(payload: &str) -> PyResult<String> {
     json_out(&calculate_abc(&request))
 }
 
+#[pyfunction]
+fn budget_create_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        department: String,        #[serde(default)]
+        period: String,        #[serde(default)]
+        direct_material: f64,        #[serde(default)]
+        direct_labour: f64,        #[serde(default)]
+        overhead: f64,        #[serde(default)]
+        other_costs: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&create_budgeted_cost(&b.department, &b.period, b.direct_material, b.direct_labour, b.overhead, b.other_costs))
+}
+
+#[pyfunction]
+fn budget_flexible_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        budgeted_cost_per_unit: f64,        #[serde(default)]
+        actual_output: f64,        #[serde(default)]
+        budgeted_output: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&flexible_budget(b.budgeted_cost_per_unit, b.actual_output, b.budgeted_output))
+}
+
+#[pyfunction]
+fn budget_total_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        budgeted_costs: Vec<BudgetItem>,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&total_budget(&b.budgeted_costs))
+}
+
+#[pyfunction]
+fn budget_compare_output_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        budgeted_units: f64,        #[serde(default)]
+        actual_units: f64,        #[serde(default)]
+        budgeted_cost_per_unit: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&compare_output(b.budgeted_units, b.actual_units, b.budgeted_cost_per_unit))
+}
+
+#[pyfunction]
+fn budget_breakdown_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        total_budgeted_cost: f64,        #[serde(default)]
+        material_percent: f64,        #[serde(default)]
+        labour_percent: f64,        #[serde(default)]
+        overhead_percent: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    // Python returns {"error": ...} for percentages that miss 100
+    match cost_breakdown(
+        b.total_budgeted_cost,
+        b.material_percent,
+        b.labour_percent,
+        b.overhead_percent,
+    ) {
+        Ok(v) => json_out(&v),
+        Err(message) => json_out(&serde_json::json!({ "error": message })),
+    }
+}
+
+#[pyfunction]
+fn actual_material_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        actual_quantity: f64,        #[serde(default)]
+        actual_price_per_unit: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&actual_material_cost(b.actual_quantity, b.actual_price_per_unit))
+}
+
+#[pyfunction]
+fn actual_labour_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        actual_hours: f64,        #[serde(default)]
+        actual_rate_per_hour: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&actual_labour_cost(b.actual_hours, b.actual_rate_per_hour))
+}
+
+#[pyfunction]
+fn actual_total_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        actual_direct_material: f64,        #[serde(default)]
+        actual_direct_labour: f64,        #[serde(default)]
+        actual_overhead: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&total_actual_cost(b.actual_direct_material, b.actual_direct_labour, b.actual_overhead))
+}
+
+#[pyfunction]
+fn actual_compare_budget_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        actual_cost: f64,        #[serde(default)]
+        budgeted_cost: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&compare_actual_to_budget(b.actual_cost, b.budgeted_cost))
+}
+
+#[pyfunction]
+fn actual_variance_json(payload: &str) -> PyResult<String> {
+    #[derive(serde::Deserialize)]
+    struct Body {
+        #[serde(default)]
+        actual_material: f64,        #[serde(default)]
+        budgeted_material: f64,        #[serde(default)]
+        actual_labour: f64,        #[serde(default)]
+        budgeted_labour: f64,        #[serde(default)]
+        actual_overhead: f64,        #[serde(default)]
+        budgeted_overhead: f64,
+    }
+    let b: Body = serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    json_out(&variance_breakdown(
+        b.actual_material,
+        b.budgeted_material,
+        b.actual_labour,
+        b.budgeted_labour,
+        b.actual_overhead,
+        b.budgeted_overhead,
+    ))
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -1481,6 +1636,16 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(standard_per_unit_json, m)?)?;
     m.add_function(wrap_pyfunction!(standard_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(abc_calculate_json, m)?)?;
+    m.add_function(wrap_pyfunction!(budget_create_json, m)?)?;
+    m.add_function(wrap_pyfunction!(budget_flexible_json, m)?)?;
+    m.add_function(wrap_pyfunction!(budget_total_json, m)?)?;
+    m.add_function(wrap_pyfunction!(budget_compare_output_json, m)?)?;
+    m.add_function(wrap_pyfunction!(budget_breakdown_json, m)?)?;
+    m.add_function(wrap_pyfunction!(actual_material_json, m)?)?;
+    m.add_function(wrap_pyfunction!(actual_labour_json, m)?)?;
+    m.add_function(wrap_pyfunction!(actual_total_json, m)?)?;
+    m.add_function(wrap_pyfunction!(actual_compare_budget_json, m)?)?;
+    m.add_function(wrap_pyfunction!(actual_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(material_cost_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(simple_material_variance_json, m)?)?;
     m.add_function(wrap_pyfunction!(multi_material_variance_json, m)?)?;

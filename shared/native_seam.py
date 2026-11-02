@@ -199,3 +199,53 @@ def standard_variance(payload: Dict[str, Any]) -> Dict[str, Any]:
 def abc_calculate(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Activity-based costing across the three driver levels."""
     return _call("abc_calculate_json", payload)
+
+
+def budget_create(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Budgeted cost breakdown for a department and period."""
+    return _call("budget_create_json", payload)
+
+
+def budget_flexible(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Flexed budget and volume variance at actual output."""
+    return _call("budget_flexible_json", payload)
+
+
+def budget_total(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Total of the budgeted cost items."""
+    return _call("budget_total_json", payload)
+
+
+def budget_compare_output(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Budgeted versus flexed output cost."""
+    return _call("budget_compare_output_json", payload)
+
+
+def budget_breakdown(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Split a budget into material, labour and overhead."""
+    return _call("budget_breakdown_json", payload)
+
+
+def actual_material(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Actual material cost: quantity times price."""
+    return _call("actual_material_json", payload)
+
+
+def actual_labour(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Actual labour cost: hours times rate."""
+    return _call("actual_labour_json", payload)
+
+
+def actual_total(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Total actual cost across the three families."""
+    return _call("actual_total_json", payload)
+
+
+def actual_compare_budget(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Actual versus budget, with the status."""
+    return _call("actual_compare_budget_json", payload)
+
+
+def actual_variance(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Variance by cost category."""
+    return _call("actual_variance_json", payload)

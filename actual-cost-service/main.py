@@ -3,12 +3,25 @@ Vimbai Actual Cost Service
 Handles actual cost calculations and comparisons.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "actual_cost_service" not in _sys.modules or not hasattr(_sys.modules.get("actual_cost_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("actual_cost_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["actual_cost_service"] = _pkg
+    _sys.modules["actual_cost_service"].__path__ = [_HERE]
+
 import os
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List
 
 import structlog
+from actual_cost_service import calc
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -39,7 +52,12 @@ app.add_middleware(
 
 @app.get("/health")
 async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "status": "healthy",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.get("/")
@@ -50,23 +68,13 @@ async def root():
 @app.post("/material-actual")
 async def calculate_actual_material_cost(actual_quantity: float, actual_price_per_unit: float):
     """Calculate actual material cost."""
-    actual_cost = actual_quantity * actual_price_per_unit
-    return {
-        "actual_quantity": actual_quantity,
-        "actual_price_per_unit": actual_price_per_unit,
-        "actual_material_cost": actual_cost,
-    }
+    return calc.material(actual_quantity, actual_price_per_unit)
 
 
 @app.post("/labour-actual")
 async def calculate_actual_labour_cost(actual_hours: float, actual_rate_per_hour: float):
     """Calculate actual labour cost."""
-    actual_cost = actual_hours * actual_rate_per_hour
-    return {
-        "actual_hours": actual_hours,
-        "actual_rate_per_hour": actual_rate_per_hour,
-        "actual_labour_cost": actual_cost,
-    }
+    return calc.labour(actual_hours, actual_rate_per_hour)
 
 
 @app.post("/total-actual")
@@ -74,26 +82,13 @@ async def calculate_total_actual_cost(
     actual_direct_material: float, actual_direct_labour: float, actual_overhead: float
 ):
     """Calculate total actual cost."""
-    total = actual_direct_material + actual_direct_labour + actual_overhead
-    return {
-        "actual_direct_material": actual_direct_material,
-        "actual_direct_labour": actual_direct_labour,
-        "actual_overhead": actual_overhead,
-        "total_actual_cost": total,
-    }
+    return calc.total(actual_direct_material, actual_direct_labour, actual_overhead)
 
 
 @app.post("/compare-to-budget")
 async def compare_actual_to_budget(actual_cost: float, budgeted_cost: float):
     """Compare actual cost to budget."""
-    variance = budgeted_cost - actual_cost
-    return {
-        "actual_cost": actual_cost,
-        "budgeted_cost": budgeted_cost,
-        "variance": variance,
-        "variance_percent": ((variance / budgeted_cost) * 100) if budgeted_cost != 0 else 0,
-        "status": "Under budget" if variance > 0 else "Over budget" if variance < 0 else "On budget",
-    }
+    return calc.compare_to_budget(actual_cost, budgeted_cost)
 
 
 @app.post("/variance-breakdown")
@@ -106,17 +101,14 @@ async def actual_cost_variance_breakdown(
     budgeted_overhead: float,
 ):
     """Break down variances by cost category."""
-    material_variance = budgeted_material - actual_material
-    labour_variance = budgeted_labour - actual_labour
-    overhead_variance = budgeted_overhead - actual_overhead
-    total_variance = material_variance + labour_variance + overhead_variance
-
-    return {
-        "material": {"actual": actual_material, "budgeted": budgeted_material, "variance": material_variance},
-        "labour": {"actual": actual_labour, "budgeted": budgeted_labour, "variance": labour_variance},
-        "overhead": {"actual": actual_overhead, "budgeted": budgeted_overhead, "variance": overhead_variance},
-        "total_variance": total_variance,
-    }
+    return calc.variance(
+        actual_material,
+        budgeted_material,
+        actual_labour,
+        budgeted_labour,
+        actual_overhead,
+        budgeted_overhead,
+    )
 
 
 if __name__ == "__main__":
