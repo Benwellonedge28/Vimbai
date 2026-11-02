@@ -1,18 +1,36 @@
 """
 Vimbai Right Issues Service
-Manages rights issues of shares to existing shareholders.
+Rights offers, acceptances and renunciations.
+
+Right issues and renunciations live in Neo4j, scoped to the caller and the Book.
+The file may be imported bare (bracket mounts, uvicorn main:app), so it bootstraps
+its own package alias first.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "right_issues_service" not in _sys.modules or not hasattr(_sys.modules.get("right_issues_service"), "__path__"):
+    _spec = importlib.util.spec_from_file_location("right_issues_service", _os.path.join(_HERE, "__init__.py"))
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["right_issues_service"] = _pkg
+    _sys.modules["right_issues_service"].__path__ = [_HERE]
+
 import os
-import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
+from right_issues_service import crud
+from right_issues_service.dependencies import book_id_var, get_db_session, get_user_id
+from right_issues_service.exceptions import NotFoundError
 
 SERVICE_NAME = "right-issues-service"
 SERVICE_VERSION = "1.0.0"
@@ -40,37 +58,11 @@ app.add_middleware(
 )
 
 
-class RightIssue(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    company_id: str
-    issue_date: datetime
-    expiry_date: datetime
-    share_class: str
-    rights_offered: int  # rights per existing share
-    new_shares_offered: int
-    issue_price: float
-    nominal_value: float
-    total_proceeds: float = 0
-    renouncement_allowed: bool = True
-    entitlements: Dict[str, int] = {}  # shareholder_id -> rights entitlement
-    acceptances: Dict[str, int] = {}  # shareholder_id -> shares accepted
-    renunciations: Dict[str, str] = {}  # shareholder_id -> new_owner_id
-    journal_entry_id: Optional[str] = None
-    status: str = "offered"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class Renunciation(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    right_issue_id: str
-    original_shareholder_id: str
-    new_shareholder_id: str
-    renunciation_date: datetime
-    renunciation_price: float
-
-
-right_issues: List[RightIssue] = []
-renunciations: List[Renunciation] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_accounting_service(method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -108,9 +100,13 @@ async def offer_rights(
     nominal_value: float,
     entitlements: Dict[str, int],
     renouncement_allowed: bool = True,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Offer rights issue to existing shareholders."""
-    right_issue = RightIssue(
+    return await crud.offer_rights(
+        db_session,
+        user_id,
         company_id=company_id,
         issue_date=issue_date,
         expiry_date=expiry_date,
@@ -122,19 +118,21 @@ async def offer_rights(
         entitlements=entitlements,
         renouncement_allowed=renouncement_allowed,
     )
-    right_issue.total_proceeds = new_shares_offered * issue_price
-    right_issues.append(right_issue)
-    return right_issue
 
 
 @app.post("/{right_issue_id}/accept")
-async def accept_rights(right_issue_id: str, shareholder_id: str, shares_accepted: int):
+async def accept_rights(
+    right_issue_id: str,
+    shareholder_id: str,
+    shares_accepted: int,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Record acceptance of rights issue."""
-    right_issue = next((r for r in right_issues if r.id == right_issue_id), None)
-    if not right_issue:
+    try:
+        right_issue = await crud.record_acceptance(db_session, user_id, right_issue_id, shareholder_id, shares_accepted)
+    except NotFoundError:
         return {"error": "Right issue not found"}
-
-    right_issue.acceptances[shareholder_id] = shares_accepted
 
     acceptance_value = shares_accepted * right_issue.issue_price
     journal_entry = {
@@ -159,13 +157,6 @@ async def accept_rights(right_issue_id: str, shareholder_id: str, shares_accepte
     }
     await call_accounting_service("POST", "/journal-entries", journal_entry)
 
-    if all(
-        right_issue.entitlements.get(sh, 0)
-        == right_issue.acceptances.get(sh, 0) + sum(1 for orig, new in right_issue.renunciations.items() if orig == sh)
-        for sh in right_issue.entitlements
-    ):
-        right_issue.status = "completed"
-
     return right_issue
 
 
@@ -176,29 +167,32 @@ async def renounce_rights(
     new_shareholder_id: str,
     renunciation_price: float,
     renunciation_date: datetime,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Record renunciation of rights to another party."""
-    right_issue = next((r for r in right_issues if r.id == right_issue_id), None)
-    if not right_issue:
+    try:
+        right_issue = await crud.get_right_issue(db_session, user_id, right_issue_id)
+    except NotFoundError:
         return {"error": "Right issue not found"}
 
     if not right_issue.renouncement_allowed:
         return {"error": "Renouncement not allowed for this issue"}
 
-    renunciation = Renunciation(
-        right_issue_id=right_issue_id,
-        original_shareholder_id=shareholder_id,
-        new_shareholder_id=new_shareholder_id,
-        renunciation_date=renunciation_date,
-        renunciation_price=renunciation_price,
+    right_issue, renunciation = await crud.record_renunciation(
+        db_session,
+        user_id,
+        right_issue_id,
+        shareholder_id,
+        new_shareholder_id,
+        renunciation_price,
+        renunciation_date,
     )
-    right_issue.renunciations[shareholder_id] = new_shareholder_id
-    renunciations.append(renunciation)
 
     # Journal entry for renunciation consideration
     journal_entry = {
         "date": renunciation_date,
-        "description": f"Rights renunciation payment",
+        "description": "Rights renunciation payment",
         "entries": [
             {"account_code": "1000", "description": "Bank", "debit": renunciation_price, "credit": 0},
             {"account_code": "1000", "description": "Bank", "debit": 0, "credit": renunciation_price},
@@ -211,21 +205,27 @@ async def renounce_rights(
 
 
 @app.get("/right-issues")
-async def list_right_issues(company_id: Optional[str] = None):
+async def list_right_issues(
+    company_id: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List all right issues."""
-    result = right_issues
-    if company_id:
-        result = [r for r in result if r.company_id == company_id]
-    return {"right_issues": result}
+    issues = await crud.list_right_issues(db_session, user_id, company_id)
+    return {"right_issues": issues}
 
 
 @app.get("/{right_issue_id}")
-async def get_right_issue(right_issue_id: str):
+async def get_right_issue(
+    right_issue_id: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get right issue details."""
-    right_issue = next((r for r in right_issues if r.id == right_issue_id), None)
-    if not right_issue:
+    try:
+        return await crud.get_right_issue(db_session, user_id, right_issue_id)
+    except NotFoundError:
         return {"error": "Right issue not found"}
-    return right_issue
 
 
 if __name__ == "__main__":
