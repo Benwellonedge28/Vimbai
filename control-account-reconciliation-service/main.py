@@ -1,19 +1,45 @@
 """
 Vimbai Control Account Reconciliation Service
-Handles reconciliation of all control accounts and error handling.
+Control account breaks, resolutions and reconciliation reports.
+
+Errors and reports live in Neo4j, scoped to the caller and the Book. The file may be
+imported bare (bracket mounts, uvicorn main:app), so it bootstraps its own package
+alias first.
 """
 
+import importlib.util
+import os as _os
+import sys as _sys
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+if "control_account_reconciliation_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("control_account_reconciliation_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location(
+        "control_account_reconciliation_service", _os.path.join(_HERE, "__init__.py")
+    )
+    _pkg = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_pkg)
+    _sys.modules["control_account_reconciliation_service"] = _pkg
+    _sys.modules["control_account_reconciliation_service"].__path__ = [_HERE]
+
 import os
-import uuid
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 import structlog
-from fastapi import FastAPI, HTTPException, status
+from control_account_reconciliation_service import crud
+from control_account_reconciliation_service.dependencies import book_id_var, get_db_session, get_user_id
+from control_account_reconciliation_service.exceptions import NotFoundError
+from control_account_reconciliation_service.models import (
+    ControlAccountType,
+    ErrorType,
+    ReconciliationError,
+)
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from neo4j import AsyncSession
 
 SERVICE_NAME = "control-account-reconciliation-service"
 SERVICE_VERSION = "1.0.0"
@@ -41,55 +67,11 @@ app.add_middleware(
 )
 
 
-class ControlAccountType(str, Enum):
-    SALES_LEDGER = "sales_ledger"
-    PURCHASES_LEDGER = "purchases_ledger"
-    BILLS_RECEIVABLE = "bills_receivable"
-    BILLS_PAYABLE = "bills_payable"
-
-
-class ErrorType(str, Enum):
-    DUPLICATE_ENTRY = "duplicate_entry"
-    POSTING_ERROR = "posting_error"
-    MISSING_ENTRY = "missing_entry"
-    AMOUNT_MISMATCH = "amount_mismatch"
-    TIMING_DIFFERENCE = "timing_difference"
-    TRANSFER_ERROR = "transfer_error"
-    ROUNDING_ERROR = "rounding_error"
-
-
-class ReconciliationError(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    error_type: ErrorType
-    control_account_type: ControlAccountType
-    transaction_id: Optional[str] = None
-    description: str
-    amount: float = 0
-    expected_amount: float = 0
-    variance: float = 0
-    status: str = "pending"  # pending, resolved, written_off
-    resolution: Optional[str] = None
-    resolved_by: Optional[str] = None
-    resolved_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class ReconciliationReport(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    as_of_date: datetime
-    control_account_type: ControlAccountType
-    control_balance: float = 0
-    ledger_total: float = 0
-    difference: float = 0
-    error_count: int = 0
-    errors: List[ReconciliationError] = []
-    status: str = "pending"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-# In-memory storage
-reconciliation_errors: List[ReconciliationError] = []
-reconciliation_reports: List[ReconciliationReport] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the Book context (X-Book-ID, verified upstream) to the CRUD layer."""
+    book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
 
 
 async def call_audit_service(action: str, resource_type: str, resource_id: str, details: Dict[str, Any]):
@@ -124,38 +106,45 @@ async def root():
 
 
 @app.post("/errors/report")
-async def report_error(data: ReconciliationError):
+async def report_error(
+    data: ReconciliationError,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Report a reconciliation error."""
-    data.id = str(uuid.uuid4())
-    data.created_at = datetime.utcnow()
-    data.variance = abs(data.amount - data.expected_amount)
-    reconciliation_errors.append(data)
-    await call_audit_service("CREATE", "error", data.id, {"type": data.error_type, "amount": data.variance})
-    return data
+    payload = data.model_dump()
+    for generated in ("id", "created_at", "variance", "user_id", "book_id"):
+        payload.pop(generated, None)
+    error = await crud.create_error(db_session, user_id, payload)
+    await call_audit_service("CREATE", "error", error.id, {"type": error.error_type, "amount": error.variance})
+    return error
 
 
 @app.get("/errors")
-async def list_errors(status: Optional[str] = None, error_type: Optional[ErrorType] = None):
+async def list_errors(
+    status: Optional[str] = None,
+    error_type: Optional[ErrorType] = None,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List all reconciliation errors."""
-    result = reconciliation_errors
-    if status:
-        result = [e for e in result if e.status == status]
-    if error_type:
-        result = [e for e in result if e.error_type == error_type]
-    return {"errors": result, "count": len(result)}
+    errors = await crud.list_errors(db_session, user_id, status=status, error_type=error_type)
+    return {"errors": errors, "count": len(errors)}
 
 
 @app.post("/errors/{error_id}/resolve")
-async def resolve_error(error_id: str, resolution: str, resolved_by: str):
+async def resolve_error(
+    error_id: str,
+    resolution: str,
+    resolved_by: str,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Resolve a reconciliation error."""
-    error = next((e for e in reconciliation_errors if e.id == error_id), None)
-    if not error:
+    try:
+        error = await crud.resolve_error(db_session, user_id, error_id, resolution, resolved_by)
+    except NotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error not found")
-
-    error.status = "resolved"
-    error.resolution = resolution
-    error.resolved_by = resolved_by
-    error.resolved_at = datetime.utcnow()
 
     await call_audit_service("RESOLVE", "error", error_id, {"resolution": resolution})
     return error
@@ -163,44 +152,36 @@ async def resolve_error(error_id: str, resolution: str, resolved_by: str):
 
 @app.post("/reconcile/{account_type}")
 async def reconcile_control_account(
-    account_type: ControlAccountType, as_of_date: datetime, control_balance: float, ledger_total: float
+    account_type: ControlAccountType,
+    as_of_date: datetime,
+    control_balance: float,
+    ledger_total: float,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Perform reconciliation for a control account."""
-    difference = control_balance - ledger_total
-    errors = [e for e in reconciliation_errors if e.control_account_type == account_type and e.status == "pending"]
-
-    report = ReconciliationReport(
-        as_of_date=as_of_date,
-        control_account_type=account_type,
-        control_balance=control_balance,
-        ledger_total=ledger_total,
-        difference=difference,
-        error_count=len(errors),
-        errors=errors,
-        status="reconciled" if abs(difference) < 0.01 else "unreconciled",
-    )
-    reconciliation_reports.append(report)
-
-    await call_audit_service("RECONCILE", "report", report.id, {"difference": difference})
+    report = await crud.reconcile(db_session, user_id, account_type, as_of_date, control_balance, ledger_total)
+    await call_audit_service("RECONCILE", "report", report.id, {"difference": report.difference})
     return report
 
 
 @app.get("/reports")
-async def list_reports(limit: int = 10):
+async def list_reports(
+    limit: int = 10,
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """List reconciliation reports."""
-    return {"reports": reconciliation_reports[-limit:]}
+    return {"reports": await crud.list_reports(db_session, user_id, limit)}
 
 
 @app.get("/summary")
-async def get_reconciliation_summary():
+async def get_reconciliation_summary(
+    user_id: str = Depends(get_user_id),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Get summary of all reconciliation issues."""
-    return {
-        "total_errors": len(reconciliation_errors),
-        "pending_errors": len([e for e in reconciliation_errors if e.status == "pending"]),
-        "resolved_errors": len([e for e in reconciliation_errors if e.status == "resolved"]),
-        "total_variance": sum(e.variance for e in reconciliation_errors if e.status == "pending"),
-        "by_type": {et.value: len([e for e in reconciliation_errors if e.error_type == et]) for et in ErrorType},
-    }
+    return await crud.summary(db_session, user_id)
 
 
 if __name__ == "__main__":
