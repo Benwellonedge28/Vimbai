@@ -203,7 +203,6 @@ mod tests {
                 actual_price: 2.0,
                 standard_quantity: 50.0,
                 actual_quantity: 40.0,
-                ..Default::default()
             },
         ]);
         assert_eq!(result.materials[0].material, "steel");
