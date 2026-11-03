@@ -104,14 +104,6 @@
       "strip_prefix": false
     },
     {
-      "name": "asset-allocation-service",
-      "path": "/asset-allocation",
-      "url": "http://localhost:9007",
-      "port": 8235,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "audit-compliance-service",
       "path": "/audit-compliance",
       "url": "http://localhost:9004",
@@ -275,14 +267,6 @@
       "path": "/cache",
       "url": "http://localhost:9013",
       "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "capital-allocation-service",
-      "path": "/capital-allocation",
-      "url": "http://localhost:9012",
-      "port": 8289,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -846,14 +830,6 @@
       "strip_prefix": false
     },
     {
-      "name": "investment-appraisal-service",
-      "path": "/investment-appraisal",
-      "url": "http://localhost:9003",
-      "port": 8233,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "investment-monitoring-service",
       "path": "/investment-monitoring",
       "url": "http://localhost:9003",
@@ -993,14 +969,6 @@
       "url": "http://localhost:8002",
       "port": 8002,
       "auth_required": true
-    },
-    {
-      "name": "mva-service",
-      "path": "/mva",
-      "url": "http://localhost:9012",
-      "port": 8213,
-      "auth_required": true,
-      "strip_prefix": false
     },
     {
       "name": "net-present-value-service",
@@ -1194,14 +1162,6 @@
       "strip_prefix": false
     },
     {
-      "name": "portfolio-optimization-service",
-      "path": "/portfolio-optimization",
-      "url": "http://localhost:9012",
-      "port": 8234,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "pos-integration-service",
       "path": "/pos-integration",
       "url": "http://localhost:8095",
@@ -1221,14 +1181,6 @@
       "path": "/preference-shares",
       "url": "http://localhost:9011",
       "port": 8102,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "present-value-service",
-      "path": "/present-value",
-      "url": "http://localhost:9012",
-      "port": 8103,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1285,14 +1237,6 @@
       "path": "/project-accounting",
       "url": "http://localhost:9009",
       "port": 8352,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "project-appraisal-service",
-      "path": "/project-appraisal",
-      "url": "http://localhost:9009",
-      "port": 8288,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1576,14 +1520,6 @@
       "strip_prefix": false
     },
     {
-      "name": "sustainable-growth-service",
-      "path": "/sustainable-growth",
-      "url": "http://localhost:9012",
-      "port": 8215,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "synergy-analysis-service",
       "path": "/synergy-analysis",
       "url": "http://localhost:9012",
@@ -1652,14 +1588,6 @@
       "path": "/tax",
       "url": "http://localhost:9004",
       "port": 8346,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "time-value-of-money-service",
-      "path": "/time-value-of-money",
-      "url": "http://localhost:9012",
-      "port": 8132,
       "auth_required": true,
       "strip_prefix": false
     },

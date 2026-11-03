@@ -28,11 +28,6 @@
       "dir": "project-accounting-service"
     },
     {
-      "path": "/project-appraisal",
-      "name": "project-appraisal-service",
-      "dir": "project-appraisal-service"
-    },
-    {
       "path": "/subscription-plans",
       "name": "subscription-plans-service",
       "dir": "subscription-plans-service"

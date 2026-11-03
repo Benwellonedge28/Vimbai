@@ -10,7 +10,7 @@ because their regression suites still run in CI.
 ## Summary
 
 ```
-live and routed          229
+live and routed          220
 retained, not routed     106
 unrouted, undecided      4
 ```
@@ -32,7 +32,6 @@ Routed by the API gateway and deployed. These are the running product.
 `analytical-procedures-service`
 `analytics-service`
 `appropriation-control-service`
-`asset-allocation-service`
 `audit-compliance-service`
 `audit-evidence-service`
 `audit-sampling-service`
@@ -55,7 +54,6 @@ Routed by the API gateway and deployed. These are the running product.
 `business-documents-service`
 `business-valuation-service`
 `cache-service`
-`capital-allocation-service`
 `capital-reconstruction-service`
 `capital-redemption-reserve-service`
 `cash-flow-service`
@@ -126,7 +124,6 @@ Routed by the API gateway and deployed. These are the running product.
 `internal-controls-testing-service`
 `internal-rate-return-service`
 `inventory-valuation-service`
-`investment-appraisal-service`
 `investment-monitoring-service`
 `investment-portfolio-service`
 `investment-property-service`
@@ -145,7 +142,6 @@ Routed by the API gateway and deployed. These are the running product.
 `message-bus-service`
 `mfa-auth-service`
 `multimodal-pipeline-service`
-`mva-service`
 `net-present-value-service`
 `net-realizable-value-service`
 `notifications-service`
@@ -171,11 +167,9 @@ Routed by the API gateway and deployed. These are the running product.
 `personal-finance-service`
 `petty-cash-service`
 `policy-engine-service`
-`portfolio-optimization-service`
 `pos-integration-service`
 `post-merger-service`
 `preference-shares-service`
-`present-value-service`
 `privacy-admin-dashboard-service`
 `process-costing-service`
 `product-costing-service`
@@ -183,7 +177,6 @@ Routed by the API gateway and deployed. These are the running product.
 `profit-service`
 `profitability-index-service`
 `project-accounting-service`
-`project-appraisal-service`
 `provision-bad-debts-service`
 `provision-doubtful-debts-service`
 `provisions-contingencies-service`
@@ -219,7 +212,6 @@ Routed by the API gateway and deployed. These are the running product.
 `subscription-plans-service`
 `substantive-testing-service`
 `suspense-error-service`
-`sustainable-growth-service`
 `synergy-analysis-service`
 `tax-accounting-service`
 `tax-audit-service`
@@ -229,7 +221,6 @@ Routed by the API gateway and deployed. These are the running product.
 `tax-return-preparation-service`
 `tax-risk-service`
 `tax-service`
-`time-value-of-money-service`
 `times-interest-earned-service`
 `trade-finance-service`
 `trading-account-service`

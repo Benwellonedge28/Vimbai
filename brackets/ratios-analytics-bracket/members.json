@@ -13,11 +13,6 @@
       "dir": "analytics-service"
     },
     {
-      "path": "/asset-allocation",
-      "name": "asset-allocation-service",
-      "dir": "asset-allocation-service"
-    },
-    {
       "path": "/distributed-workflow-orchestration",
       "name": "distributed-workflow-orchestration-service",
       "dir": "distributed-workflow-orchestration-service"

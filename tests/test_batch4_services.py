@@ -284,47 +284,8 @@ class TestPensionAccountingService:
         assert data["total_pension_expense"] > 0
 
 
-class TestCapitalAllocationService:
-    def setup_method(self):
-        self.client = TestClient(load_app("capital-allocation-service"))
-
-    def test_allocation(self):
-        resp = self.client.post(
-            "/allocate",
-            json={
-                "company_id": "comp-1",
-                "capital_budget": 500000,
-                "projects": [
-                    {
-                        "name": "Project A",
-                        "initial_investment": 200000,
-                        "annual_cash_flows": [80000, 80000, 80000, 80000],
-                        "discount_rate": 0.10,
-                        "strategic_value": 8,
-                    },
-                    {
-                        "name": "Project B",
-                        "initial_investment": 300000,
-                        "annual_cash_flows": [120000, 120000, 120000],
-                        "discount_rate": 0.10,
-                        "strategic_value": 6,
-                    },
-                    {
-                        "name": "Project C",
-                        "initial_investment": 400000,
-                        "annual_cash_flows": [150000, 150000, 150000],
-                        "discount_rate": 0.10,
-                        "strategic_value": 9,
-                    },
-                ],
-            },
-        )
-        data = resp.json()
-        assert resp.status_code == 200
-        assert len(data["selected_projects"]) >= 1
-        assert data["total_investment"] <= 500000
-        assert data["utilization_pct"] > 0
-        assert "npv" in data["selected_projects"][0]
+# TestCapitalAllocationService removed: the service is gone and its behaviour is pinned in
+# library/capital_valuation (appraisal.rs / allocation.rs) Rust tests.
 
 
 class TestInternalControlsService:

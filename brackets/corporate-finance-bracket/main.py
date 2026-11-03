@@ -1,6 +1,6 @@
 """
 Vimbai Corporate Finance Bracket Service
-One container hosting 34 merged microservices. Each member service's
+One container hosting 28 merged microservices. Each member service's
 FastAPI app is mounted at its original gateway path prefix, so every
 external URL is unchanged.
 
@@ -21,7 +21,6 @@ PORT = int(os.getenv("PORT", "9012"))
 # (gateway path prefix, service directory) pairs
 MEMBERS = [
     ["business-valuation", "business-valuation-service"],
-    ["capital-allocation", "capital-allocation-service"],
     ["capital-reconstruction", "capital-reconstruction-service"],
     ["capital-redemption-reserve", "capital-redemption-reserve-service"],
     ["cash-management", "cash-management-service"],
@@ -38,28 +37,23 @@ MEMBERS = [
     ["household-finance", "household-finance-service"],
     ["insurance-claims", "insurance-claims-service"],
     ["merger-valuation", "merger-valuation-service"],
-    ["mva", "mva-service"],
     ["net-present-value", "net-present-value-service"],
     ["options-pricing", "options-pricing-service"],
     ["payback-period", "payback-period-service"],
     ["personal-finance", "personal-finance-service"],
-    ["portfolio-optimization", "portfolio-optimization-service"],
     ["post-merger", "post-merger-service"],
-    ["present-value", "present-value-service"],
     ["profitability-index", "profitability-index-service"],
     ["rolling-forecast", "rolling-forecast-service"],
     ["scenario-analysis", "scenario-analysis-service"],
     ["sensitivity-analysis", "sensitivity-analysis-service"],
-    ["sustainable-growth", "sustainable-growth-service"],
     ["synergy-analysis", "synergy-analysis-service"],
-    ["time-value-of-money", "time-value-of-money-service"],
     ["trade-finance", "trade-finance-service"],
 ]
 
 app = FastAPI(
     title="Vimbai Corporate Finance Bracket Service",
     version=SERVICE_VERSION,
-    description="Bracket container for 34 Vimbai microservices.",
+    description="Bracket container for 28 Vimbai microservices.",
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))

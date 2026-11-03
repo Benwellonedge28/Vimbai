@@ -73,11 +73,6 @@
       "dir": "interest-rate-risk-service"
     },
     {
-      "path": "/investment-appraisal",
-      "name": "investment-appraisal-service",
-      "dir": "investment-appraisal-service"
-    },
-    {
       "path": "/investment-monitoring",
       "name": "investment-monitoring-service",
       "dir": "investment-monitoring-service"

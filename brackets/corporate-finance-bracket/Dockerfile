@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY brackets/corporate-finance-bracket/main.py ./main.py
 COPY business-valuation-service ./business-valuation-service
-COPY capital-allocation-service ./capital-allocation-service
 COPY capital-reconstruction-service ./capital-reconstruction-service
 COPY capital-redemption-reserve-service ./capital-redemption-reserve-service
 COPY cash-management-service ./cash-management-service
@@ -34,21 +33,16 @@ COPY fund-management-service ./fund-management-service
 COPY household-finance-service ./household-finance-service
 COPY insurance-claims-service ./insurance-claims-service
 COPY merger-valuation-service ./merger-valuation-service
-COPY mva-service ./mva-service
 COPY net-present-value-service ./net-present-value-service
 COPY options-pricing-service ./options-pricing-service
 COPY payback-period-service ./payback-period-service
 COPY personal-finance-service ./personal-finance-service
-COPY portfolio-optimization-service ./portfolio-optimization-service
 COPY post-merger-service ./post-merger-service
-COPY present-value-service ./present-value-service
 COPY profitability-index-service ./profitability-index-service
 COPY rolling-forecast-service ./rolling-forecast-service
 COPY scenario-analysis-service ./scenario-analysis-service
 COPY sensitivity-analysis-service ./sensitivity-analysis-service
-COPY sustainable-growth-service ./sustainable-growth-service
 COPY synergy-analysis-service ./synergy-analysis-service
-COPY time-value-of-money-service ./time-value-of-money-service
 COPY trade-finance-service ./trade-finance-service
 
 USER vimbai

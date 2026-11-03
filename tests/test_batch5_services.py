@@ -170,30 +170,8 @@ class TestHouseholdFinanceService:
         assert data["budget_health"] in ("excellent", "good", "fair", "poor")
 
 
-class TestProjectAppraisalService:
-    def setup_method(self):
-        self.client = TestClient(load_app("project-appraisal-service"))
-
-    def test_appraisal(self):
-        resp = self.client.post(
-            "/appraise",
-            json={
-                "company_id": "comp-1",
-                "project_name": "Factory Expansion",
-                "initial_investment": 200000,
-                "cash_flows": [60000, 70000, 80000, 50000],
-                "discount_rate": 0.10,
-                "salvage_value": 20000,
-            },
-        )
-        data = resp.json()
-        assert resp.status_code == 200
-        assert data["npv"] > 0  # profitable project
-        assert data["irr"] > 10  # above discount rate
-        assert data["payback_period"] > 0
-        assert data["profitability_index"] > 1
-        assert "Accept" in data["recommendation"]
-        assert len(data["cash_flow_analysis"]) == 4
+# TestProjectAppraisalService removed: the service is gone and its behaviour is pinned in
+# library/capital_valuation (appraisal.rs / allocation.rs) Rust tests.
 
 
 class TestGoodwillService:

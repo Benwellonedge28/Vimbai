@@ -30,7 +30,6 @@ COPY debt-covenants-service ./debt-covenants-service
 COPY debt-management-service ./debt-management-service
 COPY initial-investment-service ./initial-investment-service
 COPY interest-rate-risk-service ./interest-rate-risk-service
-COPY investment-appraisal-service ./investment-appraisal-service
 COPY investment-monitoring-service ./investment-monitoring-service
 COPY investment-portfolio-service ./investment-portfolio-service
 COPY investment-property-service ./investment-property-service

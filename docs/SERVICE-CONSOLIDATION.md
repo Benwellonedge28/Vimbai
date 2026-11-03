@@ -2,6 +2,20 @@
 
 Generated from the live gateway config (`api-gateway/config/services.json`), 229 routed services,
 
+## Ported and removed so far
+
+Nine services are now safe Rust inside `library/capital_valuation`
+(`time_value.rs`, `growth.rs`, `allocation.rs`, `appraisal.rs`) and their
+Python directories, gateway routes, k8s documents and bracket members are gone.
+Gateway is at 220 routes.
+
+`time-value-of-money-service`, `present-value-service`, `mva-service`,
+`sustainable-growth-service`, `asset-allocation-service`,
+`portfolio-optimization-service`, `capital-allocation-service`,
+`investment-appraisal-service`, `project-appraisal-service`.
+
+Everything below is the remaining plan.
+
 ## How the 229 split
 
 * 96 do business arithmetic with no persistence anywhere in the directory: Rust-port and merge candidates.
