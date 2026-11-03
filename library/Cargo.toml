@@ -6,6 +6,7 @@ exclude = ["native"]
 members = [
     "common",
     "advisory",
+    "automation",
     "variance",
     "capital_valuation",
     "cost_accounting",

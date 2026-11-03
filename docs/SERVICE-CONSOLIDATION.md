@@ -28,6 +28,12 @@ profit-loss-account retires on the port that already existed in
 `ratios_statements::profit_loss`. Gateway 208 routes, ten k8s documents, five
 bracket members.
 
+automation-engine is a Rust crate: `vimbai_automation` holds the scheduler as
+caller-owned state (Engine, TaskDefinition, TaskExecution, TaskType), so a Book
+owns its own schedule instead of sharing module globals. Ids and timestamps come
+from the caller. Its Python service is gone; it had already been dropped from
+the gateway.
+
 Audit families merged: tax-audit, forensic-accounting, it-audit and
 operational-audit were the same service four times over (same models, same
 crud, same six routes) and now run as one audit-engagement-service on 8371.
@@ -112,7 +118,13 @@ NPV, IRR, payback, profitability index, present value, TVM, MVA, sustainable gro
 * `profitability-index-service`
 * `project-appraisal-service`
 * `sustainable-growth-service`
-* Audit families merged: tax-audit, forensic-accounting, it-audit and
+* automation-engine is a Rust crate: `vimbai_automation` holds the scheduler as
+caller-owned state (Engine, TaskDefinition, TaskExecution, TaskType), so a Book
+owns its own schedule instead of sharing module globals. Ids and timestamps come
+from the caller. Its Python service is gone; it had already been dropped from
+the gateway.
+
+Audit families merged: tax-audit, forensic-accounting, it-audit and
 operational-audit were the same service four times over (same models, same
 crud, same six routes) and now run as one audit-engagement-service on 8371.
 audit_type names the family, /engagements/{company_id}?audit_type= narrows the
