@@ -48,11 +48,6 @@
       "dir": "currency-service"
     },
     {
-      "path": "/debt-covenants",
-      "name": "debt-covenants-service",
-      "dir": "debt-covenants-service"
-    },
-    {
       "path": "/debt-management",
       "name": "debt-management-service",
       "dir": "debt-management-service"

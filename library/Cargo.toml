@@ -5,6 +5,7 @@ resolver = "2"
 exclude = ["native"]
 members = [
     "common",
+    "advisory",
     "variance",
     "capital_valuation",
     "cost_accounting",

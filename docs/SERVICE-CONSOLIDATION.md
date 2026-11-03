@@ -28,6 +28,10 @@ profit-loss-account retires on the port that already existed in
 `ratios_statements::profit_loss`. Gateway 208 routes, ten k8s documents, five
 bracket members.
 
+Sixth batch: cash-pooling, construction-contracts, debt-covenants and
+director-emoluments are `vimbai_advisory` (treasury and contracts modules),
+deleted from the repository like the fifth batch. Gateway 199 routes.
+
 Fifth batch (the owner asked for these to be deleted, not kept as oracles):
 accounts-payable, accounts-receivable, general-ledger, journal-entries and
 analytics persist nothing and each was a single `/analyze`, so they are now
@@ -90,7 +94,11 @@ NPV, IRR, payback, profitability index, present value, TVM, MVA, sustainable gro
 * `profitability-index-service`
 * `project-appraisal-service`
 * `sustainable-growth-service`
-* Fifth batch (the owner asked for these to be deleted, not kept as oracles):
+* Sixth batch: cash-pooling, construction-contracts, debt-covenants and
+director-emoluments are `vimbai_advisory` (treasury and contracts modules),
+deleted from the repository like the fifth batch. Gateway 199 routes.
+
+Fifth batch (the owner asked for these to be deleted, not kept as oracles):
 accounts-payable, accounts-receivable, general-ledger, journal-entries and
 analytics persist nothing and each was a single `/analyze`, so they are now
 `vimbai_ledger_core::analytics` and their directories are gone. Gateway 203

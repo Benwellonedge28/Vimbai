@@ -20,7 +20,6 @@ COPY capital-reconstruction-service ./capital-reconstruction-service
 COPY capital-redemption-reserve-service ./capital-redemption-reserve-service
 COPY cash-management-service ./cash-management-service
 COPY cash-optimization-service ./cash-optimization-service
-COPY cash-pooling-service ./cash-pooling-service
 COPY cvp-analysis-service ./cvp-analysis-service
 COPY debentures-service ./debentures-service
 COPY due-diligence-service ./due-diligence-service

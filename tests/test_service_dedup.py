@@ -222,6 +222,15 @@ INVESTOR_METRIC_PORTS = {
     "eps-service",
 }
 
+# Advisory endpoints, ported into the vimbai_advisory crate. Record-free, so
+# they were deleted once the port and its parity cases landed.
+ADVISORY_PORTS = {
+    "cash-pooling-service",
+    "construction-contracts-service",
+    "debt-covenants-service",
+    "director-emoluments-service",
+}
+
 # Ledger study endpoints, ported into vimbai_ledger_core::analytics. None held a
 # record; each was one /analyze over numbers the caller already had.
 LEDGER_ANALYTICS_PORTS = {
@@ -268,6 +277,7 @@ ALL_DEREGISTERED = (
     | CORPORATE_EVENT_PORTS
     | REPORT_ANALYSIS_PORTS
     | LEDGER_ANALYTICS_PORTS
+    | ADVISORY_PORTS
 )
 
 # Families whose Python code is no longer run anywhere, so their names must stay
@@ -310,9 +320,10 @@ def test_duplicate_source_is_accounted_for(dup):
     # family the owner asked to have removed outright (the ledger study
     # endpoints) has no directory, and is proven by the Rust crate instead.
     source = os.path.join(_ROOT, dup)
-    if dup in LEDGER_ANALYTICS_PORTS:
+    if dup in LEDGER_ANALYTICS_PORTS or dup in ADVISORY_PORTS:
         assert not os.path.exists(source), f"{dup} was ported and deleted"
-        assert "ledger_core::analytics" in open(os.path.join(_ROOT, "docs", "SERVICE-CONSOLIDATION.md")).read()
+        marker = "ledger_core::analytics" if dup in LEDGER_ANALYTICS_PORTS else "vimbai_advisory"
+        assert marker in open(os.path.join(_ROOT, "docs", "SERVICE-CONSOLIDATION.md")).read()
         return
     assert os.path.isdir(source)
     assert os.path.isfile(os.path.join(source, "main.py"))

@@ -23,11 +23,6 @@
       "dir": "cash-optimization-service"
     },
     {
-      "path": "/cash-pooling",
-      "name": "cash-pooling-service",
-      "dir": "cash-pooling-service"
-    },
-    {
       "path": "/cvp-analysis",
       "name": "cvp-analysis-service",
       "dir": "cvp-analysis-service"

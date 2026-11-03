@@ -33,11 +33,6 @@
       "dir": "consolidation-service"
     },
     {
-      "path": "/construction-contracts",
-      "name": "construction-contracts-service",
-      "dir": "construction-contracts-service"
-    },
-    {
       "path": "/continue-shutdown-decision",
       "name": "continue-shutdown-decision-service",
       "dir": "continue-shutdown-decision-service"
@@ -51,11 +46,6 @@
       "path": "/departmental-accounting",
       "name": "departmental-accounting-service",
       "dir": "departmental-accounting-service"
-    },
-    {
-      "path": "/director-emoluments",
-      "name": "director-emoluments-service",
-      "dir": "director-emoluments-service"
     },
     {
       "path": "/disposal-account",

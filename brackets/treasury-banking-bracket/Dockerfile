@@ -25,7 +25,6 @@ COPY bank-relationship-service ./bank-relationship-service
 COPY cash-flow-service ./cash-flow-service
 COPY credit-risk-analysis-service ./credit-risk-analysis-service
 COPY currency-service ./currency-service
-COPY debt-covenants-service ./debt-covenants-service
 COPY debt-management-service ./debt-management-service
 COPY initial-investment-service ./initial-investment-service
 COPY interest-rate-risk-service ./interest-rate-risk-service

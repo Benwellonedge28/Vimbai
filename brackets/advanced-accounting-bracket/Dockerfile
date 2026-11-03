@@ -22,11 +22,9 @@ COPY bonus-shares-service ./bonus-shares-service
 COPY cashbook-service ./cashbook-service
 COPY company-accounting-service ./company-accounting-service
 COPY consolidation-service ./consolidation-service
-COPY construction-contracts-service ./construction-contracts-service
 COPY continue-shutdown-decision-service ./continue-shutdown-decision-service
 COPY control-account-reconciliation-service ./control-account-reconciliation-service
 COPY departmental-accounting-service ./departmental-accounting-service
-COPY director-emoluments-service ./director-emoluments-service
 COPY disposal-account-service ./disposal-account-service
 COPY disposal-group-service ./disposal-group-service
 COPY double-entry-principles-service ./double-entry-principles-service

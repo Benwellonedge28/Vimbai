@@ -279,14 +279,6 @@
       "strip_prefix": false
     },
     {
-      "name": "cash-pooling-service",
-      "path": "/cash-pooling",
-      "url": "http://localhost:9012",
-      "port": 8258,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "cashbook-service",
       "path": "/cashbook",
       "url": "http://localhost:9011",
@@ -307,14 +299,6 @@
       "path": "/consolidation",
       "url": "http://localhost:9011",
       "port": 8031,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "construction-contracts-service",
-      "path": "/construction-contracts",
-      "url": "http://localhost:9011",
-      "port": 8219,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -391,14 +375,6 @@
       "strip_prefix": false
     },
     {
-      "name": "debt-covenants-service",
-      "path": "/debt-covenants",
-      "url": "http://localhost:9003",
-      "port": 8240,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "debt-management-service",
       "path": "/debt-management",
       "url": "http://localhost:9003",
@@ -411,14 +387,6 @@
       "path": "/departmental-accounting",
       "url": "http://localhost:9011",
       "port": 8100,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "director-emoluments-service",
-      "path": "/director-emoluments",
-      "url": "http://localhost:9011",
-      "port": 8208,
       "auth_required": true,
       "strip_prefix": false
     },
