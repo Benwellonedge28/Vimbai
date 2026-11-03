@@ -635,10 +635,6 @@ pub fn analyze_synergies(request: &SynergyAnalysisRequest) -> SynergyAnalysisOut
 mod tests {
     use super::*;
 
-    fn close(a: f64, b: f64) {
-        assert!((a - b).abs() < 1e-9, "{a} != {b}");
-    }
-
     fn deal_request() -> DealStructuringRequest {
         DealStructuringRequest {
             deal_id: "D1".to_string(),
