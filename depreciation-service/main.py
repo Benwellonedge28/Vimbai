@@ -4,6 +4,9 @@ Port: 8356
 Depreciation calculation and scheduling
 """
 
+import importlib.util
+import os
+import sys
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
@@ -13,6 +16,15 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 logger = structlog.get_logger()
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("depreciation_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["depreciation_calc"] = calc
+_spec.loader.exec_module(calc)
+
 app = FastAPI(title="Depreciation Service", version="1.0.0")
 
 
@@ -48,7 +60,12 @@ class DepreciationMethodResponse(BaseModel):
 
 @app.get("/")
 async def health_check():
-    return {"status": "healthy", "service": "depreciation", "version": "1.0.0"}
+    return {
+        "status": "healthy",
+        "service": "depreciation",
+        "version": "1.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/calculate", response_model=DepreciationResponse)
@@ -90,39 +107,43 @@ async def calculate_depreciation(request: DepreciationRequest):
     )
 
 
-@app.post("/method", response_model=DepreciationMethodResponse)
-async def calculate_depreciation_method(request: DepreciationMethodRequest):
-    logger.info("Calculating depreciation method", method=request.method)
+def _reference(payload):
+    """The original Python ladder, kept as the oracle."""
+    depreciable = payload["cost"] - payload["salvage_value"]
 
-    depreciable = request.cost - request.salvage_value
-
-    if request.method == "straight_line":
-        annual = depreciable / request.useful_life
-    elif request.method == "double_declining":
-        rate = 2 / request.useful_life
-        annual = request.cost * rate
+    if payload["method"] == "straight_line":
+        annual = depreciable / payload["useful_life"]
+    elif payload["method"] == "double_declining":
+        rate = 2 / payload["useful_life"]
+        annual = payload["cost"] * rate
     else:
-        annual = depreciable / request.useful_life
+        annual = depreciable / payload["useful_life"]
 
     schedule = []
     remaining = depreciable
-    for y in range(request.useful_life):
+    for y in range(payload["useful_life"]):
         remaining -= annual
         schedule.append(
             {
                 "year": y + 1,
                 "depreciation": round(annual, 2),
                 "accumulated": round(annual * (y + 1), 2),
-                "book_value": round(max(0, request.salvage_value + remaining), 2),
+                "book_value": round(max(0, payload["salvage_value"] + remaining), 2),
             }
         )
 
-    return DepreciationMethodResponse(
-        method=request.method,
+    return dict(
+        method=payload["method"],
         annual_depreciation=round(annual, 2),
         monthly_depreciation=round(annual / 12, 2),
         depreciation_schedule=schedule,
     )
+
+
+@app.post("/method", response_model=DepreciationMethodResponse)
+async def calculate_depreciation_method(request: DepreciationMethodRequest):
+    logger.info("Calculating depreciation method", method=request.method)
+    return DepreciationMethodResponse(**calc.run_method(request.model_dump(mode="json"), _reference))
 
 
 if __name__ == "__main__":

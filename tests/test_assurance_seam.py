@@ -7,6 +7,7 @@ the service already reported.
 
 import importlib.util
 import os
+import pathlib
 import sys
 
 import pytest
@@ -1007,3 +1008,28 @@ def test_corporate_tax_holds_a_zero_profit_year_together():
     assert rust == reference
     assert rust["effective_rate"] == 0
     assert rust["balance_due"] == 0
+
+
+def test_depreciation_ladder_matches_the_reference():
+    payload = {"cost": 50000, "salvage_value": 5000, "useful_life": 5, "method": "straight_line"}
+    rust, reference = _both_engines("depreciation-service", "/method", payload)
+    assert rust == reference
+    assert rust["annual_depreciation"] == 9000.0
+    assert rust["monthly_depreciation"] == 750.0
+    assert len(rust["depreciation_schedule"]) == 5
+    assert rust["depreciation_schedule"][0]["book_value"] == 41000.0
+
+
+def test_depreciation_double_declining_ignores_salvage_in_the_rate():
+    """The rate is charged on full cost, not on cost less salvage - as it always was."""
+    payload = {"cost": 50000, "salvage_value": 5000, "useful_life": 5, "method": "double_declining"}
+    rust, reference = _both_engines("depreciation-service", "/method", payload)
+    assert rust == reference
+    assert rust["annual_depreciation"] == 20000.0
+
+
+def test_depreciation_calculate_endpoint_is_deliberately_not_wired():
+    """Its schedule is synthetic; the library builds a real ladder. Not swapped silently."""
+    source = (pathlib.Path(__file__).resolve().parents[1] / "depreciation-service" / "main.py").read_text()
+    calculate = source[source.index('@app.post("/calculate"') : source.index('@app.post("/method"')]
+    assert "calc." not in calculate
