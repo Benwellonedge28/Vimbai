@@ -39,15 +39,6 @@ def _patch_fake(pkg_name, fake_name):
 
 
 @pytest.fixture
-def policy_client():
-    _patch_fake("policy_engine_service", "policy_engine_root_fake")
-    app = load_service("policy-engine-service").main.app
-    client = TestClient(app)
-    client.headers.update(_H)
-    return client
-
-
-@pytest.fixture
 def webhook_client():
     _patch_fake("webhook_service", "webhook_root_fake")
     app = load_service("webhook-service").main.app
@@ -128,61 +119,8 @@ def zbb_client():
     return client
 
 
-class TestPolicyEngine:
-    def test_health(self, policy_client):
-        assert policy_client.get("/").status_code == 200
-
-    def test_create_rule(self, policy_client):
-        resp = policy_client.post(
-            "/rules/comp-1",
-            json={
-                "name": "Large Transaction Check",
-                "resource_type": "transaction",
-                "condition_field": "amount",
-                "condition_operator": ">",
-                "condition_value": 50000,
-                "action": "require_approval",
-                "message": "Transaction requires approval",
-            },
-        )
-        assert resp.status_code == 200
-        assert resp.json()["action"] == "require_approval"
-
-    def test_evaluate_triggered(self, policy_client):
-        policy_client.post(
-            "/rules/comp-eval",
-            json={
-                "name": "Max Amount",
-                "resource_type": "transaction",
-                "condition_field": "amount",
-                "condition_operator": ">",
-                "condition_value": 10000,
-                "action": "deny",
-                "message": "Too large",
-            },
-        )
-        resp = policy_client.post("/evaluate/comp-eval?resource_type=transaction", json={"amount": 50000})
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["triggered_count"] >= 1
-        assert data["blocked"] == True
-        assert data["allowed"] == False
-
-    def test_evaluate_not_triggered(self, policy_client):
-        policy_client.post(
-            "/rules/comp-ok",
-            json={
-                "name": "Max Amount",
-                "resource_type": "transaction",
-                "condition_field": "amount",
-                "condition_operator": ">",
-                "condition_value": 100000,
-                "action": "deny",
-                "message": "Too large",
-            },
-        )
-        resp = policy_client.post("/evaluate/comp-ok?resource_type=transaction", json={"amount": 5000})
-        assert resp.json()["allowed"] == True
+# TestPolicyEngine moved to library/abac: the service is now the vimbai_abac
+# crate, with the decision shape and deny-overrides pinned in Rust tests.
 
 
 class TestWebhook:

@@ -8,6 +8,8 @@ members = [
     "advisory",
     "automation",
     "sso",
+    "rbac",
+    "abac",
     "variance",
     "capital_valuation",
     "cost_accounting",

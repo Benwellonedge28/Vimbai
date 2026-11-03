@@ -24,7 +24,6 @@ COPY financial-state-machine-service ./financial-state-machine-service
 COPY graphql-service ./graphql-service
 COPY management-dashboard-service ./management-dashboard-service
 COPY mfa-auth-service ./mfa-auth-service
-COPY policy-engine-service ./policy-engine-service
 COPY realtime-calculation-engine ./realtime-calculation-engine
 COPY websocket-service ./websocket-service
 COPY zero-trust-data-service ./zero-trust-data-service

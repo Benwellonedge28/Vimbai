@@ -43,11 +43,6 @@
       "dir": "mfa-auth-service"
     },
     {
-      "path": "/policy",
-      "name": "policy-engine-service",
-      "dir": "policy-engine-service"
-    },
-    {
       "path": "/realtime-calculation",
       "name": "realtime-calculation-engine",
       "dir": "realtime-calculation-engine"

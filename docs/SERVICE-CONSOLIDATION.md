@@ -466,3 +466,13 @@ the domain service above; they simply stop being separate containers.
    so they merge without touching their contract.
 3. 7 services share `[/, /assess]` and are stateless: one `assessment` module.
 4. The 10 stubs above join `ledger-core` with no data migration.
+
+### org-authorization-engine and policy-engine-service -> vimbai_rbac, vimbai_abac
+Both Python services are gone (gateway 185 -> 183 routes). RBAC is now
+`library/rbac` and ABAC is `library/abac`: independent crates, safe Rust, no
+globals, timestamps supplied by the caller. RBAC gains permission patterns, role
+inheritance with cycle refusal, explicit denies and expiring assignments. ABAC
+gains validated operators at write time (a typo can no longer create a rule that
+never fires), reported type mismatches instead of silence, obligations for warn
+and require-approval, action scoping, priorities, presence operators, and
+deny-by-default. Contracts in library/RBAC-ABAC.md.

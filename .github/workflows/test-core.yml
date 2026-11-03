@@ -46,7 +46,7 @@ jobs:
           - group: platform-automation-bracket
             services: "automation-engine-service notifications-service webhook-service admin-service"
           - group: platform-infrastructure-bracket
-            services: "financial-state-machine-service policy-engine-service realtime-calculation-engine message-bus-service pos-integration-service"
+            services: "financial-state-machine-service realtime-calculation-engine message-bus-service pos-integration-service"
           - group: risk-governance-bracket
             services: "risk-assessment-service"
           - group: statements-reporting-bracket
@@ -56,7 +56,7 @@ jobs:
           - group: tax-audit-investigation-bracket
             services: "corporate-tax-service audit-engagement-service sox-compliance-service"
           - group: general-services-bracket
-            services: "org-authorization-engine"
+            services: 
           - group: treasury-banking-bracket
             services: "sovereign-treasury-service treasury-analytics-service treasury-compliance-service treasury-management-service bank-feed-service cash-management-service"
 

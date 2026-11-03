@@ -834,14 +834,6 @@
       "strip_prefix": false
     },
     {
-      "name": "org-authorization-engine",
-      "path": "/org-authorization",
-      "url": "http://localhost:9010",
-      "port": 8008,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "overhead-absorption-rate-service",
       "path": "/overhead-absorption-rate",
       "url": "http://localhost:9011",
@@ -950,14 +942,6 @@
       "path": "/petty-cash",
       "url": "http://localhost:9011",
       "port": 8097,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "policy-engine-service",
-      "path": "/policy",
-      "url": "http://localhost:9013",
-      "port": 8101,
       "auth_required": true,
       "strip_prefix": false
     },

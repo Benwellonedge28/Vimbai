@@ -18,11 +18,6 @@
       "dir": "family-community-group-service"
     },
     {
-      "path": "/org-authorization",
-      "name": "org-authorization-engine",
-      "dir": "org-authorization-engine"
-    },
-    {
       "path": "/selling-price-reduction",
       "name": "selling-price-reduction-service",
       "dir": "selling-price-reduction-service"
