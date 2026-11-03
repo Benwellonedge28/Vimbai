@@ -267,8 +267,12 @@ def test_journal_event_autonomously_re_evaluates_alerts(fake_http):
         headers=H1,
     )
     assert r.status_code == 200, r.text
-    assert len(fake_http) == 1
-    call = fake_http[0]
+    # Every publish also pushes to the WebSocket relay, so narrow to the automation call.
+    evaluate = [c for c in fake_http if c["url"].endswith("/evaluate")]
+    relayed = [c for c in fake_http if c["url"].endswith("/events/ingest")]
+    assert len(evaluate) == 1
+    assert len(relayed) == 1, "a published event must reach the realtime relay"
+    call = evaluate[0]
     assert call["url"].endswith("/evaluate")
     assert call["headers"]["X-User-Id"] == U1
     assert call["headers"]["X-Book-ID"] == BOOK_A
@@ -310,4 +314,6 @@ def test_dispatch_is_caller_scoped(fake_http):
     assert r.status_code == 200, r.text
     assert r.json()["dispatch"]["delivered"] == 0
     # U1's webhook must not fire; only the built-in alert automation ran
-    assert all(c["url"].endswith("/evaluate") for c in fake_http)
+    evaluate = [c for c in fake_http if c["url"].endswith("/evaluate")]
+    assert evaluate, "the caller's alert rule should be evaluated"
+    assert all(c["url"].endswith("/evaluate") for c in evaluate)

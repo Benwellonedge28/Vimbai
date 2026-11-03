@@ -31,6 +31,13 @@ from message_bus_service.models import Event, EventDelivery, EventType
 # gateway and carry the gateway-injected identity headers directly).
 ALERTS_SERVICE_URL = os.getenv("ALERTS_SERVICE_URL", "http://localhost:8090")
 
+# Last mile: push every event to the WebSocket service so signed-in clients of
+# that Book see the write without polling. "http" posts to the relay endpoint,
+# "off" disables it (RabbitMQ fan-out in websocket-service still delivers).
+WEBSOCKET_SERVICE_URL = os.getenv("WEBSOCKET_SERVICE_URL", "http://websocket-service:8000")
+REALTIME_RELAY_MODE = os.getenv("REALTIME_RELAY_MODE", "http").lower()
+REALTIME_TIMEOUT_SECONDS = 2.0
+
 WEBHOOK_TIMEOUT_SECONDS = 5.0
 AUTOMATION_TIMEOUT_SECONDS = 5.0
 
@@ -80,6 +87,22 @@ async def _deliver_webhook(subscription, event: Event) -> EventDelivery:
         )
 
 
+async def _deliver_realtime(event: Event) -> None:
+    """Push an event to the WebSocket relay (fire-and-forget).
+
+    Duplicate delivery is safe: the relay drops repeats by event id, so this
+    path and the RabbitMQ consumer can both be active.
+    """
+    if REALTIME_RELAY_MODE == "off":
+        return
+    body = event.model_dump(mode="json")
+    try:
+        async with httpx.AsyncClient(timeout=REALTIME_TIMEOUT_SECONDS) as client:
+            await client.post(f"{WEBSOCKET_SERVICE_URL}/events/ingest", json=body)
+    except Exception:  # noqa: BLE001 - real-time is best effort, the record is already durable
+        pass
+
+
 async def _run_alert_evaluation(user_id: str, event: Event) -> None:
     """Built-in automation: re-evaluate the caller's alert rules."""
     headers = {
@@ -116,6 +139,9 @@ async def dispatch_event(session, user_id: str, event: Event) -> list:
             delivery = await _deliver_webhook(sub, event)
             deliveries.append(delivery)
             await crud.create_delivery(session, user_id, delivery)
+
+        # Push to connected clients before the (slower) automations run.
+        await _deliver_realtime(event)
 
         if event.type in ALERT_EVALUATION_EVENTS:
             await _run_alert_evaluation(user_id, event)

@@ -31,6 +31,13 @@ class AppConfig {
   static const Duration requestTimeout = Duration(seconds: 15);
   static const int maxRetries = 2;
 
+  // WebSocket route: the gateway proxies the upgrade to websocket-service,
+  // which fans out that Book's live events (see RealtimeService).
+  static const String realtimeUrl = String.fromEnvironment(
+    'VIMBAI_REALTIME_URL',
+    defaultValue: '$apiUrl/websocket',
+  );
+
   // Gateway route for the cash flow statement service.
   static const String cashFlowStatementRoute = '$apiUrl/cash-flow-statement';
 }

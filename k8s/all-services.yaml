@@ -13363,6 +13363,10 @@ spec:
             secretKeyRef:
               name: vimbai-secrets
               key: RABBITMQ_PASS
+        - name: WEBSOCKET_SERVICE_URL
+          value: "http://websocket-service:8000"
+        - name: REALTIME_RELAY_MODE
+          value: "http"
         resources:
           requests:
             memory: "128Mi"

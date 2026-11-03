@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:vimbai_mobile_client/models/multimodal_models.dart';
 import 'package:vimbai_mobile_client/services/book_context.dart';
 import 'package:vimbai_mobile_client/services/multimodal_api_service.dart';
+import 'package:vimbai_mobile_client/services/realtime_service.dart';
 import 'package:vimbai_mobile_client/services/sync_service.dart';
 
 /// The Book Inbox: incomplete records wired to this Book.
@@ -29,21 +30,48 @@ class _BookInboxPageState extends State<BookInboxPage> {
   List<MultimodalProcessingTaskInDB> _records = [];
   bool _loading = false;
   String? _error;
-  Timer? _autoRefresh;
+  Timer? _fallbackPoll;
+  StreamSubscription<RealtimeEvent>? _realtimeSub;
   int _pendingSync = 0;
 
   @override
   void initState() {
     super.initState();
     _refresh();
-    // Records move through statuses in the background; keep the list live.
-    _autoRefresh = Timer.periodic(const Duration(seconds: 5), (_) => _refresh());
+    _startLiveUpdates();
   }
 
   @override
   void dispose() {
-    _autoRefresh?.cancel();
+    _fallbackPoll?.cancel();
+    _realtimeSub?.cancel();
+    RealtimeService.instance.connected.removeListener(_onConnectionChanged);
     super.dispose();
+  }
+
+  /// Live rather than polled: the socket tells us when this Book's records
+  /// change, so the inbox updates the moment a capture is processed. The slow
+  /// timer is only a safety net for while the socket is down.
+  void _startLiveUpdates() {
+    _realtimeSub = RealtimeService.instance.events.listen((event) {
+      if (!mounted) return;
+      if (event.bookId != null && event.bookId != BookContext.instance.current?.id) {
+        return;
+      }
+      _refresh();
+    });
+    RealtimeService.instance.connected.addListener(_onConnectionChanged);
+    RealtimeService.instance.start();
+    _onConnectionChanged();
+  }
+
+  void _onConnectionChanged() {
+    if (!mounted) return;
+    _fallbackPoll?.cancel();
+    _fallbackPoll = null;
+    if (RealtimeService.instance.isConnected) return;
+    // Socket down (or still connecting): keep the screen fresh, gently.
+    _fallbackPoll = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
   }
 
   Future<void> _refresh() async {
