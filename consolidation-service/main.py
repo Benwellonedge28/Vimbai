@@ -17,7 +17,9 @@ Capabilities:
   - Consolidated financial statement production (revenue, profit, balance sheet, cash flow)
 """
 
+import importlib.util
 import os
+import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -28,6 +30,15 @@ from pydantic import BaseModel, Field
 # ============================================================================
 # Configuration
 # ============================================================================
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("consolidation_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["consolidation_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "consolidation-service"
 SERVICE_VERSION = "2.0.0"
@@ -121,7 +132,12 @@ async def health_check():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": SERVICE_VERSION}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 # ============================================================================
@@ -131,8 +147,8 @@ async def health():
 
 @app.post("/consolidate")
 async def consolidate_financials(request: ConsolidationRequest):
-    """
-    Consolidate parent and subsidiary financial statements.
+    """Consolidate parent and subsidiary financial statements.
+
     Produces consolidated revenue, profit, balance sheet, and cash flow statements.
     Handles NCI, goodwill, and intercompany eliminations.
     """
@@ -142,110 +158,13 @@ async def consolidate_financials(request: ConsolidationRequest):
         period=request.period,
         subs=len(request.subsidiaries),
     )
-
-    # Aggregate subsidiary data
-    total_sub_revenue = 0.0
-    total_sub_profit = 0.0
-    total_sub_assets = 0.0
-    total_sub_liabilities = 0.0
-    total_sub_equity = 0.0
-    subsidiary_revenues: Dict[str, float] = {}
-    subsidiary_profits: Dict[str, float] = {}
-
-    for sub in request.subsidiaries:
-        fin = sub.financial_data
-        ownership = sub.ownership_percentage / 100
-
-        sub_revenue = fin.get("revenue", 2_000_000.0) * ownership
-        sub_profit = fin.get("profit", 300_000.0) * ownership
-        sub_assets = fin.get("assets", 5_000_000.0)
-        sub_liabilities = fin.get("liabilities", 2_500_000.0)
-        sub_equity = fin.get("equity", sub_assets - sub_liabilities)
-
-        subsidiary_revenues[sub.subsidiary_id] = round(sub_revenue, 2)
-        subsidiary_profits[sub.subsidiary_id] = round(sub_profit, 2)
-        total_sub_revenue += sub_revenue
-        total_sub_profit += sub_profit
-        total_sub_assets += sub_assets
-        total_sub_liabilities += sub_liabilities
-        total_sub_equity += sub_equity
-
-    # Parent figures (simulated; in production, fetched from accounting-service)
-    parent_revenue = 10_000_000.0
-    parent_profit = 1_500_000.0
-    parent_assets = 50_000_000.0
-    parent_liabilities = 30_000_000.0
-
-    # Intercompany eliminations
-    intercompany_sales = sum(t.amount for t in request.intercompany_transactions if t.transaction_type == "sale")
-    intercompany_dividends = sum(
-        t.amount for t in request.intercompany_transactions if t.transaction_type == "dividend"
+    return calc.consolidate(
+        request.parent_company_id,
+        request.period,
+        [s.model_dump() for s in request.subsidiaries],
+        [t.model_dump() for t in request.intercompany_transactions],
+        request.minority_interest,
     )
-
-    # NCI
-    nci_pct_avg = (
-        sum(sub.non_controlling_interests_percentage for sub in request.subsidiaries) / len(request.subsidiaries)
-        if request.subsidiaries
-        else 0.0
-    )
-    nci_profit_share = total_sub_profit * (nci_pct_avg / 100)
-    nci_equity_share = total_sub_equity * (nci_pct_avg / 100)
-
-    # Minority interest (legacy field)
-    minority = (total_sub_equity + parent_assets - parent_liabilities) * 0.1 if request.minority_interest else 0.0
-
-    # Consolidated figures
-    consolidated_revenue = parent_revenue + total_sub_revenue - intercompany_sales
-    consolidated_profit_attributable = parent_profit + total_sub_profit - nci_profit_share
-    total_assets = parent_assets + total_sub_assets
-    total_liabilities = parent_liabilities + total_sub_liabilities
-    total_equity = total_assets - total_liabilities
-    parent_equity = total_equity - nci_equity_share
-
-    return {
-        "parent_company_id": request.parent_company_id,
-        "period": request.period,
-        "consolidated_revenue": {
-            "parent_revenue": parent_revenue,
-            "subsidiary_revenues": subsidiary_revenues,
-            "intercompany_sales_elimination": round(intercompany_sales, 2),
-            "consolidated_revenue": round(consolidated_revenue, 2),
-        },
-        "consolidated_profit": {
-            "parent_profit": parent_profit,
-            "subsidiary_profits": subsidiary_profits,
-            "goodwill_amortization": 50_000.0,
-            "nci_share": round(nci_profit_share, 2),
-            "attributable_to_parent": round(consolidated_profit_attributable, 2),
-        },
-        "consolidated_balance_sheet": {
-            "total_assets": round(total_assets, 2),
-            "non_current_assets": round(total_assets * 0.6, 2),
-            "current_assets": round(total_assets * 0.4, 2),
-            "total_liabilities": round(total_liabilities, 2),
-            "non_current_liabilities": round(total_liabilities * 0.4, 2),
-            "current_liabilities": round(total_liabilities * 0.6, 2),
-            "equity_attributable_to_parent": round(parent_equity, 2),
-            "non_controlling_interests": round(nci_equity_share, 2),
-            "total_equity": round(total_equity, 2),
-        },
-        "consolidated_cash_flow": {
-            "operating_activities": 2_000_000.0,
-            "investing_activities": -800_000.0,
-            "financing_activities": -500_000.0,
-            "effect_of_exchange_rate": 10_000.0,
-            "net_increase_in_cash": 710_000.0,
-        },
-        "goodwill_recognized": sum(sub.goodwill for sub in request.subsidiaries),
-        "nci_at_fair_value": round(nci_equity_share * 1.2, 2),
-        "minority_interest": round(minority, 2),
-        "elimination_count": len(request.intercompany_transactions),
-    }
-
-
-# ============================================================================
-# Routes — Intercompany Eliminations
-# ============================================================================
 
 
 @app.post("/eliminations")

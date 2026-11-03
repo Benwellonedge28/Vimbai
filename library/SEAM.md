@@ -95,6 +95,7 @@ the seam answers where the service could not. Any client that was retrying
 * `pension-accounting-service` (`/calculate`), calculator in `calc.py`
 * `inventory-valuation-service` (`/calculate`), calculator in `calc.py`
 * `net-realizable-value-service` (`/calculate-nrv`), calculator in `calc.py`
+* `consolidation-service` (`/consolidate`), calculator in `calc.py`
 
 Both read `VIMBAI_CALC_ENGINE`: `auto` (default) uses Rust when the extension is
 there, `rust` refuses to start without it, `python` pins the reference. `/health`
@@ -111,6 +112,11 @@ Two things the wiring had to get right:
    process holding two services the second one silently calls the first one's
    calculator. The root suite caught exactly that.
 
+A seam function reports what the library measures, not what a service likes to show.
+Where the two differ, the wrapper belongs to the service: consolidation-service adds its
+balance sheet split and its fixed cash flow block in Python, around whichever engine
+answered, so the library never reports a statement it did not compute.
+
 `tests/test_assurance_seam.py` runs every request through both engines and compares
 the figures, including the scorecard's 0-10,000 scale and the control-testing detail
 records field by field.
@@ -123,7 +129,7 @@ would otherwise have started returning nulls.
 
 ## Still to do
 
-Sixteen services cross the seam. The remaining 13 seam functions have no wiring yet:
+Seventeen services cross the seam. The remaining 12 seam functions have no wiring yet:
 the other tax services (provision, risk, group tax), partnership and pension, the
 consolidation family, inventory and NRV, FX, and the market and credit risk
 services.

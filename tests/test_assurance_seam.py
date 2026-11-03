@@ -34,6 +34,7 @@ if not all(
         "pension_json",
         "inventory_valuation_json",
         "nrv_json",
+        "consolidation_json",
     )
 ):
     pytest.skip("the installed extension predates these functions", allow_module_level=True)
@@ -688,3 +689,55 @@ def test_net_realizable_value_matches_the_reference():
     assert rust == reference
     assert rust["net_realizable_value"] == 350.0
     assert rust["formula"] == "500.0 - 120.0 - 30.0 = 350.0"
+
+
+CONSOLIDATION_PAYLOAD = {
+    "parent_company_id": "parent-seam",
+    "period": "2026",
+    "subsidiaries": [
+        {
+            "subsidiary_id": "s1",
+            "subsidiary_name": "Trading sub",
+            "ownership_percentage": 80,
+            "non_controlling_interests_percentage": 20,
+            "financial_data": {
+                "revenue": 2000000,
+                "profit": 300000,
+                "assets": 5000000,
+                "liabilities": 2500000,
+            },
+        },
+        {
+            "subsidiary_id": "s2",
+            "subsidiary_name": "Loss-making sub",
+            "ownership_percentage": 100,
+            "non_controlling_interests_percentage": 0,
+            "financial_data": {
+                "revenue": 1200000,
+                "profit": -150000,
+                "assets": 3000000,
+                "liabilities": 1000000,
+            },
+        },
+    ],
+    "intercompany_transactions": [
+        {"transaction_id": "t1", "transaction_type": "sale", "amount": 200000},
+        {"transaction_id": "t2", "transaction_type": "dividend", "amount": 50000},
+    ],
+    "minority_interest": True,
+}
+
+
+def test_consolidation_matches_the_reference():
+    rust, reference = _both_engines("consolidation-service", "/consolidate", CONSOLIDATION_PAYLOAD)
+    assert rust == reference
+    # a loss-making subsidiary drags the group profit down through its whole share
+    assert rust["consolidated_profit"]["subsidiary_profits"] == {"s1": 240000.0, "s2": -150000.0}
+    assert rust["consolidated_profit"]["nci_share"] == 9000.0
+    assert rust["consolidated_profit"]["attributable_to_parent"] == 1581000.0
+    # only sales are eliminated from revenue; the dividend is not
+    assert rust["consolidated_revenue"]["intercompany_sales_elimination"] == 200000.0
+    # 10,000,000 parent + 1,600,000 + 1,200,000 of subsidiary revenue at ownership share,
+    # less 200,000 of intercompany sales
+    assert rust["consolidated_revenue"]["consolidated_revenue"] == 12600000.0
+    assert rust["elimination_count"] == 2
