@@ -1,45 +1,72 @@
-//! The rejections the service returned, with its status codes and wording.
+//! Rejections: a stable code, an HTTP status, and a message in the caller's
+//! language.
+
+use serde_json::{json, Value};
+
+use crate::i18n::{Locale, MessageCatalogue, MessageKey};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SsoError {
-    /// 401 "Invalid IdP token" - missing or shorter than ten characters.
-    InvalidIdpToken,
-    /// 401 "Malformed token" - not a three-part JWT.
-    MalformedToken,
-    /// 401 "Invalid token payload" - the middle segment would not decode.
-    InvalidTokenPayload,
-    /// 401 "Token expired" - the `exp` claim is in the past.
-    TokenExpired,
-    /// 401 "Invalid SAML assertion" - shorter than twenty characters.
-    InvalidSamlAssertion,
-    /// 400 "Unsupported provider: x".
-    UnsupportedProvider(String),
-    /// 401 "Invalid or expired session" - unknown token.
-    InvalidSession,
-    /// 401 "Session expired" - recognised, past its expiry, and dropped.
-    SessionExpired,
+pub struct SsoError {
+    pub key: MessageKey,
+    /// Details for the log: the offending issuer, audience, domain, algorithm.
+    /// Never a secret, never the token itself.
+    pub detail: Option<String>,
 }
 
 impl SsoError {
+    pub fn new(key: MessageKey) -> SsoError {
+        SsoError { key, detail: None }
+    }
+
+    pub fn with_detail(key: MessageKey, detail: impl Into<String>) -> SsoError {
+        SsoError {
+            key,
+            detail: Some(detail.into()),
+        }
+    }
+
+    pub fn code(&self) -> &'static str {
+        self.key.code()
+    }
+
     pub fn status_code(&self) -> u16 {
-        match self {
-            SsoError::UnsupportedProvider(_) => 400,
+        use MessageKey::*;
+        match self.key {
+            UnsupportedProvider | UnsupportedAlgorithm | IdpNotConfigured | IdpDisabled => 400,
+            InvalidSession | SessionExpired | SessionIdle | SessionIpMismatch => 401,
+            EmailDomainNotAllowed => 403,
             _ => 401,
         }
     }
 
+    /// The English wording, which is what the original service always sent.
     pub fn message(&self) -> String {
-        match self {
-            SsoError::InvalidIdpToken => "Invalid IdP token".to_string(),
-            SsoError::MalformedToken => "Malformed token".to_string(),
-            SsoError::InvalidTokenPayload => "Invalid token payload".to_string(),
-            SsoError::TokenExpired => "Token expired".to_string(),
-            SsoError::InvalidSamlAssertion => "Invalid SAML assertion".to_string(),
-            SsoError::UnsupportedProvider(provider) => {
-                format!("Unsupported provider: {provider}")
-            }
-            SsoError::InvalidSession => "Invalid or expired session".to_string(),
-            SsoError::SessionExpired => "Session expired".to_string(),
+        self.localized(&Locale::new(Locale::ENGLISH, None))
+    }
+
+    pub fn localized(&self, locale: &Locale) -> String {
+        let base = MessageCatalogue::render(self.key, locale);
+        match (&self.detail, self.key) {
+            (Some(detail), MessageKey::UnsupportedProvider) => format!("{base}: {detail}"),
+            (Some(detail), MessageKey::UnsupportedAlgorithm) => format!("{base}: {detail}"),
+            (Some(detail), _) => format!("{base} ({detail})"),
+            (None, _) => base,
         }
     }
+
+    /// The body an HTTP layer can return directly.
+    pub fn to_json(&self, locale: &Locale) -> Value {
+        json!({
+            "detail": self.localized(locale),
+            "code": self.code(),
+        })
+    }
 }
+
+impl std::fmt::Display for SsoError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.code(), self.message())
+    }
+}
+
+impl std::error::Error for SsoError {}

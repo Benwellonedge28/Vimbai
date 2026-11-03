@@ -28,7 +28,7 @@ profit-loss-account retires on the port that already existed in
 `ratios_statements::profit_loss`. Gateway 208 routes, ten k8s documents, five
 bracket members.
 
-enterprise-sso is a Rust crate: `vimbai_sso`. Sessions, token derivation and
+enterprise-sso is a Rust crate with real verification now, see library/SSO.md: `vimbai_sso`. Sessions, token derivation and
 the 401/400 contract moved into caller-owned `SsoStore` state, with instants and
 nonces supplied by the caller. Signature verification is still absent, exactly
 as it was in the service: callers must validate the assertion with the IdP
@@ -124,7 +124,7 @@ NPV, IRR, payback, profitability index, present value, TVM, MVA, sustainable gro
 * `profitability-index-service`
 * `project-appraisal-service`
 * `sustainable-growth-service`
-* enterprise-sso is a Rust crate: `vimbai_sso`. Sessions, token derivation and
+* enterprise-sso is a Rust crate with real verification now, see library/SSO.md: `vimbai_sso`. Sessions, token derivation and
 the 401/400 contract moved into caller-owned `SsoStore` state, with instants and
 nonces supplied by the caller. Signature verification is still absent, exactly
 as it was in the service: callers must validate the assertion with the IdP

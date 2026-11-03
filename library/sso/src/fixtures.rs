@@ -1,0 +1,38 @@
+//! Interchange fixtures generated with Python `cryptography` (OpenSSL), so the
+//! verification paths are proven against an outside signer rather than against
+//! this crate's own code. Do not regenerate without re-running the suite.
+
+/// 2026-11-03T08:18:26Z, the instant every fixture is anchored to.
+pub const NOW_MICROS: i64 = 1793693906000000;
+
+/// A 2048-bit RSA JWK, as an identity provider would publish it.
+pub const RSA_JWK_JSON: &str = r#"{"kty": "RSA", "kid": "rsa-2026", "use": "sig", "alg": "RS256", "n": "ku6aAcZquyQSnCiY75CCB36_-nQFT-t-FSpAaKs0o5nacx-kBxFi5G99cegluaCtJDebIoOnmhPoaD8i0UF4pMen3hQedg7tdF20cds-R7gA9fEyGR82nEzdRSVTw5DzfP5GdGYnZ0WO_qgR4np6yhBSVRNDggDdRv3yHzNfPNMN5j44yOjdxvBmFGbhc6Gyp31UwYiHQ1U4ZNsE5Vk_crjSw0vLYqAGRbaeZHUL27IIb-0wTBy04vZc4Jpdw5BsT9Xh_G-oMvaAdS_1I8mw4OFGwEeOUb0TRIum67OF5Gb4Qkt58cw6MOzfo1JR-Uj76dhY6egQoU-I6TIsosvIZw", "e": "AQAB"}"#;
+
+/// A P-256 JWK.
+pub const EC_JWK_JSON: &str = r#"{"kty": "EC", "kid": "ec-2026", "use": "sig", "alg": "ES256", "crv": "P-256", "x": "25fNIdvmclyxMpc8cBlrdqqBg3XTi_-wYphUxrXREHs", "y": "WKdyrWhKyeQB9LrHna_7YamxdqwcmRG-NTF6vZeHYJk"}"#;
+
+/// RS256 token over the standard claim set.
+pub const RS256_JWT: &str = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InJzYS0yMDI2In0.eyJpc3MiOiJodHRwczovL2lkcC5leGFtcGxlLmNvbSIsImF1ZCI6WyJ2aW1iYWktYXBpIiwidmltYmFpLWFwcCJdLCJzdWIiOiJ1c2VyLTQ3MTEiLCJleHAiOjE3OTM2OTQ1MDYsImlhdCI6MTc5MzY5Mzg3NiwibmJmIjoxNzkzNjkzODQ2LCJlbWFpbCI6IlRhcmlyby5Nb3lvQEV4YW1wbGUuQ09NIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImdyb3VwcyI6WyJmaW5hbmNlLWFkbWluIiwiYXVkaXRvcnMiXSwibG9jYWxlIjoic24tWlciLCJ6b25laW5mbyI6IkFmcmljYS9IYXJhcmUiLCJub25jZSI6Im4tYWJjMTIzIiwiYXpwIjoidmltYmFpLWFwcCJ9.KmXvIaWOkjia5XnDDHFitYitBjKcsPCYIlNhrgNmQ02sjpv4xlFnqg1yBWYCgOjD2BXrkPWvvFOjqawGWSYDh-V8062NL3znRcfCXr221Ymo5iNlBcyVUoKPGlC5n6T6A6_o9iyYaG3jsz5YQPsKDVsdFyVfhw0NuJa6z7ncsAdQ6yQA2948Y4D5-bCv-qMGj9-Xuqc4TvwqSaI4HSwXNyeU-6ICHTuZM-RkOR--X5qmkYxmurwwZ-nREqxtuZMiC5c3cQEgsA--z-wOCy0FliUxMTzixHDYTFSf6Z0VVC8WRxJxAujl-we1BOWI5SS9dilc-nlBlD6jglLr8ajBoQ";
+
+/// ES256 token over the same claim set.
+pub const ES256_JWT: &str = "eyJhbGciOiJFUzI1NiIsImtpZCI6ImVjLTIwMjYifQ.eyJpc3MiOiJodHRwczovL2lkcC5leGFtcGxlLmNvbSIsImF1ZCI6WyJ2aW1iYWktYXBpIiwidmltYmFpLWFwcCJdLCJzdWIiOiJ1c2VyLTQ3MTEiLCJleHAiOjE3OTM2OTQ1MDYsImlhdCI6MTc5MzY5Mzg3NiwibmJmIjoxNzkzNjkzODQ2LCJlbWFpbCI6IlRhcmlyby5Nb3lvQEV4YW1wbGUuQ09NIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImdyb3VwcyI6WyJmaW5hbmNlLWFkbWluIiwiYXVkaXRvcnMiXSwibG9jYWxlIjoic24tWlciLCJ6b25laW5mbyI6IkFmcmljYS9IYXJhcmUiLCJub25jZSI6Im4tYWJjMTIzIiwiYXpwIjoidmltYmFpLWFwcCJ9.OiCt4xhBmPshmWKHIIqPj64J4JoFyBfLeGLVdYE4HY78Huf5UOS0ZXfNfHuNQ0JU3WTwDU0tSqDeyLGPmsAxEA";
+
+/// HS256 token over the same claim set, signed with HS256_TEST_SECRET.
+pub const HS256_JWT: &str = "eyJhbGciOiJIUzI1NiIsImtpZCI6ImhzLTIwMjYifQ.eyJpc3MiOiJodHRwczovL2lkcC5leGFtcGxlLmNvbSIsImF1ZCI6WyJ2aW1iYWktYXBpIiwidmltYmFpLWFwcCJdLCJzdWIiOiJ1c2VyLTQ3MTEiLCJleHAiOjE3OTM2OTQ1MDYsImlhdCI6MTc5MzY5Mzg3NiwibmJmIjoxNzkzNjkzODQ2LCJlbWFpbCI6IlRhcmlyby5Nb3lvQEV4YW1wbGUuQ09NIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImdyb3VwcyI6WyJmaW5hbmNlLWFkbWluIiwiYXVkaXRvcnMiXSwibG9jYWxlIjoic24tWlciLCJ6b25laW5mbyI6IkFmcmljYS9IYXJhcmUiLCJub25jZSI6Im4tYWJjMTIzIiwiYXpwIjoidmltYmFpLWFwcCJ9.aFQGOs3CAJ1DaRqyCRa4TV-3ILw6hjurIcLdUVhiJMM";
+
+pub const HS256_TEST_SECRET: &str = "vimbai-hs256-secret-that-is-long-enough-32b";
+
+/// Same claims, an hour past expiry: beyond any sane leeway.
+pub const EXPIRED_JWT: &str = "eyJhbGciOiJSUzI1NiIsImtpZCI6InJzYS0yMDI2In0.eyJpc3MiOiJodHRwczovL2lkcC5leGFtcGxlLmNvbSIsImF1ZCI6WyJ2aW1iYWktYXBpIiwidmltYmFpLWFwcCJdLCJzdWIiOiJ1c2VyLTQ3MTEiLCJleHAiOjE3OTM2OTAzMDYsImlhdCI6MTc5MzY5Mzg3NiwibmJmIjoxNzkzNjkzODQ2LCJlbWFpbCI6IlRhcmlyby5Nb3lvQEV4YW1wbGUuQ09NIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImdyb3VwcyI6WyJmaW5hbmNlLWFkbWluIiwiYXVkaXRvcnMiXSwibG9jYWxlIjoic24tWlciLCJ6b25laW5mbyI6IkFmcmljYS9IYXJhcmUiLCJub25jZSI6Im4tYWJjMTIzIiwiYXpwIjoidmltYmFpLWFwcCJ9.QKSGpYIuka959TAcQKZUbDSvNHtxmCGbF74XDucVvzlKBN9XelOIbAdHG-2HP_ev-zc_Zl_rHJ6dLkoQOXcjuzVa_rbmFJNhmFV9DApp-4uH48-9X_YV1eylh1EvsE-82bG2M3yEJXgnnlhPnphdgA0bEIjnfTZF-pLjN2xCNdZHDIHb8zLTGAhRIfg4wsP-nw7dXtJjq__6LMSmXvAyNn1zN3byD4pLY3AtEAQBckaG1Zb98lVt5xnfXkAimKP8InHZccqYmXvaZfCbulEpUKkwmyHr5ENx7Ru3byzxlb4WHxMz5FT3HZSPXxyDb4eaSCN95StAiZktK4oNK3yyaw";
+
+/// Same claims, audience does not include vimbai-api.
+pub const WRONG_AUDIENCE_JWT: &str = "eyJhbGciOiJSUzI1NiIsImtpZCI6InJzYS0yMDI2In0.eyJpc3MiOiJodHRwczovL2lkcC5leGFtcGxlLmNvbSIsImF1ZCI6WyJzb21lb25lLWVsc2UiXSwic3ViIjoidXNlci00NzExIiwiZXhwIjoxNzkzNjk0NTA2LCJpYXQiOjE3OTM2OTM4NzYsIm5iZiI6MTc5MzY5Mzg0NiwiZW1haWwiOiJUYXJpcm8uTW95b0BFeGFtcGxlLkNPTSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJncm91cHMiOlsiZmluYW5jZS1hZG1pbiIsImF1ZGl0b3JzIl0sImxvY2FsZSI6InNuLVpXIiwiem9uZWluZm8iOiJBZnJpY2EvSGFyYXJlIiwibm9uY2UiOiJuLWFiYzEyMyIsImF6cCI6InZpbWJhaS1hcHAifQ.duueB0mSuzwoK9s1hO_SuguNfrIR91hgDDty5iXEIRIfjYz4x97O29FcWRm_Nc4-USEVCYyvijG4jnOa0iqPYYLNzIb5WG0nbGWlvkjdtCZnDvH0LizjezMgLR561Q-bfz0T8nFyp_roKukyPlfHyUCNEYJTqYextwXfE2UZes5iJE-oumtYH-D32CNnvPxbdbSCYVpn-OXDgb1lmVNJAgkxeQaAEmKGw9iZr1slxBI7lfDNmLEiD7HhUYRBaU09goeNsWYpRlMqXlccUcpQHwRZIftp_suxPdtjwPjXHERqY8LnBgo0wWqRn2RjuNZx9WBtgPKCWtc2LBFnmXDt7g";
+
+/// Same claims, issuer is not the registered one.
+pub const WRONG_ISSUER_JWT: &str = "eyJhbGciOiJSUzI1NiIsImtpZCI6InJzYS0yMDI2In0.eyJpc3MiOiJodHRwczovL2V2aWwuZXhhbXBsZSIsImF1ZCI6WyJ2aW1iYWktYXBpIiwidmltYmFpLWFwcCJdLCJzdWIiOiJ1c2VyLTQ3MTEiLCJleHAiOjE3OTM2OTQ1MDYsImlhdCI6MTc5MzY5Mzg3NiwibmJmIjoxNzkzNjkzODQ2LCJlbWFpbCI6IlRhcmlyby5Nb3lvQEV4YW1wbGUuQ09NIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImdyb3VwcyI6WyJmaW5hbmNlLWFkbWluIiwiYXVkaXRvcnMiXSwibG9jYWxlIjoic24tWlciLCJ6b25laW5mbyI6IkFmcmljYS9IYXJhcmUiLCJub25jZSI6Im4tYWJjMTIzIiwiYXpwIjoidmltYmFpLWFwcCJ9.FkwSnfU_Kj3UExwW0107qxm5FKJXN9YIsLT0aPYPU38GslALzrIjFN8NT9HLPQiquc89UTHjEbb6-3ZqfH09PoZddjYovieC2BCFM8Os3IkxPiZyOKyN-k4Wa5gtHOK-rK05XVNICO-eO9POiIFHYCamJvYohb2d0I7aQC2UVYNlMSguBrA_0s3ciKhhqtkQ_E7eY2UWLN_RxUIc5aTTQSoE21vlrkXXDmN3Y48oMB-Ya8AfuZViyydWrbwo-1M8woZ6fwjPbhi4XoTHDWRbf8i20uZo1CDrs56hq3Ci1oF3BooZB3IqG0axJeApCt7BSNEMAJRZRViEJufVF18bdg";
+
+/// The signed assertion, as a SAML response would carry it.
+pub const SAML_ASSERTION_XML: &str = "<saml:Assertion xmlns:saml=\"urn:oasis:names:tc:SAML:2.0:assertion\" ID=\"_a1b2c3\" IssueInstant=\"2026-11-03T08:18:26Z\" Version=\"2.0\"><saml:Issuer>https://idp.example.com/saml</saml:Issuer><saml:Subject><saml:NameID Format=\"urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress\">tariro@example.com</saml:NameID></saml:Subject><saml:Conditions NotBefore=\"2026-11-03T08:13:26Z\" NotOnOrAfter=\"2026-11-03T09:18:26Z\"><saml:AudienceRestriction><saml:Audience>vimbai-app</saml:Audience></saml:AudienceRestriction></saml:Conditions><saml:AttributeStatement><saml:Attribute Name=\"email\"><saml:AttributeValue>tariro@example.com</saml:AttributeValue></saml:Attribute><saml:Attribute Name=\"groups\"><saml:AttributeValue>finance-admin</saml:AttributeValue><saml:AttributeValue>auditors</saml:AttributeValue></saml:Attribute></saml:AttributeStatement></saml:Assertion>";
+
+/// RSA signature over the assertion bytes, base64.
+pub const SAML_SIGNATURE_B64: &str = "dn9o+Y/Qe8ba+7Q7dGHgQ+kBoYYeeN7plEICaYwGMXdjRvSuvX8fQ6FB/nJWfWwKvnHaMEbkyb9mkfVZyRAhRnbe/1nIxpjYhOwEdrHx7PWC2tkBpCj80yXbCNsiW+0lAv8H4jppiqBdTODBBYzRVo2QSYKBTOGavmQtKwcOpbRdt0QCTvD+WMxGdgOnS82/RLjhhGAU+Ng7VWr9onSKh03ftGLOA8VubL3vXfqWQs4C9sVYqlP7BKfwd8mpGIRSwTZnbeyfnPJgthvDm0gtBxPsgB9IkQ4+M6bbzWO1piJU5PvSTxRTQGQvYGbXnS94YIVjpFRmshYFo5CwNJse1g==";

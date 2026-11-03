@@ -1,100 +1,76 @@
-//! Session lifecycle: authenticate against an IdP payload, keep the resulting
-//! session, validate it, revoke it.
-//!
-//! The service kept `_session_store` as a module global with no tenant
-//! dimension, so any caller who guessed a token saw the session. The store here
-//! is owned by the caller, so each Book keeps its own sessions.
+//! What a caller actually uses: register providers, authenticate a credential,
+//! keep a session, and get an audited answer in the user's language.
 
-use indexmap::IndexMap;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 
-use crate::clock::{to_iso, MICROSECONDS_PER_HOUR};
-use crate::crypto::sha256_hex;
+use crate::claims::{ClaimsPolicy, Identity};
 use crate::error::SsoError;
-use crate::provider::Provider;
+use crate::i18n::{negotiate, Locale, MessageKey};
+use crate::idp::{IdpConfig, IdpRegistry, ProviderKind};
+use crate::saml::{self, AssertionPolicy};
+use crate::session::{AuditEvent, AuditKind, Session, SessionStore};
 
-/// Eight hours, as the service issued.
-pub const SESSION_TTL_MICROSECONDS: i64 = 8 * MICROSECONDS_PER_HOUR;
-
+/// What the identity provider handed the client.
 #[derive(Debug, Clone, PartialEq)]
-pub struct SsoAuthRequest {
-    pub organization_id: String,
-    pub idp_token: String,
-    pub provider: Provider,
+pub enum Credential {
+    /// An OIDC ID token or access token.
+    Jwt {
+        token: String,
+        nonce: Option<String>,
+    },
+    /// A SAML assertion with its signature over the assertion bytes.
+    Saml {
+        assertion_xml: String,
+        signature_b64: String,
+        in_response_to: Option<String>,
+    },
 }
 
-impl SsoAuthRequest {
-    /// Parse a wire body. An unknown provider is a 400, not a parse failure.
-    pub fn from_value(body: &Value) -> Result<SsoAuthRequest, SsoError> {
-        let provider_value = body
-            .get("provider")
-            .and_then(Value::as_str)
-            .unwrap_or("oidc");
-        let provider = Provider::parse(provider_value)
-            .ok_or_else(|| SsoError::UnsupportedProvider(provider_value.to_string()))?;
-        Ok(SsoAuthRequest {
-            organization_id: body
-                .get("organization_id")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_string(),
-            idp_token: body
-                .get("idp_token")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_string(),
-            provider,
-        })
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub struct AuthRequest {
+    pub organization_id: String,
+    pub idp_alias: String,
+    pub credential: Credential,
+    pub now_micros: i64,
+    /// At least 32 bytes of unpredictable data for the session token. The caller
+    /// owns the randomness; tests pass a fixed string.
+    pub entropy: String,
+    pub address: Option<String>,
+    /// The request's preferred language, already the raw `Accept-Language` value.
+    pub accept_language: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AuthOutcome {
-    pub vimbai_access_token: String,
-    pub user_id: String,
-    pub organization_id: String,
-    pub expires_at: String,
-    pub message: String,
-    pub provider: Provider,
+    pub session: Session,
+    pub identity: Identity,
+    pub locale: Locale,
 }
 
 impl AuthOutcome {
+    /// The body the authentication endpoint returns.
     pub fn to_json(&self) -> Value {
         json!({
-            "vimbai_access_token": self.vimbai_access_token,
-            "user_id": self.user_id,
-            "organization_id": self.organization_id,
-            "expires_at": self.expires_at,
-            "message": self.message,
-            "provider": self.provider.value(),
+            "vimbai_access_token": self.session.token,
+            "access_token": self.session.token,
+            "token_type": "Bearer",
+            "user_id": self.identity.user_id,
+            "organization_id": self.session.organization_id,
+            "provider": self.session.idp_alias,
+            "roles": self.identity.roles,
+            "locale": self.locale.to_string(),
+            "timezone": self.identity.timezone,
+            "region": self.session.region,
+            "expires_at": self.session.expires_at(),
+            "message": "SSO authentication successful",
         })
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Session {
-    pub token: String,
-    pub user_id: String,
-    pub org_id: String,
-    pub provider: Provider,
-    pub created_at_micros: i64,
-    pub expires_at_micros: i64,
-}
-
-impl Session {
-    pub fn expires_at(&self) -> String {
-        to_iso(self.expires_at_micros)
-    }
-
-    /// The body `/session/{token}` returned for a live session.
-    pub fn to_json(&self) -> Value {
-        json!({"valid": true, "user_id": self.user_id, "org_id": self.org_id})
     }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct SsoStore {
-    sessions: IndexMap<String, Session>,
+    pub registry: IdpRegistry,
+    pub sessions: SessionStore,
 }
 
 impl SsoStore {
@@ -102,176 +78,222 @@ impl SsoStore {
         SsoStore::default()
     }
 
-    pub fn active_sessions(&self) -> usize {
-        self.sessions.len()
+    pub fn register(&mut self, config: IdpConfig) {
+        self.registry.register(config);
     }
 
-    pub fn session(&self, token: &str) -> Option<&Session> {
-        self.sessions.get(token)
-    }
-
-    /// The session tokens currently held, in insertion order.
-    pub fn sessions_tokens(&self) -> Vec<String> {
-        self.sessions.keys().cloned().collect()
-    }
-
-    /// The `/health` body.
     pub fn health(&self) -> Value {
         json!({
             "status": "healthy",
-            "service": "enterprise-sso-service",
-            "version": "2.0.0",
-            "active_sessions": self.active_sessions(),
+            "service": "enterprise-sso",
+            "version": "3.0.0",
+            "active_sessions": self.sessions.active(),
+            "identity_providers": self.registry.len(),
         })
     }
 
-    /// `/config` echoed the request and stored nothing, so no configuration
-    /// survives here either; the caller owns provider settings.
-    pub fn configure(body: &Value) -> Value {
+    /// The providers a login page should offer.
+    pub fn advertised_providers(&self, organization_id: &str) -> Value {
         json!({
-            "status": "configured",
-            "organization_id": body.get("organization_id").cloned().unwrap_or(Value::Null),
-            "provider": body.get("provider").cloned().unwrap_or(Value::Null),
+            "organization_id": organization_id,
+            "providers": self.registry.advertised(organization_id),
         })
     }
 
-    /// `/auth/sso`: validate the IdP material, then issue a Vimbai session.
-    ///
-    /// `now_micros` and `nonce` are supplied so the derived token and the expiry
-    /// stamp are reproducible; `fallback_id_prefix` stands in for the random id
-    /// the service minted when the token carried no `sub`.
-    pub fn authenticate(
+    /// Authenticate. Every rejection is recorded, so a run of failures is
+    /// visible rather than silent.
+    pub fn authenticate(&mut self, request: AuthRequest) -> Result<AuthOutcome, SsoError> {
+        let organization_locale = self
+            .registry
+            .get(&request.organization_id, &request.idp_alias)
+            .map(|config| config.default_locale.clone())
+            .ok();
+        let locale = negotiate(
+            request.accept_language.as_deref(),
+            organization_locale.as_ref(),
+        );
+
+        match self.authenticate_inner(&request, &locale) {
+            Ok(outcome) => Ok(outcome),
+            Err(error) => {
+                self.sessions.record(AuditEvent {
+                    at_micros: request.now_micros,
+                    kind: AuditKind::AuthenticationRejected,
+                    organization_id: request.organization_id.clone(),
+                    idp_alias: request.idp_alias.clone(),
+                    user_id: None,
+                    code: Some(error.code().to_string()),
+                });
+                Err(error)
+            }
+        }
+    }
+
+    fn authenticate_inner(
         &mut self,
-        request: &SsoAuthRequest,
-        now_micros: i64,
-        nonce: &str,
-        fallback_id_prefix: &str,
+        request: &AuthRequest,
+        locale: &Locale,
     ) -> Result<AuthOutcome, SsoError> {
-        if request.idp_token.len() < 10 {
-            return Err(SsoError::InvalidIdpToken);
-        }
+        let config = self
+            .registry
+            .get(&request.organization_id, &request.idp_alias)?
+            .clone();
 
-        let user_id = if request.provider.speaks_jwt() {
-            let claims = validate_oidc_token(&request.idp_token, now_micros)?;
-            claims
-                .get("sub")
-                .and_then(Value::as_str)
-                .map(ToString::to_string)
-                .unwrap_or_else(|| fallback_id_prefix.to_string())
-        } else {
-            validate_saml_assertion(&request.idp_token)?;
-            "saml_user".to_string()
+        let (identity, claims_locale) = match (&config.kind, &request.credential) {
+            (ProviderKind::Saml, Credential::Saml { .. }) => {
+                let identity = self.authenticate_saml(&config, request)?;
+                (identity, None)
+            }
+            (ProviderKind::Saml, Credential::Jwt { .. }) => {
+                return Err(SsoError::with_detail(
+                    MessageKey::InvalidSamlAssertion,
+                    "provider expects a SAML assertion",
+                ))
+            }
+            (_, Credential::Saml { .. }) => {
+                return Err(SsoError::with_detail(
+                    MessageKey::MalformedToken,
+                    "provider expects an OIDC token",
+                ))
+            }
+            (_, Credential::Jwt { token, nonce }) => {
+                let policy = config.claims_policy_with_nonce(nonce.as_deref());
+                let identity = crate::claims::verify_and_map(
+                    token,
+                    &config.jwks,
+                    &policy,
+                    request.now_micros,
+                )?;
+                let identity_locale = identity.locale.clone();
+                (identity, identity_locale)
+            }
         };
 
-        Ok(self.issue(
-            &user_id,
-            &request.organization_id,
-            request.provider,
-            now_micros,
-            nonce,
-        ))
+        let session_locale = claims_locale
+            .or_else(|| Some(locale.clone()))
+            .unwrap_or_else(|| config.default_locale.clone());
+
+        let session = self.sessions.open(
+            &config.session,
+            &identity.user_id,
+            &config.organization_id,
+            &config.alias,
+            identity.roles.clone(),
+            session_locale.clone(),
+            identity.timezone.clone(),
+            &config.region,
+            request.now_micros,
+            &format!("{}{}", request.entropy, request.idp_alias),
+            request.address.clone(),
+        );
+        self.sessions.record(AuditEvent {
+            at_micros: request.now_micros,
+            kind: AuditKind::Authenticated,
+            organization_id: config.organization_id.clone(),
+            idp_alias: config.alias.clone(),
+            user_id: Some(identity.user_id.clone()),
+            code: None,
+        });
+
+        Ok(AuthOutcome {
+            session,
+            identity,
+            locale: session_locale,
+        })
     }
 
-    /// Issue without validating anything, for callers that already checked the
-    /// IdP material themselves.
-    pub fn issue(
+    fn authenticate_saml(
+        &self,
+        config: &IdpConfig,
+        request: &AuthRequest,
+    ) -> Result<Identity, SsoError> {
+        let Credential::Saml {
+            assertion_xml,
+            signature_b64,
+            in_response_to,
+        } = &request.credential
+        else {
+            unreachable!("caller matched the credential kind");
+        };
+        if let Some(expected) = in_response_to {
+            if expected.len() < 8 {
+                return Err(SsoError::with_detail(
+                    MessageKey::InvalidSamlAssertion,
+                    "InResponseTo too short",
+                ));
+            }
+        }
+        saml::verify_signature(assertion_xml.as_bytes(), signature_b64, &config.saml_keys)?;
+        let assertion = saml::parse_assertion(assertion_xml)?;
+        let policy = AssertionPolicy {
+            issuer: config.issuer.clone(),
+            audiences: config.audiences.clone(),
+            leeway_seconds: config.claims.leeway_seconds,
+            allowed_email_domains: &config.claims.allowed_email_domains,
+            max_age_seconds: Some(300),
+        };
+        policy.check(&assertion, request.now_micros)?;
+
+        let user_id = assertion
+            .name_id
+            .clone()
+            .ok_or_else(|| SsoError::with_detail(MessageKey::MissingClaim, "NameID"))?;
+        let groups = assertion.attribute("groups");
+        let roles = map_roles(&groups, &config.claims);
+        Ok(Identity {
+            user_id,
+            email: assertion.email(),
+            roles,
+            groups,
+            locale: None,
+            timezone: None,
+            display_name: assertion.attribute("displayName").into_iter().next(),
+        })
+    }
+
+    /// Validate a session, rotating the token when the policy asks. The caller
+    /// must persist the new token: the old one is dead.
+    pub fn validate_session(
         &mut self,
-        user_id: &str,
+        token: &str,
         organization_id: &str,
-        provider: Provider,
+        idp_alias: &str,
         now_micros: i64,
-        nonce: &str,
-    ) -> AuthOutcome {
-        let token = sha256_hex(&format!(
-            "{user_id}{organization_id}{}{nonce}",
-            now_micros as f64 / 1_000_000.0
-        ));
-        let expires_at_micros = now_micros + SESSION_TTL_MICROSECONDS;
-        let session = Session {
-            token: token.clone(),
-            user_id: user_id.to_string(),
-            org_id: organization_id.to_string(),
-            provider,
-            created_at_micros: now_micros,
-            expires_at_micros,
-        };
-        let expires_at = session.expires_at();
-        self.sessions.insert(token.clone(), session);
-        AuthOutcome {
-            vimbai_access_token: token,
-            user_id: user_id.to_string(),
-            organization_id: organization_id.to_string(),
-            expires_at,
-            message: "SSO authentication successful".to_string(),
-            provider,
-        }
-    }
-
-    /// `/session/{token}`: a live session, or the same 401s the service sent.
-    /// An expired session is dropped on the way out.
-    pub fn validate_session(&mut self, token: &str, now_micros: i64) -> Result<Session, SsoError> {
-        let session = self
+        address: Option<&str>,
+        entropy: &str,
+    ) -> Result<Session, SsoError> {
+        let policy = self
+            .registry
+            .get(organization_id, idp_alias)
+            .map(|config| config.session.clone())
+            .unwrap_or_default();
+        let (session, _retired) = self
             .sessions
-            .get(token)
-            .cloned()
-            .ok_or(SsoError::InvalidSession)?;
-        if session.expires_at_micros < now_micros {
-            self.sessions.shift_remove(token);
-            return Err(SsoError::SessionExpired);
-        }
+            .validate(token, now_micros, &policy, address, entropy)?;
         Ok(session)
     }
 
-    /// `/session/{token}` on DELETE: `true` when a session was revoked.
-    pub fn revoke_session(&mut self, token: &str) -> bool {
-        self.sessions.shift_remove(token).is_some()
+    pub fn revoke_session(&mut self, token: &str, now_micros: i64) -> bool {
+        self.sessions.revoke(token, now_micros)
     }
 
-    /// Drop every session whose expiry has passed.
-    pub fn prune_expired(&mut self, now_micros: i64) -> usize {
-        let expired: Vec<String> = self
-            .sessions
-            .iter()
-            .filter(|(_, session)| session.expires_at_micros < now_micros)
-            .map(|(token, _)| token.clone())
-            .collect();
-        for token in &expired {
-            self.sessions.shift_remove(token);
-        }
-        expired.len()
+    pub fn revoke_all_for_user(&mut self, user_id: &str, now_micros: i64) -> usize {
+        self.sessions.revoke_all_for_user(user_id, now_micros)
+    }
+
+    pub fn prune(&mut self, now_micros: i64) -> usize {
+        self.sessions.prune(now_micros)
     }
 }
 
-/// The OIDC path: a three-part JWT whose payload decodes and has not expired.
-/// Signatures were never checked in the service, and the port does not pretend
-/// otherwise: callers must verify them upstream.
-pub fn validate_oidc_token(token: &str, now_micros: i64) -> Result<Map<String, Value>, SsoError> {
-    let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() != 3 {
-        return Err(SsoError::MalformedToken);
-    }
-    let payload_bytes =
-        crate::crypto::base64url_decode(parts[1]).ok_or(SsoError::InvalidTokenPayload)?;
-    let payload: Value =
-        serde_json::from_slice(&payload_bytes).map_err(|_| SsoError::InvalidTokenPayload)?;
-    let claims = payload.as_object().ok_or(SsoError::InvalidTokenPayload)?;
-    if let Some(exp) = claims.get("exp") {
-        let seconds = exp.as_f64().ok_or(SsoError::InvalidTokenPayload)?;
-        if seconds < now_micros as f64 / 1_000_000.0 {
-            return Err(SsoError::TokenExpired);
-        }
-    }
-    Ok(claims.clone())
-}
-
-/// The SAML path: the service only checked length and returned fixed claims.
-pub fn validate_saml_assertion(token: &str) -> Result<Value, SsoError> {
-    if token.len() < 20 {
-        return Err(SsoError::InvalidSamlAssertion);
-    }
-    Ok(json!({
-        "sub": "saml_user",
-        "name": "SAML User",
-        "email": "user@saml.example",
-    }))
+fn map_roles(groups: &[String], policy: &ClaimsPolicy) -> Vec<String> {
+    let mut roles: Vec<String> = policy
+        .group_roles
+        .iter()
+        .filter(|(group, _)| groups.iter().any(|held| held == group))
+        .map(|(_, role)| role.clone())
+        .collect();
+    roles.sort();
+    roles.dedup();
+    roles
 }
