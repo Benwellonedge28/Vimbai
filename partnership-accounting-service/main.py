@@ -4,7 +4,9 @@ Partner capital accounts, profit sharing, and partnership financial statements.
 Port: 8339
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -12,6 +14,15 @@ from typing import Dict, List, Optional
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("partnership_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["partnership_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "partnership-accounting-service"
 PORT = int(os.getenv("PORT", "8339"))
@@ -75,54 +86,25 @@ class PartnershipResult(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/allocate", response_model=PartnershipResult)
 async def allocate_profit(req: PartnershipRequest):
-    total_salary = sum(p.salary for p in req.partners)
-    total_interest = sum(p.capital_contribution * req.interest_rate_on_capital for p in req.partners)
-
-    profit_after_salary_interest = req.net_profit - total_salary - total_interest
-    profit_after_salary_interest = max(profit_after_salary_interest, 0)
-
-    total_share_pct = sum(p.profit_share_pct for p in req.partners)
-    if total_share_pct == 0:
-        total_share_pct = 100
-        equal_share = 100 / len(req.partners)
-        for p in req.partners:
-            p.profit_share_pct = equal_share
-
-    total_profit_share = 0
-    accounts = []
-    for p in req.partners:
-        interest = p.capital_contribution * req.interest_rate_on_capital
-        profit_share = profit_after_salary_interest * (p.profit_share_pct / 100)
-        total_profit_share += profit_share
-        closing_capital = p.capital_contribution + p.salary + interest + profit_share - p.drawings
-
-        accounts.append(
-            PartnerAccount(
-                partner_id=p.partner_id,
-                name=p.name,
-                opening_capital=p.capital_contribution,
-                salary=p.salary,
-                interest_on_capital=round(interest, 2),
-                profit_share=round(profit_share, 2),
-                drawings=p.drawings,
-                closing_capital=round(closing_capital, 2),
-            )
-        )
-
-    return PartnershipResult(
-        company_id=req.company_id,
-        period=req.period,
-        total_salary=round(total_salary, 2),
-        total_interest=round(total_interest, 2),
-        total_profit_share=round(total_profit_share, 2),
-        residual_profit=round(profit_after_salary_interest, 2),
-        partner_accounts=accounts,
+    result = calc.allocate(
+        req.company_id,
+        req.period,
+        [p.model_dump() for p in req.partners],
+        req.net_profit,
+        req.interest_rate_on_capital,
     )
+    logger.info("Profit allocated", company=req.company_id, period=req.period)
+    return PartnershipResult(**result)
 
 
 if __name__ == "__main__":

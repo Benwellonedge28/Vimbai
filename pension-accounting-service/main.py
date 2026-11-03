@@ -4,7 +4,9 @@ IAS 19 defined benefit pension plan accounting with actuarial calculations.
 Port: 8393
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -12,6 +14,15 @@ from typing import Dict, List, Optional
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("pension_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["pension_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "pension-accounting-service"
 PORT = int(os.getenv("PORT", "8393"))
@@ -71,50 +82,34 @@ class PensionResult(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/calculate", response_model=PensionResult)
 async def calculate_pension(req: PensionRequest):
-    dbo_end = (
-        req.obligation_beginning
-        + req.service_cost
-        + req.interest_cost
-        + req.actuarial_gain_loss
-        + req.past_service_cost
-        - req.benefits_paid
+    result = calc.pension_expense(
+        req.company_id,
+        req.fiscal_year,
+        req.plan_name,
+        req.obligation_beginning,
+        req.service_cost,
+        req.interest_cost,
+        req.benefits_paid,
+        req.actuarial_gain_loss,
+        req.past_service_cost,
+        req.plan_assets_beginning,
+        req.contributions,
+        req.expected_return,
+        req.actual_return,
+        req.benefits_paid_from_assets,
     )
-
-    actual_return = req.actual_return or req.expected_return
-    plan_assets_end = req.plan_assets_beginning + req.contributions + actual_return - req.benefits_paid_from_assets
-
-    funded = plan_assets_end - dbo_end
-    net_liability = max(-funded, 0)
-    net_asset = max(funded, 0)
-
-    net_interest = req.interest_cost - req.expected_return
-    remeasurements = req.actuarial_gain_loss + (actual_return - req.expected_return)
-    total_expense = req.service_cost + net_interest + req.past_service_cost
-
-    return PensionResult(
-        company_id=req.company_id,
-        plan_name=req.plan_name,
-        fiscal_year=req.fiscal_year,
-        dbo_end=round(dbo_end, 2),
-        plan_assets_end=round(plan_assets_end, 2),
-        funded_position=round(funded, 2),
-        net_defined_benefit_liability=round(net_liability, 2),
-        current_service_cost=round(req.service_cost, 2),
-        interest_cost=round(req.interest_cost, 2),
-        net_interest=round(net_interest, 2),
-        remeasurements=round(remeasurements, 2),
-        total_pension_expense=round(total_expense, 2),
-        oci_actuarial_gain_loss=round(req.actuarial_gain_loss, 2),
-        balance_sheet_entry={
-            "defined_benefit_asset": round(net_asset, 2),
-            "defined_benefit_liability": round(net_liability, 2),
-        },
-    )
+    logger.info("Pension expense calculated", company=req.company_id, plan=req.plan_name)
+    return PensionResult(**result)
 
 
 if __name__ == "__main__":

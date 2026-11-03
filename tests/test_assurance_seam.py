@@ -28,6 +28,10 @@ if not all(
         "tax_provision_json",
         "tax_risk_json",
         "group_tax_json",
+        "partnership_allocation_json",
+        "partner_buyout_json",
+        "partnership_goodwill_json",
+        "pension_json",
     )
 ):
     pytest.skip("the installed extension predates these functions", allow_module_level=True)
@@ -496,3 +500,144 @@ def test_group_tax_consolidation_matches_the_reference():
     # the loss-making entity shelters 200,000 of profit before the group rate applies
     assert rust["consolidated_income"] == 300000.0
     assert rust["tax_savings_from_consolidation"] == 25000.0
+
+
+PARTNERS = [
+    {
+        "partner_id": "p1",
+        "name": "A",
+        "capital_contribution": 300000.0,
+        "profit_share_pct": 60.0,
+        "salary": 60000.0,
+        "drawings": 20000.0,
+    },
+    {
+        "partner_id": "p2",
+        "name": "B",
+        "capital_contribution": 200000.0,
+        "profit_share_pct": 40.0,
+        "salary": 40000.0,
+        "drawings": 10000.0,
+    },
+]
+
+BUYOUT_PAYLOAD = {
+    "company_id": "comp-seam",
+    "outgoing_partner_id": "p1",
+    "outgoing_partner_name": "A",
+    "capital_balance": 300000.0,
+    "share_of_goodwill": 80000.0,
+    "share_of_reserves": 20000.0,
+    "loan_to_partner": 10000.0,
+    "agreed_payment": 450000.0,
+    "remaining_partners": [
+        {"partner_id": "p2", "name": "B", "share_pct": 70},
+        {"partner_id": "p3", "name": "C", "share_pct": 30},
+    ],
+}
+
+PENSION_PAYLOAD = {
+    "company_id": "comp-seam",
+    "fiscal_year": 2026,
+    "plan_name": "Main plan",
+    "obligation_beginning": 2000000.0,
+    "service_cost": 120000.0,
+    "interest_cost": 100000.0,
+    "benefits_paid": 80000.0,
+    "actuarial_gain_loss": 30000.0,
+    "past_service_cost": 0.0,
+    "plan_assets_beginning": 1800000.0,
+    "contributions": 150000.0,
+    "expected_return": 90000.0,
+    "actual_return": 95000.0,
+    "benefits_paid_from_assets": 80000.0,
+}
+
+
+def test_partnership_allocation_matches_the_reference():
+    payload = {
+        "company_id": "comp-seam",
+        "period": "2026",
+        "partners": PARTNERS,
+        "net_profit": 400000.0,
+        "interest_rate_on_capital": 0.05,
+    }
+    rust, reference = _both_engines("partnership-accounting-service", "/allocate", payload)
+    for field in ("total_salary", "total_interest", "total_profit_share", "residual_profit", "partner_accounts"):
+        assert rust[field] == reference[field], field
+    assert rust["residual_profit"] == 275000.0
+    assert [a["closing_capital"] for a in rust["partner_accounts"]] == [
+        300000.0 + 60000.0 + 15000.0 + 165000.0 - 20000.0,
+        200000.0 + 40000.0 + 10000.0 + 110000.0 - 10000.0,
+    ]
+
+
+def test_partnership_allocation_falls_back_to_equal_shares():
+    # every partner at 0% still gets a share, split equally. Salaries and capital
+    # interest together absorb 125,000 of the 200,000, leaving 75,000 to divide.
+    payload = {
+        "company_id": "comp-seam",
+        "period": "2026",
+        "net_profit": 200000.0,
+        "interest_rate_on_capital": 0.05,
+        "partners": [{**p, "profit_share_pct": 0.0} for p in PARTNERS],
+    }
+    rust, reference = _both_engines("partnership-accounting-service", "/allocate", payload)
+    assert rust["partner_accounts"] == reference["partner_accounts"]
+    assert [a["profit_share"] for a in rust["partner_accounts"]] == [37500.0, 37500.0]
+
+
+def test_partner_retirement_matches_the_reference():
+    rust, reference = _both_engines("partnership-sale-service", "/retirement", BUYOUT_PAYLOAD)
+    for field in (
+        "capital_due",
+        "goodwill_due",
+        "reserves_due",
+        "loan_due",
+        "total_payable",
+        "difference",
+        "gain_or_loss_on_retirement",
+        "remaining_partner_adjustments",
+    ):
+        assert rust[field] == reference[field], field
+    # paid 40,000 more than the amount due, so the partners absorb a loss
+    assert rust["difference"] == -40000.0
+    assert [a["capital_adjustment"] for a in rust["remaining_partner_adjustments"]] == [
+        -28000.0,
+        -12000.0,
+    ]
+
+
+def test_partnership_goodwill_matches_the_reference():
+    payload = {
+        "company_id": "comp-seam",
+        "avg_profit": 180000.0,
+        "years": 3,
+        "rate": 0.15,
+        "partners": [
+            {"partner_id": "p1", "capital": 300000.0, "share_pct": 60},
+            {"partner_id": "p2", "capital": 200000.0, "share_pct": 40},
+        ],
+    }
+    rust, reference = _both_engines("partnership-sale-service", "/goodwill", payload)
+    for field in ("total_goodwill", "super_profit", "normal_return_rate", "partner_goodwill_shares"):
+        assert rust[field] == reference[field], field
+    assert rust["total_goodwill"] == 315000.0
+    assert rust["partner_goodwill_shares"] == {"p1": 189000.0, "p2": 126000.0}
+
+
+def test_pension_accounting_matches_the_reference():
+    rust, reference = _both_engines("pension-accounting-service", "/calculate", PENSION_PAYLOAD)
+    for field in (
+        "dbo_end",
+        "plan_assets_end",
+        "funded_position",
+        "net_defined_benefit_liability",
+        "net_interest",
+        "remeasurements",
+        "total_pension_expense",
+        "balance_sheet_entry",
+    ):
+        assert rust[field] == reference[field], field
+    assert rust["funded_position"] == -205000.0
+    assert rust["remeasurements"] == 35000.0
