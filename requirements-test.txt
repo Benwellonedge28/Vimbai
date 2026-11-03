@@ -18,6 +18,7 @@ python-multipart
 croniter
 scipy
 strawberry-graphql
+PyYAML  # tests/test_deployment_probes.py parses the k8s manifests
 PyJWT  # several service test suites sign their own tokens
 python-jose[cryptography]  # accounting-service token introspection (vimbai_local core profile)
 passlib[bcrypt]  # identity-service password hashing (vimbai_local core profile)

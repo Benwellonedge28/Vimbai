@@ -43,7 +43,10 @@ jobs:
           fi
 
           # Detect changed Python services
-          PYTHON_CHANGED=$(git diff --name-only "$BEFORE_SHA" ${{ github.sha }} 2>/dev/null | grep '\.py$' | cut -d/ -f1 | sort -u | grep -v '^\.' | grep -v '^tests$' | grep -v '^shared$' | grep -v '^migrations$' || true)
+          # Deleted directories still appear in the diff; keep only paths that
+          # exist in the checked-out tree so a retired service cannot resurrect
+          # a matrix job for a directory that is gone.
+          PYTHON_CHANGED=$(git diff --name-only "$BEFORE_SHA" ${{ github.sha }} 2>/dev/null | grep '\.py$' | cut -d/ -f1 | sort -u | grep -v '^\.' | grep -v '^tests$' | grep -v '^shared$' | grep -v '^migrations$' | while read -r d; do [ -d "$d" ] && echo "$d"; done || true)
           if [ -z "$PYTHON_CHANGED" ]; then
             PYTHON_SERVICES="[]"
           else
