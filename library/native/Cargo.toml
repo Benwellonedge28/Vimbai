@@ -26,6 +26,8 @@ vimbai_reporting = { path = "../reporting" }
 vimbai_ratios_statements = { path = "../ratios_statements" }
 vimbai_tax = { path = "../tax" }
 vimbai_treasury_fx = { path = "../treasury_fx" }
+vimbai_group_accounting = { path = "../group_accounting" }
+vimbai_tax_reporting = { path = "../tax_reporting" }
 
 [features]
 # Off by default so `cargo test` can link libpython and exercise the seam

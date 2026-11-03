@@ -10,6 +10,8 @@
 // lint fires on the generated code rather than on anything we wrote.
 #![allow(clippy::useless_conversion)]
 
+mod assurance;
+
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use serde_json::Value;
@@ -1948,9 +1950,96 @@ fn target_mos_json(payload: &str) -> PyResult<String> {
     json_out(&out)
 }
 
+// ---- assurance, group, performance and risk seam ----
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn tax_credit_json(payload: &str) -> PyResult<String> {
+    assurance::credit_json(payload).map_err(PyValueError::new_err)
+}
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn group_tax_json(payload: &str) -> PyResult<String> {
+    assurance::group_tax_json(payload).map_err(PyValueError::new_err)
+}
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn vat_return_json(payload: &str) -> PyResult<String> {
+    assurance::vat_return_json(payload).map_err(PyValueError::new_err)
+}
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn tax_provision_json(payload: &str) -> PyResult<String> {
+    assurance::tax_provision_json(payload).map_err(PyValueError::new_err)
+}
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn tax_risk_json(payload: &str) -> PyResult<String> {
+    assurance::tax_risk_json(payload).map_err(PyValueError::new_err)
+}
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn grant_json(payload: &str) -> PyResult<String> {
+    assurance::grant_json(payload).map_err(PyValueError::new_err)
+}
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn partnership_allocation_json(payload: &str) -> PyResult<String> {
+    assurance::partnership_allocation_json(payload).map_err(PyValueError::new_err)
+}
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn partner_buyout_json(payload: &str) -> PyResult<String> {
+    assurance::partner_buyout_json(payload).map_err(PyValueError::new_err)
+}
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn partnership_goodwill_json(payload: &str) -> PyResult<String> {
+    assurance::partnership_goodwill_json(payload).map_err(PyValueError::new_err)
+}
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn acquisition_json(payload: &str) -> PyResult<String> {
+    assurance::acquisition_json(payload).map_err(PyValueError::new_err)
+}
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn goodwill_impairment_json(payload: &str) -> PyResult<String> {
+    assurance::goodwill_impairment_json(payload).map_err(PyValueError::new_err)
+}
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn pension_json(payload: &str) -> PyResult<String> {
+    assurance::pension_json(payload).map_err(PyValueError::new_err)
+}
+/// JSON in, JSON out: the library does the work.
+#[pyfunction]
+fn consolidation_json(payload: &str) -> PyResult<String> {
+    assurance::consolidation_json(payload).map_err(PyValueError::new_err)
+}
+/// XBRL needs the generation timestamp, so the caller supplies it.
+#[pyfunction]
+fn xbrl_json(payload: &str, generated_at: &str) -> PyResult<String> {
+    assurance::xbrl_json(payload, generated_at).map_err(PyValueError::new_err)
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
+    m.add_function(wrap_pyfunction!(tax_credit_json, m)?)?;
+    m.add_function(wrap_pyfunction!(group_tax_json, m)?)?;
+    m.add_function(wrap_pyfunction!(vat_return_json, m)?)?;
+    m.add_function(wrap_pyfunction!(tax_provision_json, m)?)?;
+    m.add_function(wrap_pyfunction!(tax_risk_json, m)?)?;
+    m.add_function(wrap_pyfunction!(grant_json, m)?)?;
+    m.add_function(wrap_pyfunction!(xbrl_json, m)?)?;
+    m.add_function(wrap_pyfunction!(partnership_allocation_json, m)?)?;
+    m.add_function(wrap_pyfunction!(partner_buyout_json, m)?)?;
+    m.add_function(wrap_pyfunction!(partnership_goodwill_json, m)?)?;
+    m.add_function(wrap_pyfunction!(acquisition_json, m)?)?;
+    m.add_function(wrap_pyfunction!(goodwill_impairment_json, m)?)?;
+    m.add_function(wrap_pyfunction!(pension_json, m)?)?;
+    m.add_function(wrap_pyfunction!(consolidation_json, m)?)?;
+
     m.add_function(wrap_pyfunction!(allocate, m)?)?;
     m.add_function(wrap_pyfunction!(margin_of_safety_json, m)?)?;
     m.add_function(wrap_pyfunction!(margin_from_data_json, m)?)?;
