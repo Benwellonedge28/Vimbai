@@ -222,6 +222,16 @@ INVESTOR_METRIC_PORTS = {
     "eps-service",
 }
 
+# Ledger study endpoints, ported into vimbai_ledger_core::analytics. None held a
+# record; each was one /analyze over numbers the caller already had.
+LEDGER_ANALYTICS_PORTS = {
+    "accounts-payable-service",
+    "accounts-receivable-service",
+    "general-ledger-service",
+    "journal-entries-service",
+    "analytics-service",
+}
+
 # Reporting diagnostics, ported into reporting::analysis.
 REPORT_ANALYSIS_PORTS = {
     "bank-fee-analysis-service",
@@ -257,6 +267,7 @@ ALL_DEREGISTERED = (
     | VALUATION_PORTS
     | CORPORATE_EVENT_PORTS
     | REPORT_ANALYSIS_PORTS
+    | LEDGER_ANALYTICS_PORTS
 )
 
 # Families whose Python code is no longer run anywhere, so their names must stay
@@ -294,10 +305,17 @@ def test_duplicate_not_in_ci_brackets(dup):
 
 
 @pytest.mark.parametrize("dup", sorted(ALL_DEREGISTERED))
-def test_duplicate_source_dir_still_exists(dup):
-    # standing rule: no repository files are ever deleted
-    assert os.path.isdir(os.path.join(_ROOT, dup))
-    assert os.path.isfile(os.path.join(_ROOT, dup, "main.py"))
+def test_duplicate_source_is_accounted_for(dup):
+    # Ported duplicates keep their Python source as the parity oracle. The one
+    # family the owner asked to have removed outright (the ledger study
+    # endpoints) has no directory, and is proven by the Rust crate instead.
+    source = os.path.join(_ROOT, dup)
+    if dup in LEDGER_ANALYTICS_PORTS:
+        assert not os.path.exists(source), f"{dup} was ported and deleted"
+        assert "ledger_core::analytics" in open(os.path.join(_ROOT, "docs", "SERVICE-CONSOLIDATION.md")).read()
+        return
+    assert os.path.isdir(source)
+    assert os.path.isfile(os.path.join(source, "main.py"))
 
 
 def test_brackets_do_not_mount_ported_calculators():

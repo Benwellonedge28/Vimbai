@@ -40,7 +40,6 @@ COPY goodwill-service ./goodwill-service
 COPY government-grants-service ./government-grants-service
 COPY intangible-assets-service ./intangible-assets-service
 COPY intercompany-service ./intercompany-service
-COPY journal-entries-service ./journal-entries-service
 COPY lease-management-service ./lease-management-service
 COPY lease-termination-service ./lease-termination-service
 COPY management-accounts-service ./management-accounts-service

@@ -32,22 +32,6 @@
       "strip_prefix": false
     },
     {
-      "name": "accounts-payable-service",
-      "path": "/accounts-payable",
-      "url": "http://localhost:9006",
-      "port": 8327,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "accounts-receivable-service",
-      "path": "/accounts-receivable",
-      "url": "http://localhost:9006",
-      "port": 8328,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "acquisition-financing-service",
       "path": "/acquisition-financing",
       "url": "http://localhost:9003",
@@ -84,14 +68,6 @@
       "path": "/analytical-procedures",
       "url": "http://localhost:9007",
       "port": 8197,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "analytics-service",
-      "path": "/analytics",
-      "url": "http://localhost:9007",
-      "port": 8364,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -654,14 +630,6 @@
       "strip_prefix": false
     },
     {
-      "name": "general-ledger-service",
-      "path": "/general-ledger",
-      "url": "http://localhost:9002",
-      "port": 8330,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "general-reserve-service",
       "path": "/general-reserve",
       "url": "http://localhost:9011",
@@ -849,14 +817,6 @@
       "path": "/job-costing",
       "url": "http://localhost:9001",
       "port": 8073,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "journal-entries-service",
-      "path": "/journal-entries",
-      "url": "http://localhost:9011",
-      "port": 8331,
       "auth_required": true,
       "strip_prefix": false
     },

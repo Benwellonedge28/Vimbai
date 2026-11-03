@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY brackets/ratios-analytics-bracket/main.py ./main.py
 COPY analytical-procedures-service ./analytical-procedures-service
-COPY analytics-service ./analytics-service
 COPY distributed-workflow-orchestration-service ./distributed-workflow-orchestration-service
 COPY financial-distress-prediction-service ./financial-distress-prediction-service
 COPY internal-rate-return-service ./internal-rate-return-service

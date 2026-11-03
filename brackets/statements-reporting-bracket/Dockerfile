@@ -20,7 +20,6 @@ COPY balance-sheet-service ./balance-sheet-service
 COPY cash-flow-statement-service ./cash-flow-statement-service
 COPY esg-reporting-service ./esg-reporting-service
 COPY events-after-reporting-service ./events-after-reporting-service
-COPY general-ledger-service ./general-ledger-service
 COPY ifrs-reporting-service ./ifrs-reporting-service
 COPY purchases-ledger-control-service ./purchases-ledger-control-service
 COPY report-automation-service ./report-automation-service

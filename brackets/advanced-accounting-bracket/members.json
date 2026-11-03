@@ -123,11 +123,6 @@
       "dir": "intercompany-service"
     },
     {
-      "path": "/journal-entries",
-      "name": "journal-entries-service",
-      "dir": "journal-entries-service"
-    },
-    {
       "path": "/lease-management",
       "name": "lease-management-service",
       "dir": "lease-management-service"

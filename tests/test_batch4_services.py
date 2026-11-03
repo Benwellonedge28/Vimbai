@@ -105,41 +105,6 @@ class TestForeignCurrencyTranslationService:
         assert len(data["details"]) == 3
 
 
-class TestAnalyticsService:
-    def setup_method(self):
-        self.client = TestClient(load_app("analytics-service"))
-
-    def test_full_analysis(self):
-        resp = self.client.post(
-            "/analyze",
-            json={
-                "company_id": "comp-1",
-                "period": "2026",
-                "financials": {
-                    "revenue": 2000000,
-                    "net_income": 300000,
-                    "total_assets": 1500000,
-                    "current_assets": 500000,
-                    "current_liabilities": 300000,
-                    "total_liabilities": 600000,
-                    "total_equity": 900000,
-                    "inventory": 100000,
-                    "accounts_receivable": 200000,
-                    "cogs": 1200000,
-                    "operating_cash_flow": 400000,
-                    "shares_outstanding": 10000,
-                },
-            },
-        )
-        data = resp.json()
-        assert resp.status_code == 200
-        assert data["profitability"]["roe"] > 0
-        assert data["liquidity"]["current_ratio"] > 1
-        assert data["solvency"]["debt_to_equity"] < 1
-        assert data["overall_score"] >= 0
-        assert len(data["insights"]) > 0
-
-
 class TestBalancedScorecardService:
     def setup_method(self):
         self.client = TestClient(load_app("balanced-scorecard-service"))

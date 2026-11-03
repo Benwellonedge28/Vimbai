@@ -13,6 +13,7 @@
 //! 3. `reversal` - a reversing entry must be the exact mirror of the
 //!    entry it reverses, and each entry carries at most one reversal.
 
+pub mod analytics;
 pub mod double_entry;
 pub mod hash_chain;
 pub mod reversal;

@@ -28,6 +28,14 @@ profit-loss-account retires on the port that already existed in
 `ratios_statements::profit_loss`. Gateway 208 routes, ten k8s documents, five
 bracket members.
 
+Fifth batch (the owner asked for these to be deleted, not kept as oracles):
+accounts-payable, accounts-receivable, general-ledger, journal-entries and
+analytics persist nothing and each was a single `/analyze`, so they are now
+`vimbai_ledger_core::analytics` and their directories are gone. Gateway 203
+routes. They carry their quirks: cumulative AP ageing that drives "Over 90
+days" negative, a hardcoded 45-day DSO, a journal validation that compares one
+column with itself, and analytics that reports gross margin as net margin.
+
 `time-value-of-money-service`, `present-value-service`, `mva-service`,
 `sustainable-growth-service`, `asset-allocation-service`,
 `portfolio-optimization-service`, `capital-allocation-service`,
@@ -82,7 +90,15 @@ NPV, IRR, payback, profitability index, present value, TVM, MVA, sustainable gro
 * `profitability-index-service`
 * `project-appraisal-service`
 * `sustainable-growth-service`
-* `time-value-of-money-service`
+* Fifth batch (the owner asked for these to be deleted, not kept as oracles):
+accounts-payable, accounts-receivable, general-ledger, journal-entries and
+analytics persist nothing and each was a single `/analyze`, so they are now
+`vimbai_ledger_core::analytics` and their directories are gone. Gateway 203
+routes. They carry their quirks: cumulative AP ageing that drives "Over 90
+days" negative, a hardcoded 45-day DSO, a journal validation that compares one
+column with itself, and analytics that reports gross margin as net margin.
+
+`time-value-of-money-service`
 
 ### `ifrs` - 11 services, 1501 LOC
 

@@ -8,11 +8,6 @@
       "dir": "analytical-procedures-service"
     },
     {
-      "path": "/analytics",
-      "name": "analytics-service",
-      "dir": "analytics-service"
-    },
-    {
       "path": "/distributed-workflow-orchestration",
       "name": "distributed-workflow-orchestration-service",
       "dir": "distributed-workflow-orchestration-service"

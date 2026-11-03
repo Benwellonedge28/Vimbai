@@ -84,7 +84,10 @@ def test_ported_calculators_name_their_crate(status):
             continue
         assert info["crate"], f"{service} should name the Rust crate that owns its figures"
         crate_dir = os.path.join(_ROOT, "library", info["crate"])
-        assert os.path.isdir(crate_dir), f"{info['crate']} is not a library crate"
+        # ledger-core predates the library workspace and sits at the root.
+        assert os.path.isdir(crate_dir) or os.path.isdir(
+            os.path.join(_ROOT, info["crate"])
+        ), f"{info['crate']} is not a Rust crate"
 
 
 def test_index_records_the_running_product(status):

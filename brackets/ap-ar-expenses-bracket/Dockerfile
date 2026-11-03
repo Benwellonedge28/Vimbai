@@ -16,8 +16,6 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 COPY brackets/ap-ar-expenses-bracket/main.py ./main.py
-COPY accounts-payable-service ./accounts-payable-service
-COPY accounts-receivable-service ./accounts-receivable-service
 COPY benefits-admin-service ./benefits-admin-service
 COPY expense-tracking-service ./expense-tracking-service
 COPY pension-accounting-service ./pension-accounting-service

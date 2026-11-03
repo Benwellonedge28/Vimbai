@@ -23,11 +23,6 @@
       "dir": "events-after-reporting-service"
     },
     {
-      "path": "/general-ledger",
-      "name": "general-ledger-service",
-      "dir": "general-ledger-service"
-    },
-    {
       "path": "/ifrs-reporting",
       "name": "ifrs-reporting-service",
       "dir": "ifrs-reporting-service"
