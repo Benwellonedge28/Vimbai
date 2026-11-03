@@ -4,7 +4,9 @@ ASC 740 tax provision calculations with deferred tax assets/liabilities.
 Port: 8375
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -12,6 +14,15 @@ from typing import Dict, List, Optional
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("tax_provision_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["tax_provision_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "tax-provision-service"
 PORT = int(os.getenv("PORT", "8375"))
@@ -69,56 +80,28 @@ class TaxProvisionResult(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/calculate", response_model=TaxProvisionResult)
 async def calculate_provision(req: TaxProvisionRequest):
-    taxable_income = req.pre_tax_income + req.permanent_differences
-
-    for td in req.temp_differences:
-        diff = td.book_amount - td.tax_amount
-        if td.type == "taxable":
-            taxable_income += diff
-        else:
-            taxable_income -= diff
-
-    if req.loss_carryforward > 0:
-        utilized = min(req.loss_carryforward, max(taxable_income, 0))
-        taxable_income -= utilized
-    else:
-        utilized = 0
-
-    current_tax = max(taxable_income, 0) * req.statutory_rate
-
-    dta = 0
-    dtl = 0
-    for td in req.temp_differences:
-        diff = td.book_amount - td.tax_amount
-        if td.type == "deductible":
-            dta += abs(diff) * req.statutory_rate
-        else:
-            dtl += abs(diff) * req.statutory_rate
-
-    net_deferred = dta - dtl - req.valuation_allowance
-    deferred_tax = dtl - dta
-    total_tax = current_tax + deferred_tax
-    effective_rate = total_tax / req.pre_tax_income if req.pre_tax_income else 0
-
-    return TaxProvisionResult(
-        company_id=req.company_id,
-        fiscal_year=req.fiscal_year,
-        current_tax_expense=round(current_tax, 2),
-        deferred_tax_expense=round(deferred_tax, 2),
-        total_tax_expense=round(total_tax, 2),
-        effective_rate=round(effective_rate, 4),
-        deferred_tax_assets=round(dta, 2),
-        deferred_tax_liabilities=round(dtl, 2),
-        net_deferred_tax=round(net_deferred, 2),
-        valuation_allowance=req.valuation_allowance,
-        loss_carryforward_utilized=round(utilized, 2),
-        statutory_rate=req.statutory_rate,
+    result = calc.tax_provision(
+        req.company_id,
+        req.fiscal_year,
+        req.pre_tax_income,
+        req.statutory_rate,
+        req.permanent_differences,
+        [td.model_dump() for td in req.temp_differences],
+        req.loss_carryforward,
+        req.valuation_allowance,
     )
+    logger.info("Tax provision calculated", company=req.company_id, year=req.fiscal_year)
+    return TaxProvisionResult(**result)
 
 
 if __name__ == "__main__":

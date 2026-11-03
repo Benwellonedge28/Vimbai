@@ -87,6 +87,9 @@ the seam answers where the service could not. Any client that was retrying
 * `market-risk-service` (`/var`), calculator in `calc.py`
 * `regulatory-ratio-service` (`/calculate`), calculator in `calc.py`
 * `financial-distress-prediction-service` (`/predict`), calculator in `calc.py`
+* `tax-provision-service` (`/calculate`), calculator in `calc.py`
+* `tax-risk-service` (`/assess`), calculator in `calc.py`
+* `group-tax-service` (`/consolidate`), calculator in `calc.py`
 
 Both read `VIMBAI_CALC_ENGINE`: `auto` (default) uses Rust when the extension is
 there, `rust` refuses to start without it, `python` pins the reference. `/health`
@@ -115,7 +118,7 @@ would otherwise have started returning nulls.
 
 ## Still to do
 
-Eight services cross the seam. The remaining 22 seam functions have no wiring yet:
+Eleven services cross the seam. The remaining 19 seam functions have no wiring yet:
 the other tax services (provision, risk, group tax), partnership and pension, the
 consolidation family, inventory and NRV, FX, and the market and credit risk
 services.

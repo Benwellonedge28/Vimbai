@@ -4,7 +4,9 @@ Tax risk assessment, exposure quantification, and mitigation recommendations.
 Port: 8373
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -13,6 +15,15 @@ from typing import Dict, List
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("tax_risk_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["tax_risk_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "tax-risk-service"
 PORT = int(os.getenv("PORT", "8373"))
@@ -70,63 +81,23 @@ class TaxRiskAssessment(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/assess", response_model=TaxRiskAssessment)
 async def assess_risk(req: TaxRiskRequest):
-    total_exposure = sum(r.potential_exposure for r in req.risks)
-    weighted = sum(r.potential_exposure * r.probability for r in req.risks)
-
-    if weighted > 500000:
-        overall = RiskLevel.CRITICAL
-    elif weighted > 100000:
-        overall = RiskLevel.HIGH
-    elif weighted > 25000:
-        overall = RiskLevel.MEDIUM
-    else:
-        overall = RiskLevel.LOW
-
-    risks_detail = []
-    for r in req.risks:
-        risk_score = r.potential_exposure * r.probability
-        level = (
-            RiskLevel.CRITICAL
-            if risk_score > 250000
-            else RiskLevel.HIGH if risk_score > 50000 else RiskLevel.MEDIUM if risk_score > 10000 else RiskLevel.LOW
-        )
-        risks_detail.append(
-            {
-                "risk_id": r.risk_id,
-                "description": r.description,
-                "risk_type": r.risk_type,
-                "potential_exposure": r.potential_exposure,
-                "probability": r.probability,
-                "weighted_score": round(risk_score, 2),
-                "level": level.value,
-                "jurisdiction": r.jurisdiction,
-                "mitigation_actions": r.mitigation_actions,
-            }
-        )
-
-    recommendations = [
-        "Conduct regular transfer pricing documentation reviews",
-        "Implement real-time VAT reconciliation to minimize VAT gaps",
-        "Monitor permanent establishment risks in cross-border operations",
-        "Maintain up-to-date tax treaty position documentation",
-        "Engage external tax advisors for high-exposure areas",
-    ]
-
-    return TaxRiskAssessment(
-        company_id=req.company_id,
-        assessment_date=datetime.now(timezone.utc).isoformat(),
-        overall_risk_level=overall,
-        total_exposure=round(total_exposure, 2),
-        weighted_exposure=round(weighted, 2),
-        risk_count=len(req.risks),
-        risks=risks_detail,
-        recommendations=recommendations,
+    result = calc.assess_risk(
+        req.company_id,
+        datetime.now(timezone.utc).isoformat(),
+        [r.model_dump() for r in req.risks],
     )
+    logger.info("Tax risk assessed", company=req.company_id, level=result["overall_risk_level"])
+    return TaxRiskAssessment(**result)
 
 
 if __name__ == "__main__":

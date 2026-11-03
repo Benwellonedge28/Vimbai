@@ -25,6 +25,9 @@ if not all(
         "var_json",
         "regulatory_ratio_json",
         "distress_json",
+        "tax_provision_json",
+        "tax_risk_json",
+        "group_tax_json",
     )
 ):
     pytest.skip("the installed extension predates these functions", allow_module_level=True)
@@ -388,3 +391,108 @@ def test_distress_prediction_matches_the_reference():
     manufacturing = dict(DISTRESS_COMPANY, industry="manufacturing")
     rust, reference = _both_engines("financial-distress-prediction-service", "/predict", {"company": manufacturing})
     assert rust["probability_distress"] == reference["probability_distress"] == 0.03
+
+
+PROVISION_PAYLOAD = {
+    "company_id": "comp-seam",
+    "fiscal_year": 2026,
+    "pre_tax_income": 1000000.0,
+    "statutory_rate": 0.25,
+    "permanent_differences": 50000.0,
+    "temp_differences": [
+        {"description": "accelerated depreciation", "book_amount": 200000.0, "tax_amount": 150000.0, "type": "taxable"},
+        {"description": "provision", "book_amount": 80000.0, "tax_amount": 0.0, "type": "deductible"},
+    ],
+    "loss_carryforward": 100000.0,
+    "valuation_allowance": 20000.0,
+}
+
+TAX_RISK_PAYLOAD = {
+    "company_id": "comp-seam",
+    "risks": [
+        {
+            "risk_id": "r1",
+            "description": "Transfer pricing exposure",
+            "risk_type": "transfer_pricing",
+            "potential_exposure": 400000.0,
+            "probability": 0.6,
+        },
+        {
+            "risk_id": "r2",
+            "description": "VAT gap",
+            "risk_type": "vat_gap",
+            "potential_exposure": 120000.0,
+            "probability": 0.3,
+            "jurisdiction": "ZA",
+        },
+    ],
+}
+
+GROUP_TAX_PAYLOAD = {
+    "group_id": "group-seam",
+    "fiscal_year": 2026,
+    "subsidiaries": [
+        {
+            "entity_id": "e1",
+            "entity_name": "Profit Co",
+            "jurisdiction": "ZW",
+            "pre_tax_income": 500000.0,
+            "tax_paid": 100000.0,
+            "tax_rate": 0.25,
+        },
+        {
+            "entity_id": "e2",
+            "entity_name": "Loss Co",
+            "jurisdiction": "ZW",
+            "pre_tax_income": -200000.0,
+            "tax_paid": 0.0,
+            "tax_rate": 0.25,
+        },
+    ],
+    "group_tax_rate": 0.25,
+    "intercompany_eliminations": 0.0,
+}
+
+
+def test_tax_provision_matches_the_reference():
+    rust, reference = _both_engines("tax-provision-service", "/calculate", PROVISION_PAYLOAD)
+    for field in (
+        "current_tax_expense",
+        "deferred_tax_expense",
+        "total_tax_expense",
+        "effective_rate",
+        "deferred_tax_assets",
+        "deferred_tax_liabilities",
+        "net_deferred_tax",
+        "loss_carryforward_utilized",
+    ):
+        assert rust[field] == reference[field], field
+    assert rust["current_tax_expense"] == 230000.0
+    assert rust["net_deferred_tax"] == -12500.0
+
+
+def test_tax_risk_assessment_matches_the_reference():
+    rust, reference = _both_engines("tax-risk-service", "/assess", TAX_RISK_PAYLOAD)
+    for field in ("overall_risk_level", "total_exposure", "weighted_exposure", "risk_count"):
+        assert rust[field] == reference[field], field
+    assert [r["level"] for r in rust["risks"]] == [r["level"] for r in reference["risks"]]
+    # a risk's own jurisdiction and mitigation list survive the round trip
+    assert rust["risks"][1]["jurisdiction"] == "ZA"
+    assert rust["risks"][0]["mitigation_actions"] == []
+    assert rust["overall_risk_level"] == "high"
+
+
+def test_group_tax_consolidation_matches_the_reference():
+    rust, reference = _both_engines("group-tax-service", "/consolidate", GROUP_TAX_PAYLOAD)
+    for field in (
+        "consolidated_income",
+        "consolidated_tax",
+        "total_tax_already_paid",
+        "net_group_tax",
+        "tax_savings_from_consolidation",
+        "subsidiary_summary",
+    ):
+        assert rust[field] == reference[field], field
+    # the loss-making entity shelters 200,000 of profit before the group rate applies
+    assert rust["consolidated_income"] == 300000.0
+    assert rust["tax_savings_from_consolidation"] == 25000.0

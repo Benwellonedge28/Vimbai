@@ -4,7 +4,9 @@ Group tax consolidation, intercompany elimination, and group-level tax planning.
 Port: 8378
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -12,6 +14,15 @@ from typing import Dict, List, Optional
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("group_tax_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["group_tax_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "group-tax-service"
 PORT = int(os.getenv("PORT", "8378"))
@@ -65,54 +76,25 @@ class GroupTaxResult(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/consolidate", response_model=GroupTaxResult)
 async def consolidate_group_tax(req: GroupTaxRequest):
-    total_income = sum(s.pre_tax_income for s in req.subsidiaries) - req.intercompany_eliminations
-    total_tax_paid = sum(s.tax_paid for s in req.subsidiaries)
-
-    # Offsetting losses within the group
-    profitable = [s for s in req.subsidiaries if s.pre_tax_income > 0]
-    loss_making = [s for s in req.subsidiaries if s.pre_tax_income <= 0]
-
-    total_losses = sum(abs(s.pre_tax_income) for s in loss_making)
-    consolidated_income = max(total_income, 0)
-    consolidated_tax = consolidated_income * req.group_tax_rate
-
-    # What they would have paid without consolidation
-    standalone_tax = sum(max(s.pre_tax_income, 0) * s.tax_rate for s in req.subsidiaries)
-    savings = (
-        standalone_tax
-        - consolidated_tax
-        - sum(max(s.pre_tax_income, 0) * s.tax_rate - s.tax_paid for s in req.subsidiaries if s.pre_tax_income > 0)
+    result = calc.consolidate(
+        req.group_id,
+        req.fiscal_year,
+        [s.model_dump() for s in req.subsidiaries],
+        req.group_tax_rate,
+        req.intercompany_eliminations,
     )
-    savings = max(savings, 0)
-
-    summary = [
-        {
-            "entity_id": s.entity_id,
-            "name": s.entity_name,
-            "jurisdiction": s.jurisdiction,
-            "income": s.pre_tax_income,
-            "tax_paid": s.tax_paid,
-            "rate": s.tax_rate,
-            "loss_carryforward": s.loss_carryforward,
-        }
-        for s in req.subsidiaries
-    ]
-
-    return GroupTaxResult(
-        group_id=req.group_id,
-        fiscal_year=req.fiscal_year,
-        consolidated_income=round(consolidated_income, 2),
-        consolidated_tax=round(consolidated_tax, 2),
-        total_tax_already_paid=round(total_tax_paid, 2),
-        net_group_tax=round(max(consolidated_tax - total_tax_paid, 0), 2),
-        tax_savings_from_consolidation=round(savings, 2),
-        subsidiary_summary=summary,
-    )
+    logger.info("Group tax consolidated", group=req.group_id, year=req.fiscal_year)
+    return GroupTaxResult(**result)
 
 
 if __name__ == "__main__":
