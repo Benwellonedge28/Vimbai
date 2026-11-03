@@ -193,11 +193,6 @@
       "dir": "provisions-contingencies-service"
     },
     {
-      "path": "/related-party",
-      "name": "related-party-service",
-      "dir": "related-party-service"
-    },
-    {
       "path": "/retained-profits",
       "name": "retained-profits-service",
       "dir": "retained-profits-service"
@@ -221,11 +216,6 @@
       "path": "/right-issues",
       "name": "right-issues-service",
       "dir": "right-issues-service"
-    },
-    {
-      "path": "/share-options",
-      "name": "share-options-service",
-      "dir": "share-options-service"
     },
     {
       "path": "/share-premium",

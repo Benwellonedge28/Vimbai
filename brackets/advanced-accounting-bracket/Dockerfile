@@ -54,13 +54,11 @@ COPY petty-cash-service ./petty-cash-service
 COPY preference-shares-service ./preference-shares-service
 COPY profit-service ./profit-service
 COPY provisions-contingencies-service ./provisions-contingencies-service
-COPY related-party-service ./related-party-service
 COPY retained-profits-service ./retained-profits-service
 COPY revaluation-model-service ./revaluation-model-service
 COPY revaluation-reserve-service ./revaluation-reserve-service
 COPY revenue-recognition-service ./revenue-recognition-service
 COPY right-issues-service ./right-issues-service
-COPY share-options-service ./share-options-service
 COPY share-premium-service ./share-premium-service
 COPY share-redemption-service ./share-redemption-service
 COPY statutory-filing-service ./statutory-filing-service

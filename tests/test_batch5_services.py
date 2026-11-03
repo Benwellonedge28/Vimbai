@@ -137,43 +137,6 @@ class TestCostAccountingService:
         assert data["cost_per_unit"] == 1225
 
 
-class TestHouseholdFinanceService:
-    def setup_method(self):
-        self.client = TestClient(load_app("household-finance-service"))
-
-    def test_household_analysis(self):
-        resp = self.client.post(
-            "/analyze",
-            json={
-                "household_id": "hh-1",
-                "period": "2026-01",
-                "incomes": [
-                    {"source": "Salary", "amount": 3000, "frequency": "monthly"},
-                    {"source": "Side business", "amount": 500, "frequency": "monthly"},
-                ],
-                "expenses": [
-                    {"category": "housing", "description": "Rent", "amount": 800},
-                    {"category": "food", "description": "Groceries", "amount": 400},
-                    {"category": "savings", "description": "Savings", "amount": 500},
-                ],
-                "assets": [{"name": "Savings account", "value": 10000, "type": "cash"}],
-                "liabilities": [{"name": "Car loan", "amount": 5000, "type": "loan"}],
-            },
-        )
-        data = resp.json()
-        assert resp.status_code == 200
-        assert data["total_income"] == 3500
-        assert data["total_expenses"] == 1700
-        assert data["surplus_deficit"] == 1800
-        assert data["savings_rate"] > 50
-        assert data["net_worth"] == 5000
-        assert data["budget_health"] in ("excellent", "good", "fair", "poor")
-
-
-# TestProjectAppraisalService removed: the service is gone and its behaviour is pinned in
-# library/capital_valuation (appraisal.rs / allocation.rs) Rust tests.
-
-
 class TestGoodwillService:
     def setup_method(self):
         self.client = TestClient(load_app("goodwill-service"))

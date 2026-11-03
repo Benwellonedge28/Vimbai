@@ -478,14 +478,6 @@
       "strip_prefix": false
     },
     {
-      "name": "events-after-reporting-service",
-      "path": "/events-after-reporting",
-      "url": "http://localhost:9002",
-      "port": 8206,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "expense-tracking-service",
       "path": "/expense-tracking",
       "url": "http://localhost:9006",
@@ -642,14 +634,6 @@
       "path": "/group-tax",
       "url": "http://localhost:9004",
       "port": 8062,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "household-finance-service",
-      "path": "/household-finance",
-      "url": "http://localhost:9012",
-      "port": 8065,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1089,14 +1073,6 @@
       "strip_prefix": false
     },
     {
-      "name": "profitability-index-service",
-      "path": "/profitability-index",
-      "url": "http://localhost:9012",
-      "port": 8217,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "project-accounting-service",
       "path": "/project-accounting",
       "url": "http://localhost:9009",
@@ -1173,14 +1149,6 @@
       "path": "/regulatory-ratio",
       "url": "http://localhost:9007",
       "port": 8229,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "related-party-service",
-      "path": "/related-party",
-      "url": "http://localhost:9011",
-      "port": 8204,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1300,14 +1268,6 @@
       "path": "/sensitivity-analysis",
       "url": "http://localhost:9012",
       "port": 8124,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "share-options-service",
-      "path": "/share-options",
-      "url": "http://localhost:9011",
-      "port": 8223,
       "auth_required": true,
       "strip_prefix": false
     },

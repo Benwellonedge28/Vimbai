@@ -53,11 +53,6 @@
       "dir": "fund-management-service"
     },
     {
-      "path": "/household-finance",
-      "name": "household-finance-service",
-      "dir": "household-finance-service"
-    },
-    {
       "path": "/insurance-claims",
       "name": "insurance-claims-service",
       "dir": "insurance-claims-service"
@@ -81,11 +76,6 @@
       "path": "/personal-finance",
       "name": "personal-finance-service",
       "dir": "personal-finance-service"
-    },
-    {
-      "path": "/profitability-index",
-      "name": "profitability-index-service",
-      "dir": "profitability-index-service"
     },
     {
       "path": "/rolling-forecast",

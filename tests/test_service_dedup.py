@@ -229,6 +229,11 @@ ADVISORY_PORTS = {
     "construction-contracts-service",
     "debt-covenants-service",
     "director-emoluments-service",
+    "profitability-index-service",
+    "share-options-service",
+    "related-party-service",
+    "events-after-reporting-service",
+    "household-finance-service",
 }
 
 # Ledger study endpoints, ported into vimbai_ledger_core::analytics. None held a

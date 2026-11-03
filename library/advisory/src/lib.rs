@@ -6,6 +6,7 @@
 //! because the originals answered with loose `Dict[str, Any]` shapes.
 
 pub mod contracts;
+pub mod studies;
 pub mod treasury;
 
 use serde_json::Value;
@@ -59,6 +60,10 @@ pub fn with_id(mut answer: Value, id: &str) -> Value {
 }
 
 pub use contracts::analyze_construction_contracts;
+pub use studies::{
+    analyze_events_after_reporting, analyze_household, analyze_profitability_index,
+    analyze_related_parties, analyze_share_options,
+};
 pub use treasury::{analyze_cash_pooling, analyze_debt_covenants, analyze_director_emoluments};
 
 #[cfg(test)]

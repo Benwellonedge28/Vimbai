@@ -26,13 +26,11 @@ COPY due-diligence-service ./due-diligence-service
 COPY financial-planning-service ./financial-planning-service
 COPY foreign-exchange-service ./foreign-exchange-service
 COPY fund-management-service ./fund-management-service
-COPY household-finance-service ./household-finance-service
 COPY insurance-claims-service ./insurance-claims-service
 COPY net-present-value-service ./net-present-value-service
 COPY options-pricing-service ./options-pricing-service
 COPY payback-period-service ./payback-period-service
 COPY personal-finance-service ./personal-finance-service
-COPY profitability-index-service ./profitability-index-service
 COPY rolling-forecast-service ./rolling-forecast-service
 COPY scenario-analysis-service ./scenario-analysis-service
 COPY sensitivity-analysis-service ./sensitivity-analysis-service

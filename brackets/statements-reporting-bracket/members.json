@@ -18,11 +18,6 @@
       "dir": "esg-reporting-service"
     },
     {
-      "path": "/events-after-reporting",
-      "name": "events-after-reporting-service",
-      "dir": "events-after-reporting-service"
-    },
-    {
       "path": "/ifrs-reporting",
       "name": "ifrs-reporting-service",
       "dir": "ifrs-reporting-service"
