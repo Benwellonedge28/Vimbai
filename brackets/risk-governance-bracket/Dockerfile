@@ -23,7 +23,6 @@ COPY internal-controls-testing-service ./internal-controls-testing-service
 COPY market-risk-service ./market-risk-service
 COPY operational-risk-service ./operational-risk-service
 COPY risk-assessment-service ./risk-assessment-service
-COPY risk-return-analysis-service ./risk-return-analysis-service
 
 USER vimbai
 

@@ -10,6 +10,14 @@ de-registered: no gateway route, no k8s document, no bracket member. Their
 Python sources stay on disk as the parity oracle for the crate, marked retired
 in their `STATUS.md`. Gateway is at 220 routes.
 
+Second batch, same rule: risk-return-analysis, business-valuation and
+merger-valuation are now `capital_valuation::{risk_return, valuation, merger}`
+and de-registered (gateway 217 routes, six k8s documents and three bracket
+members removed). Two of their bugs are fixed rather than ported: the DCF path
+read `request.base_revenue`, which only exists on the DCF inputs, so every
+valuation with `dcf_inputs` returned 500, and an empty method set crashed on
+`min([])`.
+
 `time-value-of-money-service`, `present-value-service`, `mva-service`,
 `sustainable-growth-service`, `asset-allocation-service`,
 `portfolio-optimization-service`, `capital-allocation-service`,

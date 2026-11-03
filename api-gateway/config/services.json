@@ -255,14 +255,6 @@
       "strip_prefix": false
     },
     {
-      "name": "business-valuation-service",
-      "path": "/business-valuation",
-      "url": "http://localhost:9012",
-      "port": 8155,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "cache-service",
       "path": "/cache",
       "url": "http://localhost:9013",
@@ -941,14 +933,6 @@
       "strip_prefix": false
     },
     {
-      "name": "merger-valuation-service",
-      "path": "/merger-valuation",
-      "url": "http://localhost:9012",
-      "port": 8241,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "message-bus-service",
       "path": "/message-bus",
       "url": "http://localhost:8097",
@@ -1389,14 +1373,6 @@
       "path": "/risk-assessment",
       "url": "http://localhost:9005",
       "port": 8117,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "risk-return-analysis-service",
-      "path": "/risk-return-analysis",
-      "url": "http://localhost:9005",
-      "port": 8236,
       "auth_required": true,
       "strip_prefix": false
     },

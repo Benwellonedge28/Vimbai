@@ -10,8 +10,8 @@ because their regression suites still run in CI.
 ## Summary
 
 ```
-live and routed          220
-retained, not routed     115
+live and routed          217
+retained, not routed     118
 unrouted, undecided      4
 ```
 
@@ -52,7 +52,6 @@ Routed by the API gateway and deployed. These are the running product.
 `book-sync-service`
 `business-combination-service`
 `business-documents-service`
-`business-valuation-service`
 `cache-service`
 `capital-reconstruction-service`
 `capital-redemption-reserve-service`
@@ -138,7 +137,6 @@ Routed by the API gateway and deployed. These are the running product.
 `management-accounts-service`
 `management-dashboard-service`
 `market-risk-service`
-`merger-valuation-service`
 `message-bus-service`
 `mfa-auth-service`
 `multimodal-pipeline-service`
@@ -196,7 +194,6 @@ Routed by the API gateway and deployed. These are the running product.
 `revenue-recognition-service`
 `right-issues-service`
 `risk-assessment-service`
-`risk-return-analysis-service`
 `rolling-forecast-service`
 `sales-ledger-control-service`
 `scenario-analysis-service`
@@ -257,6 +254,14 @@ Routed by the API gateway and deployed. These are the running product.
 
 `margin-safety-service`
 `over-under-absorption-service`
+
+### business valuation calculator -> `capital_valuation`
+
+3 services. Source kept as the Rust parity reference and CI oracle.
+
+`business-valuation-service`
+`merger-valuation-service`
+`risk-return-analysis-service`
 
 ### capital return calculator -> `capital_valuation`
 

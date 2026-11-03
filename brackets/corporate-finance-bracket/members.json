@@ -3,11 +3,6 @@
   "port": 9012,
   "members": [
     {
-      "path": "/business-valuation",
-      "name": "business-valuation-service",
-      "dir": "business-valuation-service"
-    },
-    {
       "path": "/capital-reconstruction",
       "name": "capital-reconstruction-service",
       "dir": "capital-reconstruction-service"
@@ -81,11 +76,6 @@
       "path": "/insurance-claims",
       "name": "insurance-claims-service",
       "dir": "insurance-claims-service"
-    },
-    {
-      "path": "/merger-valuation",
-      "name": "merger-valuation-service",
-      "dir": "merger-valuation-service"
     },
     {
       "path": "/net-present-value",

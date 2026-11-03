@@ -195,6 +195,14 @@ CAPITAL_RETURN_PORTS = {
     "project-appraisal-service",
 }
 
+# Risk-adjusted returns, business valuation and merger valuation, ported into
+# capital_valuation::{risk_return, valuation, merger}.
+VALUATION_PORTS = {
+    "risk-return-analysis-service",
+    "business-valuation-service",
+    "merger-valuation-service",
+}
+
 # Investor return metrics, ported into ratios_statements::investor_metrics and
 # proven field-for-field by tests/test_native_seam.py.
 INVESTOR_METRIC_PORTS = {
@@ -229,6 +237,7 @@ ALL_DEREGISTERED = (
     | COST_CALCULATOR_PORTS
     | VARIANCE_BUDGET_PORTS
     | CAPITAL_RETURN_PORTS
+    | VALUATION_PORTS
 )
 
 # Families whose Python code is no longer run anywhere, so their names must stay

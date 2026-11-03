@@ -6,13 +6,11 @@
 //! present-value, mva, sustainable-growth, asset-allocation,
 //! portfolio-optimization, capital-allocation, investment-appraisal and
 //! project-appraisal services, with exact formula and iteration parity.
-//! The remaining capital/valuation services
-//! (accounting-rate-return, cost-of-capital, business/merger-valuation,
-//! EVA, CROIC, MVA, du-pont, asset-allocation, asset-turnover,
-//! risk-return, sustainable-growth, initial-investment,
-//! investment-appraisal, capital-budgeting, deal-structuring,
-//! divestiture, post-merger, synergy-analysis) are queued to port here;
-//! see `queued.rs` for their formula inventory.
+//! Second batch: risk-return-analysis, business-valuation and
+//! merger-valuation in `risk_return.rs`, `valuation.rs` and `merger.rs`.
+//! The remaining services (deal-structuring, divestiture, post-merger,
+//! synergy-analysis) are queued to port here; see `queued.rs` for their
+//! formula inventory.
 
 pub mod allocation;
 pub mod appraisal;
@@ -21,9 +19,12 @@ pub mod capital_returns;
 pub mod dcf;
 pub mod growth;
 pub mod irr;
+pub mod merger;
 pub mod payback;
 pub mod queued;
+pub mod risk_return;
 pub mod time_value;
+pub mod valuation;
 
 pub use allocation::{
     allocate_assets, allocate_capital, optimize_portfolio, tactical_allocation, AllocationResult,
@@ -48,10 +49,24 @@ pub use growth::{
     GrowthOutput, MvaInput, MvaMetrics, MvaOutput, ShareholderValueAnalysis,
 };
 pub use irr::{irr, irr_bisection, npv_at_rate, IrrMethod, IrrOutput};
+pub use merger::{
+    value_merger, IrrProjections, MergerOutput, MergerRequest, ValuationMethod, ValuationMethods,
+};
 pub use payback::{payback_period, PaybackOutput};
+pub use risk_return::{
+    analyze_risk_return, AssetInput, RiskReturnFrontierPoint, RiskReturnMetrics, RiskReturnOutput,
+    RiskReturnRequest,
+};
 pub use time_value::{
     compound_interest, effective_annual_rate, future_value, fv_annuity, loan_repayment,
     present_value, present_value_growing_perpetuity, present_value_of_cash_flows,
     present_value_percent, present_value_perpetuity, present_value_with_initial_investment,
     pv_annuity, simple_interest,
+};
+pub use valuation::{
+    book_value, calculate_capm, calculate_wacc, comparable_valuation, dcf_valuation,
+    dividend_discount, precedent_transaction, value_business, BookValueInput, BookValueOutput,
+    CapmInput, CapmOutput, CompanyFinancials, ComparableCompany, ComparableMultiples,
+    ComparableResult, DcfInputs, DcfResult, DdmResult, PrecedentInput, PrecedentOutput,
+    ValuationOutput, ValuationRequest, WaccInput, WaccOutput,
 };

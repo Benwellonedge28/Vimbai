@@ -16,7 +16,6 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 COPY brackets/corporate-finance-bracket/main.py ./main.py
-COPY business-valuation-service ./business-valuation-service
 COPY capital-reconstruction-service ./capital-reconstruction-service
 COPY capital-redemption-reserve-service ./capital-redemption-reserve-service
 COPY cash-management-service ./cash-management-service
@@ -32,7 +31,6 @@ COPY foreign-exchange-service ./foreign-exchange-service
 COPY fund-management-service ./fund-management-service
 COPY household-finance-service ./household-finance-service
 COPY insurance-claims-service ./insurance-claims-service
-COPY merger-valuation-service ./merger-valuation-service
 COPY net-present-value-service ./net-present-value-service
 COPY options-pricing-service ./options-pricing-service
 COPY payback-period-service ./payback-period-service

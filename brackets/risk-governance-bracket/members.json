@@ -36,11 +36,6 @@
       "path": "/risk-assessment",
       "name": "risk-assessment-service",
       "dir": "risk-assessment-service"
-    },
-    {
-      "path": "/risk-return-analysis",
-      "name": "risk-return-analysis-service",
-      "dir": "risk-return-analysis-service"
     }
   ]
 }
