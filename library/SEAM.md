@@ -101,6 +101,7 @@ the seam answers where the service could not. Any client that was retrying
 * `du-pont-service` (`/analyze`), `eva-service` (`/calculate`), `croic-service` (`/calculate`),
   `asset-turnover-service` (`/analyze`), each with its own `calc.py`
 * `eps-service` (`/calculate`) and `goodwill-service` (`/test`), each with its own `calc.py`
+* `corporate-tax-service` (`/calculate`), calculator in `calc.py`
 
 Both read `VIMBAI_CALC_ENGINE`: `auto` (default) uses Rust when the extension is
 there, `rust` refuses to start without it, `python` pins the reference. `/health`
@@ -134,7 +135,9 @@ would otherwise have started returning nulls.
 
 ## Still to do
 
-Twenty-five services cross the seam. The remaining 4 seam functions have no wiring yet:
+Twenty-six services cross the seam. Several seam functions belong to services that are
+already retired, and `depreciation_json` takes a bare array rather than a request map,
+so it will need a translating wrapper. The rest:
 the other tax services (provision, risk, group tax), partnership and pension, the
 consolidation family, inventory and NRV, FX, and the market and credit risk
 services.

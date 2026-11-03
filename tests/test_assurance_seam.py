@@ -961,3 +961,49 @@ def test_goodwill_impairment_matches_the_reference():
     assert rust["impairment_loss"] == 2e4
     assert rust["goodwill_impaired"] == 2e4
     assert rust["is_impaired"] is True
+
+
+TAX_PAYLOAD = {
+    "company_id": "tax-seam",
+    "fiscal_year": 2026,
+    "accounting_profit": 1e6,
+    "statutory_rate": 0.25,
+    "adjustments": [{"description": "Disallowed fines", "amount": 20000, "type": "addition"}],
+    "credits": [{"description": "R&D", "amount": 15000}],
+    "estimated_payments": 1e5,
+}
+
+
+def test_corporate_tax_matches_the_reference():
+    rust, reference = _both_engines("corporate-tax-service", "/calculate", TAX_PAYLOAD)
+    rust.pop("id"), reference.pop("id")
+    assert rust == reference
+    # 1,000,000 + 20,000 at 25% = 255,000, less 15,000 credits
+    assert rust["taxable_income"] == 1020000.0
+    assert rust["tax_before_credits"] == 255000.0
+    assert rust["net_tax_liability"] == 240000.0
+    assert rust["balance_due"] == 140000.0
+    assert [i["quarter"] for i in rust["installment_schedule"]] == [1, 2, 3, 4]
+
+
+def test_corporate_tax_only_adds_on_the_word_addition():
+    """A caller sending "add" gets a deduction. That is long-standing behaviour."""
+    mislabelled = dict(
+        TAX_PAYLOAD,
+        adjustments=[
+            {"description": "Disallowed fines", "amount": 20000, "type": "add"},
+        ],
+    )
+    rust, reference = _both_engines("corporate-tax-service", "/calculate", mislabelled)
+    rust.pop("id"), reference.pop("id")
+    assert rust == reference
+    assert rust["taxable_income"] == 980000.0
+
+
+def test_corporate_tax_holds_a_zero_profit_year_together():
+    flat = dict(TAX_PAYLOAD, accounting_profit=0, estimated_payments=0)
+    rust, reference = _both_engines("corporate-tax-service", "/calculate", flat)
+    rust.pop("id"), reference.pop("id")
+    assert rust == reference
+    assert rust["effective_rate"] == 0
+    assert rust["balance_due"] == 0

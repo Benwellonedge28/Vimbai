@@ -4,7 +4,9 @@ Corporate income tax calculation with adjustments, credits, and installment plan
 Port: 8399
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List
@@ -23,6 +25,15 @@ structlog.configure(
     ]
 )
 logger = structlog.get_logger(SERVICE_NAME)
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("corporate_tax_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["corporate_tax_calc"] = calc
+_spec.loader.exec_module(calc)
+
 app = FastAPI(title="Vimbai Corporate Tax Service", version="2.0.0", docs_url="/docs")
 try:
     from shared.tracing import setup_tracing
@@ -72,45 +83,67 @@ class CorporateTaxResult(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
-@app.post("/calculate", response_model=CorporateTaxResult)
-async def calculate_tax(req: CorporateTaxRequest):
-    taxable = req.accounting_profit
-    for adj in req.adjustments:
-        if adj.type == "addition":
-            taxable += adj.amount
+def _reference(payload):
+    """The original Python calculation, kept as the oracle.
+
+    The adjustment type is spelled "addition"; anything else subtracts. That is the
+    behaviour this endpoint has always had, so a caller sending "add" gets a
+    deduction and always has.
+    """
+    taxable = payload["accounting_profit"]
+    for adj in payload["adjustments"]:
+        if adj["type"] == "addition":
+            taxable += adj["amount"]
         else:
-            taxable -= adj.amount
+            taxable -= adj["amount"]
     taxable = max(taxable, 0)
 
-    tax_before = taxable * req.statutory_rate
-    total_credits = sum(c.amount for c in req.credits)
+    tax_before = taxable * payload["statutory_rate"]
+    total_credits = sum(c["amount"] for c in payload["credits"])
     net_tax = max(tax_before - total_credits, 0)
-    effective = net_tax / req.accounting_profit if req.accounting_profit else 0
-    balance = max(net_tax - req.estimated_payments, 0)
+    effective = net_tax / payload["accounting_profit"] if payload["accounting_profit"] else 0
+    balance = max(net_tax - payload["estimated_payments"], 0)
 
     installments = []
     for q in range(1, 5):
         q_payment = net_tax / 4
         installments.append(
-            {"quarter": q, "due_date": f"{req.fiscal_year}-{q*3:02d}-15", "amount": round(q_payment, 2)}
+            {
+                "quarter": q,
+                "due_date": f"{payload['fiscal_year']}-{q * 3:02d}-15",
+                "amount": round(q_payment, 2),
+            }
         )
 
-    return CorporateTaxResult(
-        company_id=req.company_id,
-        fiscal_year=req.fiscal_year,
-        accounting_profit=round(req.accounting_profit, 2),
+    return dict(
+        company_id=payload["company_id"],
+        fiscal_year=payload["fiscal_year"],
+        accounting_profit=round(payload["accounting_profit"], 2),
         taxable_income=round(taxable, 2),
         tax_before_credits=round(tax_before, 2),
         total_credits=round(total_credits, 2),
         net_tax_liability=round(net_tax, 2),
         effective_rate=round(effective, 4),
-        estimated_payments=round(req.estimated_payments, 2),
+        estimated_payments=round(payload["estimated_payments"], 2),
         balance_due=round(balance, 2),
         installment_schedule=installments,
     )
+
+
+@app.post("/calculate", response_model=CorporateTaxResult)
+async def calculate_tax(req: CorporateTaxRequest):
+    logger.info("Calculating corporate tax", company=req.company_id, year=req.fiscal_year)
+    result = calc.run(req.model_dump(mode="json"), _reference)
+    result.setdefault("id", str(uuid.uuid4()))
+    return CorporateTaxResult(**result)
 
 
 # Backward-compatible /compute endpoint
