@@ -438,14 +438,6 @@
       "strip_prefix": false
     },
     {
-      "name": "enterprise-sso-service",
-      "path": "/enterprise-sso",
-      "url": "http://localhost:9013",
-      "port": 8004,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "equity-changes-service",
       "path": "/equity-changes",
       "url": "http://localhost:9011",

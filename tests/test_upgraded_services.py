@@ -219,49 +219,8 @@ class TestDashboardService:
         assert any(w["title"] == "Current Ratio" for w in data["widgets"])
 
 
-class TestEnterpriseSSOService:
-    def setup_method(self):
-        self.client = TestClient(load_app("enterprise-sso-service"))
-
-    def test_oidc_auth(self):
-        # Create a fake JWT-like token
-        import base64
-        import json
-
-        header = base64.urlsafe_b64encode(json.dumps({"alg": "RS256"}).encode()).rstrip(b"=").decode()
-        payload = (
-            base64.urlsafe_b64encode(json.dumps({"sub": "user123", "exp": 99999999999}).encode()).rstrip(b"=").decode()
-        )
-        token = f"{header}.{payload}.signature"
-
-        resp = self.client.post("/auth/sso", json={"organization_id": "org-1", "idp_token": token, "provider": "oidc"})
-        data = resp.json()
-        assert resp.status_code == 200
-        assert data["user_id"] == "user123"
-        assert data["vimbai_access_token"]
-
-    def test_invalid_token(self):
-        resp = self.client.post(
-            "/auth/sso", json={"organization_id": "org-1", "idp_token": "short", "provider": "oidc"}
-        )
-        assert resp.status_code == 401
-
-    def test_session_validation(self):
-        import base64
-        import json
-
-        header = base64.urlsafe_b64encode(json.dumps({"alg": "RS256"}).encode()).rstrip(b"=").decode()
-        payload = (
-            base64.urlsafe_b64encode(json.dumps({"sub": "user456", "exp": 99999999999}).encode()).rstrip(b"=").decode()
-        )
-        token = f"{header}.{payload}.sig"
-
-        auth = self.client.post("/auth/sso", json={"organization_id": "org-1", "idp_token": token, "provider": "oidc"})
-        vimbai_token = auth.json()["vimbai_access_token"]
-
-        resp = self.client.get(f"/session/{vimbai_token}")
-        assert resp.status_code == 200
-        assert resp.json()["valid"] is True
+# TestEnterpriseSSOService moved to library/sso: the service is now the
+# vimbai_sso crate and its 401/400 contract is pinned in Rust parity tests.
 
 
 class TestAmortizationService:

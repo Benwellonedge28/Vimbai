@@ -28,6 +28,12 @@ profit-loss-account retires on the port that already existed in
 `ratios_statements::profit_loss`. Gateway 208 routes, ten k8s documents, five
 bracket members.
 
+enterprise-sso is a Rust crate: `vimbai_sso`. Sessions, token derivation and
+the 401/400 contract moved into caller-owned `SsoStore` state, with instants and
+nonces supplied by the caller. Signature verification is still absent, exactly
+as it was in the service: callers must validate the assertion with the IdP
+first. `/config` still stores nothing.
+
 automation-engine is a Rust crate: `vimbai_automation` holds the scheduler as
 caller-owned state (Engine, TaskDefinition, TaskExecution, TaskType), so a Book
 owns its own schedule instead of sharing module globals. Ids and timestamps come
@@ -118,7 +124,13 @@ NPV, IRR, payback, profitability index, present value, TVM, MVA, sustainable gro
 * `profitability-index-service`
 * `project-appraisal-service`
 * `sustainable-growth-service`
-* automation-engine is a Rust crate: `vimbai_automation` holds the scheduler as
+* enterprise-sso is a Rust crate: `vimbai_sso`. Sessions, token derivation and
+the 401/400 contract moved into caller-owned `SsoStore` state, with instants and
+nonces supplied by the caller. Signature verification is still absent, exactly
+as it was in the service: callers must validate the assertion with the IdP
+first. `/config` still stores nothing.
+
+automation-engine is a Rust crate: `vimbai_automation` holds the scheduler as
 caller-owned state (Engine, TaskDefinition, TaskExecution, TaskType), so a Book
 owns its own schedule instead of sharing module globals. Ids and timestamps come
 from the caller. Its Python service is gone; it had already been dropped from

@@ -7,6 +7,7 @@ members = [
     "common",
     "advisory",
     "automation",
+    "sso",
     "variance",
     "capital_valuation",
     "cost_accounting",

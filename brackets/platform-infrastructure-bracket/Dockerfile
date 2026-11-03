@@ -19,7 +19,6 @@ COPY brackets/platform-infrastructure-bracket/main.py ./main.py
 COPY cache-service ./cache-service
 COPY dashboard-service ./dashboard-service
 COPY encrypted-backup-service ./encrypted-backup-service
-COPY enterprise-sso-service ./enterprise-sso-service
 COPY etl-service ./etl-service
 COPY financial-state-machine-service ./financial-state-machine-service
 COPY graphql-service ./graphql-service

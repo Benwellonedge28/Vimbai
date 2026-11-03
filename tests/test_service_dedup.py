@@ -230,7 +230,6 @@ SEED_CATALOGUES = {
     "notifications-service": {"templates"},
     # short-lived session/challenge/token state, deliberately not persisted
     "identity-service": {"sessions", "mfa_codes", "password_reset_tokens", "refresh_tokens"},
-    "enterprise-sso-service": {"_session_store"},
     "mfa-auth-service": {"_pending_challenges"},
     "cache-service": {"_cache", "_cache_stats"},
     # money movement lives outside Vimbai's remit; the gateway keeps its own records
