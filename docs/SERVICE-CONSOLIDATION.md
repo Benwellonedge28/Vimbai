@@ -18,6 +18,10 @@ read `request.base_revenue`, which only exists on the DCF inputs, so every
 valuation with `dcf_inputs` returned 500, and an empty method set crashed on
 `min([])`.
 
+Third batch: deal-structuring, divestiture, post-merger and synergy-analysis are
+`capital_valuation::corporate_events`, de-registered (gateway 213 routes, eight
+k8s documents, four bracket members).
+
 `time-value-of-money-service`, `present-value-service`, `mva-service`,
 `sustainable-growth-service`, `asset-allocation-service`,
 `portfolio-optimization-service`, `capital-allocation-service`,

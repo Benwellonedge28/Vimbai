@@ -415,14 +415,6 @@
       "strip_prefix": false
     },
     {
-      "name": "deal-structuring-service",
-      "path": "/deal-structuring",
-      "url": "http://localhost:9012",
-      "port": 8246,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "debentures-service",
       "path": "/debentures",
       "url": "http://localhost:9012",
@@ -483,14 +475,6 @@
       "path": "/distributed-workflow-orchestration",
       "url": "http://localhost:9007",
       "port": 8046,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "divestiture-service",
-      "path": "/divestiture",
-      "url": "http://localhost:9012",
-      "port": 8385,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1153,14 +1137,6 @@
       "auth_required": true
     },
     {
-      "name": "post-merger-service",
-      "path": "/post-merger",
-      "url": "http://localhost:9012",
-      "port": 8244,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "preference-shares-service",
       "path": "/preference-shares",
       "url": "http://localhost:9011",
@@ -1492,14 +1468,6 @@
       "path": "/suspense-error",
       "url": "http://localhost:9011",
       "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "synergy-analysis-service",
-      "path": "/synergy-analysis",
-      "url": "http://localhost:9012",
-      "port": 8243,
       "auth_required": true,
       "strip_prefix": false
     },

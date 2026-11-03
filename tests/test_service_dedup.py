@@ -203,6 +203,14 @@ VALUATION_PORTS = {
     "merger-valuation-service",
 }
 
+# Corporate events, ported into capital_valuation::corporate_events.
+CORPORATE_EVENT_PORTS = {
+    "deal-structuring-service",
+    "divestiture-service",
+    "post-merger-service",
+    "synergy-analysis-service",
+}
+
 # Investor return metrics, ported into ratios_statements::investor_metrics and
 # proven field-for-field by tests/test_native_seam.py.
 INVESTOR_METRIC_PORTS = {
@@ -238,6 +246,7 @@ ALL_DEREGISTERED = (
     | VARIANCE_BUDGET_PORTS
     | CAPITAL_RETURN_PORTS
     | VALUATION_PORTS
+    | CORPORATE_EVENT_PORTS
 )
 
 # Families whose Python code is no longer run anywhere, so their names must stay

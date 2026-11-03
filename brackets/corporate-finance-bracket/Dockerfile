@@ -22,9 +22,7 @@ COPY cash-management-service ./cash-management-service
 COPY cash-optimization-service ./cash-optimization-service
 COPY cash-pooling-service ./cash-pooling-service
 COPY cvp-analysis-service ./cvp-analysis-service
-COPY deal-structuring-service ./deal-structuring-service
 COPY debentures-service ./debentures-service
-COPY divestiture-service ./divestiture-service
 COPY due-diligence-service ./due-diligence-service
 COPY financial-planning-service ./financial-planning-service
 COPY foreign-exchange-service ./foreign-exchange-service
@@ -35,12 +33,10 @@ COPY net-present-value-service ./net-present-value-service
 COPY options-pricing-service ./options-pricing-service
 COPY payback-period-service ./payback-period-service
 COPY personal-finance-service ./personal-finance-service
-COPY post-merger-service ./post-merger-service
 COPY profitability-index-service ./profitability-index-service
 COPY rolling-forecast-service ./rolling-forecast-service
 COPY scenario-analysis-service ./scenario-analysis-service
 COPY sensitivity-analysis-service ./sensitivity-analysis-service
-COPY synergy-analysis-service ./synergy-analysis-service
 COPY trade-finance-service ./trade-finance-service
 
 USER vimbai

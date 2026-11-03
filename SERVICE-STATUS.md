@@ -10,8 +10,8 @@ because their regression suites still run in CI.
 ## Summary
 
 ```
-live and routed          217
-retained, not routed     118
+live and routed          213
+retained, not routed     122
 unrouted, undecided      4
 ```
 
@@ -72,7 +72,6 @@ Routed by the API gateway and deployed. These are the running product.
 `cvp-analysis-service`
 `dashboard-service`
 `data-warehouse-service`
-`deal-structuring-service`
 `debentures-service`
 `debt-covenants-service`
 `debt-management-service`
@@ -81,7 +80,6 @@ Routed by the API gateway and deployed. These are the running product.
 `disposal-account-service`
 `disposal-group-service`
 `distributed-workflow-orchestration-service`
-`divestiture-service`
 `document-service`
 `double-entry-principles-service`
 `due-diligence-service`
@@ -166,7 +164,6 @@ Routed by the API gateway and deployed. These are the running product.
 `petty-cash-service`
 `policy-engine-service`
 `pos-integration-service`
-`post-merger-service`
 `preference-shares-service`
 `privacy-admin-dashboard-service`
 `process-costing-service`
@@ -209,7 +206,6 @@ Routed by the API gateway and deployed. These are the running product.
 `subscription-plans-service`
 `substantive-testing-service`
 `suspense-error-service`
-`synergy-analysis-service`
 `tax-accounting-service`
 `tax-audit-service`
 `tax-compliance-service`
@@ -280,6 +276,15 @@ Routed by the API gateway and deployed. These are the running product.
 `project-appraisal-service`
 `sustainable-growth-service`
 `time-value-of-money-service`
+
+### corporate event calculator -> `capital_valuation`
+
+4 services. Source kept as the Rust parity reference and CI oracle.
+
+`deal-structuring-service`
+`divestiture-service`
+`post-merger-service`
+`synergy-analysis-service`
 
 ### cost accounting calculator -> `cost_accounting`
 

@@ -8,14 +8,15 @@
 //! project-appraisal services, with exact formula and iteration parity.
 //! Second batch: risk-return-analysis, business-valuation and
 //! merger-valuation in `risk_return.rs`, `valuation.rs` and `merger.rs`.
-//! The remaining services (deal-structuring, divestiture, post-merger,
-//! synergy-analysis) are queued to port here; see `queued.rs` for their
-//! formula inventory.
+//! Third batch: deal-structuring, divestiture, post-merger and
+//! synergy-analysis in `corporate_events.rs`. With those the capital and
+//! valuation family is fully ported; see `queued.rs` for what remains.
 
 pub mod allocation;
 pub mod appraisal;
 pub mod capital_budgeting;
 pub mod capital_returns;
+pub mod corporate_events;
 pub mod dcf;
 pub mod growth;
 pub mod irr;
@@ -38,6 +39,13 @@ pub use appraisal::{
 pub use capital_budgeting::{
     analyse_capital_budget, AppraisedProject, CapitalBudgetRequest, CapitalBudgetResult,
     ProjectInput,
+};
+pub use corporate_events::{
+    analyze_synergies, calculate_disposal, structure_deal, track_integration, CostPerformance,
+    DealStructuringOutput, DealStructuringRequest, DivestitureOutput, DivestitureRequest,
+    IntegrationMilestone, IntegrationProgress, PostMergerOutput, PostMergerRequest, RiskAllocation,
+    RiskSplit, StructureOption, SynergyAnalysisOutput, SynergyAnalysisRequest, SynergyItem,
+    SynergyPerformance, SynergySummary, TaxConsiderations, TaxView,
 };
 pub use dcf::{
     annuity_factor, discount_factor, discount_factor_percent, discount_factor_table,

@@ -33,19 +33,9 @@
       "dir": "cvp-analysis-service"
     },
     {
-      "path": "/deal-structuring",
-      "name": "deal-structuring-service",
-      "dir": "deal-structuring-service"
-    },
-    {
       "path": "/debentures",
       "name": "debentures-service",
       "dir": "debentures-service"
-    },
-    {
-      "path": "/divestiture",
-      "name": "divestiture-service",
-      "dir": "divestiture-service"
     },
     {
       "path": "/due-diligence",
@@ -98,11 +88,6 @@
       "dir": "personal-finance-service"
     },
     {
-      "path": "/post-merger",
-      "name": "post-merger-service",
-      "dir": "post-merger-service"
-    },
-    {
       "path": "/profitability-index",
       "name": "profitability-index-service",
       "dir": "profitability-index-service"
@@ -121,11 +106,6 @@
       "path": "/sensitivity-analysis",
       "name": "sensitivity-analysis-service",
       "dir": "sensitivity-analysis-service"
-    },
-    {
-      "path": "/synergy-analysis",
-      "name": "synergy-analysis-service",
-      "dir": "synergy-analysis-service"
     },
     {
       "path": "/trade-finance",
