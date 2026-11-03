@@ -203,11 +203,6 @@
       "dir": "profit-service"
     },
     {
-      "path": "/profit-loss-account",
-      "name": "profit-loss-account-service",
-      "dir": "profit-loss-account-service"
-    },
-    {
       "path": "/provisions-contingencies",
       "name": "provisions-contingencies-service",
       "dir": "provisions-contingencies-service"
@@ -266,11 +261,6 @@
       "path": "/substantive-testing",
       "name": "substantive-testing-service",
       "dir": "substantive-testing-service"
-    },
-    {
-      "path": "/suspense-error",
-      "name": "suspense-error-service",
-      "dir": "suspense-error-service"
     },
     {
       "path": "/trading-account",

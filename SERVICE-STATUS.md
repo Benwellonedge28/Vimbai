@@ -10,8 +10,8 @@ because their regression suites still run in CI.
 ## Summary
 
 ```
-live and routed          213
-retained, not routed     122
+live and routed          208
+retained, not routed     127
 unrouted, undecided      4
 ```
 
@@ -40,7 +40,6 @@ Routed by the API gateway and deployed. These are the running product.
 `bad-debts-recovery-service`
 `balance-sheet-service`
 `balanced-scorecard-service`
-`bank-fee-analysis-service`
 `bank-feed-service`
 `bank-reconciliation-service`
 `bank-relationship-service`
@@ -129,7 +128,6 @@ Routed by the API gateway and deployed. These are the running product.
 `it-audit-service`
 `job-costing-service`
 `journal-entries-service`
-`kpi-tracking-service`
 `lease-management-service`
 `lease-termination-service`
 `management-accounts-service`
@@ -168,7 +166,6 @@ Routed by the API gateway and deployed. These are the running product.
 `privacy-admin-dashboard-service`
 `process-costing-service`
 `product-costing-service`
-`profit-loss-account-service`
 `profit-service`
 `profitability-index-service`
 `project-accounting-service`
@@ -205,7 +202,6 @@ Routed by the API gateway and deployed. These are the running product.
 `statutory-filing-service`
 `subscription-plans-service`
 `substantive-testing-service`
-`suspense-error-service`
 `tax-accounting-service`
 `tax-audit-service`
 `tax-compliance-service`
@@ -214,7 +210,6 @@ Routed by the API gateway and deployed. These are the running product.
 `tax-return-preparation-service`
 `tax-risk-service`
 `tax-service`
-`times-interest-earned-service`
 `trade-finance-service`
 `trading-account-service`
 `transfer-pricing-service`
@@ -398,6 +393,15 @@ Routed by the API gateway and deployed. These are the running product.
 `offline-sync-service`
 `plugin-extension-service`
 
+### reporting diagnostic -> `reporting`
+
+4 services. Source kept as the Rust parity reference and CI oracle.
+
+`bank-fee-analysis-service`
+`kpi-tracking-service`
+`suspense-error-service`
+`times-interest-earned-service`
+
 ### scenario budgeting calculator -> `budgeting`
 
 1 services. Source kept as the Rust parity reference and CI oracle.
@@ -413,10 +417,11 @@ Routed by the API gateway and deployed. These are the running product.
 
 ### statement / payroll transposition -> `ratios_statements`
 
-2 services. Source kept as the Rust parity reference and CI oracle.
+3 services. Source kept as the Rust parity reference and CI oracle.
 
 `financial-statements-service`
 `income-statement-service`
+`profit-loss-account-service`
 
 ### tax calculator -> `tax`
 

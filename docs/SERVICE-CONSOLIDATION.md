@@ -22,6 +22,12 @@ Third batch: deal-structuring, divestiture, post-merger and synergy-analysis are
 `capital_valuation::corporate_events`, de-registered (gateway 213 routes, eight
 k8s documents, four bracket members).
 
+Fourth batch: the reporting diagnostics are `reporting::analysis`
+(bank-fee-analysis, kpi-tracking, suspense-error, times-interest-earned), and
+profit-loss-account retires on the port that already existed in
+`ratios_statements::profit_loss`. Gateway 208 routes, ten k8s documents, five
+bracket members.
+
 `time-value-of-money-service`, `present-value-service`, `mva-service`,
 `sustainable-growth-service`, `asset-allocation-service`,
 `portfolio-optimization-service`, `capital-allocation-service`,

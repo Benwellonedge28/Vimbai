@@ -14,4 +14,4 @@ serde_json = { workspace = true, features = ["preserve_order"] }
 # preserve_order is backed by indexmap, and indexmap 2.12 onward needs cargo
 # 1.85 for edition2024. The library CI builds the wheel in the maturin 1.7.4
 # image, which carries cargo 1.81, so the version is held below that line.
-indexmap = "=2.7.1"
+indexmap = { version = "=2.7.1", features = ["serde"] }

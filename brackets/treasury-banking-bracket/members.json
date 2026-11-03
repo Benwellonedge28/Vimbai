@@ -18,11 +18,6 @@
       "dir": "bad-debts-recovery-service"
     },
     {
-      "path": "/bank-fee-analysis",
-      "name": "bank-fee-analysis-service",
-      "dir": "bank-fee-analysis-service"
-    },
-    {
       "path": "/bank-feed",
       "name": "bank-feed-service",
       "dir": "bank-feed-service"
@@ -116,11 +111,6 @@
       "path": "/sovereign-treasury",
       "name": "sovereign-treasury-service",
       "dir": "sovereign-treasury-service"
-    },
-    {
-      "path": "/times-interest-earned",
-      "name": "times-interest-earned-service",
-      "dir": "times-interest-earned-service"
     },
     {
       "path": "/treasury-analytics",

@@ -19,7 +19,6 @@ COPY brackets/treasury-banking-bracket/main.py ./main.py
 COPY acquisition-financing-service ./acquisition-financing-service
 COPY authorized-share-capital-service ./authorized-share-capital-service
 COPY bad-debts-recovery-service ./bad-debts-recovery-service
-COPY bank-fee-analysis-service ./bank-fee-analysis-service
 COPY bank-feed-service ./bank-feed-service
 COPY bank-reconciliation-service ./bank-reconciliation-service
 COPY bank-relationship-service ./bank-relationship-service
@@ -39,7 +38,6 @@ COPY payment-optimization-service ./payment-optimization-service
 COPY provision-bad-debts-service ./provision-bad-debts-service
 COPY provision-doubtful-debts-service ./provision-doubtful-debts-service
 COPY sovereign-treasury-service ./sovereign-treasury-service
-COPY times-interest-earned-service ./times-interest-earned-service
 COPY treasury-analytics-service ./treasury-analytics-service
 COPY treasury-compliance-service ./treasury-compliance-service
 COPY treasury-management-service ./treasury-management-service

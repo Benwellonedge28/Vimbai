@@ -28,11 +28,6 @@
       "dir": "internal-rate-return-service"
     },
     {
-      "path": "/kpi-tracking",
-      "name": "kpi-tracking-service",
-      "dir": "kpi-tracking-service"
-    },
-    {
       "path": "/performance-benchmarking",
       "name": "performance-benchmarking-service",
       "dir": "performance-benchmarking-service"

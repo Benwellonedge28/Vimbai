@@ -137,6 +137,7 @@ IFRS_CALCULATOR_PORTS = {
 STATEMENT_PAYROLL_PORTS = {
     "financial-statements-service",
     "income-statement-service",
+    "profit-loss-account-service",
     "payroll-service",
     "payroll-accounting-service",
 }
@@ -221,6 +222,14 @@ INVESTOR_METRIC_PORTS = {
     "eps-service",
 }
 
+# Reporting diagnostics, ported into reporting::analysis.
+REPORT_ANALYSIS_PORTS = {
+    "bank-fee-analysis-service",
+    "kpi-tracking-service",
+    "suspense-error-service",
+    "times-interest-earned-service",
+}
+
 # fixed-assets-service retires on the same evidence, in the assets family.
 FIXED_ASSETS_PORTS = {
     "fixed-assets-service",
@@ -247,6 +256,7 @@ ALL_DEREGISTERED = (
     | CAPITAL_RETURN_PORTS
     | VALUATION_PORTS
     | CORPORATE_EVENT_PORTS
+    | REPORT_ANALYSIS_PORTS
 )
 
 # Families whose Python code is no longer run anywhere, so their names must stay

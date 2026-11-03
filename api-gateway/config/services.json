@@ -168,14 +168,6 @@
       "strip_prefix": false
     },
     {
-      "name": "bank-fee-analysis-service",
-      "path": "/bank-fee-analysis",
-      "url": "http://localhost:9003",
-      "port": 8189,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "bank-feed-service",
       "path": "/bank-feed",
       "url": "http://localhost:9003",
@@ -869,14 +861,6 @@
       "strip_prefix": false
     },
     {
-      "name": "kpi-tracking-service",
-      "path": "/kpi-tracking",
-      "url": "http://localhost:9007",
-      "port": 8278,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "lease-management-service",
       "path": "/lease-management",
       "url": "http://localhost:9011",
@@ -1169,14 +1153,6 @@
       "strip_prefix": false
     },
     {
-      "name": "profit-loss-account-service",
-      "path": "/profit-loss-account",
-      "url": "http://localhost:9011",
-      "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "profit-service",
       "path": "/profit",
       "url": "http://localhost:9011",
@@ -1464,14 +1440,6 @@
       "strip_prefix": false
     },
     {
-      "name": "suspense-error-service",
-      "path": "/suspense-error",
-      "url": "http://localhost:9011",
-      "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "tax-accounting-service",
       "path": "/tax-accounting",
       "url": "http://localhost:9004",
@@ -1532,14 +1500,6 @@
       "path": "/tax",
       "url": "http://localhost:9004",
       "port": 8346,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "times-interest-earned-service",
-      "path": "/times-interest-earned",
-      "url": "http://localhost:9003",
-      "port": 8218,
       "auth_required": true,
       "strip_prefix": false
     },

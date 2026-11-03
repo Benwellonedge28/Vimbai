@@ -56,7 +56,6 @@ COPY partnership-sale-service ./partnership-sale-service
 COPY petty-cash-service ./petty-cash-service
 COPY preference-shares-service ./preference-shares-service
 COPY profit-service ./profit-service
-COPY profit-loss-account-service ./profit-loss-account-service
 COPY provisions-contingencies-service ./provisions-contingencies-service
 COPY related-party-service ./related-party-service
 COPY retained-profits-service ./retained-profits-service
@@ -69,7 +68,6 @@ COPY share-premium-service ./share-premium-service
 COPY share-redemption-service ./share-redemption-service
 COPY statutory-filing-service ./statutory-filing-service
 COPY substantive-testing-service ./substantive-testing-service
-COPY suspense-error-service ./suspense-error-service
 COPY trading-account-service ./trading-account-service
 COPY transfer-pricing-service ./transfer-pricing-service
 

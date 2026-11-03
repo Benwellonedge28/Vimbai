@@ -3,11 +3,18 @@
 //! the filing readiness it implies. No money moves here; the crate only reads
 //! what the books say is done.
 
+pub mod analysis;
 pub mod annual;
 pub mod financial;
 pub mod management;
 pub mod regulatory;
 
+pub use analysis::{
+    analyze_bank_fees, analyze_coverage, analyze_suspense, track_kpis, BankCharge, Correction,
+    CovenantCompliance, CoverageMetrics, FeeAnalysisRequest, FeeAnalysisResult, FeeCharge, Kpi,
+    KpiAnalysis, KpiSummary, KpiTrackingRequest, KpiTrackingResult, KpiTrend, SuspenseError,
+    SuspenseRequest, SuspenseResult, TieRequest, TieResult,
+};
 pub use annual::{
     prepare_annual_report, AnnualReport, AnnualReportRequest, ReportSection, SectionInput,
 };
