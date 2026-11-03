@@ -16,7 +16,6 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 COPY brackets/ratios-analytics-bracket/main.py ./main.py
-COPY analytical-procedures-service ./analytical-procedures-service
 COPY distributed-workflow-orchestration-service ./distributed-workflow-orchestration-service
 COPY financial-distress-prediction-service ./financial-distress-prediction-service
 COPY internal-rate-return-service ./internal-rate-return-service

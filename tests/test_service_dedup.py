@@ -234,6 +234,11 @@ ADVISORY_PORTS = {
     "related-party-service",
     "events-after-reporting-service",
     "household-finance-service",
+    "fund-management-service",
+    "interest-rate-risk-service",
+    "investment-portfolio-service",
+    "transfer-pricing-service",
+    "analytical-procedures-service",
 }
 
 # Ledger study endpoints, ported into vimbai_ledger_core::analytics. None held a

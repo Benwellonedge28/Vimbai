@@ -3,11 +3,6 @@
   "port": 9007,
   "members": [
     {
-      "path": "/analytical-procedures",
-      "name": "analytical-procedures-service",
-      "dir": "analytical-procedures-service"
-    },
-    {
       "path": "/distributed-workflow-orchestration",
       "name": "distributed-workflow-orchestration-service",
       "dir": "distributed-workflow-orchestration-service"

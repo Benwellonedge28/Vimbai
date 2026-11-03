@@ -228,47 +228,6 @@ class TestGroupTaxService:
         assert len(data["subsidiary_summary"]) == 2
 
 
-class TestTransferPricingService:
-    def setup_method(self):
-        self.client = TestClient(load_app("transfer-pricing-service"))
-
-    def test_analysis(self):
-        resp = self.client.post(
-            "/analyze",
-            json={
-                "company_id": "comp-1",
-                "transactions": [
-                    {
-                        "company_id": "comp-1",
-                        "product_service": "Consulting",
-                        "selling_entity": "Parent",
-                        "buying_entity": "Sub",
-                        "transaction_value": 100000,
-                        "arm_length_range_min": 90000,
-                        "arm_length_range_max": 120000,
-                        "method": "comparable_uncontrolled_price",
-                    },
-                    {
-                        "company_id": "comp-1",
-                        "product_service": "License",
-                        "selling_entity": "Parent",
-                        "buying_entity": "Sub",
-                        "transaction_value": 50000,
-                        "arm_length_range_min": 70000,
-                        "arm_length_range_max": 90000,
-                        "method": "transactional_net_margin",
-                    },
-                ],
-            },
-        )
-        data = resp.json()
-        assert resp.status_code == 200
-        assert data["compliant_transactions"] == 1
-        assert data["non_compliant_transactions"] == 1
-        assert data["total_adjustment_needed"] == 20000  # 70000-50000
-        assert len(data["documentation_required"]) >= 3
-
-
 class TestTradeFinanceService:
     """trade-finance is now Neo4j-backed with X-User-Id auth + Book scoping."""
 

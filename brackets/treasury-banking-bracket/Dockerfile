@@ -27,9 +27,7 @@ COPY credit-risk-analysis-service ./credit-risk-analysis-service
 COPY currency-service ./currency-service
 COPY debt-management-service ./debt-management-service
 COPY initial-investment-service ./initial-investment-service
-COPY interest-rate-risk-service ./interest-rate-risk-service
 COPY investment-monitoring-service ./investment-monitoring-service
-COPY investment-portfolio-service ./investment-portfolio-service
 COPY investment-property-service ./investment-property-service
 COPY issued-share-capital-service ./issued-share-capital-service
 COPY payment-gateway-service ./payment-gateway-service

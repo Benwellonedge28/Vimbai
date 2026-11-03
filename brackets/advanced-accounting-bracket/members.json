@@ -241,11 +241,6 @@
       "path": "/trading-account",
       "name": "trading-account-service",
       "dir": "trading-account-service"
-    },
-    {
-      "path": "/transfer-pricing",
-      "name": "transfer-pricing-service",
-      "dir": "transfer-pricing-service"
     }
   ]
 }

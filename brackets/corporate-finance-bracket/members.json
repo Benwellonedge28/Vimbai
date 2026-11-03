@@ -48,11 +48,6 @@
       "dir": "foreign-exchange-service"
     },
     {
-      "path": "/fund-management",
-      "name": "fund-management-service",
-      "dir": "fund-management-service"
-    },
-    {
       "path": "/insurance-claims",
       "name": "insurance-claims-service",
       "dir": "insurance-claims-service"

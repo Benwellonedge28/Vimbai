@@ -58,19 +58,9 @@
       "dir": "initial-investment-service"
     },
     {
-      "path": "/interest-rate-risk",
-      "name": "interest-rate-risk-service",
-      "dir": "interest-rate-risk-service"
-    },
-    {
       "path": "/investment-monitoring",
       "name": "investment-monitoring-service",
       "dir": "investment-monitoring-service"
-    },
-    {
-      "path": "/investment-portfolio",
-      "name": "investment-portfolio-service",
-      "dir": "investment-portfolio-service"
     },
     {
       "path": "/investment-property",

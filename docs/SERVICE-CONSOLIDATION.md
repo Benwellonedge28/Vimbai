@@ -28,6 +28,12 @@ profit-loss-account retires on the port that already existed in
 `ratios_statements::profit_loss`. Gateway 208 routes, ten k8s documents, five
 bracket members.
 
+Eighth and final analysis batch: fund-management, investment-portfolio,
+interest-rate-risk (portfolios module), transfer-pricing and
+analytical-procedures (audit module) complete `vimbai_advisory`. All nineteen
+record-free analyzers are now Rust and their directories are deleted. Gateway
+189 routes.
+
 Seventh batch: profitability-index, share-options, related-party,
 events-after-reporting and household-finance join `vimbai_advisory` (studies
 module) and are deleted from the repository. Gateway 194 routes.
@@ -98,7 +104,13 @@ NPV, IRR, payback, profitability index, present value, TVM, MVA, sustainable gro
 * `profitability-index-service`
 * `project-appraisal-service`
 * `sustainable-growth-service`
-* Seventh batch: profitability-index, share-options, related-party,
+* Eighth and final analysis batch: fund-management, investment-portfolio,
+interest-rate-risk (portfolios module), transfer-pricing and
+analytical-procedures (audit module) complete `vimbai_advisory`. All nineteen
+record-free analyzers are now Rust and their directories are deleted. Gateway
+189 routes.
+
+Seventh batch: profitability-index, share-options, related-party,
 events-after-reporting and household-finance join `vimbai_advisory` (studies
 module) and are deleted from the repository. Gateway 194 routes.
 

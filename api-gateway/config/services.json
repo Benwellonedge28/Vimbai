@@ -64,14 +64,6 @@
       "strip_prefix": false
     },
     {
-      "name": "analytical-procedures-service",
-      "path": "/analytical-procedures",
-      "url": "http://localhost:9007",
-      "port": 8197,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "appropriation-control-service",
       "path": "/appropriation-control",
       "url": "http://localhost:9001",
@@ -582,14 +574,6 @@
       "strip_prefix": false
     },
     {
-      "name": "fund-management-service",
-      "path": "/fund-management",
-      "url": "http://localhost:9012",
-      "port": 8266,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "general-reserve-service",
       "path": "/general-reserve",
       "url": "http://localhost:9011",
@@ -678,14 +662,6 @@
       "strip_prefix": false
     },
     {
-      "name": "interest-rate-risk-service",
-      "path": "/interest-rate-risk",
-      "url": "http://localhost:9003",
-      "port": 8170,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "internal-control-evaluation-service",
       "path": "/internal-control-evaluation",
       "url": "http://localhost:9005",
@@ -722,14 +698,6 @@
       "path": "/investment-monitoring",
       "url": "http://localhost:9003",
       "port": 8290,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "investment-portfolio-service",
-      "path": "/investment-portfolio",
-      "url": "http://localhost:9003",
-      "port": 8265,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1404,14 +1372,6 @@
       "path": "/trading-account",
       "url": "http://localhost:9011",
       "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "transfer-pricing-service",
-      "path": "/transfer-pricing",
-      "url": "http://localhost:9011",
-      "port": 8294,
       "auth_required": true,
       "strip_prefix": false
     },

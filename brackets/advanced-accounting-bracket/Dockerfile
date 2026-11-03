@@ -64,7 +64,6 @@ COPY share-redemption-service ./share-redemption-service
 COPY statutory-filing-service ./statutory-filing-service
 COPY substantive-testing-service ./substantive-testing-service
 COPY trading-account-service ./trading-account-service
-COPY transfer-pricing-service ./transfer-pricing-service
 
 USER vimbai
 

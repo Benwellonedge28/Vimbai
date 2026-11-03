@@ -5,7 +5,9 @@
 //! the caller's numbers, work out a report, return it. Bodies are JSON values
 //! because the originals answered with loose `Dict[str, Any]` shapes.
 
+pub mod audit;
 pub mod contracts;
+pub mod portfolios;
 pub mod studies;
 pub mod treasury;
 
@@ -59,7 +61,11 @@ pub fn with_id(mut answer: Value, id: &str) -> Value {
     answer
 }
 
+pub use audit::{analyze_analytical_procedures, analyze_transfer_pricing};
 pub use contracts::analyze_construction_contracts;
+pub use portfolios::{
+    analyze_fund_management, analyze_interest_rate_risk, analyze_investment_portfolio,
+};
 pub use studies::{
     analyze_events_after_reporting, analyze_household, analyze_profitability_index,
     analyze_related_parties, analyze_share_options,
