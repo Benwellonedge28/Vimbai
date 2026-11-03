@@ -3,7 +3,9 @@ Vimbai Net Realizable Value (NRV) / Scrap Value Service
 Handles NRV and scrap value calculations.
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -12,6 +14,15 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("nrv_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["nrv_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "net-realizable-value-service"
 SERVICE_VERSION = "1.0.0"
@@ -39,7 +50,12 @@ app.add_middleware(
 
 @app.get("/health")
 async def health_check():
-    return {"service": SERVICE_NAME, "version": SERVICE_VERSION, "status": "healthy"}
+    return {
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
+        "status": "healthy",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.get("/")
@@ -53,18 +69,13 @@ async def root():
 
 @app.post("/calculate-nrv")
 async def calculate_nrv(selling_Price: float, Completion_Cost: float, selling_cost: float = 0):
-    """
-    Calculate Net Realizable Value.
+    """Calculate Net Realizable Value.
+
     NRV = Selling Price - Completion Cost - Selling Cost
     """
-    nrv = selling_Price - Completion_Cost - selling_cost
-    return {
-        "selling_price": selling_Price,
-        "completion_cost": Completion_Cost,
-        "selling_cost": selling_cost,
-        "net_realizable_value": nrv,
-        "formula": f"{selling_Price} - {Completion_Cost} - {selling_cost} = {nrv}",
-    }
+    result = calc.net_realizable_value(selling_Price, Completion_Cost, selling_cost)
+    logger.info("NRV calculated", nrv=result["net_realizable_value"])
+    return result
 
 
 @app.post("/scrap-value")

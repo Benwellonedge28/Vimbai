@@ -32,6 +32,8 @@ if not all(
         "partner_buyout_json",
         "partnership_goodwill_json",
         "pension_json",
+        "inventory_valuation_json",
+        "nrv_json",
     )
 ):
     pytest.skip("the installed extension predates these functions", allow_module_level=True)
@@ -641,3 +643,48 @@ def test_pension_accounting_matches_the_reference():
         assert rust[field] == reference[field], field
     assert rust["funded_position"] == -205000.0
     assert rust["remeasurements"] == 35000.0
+
+
+INVENTORY_PAYLOAD = {
+    "company_id": "comp-seam",
+    "purchases": [
+        {"date": "2026-01-05", "quantity": 100, "unit_cost": 12.0},
+        {"date": "2026-02-10", "quantity": 150, "unit_cost": 14.0},
+    ],
+    "sales": [{"date": "2026-03-01", "quantity": 200, "unit_price": 25.0}],
+    "opening_inventory": 1000.0,
+    "opening_qty": 80,
+}
+
+
+def test_inventory_valuation_matches_the_reference_in_every_method():
+    expected = {"fifo": (2480.0, 1820.0), "lifo": (2700.0, 1600.0), "weighted_average": (2606.06, 1693.94)}
+    for method, (cogs, ending) in expected.items():
+        rust, reference = _both_engines(
+            "inventory-valuation-service", "/calculate", {**INVENTORY_PAYLOAD, "method": method}
+        )
+        for field in (
+            "total_goods_available",
+            "total_units_available",
+            "total_units_sold",
+            "cost_of_goods_sold",
+            "ending_inventory",
+            "ending_qty",
+            "total_sales_revenue",
+            "gross_profit",
+            "gross_margin",
+        ):
+            assert rust[field] == reference[field], (method, field)
+        assert rust["cost_of_goods_sold"] == cogs, method
+        assert rust["ending_inventory"] == ending, method
+
+
+def test_net_realizable_value_matches_the_reference():
+    rust, reference = _both_engines(
+        "net-realizable-value-service",
+        "/calculate-nrv?selling_Price=500&Completion_Cost=120&selling_cost=30",
+        None,
+    )
+    assert rust == reference
+    assert rust["net_realizable_value"] == 350.0
+    assert rust["formula"] == "500.0 - 120.0 - 30.0 = 350.0"
