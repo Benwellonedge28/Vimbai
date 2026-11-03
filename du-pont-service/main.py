@@ -4,6 +4,9 @@ Port: 8211
 ROE decomposition analysis
 """
 
+import importlib.util
+import os
+import sys
 from typing import Any, Dict
 
 import httpx
@@ -12,6 +15,15 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 logger = structlog.get_logger()
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("du_pont_service_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["du_pont_service_calc"] = calc
+_spec.loader.exec_module(calc)
+
 app = FastAPI(title="DuPont Analysis Service", version="1.0.0")
 
 
@@ -60,27 +72,31 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
 
 @app.get("/")
 async def health_check():
-    return {"status": "healthy", "service": "du-pont", "version": "1.0.0"}
+    return {
+        "status": "healthy",
+        "service": "du-pont",
+        "version": "1.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
-@app.post("/analyze", response_model=DuPontResponse)
-async def perform_du_pont_analysis(request: DuPontRequest):
-    logger.info("Performing DuPont analysis", company=request.company_id, period=request.period)
-
-    net_profit_margin = request.net_income / request.revenue if request.revenue else 0
-    asset_turnover = request.revenue / request.total_assets if request.total_assets else 0
-    financial_leverage = request.total_assets / request.total_equity if request.total_equity else 0
-    tax_burden = request.net_income / request.ebt if request.ebt else 0
-    interest_burden = request.ebt / request.ebit if request.ebit else 0
+def _reference(payload):
+    """The original Python calculation, kept as the oracle."""
+    """The original Python calculation, kept as the oracle."""
+    net_profit_margin = payload["net_income"] / payload["revenue"] if payload["revenue"] else 0
+    asset_turnover = payload["revenue"] / payload["total_assets"] if payload["total_assets"] else 0
+    financial_leverage = payload["total_assets"] / payload["total_equity"] if payload["total_equity"] else 0
+    tax_burden = payload["net_income"] / payload["ebt"] if payload["ebt"] else 0
+    interest_burden = payload["ebt"] / payload["ebit"] if payload["ebit"] else 0
 
     three_factor_roe = net_profit_margin * asset_turnover * financial_leverage
 
     five_factor_roe = (
         tax_burden
         * interest_burden
-        * (request.ebit / request.revenue if request.revenue else 0)
-        * (request.revenue / request.total_assets if request.total_assets else 0)
-        * (request.total_assets / request.total_equity if request.total_equity else 0)
+        * (payload["ebit"] / payload["revenue"] if payload["revenue"] else 0)
+        * (payload["revenue"] / payload["total_assets"] if payload["total_assets"] else 0)
+        * (payload["total_assets"] / payload["total_equity"] if payload["total_equity"] else 0)
     )
 
     roe_contribution = {
@@ -105,9 +121,9 @@ async def perform_du_pont_analysis(request: DuPontRequest):
         ),
     }
 
-    return DuPontResponse(
-        company_id=request.company_id,
-        period=request.period,
+    return dict(
+        company_id=payload["company_id"],
+        period=payload["period"],
         du_pont_metrics=DuPontMetrics(
             net_profit_margin=round(net_profit_margin, 4),
             asset_turnover=round(asset_turnover, 4),
@@ -125,7 +141,7 @@ async def perform_du_pont_analysis(request: DuPontRequest):
         five_factor_breakdown={
             "tax_burden": round(tax_burden, 4),
             "interest_burden": round(interest_burden, 4),
-            "operating_margin": round(request.ebit / request.revenue, 4) if request.revenue else 0,
+            "operating_margin": round(payload["ebit"] / payload["revenue"], 4) if payload["revenue"] else 0,
             "asset_turnover": round(asset_turnover, 4),
             "financial_leverage": round(financial_leverage, 4),
             "calculated_roe": round(five_factor_roe, 4),
@@ -134,6 +150,13 @@ async def perform_du_pont_analysis(request: DuPontRequest):
         peer_comparison=peer_benchmark,
         conclusions=conclusions,
     )
+
+
+@app.post("/analyze", response_model=DuPontResponse)
+async def dupont_analysis(request: DuPontRequest):
+    logger.info("Calculating", company=request.company_id)
+    result = calc.run(request.model_dump(), _reference)
+    return DuPontResponse(**result) if isinstance(result, dict) else result
 
 
 if __name__ == "__main__":

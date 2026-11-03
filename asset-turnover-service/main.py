@@ -4,6 +4,9 @@ Port: 8216
 Operating asset efficiency metrics
 """
 
+import importlib.util
+import os
+import sys
 from typing import Any, Dict
 
 import httpx
@@ -12,6 +15,15 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 logger = structlog.get_logger()
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("asset_turnover_service_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["asset_turnover_service_calc"] = calc
+_spec.loader.exec_module(calc)
+
 app = FastAPI(title="Asset Turnover Analysis Service", version="1.0.0")
 
 
@@ -62,24 +74,30 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
 
 @app.get("/")
 async def health_check():
-    return {"status": "healthy", "service": "asset-turnover", "version": "1.0.0"}
+    return {
+        "status": "healthy",
+        "service": "asset-turnover",
+        "version": "1.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
-@app.post("/analyze", response_model=TurnoverResponse)
-async def analyze_asset_turnover(request: TurnoverRequest):
-    logger.info("Analyzing asset turnover", company=request.company_id, period=request.period)
+def _reference(payload):
+    """The original Python calculation, kept as the oracle."""
+    """The original Python calculation, kept as the oracle."""
+    total_turnover = payload["revenue"] / payload["total_assets"] if payload["total_assets"] else 0
+    fixed_turnover = payload["revenue"] / payload["fixed_assets"] if payload["fixed_assets"] else 0
+    working_capital = payload["current_assets"] - payload["current_liabilities"]
+    wc_turnover = payload["revenue"] / working_capital if working_capital else 0
+    receivables_turnover = payload["revenue"] / payload["accounts_receivable"] if payload["accounts_receivable"] else 0
+    inventory_turnover = payload["cost_of_goods_sold"] / payload["inventory"] if payload["inventory"] else 0
+    payables_turnover = (
+        payload["cost_of_goods_sold"] / payload["accounts_payable"] if payload["accounts_payable"] else 0
+    )
 
-    total_turnover = request.revenue / request.total_assets if request.total_assets else 0
-    fixed_turnover = request.revenue / request.fixed_assets if request.fixed_assets else 0
-    working_capital = request.current_assets - request.current_liabilities
-    wc_turnover = request.revenue / working_capital if working_capital else 0
-    receivables_turnover = request.revenue / request.accounts_receivable if request.accounts_receivable else 0
-    inventory_turnover = request.cost_of_goods_sold / request.inventory if request.inventory else 0
-    payables_turnover = request.cost_of_goods_sold / request.accounts_payable if request.accounts_payable else 0
-
-    dso = (request.accounts_receivable / request.revenue) * 365 if request.revenue else 0
-    dio = (request.inventory / request.cost_of_goods_sold) * 365 if request.cost_of_goods_sold else 0
-    dpo = (request.accounts_payable / request.cost_of_goods_sold) * 365 if request.cost_of_goods_sold else 0
+    dso = (payload["accounts_receivable"] / payload["revenue"]) * 365 if payload["revenue"] else 0
+    dio = (payload["inventory"] / payload["cost_of_goods_sold"]) * 365 if payload["cost_of_goods_sold"] else 0
+    dpo = (payload["accounts_payable"] / payload["cost_of_goods_sold"]) * 365 if payload["cost_of_goods_sold"] else 0
     ccc = int(dso + dio - dpo)
 
     benchmark = {
@@ -103,9 +121,9 @@ async def analyze_asset_turnover(request: TurnoverRequest):
         else "moderate" if total_turnover > 1.0 else "inefficient"
     )
 
-    return TurnoverResponse(
-        company_id=request.company_id,
-        period=request.period,
+    return dict(
+        company_id=payload["company_id"],
+        period=payload["period"],
         turnover_metrics=TurnoverMetrics(
             total_asset_turnover=round(total_turnover, 2),
             fixed_asset_turnover=round(fixed_turnover, 2),
@@ -131,6 +149,13 @@ async def analyze_asset_turnover(request: TurnoverRequest):
             else ["Continue monitoring efficiency metrics"]
         ),
     )
+
+
+@app.post("/analyze", response_model=TurnoverResponse)
+async def asset_turnover_analysis(request: TurnoverRequest):
+    logger.info("Calculating", company=request.company_id)
+    result = calc.run(request.model_dump(), _reference)
+    return TurnoverResponse(**result) if isinstance(result, dict) else result
 
 
 if __name__ == "__main__":

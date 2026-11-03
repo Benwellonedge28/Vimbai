@@ -4,6 +4,9 @@ Port: 8212
 EVA calculation and wealth creation analysis
 """
 
+import importlib.util
+import os
+import sys
 from typing import Any, Dict
 
 import httpx
@@ -12,6 +15,15 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 logger = structlog.get_logger()
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("eva_service_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["eva_service_calc"] = calc
+_spec.loader.exec_module(calc)
+
 app = FastAPI(title="Economic Value Added Service", version="1.0.0")
 
 
@@ -61,21 +73,27 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
 
 @app.get("/")
 async def health_check():
-    return {"status": "healthy", "service": "eva", "version": "1.0.0"}
+    return {
+        "status": "healthy",
+        "service": "eva",
+        "version": "1.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
-@app.post("/calculate", response_model=EVAResponse)
-async def calculate_eva(request: EVARequest):
-    logger.info("Calculating EVA", company=request.company_id, period=request.period)
+def _reference(payload):
+    """The original Python calculation, kept as the oracle."""
+    """The original Python calculation, kept as the oracle."""
+    debt_ratio = payload["debt"] / (payload["debt"] + payload["equity"]) if (payload["debt"] + payload["equity"]) else 0
+    equity_ratio = (
+        payload["equity"] / (payload["debt"] + payload["equity"]) if (payload["debt"] + payload["equity"]) else 0
+    )
 
-    debt_ratio = request.debt / (request.debt + request.equity) if (request.debt + request.equity) else 0
-    equity_ratio = request.equity / (request.debt + request.equity) if (request.debt + request.equity) else 0
+    wacc = debt_ratio * payload["cost_of_debt"] * (1 - payload["tax_rate"]) + equity_ratio * payload["cost_of_equity"]
 
-    wacc = debt_ratio * request.cost_of_debt * (1 - request.tax_rate) + equity_ratio * request.cost_of_equity
+    invested_capital = payload["total_assets"] - payload["current_liabilities"]
 
-    invested_capital = request.total_assets - request.current_liabilities
-
-    nopat = request.ebit * (1 - request.tax_rate)
+    nopat = payload["ebit"] * (1 - payload["tax_rate"])
 
     capital_charge = invested_capital * wacc
 
@@ -87,9 +105,9 @@ async def calculate_eva(request: EVARequest):
 
     eva_momentum = "improving" if eva > 0 else "declining" if eva < -1000000 else "stable"
 
-    return EVAResponse(
-        company_id=request.company_id,
-        period=request.period,
+    return dict(
+        company_id=payload["company_id"],
+        period=payload["period"],
         eva_metrics=EVAMetrics(
             invested_capital=round(invested_capital, 2),
             weighted_average_cost_of_capital=round(wacc, 4),
@@ -119,6 +137,13 @@ async def calculate_eva(request: EVARequest):
             ]
         ),
     )
+
+
+@app.post("/calculate", response_model=EVAResponse)
+async def eva_calculation(request: EVARequest):
+    logger.info("Calculating", company=request.company_id)
+    result = calc.run(request.model_dump(), _reference)
+    return EVAResponse(**result) if isinstance(result, dict) else result
 
 
 if __name__ == "__main__":

@@ -37,6 +37,7 @@ if not all(
         "consolidation_json",
         "options_price_json",
         "fraud_risk_json",
+        "du_pont_json",
     )
 ):
     pytest.skip("the installed extension predates these functions", allow_module_level=True)
@@ -835,3 +836,87 @@ def test_fraud_risk_reports_an_empty_side_of_the_triangle_as_a_place():
     assert rust["pressure_indicators"][0]["weight"] == 0.0
     assert rust["pressure_indicators"][0]["indicator"] == "No significant pressures identified"
     assert rust["high_risk_areas"] == ["No high risk areas identified"]
+
+
+PERIOD = {"company_id": "ratio-seam", "period": "2026"}
+
+RATIO_CASES = {
+    "du-pont-service": (
+        "/analyze",
+        {
+            **PERIOD,
+            "revenue": 1e6,
+            "net_income": 8e4,
+            "ebt": 1e5,
+            "ebit": 1.4e5,
+            "total_assets": 2e6,
+            "total_equity": 9e5,
+            "total_debt": 6e5,
+        },
+        0.0889,
+    ),
+    "eva-service": (
+        "/calculate",
+        {
+            **PERIOD,
+            "total_assets": 2e6,
+            "current_liabilities": 4e5,
+            "equity": 9e5,
+            "debt": 6e5,
+            "cost_of_debt": 0.06,
+            "cost_of_equity": 0.12,
+            "ebit": 1.4e5,
+            "tax_rate": 0.25,
+            "expected_growth": 0.03,
+        },
+        None,
+    ),
+    "croic-service": (
+        "/calculate",
+        {
+            **PERIOD,
+            "periods": ["2026"],
+            "operating_cash_flow": 3e5,
+            "capital_expenditures": 1e5,
+            "total_assets": 2e6,
+            "current_liabilities": 4e5,
+            "tax_rate": 0.25,
+        },
+        None,
+    ),
+    "asset-turnover-service": (
+        "/analyze",
+        {
+            **PERIOD,
+            "revenue": 1e6,
+            "cost_of_goods_sold": 6e5,
+            "total_assets": 2e6,
+            "fixed_assets": 8e5,
+            "current_assets": 1.2e6,
+            "current_liabilities": 4e5,
+            "accounts_receivable": 2e5,
+            "inventory": 1.5e5,
+            "accounts_payable": 1.2e5,
+        },
+        None,
+    ),
+}
+
+
+@pytest.mark.parametrize("service", sorted(RATIO_CASES))
+def test_ratio_services_match_the_reference(service):
+    path, payload, expected_roe = RATIO_CASES[service]
+    rust, reference = _both_engines(service, path, payload)
+    assert rust == reference
+    if expected_roe is not None:
+        assert rust["du_pont_metrics"]["return_on_equity"] == expected_roe
+    assert rust["company_id"] == "ratio-seam"
+
+
+def test_du_pont_holds_the_three_factor_identity():
+    """Margin times turnover times leverage is the ROE the endpoint reports."""
+    _, payload, _ = RATIO_CASES["du-pont-service"]
+    rust, _reference_answer = _both_engines("du-pont-service", "/analyze", payload)
+    metrics = rust["du_pont_metrics"]
+    product = metrics["net_profit_margin"] * metrics["asset_turnover"] * metrics["financial_leverage"]
+    assert round(product, 4) == metrics["return_on_equity"]
