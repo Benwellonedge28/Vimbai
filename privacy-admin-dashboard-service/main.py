@@ -4,12 +4,13 @@ Handles data subject access requests (DSAR), consent management, and privacy com
 """
 
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -30,6 +31,14 @@ structlog.configure(
     cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
+
+# Loaded bare (uvicorn main:app) and by path (root integration tests), so this
+# directory has to be importable before the store module is pulled in.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+import privacy_admin_store as store  # noqa: E402
 
 app = FastAPI(title="Vimbai Privacy Admin Dashboard", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(
@@ -69,8 +78,42 @@ class UpdatePrivacyRequest(BaseModel):
     notes: str = ""
 
 
-privacy_requests: List[PrivacyRequest] = []
-consent_records: List[ConsentRecord] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the caller and Book context (set by the gateway) to the store."""
+    store.user_id_var.set(request.headers.get("X-User-Id"))
+    store.book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
+
+
+# Privacy requests and consent records are durable, auditable records: Neo4j,
+# caller-owned (:OWNS_* edges), Book-gated.
+REQUESTS = ("PrivacyRequest", "OWNS_PRIVACY_REQUEST")
+CONSENTS = ("ConsentRecord", "OWNS_CONSENT")
+
+
+def _request_model(node: Dict[str, Any]) -> PrivacyRequest:
+    return PrivacyRequest(
+        id=node["id"],
+        request_type=node.get("request_type", ""),
+        subject_name=node.get("subject_name", ""),
+        subject_email=node.get("subject_email", ""),
+        status=node.get("status", "pending"),
+        created_at=node.get("created_at"),
+        resolved_at=node.get("resolved_at"),
+        notes=node.get("notes", ""),
+    )
+
+
+def _consent_model(node: Dict[str, Any]) -> ConsentRecord:
+    return ConsentRecord(
+        id=node["id"],
+        subject_email=node.get("subject_email", ""),
+        data_type=node.get("data_type", ""),
+        consent_given=bool(node.get("consent_given")),
+        granted_at=node.get("granted_at"),
+        revoked_at=node.get("revoked_at"),
+    )
 
 
 @app.get("/")
@@ -92,43 +135,54 @@ async def create_request(request_type: str, subject_name: str, subject_email: st
         subject_email=subject_email,
         notes=notes,
     )
-    privacy_requests.append(req)
+    node = await store.create_node(
+        REQUESTS[0],
+        REQUESTS[1],
+        {
+            "id": req.id,
+            "request_type": req.request_type,
+            "subject_name": req.subject_name,
+            "subject_email": req.subject_email,
+            "status": req.status,
+            "created_at": req.created_at.isoformat(),
+            "resolved_at": None,
+            "notes": req.notes,
+        },
+    )
     logger.info("Privacy request created", request_id=req.id, type=request_type)
-    return req
+    return _request_model(node)
 
 
 @app.get("/requests", response_model=List[PrivacyRequest])
 async def list_requests(status: Optional[str] = None):
     """List all privacy requests, optionally filtered by status."""
-    if status:
-        return [r for r in privacy_requests if r.status == status]
-    return privacy_requests
+    nodes = await store.list_nodes(REQUESTS[0], REQUESTS[1], {"status": status})
+    return [_request_model(node) for node in nodes]
 
 
 @app.put("/requests/{request_id}", response_model=PrivacyRequest)
 async def update_request(request_id: str, update: UpdatePrivacyRequest):
     """Update a privacy request status."""
-    req = next((r for r in privacy_requests if r.id == request_id), None)
-    if not req:
+    node = await store.get_node(REQUESTS[0], REQUESTS[1], request_id)
+    if not node:
         raise HTTPException(status_code=404, detail="Privacy request not found")
 
-    req.status = update.status
-    req.notes = update.notes
+    patch = {"status": update.status, "notes": update.notes}
     if update.status in ("resolved", "rejected", "completed"):
-        req.resolved_at = datetime.now(timezone.utc)
+        patch["resolved_at"] = datetime.now(timezone.utc).isoformat()
+    updated = await store.update_node(REQUESTS[0], REQUESTS[1], request_id, patch)
     logger.info("Privacy request updated", request_id=request_id, status=update.status)
-    return req
+    return _request_model(updated)
 
 
 @app.delete("/requests/{request_id}")
 async def delete_request(request_id: str):
     """Delete a privacy request."""
-    global privacy_requests
-    req = next((r for r in privacy_requests if r.id == request_id), None)
-    if not req:
+    node = await store.get_node(REQUESTS[0], REQUESTS[1], request_id)
+    if not node:
         raise HTTPException(status_code=404, detail="Privacy request not found")
 
-    privacy_requests = [r for r in privacy_requests if r.id != request_id]
+    await store.delete_node(REQUESTS[0], REQUESTS[1], request_id)
     return {"deleted": True, "request_id": request_id}
 
 
@@ -140,38 +194,57 @@ async def grant_consent(subject_email: str, data_type: str, consent_given: bool 
         data_type=data_type,
         consent_given=consent_given,
     )
-    consent_records.append(record)
+    node = await store.create_node(
+        CONSENTS[0],
+        CONSENTS[1],
+        {
+            "id": record.id,
+            "subject_email": record.subject_email,
+            "data_type": record.data_type,
+            "consent_given": record.consent_given,
+            "granted_at": record.granted_at.isoformat(),
+            "revoked_at": None,
+        },
+    )
     logger.info("Consent recorded", consent_id=record.id, email=subject_email, consent=consent_given)
-    return record
+    return _consent_model(node)
 
 
 @app.delete("/consent/{consent_id}")
 async def revoke_consent(consent_id: str):
     """Revoke a consent record."""
-    record = next((r for r in consent_records if r.id == consent_id), None)
-    if not record:
+    node = await store.get_node(CONSENTS[0], CONSENTS[1], consent_id)
+    if not node:
         raise HTTPException(status_code=404, detail="Consent record not found")
 
-    record.revoked_at = datetime.now(timezone.utc)
-    record.consent_given = False
+    await store.update_node(
+        CONSENTS[0],
+        CONSENTS[1],
+        consent_id,
+        {"revoked_at": datetime.now(timezone.utc).isoformat(), "consent_given": False},
+    )
     return {"consent_id": consent_id, "revoked": True}
 
 
 @app.get("/consent/{email}", response_model=List[ConsentRecord])
 async def check_consent(email: str):
     """Check consent records for a given email."""
-    return [r for r in consent_records if r.subject_email == email and r.revoked_at is None]
+    nodes = await store.list_nodes(CONSENTS[0], CONSENTS[1])
+    records = [_consent_model(node) for node in nodes]
+    return [r for r in records if r.subject_email == email and r.revoked_at is None]
 
 
 @app.get("/dashboard")
 async def dashboard():
     """Privacy compliance dashboard summary."""
+    requests_ = [_request_model(n) for n in await store.list_nodes(REQUESTS[0], REQUESTS[1])]
+    consents = [_consent_model(n) for n in await store.list_nodes(CONSENTS[0], CONSENTS[1])]
     return {
-        "total_requests": len(privacy_requests),
-        "pending_requests": len([r for r in privacy_requests if r.status == "pending"]),
-        "resolved_requests": len([r for r in privacy_requests if r.status in ("resolved", "completed")]),
-        "active_consents": len([r for r in consent_records if r.consent_given and r.revoked_at is None]),
-        "revoked_consents": len([r for r in consent_records if r.revoked_at is not None]),
+        "total_requests": len(requests_),
+        "pending_requests": len([r for r in requests_ if r.status == "pending"]),
+        "resolved_requests": len([r for r in requests_ if r.status in ("resolved", "completed")]),
+        "active_consents": len([r for r in consents if r.consent_given and r.revoked_at is None]),
+        "revoked_consents": len([r for r in consents if r.revoked_at is not None]),
     }
 
 

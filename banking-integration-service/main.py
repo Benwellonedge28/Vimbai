@@ -4,6 +4,7 @@ Handles bank connections, transaction sync, and reconciliation.
 """
 
 import os
+import sys
 import uuid
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -42,6 +43,14 @@ def current_book_id() -> Optional[str]:
     return _book_id_var.get()
 
 
+# Loaded bare (uvicorn main:app) and by path (root integration tests), so this
+# directory has to be importable before the store module is pulled in.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+import banking_integration_store as store  # noqa: E402
+
 app = FastAPI(title="Vimbai Banking Integration Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
@@ -50,8 +59,10 @@ app.add_middleware(
 
 @app.middleware("http")
 async def book_context_middleware(request, call_next):
-    """Bind the gateway-verified X-Book-ID into the request-scoped contextvar."""
+    """Bind the gateway-verified caller and X-Book-ID into the request-scoped context."""
     token = _book_id_var.set(request.headers.get("x-book-id"))
+    store.user_id_var.set(request.headers.get("x-user-id"))
+    store.book_id_var.set(request.headers.get("x-book-id"))
     try:
         return await call_next(request)
     finally:
@@ -101,8 +112,40 @@ class ReconcileRequest(BaseModel):
     notes: str = ""
 
 
-connections: List[BankConnection] = []
-transactions: List[BankTransaction] = []
+# Bank connections and synced transactions are durable records: Neo4j,
+# caller-owned, Book-gated. Credentials stay on the connection node; the API
+# key is never returned to the caller (masked in the response model).
+CONNECTIONS = ("BankConnection", "OWNS_BANK_CONNECTION")
+TRANSACTIONS = ("BankTransaction", "OWNS_BANK_TRANSACTION")
+
+
+def _connection_model(node: Dict[str, Any]) -> BankConnection:
+    return BankConnection(
+        id=node["id"],
+        bank_name=node.get("bank_name", ""),
+        account_number=node.get("account_number", ""),
+        account_type=node.get("account_type", "checking"),
+        api_key=node.get("api_key", ""),
+        status=node.get("status", "active"),
+        book_id=node.get("book_id"),
+        last_sync=node.get("last_sync"),
+        created_at=node.get("created_at"),
+    )
+
+
+def _transaction_model(node: Dict[str, Any]) -> BankTransaction:
+    return BankTransaction(
+        id=node["id"],
+        connection_id=node.get("connection_id", ""),
+        amount=float(node.get("amount") or 0),
+        transaction_type=node.get("transaction_type", ""),
+        description=node.get("description", ""),
+        transaction_date=node.get("transaction_date"),
+        balance_after=float(node.get("balance_after") or 0),
+        reconciled=bool(node.get("reconciled")),
+        reference=node.get("reference", ""),
+        book_id=node.get("book_id"),
+    )
 
 
 @app.get("/")
@@ -115,13 +158,8 @@ async def health_check():
 async def connect_bank(bank_name: str, account_number: str, api_key: str, account_type: str = "checking"):
     """Establish a connection to a bank account."""
     book_id = current_book_id()
-    existing = next(
-        (
-            c
-            for c in connections
-            if c.account_number == account_number and c.bank_name == bank_name and c.book_id == book_id
-        ),
-        None,
+    existing = await store.list_nodes(
+        CONNECTIONS[0], CONNECTIONS[1], {"account_number": account_number, "bank_name": bank_name}
     )
     if existing:
         raise HTTPException(
@@ -135,74 +173,78 @@ async def connect_bank(bank_name: str, account_number: str, api_key: str, accoun
         account_type=account_type,
         book_id=book_id,
     )
-    connections.append(conn)
+    node = await store.create_node(
+        CONNECTIONS[0],
+        CONNECTIONS[1],
+        {
+            "id": conn.id,
+            "bank_name": conn.bank_name,
+            "account_number": conn.account_number,
+            "account_type": conn.account_type,
+            "api_key": conn.api_key,
+            "status": conn.status,
+            "last_sync": None,
+            "created_at": conn.created_at.isoformat(),
+        },
+    )
     logger.info("Bank connection established", connection_id=conn.id, bank=bank_name)
-    return conn
+    return _connection_model(node)
 
 
 @app.get("/connections", response_model=List[BankConnection])
 async def list_connections():
     """List bank connections in the current Book context."""
-    book_id = current_book_id()
-    return [c for c in connections if c.book_id == book_id]
+    nodes = await store.list_nodes(CONNECTIONS[0], CONNECTIONS[1])
+    return [_connection_model(node) for node in nodes]
 
 
 @app.post("/sync/{connection_id}")
 async def sync_transactions(connection_id: str):
     """Sync transactions from a bank connection."""
-    book_id = current_book_id()
-    conn = next((c for c in connections if c.id == connection_id and c.book_id == book_id), None)
-    if not conn:
+    node = await store.get_node(CONNECTIONS[0], CONNECTIONS[1], connection_id)
+    if not node:
         raise HTTPException(status_code=404, detail="Bank connection not found")
+    conn = _connection_model(node)
     if conn.status != "active":
         raise HTTPException(status_code=400, detail="Connection is not active")
 
-    conn.last_sync = datetime.now(timezone.utc)
+    synced_at = datetime.now(timezone.utc)
+    await store.update_node(CONNECTIONS[0], CONNECTIONS[1], connection_id, {"last_sync": synced_at.isoformat()})
     logger.info("Transaction sync completed", connection_id=connection_id, bank=conn.bank_name)
-    return {"connection_id": connection_id, "synced_at": conn.last_sync.isoformat(), "status": "success"}
+    return {"connection_id": connection_id, "synced_at": synced_at.isoformat(), "status": "success"}
 
 
 @app.get("/transactions/{connection_id}", response_model=List[BankTransaction])
 async def list_transactions(connection_id: str, limit: int = 50, offset: int = 0):
     """List transactions for a specific bank connection in the current Book context."""
-    book_id = current_book_id()
-    conn = next((c for c in connections if c.id == connection_id and c.book_id == book_id), None)
-    if not conn:
+    node = await store.get_node(CONNECTIONS[0], CONNECTIONS[1], connection_id)
+    if not node:
         raise HTTPException(status_code=404, detail="Bank connection not found")
-    conn_txns = [t for t in transactions if t.connection_id == connection_id and t.book_id == book_id]
-    return conn_txns[offset : offset + limit]
+    nodes = await store.list_nodes(TRANSACTIONS[0], TRANSACTIONS[1], {"connection_id": connection_id})
+    txns = [_transaction_model(n) for n in nodes]
+    return txns[offset : offset + limit]
 
 
 @app.post("/transactions/{connection_id}/reconcile")
 async def reconcile_transaction(connection_id: str, request: ReconcileRequest):
     """Reconcile a bank transaction with an accounting entry."""
-    book_id = current_book_id()
-    txn = next(
-        (
-            t
-            for t in transactions
-            if t.id == request.transaction_id and t.connection_id == connection_id and t.book_id == book_id
-        ),
-        None,
-    )
-    if not txn:
+    node = await store.get_node(TRANSACTIONS[0], TRANSACTIONS[1], request.transaction_id)
+    if not node or node.get("connection_id") != connection_id:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    txn.reconciled = True
-    logger.info("Transaction reconciled", transaction_id=txn.id, matched_entry=request.matched_entry_id)
-    return {"transaction_id": txn.id, "reconciled": True, "matched_entry": request.matched_entry_id}
+    await store.update_node(TRANSACTIONS[0], TRANSACTIONS[1], request.transaction_id, {"reconciled": True})
+    logger.info("Transaction reconciled", transaction_id=request.transaction_id, matched_entry=request.matched_entry_id)
+    return {"transaction_id": request.transaction_id, "reconciled": True, "matched_entry": request.matched_entry_id}
 
 
 @app.delete("/connections/{connection_id}")
 async def disconnect_bank(connection_id: str):
     """Disconnect a bank connection."""
-    global connections
-    book_id = current_book_id()
-    conn = next((c for c in connections if c.id == connection_id and c.book_id == book_id), None)
-    if not conn:
+    node = await store.get_node(CONNECTIONS[0], CONNECTIONS[1], connection_id)
+    if not node:
         raise HTTPException(status_code=404, detail="Bank connection not found")
 
-    conn.status = "disconnected"
+    await store.update_node(CONNECTIONS[0], CONNECTIONS[1], connection_id, {"status": "disconnected"})
     logger.info("Bank connection disconnected", connection_id=connection_id)
     return {"connection_id": connection_id, "status": "disconnected"}
 

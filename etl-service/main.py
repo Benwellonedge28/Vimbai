@@ -4,12 +4,13 @@ Extract, Transform, Load pipeline for data integration across services.
 """
 
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -30,6 +31,14 @@ structlog.configure(
     cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
+
+# Loaded bare (uvicorn main:app) and by path (root integration tests), so this
+# directory has to be importable before the store module is pulled in.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+import etl_store as store  # noqa: E402
 
 app = FastAPI(title="Vimbai ETL Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(
@@ -76,7 +85,42 @@ class CreatePipelineRequest(BaseModel):
     schedule: str = ""
 
 
-pipelines: List[Pipeline] = []
+# Pipelines are durable definitions: Neo4j, owned by the caller, gated by Book.
+PIPELINES = ("Pipeline", "OWNS_PIPELINE")
+
+
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the caller and Book context (set by the gateway) to the store."""
+    store.user_id_var.set(request.headers.get("X-User-Id"))
+    store.book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
+
+
+def _pipeline_model(node: Dict[str, Any]) -> Pipeline:
+    steps = [PipelineStep(**step) for step in store.loads(node.get("steps_json"))]
+    return Pipeline(
+        id=node["id"],
+        name=node.get("name", ""),
+        description=node.get("description", ""),
+        steps=steps,
+        status=node.get("status", "pending"),
+        schedule=node.get("schedule", ""),
+        created_at=node.get("created_at"),
+        last_run=node.get("last_run"),
+    )
+
+
+def _pipeline_props(pipeline: Pipeline) -> Dict[str, Any]:
+    return {
+        "name": pipeline.name,
+        "description": pipeline.description,
+        "steps_json": store.dumps([step.model_dump(mode="json") for step in pipeline.steps]),
+        "status": pipeline.status,
+        "schedule": pipeline.schedule,
+        "created_at": pipeline.created_at.isoformat(),
+        "last_run": pipeline.last_run.isoformat() if pipeline.last_run else None,
+    }
 
 
 @app.get("/")
@@ -95,39 +139,40 @@ async def create_pipeline(request: CreatePipelineRequest):
         steps=steps,
         schedule=request.schedule,
     )
-    pipelines.append(pipeline)
+    node = await store.create_node(PIPELINES[0], PIPELINES[1], {"id": pipeline.id, **_pipeline_props(pipeline)})
     logger.info("ETL pipeline created", pipeline_id=pipeline.id, name=request.name, steps=len(steps))
-    return pipeline
+    return _pipeline_model(node)
 
 
 @app.get("/pipelines", response_model=List[Pipeline])
 async def list_pipelines(status: Optional[str] = None):
     """List ETL pipelines."""
-    if status:
-        return [p for p in pipelines if p.status == status]
-    return pipelines
+    nodes = await store.list_nodes(PIPELINES[0], PIPELINES[1], {"status": status})
+    return [_pipeline_model(node) for node in nodes]
 
 
 @app.get("/pipelines/{pipeline_id}", response_model=Pipeline)
 async def get_pipeline(pipeline_id: str):
     """Get a specific pipeline."""
-    pipeline = next((p for p in pipelines if p.id == pipeline_id), None)
-    if not pipeline:
+    node = await store.get_node(PIPELINES[0], PIPELINES[1], pipeline_id)
+    if not node:
         raise HTTPException(status_code=404, detail="Pipeline not found")
-    return pipeline
+    return _pipeline_model(node)
 
 
 @app.post("/pipelines/{pipeline_id}/run")
 async def run_pipeline(pipeline_id: str):
     """Execute an ETL pipeline."""
-    pipeline = next((p for p in pipelines if p.id == pipeline_id), None)
-    if not pipeline:
+    node = await store.get_node(PIPELINES[0], PIPELINES[1], pipeline_id)
+    if not node:
         raise HTTPException(status_code=404, detail="Pipeline not found")
 
+    pipeline = _pipeline_model(node)
     pipeline.status = "running"
     pipeline.last_run = datetime.now(timezone.utc)
     logger.info("ETL pipeline started", pipeline_id=pipeline_id)
 
+    finished = datetime.now(timezone.utc).isoformat()
     for step in pipeline.steps:
         step.status = "running"
         step.started_at = datetime.now(timezone.utc)
@@ -138,6 +183,16 @@ async def run_pipeline(pipeline_id: str):
         logger.info("ETL step completed", step=step.name, type=step.step_type)
 
     pipeline.status = "completed"
+    await store.update_node(
+        PIPELINES[0],
+        PIPELINES[1],
+        pipeline_id,
+        {
+            "status": pipeline.status,
+            "last_run": pipeline.last_run.isoformat() if pipeline.last_run else finished,
+            "steps_json": store.dumps([step.model_dump(mode="json") for step in pipeline.steps]),
+        },
+    )
     return {
         "pipeline_id": pipeline_id,
         "status": "completed",
@@ -149,12 +204,11 @@ async def run_pipeline(pipeline_id: str):
 @app.delete("/pipelines/{pipeline_id}")
 async def delete_pipeline(pipeline_id: str):
     """Delete an ETL pipeline."""
-    global pipelines
-    pipeline = next((p for p in pipelines if p.id == pipeline_id), None)
-    if not pipeline:
+    node = await store.get_node(PIPELINES[0], PIPELINES[1], pipeline_id)
+    if not node:
         raise HTTPException(status_code=404, detail="Pipeline not found")
 
-    pipelines = [p for p in pipelines if p.id != pipeline_id]
+    await store.delete_node(PIPELINES[0], PIPELINES[1], pipeline_id)
     return {"deleted": True, "pipeline_id": pipeline_id}
 
 

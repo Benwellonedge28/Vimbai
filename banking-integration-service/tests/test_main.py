@@ -1,151 +1,84 @@
-"""
-Vimbai Banking Integration Service - Test Suite
-Tests: bank connections, transactions, reconciliation, Book isolation.
+"""Banking integration: Book-scoped Neo4j persistence.
+
+Connections and transactions were module-level lists. They already filtered by
+Book in Python, but a restart dropped every connection and the account number
+uniqueness check silently reset. They now live in Neo4j, caller-owned.
 """
 
-import os
-from datetime import datetime, timedelta, timezone
-
+import banking_integration_store as store
 import pytest
+from fake_neo4j import FakeDriver, FakeSession
 from fastapi.testclient import TestClient
-
-os.environ.setdefault("JWT_SECRET", "test-secret-key-for-testing-only")
-os.environ.setdefault("NEO4J_PASSWORD", "test-password")
-
-import main as banking_main
 from main import app
 
-client = TestClient(app)
-
-BOOK_A = {"X-Book-ID": "book-aaa-111"}
-BOOK_B = {"X-Book-ID": "book-bbb-222"}
+BOOK_ONE = {"X-User-Id": "user-1", "X-Book-ID": "book-1"}
+BOOK_TWO = {"X-User-Id": "user-2", "X-Book-ID": "book-2"}
 
 
-@pytest.fixture(autouse=True)
-def clean_state():
-    """Reset the in-memory stores between tests."""
-    banking_main.connections.clear()
-    banking_main.transactions.clear()
-    yield
-    banking_main.connections.clear()
-    banking_main.transactions.clear()
+@pytest.fixture
+def client():
+    store.set_driver(FakeDriver(FakeSession()))
+    yield TestClient(app)
+    store.set_driver(None)
 
 
-def _connect(**overrides):
-    payload = {
-        "bank_name": "CBZ",
-        "account_number": "0123456789",
-        "api_key": "test-key",
-        "account_type": "checking",
-    }
-    payload.update(overrides)
-    return client.post("/connect", params=payload)
+def _connect(client, headers=BOOK_ONE, bank="Standard Bank", account="1234567890"):
+    resp = client.post(
+        "/connect",
+        params={"bank_name": bank, "account_number": account, "api_key": "test-key", "account_type": "checking"},
+        headers=headers,
+    )
+    assert resp.status_code == 200, resp.text
+    return resp.json()
 
 
-class TestHealthCheck:
-    def test_root_endpoint(self):
-        response = client.get("/")
-        assert response.status_code == 200
+def test_health(client):
+    assert client.get("/health").json()["service"] == "banking-integration-service"
 
 
-class TestBankConnections:
-    def test_connect_creates_connection(self):
-        response = _connect()
-        assert response.status_code == 200
-        assert response.json()["bank_name"] == "CBZ"
-
-    def test_connect_duplicate_rejected(self):
-        _connect()
-        response = _connect()
-        assert response.status_code == 409
-
-    def test_list_connections(self):
-        _connect(bank_name="Stanbic")
-        _connect(bank_name="Ecobank", account_number="999")
-        response = client.get("/connections")
-        assert response.status_code == 200
-        assert len(response.json()) == 2
-
-    def test_disconnect(self):
-        conn_id = _connect().json()["id"]
-        response = client.delete(f"/connections/{conn_id}")
-        assert response.status_code == 200
-        assert response.json()["status"] == "disconnected"
-
-    def test_sync_unknown_connection_404(self):
-        response = client.post("/sync/does-not-exist")
-        assert response.status_code == 404
+def test_connection_round_trips(client):
+    conn = _connect(client)
+    assert conn["status"] == "active"
+    listed = client.get("/connections", headers=BOOK_ONE).json()
+    assert [c["id"] for c in listed] == [conn["id"]]
 
 
-class TestBookIsolation:
-    def test_connection_stamped_with_book_id(self):
-        from fastapi.testclient import TestClient as TC
-
-        r = TC(app).post(
-            "/connect",
-            params={"bank_name": "FBC", "account_number": "333", "api_key": "k"},
-            headers=BOOK_A,
-        )
-        assert r.status_code == 200
-        assert r.json()["book_id"] == "book-aaa-111"
-        # unscoped (personal) connections keep book_id = None
-        r2 = _connect(bank_name="FBC", account_number="334")
-        assert r2.status_code == 200
-        assert r2.json()["book_id"] is None
-
-    def test_connections_isolated_between_books(self):
-        # Book A creates a connection
-        with client:
-            r = TestClient(app).post(
-                "/connect", params={"bank_name": "CBZ", "account_number": "111", "api_key": "k"}, headers=BOOK_A
-            )
-        assert r.status_code == 200
-
-        # Book A sees it, Book B does not
-        a = TestClient(app).get("/connections", headers=BOOK_A)
-        b = TestClient(app).get("/connections", headers=BOOK_B)
-        assert len(a.json()) == 1
-        assert len(b.json()) == 0
-
-    def test_same_account_allowed_in_different_books(self):
-        # The duplicate check is Book-scoped, so two Books can each
-        # connect the same bank account.
-        r1 = TestClient(app).post(
-            "/connect", params={"bank_name": "CBZ", "account_number": "777", "api_key": "k"}, headers=BOOK_A
-        )
-        r2 = TestClient(app).post(
-            "/connect", params={"bank_name": "CBZ", "account_number": "777", "api_key": "k"}, headers=BOOK_B
-        )
-        assert r1.status_code == 200
-        assert r2.status_code == 200
-
-    def test_cross_book_sync_blocked(self):
-        r = TestClient(app).post(
-            "/connect", params={"bank_name": "CBZ", "account_number": "555", "api_key": "k"}, headers=BOOK_A
-        )
-        conn_id = r.json()["id"]
-        # Book B cannot sync Book A's connection
-        response = TestClient(app).post(f"/sync/{conn_id}", headers=BOOK_B)
-        assert response.status_code == 404
-        # Book A can
-        response = TestClient(app).post(f"/sync/{conn_id}", headers=BOOK_A)
-        assert response.status_code == 200
-
-    def test_cross_book_transactions_blocked(self):
-        r = TestClient(app).post(
-            "/connect", params={"bank_name": "CBZ", "account_number": "444", "api_key": "k"}, headers=BOOK_A
-        )
-        conn_id = r.json()["id"]
-        # Book B cannot list Book A's transactions
-        response = TestClient(app).get(f"/transactions/{conn_id}", headers=BOOK_B)
-        assert response.status_code == 404
-        # Book A can (empty list is fine)
-        response = TestClient(app).get(f"/transactions/{conn_id}", headers=BOOK_A)
-        assert response.status_code == 200
+def test_duplicate_account_in_the_same_book_is_a_conflict(client):
+    _connect(client)
+    again = client.post(
+        "/connect",
+        params={"bank_name": "Standard Bank", "account_number": "1234567890", "api_key": "k"},
+        headers=BOOK_ONE,
+    )
+    assert again.status_code == 409
 
 
-class TestReconciliation:
-    def test_reconcile_unknown_transaction(self):
-        _connect()
-        response = client.post("/transactions/whatever/reconcile", json={"transaction_id": "nope", "notes": ""})
-        assert response.status_code == 404
+def test_same_account_can_be_connected_in_another_book(client):
+    _connect(client, BOOK_ONE)
+    other = _connect(client, BOOK_TWO)
+    assert other["book_id"] == "book-2"
+
+
+def test_sync_stamps_last_sync(client):
+    conn = _connect(client)
+    synced = client.post(f"/sync/{conn['id']}", headers=BOOK_ONE)
+    assert synced.status_code == 200
+    assert synced.json()["status"] == "success"
+    listed = client.get("/connections", headers=BOOK_ONE).json()
+    assert listed[0]["last_sync"] is not None
+
+
+def test_disconnect_persists(client):
+    conn = _connect(client)
+    assert client.delete(f"/connections/{conn['id']}", headers=BOOK_ONE).json()["status"] == "disconnected"
+    assert client.get("/connections", headers=BOOK_ONE).json()[0]["status"] == "disconnected"
+    blocked = client.post(f"/sync/{conn['id']}", headers=BOOK_ONE)
+    assert blocked.status_code == 400
+
+
+def test_one_book_never_sees_another_books_connections(client):
+    mine = _connect(client, BOOK_ONE)
+    assert client.get("/connections", headers=BOOK_TWO).json() == []
+    assert client.post(f"/sync/{mine['id']}", headers=BOOK_TWO).status_code == 404
+    assert client.get(f"/transactions/{mine['id']}", headers=BOOK_TWO).status_code == 404
+    assert client.delete(f"/connections/{mine['id']}", headers=BOOK_TWO).status_code == 404

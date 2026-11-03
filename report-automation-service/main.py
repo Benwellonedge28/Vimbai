@@ -4,12 +4,13 @@ Automates report generation schedules and template-based report creation.
 """
 
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -30,6 +31,14 @@ structlog.configure(
     cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
+
+# Loaded bare (uvicorn main:app) and by path (root integration tests), so this
+# directory has to be importable before the store module is pulled in.
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
+import report_automation_store as store  # noqa: E402
 
 app = FastAPI(title="Vimbai Report Automation Service", version=SERVICE_VERSION, docs_url="/docs")
 app.add_middleware(
@@ -78,9 +87,59 @@ class GeneratedReport(BaseModel):
     delivered_to: List[str] = []
 
 
-templates: List[ReportTemplate] = []
-schedules: List[ReportSchedule] = []
-generated_reports: List[GeneratedReport] = []
+@app.middleware("http")
+async def book_context_middleware(request: Request, call_next):
+    """Propagate the caller and Book context (set by the gateway) to the store."""
+    store.user_id_var.set(request.headers.get("X-User-Id"))
+    store.book_id_var.set(request.headers.get("X-Book-ID"))
+    return await call_next(request)
+
+
+# Templates, schedules and generated reports are durable records: Neo4j,
+# caller-owned, Book-gated.
+TEMPLATES = ("ReportTemplate", "OWNS_REPORT_TEMPLATE")
+SCHEDULES = ("ReportSchedule", "OWNS_REPORT_SCHEDULE")
+REPORTS = ("GeneratedReport", "OWNS_GENERATED_REPORT")
+
+
+def _template_model(node: Dict[str, Any]) -> ReportTemplate:
+    return ReportTemplate(
+        id=node["id"],
+        name=node.get("name", ""),
+        report_type=node.get("report_type", ""),
+        description=node.get("description", ""),
+        sections=store.loads(node.get("sections_json")),
+        data_sources=store.loads(node.get("data_sources_json")),
+        format=node.get("format", "pdf"),
+        created_at=node.get("created_at"),
+    )
+
+
+def _schedule_model(node: Dict[str, Any]) -> ReportSchedule:
+    return ReportSchedule(
+        id=node["id"],
+        template_id=node.get("template_id", ""),
+        name=node.get("name", ""),
+        cron_expression=node.get("cron_expression", ""),
+        recipients=store.loads(node.get("recipients_json")),
+        status=node.get("status", "active"),
+        last_run=node.get("last_run"),
+        next_run=node.get("next_run"),
+        created_at=node.get("created_at"),
+    )
+
+
+def _report_model(node: Dict[str, Any]) -> GeneratedReport:
+    return GeneratedReport(
+        id=node["id"],
+        schedule_id=node.get("schedule_id", ""),
+        template_id=node.get("template_id", ""),
+        period=node.get("period", ""),
+        data=store.loads(node.get("data_json")) if node.get("data_json") else {},
+        status=node.get("status", "generated"),
+        generated_at=node.get("generated_at"),
+        delivered_to=store.loads(node.get("delivered_to_json")),
+    )
 
 
 @app.get("/")
@@ -111,24 +170,36 @@ async def create_template(
         data_sources=data_sources,
         format=format,
     )
-    templates.append(template)
+    node = await store.create_node(
+        TEMPLATES[0],
+        TEMPLATES[1],
+        {
+            "id": template.id,
+            "name": template.name,
+            "report_type": template.report_type,
+            "description": template.description,
+            "sections_json": store.dumps(template.sections),
+            "data_sources_json": store.dumps(template.data_sources),
+            "format": template.format,
+            "created_at": template.created_at.isoformat(),
+        },
+    )
     logger.info("Report template created", template_id=template.id, name=name)
-    return template
+    return _template_model(node)
 
 
 @app.get("/templates", response_model=List[ReportTemplate])
 async def list_templates(report_type: Optional[str] = None):
     """List report templates."""
-    if report_type:
-        return [t for t in templates if t.report_type == report_type]
-    return templates
+    nodes = await store.list_nodes(TEMPLATES[0], TEMPLATES[1], {"report_type": report_type})
+    return [_template_model(node) for node in nodes]
 
 
 @app.post("/schedules", response_model=ReportSchedule)
 async def create_schedule(template_id: str, name: str, cron_expression: str, recipients: List[str] = []):
     """Create a report generation schedule."""
-    template = next((t for t in templates if t.id == template_id), None)
-    if not template:
+    template_node = await store.get_node(TEMPLATES[0], TEMPLATES[1], template_id)
+    if not template_node:
         raise HTTPException(status_code=404, detail="Template not found")
 
     schedule = ReportSchedule(
@@ -138,29 +209,44 @@ async def create_schedule(template_id: str, name: str, cron_expression: str, rec
         recipients=recipients,
         next_run=datetime.now(timezone.utc),
     )
-    schedules.append(schedule)
+    node = await store.create_node(
+        SCHEDULES[0],
+        SCHEDULES[1],
+        {
+            "id": schedule.id,
+            "template_id": schedule.template_id,
+            "name": schedule.name,
+            "cron_expression": schedule.cron_expression,
+            "recipients_json": store.dumps(schedule.recipients),
+            "status": schedule.status,
+            "last_run": None,
+            "next_run": schedule.next_run.isoformat(),
+            "created_at": schedule.created_at.isoformat(),
+        },
+    )
     logger.info("Report schedule created", schedule_id=schedule.id, name=name, cron=cron_expression)
-    return schedule
+    return _schedule_model(node)
 
 
 @app.get("/schedules", response_model=List[ReportSchedule])
 async def list_schedules(status: Optional[str] = None):
     """List report schedules."""
-    if status:
-        return [s for s in schedules if s.status == status]
-    return schedules
+    nodes = await store.list_nodes(SCHEDULES[0], SCHEDULES[1], {"status": status})
+    return [_schedule_model(node) for node in nodes]
 
 
 @app.post("/schedules/{schedule_id}/run", response_model=GeneratedReport)
 async def run_report(schedule_id: str, period: str = ""):
     """Manually trigger a report generation."""
-    schedule = next((s for s in schedules if s.id == schedule_id), None)
-    if not schedule:
+    node = await store.get_node(SCHEDULES[0], SCHEDULES[1], schedule_id)
+    if not node:
         raise HTTPException(status_code=404, detail="Schedule not found")
+    schedule = _schedule_model(node)
     if schedule.status != "active":
         raise HTTPException(status_code=400, detail="Schedule is not active")
 
-    template = next((t for t in templates if t.id == schedule.template_id), None)
+    template_node = await store.get_node(TEMPLATES[0], TEMPLATES[1], schedule.template_id)
+    template = _template_model(template_node) if template_node else None
 
     report = GeneratedReport(
         schedule_id=schedule_id,
@@ -170,38 +256,51 @@ async def run_report(schedule_id: str, period: str = ""):
         delivered_to=schedule.recipients,
         status="delivered" if schedule.recipients else "generated",
     )
-    generated_reports.append(report)
-    schedule.last_run = datetime.now(timezone.utc)
+    report_node = await store.create_node(
+        REPORTS[0],
+        REPORTS[1],
+        {
+            "id": report.id,
+            "schedule_id": report.schedule_id,
+            "template_id": report.template_id,
+            "period": report.period,
+            "data_json": store.dumps(report.data),
+            "status": report.status,
+            "generated_at": report.generated_at.isoformat(),
+            "delivered_to_json": store.dumps(report.delivered_to),
+        },
+    )
+    await store.update_node(
+        SCHEDULES[0], SCHEDULES[1], schedule_id, {"last_run": datetime.now(timezone.utc).isoformat()}
+    )
     logger.info("Report generated", schedule_id=schedule_id, report_id=report.id, period=period)
-    return report
+    return _report_model(report_node)
 
 
 @app.get("/reports", response_model=List[GeneratedReport])
 async def list_reports(schedule_id: Optional[str] = None, limit: int = 50):
     """List generated reports."""
-    result = generated_reports
-    if schedule_id:
-        result = [r for r in result if r.schedule_id == schedule_id]
-    return result[-limit:]
+    nodes = await store.list_nodes(REPORTS[0], REPORTS[1], {"schedule_id": schedule_id})
+    return [_report_model(node) for node in nodes][-limit:]
 
 
 @app.put("/schedules/{schedule_id}/pause")
 async def pause_schedule(schedule_id: str):
     """Pause a report schedule."""
-    schedule = next((s for s in schedules if s.id == schedule_id), None)
-    if not schedule:
+    node = await store.get_node(SCHEDULES[0], SCHEDULES[1], schedule_id)
+    if not node:
         raise HTTPException(status_code=404, detail="Schedule not found")
-    schedule.status = "paused"
+    await store.update_node(SCHEDULES[0], SCHEDULES[1], schedule_id, {"status": "paused"})
     return {"schedule_id": schedule_id, "status": "paused"}
 
 
 @app.put("/schedules/{schedule_id}/resume")
 async def resume_schedule(schedule_id: str):
     """Resume a paused report schedule."""
-    schedule = next((s for s in schedules if s.id == schedule_id), None)
-    if not schedule:
+    node = await store.get_node(SCHEDULES[0], SCHEDULES[1], schedule_id)
+    if not node:
         raise HTTPException(status_code=404, detail="Schedule not found")
-    schedule.status = "active"
+    await store.update_node(SCHEDULES[0], SCHEDULES[1], schedule_id, {"status": "active"})
     return {"schedule_id": schedule_id, "status": "active"}
 
 

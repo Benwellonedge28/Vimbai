@@ -23,8 +23,22 @@ def load_service_app(service_dir):
     return module.app
 
 
+def use_fake_store(store_module_name, service_dir):
+    """Point a converted service's Book-scoped store at the fake Neo4j driver."""
+    fake_path = os.path.join(REPO_ROOT, service_dir, "fake_neo4j.py")
+    spec = importlib.util.spec_from_file_location(f"{store_module_name}_fake", fake_path)
+    fake = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fake)
+    store = sys.modules[store_module_name]
+    store.set_driver(fake.FakeDriver(fake.FakeSession()))
+    return store
+
+
 class TestBankingIntegrationService:
     def setup_method(self):
+        self.client = TestClient(load_service_app("banking-integration-service"))
+        use_fake_store("banking_integration_store", "banking-integration-service")
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
         self.client = TestClient(load_service_app("banking-integration-service"))
 
     def test_health(self):
@@ -65,6 +79,9 @@ class TestBankingIntegrationService:
 
 class TestPrivacyAdminDashboardService:
     def setup_method(self):
+        self.client = TestClient(load_service_app("privacy-admin-dashboard-service"))
+        use_fake_store("privacy_admin_store", "privacy-admin-dashboard-service")
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
         self.client = TestClient(load_service_app("privacy-admin-dashboard-service"))
 
     def test_health(self):
@@ -206,6 +223,9 @@ class TestZeroTrustDataService:
 
 class TestEncryptedBackupService:
     def setup_method(self):
+        self.client = TestClient(load_service_app("encrypted-backup-service"))
+        use_fake_store("encrypted_backup_store", "encrypted-backup-service")
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
         self.client = TestClient(load_service_app("encrypted-backup-service"))
 
     def test_health(self):
@@ -363,6 +383,9 @@ class TestOrgAuthorizationEngine:
 class TestDistributedWorkflowOrchestrationService:
     def setup_method(self):
         self.client = TestClient(load_service_app("distributed-workflow-orchestration-service"))
+        use_fake_store("workflow_store", "distributed-workflow-orchestration-service")
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
+        self.client = TestClient(load_service_app("distributed-workflow-orchestration-service"))
 
     def test_health(self):
         resp = self.client.get("/health")
@@ -399,6 +422,9 @@ class TestDistributedWorkflowOrchestrationService:
 
 class TestReportDistributionService:
     def setup_method(self):
+        self.client = TestClient(load_service_app("report-distribution-service"))
+        use_fake_store("report_distribution_store", "report-distribution-service")
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
         self.client = TestClient(load_service_app("report-distribution-service"))
 
     def test_health(self):
@@ -474,6 +500,9 @@ class TestDataWarehouseService:
 
 class TestETLService:
     def setup_method(self):
+        self.client = TestClient(load_service_app("etl-service"))
+        use_fake_store("etl_store", "etl-service")
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
         self.client = TestClient(load_service_app("etl-service"))
 
     def test_health(self):
@@ -1139,6 +1168,9 @@ class TestTreasuryRiskService:
 class TestReportAutomationService:
     def setup_method(self):
         self.client = TestClient(load_service_app("report-automation-service"))
+        use_fake_store("report_automation_store", "report-automation-service")
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
+        self.client = TestClient(load_service_app("report-automation-service"))
 
     def test_health(self):
         resp = self.client.get("/health")
@@ -1328,6 +1360,9 @@ class TestBenefitsAdminService:
 
 class TestPerformanceBenchmarkingService:
     def setup_method(self):
+        self.client = TestClient(load_service_app("performance-benchmarking-service"))
+        use_fake_store("benchmark_store", "performance-benchmarking-service")
+        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
         self.client = TestClient(load_service_app("performance-benchmarking-service"))
 
     def test_health(self):
