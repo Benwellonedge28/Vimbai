@@ -843,6 +843,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vimbai_performance_measures"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "vimbai_ratios_statements"
 version = "0.1.0"
 dependencies = [

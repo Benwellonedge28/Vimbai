@@ -12,6 +12,7 @@ members = [
     "abac",
     "tax_reporting",
     "group_accounting",
+    "performance_measures",
     "variance",
     "capital_valuation",
     "cost_accounting",
