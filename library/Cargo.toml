@@ -13,6 +13,7 @@ members = [
     "tax_reporting",
     "group_accounting",
     "performance_measures",
+    "market_risk",
     "variance",
     "capital_valuation",
     "cost_accounting",

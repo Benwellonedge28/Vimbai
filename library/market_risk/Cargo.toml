@@ -1,0 +1,11 @@
+[package]
+name = "vimbai_market_risk"
+version = "0.1.0"
+edition = "2021"
+description = "Vimbai market and credit risk: option pricing, VaR, credit rating and ECL, fraud risk, distress prediction, regulatory ratios. Safe Rust only."
+license = "Proprietary"
+
+[dependencies]
+indexmap = { version = "2.7.1", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
