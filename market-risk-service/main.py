@@ -4,8 +4,10 @@ Value at Risk (VaR), stress testing, and market exposure analysis.
 Port: 8406
 """
 
+import importlib.util
 import math
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -13,6 +15,15 @@ from typing import Dict, List, Optional
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("market_risk_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["market_risk_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "market-risk-service"
 PORT = int(os.getenv("PORT", "8406"))
@@ -65,45 +76,25 @@ class VaRResult(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/var", response_model=VaRResult)
 async def calculate_var(req: VaRRequest):
-    total = sum(p.exposure for p in req.positions)
-
-    # Simple portfolio volatility (assuming diversification benefit)
-    weighted_vol = sum(p.exposure * p.volatility for p in req.positions) / total if total else 0
-    portfolio_vol = weighted_vol * 0.85  # diversification approximation
-
-    z_95 = 1.645
-    z_99 = 2.326
-    var_95 = total * portfolio_vol * z_95 * math.sqrt(req.holding_period_days)
-    var_99 = total * portfolio_vol * z_99 * math.sqrt(req.holding_period_days)
-    es = total * portfolio_vol * 2.063 * math.sqrt(req.holding_period_days)  # ES at 95%
-
-    stress_2sd = total * portfolio_vol * 2
-    stress_3sd = total * portfolio_vol * 3
-
-    if var_95 / total > 0.20:
-        risk = "high"
-    elif var_95 / total > 0.10:
-        risk = "medium"
-    else:
-        risk = "low"
-
-    return VaRResult(
-        company_id=req.company_id,
-        portfolio_name=req.portfolio_name,
-        total_exposure=round(total, 2),
-        portfolio_volatility=round(portfolio_vol, 4),
-        var_95=round(var_95, 2),
-        var_99=round(var_99, 2),
-        expected_shortfall=round(es, 2),
-        stress_loss_2sd=round(stress_2sd, 2),
-        stress_loss_3sd=round(stress_3sd, 2),
-        risk_level=risk,
+    result = calc.value_at_risk(
+        req.company_id,
+        req.portfolio_name,
+        [p.model_dump() for p in req.positions],
+        req.confidence_level,
+        req.holding_period_days,
     )
+    logger.info("VaR calculated", company=req.company_id, risk_level=result["risk_level"])
+    return VaRResult(**result)
 
 
 if __name__ == "__main__":

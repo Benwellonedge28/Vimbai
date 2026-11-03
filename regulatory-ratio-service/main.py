@@ -4,6 +4,9 @@ Port: 8229
 Banking and insurance regulatory ratios
 """
 
+import importlib.util
+import os
+import sys
 from typing import Any, Dict, List
 
 import httpx
@@ -12,6 +15,15 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 logger = structlog.get_logger()
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("regulatory_ratio_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["regulatory_ratio_calc"] = calc
+_spec.loader.exec_module(calc)
+
 app = FastAPI(title="Regulatory Ratio Service", version="1.0.0")
 
 
@@ -59,82 +71,29 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
 
 @app.get("/")
 async def health_check():
-    return {"status": "healthy", "service": "regulatory-ratio", "version": "1.0.0"}
+    return {
+        "status": "healthy",
+        "service": "regulatory-ratio",
+        "version": "1.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/calculate", response_model=RegulatoryRatioResponse)
 async def calculate_regulatory_ratios(request: RegulatoryRatioRequest):
     logger.info("Calculating regulatory ratios", company=request.company_id, regulator=request.regulator_type)
-
-    tier1_ratio = (request.tier1_capital / request.risk_weighted_assets) if request.risk_weighted_assets else 0
-    total_cap_ratio = (request.total_capital / request.risk_weighted_assets) if request.risk_weighted_assets else 0
-    leverage_ratio = (request.tier1_capital / request.total_assets) if request.total_assets else 0
-    liquidity_ratio = (request.liquid_assets / request.net_loan) if request.net_loan else 0
-
-    capital_ratios = [
-        RegulatoryRatio(
-            ratio_name="CET1 Ratio",
-            actual_value=round(tier1_ratio, 4),
-            minimum_required=0.045,
-            buffer=round(tier1_ratio - 0.045, 4),
-            compliant=tier1_ratio >= 0.045,
-        ),
-        RegulatoryRatio(
-            ratio_name="Tier 1 Ratio",
-            actual_value=round(tier1_ratio, 4),
-            minimum_required=0.06,
-            buffer=round(tier1_ratio - 0.06, 4),
-            compliant=tier1_ratio >= 0.06,
-        ),
-        RegulatoryRatio(
-            ratio_name="Total Capital Ratio",
-            actual_value=round(total_cap_ratio, 4),
-            minimum_required=0.08,
-            buffer=round(total_cap_ratio - 0.08, 4),
-            compliant=total_cap_ratio >= 0.08,
-        ),
-    ]
-
-    liquidity_ratios = [
-        RegulatoryRatio(
-            ratio_name="Liquidity Coverage Ratio",
-            actual_value=round(liquidity_ratio, 2),
-            minimum_required=1.0,
-            buffer=round(liquidity_ratio - 1.0, 2),
-            compliant=liquidity_ratio >= 1.0,
-        )
-    ]
-
-    leverage_ratios = [
-        RegulatoryRatio(
-            ratio_name="Leverage Ratio",
-            actual_value=round(leverage_ratio, 4),
-            minimum_required=0.03,
-            buffer=round(leverage_ratio - 0.03, 4),
-            compliant=leverage_ratio >= 0.03,
-        )
-    ]
-
-    all_compliant = all(r.compliant for r in capital_ratios + liquidity_ratios + leverage_ratios)
-    overall = "compliant" if all_compliant else "non_compliant"
-
-    return RegulatoryRatioResponse(
-        company_id=request.company_id,
-        regulator_type=request.regulator_type,
-        capital_ratios=capital_ratios,
-        liquidity_ratios=liquidity_ratios,
-        leverage_ratios=leverage_ratios,
-        overall_compliance=overall,
-        recommendations=(
-            [
-                "Maintain capital buffers above minimum requirements",
-                "Monitor liquidity ratios regularly",
-                "Review risk-weighted assets calculation",
-            ]
-            if not all_compliant
-            else ["Continue monitoring regulatory ratios"]
-        ),
+    result = calc.regulatory_ratios(
+        request.company_id,
+        request.regulator_type,
+        request.tier1_capital,
+        request.tier2_capital,
+        request.risk_weighted_assets,
+        request.total_capital,
+        request.total_assets,
+        request.liquid_assets,
+        request.net_loan,
     )
+    return RegulatoryRatioResponse(**result)
 
 
 if __name__ == "__main__":

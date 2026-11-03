@@ -16,7 +16,16 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 native = pytest.importorskip("vimbai_native", reason="build library/native to test the seam")
 if not all(
     hasattr(native, name)
-    for name in ("tax_credit_json", "scorecard_json", "vat_return_json", "grant_json", "controls_test_json")
+    for name in (
+        "tax_credit_json",
+        "scorecard_json",
+        "vat_return_json",
+        "grant_json",
+        "controls_test_json",
+        "var_json",
+        "regulatory_ratio_json",
+        "distress_json",
+    )
 ):
     pytest.skip("the installed extension predates these functions", allow_module_level=True)
 
@@ -294,3 +303,88 @@ def test_control_testing_matches_the_reference():
         "significant_deficiency",
         "material_weakness",
     ]
+
+
+VAR_PAYLOAD = {
+    "company_id": "comp-seam",
+    "portfolio_name": "Treasury book",
+    "positions": [
+        {"instrument": "equities", "exposure": 500000.0, "volatility": 0.20},
+        {"instrument": "fx", "exposure": 300000.0, "volatility": 0.10},
+    ],
+    "confidence_level": 0.95,
+    "holding_period_days": 1,
+}
+
+RATIO_PAYLOAD = {
+    "company_id": "comp-seam",
+    "regulator_type": "bank",
+    "tier1_capital": 900000.0,
+    "tier2_capital": 100000.0,
+    "risk_weighted_assets": 10000000.0,
+    "total_capital": 1000000.0,
+    "total_assets": 20000000.0,
+    "liquid_assets": 600000.0,
+    "net_loan": 450000.0,
+    "regulatory_capital": {},
+}
+
+DISTRESS_COMPANY = {
+    "company_id": "comp-seam",
+    "company_name": "Retail Co",
+    "industry": "retail",
+    "working_capital": 400000.0,
+    "total_assets": 2000000.0,
+    "ebit": 300000.0,
+    "total_equity": 800000.0,
+    "total_liabilities": 1200000.0,
+    "revenue": 5000000.0,
+    "retained_earnings": 350000.0,
+    "market_cap": 1800000.0,
+    "current_assets": 700000.0,
+    "current_liabilities": 300000.0,
+}
+
+
+def test_var_matches_the_reference():
+    rust, reference = _both_engines("market-risk-service", "/var", VAR_PAYLOAD)
+    for field in (
+        "total_exposure",
+        "portfolio_volatility",
+        "var_95",
+        "var_99",
+        "expected_shortfall",
+        "stress_loss_2sd",
+        "stress_loss_3sd",
+        "risk_level",
+    ):
+        assert rust[field] == reference[field], field
+    # the flat 15% diversification haircut is preserved, not replaced by a matrix
+    # 0.1625 weighted volatility, less the flat 15% diversification haircut
+    assert rust["portfolio_volatility"] == 0.1381
+    assert rust["risk_level"] == "high"
+
+
+def test_regulatory_ratios_match_the_reference():
+    rust, reference = _both_engines("regulatory-ratio-service", "/calculate", RATIO_PAYLOAD)
+    for field in ("capital_ratios", "liquidity_ratios", "leverage_ratios", "overall_compliance", "recommendations"):
+        assert rust[field] == reference[field], field
+    assert rust["overall_compliance"] == "compliant"
+    assert [r["ratio_name"] for r in rust["capital_ratios"]] == [
+        "CET1 Ratio",
+        "Tier 1 Ratio",
+        "Total Capital Ratio",
+    ]
+
+
+def test_distress_prediction_matches_the_reference():
+    rust, reference = _both_engines("financial-distress-prediction-service", "/predict", {"company": DISTRESS_COMPANY})
+    for field in ("z_score", "zone", "probability_distress", "years_to_distress", "recommendation"):
+        assert rust[field] == reference[field], field
+    assert rust["z_score"] == 3.88
+    assert rust["zone"] == "SAFE"
+
+    # manufacturing reads the same score against a tighter safe threshold
+    manufacturing = dict(DISTRESS_COMPANY, industry="manufacturing")
+    rust, reference = _both_engines("financial-distress-prediction-service", "/predict", {"company": manufacturing})
+    assert rust["probability_distress"] == reference["probability_distress"] == 0.03
