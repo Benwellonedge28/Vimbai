@@ -44,6 +44,7 @@ directories stay in the repository; only registration was removed):
 These tests pin every family to its de-registered state.
 """
 
+import glob
 import json
 import os
 import re
@@ -222,6 +223,21 @@ INVESTOR_METRIC_PORTS = {
     "eps-service",
 }
 
+# Module-level containers that LOOK like stores but are not: seed catalogues
+# that nothing ever writes, and auth material that is ephemeral by design.
+SEED_CATALOGUES = {
+    # static template definitions; /templates only ever reads them
+    "notifications-service": {"templates"},
+    # short-lived session/challenge/token state, deliberately not persisted
+    "identity-service": {"sessions", "mfa_codes", "password_reset_tokens", "refresh_tokens"},
+    "enterprise-sso-service": {"_session_store"},
+    "mfa-auth-service": {"_pending_challenges"},
+    "automation-engine": {"tasks", "executions", "running_tasks"},
+    "cache-service": {"_cache", "_cache_stats"},
+    # money movement lives outside Vimbai's remit; the gateway keeps its own records
+    "payment-gateway-service": {"customers", "payment_methods", "payments", "refunds", "disputes"},
+}
+
 # The four audit families share one service now: audit-engagement-service,
 # with audit_type telling them apart. The others were merged away, not ported.
 AUDIT_ENGAGEMENT_MERGE = {
@@ -383,3 +399,28 @@ def test_cost_calculators_absent_from_brackets():
             COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS | ABSORPTION_MARGIN_PORTS | SCENARIO_BUDGET_PORTS
         )
         assert not overlap, f"{bracket} still mounts {sorted(overlap)}"
+
+
+def test_only_triaged_containers_remain():
+    """No untriaged module-level store may appear without a decision here."""
+    import ast
+
+    found = {}
+    for path in glob.glob(os.path.join(_ROOT, "*/main.py")):
+        svc = os.path.basename(os.path.dirname(path))
+        if svc == "brackets":
+            continue
+        with open(path) as handle:
+            tree = ast.parse(handle.read())
+        names = set()
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and isinstance(node.value, (ast.Dict, ast.List)):
+                names.update(t.id for t in node.targets if isinstance(t, ast.Name) and not t.id.isupper())
+            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and not node.target.id.isupper():
+                names.add(node.target.id)
+        if names:
+            found[svc] = names
+
+    for svc, names in found.items():
+        allowed = SEED_CATALOGUES.get(svc, set())
+        assert names <= allowed, f"{svc} holds untriaged state: {sorted(names - allowed)}"
