@@ -33,6 +33,22 @@ returns.
 | `goodwill_impairment_json` | `group_accounting::impairment::test` |
 | `pension_json` | `group_accounting::pension::calculate` |
 | `consolidation_json` | `group_accounting::consolidation::consolidate` |
+| `scorecard_json` | `performance_measures::scorecard::score` |
+| `controls_test_json` | `performance_measures::controls::test` |
+| `profit_json` | `performance_measures::profit::calculate` |
+| `inventory_valuation_json` | `performance_measures::inventory::calculate` |
+| `nrv_json` | `performance_measures::realizable::net_realizable_value` |
+| `scrap_value_json` | `performance_measures::realizable::scrap_value` |
+| `residual_value_json` | `performance_measures::realizable::residual_value` |
+| `fx_convert_json` | `performance_measures::fx::convert` (takes `today` as a second argument) |
+| `fx_hedge_json` | `performance_measures::fx::hedge` |
+| `options_price_json` | `market_risk::options::price` |
+| `var_json` | `market_risk::var::calculate` |
+| `credit_risk_json` | `market_risk::credit::analyze` |
+| `pd_historical_json` | `market_risk::credit::historical_pd` |
+| `fraud_risk_json` | `market_risk::fraud::assess` |
+| `distress_json` | `market_risk::distress::predict` |
+| `regulatory_ratio_json` | `market_risk::regulatory::calculate` |
 
 `consolidation_json` requires the parent's figures, which `consolidation-service`
 never had as inputs: the payload carries `parent_revenue`, `parent_profit`,
@@ -52,9 +68,17 @@ Run against the live Python services on canonical payloads, the seam produced th
 same figures for the R&D credit, VAT return, partnership allocation, pension
 roll-forward and government grant (including the journal narrative strings).
 
+## A bug the port surfaced
+
+`credit-risk-analysis-service` `/analyze` answered 500 to every request. Its
+`PDCalculation` model declares `rating_grade` as a string while the endpoint
+passed the integer grade, so pydantic raised before the response was built. The
+crate renders that field as a string and keeps the top-level grade numeric, so
+the seam answers where the service could not. Any client that was retrying
+`/analyze` against the Python service has never had a successful response.
+
 ## Still to do
 
-`performance_measures` and `market_risk` are not yet behind the seam, and no
-service imports it yet. Wiring a service means the `VIMBAI_CALC_ENGINE`
+No service imports the seam yet. Wiring one means the `VIMBAI_CALC_ENGINE`
 switch the earlier conversions use: `rust`, `python`, or `auto`, with `/health`
 reporting which engine answered.

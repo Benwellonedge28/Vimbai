@@ -5,6 +5,8 @@
 //! request is turned into library types, the library does the work, and the
 //! result is serialised back. That keeps the numbers identical to the Rust tests.
 
+use std::collections::HashMap;
+
 use serde::Deserialize;
 
 use vimbai_group_accounting::buyout::{self, BuyoutRequest, RemainingPartner};
@@ -15,6 +17,18 @@ use vimbai_group_accounting::consolidation::{
 use vimbai_group_accounting::impairment::{self, Cgu, ImpairmentRequest, TestMethod};
 use vimbai_group_accounting::partnership::{self, Partner, PartnershipRequest};
 use vimbai_group_accounting::pension::{self, PensionRequest};
+use vimbai_market_risk::credit::{self as credit_risk};
+use vimbai_market_risk::distress;
+use vimbai_market_risk::fraud;
+use vimbai_market_risk::options;
+use vimbai_market_risk::regulatory;
+use vimbai_market_risk::var;
+use vimbai_performance_measures::controls;
+use vimbai_performance_measures::fx;
+use vimbai_performance_measures::inventory;
+use vimbai_performance_measures::profit;
+use vimbai_performance_measures::realizable;
+use vimbai_performance_measures::scorecard;
 use vimbai_tax_reporting::credit::{self, ClaimRequest, Expenditure};
 use vimbai_tax_reporting::grants::{self, GrantRecognition, GrantRequest, GrantType};
 use vimbai_tax_reporting::group::{self, GroupTaxRequest, Subsidiary};
@@ -756,6 +770,650 @@ pub fn consolidation_json(payload: &str) -> Result<String, String> {
     serde_json::to_string(&consolidation::consolidate(&request)).map_err(|e| e.to_string())
 }
 
+// ---- performance measures ----
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct KpiDto {
+    pub name: String,
+    #[serde(default = "default_financial")]
+    pub perspective: String,
+    pub target: f64,
+    pub actual: f64,
+    #[serde(default = "default_weight")]
+    pub weight: f64,
+    #[serde(default)]
+    pub unit: String,
+}
+
+fn default_financial() -> String {
+    "financial".to_string()
+}
+
+fn default_weight() -> f64 {
+    1.0
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ScorecardDto {
+    pub company_id: String,
+    #[serde(default)]
+    pub period: String,
+    #[serde(default)]
+    pub kpis: Vec<KpiDto>,
+}
+
+pub fn scorecard_json(payload: &str) -> Result<String, String> {
+    let dto: ScorecardDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let request = scorecard::ScorecardRequest {
+        company_id: dto.company_id,
+        period: dto.period,
+        kpis: dto
+            .kpis
+            .iter()
+            .map(|k| scorecard::Kpi {
+                name: k.name.clone(),
+                perspective: k.perspective.clone(),
+                target: k.target,
+                actual: k.actual,
+                weight: k.weight,
+                unit: k.unit.clone(),
+            })
+            .collect(),
+    };
+    serde_json::to_string(&scorecard::score(&request)).map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ControlDto {
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub control_type: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub process: String,
+    #[serde(default = "default_sample")]
+    pub test_sample_size: i64,
+    #[serde(default)]
+    pub exceptions_found: i64,
+    #[serde(default)]
+    pub last_tested: String,
+}
+
+fn default_sample() -> i64 {
+    25
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ControlsDto {
+    pub company_id: String,
+    pub fiscal_year: i32,
+    #[serde(default)]
+    pub controls: Vec<ControlDto>,
+}
+
+pub fn controls_json(payload: &str) -> Result<String, String> {
+    let dto: ControlsDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let request = controls::TestingRequest {
+        company_id: dto.company_id,
+        fiscal_year: dto.fiscal_year,
+        controls: dto
+            .controls
+            .iter()
+            .map(|c| controls::Control {
+                id: c.id.clone(),
+                name: c.name.clone(),
+                control_type: c.control_type.clone(),
+                description: c.description.clone(),
+                process: c.process.clone(),
+                test_sample_size: c.test_sample_size,
+                exceptions_found: c.exceptions_found,
+                last_tested: c.last_tested.clone(),
+                remediation_needed: c.exceptions_found > 0,
+            })
+            .collect(),
+    };
+    serde_json::to_string(&controls::test(&request)).map_err(|e| e.to_string())
+}
+
+pub fn profit_json(payload: &str) -> Result<String, String> {
+    let dto: ProfitDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    serde_json::to_string(&profit::calculate(dto.revenue, dto.total_costs))
+        .map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProfitDto {
+    pub revenue: f64,
+    pub total_costs: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PurchaseDto {
+    pub date: String,
+    pub quantity: i64,
+    pub unit_cost: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SaleDto {
+    pub date: String,
+    pub quantity: i64,
+    pub unit_price: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct InventoryDto {
+    pub company_id: String,
+    #[serde(default = "default_fifo")]
+    pub method: String,
+    #[serde(default)]
+    pub purchases: Vec<PurchaseDto>,
+    #[serde(default)]
+    pub sales: Vec<SaleDto>,
+    #[serde(default)]
+    pub opening_inventory: f64,
+    #[serde(default)]
+    pub opening_qty: i64,
+}
+
+fn default_fifo() -> String {
+    "fifo".to_string()
+}
+
+pub fn inventory_json(payload: &str) -> Result<String, String> {
+    let dto: InventoryDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let request = inventory::ValuationRequest {
+        company_id: dto.company_id,
+        method: inventory::ValuationMethod::parse(&dto.method),
+        purchases: dto
+            .purchases
+            .iter()
+            .map(|p| inventory::PurchaseRecord {
+                date: p.date.clone(),
+                quantity: p.quantity,
+                unit_cost: p.unit_cost,
+            })
+            .collect(),
+        sales: dto
+            .sales
+            .iter()
+            .map(|s| inventory::SaleRecord {
+                date: s.date.clone(),
+                quantity: s.quantity,
+                unit_price: s.unit_price,
+            })
+            .collect(),
+        opening_inventory: dto.opening_inventory,
+        opening_qty: dto.opening_qty,
+    };
+    serde_json::to_string(&inventory::calculate(&request)).map_err(|e| e.to_string())
+}
+
+pub fn nrv_json(payload: &str) -> Result<String, String> {
+    let dto: NrvDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let selling = dto.selling_price.or(dto.selling_price_upper).unwrap_or(0.0);
+    let completion = dto
+        .completion_cost
+        .or(dto.completion_cost_upper)
+        .unwrap_or(0.0);
+    serde_json::to_string(&realizable::net_realizable_value(
+        selling,
+        completion,
+        dto.selling_cost,
+    ))
+    .map_err(|e| e.to_string())
+}
+
+/// The service accepted the first two fields in either spelling, because the
+/// endpoint's parameters were named `selling_Price` and `Completion_Cost`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct NrvDto {
+    #[serde(default)]
+    pub selling_price: Option<f64>,
+    #[serde(default, rename = "selling_Price")]
+    pub selling_price_upper: Option<f64>,
+    #[serde(default)]
+    pub completion_cost: Option<f64>,
+    #[serde(default, rename = "Completion_Cost")]
+    pub completion_cost_upper: Option<f64>,
+    #[serde(default)]
+    pub selling_cost: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ScrapDto {
+    pub original_cost: f64,
+    pub accumulated_depreciation: f64,
+    #[serde(default)]
+    pub disposal_cost: f64,
+    #[serde(default)]
+    pub proceeds_from_sale: f64,
+}
+
+pub fn scrap_json(payload: &str) -> Result<String, String> {
+    let dto: ScrapDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    serde_json::to_string(&realizable::scrap_value(
+        dto.original_cost,
+        dto.accumulated_depreciation,
+        dto.disposal_cost,
+        dto.proceeds_from_sale,
+    ))
+    .map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ResidualDto {
+    pub original_cost: f64,
+    pub depreciation_rate: f64,
+    pub useful_life_years: i32,
+}
+
+pub fn residual_json(payload: &str) -> Result<String, String> {
+    let dto: ResidualDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    serde_json::to_string(&realizable::residual_value(
+        dto.original_cost,
+        dto.depreciation_rate,
+        dto.useful_life_years,
+    ))
+    .map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ConversionDto {
+    pub from_currency: String,
+    pub to_currency: String,
+    pub amount: f64,
+    #[serde(default)]
+    pub rate_date: String,
+}
+
+pub fn fx_convert_json(payload: &str, today: &str) -> Result<String, String> {
+    let dto: ConversionDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let request = fx::ConversionRequest {
+        from_currency: dto.from_currency,
+        to_currency: dto.to_currency,
+        amount: dto.amount,
+        rate_date: dto.rate_date,
+    };
+    serde_json::to_string(&fx::convert(&request, today).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct HedgeDto {
+    pub company_id: String,
+    pub currency: String,
+    pub exposure_amount: f64,
+    #[serde(default = "default_weight")]
+    pub hedge_ratio: f64,
+    #[serde(default)]
+    pub forward_rate: f64,
+}
+
+pub fn fx_hedge_json(payload: &str) -> Result<String, String> {
+    let dto: HedgeDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let request = fx::HedgeRequest {
+        company_id: dto.company_id,
+        currency: dto.currency,
+        exposure_amount: dto.exposure_amount,
+        hedge_ratio: dto.hedge_ratio,
+        forward_rate: dto.forward_rate,
+    };
+    serde_json::to_string(&fx::hedge(&request).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())
+}
+
+// ---- market and credit risk ----
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct OptionDto {
+    #[serde(default = "default_call")]
+    pub option_type: String,
+    pub strike_price: f64,
+    pub spot_price: f64,
+    pub time_to_expiry: f64,
+    pub volatility: f64,
+    pub risk_free_rate: f64,
+    #[serde(default = "default_weight")]
+    pub notional: f64,
+}
+
+fn default_call() -> String {
+    "call".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PricingDto {
+    pub company_id: String,
+    #[serde(default)]
+    pub options: Vec<OptionDto>,
+}
+
+pub fn options_price_json(payload: &str) -> Result<String, String> {
+    let dto: PricingDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let request = options::PricingRequest {
+        company_id: dto.company_id,
+        options: dto
+            .options
+            .iter()
+            .map(|o| options::Option {
+                option_type: o.option_type.clone(),
+                strike_price: o.strike_price,
+                spot_price: o.spot_price,
+                time_to_expiry: o.time_to_expiry,
+                volatility: o.volatility,
+                risk_free_rate: o.risk_free_rate,
+                notional: o.notional,
+            })
+            .collect(),
+    };
+    serde_json::to_string(&options::price(&request)).map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PositionDto {
+    #[serde(default)]
+    pub instrument: String,
+    pub exposure: f64,
+    #[serde(default = "default_vol")]
+    pub volatility: f64,
+    #[serde(default = "default_weight")]
+    pub correlation: f64,
+}
+
+fn default_vol() -> f64 {
+    0.15
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct VarDto {
+    pub company_id: String,
+    #[serde(default)]
+    pub portfolio_name: String,
+    #[serde(default)]
+    pub positions: Vec<PositionDto>,
+    #[serde(default = "default_confidence")]
+    pub confidence_level: f64,
+    #[serde(default = "default_days")]
+    pub holding_period_days: i32,
+}
+
+fn default_confidence() -> f64 {
+    0.95
+}
+
+fn default_days() -> i32 {
+    1
+}
+
+pub fn var_json(payload: &str) -> Result<String, String> {
+    let dto: VarDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let request = var::VarRequest {
+        company_id: dto.company_id,
+        portfolio_name: dto.portfolio_name,
+        positions: dto
+            .positions
+            .iter()
+            .map(|p| var::Position {
+                instrument: p.instrument.clone(),
+                exposure: p.exposure,
+                volatility: p.volatility,
+                correlation: p.correlation,
+            })
+            .collect(),
+        confidence_level: dto.confidence_level,
+        holding_period_days: dto.holding_period_days,
+    };
+    serde_json::to_string(&var::calculate(&request)).map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BorrowerDto {
+    pub borrower_id: String,
+    #[serde(default)]
+    pub borrower_name: String,
+    #[serde(default = "default_term")]
+    pub facility_type: String,
+    pub total_exposure: f64,
+    #[serde(default)]
+    pub current_exposure: Option<f64>,
+    #[serde(default)]
+    pub undrawn_committed: f64,
+    #[serde(default)]
+    pub collateral_value: f64,
+    #[serde(default)]
+    pub guarantee_value: f64,
+}
+
+fn default_term() -> String {
+    "term_loan".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FinancialsDto {
+    pub debt_to_equity: f64,
+    pub interest_coverage: f64,
+    pub current_ratio: f64,
+    #[serde(default)]
+    pub free_cash_flow: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct QualitativeDto {
+    #[serde(default = "default_neutral")]
+    pub industry_outlook: String,
+    #[serde(default = "default_fair")]
+    pub management_quality: String,
+    #[serde(default = "default_average")]
+    pub market_position: String,
+}
+
+fn default_neutral() -> String {
+    "neutral".to_string()
+}
+
+fn default_fair() -> String {
+    "fair".to_string()
+}
+
+fn default_average() -> String {
+    "average".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreditDto2 {
+    pub borrower: BorrowerDto,
+    pub financials: FinancialsDto,
+    #[serde(default)]
+    pub qualitative: Option<QualitativeDto>,
+    #[serde(default = "default_year")]
+    pub credit_period_days: f64,
+}
+
+fn default_year() -> f64 {
+    365.0
+}
+
+pub fn credit_risk_json(payload: &str) -> Result<String, String> {
+    let dto: CreditDto2 = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let borrower = &dto.borrower;
+    let qualitative = dto.qualitative.unwrap_or(QualitativeDto {
+        industry_outlook: default_neutral(),
+        management_quality: default_fair(),
+        market_position: default_average(),
+    });
+    let request = credit_risk::CreditRequest {
+        borrower: credit_risk::Borrower {
+            borrower_id: borrower.borrower_id.clone(),
+            borrower_name: borrower.borrower_name.clone(),
+            facility_type: borrower.facility_type.clone(),
+            total_exposure: borrower.total_exposure,
+            current_exposure: borrower.current_exposure.unwrap_or(borrower.total_exposure),
+            undrawn_committed: borrower.undrawn_committed,
+            collateral_value: borrower.collateral_value,
+            guarantee_value: borrower.guarantee_value,
+        },
+        financials: credit_risk::Financials {
+            debt_to_equity: dto.financials.debt_to_equity,
+            interest_coverage: dto.financials.interest_coverage,
+            current_ratio: dto.financials.current_ratio,
+            free_cash_flow: dto.financials.free_cash_flow,
+        },
+        qualitative: credit_risk::Qualitative {
+            industry_outlook: qualitative.industry_outlook,
+            management_quality: qualitative.management_quality,
+            market_position: qualitative.market_position,
+        },
+        credit_period_days: dto.credit_period_days,
+    };
+    serde_json::to_string(&credit_risk::analyze(&request)).map_err(|e| e.to_string())
+}
+
+pub fn pd_historical_json(payload: &str) -> Result<String, String> {
+    let dto: PdDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    serde_json::to_string(&credit_risk::historical_pd(
+        dto.number_defaults,
+        dto.total_observations,
+        dto.confidence_level,
+    ))
+    .map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PdDto {
+    pub number_defaults: i64,
+    pub total_observations: i64,
+    #[serde(default = "default_confidence")]
+    pub confidence_level: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct FraudDto {
+    #[serde(default)]
+    pub audit_id: String,
+    pub company_id: String,
+    #[serde(default)]
+    pub industry: String,
+    #[serde(default)]
+    pub company_size: String,
+    #[serde(default)]
+    pub financial_indicators: HashMap<String, f64>,
+    #[serde(default)]
+    pub management_characteristics: Vec<String>,
+    #[serde(default)]
+    pub internal_control_gaps: Vec<String>,
+    #[serde(default)]
+    pub prior_fraud_history: bool,
+}
+
+pub fn fraud_risk_json(payload: &str) -> Result<String, String> {
+    let dto: FraudDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let request = fraud::FraudAssessmentRequest {
+        audit_id: dto.audit_id,
+        company_id: dto.company_id,
+        industry: dto.industry,
+        company_size: dto.company_size,
+        financial_indicators: dto.financial_indicators.into_iter().collect(),
+        management_characteristics: dto.management_characteristics,
+        internal_control_gaps: dto.internal_control_gaps,
+        prior_fraud_history: dto.prior_fraud_history,
+    };
+    serde_json::to_string(&fraud::assess(&request)).map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CompanyDto {
+    pub company_id: String,
+    #[serde(default)]
+    pub company_name: String,
+    #[serde(default)]
+    pub industry: String,
+    #[serde(default)]
+    pub working_capital: f64,
+    pub total_assets: f64,
+    #[serde(default)]
+    pub ebit: f64,
+    #[serde(default)]
+    pub total_equity: f64,
+    #[serde(default)]
+    pub total_liabilities: f64,
+    #[serde(default)]
+    pub revenue: f64,
+    #[serde(default)]
+    pub retained_earnings: f64,
+    #[serde(default)]
+    pub market_cap: f64,
+    #[serde(default)]
+    pub current_assets: f64,
+    #[serde(default)]
+    pub current_liabilities: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct DistressDto {
+    pub company: CompanyDto,
+    /// Accepted for compatibility with the service payload. Only the Altman
+    /// variant was ever implemented, so the value is not used.
+    #[serde(default)]
+    #[allow(dead_code)]
+    pub model: String,
+}
+
+pub fn distress_json(payload: &str) -> Result<String, String> {
+    let dto: DistressDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let c = &dto.company;
+    let company = distress::CompanyData {
+        company_id: c.company_id.clone(),
+        company_name: c.company_name.clone(),
+        industry: c.industry.clone(),
+        working_capital: c.working_capital,
+        total_assets: c.total_assets,
+        ebit: c.ebit,
+        total_equity: c.total_equity,
+        total_liabilities: c.total_liabilities,
+        revenue: c.revenue,
+        retained_earnings: c.retained_earnings,
+        market_cap: c.market_cap,
+        current_assets: c.current_assets,
+        current_liabilities: c.current_liabilities,
+    };
+    serde_json::to_string(&distress::predict(&company)).map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RegulatoryDto {
+    pub company_id: String,
+    #[serde(default)]
+    pub regulator_type: String,
+    pub tier1_capital: f64,
+    #[serde(default)]
+    pub tier2_capital: f64,
+    pub risk_weighted_assets: f64,
+    pub total_capital: f64,
+    pub total_assets: f64,
+    pub liquid_assets: f64,
+    pub net_loan: f64,
+}
+
+pub fn regulatory_ratio_json(payload: &str) -> Result<String, String> {
+    let dto: RegulatoryDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let request = regulatory::RegulatoryRequest {
+        company_id: dto.company_id,
+        regulator_type: dto.regulator_type,
+        tier1_capital: dto.tier1_capital,
+        tier2_capital: dto.tier2_capital,
+        risk_weighted_assets: dto.risk_weighted_assets,
+        total_capital: dto.total_capital,
+        total_assets: dto.total_assets,
+        liquid_assets: dto.liquid_assets,
+        net_loan: dto.net_loan,
+    };
+    serde_json::to_string(&regulatory::calculate(&request)).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -847,5 +1505,111 @@ mod tests {
             1_800_000.0
         );
         assert!(out.get("consolidated_cash_flow").is_none());
+    }
+}
+
+#[cfg(test)]
+mod risk_tests {
+    use super::*;
+    use serde_json::Value;
+
+    fn value(out: String) -> Value {
+        serde_json::from_str(&out).expect("seam output is JSON")
+    }
+
+    #[test]
+    fn scorecard_and_controls_keep_their_scale_quirks() {
+        let payload = r#"{"company_id":"co","period":"2026-Q1","kpis":[
+            {"name":"Revenue growth","perspective":"financial","target":1000000,"actual":800000,"weight":2},
+            {"name":"NPS","perspective":"customer","target":50,"actual":30}]}"#;
+        let out = value(scorecard_json(payload).unwrap());
+        // one financial KPI at 80% and one customer KPI at 60%, each weighted 1-2:
+        // perspective scores are percentages multiplied by 100 again
+        assert_eq!(out["financial_score"], 8_000.0);
+        assert_eq!(out["customer_score"], 6_000.0);
+        assert_eq!(out["overall_score"], 3_500.0);
+
+        let controls = r#"{"company_id":"co","fiscal_year":2026,"controls":[
+            {"id":"c1","name":"Bank rec","test_sample_size":40,"exceptions_found":0},
+            {"id":"c3","name":"Segregation","test_sample_size":40,"exceptions_found":4}]}"#;
+        let out = value(controls_json(controls).unwrap());
+        assert_eq!(out["deficient_controls"], 1);
+        assert_eq!(
+            out["control_details"][1]["deficiency_level"],
+            "significant_deficiency"
+        );
+    }
+
+    #[test]
+    fn fx_and_inventory_match_the_service() {
+        let payload = r#"{"from_currency":"USD","to_currency":"ZAR","amount":1000}"#;
+        let out = value(fx_convert_json(payload, "2026-11-03").unwrap());
+        assert_eq!(out["converted_amount"], 18_500.0);
+        assert_eq!(out["rate_date"], "2026-11-03");
+
+        let inventory = r#"{"company_id":"co","method":"lifo","opening_inventory":5000,"opening_qty":50,
+            "purchases":[{"date":"2026-02-01","quantity":100,"unit_cost":110},
+                         {"date":"2026-01-15","quantity":100,"unit_cost":100}],
+            "sales":[{"date":"2026-03-01","quantity":120,"unit_price":200}]}"#;
+        let out = value(inventory_json(inventory).unwrap());
+        assert_eq!(out["cost_of_goods_sold"], 13_000.0);
+        assert_eq!(out["ending_inventory"], 13_000.0);
+    }
+
+    #[test]
+    fn options_and_var_match_the_service() {
+        let payload = r#"{"company_id":"co","options":[
+            {"option_type":"call","strike_price":100,"spot_price":100,"time_to_expiry":1,
+             "volatility":0.2,"risk_free_rate":0.05,"notional":1000},
+            {"option_type":"put","strike_price":90,"spot_price":100,"time_to_expiry":0.5,
+             "volatility":0.25,"risk_free_rate":0.05,"notional":500}]}"#;
+        let out = value(options_price_json(payload).unwrap());
+        assert_eq!(out["option_valuations"][0]["premium"], 10.4506);
+        assert_eq!(out["greeks_summary"]["delta"], 534.6039);
+
+        let var_payload = r#"{"company_id":"co","portfolio_name":"Book","holding_period_days":10,
+            "positions":[{"instrument":"equity","exposure":1000000,"volatility":0.2},
+                         {"instrument":"bond","exposure":500000,"volatility":0.08}]}"#;
+        let out = value(var_json(var_payload).unwrap());
+        assert_eq!(out["var_95"], 1_061_197.14);
+        assert_eq!(out["risk_level"], "high");
+    }
+
+    #[test]
+    fn credit_risk_answers_for_a_borrower_that_used_to_be_a_500() {
+        // The Python endpoint raised a validation error on this payload because
+        // PDCalculation declared rating_grade as a string and was handed an int.
+        let payload = r#"{
+            "borrower":{"borrower_id":"b1","borrower_name":"Acme","facility_type":"term_loan",
+                "total_exposure":1000000,"current_exposure":1000000,"collateral_value":400000,
+                "guarantee_value":100000},
+            "financials":{"debt_to_equity":0.8,"interest_coverage":6.0,"current_ratio":2.5,
+                "free_cash_flow":300000},
+            "qualitative":{"industry_outlook":"positive","management_quality":"good",
+                "market_position":"leader"}
+        }"#;
+        let out = value(credit_risk_json(payload).unwrap());
+        // perfect financials plus positive/good/leader qualitative: composite 95.5
+        assert_eq!(out["credit_rating"], "AAA");
+        assert_eq!(out["rating_grade"], 1);
+        assert_eq!(out["pd_calculations"]["rating_grade"], "1");
+        assert_eq!(out["lgd_calculations"]["recovery_rate"], 0.5);
+    }
+
+    #[test]
+    fn distress_and_regulatory_match_the_service() {
+        let payload = r#"{"company":{"company_id":"co","company_name":"C","industry":"manufacturing",
+            "working_capital":200000,"total_assets":1000000,"ebit":120000,"total_equity":400000,
+            "total_liabilities":600000,"revenue":1500000,"retained_earnings":150000}}"#;
+        let out = value(distress_json(payload).unwrap());
+        assert_eq!(out["z_score"], 2.75);
+        assert_eq!(out["zone"], "GREY");
+
+        let regulatory = r#"{"company_id":"co","regulator_type":"bank","tier1_capital":900000,
+            "tier2_capital":200000,"risk_weighted_assets":10000000,"total_capital":1100000,
+            "total_assets":20000000,"liquid_assets":3000000,"net_loan":2500000}"#;
+        let out = value(regulatory_ratio_json(regulatory).unwrap());
+        assert_eq!(out["overall_compliance"], "compliant");
+        assert_eq!(out["capital_ratios"][0]["actual_value"], 0.09);
     }
 }

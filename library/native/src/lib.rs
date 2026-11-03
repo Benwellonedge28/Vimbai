@@ -2022,9 +2022,93 @@ fn xbrl_json(payload: &str, generated_at: &str) -> PyResult<String> {
     assurance::xbrl_json(payload, generated_at).map_err(PyValueError::new_err)
 }
 
+// ---- performance, market and credit risk seam ----
+#[pyfunction]
+fn scorecard_json(payload: &str) -> PyResult<String> {
+    assurance::scorecard_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn controls_test_json(payload: &str) -> PyResult<String> {
+    assurance::controls_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn profit_json(payload: &str) -> PyResult<String> {
+    assurance::profit_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn inventory_valuation_json(payload: &str) -> PyResult<String> {
+    assurance::inventory_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn nrv_json(payload: &str) -> PyResult<String> {
+    assurance::nrv_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn scrap_value_json(payload: &str) -> PyResult<String> {
+    assurance::scrap_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn residual_value_json(payload: &str) -> PyResult<String> {
+    assurance::residual_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn fx_hedge_json(payload: &str) -> PyResult<String> {
+    assurance::fx_hedge_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn options_price_json(payload: &str) -> PyResult<String> {
+    assurance::options_price_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn var_json(payload: &str) -> PyResult<String> {
+    assurance::var_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn credit_risk_json(payload: &str) -> PyResult<String> {
+    assurance::credit_risk_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn pd_historical_json(payload: &str) -> PyResult<String> {
+    assurance::pd_historical_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn fraud_risk_json(payload: &str) -> PyResult<String> {
+    assurance::fraud_risk_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn distress_json(payload: &str) -> PyResult<String> {
+    assurance::distress_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
+fn regulatory_ratio_json(payload: &str) -> PyResult<String> {
+    assurance::regulatory_ratio_json(payload).map_err(PyValueError::new_err)
+}
+/// FX conversion falls back to the caller's date when the payload has none.
+#[pyfunction]
+fn fx_convert_json(payload: &str, today: &str) -> PyResult<String> {
+    assurance::fx_convert_json(payload, today).map_err(PyValueError::new_err)
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
+    m.add_function(wrap_pyfunction!(scorecard_json, m)?)?;
+    m.add_function(wrap_pyfunction!(controls_test_json, m)?)?;
+    m.add_function(wrap_pyfunction!(profit_json, m)?)?;
+    m.add_function(wrap_pyfunction!(inventory_valuation_json, m)?)?;
+    m.add_function(wrap_pyfunction!(nrv_json, m)?)?;
+    m.add_function(wrap_pyfunction!(scrap_value_json, m)?)?;
+    m.add_function(wrap_pyfunction!(residual_value_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_hedge_json, m)?)?;
+    m.add_function(wrap_pyfunction!(options_price_json, m)?)?;
+    m.add_function(wrap_pyfunction!(var_json, m)?)?;
+    m.add_function(wrap_pyfunction!(credit_risk_json, m)?)?;
+    m.add_function(wrap_pyfunction!(pd_historical_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fraud_risk_json, m)?)?;
+    m.add_function(wrap_pyfunction!(distress_json, m)?)?;
+    m.add_function(wrap_pyfunction!(regulatory_ratio_json, m)?)?;
+    m.add_function(wrap_pyfunction!(fx_convert_json, m)?)?;
+
     m.add_function(wrap_pyfunction!(tax_credit_json, m)?)?;
     m.add_function(wrap_pyfunction!(group_tax_json, m)?)?;
     m.add_function(wrap_pyfunction!(vat_return_json, m)?)?;

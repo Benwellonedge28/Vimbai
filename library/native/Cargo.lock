@@ -381,6 +381,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vimbai_market_risk"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "vimbai_native"
 version = "0.1.0"
 dependencies = [
@@ -395,11 +404,22 @@ dependencies = [
  "vimbai_cost_accounting",
  "vimbai_group_accounting",
  "vimbai_ifrs",
+ "vimbai_market_risk",
+ "vimbai_performance_measures",
  "vimbai_ratios_statements",
  "vimbai_reporting",
  "vimbai_tax",
  "vimbai_tax_reporting",
  "vimbai_treasury_fx",
+]
+
+[[package]]
+name = "vimbai_performance_measures"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

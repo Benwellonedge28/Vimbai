@@ -294,7 +294,11 @@ pub fn analyze(request: &CreditRequest) -> CreditRiskResponse {
             "five_year_pd": five_year_pd,
             "lifetime_pd": lifetime_pd,
             "shadow_rating": rating,
-            "rating_grade": grade,
+            // The service's PDCalculation declared this as a string while the
+            // endpoint passed an int, so /analyze raised a validation error and
+            // answered 500 on every request. Rendered as a string here, matching
+            // the declared model; the top-level grade stays numeric.
+            "rating_grade": grade.to_string(),
             "rating_agency_equivalent": rating,
         }),
         lgd_calculations: json!({
