@@ -35,6 +35,7 @@ if not all(
         "inventory_valuation_json",
         "nrv_json",
         "consolidation_json",
+        "options_price_json",
     )
 ):
     pytest.skip("the installed extension predates these functions", allow_module_level=True)
@@ -741,3 +742,51 @@ def test_consolidation_matches_the_reference():
     # less 200,000 of intercompany sales
     assert rust["consolidated_revenue"]["consolidated_revenue"] == 12600000.0
     assert rust["elimination_count"] == 2
+
+
+OPTIONS_PAYLOAD = {
+    "company_id": "options-seam",
+    "current_spot": 100.0,
+    "options": [
+        {
+            "option_type": "call",
+            "strike_price": 100.0,
+            "spot_price": 100.0,
+            "time_to_expiry": 1.0,
+            "volatility": 0.2,
+            "risk_free_rate": 0.05,
+            "notional": 10000,
+        },
+        {
+            "option_type": "put",
+            "strike_price": 110.0,
+            "spot_price": 100.0,
+            "time_to_expiry": 0.5,
+            "volatility": 0.25,
+            "risk_free_rate": 0.03,
+            "notional": 5000,
+        },
+        {
+            "option_type": "call",
+            "strike_price": 130.0,
+            "spot_price": 100.0,
+            "time_to_expiry": 0.25,
+            "volatility": 0.35,
+            "risk_free_rate": 0.04,
+            "notional": 20000,
+        },
+    ],
+}
+
+
+def test_options_pricing_matches_the_reference():
+    rust, reference = _both_engines("options-pricing-service", "/price", OPTIONS_PAYLOAD)
+    assert rust == reference
+    at_the_money, in_the_money, out_of_the_money = rust["option_valuations"]
+    assert at_the_money["premium"] == 10.4506
+    assert [v["moneyness"] for v in rust["option_valuations"]] == ["ATM", "ITM", "OTM"]
+    # a long call and a long put carry opposite delta, so the book nets them off
+    assert in_the_money["delta"] < 0 < at_the_money["delta"]
+    assert rust["portfolio_summary"]["total_premium"] == 179036.03
+    assert rust["greeks_summary"]["gamma"] > 0.1
+    assert "Gamma risk elevated - monitor position closely" in rust["recommendations"]
