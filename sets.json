@@ -1,0 +1,136 @@
+{
+ "RISK_DUPLICATES": [
+  "investigation-service",
+  "risk-mitigation-service",
+  "risk-reporting-service"
+ ],
+ "PLATFORM_TEMPLATE_DUPLICATES": [
+  "ai-readiness-service",
+  "cqrs-event-sourcing-service",
+  "data-sovereignty-service",
+  "disaster-recovery-service",
+  "edge-computing-service",
+  "event-streaming-service",
+  "federated-network-service",
+  "grpc-service",
+  "high-availability-service",
+  "infrastructure-as-code-service",
+  "multi-cloud-service",
+  "multi-tenant-service",
+  "observability-service",
+  "offline-sync-service",
+  "plugin-extension-service"
+ ],
+ "CALCULATOR_PORTS": [
+  "treasury-cash-service",
+  "treasury-operations-service"
+ ],
+ "COST_CALCULATOR_PORTS": [
+  "activity-based-costing-service",
+  "actual-cost-service",
+  "budgeted-cost-service",
+  "cost-accounting-service",
+  "cost-centre-service",
+  "equivalent-units-service",
+  "fixed-cost-service",
+  "lifecycle-costing-service",
+  "limiting-factor-service",
+  "make-or-buy-decision-service",
+  "marginal-costing-service",
+  "order-acceptance-service",
+  "overhead-apportionment-service",
+  "prime-cost-service",
+  "standard-cost-service",
+  "target-costing-service",
+  "throughput-accounting-service",
+  "total-production-cost-service",
+  "variable-cost-service"
+ ],
+ "VARIANCE_BUDGET_PORTS": [
+  "budget-service",
+  "capital-expenditure-budget-service",
+  "cash-budget-service",
+  "flexible-budget-service",
+  "labour-cost-variance-service",
+  "labour-efficiency-variance-service",
+  "labour-rate-variance-service",
+  "master-budget-service",
+  "material-cost-variance-service",
+  "material-price-variance-service",
+  "material-usage-variance-service",
+  "sales-price-variance-service",
+  "sales-volume-variance-service",
+  "variance-service",
+  "zero-based-budget-service"
+ ],
+ "SCENARIO_BUDGET_PORTS": [
+  "ifrs-15-revenue-recognition-service",
+  "ifrs-16-lease-accounting-service",
+  "ifrs-2-share-based-payment-service",
+  "ifrs-9-financial-instruments-service",
+  "scenario-budget-service"
+ ],
+ "STATEMENT_PAYROLL_PORTS": [
+  "financial-statements-service",
+  "income-statement-service",
+  "payroll-accounting-service",
+  "payroll-service"
+ ],
+ "HEDGING_FX_PORTS": [
+  "annual-report-service",
+  "capital-budgeting-service",
+  "cash-flow-forecasting-service",
+  "commodity-hedging-service",
+  "comparative-financial-statements-service",
+  "credit-derivatives-service",
+  "cross-currency-swap-service",
+  "currency-hedging-service",
+  "exotic-derivatives-service",
+  "financial-forecasting-service",
+  "financial-reporting-service",
+  "foreign-currency-translation-service",
+  "forward-contracts-service",
+  "futures-hedging-service",
+  "interest-rate-hedging-service",
+  "interim-financial-reporting-service",
+  "labour-cost-variance-service",
+  "liquidity-forecast-service",
+  "liquidity-management-service",
+  "liquidity-risk-service",
+  "management-reporting-service",
+  "material-cost-variance-service",
+  "multi-currency-service",
+  "regulatory-reporting-service",
+  "segment-reporting-service",
+  "swap-valuation-service",
+  "working-capital-finance-service",
+  "working-capital-optimization-service",
+  "working-capital-service"
+ ],
+ "CAPITAL_RETURN_PORTS": [
+  "accounting-rate-return-service",
+  "cost-of-capital-service",
+  "discount-factor-service",
+  "discounted-payback-period-service"
+ ],
+ "INVESTOR_METRIC_PORTS": [
+  "asset-turnover-service",
+  "croic-service",
+  "du-pont-service",
+  "eps-service",
+  "eva-service"
+ ],
+ "FIXED_ASSETS_PORTS": [
+  "amortization-service",
+  "depreciation-service",
+  "fixed-assets-service"
+ ],
+ "TAX_PORTS": [
+  "corporate-tax-service",
+  "tax-calculation-service"
+ ],
+ "ABSORPTION_MARGIN_PORTS": [
+  "margin-safety-service",
+  "over-under-absorption-service"
+ ]
+}

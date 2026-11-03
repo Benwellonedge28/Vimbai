@@ -46,6 +46,17 @@ Every financial transaction, system action, and user modification is recorded in
 📱 **Platform Agnostic:**
 Access Vimbai from anywhere. Full functionality is available across web browsers, dedicated desktop applications, and native mobile apps for both Android and iOS, optimized for a consistent and intuitive user experience.
 
+## Service status
+
+The repository keeps every service directory, including calculators whose figures
+now come from the Rust library crates: their Python maths is the reference the
+Rust ports are parity-tested against, and their regression suites still run in CI.
+
+To see what is live and what is retained source, read `SERVICE-STATUS.md`. It is
+generated from the gateway route table and the retirement families by
+`python3 scripts/service_status.py`; rerun it after registering, retiring or
+deduplicating a service (`tests/test_service_status.py` fails if it is stale).
+
 ## Getting Started
 
 A detailed design document, outlining the architecture, data models, functional requirements, and technical specifications, is available in the `docs` directory.
