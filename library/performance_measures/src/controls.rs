@@ -159,10 +159,12 @@ pub fn test(request: &TestingRequest) -> TestingResult {
             "type": control.control_type,
             "process": control.process,
             "sample_size": control.test_sample_size,
-            "exceptions_found": control.exceptions_found,
+            // "exceptions" and "effective" are the names the service published;
+            // the diagnostic pair stays alongside them rather than replacing them.
+            "exceptions": control.exceptions_found,
             "exception_rate": round_dp(rate * 100.0, 1),
             "deficiency_level": level.value(),
-            "is_effective": level == DeficiencyLevel::None,
+            "effective": level == DeficiencyLevel::None,
             "remediation_needed": level != DeficiencyLevel::None,
             "last_tested": control.last_tested,
         }));

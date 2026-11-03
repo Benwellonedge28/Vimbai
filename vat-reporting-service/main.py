@@ -4,7 +4,9 @@ VAT calculation, returns, and compliance reporting.
 Port: 8351
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -12,6 +14,15 @@ from typing import Dict, List, Optional
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("vat_reporting_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["vat_reporting_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "vat-reporting-service"
 PORT = int(os.getenv("PORT", "8351"))
@@ -69,51 +80,24 @@ class VATReturn(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/prepare-return", response_model=VATReturn)
 async def prepare_vat_return(req: VATReturnRequest):
-    total_output_vat = 0
-    total_input_vat = 0
-    std_sales = 0
-    zero_sales = 0
-    exempt_sales = 0
-    std_purchases = 0
-
-    for tx in req.output_transactions:
-        vat = tx.amount * tx.vat_rate
-        total_output_vat += vat
-        if tx.transaction_type == "standard":
-            std_sales += tx.amount
-        elif tx.transaction_type == "zero_rated":
-            zero_sales += tx.amount
-        else:
-            exempt_sales += tx.amount
-
-    for tx in req.input_transactions:
-        vat = tx.amount * tx.vat_rate
-        total_input_vat += vat
-        if tx.transaction_type == "standard":
-            std_purchases += tx.amount
-
-    net = total_output_vat - total_input_vat
-    payable = max(net, 0)
-    refundable = max(-net, 0)
-
-    return VATReturn(
-        company_id=req.company_id,
-        tax_period=req.tax_period,
-        total_output_vat=round(total_output_vat, 2),
-        total_input_vat=round(total_input_vat, 2),
-        net_vat_payable=round(payable, 2),
-        net_vat_refundable=round(refundable, 2),
-        standard_rated_sales=round(std_sales, 2),
-        zero_rated_sales=round(zero_sales, 2),
-        exempt_sales=round(exempt_sales, 2),
-        standard_rated_purchases=round(std_purchases, 2),
-        vat_due_to_authority=round(payable, 2),
+    result = calc.prepare_return(
+        req.company_id,
+        req.tax_period,
+        [t.model_dump() for t in req.input_transactions],
+        [t.model_dump() for t in req.output_transactions],
     )
+    logger.info("VAT return prepared", company=req.company_id, period=req.tax_period)
+    return VATReturn(**result)
 
 
 if __name__ == "__main__":

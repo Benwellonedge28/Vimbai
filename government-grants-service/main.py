@@ -4,7 +4,9 @@ IAS 20 government grant recognition, deferred income tracking, and compliance.
 Port: 8408
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -13,6 +15,15 @@ from typing import Dict, List, Optional
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("government_grants_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["government_grants_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "government-grants-service"
 PORT = int(os.getenv("PORT", "8408"))
@@ -77,40 +88,31 @@ class GrantResult(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/recognize", response_model=GrantResult)
 async def recognize_grant(req: GrantRequest):
-    if req.grant_type == GrantType.ASSET:
-        annual = req.grant_amount / req.asset_useful_life if req.asset_useful_life else 0
-        deferred = req.grant_amount - annual  # year 1 recognition
-    else:
-        annual = req.grant_amount  # income grant recognized immediately
-        deferred = 0
-
-    return GrantResult(
-        company_id=req.company_id,
-        grant_name=req.grant_name,
-        granting_authority=req.granting_authority,
-        grant_amount=round(req.grant_amount, 2),
-        grant_type=req.grant_type.value,
-        recognition_method=req.recognition_method.value,
-        annual_recognition=round(annual, 2),
-        annual_amortization=round(annual, 2),
-        deferred_income_balance=round(deferred, 2),
-        journal_entries=[
-            f"Dr Bank {round(req.grant_amount, 2)}",
-            f"Cr Deferred Income {round(req.grant_amount, 2)}",
-        ],
-        disclosure_notes=[
-            f"Grant received from {req.granting_authority or 'government authority'}",
-            f"Recognized over {req.asset_useful_life} years",
-            f"Conditions: {', '.join(req.conditions) if req.conditions else 'None specified'}",
-        ],
-        conditions=req.conditions,
-        compliance_status=req.compliance_status,
+    result = calc.recognize_grant(
+        req.company_id,
+        req.grant_name,
+        req.granting_authority,
+        req.grant_amount,
+        req.grant_type.value,
+        req.recognition_method.value,
+        req.asset_useful_life,
+        req.related_asset_cost,
+        req.useful_life_years,
+        req.conditions,
+        req.compliance_status,
     )
+    logger.info("Grant recognized", company=req.company_id, grant=req.grant_name)
+    return GrantResult(**result)
 
 
 if __name__ == "__main__":

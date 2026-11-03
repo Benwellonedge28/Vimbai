@@ -14,7 +14,10 @@ from fastapi.testclient import TestClient
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 native = pytest.importorskip("vimbai_native", reason="build library/native to test the seam")
-if not all(hasattr(native, name) for name in ("tax_credit_json", "scorecard_json")):
+if not all(
+    hasattr(native, name)
+    for name in ("tax_credit_json", "scorecard_json", "vat_return_json", "grant_json", "controls_test_json")
+):
     pytest.skip("the installed extension predates these functions", allow_module_level=True)
 
 
@@ -155,3 +158,139 @@ def test_the_reference_engine_never_touches_the_extension(monkeypatch):
     assert answer["overall_score"] == 2000.0
     assert calls == []
     monkeypatch.setenv("VIMBAI_CALC_ENGINE", "rust")
+
+
+VAT_PAYLOAD = {
+    "company_id": "comp-seam",
+    "tax_period": "2026-Q1",
+    "output_transactions": [
+        {"description": "sales", "amount": 100000.0, "vat_rate": 0.15, "transaction_type": "standard"},
+        {"description": "exports", "amount": 40000.0, "vat_rate": 0.0, "transaction_type": "zero_rated"},
+        {"description": "health", "amount": 10000.0, "vat_rate": 0.15, "transaction_type": "exempt"},
+    ],
+    "input_transactions": [
+        {"description": "stock", "amount": 60000.0, "vat_rate": 0.15, "transaction_type": "standard"},
+    ],
+}
+
+GRANT_PAYLOAD = {
+    "company_id": "comp-seam",
+    "grant_name": "Solar rooftop",
+    "granting_authority": "Ministry of Finance",
+    "grant_amount": 120000.0,
+    "grant_type": "asset",
+    "recognition_method": "deferred_income",
+    "asset_useful_life": 4,
+    "related_asset_cost": 500000.0,
+    "conditions": ["retain jobs"],
+    "compliance_status": "compliant",
+}
+
+CONTROLS_PAYLOAD = {
+    "company_id": "comp-seam",
+    "fiscal_year": 2026,
+    "controls": [
+        {
+            "id": "c1",
+            "name": "Bank reconciliation",
+            "control_type": "preventive",
+            "description": "d",
+            "process": "cash",
+            "test_sample_size": 40,
+            "exceptions_found": 0,
+        },
+        {
+            "id": "c2",
+            "name": "Purchase approvals",
+            "control_type": "detective",
+            "description": "d",
+            "process": "p2p",
+            "test_sample_size": 40,
+            "exceptions_found": 2,
+        },
+        {
+            "id": "c3",
+            "name": "Segregation of duties",
+            "control_type": "preventive",
+            "description": "d",
+            "process": "p2p",
+            "test_sample_size": 40,
+            "exceptions_found": 4,
+        },
+        {
+            "id": "c4",
+            "name": "Month-end review",
+            "control_type": "detective",
+            "description": "d",
+            "process": "gl",
+            "test_sample_size": 40,
+            "exceptions_found": 12,
+        },
+    ],
+}
+
+
+def _both_engines(service_dir, path, payload):
+    """Post the same request through both engines and return the two answers."""
+    genesis = _client(service_dir, f"{service_dir}_rust").post(path, json=payload).json()
+    os.environ["VIMBAI_CALC_ENGINE"] = "python"
+    reference = _client(service_dir, f"{service_dir}_reference").post(path, json=payload).json()
+    os.environ["VIMBAI_CALC_ENGINE"] = "rust"
+    return genesis, reference
+
+
+def test_vat_return_matches_the_reference():
+    rust, reference = _both_engines("vat-reporting-service", "/prepare-return", VAT_PAYLOAD)
+    for field in (
+        "total_output_vat",
+        "total_input_vat",
+        "net_vat_payable",
+        "net_vat_refundable",
+        "standard_rated_sales",
+        "zero_rated_sales",
+        "exempt_sales",
+        "standard_rated_purchases",
+        "vat_due_to_authority",
+    ):
+        assert rust[field] == reference[field], field
+    assert rust["net_vat_payable"] == 7500.0
+    assert rust["zero_rated_sales"] == 40000.0
+
+
+def test_grant_recognition_matches_the_reference():
+    rust, reference = _both_engines("government-grants-service", "/recognize", GRANT_PAYLOAD)
+    for field in (
+        "grant_amount",
+        "annual_recognition",
+        "annual_amortization",
+        "deferred_income_balance",
+        "journal_entries",
+        "disclosure_notes",
+        "compliance_status",
+    ):
+        assert rust[field] == reference[field], field
+    assert rust["annual_recognition"] == 30000.0
+    assert rust["deferred_income_balance"] == 90000.0
+
+
+def test_control_testing_matches_the_reference():
+    rust, reference = _both_engines("internal-controls-testing-service", "/test", CONTROLS_PAYLOAD)
+    for field in (
+        "total_controls",
+        "controls_tested",
+        "effective_controls",
+        "deficient_controls",
+        "material_weaknesses",
+        "significant_deficiencies",
+        "overall_assessment",
+        "control_details",
+        "remediation_plan",
+    ):
+        assert rust[field] == reference[field], field
+    assert rust["overall_assessment"].startswith("Adverse opinion")
+    assert [d["deficiency_level"] for d in rust["control_details"]] == [
+        "none",
+        "deficiency",
+        "significant_deficiency",
+        "material_weakness",
+    ]

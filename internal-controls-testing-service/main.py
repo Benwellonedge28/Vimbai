@@ -4,7 +4,9 @@ SOX-style internal controls testing, deficiency classification, and remediation 
 Port: 8395
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -13,6 +15,15 @@ from typing import Dict, List, Optional
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("internal_controls_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["internal_controls_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "internal-controls-testing-service"
 PORT = int(os.getenv("PORT", "8395"))
@@ -82,82 +93,23 @@ class TestingResult(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/test", response_model=TestingResult)
 async def test_controls(req: TestingRequest):
-    effective = 0
-    deficient = 0
-    material = 0
-    significant = 0
-    details = []
-    remediation = []
-
-    for ctrl in req.controls:
-        exception_rate = ctrl.exceptions_found / ctrl.test_sample_size if ctrl.test_sample_size else 0
-
-        if exception_rate == 0:
-            level = DeficiencyLevel.NONE
-            effective += 1
-        elif exception_rate <= 0.05:
-            level = DeficiencyLevel.DEFICIENCY
-            deficient += 1
-        elif exception_rate <= 0.10:
-            level = DeficiencyLevel.SIGNIFICANT
-            significant += 1
-            deficient += 1
-        else:
-            level = DeficiencyLevel.MATERIAL
-            material += 1
-            deficient += 1
-
-        if level != DeficiencyLevel.NONE:
-            remediation.append(
-                {
-                    "control_id": ctrl.id,
-                    "control_name": ctrl.name,
-                    "deficiency_level": level.value,
-                    "exception_rate": round(exception_rate * 100, 1),
-                    "recommended_action": f"Redesign {ctrl.name} - increase sample testing frequency",
-                }
-            )
-
-        details.append(
-            {
-                "id": ctrl.id,
-                "name": ctrl.name,
-                "type": ctrl.control_type.value,
-                "process": ctrl.process,
-                "sample_size": ctrl.test_sample_size,
-                "exceptions": ctrl.exceptions_found,
-                "exception_rate": round(exception_rate * 100, 1),
-                "deficiency_level": level.value,
-                "effective": level == DeficiencyLevel.NONE,
-            }
-        )
-
-    total = len(req.controls)
-    if material > 0:
-        assessment = "Adverse opinion - material weaknesses identified"
-    elif significant > 0:
-        assessment = "Qualified opinion - significant deficiencies identified"
-    else:
-        assessment = "Unqualified opinion - controls operating effectively"
-
-    return TestingResult(
-        company_id=req.company_id,
-        fiscal_year=req.fiscal_year,
-        total_controls=total,
-        controls_tested=total,
-        effective_controls=effective,
-        deficient_controls=deficient,
-        material_weaknesses=material,
-        significant_deficiencies=significant,
-        overall_assessment=assessment,
-        control_details=details,
-        remediation_plan=remediation,
+    result = calc.test_controls(
+        req.company_id,
+        req.fiscal_year,
+        [c.model_dump(mode="json") for c in req.controls],
     )
+    logger.info("Controls tested", company=req.company_id, controls=result["total_controls"])
+    return TestingResult(**result)
 
 
 if __name__ == "__main__":

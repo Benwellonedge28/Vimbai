@@ -81,6 +81,9 @@ the seam answers where the service could not. Any client that was retrying
 
 * `r-and-d-tax-service` (`/calculate`), calculator in `calc.py`
 * `balanced-scorecard-service` (`/score`), calculator in `calc.py`
+* `vat-reporting-service` (`/prepare-return`), calculator in `calc.py`
+* `government-grants-service` (`/recognize`), calculator in `calc.py`
+* `internal-controls-testing-service` (`/test`), calculator in `calc.py`
 
 Both read `VIMBAI_CALC_ENGINE`: `auto` (default) uses Rust when the extension is
 there, `rust` refuses to start without it, `python` pins the reference. `/health`
@@ -98,8 +101,18 @@ Two things the wiring had to get right:
    calculator. The root suite caught exactly that.
 
 `tests/test_assurance_seam.py` runs every request through both engines and compares
-the figures, including the scorecard's 0-10,000 scale.
+the figures, including the scorecard's 0-10,000 scale and the control-testing detail
+records field by field.
+
+The control-testing detail record is the one place the library had widened a wire
+shape: it published `exceptions_found` and `is_effective` where the service had always
+published `exceptions` and `effective`. The library now uses the service's names and
+keeps the richer diagnostics alongside them, because a client reading `exceptions`
+would otherwise have started returning nulls.
 
 ## Still to do
 
-The remaining 29 seam functions have no service wiring yet.
+Four services cross the seam. The remaining 26 seam functions have no wiring yet:
+the other tax services (provision, risk, group tax), partnership and pension, the
+consolidation family, inventory and NRV, FX, and the market and credit risk
+services.
