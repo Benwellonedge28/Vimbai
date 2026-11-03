@@ -825,6 +825,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vimbai_group_accounting"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "vimbai_ifrs"
 version = "0.1.0"
 dependencies = [
@@ -885,6 +894,15 @@ dependencies = [
  "serde",
  "serde_json",
  "vimbai_common",
+]
+
+[[package]]
+name = "vimbai_tax_reporting"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
