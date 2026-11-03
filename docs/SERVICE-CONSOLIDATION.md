@@ -4,9 +4,9 @@ Generated from the live gateway config (`api-gateway/config/services.json`), 229
 
 ## How the 229 split
 
-* 96 carry business arithmetic with no persistence anywhere in the directory: Rust-port and merge candidates.
-* 126 keep records in Neo4j or sqlite: merge candidates, grouped below.
-* 32 are platform plumbing (gateway, bus, websocket, auth, ETL, backup, files): keep as services.
+* 96 do business arithmetic with no persistence anywhere in the directory: Rust-port and merge candidates.
+* 101 keep accounting records in Neo4j or sqlite: merge candidates, grouped below.
+* 32 are platform plumbing (bus, websocket, auth, ETL, files, policy): keep as services.
 
 ## Move to the safe-Rust workspace
 
