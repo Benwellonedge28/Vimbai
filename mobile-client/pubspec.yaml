@@ -13,7 +13,6 @@ dependencies:
   cupertino_icons: ^1.0.2
   shared_preferences: ^2.2.3 # For local storage
   http: ^1.2.1 # For making API calls
-  web_socket_channel: ^2.4.5 # Live Book event stream (WebSocket)
   connectivity_plus: ^6.0.3 # To check network status
   decimal: ^2.3.3 # For precise financial calculations
   intl: ^0.19.0 # For date formatting
