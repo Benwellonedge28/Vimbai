@@ -224,6 +224,12 @@ async def generate_production_cost_statement(
     return statement
 
 
+@app.get("/")
+async def health_check():
+    """Liveness/readiness target (the deployment probes "/")."""
+    return {"status": "healthy", "service": "absorption-costing-statement", "version": "1.0.0"}
+
+
 @app.get("/trading-account")
 async def list_trading_statements(
     company_id: Optional[str] = None,

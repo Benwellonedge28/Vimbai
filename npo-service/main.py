@@ -224,6 +224,12 @@ async def pydantic_validation_exception_handler(request, exc: PydanticValidation
 # =============================================================================
 
 
+@app.get("/")
+async def health_check():
+    """Liveness/readiness target (the deployment probes "/")."""
+    return {"status": "healthy", "service": "npo", "version": "1.0.0"}
+
+
 @app.post(
     "/funds/", response_model=models.FundInDB, status_code=status.HTTP_201_CREATED, dependencies=[Depends(lambda: None)]
 )  # Add RBAC permission check
