@@ -1,0 +1,47 @@
+# Version control
+.git
+.gitignore
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+.eggs
+
+# Virtual environments
+venv
+.venv
+env
+
+# IDE / editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+test-results
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Documentation
+*.md
+docs
+
+# CI/CD
+.github
+.k8s
+k8s
+
+# OS files
+.DS_Store
+Thumbs.db

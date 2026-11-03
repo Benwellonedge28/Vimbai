@@ -5,9 +5,10 @@ Generated from the live gateway config (`api-gateway/config/services.json`), 229
 ## Ported and removed so far
 
 Nine services are now safe Rust inside `library/capital_valuation`
-(`time_value.rs`, `growth.rs`, `allocation.rs`, `appraisal.rs`) and their
-Python directories, gateway routes, k8s documents and bracket members are gone.
-Gateway is at 220 routes.
+(`time_value.rs`, `growth.rs`, `allocation.rs`, `appraisal.rs`). They are
+de-registered: no gateway route, no k8s document, no bracket member. Their
+Python sources stay on disk as the parity oracle for the crate, marked retired
+in their `STATUS.md`. Gateway is at 220 routes.
 
 `time-value-of-money-service`, `present-value-service`, `mva-service`,
 `sustainable-growth-service`, `asset-allocation-service`,

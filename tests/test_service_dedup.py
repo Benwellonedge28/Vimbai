@@ -183,6 +183,16 @@ CAPITAL_RETURN_PORTS = {
     "discount-factor-service",
     "discounted-payback-period-service",
     "accounting-rate-return-service",
+    # second batch: time_value.rs, growth.rs, allocation.rs, appraisal.rs
+    "time-value-of-money-service",
+    "present-value-service",
+    "mva-service",
+    "sustainable-growth-service",
+    "asset-allocation-service",
+    "portfolio-optimization-service",
+    "capital-allocation-service",
+    "investment-appraisal-service",
+    "project-appraisal-service",
 }
 
 # Investor return metrics, ported into ratios_statements::investor_metrics and
@@ -213,7 +223,12 @@ ABSORPTION_MARGIN_PORTS = {
 }
 
 ALL_DEREGISTERED = (
-    RISK_DUPLICATES | PLATFORM_TEMPLATE_DUPLICATES | CALCULATOR_PORTS | COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS
+    RISK_DUPLICATES
+    | PLATFORM_TEMPLATE_DUPLICATES
+    | CALCULATOR_PORTS
+    | COST_CALCULATOR_PORTS
+    | VARIANCE_BUDGET_PORTS
+    | CAPITAL_RETURN_PORTS
 )
 
 # Families whose Python code is no longer run anywhere, so their names must stay
