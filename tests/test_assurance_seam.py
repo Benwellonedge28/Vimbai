@@ -36,6 +36,7 @@ if not all(
         "nrv_json",
         "consolidation_json",
         "options_price_json",
+        "fraud_risk_json",
     )
 ):
     pytest.skip("the installed extension predates these functions", allow_module_level=True)
@@ -790,3 +791,47 @@ def test_options_pricing_matches_the_reference():
     assert rust["portfolio_summary"]["total_premium"] == 179036.03
     assert rust["greeks_summary"]["gamma"] > 0.1
     assert "Gamma risk elevated - monitor position closely" in rust["recommendations"]
+
+
+FRAUD_PAYLOAD = {
+    "audit_id": "fraud-seam",
+    "company_id": "company-seam",
+    "industry": "retail",
+    "company_size": "small",
+    "financial_indicators": {"revenue_growth": -0.2},
+    "management_characteristics": ["high_turnover", "aggressive_targets"],
+    "internal_control_gaps": ["segregation_of_duties", "no_review", "weak_it"],
+    "prior_fraud_history": True,
+}
+
+
+def test_fraud_risk_matches_the_reference():
+    rust, reference = _both_engines("fraud-risk-assessment-service", "/assess", FRAUD_PAYLOAD)
+    assert rust == reference
+    assert rust["fraud_risk_score"] == 46.0
+    assert rust["risk_category"] == "medium"
+    assert [i["indicator"] for i in rust["pressure_indicators"]] == [
+        "Prior fraud incidents",
+        "Limited resources",
+        "Management turnover",
+    ]
+    assert rust["recommended_procedures"] == ["Standard substantive procedures"]
+    assert rust["conclusion"] == "Fraud risk assessed as medium with score of 46.0"
+
+
+def test_fraud_risk_reports_an_empty_side_of_the_triangle_as_a_place():
+    quiet = dict(
+        FRAUD_PAYLOAD,
+        prior_fraud_history=False,
+        company_size="large",
+        management_characteristics=[],
+        internal_control_gaps=[],
+    )
+    rust, reference = _both_engines("fraud-risk-assessment-service", "/assess", quiet)
+    assert rust == reference
+    assert rust["fraud_risk_score"] == 0.0
+    assert rust["risk_category"] == "low"
+    # each side still reports one zero-weight place, rather than an empty list
+    assert rust["pressure_indicators"][0]["weight"] == 0.0
+    assert rust["pressure_indicators"][0]["indicator"] == "No significant pressures identified"
+    assert rust["high_risk_areas"] == ["No high risk areas identified"]
