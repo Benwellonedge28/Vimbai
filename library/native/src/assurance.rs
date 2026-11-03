@@ -54,11 +54,16 @@ pub struct CreditDto {
     pub fiscal_year: i32,
     #[serde(default)]
     pub expenditures: Vec<ExpenditureDto>,
+    /// The service let a caller override the statutory rates, so the seam must too.
+    #[serde(default)]
+    pub credit_rate: Option<f64>,
+    #[serde(default)]
+    pub alternative_rate: Option<f64>,
 }
 
 pub fn credit_json(payload: &str) -> Result<String, String> {
     let dto: CreditDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
-    let request = ClaimRequest::new(
+    let mut request = ClaimRequest::new(
         &dto.company_id,
         dto.fiscal_year,
         dto.expenditures
@@ -71,6 +76,12 @@ pub fn credit_json(payload: &str) -> Result<String, String> {
             })
             .collect(),
     );
+    if let Some(rate) = dto.credit_rate {
+        request.credit_rate = rate;
+    }
+    if let Some(rate) = dto.alternative_rate {
+        request.alternative_rate = rate;
+    }
     serde_json::to_string(&credit::calculate(&request)).map_err(|e| e.to_string())
 }
 

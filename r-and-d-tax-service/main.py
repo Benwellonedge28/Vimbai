@@ -4,7 +4,9 @@ R&D tax credit calculation, qualifying expenditure tracking, and claim preparati
 Port: 8377
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List
@@ -12,6 +14,15 @@ from typing import Dict, List
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("r_and_d_tax_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["r_and_d_tax_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "r-and-d-tax-service"
 PORT = int(os.getenv("PORT", "8377"))
@@ -63,36 +74,25 @@ class RDClaimResult(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/calculate", response_model=RDClaimResult)
 async def calculate_credit(req: RDClaimRequest):
-    total = sum(e.amount for e in req.expenditures)
-    qualifying = sum(e.amount for e in req.expenditures if e.qualifies)
-    non_qualifying = total - qualifying
-
-    credit_reg = qualifying * req.credit_rate
-    credit_alt = qualifying * req.alternative_rate
-
-    breakdown = {}
-    for e in req.expenditures:
-        if e.qualifies:
-            breakdown[e.category] = breakdown.get(e.category, 0) + e.amount
-
-    recommended = "regular" if credit_reg > credit_alt else "alternative_simplified"
-
-    return RDClaimResult(
-        company_id=req.company_id,
-        fiscal_year=req.fiscal_year,
-        total_expenditure=round(total, 2),
-        qualifying_expenditure=round(qualifying, 2),
-        non_qualifying=round(non_qualifying, 2),
-        credit_regular=round(credit_reg, 2),
-        credit_alternative=round(credit_alt, 2),
-        recommended_method=recommended,
-        expenditure_breakdown={k: round(v, 2) for k, v in breakdown.items()},
+    result = calc.credit_claim(
+        req.company_id,
+        req.fiscal_year,
+        [e.model_dump() for e in req.expenditures],
+        req.credit_rate,
+        req.alternative_rate,
     )
+    logger.info("R&D credit calculated", company=req.company_id, method=result["recommended_method"])
+    return RDClaimResult(**result)
 
 
 if __name__ == "__main__":

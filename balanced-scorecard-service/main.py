@@ -4,7 +4,9 @@ Kaplan-Norton balanced scorecard with four perspectives and strategic alignment.
 Port: 8390
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -12,6 +14,15 @@ from typing import Dict, List, Optional
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("balanced_scorecard_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["balanced_scorecard_calc"] = calc
+_spec.loader.exec_module(calc)
 
 SERVICE_NAME = "balanced-scorecard-service"
 PORT = int(os.getenv("PORT", "8390"))
@@ -63,7 +74,12 @@ class ScorecardResult(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/score", response_model=ScorecardResult)
@@ -77,51 +93,8 @@ async def calculate_scorecard(req: ScorecardRequest):
 
     action_items = []
 
-    for kpi in req.kpis:
-        p = perspectives.get(kpi.perspective, perspectives["financial"])
-        achievement = min(kpi.actual / kpi.target, 1.0) * 100 if kpi.target > 0 else 100
-        weighted_score = achievement * kpi.weight
-        p["kpis"].append(
-            {
-                "name": kpi.name,
-                "target": kpi.target,
-                "actual": kpi.actual,
-                "achievement_pct": round(achievement, 1),
-                "weight": kpi.weight,
-            }
-        )
-        p["score"] += weighted_score
-        p["weight_total"] += kpi.weight
-
-        if achievement < 80:
-            action_items.append(f"{kpi.name}: Below target ({achievement:.0f}%) - review strategy")
-
-    for key in perspectives:
-        wt = perspectives[key]["weight_total"]
-        perspectives[key]["score"] = round(perspectives[key]["score"] / wt * 100, 1) if wt else 0
-
-    fin = perspectives["financial"]["score"]
-    cust = perspectives["customer"]["score"]
-    internal = perspectives["internal"]["score"]
-    learning = perspectives["learning_growth"]["score"]
-    overall = round((fin + cust + internal + learning) / 4, 1)
-
-    if overall < 70:
-        action_items.insert(0, "Overall performance below 70% - strategic realignment needed")
-    elif overall >= 90:
-        action_items.insert(0, "Excellent performance across all perspectives")
-
-    return ScorecardResult(
-        company_id=req.company_id,
-        period=req.period,
-        financial_score=fin,
-        customer_score=cust,
-        internal_score=internal,
-        learning_score=learning,
-        overall_score=overall,
-        perspectives={k: {kk: vv for kk, vv in v.items() if kk != "weight_total"} for k, v in perspectives.items()},
-        action_items=action_items or ["All KPIs on track"],
-    )
+    result = calc.scorecard(req.company_id, req.period, [k.model_dump() for k in req.kpis])
+    return ScorecardResult(**result)
 
 
 if __name__ == "__main__":

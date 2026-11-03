@@ -1,0 +1,157 @@
+"""Parity between the assurance seam and the services that cross it.
+
+The R&D credit and the balanced scorecard now run either engine. These tests hold
+both to the same figures, because a seam only earns its place if it reproduces what
+the service already reported.
+"""
+
+import importlib.util
+import os
+import sys
+
+import pytest
+from fastapi.testclient import TestClient
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+native = pytest.importorskip("vimbai_native", reason="build library/native to test the seam")
+if not all(hasattr(native, name) for name in ("tax_credit_json", "scorecard_json")):
+    pytest.skip("the installed extension predates these functions", allow_module_level=True)
+
+
+def _client(service_dir, name):
+    """Load a service by path with its own directory importable.
+
+    Each service has its own calc.py, so the directory goes on the path and the
+    cached `calc` module is dropped first; otherwise the second service would
+    silently import the first one's calculator.
+    """
+    if REPO_ROOT not in sys.path:
+        sys.path.insert(0, REPO_ROOT)
+    sys.modules.pop("calc", None)
+    service_path = os.path.join(REPO_ROOT, service_dir)
+    sys.path.insert(0, service_path)
+    try:
+        spec = importlib.util.spec_from_file_location(name, os.path.join(service_path, "main.py"))
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(service_path)
+    return TestClient(module.app)
+
+
+@pytest.fixture(autouse=True)
+def _engine(monkeypatch):
+    """Pin the Rust engine: these tests exist to prove it answers."""
+    monkeypatch.setenv("VIMBAI_CALC_ENGINE", "rust")
+
+
+def test_rd_credit_reports_the_rust_engine():
+    client = _client("r-and-d-tax-service", "seam_rnd_main")
+    health = client.get("/health").json()
+    assert health["calculation_engine"] == "rust"
+
+
+def test_rd_credit_matches_the_reference():
+    payload = {
+        "company_id": "comp-seam",
+        "fiscal_year": 2026,
+        "credit_rate": 0.12,
+        "alternative_rate": 0.08,
+        "expenditures": [
+            {"category": "wages", "description": "engineers", "amount": 120000.0, "qualifies": True},
+            {"category": "supplies", "description": "lab", "amount": 30000.5, "qualifies": True},
+            {"category": "rent", "description": "office", "amount": 20000.0, "qualifies": False},
+        ],
+    }
+    client = _client("r-and-d-tax-service", "seam_rnd_main")
+    rust = client.post("/calculate", json=payload).json()
+
+    os.environ["VIMBAI_CALC_ENGINE"] = "python"
+    python = _client("r-and-d-tax-service", "seam_rnd_reference").post("/calculate", json=payload).json()
+    os.environ["VIMBAI_CALC_ENGINE"] = "rust"
+
+    for field in ("total_expenditure", "qualifying_expenditure", "non_qualifying", "expenditure_breakdown"):
+        assert rust[field] == python[field], field
+    # both engines compare the unrounded credits, so the recommendation agrees
+    assert rust["recommended_method"] == python["recommended_method"]
+    assert rust["credit_regular"] == pytest.approx(python["credit_regular"], abs=0.01)
+    assert rust["credit_alternative"] == pytest.approx(python["credit_alternative"], abs=0.01)
+    assert rust["credit_regular"] == 18000.06
+    assert rust["recommended_method"] == "regular"
+
+
+def test_scorecard_reports_the_rust_engine():
+    client = _client("balanced-scorecard-service", "seam_bsc_main")
+    assert client.get("/health").json()["calculation_engine"] == "rust"
+
+
+def test_scorecard_matches_the_reference():
+    payload = {
+        "company_id": "comp-seam",
+        "period": "2026-Q1",
+        "kpis": [
+            {
+                "name": "Revenue growth",
+                "perspective": "financial",
+                "target": 1000000.0,
+                "actual": 800000.0,
+                "weight": 2.0,
+            },
+            {"name": "NPS", "perspective": "customer", "target": 50.0, "actual": 30.0, "weight": 1.0},
+            {"name": "Cycle time", "perspective": "internal", "target": 10.0, "actual": 12.0, "weight": 1.0},
+        ],
+    }
+    genesis = _client("balanced-scorecard-service", "seam_bsc_main")
+    rust = genesis.post("/score", json=payload).json()
+
+    os.environ["VIMBAI_CALC_ENGINE"] = "python"
+    python = _client("balanced-scorecard-service", "seam_bsc_reference").post("/score", json=payload).json()
+    os.environ["VIMBAI_CALC_ENGINE"] = "rust"
+
+    for field in (
+        "financial_score",
+        "customer_score",
+        "internal_score",
+        "learning_score",
+        "overall_score",
+        "action_items",
+    ):
+        assert rust[field] == python[field], field
+    # the scale quirk is preserved on both sides, not corrected by the port
+    assert rust["financial_score"] == 8000.0
+    # the internal KPI met its target, so it scores 10,000 and drags the mean to 6,000
+    assert rust["internal_score"] == 10000.0
+    assert rust["overall_score"] == 6000.0
+    assert rust["action_items"][0] == "Excellent performance across all perspectives"
+
+
+def test_a_missing_extension_refuses_to_start_when_rust_is_demanded():
+    """VIMBAI_CALC_ENGINE=rust must fail loudly, not quietly fall back."""
+    client = _client("r-and-d-tax-service", "seam_rnd_absent")
+    calc_module = sys.modules["r_and_d_tax_calc"]
+    original = calc_module._extension
+    calc_module._extension = lambda: None
+    try:
+        with pytest.raises(calc_module.EngineUnavailable):
+            client.get("/health")
+    finally:
+        calc_module._extension = original
+
+
+def test_the_reference_engine_never_touches_the_extension(monkeypatch):
+    """Pinning python must bypass Rust entirely, even when it is installed."""
+    client = _client("balanced-scorecard-service", "seam_bsc_pinned")
+    calc_module = sys.modules["balanced_scorecard_calc"]
+    calls = []
+    monkeypatch.setenv("VIMBAI_CALC_ENGINE", "python")
+    monkeypatch.setattr(calc_module, "_extension", lambda: calls.append("touched"))
+    payload = {
+        "company_id": "comp-seam",
+        "period": "2026-Q1",
+        "kpis": [{"name": "R", "perspective": "financial", "target": 100.0, "actual": 80.0, "weight": 2.0}],
+    }
+    answer = client.post("/score", json=payload).json()
+    assert answer["overall_score"] == 2000.0
+    assert calls == []
+    monkeypatch.setenv("VIMBAI_CALC_ENGINE", "rust")

@@ -77,8 +77,29 @@ crate renders that field as a string and keeps the top-level grade numeric, so
 the seam answers where the service could not. Any client that was retrying
 `/analyze` against the Python service has never had a successful response.
 
+## Services crossing the seam
+
+* `r-and-d-tax-service` (`/calculate`), calculator in `calc.py`
+* `balanced-scorecard-service` (`/score`), calculator in `calc.py`
+
+Both read `VIMBAI_CALC_ENGINE`: `auto` (default) uses Rust when the extension is
+there, `rust` refuses to start without it, `python` pins the reference. `/health`
+reports `calculation_engine`, so production can be checked without inspecting a
+response.
+
+Two things the wiring had to get right:
+
+1. The engine probe tests for the *functions* it needs, not the module. An older
+   wheel on the image imports cleanly and then fails on the first call, which would
+   be a runtime error in a request rather than a clear startup failure.
+2. Each service loads its own `calc.py` under a unique module name. A plain
+   `import calc` lets whichever service was loaded first own the name, so in a
+   process holding two services the second one silently calls the first one's
+   calculator. The root suite caught exactly that.
+
+`tests/test_assurance_seam.py` runs every request through both engines and compares
+the figures, including the scorecard's 0-10,000 scale.
+
 ## Still to do
 
-No service imports the seam yet. Wiring one means the `VIMBAI_CALC_ENGINE`
-switch the earlier conversions use: `rust`, `python`, or `auto`, with `/health`
-reporting which engine answered.
+The remaining 29 seam functions have no service wiring yet.
