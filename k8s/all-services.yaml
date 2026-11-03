@@ -7503,111 +7503,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: forensic-accounting-service
-  namespace: vimbai
-  labels:
-    app: forensic-accounting-service
-    tier: backend
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: forensic-accounting-service
-  template:
-    metadata:
-      labels:
-        app: forensic-accounting-service
-        tier: backend
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8313"
-    spec:
-      containers:
-      - name: forensic-accounting-service
-        image: ghcr.io/benwellonedge28/vimbai/forensic-accounting-service:latest
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8313
-          name: http
-        env:
-        - name: NEO4J_URI
-          valueFrom:
-            configMapKeyRef:
-              name: vimbai-config
-              key: NEO4J_URI
-        - name: NEO4J_USER
-          valueFrom:
-            configMapKeyRef:
-              name: vimbai-config
-              key: NEO4J_USER
-        - name: NEO4J_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: NEO4J_PASSWORD
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://otel-collector:4317"
-        - name: OTEL_EXPORTER_OTLP_PROTOCOL
-          value: grpc
-        - name: OTEL_SERVICE_NAMESPACE
-          value: vimbai
-        - name: DEPLOYMENT_ENV
-          value: production
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: JWT_SECRET
-        - name: RABBITMQ_HOST
-          value: "rabbitmq"
-        - name: RABBITMQ_USER
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: RABBITMQ_USER
-        - name: RABBITMQ_PASS
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: RABBITMQ_PASS
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 8313
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 8313
-          initialDelaySeconds: 10
-          periodSeconds: 10
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: forensic-accounting-service
-  namespace: vimbai
-  labels:
-    app: forensic-accounting-service
-spec:
-  selector:
-    app: forensic-accounting-service
-  ports:
-  - name: http
-    port: 8313
-    targetPort: 8313
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: fraud-detection-service
   namespace: vimbai
   labels:
@@ -10041,111 +9936,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: it-audit-service
-  namespace: vimbai
-  labels:
-    app: it-audit-service
-    tier: backend
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: it-audit-service
-  template:
-    metadata:
-      labels:
-        app: it-audit-service
-        tier: backend
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8318"
-    spec:
-      containers:
-      - name: it-audit-service
-        image: ghcr.io/benwellonedge28/vimbai/it-audit-service:latest
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8318
-          name: http
-        env:
-        - name: NEO4J_URI
-          valueFrom:
-            configMapKeyRef:
-              name: vimbai-config
-              key: NEO4J_URI
-        - name: NEO4J_USER
-          valueFrom:
-            configMapKeyRef:
-              name: vimbai-config
-              key: NEO4J_USER
-        - name: NEO4J_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: NEO4J_PASSWORD
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://otel-collector:4317"
-        - name: OTEL_EXPORTER_OTLP_PROTOCOL
-          value: grpc
-        - name: OTEL_SERVICE_NAMESPACE
-          value: vimbai
-        - name: DEPLOYMENT_ENV
-          value: production
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: JWT_SECRET
-        - name: RABBITMQ_HOST
-          value: "rabbitmq"
-        - name: RABBITMQ_USER
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: RABBITMQ_USER
-        - name: RABBITMQ_PASS
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: RABBITMQ_PASS
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 8318
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 8318
-          initialDelaySeconds: 10
-          periodSeconds: 10
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: it-audit-service
-  namespace: vimbai
-  labels:
-    app: it-audit-service
-spec:
-  selector:
-    app: it-audit-service
-  ports:
-  - name: http
-    port: 8318
-    targetPort: 8318
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: job-costing-service
   namespace: vimbai
   labels:
@@ -11520,111 +11310,6 @@ spec:
   - name: http
     port: 8446
     targetPort: 8446
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: operational-audit-service
-  namespace: vimbai
-  labels:
-    app: operational-audit-service
-    tier: backend
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: operational-audit-service
-  template:
-    metadata:
-      labels:
-        app: operational-audit-service
-        tier: backend
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8319"
-    spec:
-      containers:
-      - name: operational-audit-service
-        image: ghcr.io/benwellonedge28/vimbai/operational-audit-service:latest
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8319
-          name: http
-        env:
-        - name: NEO4J_URI
-          valueFrom:
-            configMapKeyRef:
-              name: vimbai-config
-              key: NEO4J_URI
-        - name: NEO4J_USER
-          valueFrom:
-            configMapKeyRef:
-              name: vimbai-config
-              key: NEO4J_USER
-        - name: NEO4J_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: NEO4J_PASSWORD
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://otel-collector:4317"
-        - name: OTEL_EXPORTER_OTLP_PROTOCOL
-          value: grpc
-        - name: OTEL_SERVICE_NAMESPACE
-          value: vimbai
-        - name: DEPLOYMENT_ENV
-          value: production
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: JWT_SECRET
-        - name: RABBITMQ_HOST
-          value: "rabbitmq"
-        - name: RABBITMQ_USER
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: RABBITMQ_USER
-        - name: RABBITMQ_PASS
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: RABBITMQ_PASS
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 8319
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 8319
-          initialDelaySeconds: 10
-          periodSeconds: 10
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: operational-audit-service
-  namespace: vimbai
-  labels:
-    app: operational-audit-service
-spec:
-  selector:
-    app: operational-audit-service
-  ports:
-  - name: http
-    port: 8319
-    targetPort: 8319
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -17842,111 +17527,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tax-audit-service
-  namespace: vimbai
-  labels:
-    app: tax-audit-service
-    tier: backend
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: tax-audit-service
-  template:
-    metadata:
-      labels:
-        app: tax-audit-service
-        tier: backend
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8300"
-    spec:
-      containers:
-      - name: tax-audit-service
-        image: ghcr.io/benwellonedge28/vimbai/tax-audit-service:latest
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8300
-          name: http
-        env:
-        - name: NEO4J_URI
-          valueFrom:
-            configMapKeyRef:
-              name: vimbai-config
-              key: NEO4J_URI
-        - name: NEO4J_USER
-          valueFrom:
-            configMapKeyRef:
-              name: vimbai-config
-              key: NEO4J_USER
-        - name: NEO4J_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: NEO4J_PASSWORD
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://otel-collector:4317"
-        - name: OTEL_EXPORTER_OTLP_PROTOCOL
-          value: grpc
-        - name: OTEL_SERVICE_NAMESPACE
-          value: vimbai
-        - name: DEPLOYMENT_ENV
-          value: production
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: JWT_SECRET
-        - name: RABBITMQ_HOST
-          value: "rabbitmq"
-        - name: RABBITMQ_USER
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: RABBITMQ_USER
-        - name: RABBITMQ_PASS
-          valueFrom:
-            secretKeyRef:
-              name: vimbai-secrets
-              key: RABBITMQ_PASS
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 8300
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 8300
-          initialDelaySeconds: 10
-          periodSeconds: 10
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: tax-audit-service
-  namespace: vimbai
-  labels:
-    app: tax-audit-service
-spec:
-  selector:
-    app: tax-audit-service
-  ports:
-  - name: http
-    port: 8300
-    targetPort: 8300
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: tax-compliance-service
   namespace: vimbai
   labels:
@@ -20357,3 +19937,94 @@ spec:
       target:
         type: Utilization
         averageUtilization: 70
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audit-engagement-service
+  namespace: vimbai
+  labels:
+    app: audit-engagement-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: audit-engagement-service
+  template:
+    metadata:
+      labels:
+        app: audit-engagement-service
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8300"
+    spec:
+      containers:
+      - name: audit-engagement-service
+        image: ghcr.io/benwellonedge28/vimbai/audit-engagement-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8300
+          name: http
+        env:
+        - name: NEO4J_URI
+          valueFrom:
+            configMapKeyRef:
+              name: vimbai-config
+              key: NEO4J_URI
+        - name: NEO4J_USER
+          valueFrom:
+            configMapKeyRef:
+              name: vimbai-config
+              key: NEO4J_USER
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: NEO4J_PASSWORD
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector:4317"
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: grpc
+        - name: OTEL_SERVICE_NAMESPACE
+          value: vimbai
+        - name: DEPLOYMENT_ENV
+          value: production
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: JWT_SECRET
+        - name: RABBITMQ_HOST
+          value: "rabbitmq"
+        - name: RABBITMQ_USER
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: RABBITMQ_USER
+        - name: RABBITMQ_PASS
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: RABBITMQ_PASS
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8300
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8300
+          initialDelaySeconds: 10
+          periodSeconds: 10

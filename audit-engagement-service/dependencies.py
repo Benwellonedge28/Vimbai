@@ -16,7 +16,7 @@ async def get_user_id(x_user_id: str = Header(...)) -> str:
 
 
 async def get_db_session():
-    from it_audit_service.database import Neo4jConnector
+    from audit_engagement_service.database import Neo4jConnector
 
     async with Neo4jConnector.get_driver().session() as session:
         yield session

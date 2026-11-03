@@ -1,4 +1,4 @@
-"""Vimbai Tax Audit Service - audit engagements, findings and remediation. Port: 8370
+"""Vimbai Audit Engagement Service - audit engagements, findings and remediation. Port: 8370
 
 This file may be imported bare (bracket mounts, uvicorn main:app), so it
 bootstraps its own package alias before importing sibling modules.
@@ -9,25 +9,27 @@ import os as _os
 import sys as _sys
 
 _HERE = _os.path.dirname(_os.path.abspath(__file__))
-if "tax_audit_service" not in _sys.modules or not hasattr(_sys.modules.get("tax_audit_service"), "__path__"):
-    _spec = importlib.util.spec_from_file_location("tax_audit_service", _os.path.join(_HERE, "__init__.py"))
+if "audit_engagement_service" not in _sys.modules or not hasattr(
+    _sys.modules.get("audit_engagement_service"), "__path__"
+):
+    _spec = importlib.util.spec_from_file_location("audit_engagement_service", _os.path.join(_HERE, "__init__.py"))
     _pkg = importlib.util.module_from_spec(_spec)
     _spec.loader.exec_module(_pkg)
-    _sys.modules["tax_audit_service"] = _pkg
-    _sys.modules["tax_audit_service"].__path__ = [_HERE]
+    _sys.modules["audit_engagement_service"] = _pkg
+    _sys.modules["audit_engagement_service"].__path__ = [_HERE]
 
 import os
 
 import structlog
+from audit_engagement_service import crud, models
+from audit_engagement_service.dependencies import book_id_var, get_db_session, get_user_id
+from audit_engagement_service.exceptions import AuditEngagementError
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from neo4j import AsyncSession
-from tax_audit_service import crud, models
-from tax_audit_service.dependencies import book_id_var, get_db_session, get_user_id
-from tax_audit_service.exceptions import TaxAuditError
 
-SERVICE_NAME = "tax-audit-service"
-PORT = int(os.getenv("PORT", "8370"))
+SERVICE_NAME = "audit-engagement-service"
+PORT = int(os.getenv("PORT", "8371"))
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
@@ -39,7 +41,7 @@ structlog.configure(
     cache_logger_on_first_use=True,
 )
 logger = structlog.get_logger(SERVICE_NAME)
-app = FastAPI(title="Vimbai Tax Audit Service", version="2.0.0", docs_url="/docs")
+app = FastAPI(title="Vimbai Audit Engagement Service", version="2.0.0", docs_url="/docs")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
@@ -51,8 +53,8 @@ except ImportError:
     TRACER = None
 
 
-@app.exception_handler(TaxAuditError)
-async def _tax_audit_error(request: Request, exc: TaxAuditError):
+@app.exception_handler(AuditEngagementError)
+async def _audit_engagement_error(request: Request, exc: AuditEngagementError):
     from fastapi.responses import JSONResponse
 
     status = getattr(exc, "status_code", 400)
@@ -82,14 +84,27 @@ async def create_engagement(
     return item
 
 
+@app.get("/audit-types")
+async def audit_types() -> dict:
+    """The audit families this one service covers."""
+    return {
+        "audit_types": ["tax", "forensic", "it", "operational"],
+        "note": "Pass audit_type to /engagements/{company_id} to read a single family.",
+    }
+
+
 @app.get("/engagements/{company_id}")
 async def get_engagements(
     company_id: str,
-    status_filter: str = None,
+    status: str = "",
+    audit_type: str = "",
     user_id: str = Depends(get_user_id),
     db_session: AsyncSession = Depends(get_db_session),
 ):
-    engagements = await crud.list_engagements(db_session, user_id, company_id, status_filter or "")
+    """List a company's engagements, optionally narrowed to one audit family."""
+    engagements = await crud.list_engagements(
+        db_session, user_id, company_id, status_filter=status, audit_type=audit_type
+    )
     return {"company_id": company_id, "engagements": engagements, "total": len(engagements)}
 
 
@@ -103,7 +118,7 @@ async def update_status(
 ):
     try:
         return await crud.update_status(db_session, user_id, engagement_id, status, summary)
-    except TaxAuditError as exc:
+    except AuditEngagementError as exc:
         raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
@@ -116,7 +131,7 @@ async def add_finding(
 ):
     try:
         return await crud.add_finding(db_session, user_id, engagement_id, finding)
-    except TaxAuditError as exc:
+    except AuditEngagementError as exc:
         raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
@@ -129,7 +144,7 @@ async def remediate_finding(
 ):
     try:
         return await crud.remediate_finding(db_session, user_id, finding_id, remediation_note)
-    except TaxAuditError as exc:
+    except AuditEngagementError as exc:
         raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 
@@ -141,7 +156,7 @@ async def audit_report(
 ):
     try:
         return await crud.audit_report(db_session, user_id, engagement_id)
-    except TaxAuditError as exc:
+    except AuditEngagementError as exc:
         raise HTTPException(status_code=getattr(exc, "status_code", 404), detail=str(exc))
 
 

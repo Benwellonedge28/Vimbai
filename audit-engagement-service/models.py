@@ -1,4 +1,4 @@
-"""Pydantic models for the Forensic Accounting Service."""
+"""Pydantic models for the Audit Engagement Service."""
 
 import uuid
 from datetime import datetime, timezone

@@ -28,6 +28,14 @@ profit-loss-account retires on the port that already existed in
 `ratios_statements::profit_loss`. Gateway 208 routes, ten k8s documents, five
 bracket members.
 
+Audit families merged: tax-audit, forensic-accounting, it-audit and
+operational-audit were the same service four times over (same models, same
+crud, same six routes) and now run as one audit-engagement-service on 8371.
+audit_type names the family, /engagements/{company_id}?audit_type= narrows the
+listing, and /audit-types lists what the service covers. Gateway 186 routes.
+Stored nodes keep the :AuditEngagement label, so existing engagements stay
+readable.
+
 Eighth and final analysis batch: fund-management, investment-portfolio,
 interest-rate-risk (portfolios module), transfer-pricing and
 analytical-procedures (audit module) complete `vimbai_advisory`. All nineteen
@@ -104,7 +112,15 @@ NPV, IRR, payback, profitability index, present value, TVM, MVA, sustainable gro
 * `profitability-index-service`
 * `project-appraisal-service`
 * `sustainable-growth-service`
-* Eighth and final analysis batch: fund-management, investment-portfolio,
+* Audit families merged: tax-audit, forensic-accounting, it-audit and
+operational-audit were the same service four times over (same models, same
+crud, same six routes) and now run as one audit-engagement-service on 8371.
+audit_type names the family, /engagements/{company_id}?audit_type= narrows the
+listing, and /audit-types lists what the service covers. Gateway 186 routes.
+Stored nodes keep the :AuditEngagement label, so existing engagements stay
+readable.
+
+Eighth and final analysis batch: fund-management, investment-portfolio,
 interest-rate-risk (portfolios module), transfer-pricing and
 analytical-procedures (audit module) complete `vimbai_advisory`. All nineteen
 record-free analyzers are now Rust and their directories are deleted. Gateway

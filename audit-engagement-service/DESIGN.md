@@ -1,7 +1,7 @@
-# Design Document: it-audit-service
+# Design Document: audit-engagement-service
 
 ## 1. Overview
-The `it-audit-service` is a microservice within the Vimbai Financial Accounting Platform. It is responsible for handling specific financial logic, data processing, or integration tasks related to its domain.
+The `audit-engagement-service` is a microservice within the Vimbai Financial Accounting Platform. It is responsible for handling specific financial logic, data processing, or integration tasks related to its domain.
 
 ## 2. Architecture
 - **Framework:** FastAPI (Python) or Gin/Standard Library (Go)

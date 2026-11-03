@@ -54,7 +54,7 @@ jobs:
           - group: partnership-bracket
             services: "partnership-agreement-service partnership-changes-service partnership-dissolution-service partnership-revaluation-service"
           - group: tax-audit-investigation-bracket
-            services: "corporate-tax-service forensic-accounting-service it-audit-service operational-audit-service tax-audit-service sox-compliance-service"
+            services: "corporate-tax-service audit-engagement-service sox-compliance-service"
           - group: general-services-bracket
             services: "org-authorization-engine"
           - group: treasury-banking-bracket

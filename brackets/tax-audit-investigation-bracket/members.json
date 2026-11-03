@@ -8,6 +8,11 @@
       "dir": "audit-compliance-service"
     },
     {
+      "path": "/audit-engagement",
+      "name": "audit-engagement-service",
+      "dir": "audit-engagement-service"
+    },
+    {
       "path": "/audit-evidence",
       "name": "audit-evidence-service",
       "dir": "audit-evidence-service"
@@ -18,24 +23,9 @@
       "dir": "audit-sampling-service"
     },
     {
-      "path": "/forensic-accounting",
-      "name": "forensic-accounting-service",
-      "dir": "forensic-accounting-service"
-    },
-    {
       "path": "/group-tax",
       "name": "group-tax-service",
       "dir": "group-tax-service"
-    },
-    {
-      "path": "/it-audit",
-      "name": "it-audit-service",
-      "dir": "it-audit-service"
-    },
-    {
-      "path": "/operational-audit",
-      "name": "operational-audit-service",
-      "dir": "operational-audit-service"
     },
     {
       "path": "/r-and-d-tax",
@@ -61,11 +51,6 @@
       "path": "/tax-accounting",
       "name": "tax-accounting-service",
       "dir": "tax-accounting-service"
-    },
-    {
-      "path": "/tax-audit",
-      "name": "tax-audit-service",
-      "dir": "tax-audit-service"
     },
     {
       "path": "/tax-compliance",

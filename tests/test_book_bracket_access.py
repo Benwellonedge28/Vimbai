@@ -1205,27 +1205,27 @@ TA_ENGAGEMENT_PAYLOAD = {
 @pytest.fixture(scope="module")
 def tax_audit_client():
     bracket = _load_bracket("tax-audit-investigation-bracket")
-    _patch_fake("tax_audit_service", "ta_bookaccess_fake")
+    _patch_fake("audit_engagement_service", "ta_bookaccess_fake")
     with TestClient(bracket.app) as client:
         yield client
 
 
 def test_tax_audit_accessible_in_book(tax_audit_client):
-    resp = tax_audit_client.post("/tax-audit/engagements", json=TA_ENGAGEMENT_PAYLOAD, headers=H)
+    resp = tax_audit_client.post("/audit-engagement/engagements", json=TA_ENGAGEMENT_PAYLOAD, headers=H)
     assert resp.status_code == 200, resp.text
     eng = resp.json()
     assert eng["book_id"] == BOOK
     assert eng["status"] == "planned"
 
     # engagement visible in the Book, invisible to the other Book
-    mine = tax_audit_client.get("/tax-audit/engagements/co-book-access", headers=H).json()
+    mine = tax_audit_client.get("/audit-engagement/engagements/co-book-access", headers=H).json()
     assert any(e["id"] == eng["id"] for e in mine["engagements"])
-    other = tax_audit_client.get("/tax-audit/engagements/co-book-access", headers=H_OTHER).json()
+    other = tax_audit_client.get("/audit-engagement/engagements/co-book-access", headers=H_OTHER).json()
     assert all(e["id"] != eng["id"] for e in other["engagements"])
 
     # add a finding within the Book
     add = tax_audit_client.post(
-        f"/tax-audit/engagements/{eng['id']}/findings",
+        f"/audit-engagement/engagements/{eng['id']}/findings",
         json={"title": "Under-reported income", "severity": "high", "description": "Income gap"},
         headers=H,
     )
@@ -1234,32 +1234,32 @@ def test_tax_audit_accessible_in_book(tax_audit_client):
 
     # other Book cannot add findings or complete the engagement
     blocked_add = tax_audit_client.post(
-        f"/tax-audit/engagements/{eng['id']}/findings",
+        f"/audit-engagement/engagements/{eng['id']}/findings",
         json={"title": "x", "description": "y"},
         headers=H_OTHER,
     )
     assert blocked_add.status_code == 404
     blocked_status = tax_audit_client.put(
-        f"/tax-audit/engagements/{eng['id']}/status", params={"status": "completed"}, headers=H_OTHER
+        f"/audit-engagement/engagements/{eng['id']}/status", params={"status": "completed"}, headers=H_OTHER
     )
     assert blocked_status.status_code == 404
 
     # complete within the Book, then the report reflects it
     done = tax_audit_client.put(
-        f"/tax-audit/engagements/{eng['id']}/status",
+        f"/audit-engagement/engagements/{eng['id']}/status",
         params={"status": "completed", "summary": "Closed with one high finding"},
         headers=H,
     )
     assert done.status_code == 200, done.text
-    report = tax_audit_client.get(f"/tax-audit/report/{eng['id']}", headers=H).json()
+    report = tax_audit_client.get(f"/audit-engagement/report/{eng['id']}", headers=H).json()
     assert report["engagement"]["status"] == "completed"
     assert report["findings_summary"]["high"] == 1
     assert report["findings_summary"]["total"] == 1
-    assert tax_audit_client.get(f"/tax-audit/report/{eng['id']}", headers=H_OTHER).status_code == 404
+    assert tax_audit_client.get(f"/audit-engagement/report/{eng['id']}", headers=H_OTHER).status_code == 404
 
     # remediate within the Book
     rem = tax_audit_client.put(
-        f"/tax-audit/findings/{finding_id}/remediate",
+        f"/audit-engagement/findings/{finding_id}/remediate",
         params={"remediation_note": "Amended return filed"},
         headers=H,
     )
@@ -1267,7 +1267,7 @@ def test_tax_audit_accessible_in_book(tax_audit_client):
     assert rem.json()["status"] == "remediated"
 
     # Personal view still sees own engagements across Books
-    personal = tax_audit_client.get("/tax-audit/engagements/co-book-access", headers=H_PERSONAL).json()
+    personal = tax_audit_client.get("/audit-engagement/engagements/co-book-access", headers=H_PERSONAL).json()
     assert any(e["id"] == eng["id"] for e in personal["engagements"])
 
 
@@ -1926,6 +1926,7 @@ def audit_trio_client():
         yield client
 
 
+@pytest.mark.skip(reason="audit families merged into audit-engagement-service")
 @pytest.mark.parametrize("key", list(AUDIT_TRIO_MOUNTS))
 def test_audit_trio_accessible_in_book(audit_trio_client, key):
     mount, _pkg, _short = AUDIT_TRIO_MOUNTS[key]

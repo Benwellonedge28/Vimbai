@@ -550,14 +550,6 @@
       "strip_prefix": false
     },
     {
-      "name": "forensic-accounting-service",
-      "path": "/forensic-accounting",
-      "url": "http://localhost:9004",
-      "port": 8059,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "fraud-risk-assessment-service",
       "path": "/fraud-risk-assessment",
       "url": "http://localhost:9005",
@@ -725,14 +717,6 @@
       "strip_prefix": false
     },
     {
-      "name": "it-audit-service",
-      "path": "/it-audit",
-      "url": "http://localhost:9004",
-      "port": 8072,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "job-costing-service",
       "path": "/job-costing",
       "url": "http://localhost:9001",
@@ -832,14 +816,6 @@
       "url": "http://localhost:8085",
       "port": 8085,
       "auth_required": true
-    },
-    {
-      "name": "operational-audit-service",
-      "path": "/operational-audit",
-      "url": "http://localhost:9004",
-      "port": 8088,
-      "auth_required": true,
-      "strip_prefix": false
     },
     {
       "name": "operational-risk-service",
@@ -1304,14 +1280,6 @@
       "strip_prefix": false
     },
     {
-      "name": "tax-audit-service",
-      "path": "/tax-audit",
-      "url": "http://localhost:9004",
-      "port": 8130,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "tax-compliance-service",
       "path": "/tax-compliance",
       "url": "http://localhost:9004",
@@ -1501,6 +1469,14 @@
       "port": 9021,
       "auth_required": true,
       "strip_prefix": true
+    },
+    {
+      "name": "audit-engagement-service",
+      "path": "/audit-engagement",
+      "url": "http://localhost:9004",
+      "port": 8371,
+      "auth_required": true,
+      "strip_prefix": false
     }
   ]
 }

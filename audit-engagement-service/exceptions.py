@@ -1,8 +1,8 @@
-"""Custom exceptions for Tax Audit Service"""
+"""Custom exceptions for Audit Engagement Service"""
 
 
-class TaxAuditError(Exception):
-    """Base exception for Tax Audit service errors"""
+class AuditEngagementError(Exception):
+    """Base exception for Audit Engagement service errors"""
 
     def __init__(self, detail: str, code: str = None, status_code: int = 500):
         self.detail = detail
@@ -11,11 +11,11 @@ class TaxAuditError(Exception):
         super().__init__(detail)
 
 
-class NotFoundError(TaxAuditError):
+class NotFoundError(AuditEngagementError):
     def __init__(self, detail: str, code: str = "NOT_FOUND"):
         super().__init__(detail, code, 404)
 
 
-class ValidationError(TaxAuditError):
+class ValidationError(AuditEngagementError):
     def __init__(self, detail: str, code: str = "VALIDATION_ERROR"):
         super().__init__(detail, code, 422)

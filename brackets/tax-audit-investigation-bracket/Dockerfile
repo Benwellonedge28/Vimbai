@@ -17,18 +17,15 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY brackets/tax-audit-investigation-bracket/main.py ./main.py
 COPY audit-compliance-service ./audit-compliance-service
+COPY audit-engagement-service ./audit-engagement-service
 COPY audit-evidence-service ./audit-evidence-service
 COPY audit-sampling-service ./audit-sampling-service
-COPY forensic-accounting-service ./forensic-accounting-service
 COPY group-tax-service ./group-tax-service
-COPY it-audit-service ./it-audit-service
-COPY operational-audit-service ./operational-audit-service
 COPY r-and-d-tax-service ./r-and-d-tax-service
 COPY regulatory-compliance-service ./regulatory-compliance-service
 COPY sox-compliance-service ./sox-compliance-service
 COPY tax-service ./tax-service
 COPY tax-accounting-service ./tax-accounting-service
-COPY tax-audit-service ./tax-audit-service
 COPY tax-compliance-service ./tax-compliance-service
 COPY tax-planning-service ./tax-planning-service
 COPY tax-provision-service ./tax-provision-service

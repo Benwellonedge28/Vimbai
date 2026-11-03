@@ -1,5 +1,5 @@
 """
-Operational Audit Service CRUD Operations
+Audit Engagement Service CRUD Operations
 
 Neo4j-backed persistence for audit engagements and findings. All records
 are stamped with book_id; every read applies the Book filter
@@ -11,10 +11,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from neo4j import AsyncSession
-from operational_audit_service.dependencies import book_id_var
-from operational_audit_service.exceptions import NotFoundError
-from operational_audit_service.models import (
+from audit_engagement_service.dependencies import book_id_var
+from audit_engagement_service.exceptions import NotFoundError
+from audit_engagement_service.models import (
     AuditEngagement,
     AuditEngagementCreate,
     AuditFinding,
@@ -22,6 +21,7 @@ from operational_audit_service.models import (
     AuditStatus,
     FindingSeverity,
 )
+from neo4j import AsyncSession
 
 BOOK_FILTER = "WHERE ($book_id IS NULL OR x.book_id = $book_id)"
 
@@ -89,7 +89,7 @@ async def create_engagement(session: AsyncSession, user_id: str, payload: AuditE
     )
     query = """
     MATCH (u:User {id: $user_id})
-    CREATE (x:OperationalEngagement {
+    CREATE (x:AuditEngagement {
         id: $id,
         user_id: $user_id,
         book_id: $book_id,
@@ -106,7 +106,7 @@ async def create_engagement(session: AsyncSession, user_id: str, payload: AuditE
         findings_json: $findings_json,
         created_at: datetime($created_at)
     })
-    CREATE (u)-[:OWNS_OPERATIONAL_ENGAGEMENT]->(x)
+    CREATE (u)-[:OWNS_ENGAGEMENT]->(x)
     RETURN x
     """
     params = {
@@ -132,7 +132,7 @@ async def create_engagement(session: AsyncSession, user_id: str, payload: AuditE
 
 async def _get_engagement(session: AsyncSession, user_id: str, engagement_id: str) -> Optional[AuditEngagement]:
     query = f"""
-    MATCH (u:User {{id: $user_id}})-[:OWNS_OPERATIONAL_ENGAGEMENT]->(x:OperationalEngagement {{id: $engagement_id}})
+    MATCH (u:User {{id: $user_id}})-[:OWNS_ENGAGEMENT]->(x:AuditEngagement {{id: $engagement_id}})
     {BOOK_FILTER}
     RETURN x
     """
@@ -145,7 +145,7 @@ async def _get_engagement(session: AsyncSession, user_id: str, engagement_id: st
 
 async def _write_back(session: AsyncSession, engagement: AuditEngagement):
     query = f"""
-    MATCH (u:User {{id: $user_id}})-[:OWNS_OPERATIONAL_ENGAGEMENT]->(x:OperationalEngagement {{id: $engagement_id}})
+    MATCH (u:User {{id: $user_id}})-[:OWNS_ENGAGEMENT]->(x:AuditEngagement {{id: $engagement_id}})
     {BOOK_FILTER}
     SET x.status = $status,
         x.summary = $summary,
@@ -165,10 +165,14 @@ async def _write_back(session: AsyncSession, engagement: AuditEngagement):
 
 
 async def list_engagements(
-    session: AsyncSession, user_id: str, company_id: str, status_filter: str = ""
+    session: AsyncSession,
+    user_id: str,
+    company_id: str,
+    status_filter: str = "",
+    audit_type: str = "",
 ) -> List[AuditEngagement]:
     query = f"""
-    MATCH (u:User {{id: $user_id}})-[:OWNS_OPERATIONAL_ENGAGEMENT]->(x:OperationalEngagement {{company_id: $company_id}})
+    MATCH (u:User {{id: $user_id}})-[:OWNS_ENGAGEMENT]->(x:AuditEngagement {{company_id: $company_id}})
     {BOOK_FILTER}
     RETURN x
     ORDER BY x.created_at ASC
@@ -177,6 +181,9 @@ async def list_engagements(
     engagements = [_engagement_from_node(dict(r["x"]), user_id) async for r in result]
     if status_filter:
         engagements = [e for e in engagements if e.status.value == status_filter]
+    # The four audit families share one store; the caller picks its family.
+    if audit_type:
+        engagements = [e for e in engagements if e.audit_type == audit_type]
     return engagements
 
 
@@ -222,7 +229,7 @@ async def remediate_finding(
 ) -> Dict[str, Any]:
     """Locate the finding among the caller's Book-visible engagements."""
     query = f"""
-    MATCH (u:User {{id: $user_id}})-[:OWNS_OPERATIONAL_ENGAGEMENT]->(x:OperationalEngagement)
+    MATCH (u:User {{id: $user_id}})-[:OWNS_ENGAGEMENT]->(x:AuditEngagement)
     {BOOK_FILTER}
     RETURN x
     ORDER BY x.created_at ASC
