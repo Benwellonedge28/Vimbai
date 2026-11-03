@@ -920,3 +920,44 @@ def test_du_pont_holds_the_three_factor_identity():
     metrics = rust["du_pont_metrics"]
     product = metrics["net_profit_margin"] * metrics["asset_turnover"] * metrics["financial_leverage"]
     assert round(product, 4) == metrics["return_on_equity"]
+
+
+def test_eps_matches_the_reference():
+    payload = {
+        "company_id": "eps-seam",
+        "period": "2026",
+        "net_profit_attributable": 8e5,
+        "weighted_average_shares": 500000,
+        "potential_dilutive_shares": [{"shares": 20000, "conversion_ratio": 0.5}],
+        "anti_dilutive_items": [],
+        "discontinued_operations_profit": 5e4,
+    }
+    rust, reference = _both_engines("eps-service", "/calculate", payload)
+    assert rust == reference
+    assert rust["weighted_average_shares"] == 500000
+    # 800,000 / 500,000 basic; dilution can only ever lower it
+    assert rust["basic_eps"] == 1.6
+    assert rust["diluted_eps"] <= rust["basic_eps"]
+
+
+def test_goodwill_impairment_matches_the_reference():
+    payload = {
+        "company_id": "goodwill-seam",
+        "fiscal_year": 2026,
+        "cgu": {
+            "name": "North",
+            "carrying_value": 1e6,
+            "goodwill_allocated": 2e5,
+            "fair_value": 9.5e5,
+            "value_in_use": 9.8e5,
+        },
+        "test_method": "higher_of",
+    }
+    rust, reference = _both_engines("goodwill-service", "/test", payload)
+    assert rust.pop("id") and reference.pop("id")
+    assert rust == reference
+    # value in use is the higher of the two, so the loss is the 20,000 gap
+    assert rust["recoverable_amount"] == 9.8e5
+    assert rust["impairment_loss"] == 2e4
+    assert rust["goodwill_impaired"] == 2e4
+    assert rust["is_impaired"] is True

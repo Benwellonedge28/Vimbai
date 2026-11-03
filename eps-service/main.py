@@ -4,6 +4,9 @@ Port: 8207
 Basic and diluted EPS calculations per IAS 33
 """
 
+import importlib.util
+import os
+import sys
 from typing import Any, Dict, List
 
 import httpx
@@ -12,6 +15,15 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 logger = structlog.get_logger()
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("eps_service_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["eps_service_calc"] = calc
+_spec.loader.exec_module(calc)
+
 app = FastAPI(title="Earnings Per Share Service", version="1.0.0")
 
 
@@ -59,25 +71,30 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
 
 @app.get("/")
 async def health_check():
-    return {"status": "healthy", "service": "eps", "version": "1.0.0"}
+    return {
+        "status": "healthy",
+        "service": "eps",
+        "version": "1.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
-@app.post("/calculate", response_model=EPSResponse)
-async def calculate_eps(request: EPSRequest):
-    logger.info("Calculating EPS", company=request.company_id, period=request.period)
-
+def _reference(payload):
+    """The original Python calculation, kept as the oracle."""
     basic_eps = (
-        request.net_profit_attributable / request.weighted_average_shares if request.weighted_average_shares else 0
+        payload["net_profit_attributable"] / payload["weighted_average_shares"]
+        if payload["weighted_average_shares"]
+        else 0
     )
 
-    continuing_profit = request.net_profit_attributable - request.discontinued_operations_profit
-    eps_continuing = continuing_profit / request.weighted_average_shares if request.weighted_average_shares else 0
+    continuing_profit = payload["net_profit_attributable"] - payload["discontinued_operations_profit"]
+    eps_continuing = continuing_profit / payload["weighted_average_shares"] if payload["weighted_average_shares"] else 0
 
     dilutive_effect = 0
-    diluted_shares = request.weighted_average_shares
+    diluted_shares = payload["weighted_average_shares"]
     instruments = []
 
-    for option in request.potential_dilutive_shares:
+    for option in payload["potential_dilutive_shares"]:
         exercise_price = option.get("exercise_price", 0)
         market_price = option.get("average_market_price", 0)
         num_options = option.get("number_of_options", 0)
@@ -95,24 +112,31 @@ async def calculate_eps(request: EPSRequest):
                 )
             )
 
-    for item in request.anti_dilutive_items:
+    for item in payload["anti_dilutive_items"]:
         dilutive_effect -= item.get("anti_dilutive_shares", 0)
 
     diluted_shares += max(0, dilutive_effect)
-    diluted_eps = request.net_profit_attributable / diluted_shares if diluted_shares else 0
+    diluted_eps = payload["net_profit_attributable"] / diluted_shares if diluted_shares else 0
 
-    return EPSResponse(
-        company_id=request.company_id,
-        period=request.period,
+    return dict(
+        company_id=payload["company_id"],
+        period=payload["period"],
         basic_eps=round(basic_eps, 4),
         diluted_eps=round(diluted_eps, 4),
         eps_from_continuing_operations=round(eps_continuing, 4),
-        weighted_average_shares=request.weighted_average_shares,
+        weighted_average_shares=payload["weighted_average_shares"],
         diluted_shares=diluted_shares,
         dilutive_effect=max(0, dilutive_effect),
-        anti_dilutive_effect=max(0, abs(sum(i.get("anti_dilutive_shares", 0) for i in request.anti_dilutive_items))),
+        anti_dilutive_effect=max(0, abs(sum(i.get("anti_dilutive_shares", 0) for i in payload["anti_dilutive_items"]))),
         potential_dilutive_instruments=instruments,
     )
+
+
+@app.post("/calculate", response_model=EPSResponse)
+async def calculate_eps(request: EPSRequest):
+    logger.info("Calculating", company=request.company_id)
+    result = calc.run(request.model_dump(mode="json"), _reference)
+    return EPSResponse(**result)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,9 @@ Goodwill impairment testing under IAS 36 with CGU allocation and recoverable amo
 Port: 8405
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -23,6 +25,15 @@ structlog.configure(
     ]
 )
 logger = structlog.get_logger(SERVICE_NAME)
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("goodwill_service_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["goodwill_service_calc"] = calc
+_spec.loader.exec_module(calc)
+
 app = FastAPI(title="Vimbai Goodwill Service", version="2.0.0", docs_url="/docs")
 try:
     from shared.tracing import setup_tracing
@@ -66,36 +77,49 @@ class ImpairmentTestResult(BaseModel):
 @app.get("/")
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
+    return {
+        "status": "healthy",
+        "service": SERVICE_NAME,
+        "version": "2.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
-@app.post("/test", response_model=ImpairmentTestResult)
-async def test_impairment(req: ImpairmentTestRequest):
-    if req.test_method == "fair_value_only":
-        recoverable = req.cgu.fair_value
-    elif req.test_method == "viu_only":
-        recoverable = req.cgu.value_in_use
+def _reference(payload):
+    """The original Python calculation, kept as the oracle."""
+    if payload["test_method"] == "fair_value_only":
+        recoverable = payload["cgu"]["fair_value"]
+    elif payload["test_method"] == "viu_only":
+        recoverable = payload["cgu"]["value_in_use"]
     else:
-        recoverable = max(req.cgu.fair_value, req.cgu.value_in_use)
+        recoverable = max(payload["cgu"]["fair_value"], payload["cgu"]["value_in_use"])
 
-    impairment = max(req.cgu.carrying_value - recoverable, 0)
-    goodwill_impaired = min(impairment, req.cgu.goodwill_allocated)
+    impairment = max(payload["cgu"]["carrying_value"] - recoverable, 0)
+    goodwill_impaired = min(impairment, payload["cgu"]["goodwill_allocated"])
     other_impaired = impairment - goodwill_impaired
-    post = req.cgu.carrying_value - impairment
+    post = payload["cgu"]["carrying_value"] - impairment
 
-    return ImpairmentTestResult(
-        company_id=req.company_id,
-        fiscal_year=req.fiscal_year,
-        cgu_name=req.cgu.name,
-        carrying_value=round(req.cgu.carrying_value, 2),
+    return dict(
+        company_id=payload["company_id"],
+        fiscal_year=payload["fiscal_year"],
+        cgu_name=payload["cgu"]["name"],
+        carrying_value=round(payload["cgu"]["carrying_value"], 2),
         recoverable_amount=round(recoverable, 2),
         impairment_loss=round(impairment, 2),
         goodwill_impaired=round(goodwill_impaired, 2),
         other_assets_impaired=round(other_impaired, 2),
-        test_method=req.test_method,
+        test_method=payload["test_method"],
         is_impaired=impairment > 0,
         post_impairment_carrying=round(post, 2),
     )
+
+
+@app.post("/test", response_model=ImpairmentTestResult)
+async def test_impairment(request: ImpairmentTestRequest):
+    logger.info("Calculating", company=request.company_id)
+    result = calc.run(request.model_dump(mode="json"), _reference)
+    result.setdefault("id", str(uuid.uuid4()))
+    return ImpairmentTestResult(**result)
 
 
 if __name__ == "__main__":
