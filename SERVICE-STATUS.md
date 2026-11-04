@@ -10,9 +10,9 @@ because their regression suites still run in CI.
 ## Summary
 
 ```
-live and routed          166
+live and routed          159
 retained, not routed     127
-unrouted, undecided      21
+unrouted, undecided      28
 ```
 
 ## Live services
@@ -36,7 +36,6 @@ Routed by the API gateway and deployed. These are the running product.
 `automation-engine-service`
 `bad-debts-recovery-service`
 `balance-sheet-service`
-`balanced-scorecard-service`
 `bank-feed-service`
 `bank-reconciliation-service`
 `bank-relationship-service`
@@ -57,7 +56,6 @@ Routed by the API gateway and deployed. These are the running product.
 `cash-optimization-service`
 `cashbook-service`
 `company-accounting-service`
-`consolidation-service`
 `continue-shutdown-decision-service`
 `control-account-reconciliation-service`
 `corporate-governance-service`
@@ -97,7 +95,6 @@ Routed by the API gateway and deployed. These are the running product.
 `intangible-assets-service`
 `intercompany-service`
 `internal-rate-return-service`
-`inventory-valuation-service`
 `investment-monitoring-service`
 `investment-property-service`
 `invoicing-service`
@@ -111,22 +108,18 @@ Routed by the API gateway and deployed. These are the running product.
 `mfa-auth-service`
 `multimodal-pipeline-service`
 `net-present-value-service`
-`net-realizable-value-service`
 `notifications-service`
 `npo-scale-service`
 `npo-service`
 `operational-risk-service`
 `ordinary-shares-service`
 `overhead-absorption-rate-service`
-`partnership-accounting-service`
 `partnership-agreement-service`
 `partnership-changes-service`
 `partnership-dissolution-service`
 `partnership-revaluation-service`
-`partnership-sale-service`
 `payback-period-service`
 `payment-gateway-service`
-`pension-accounting-service`
 `performance-benchmarking-service`
 `personal-finance-service`
 `petty-cash-service`
@@ -425,6 +418,8 @@ Routed by the API gateway and deployed. These are the running product.
 Not in the gateway and not part of any retirement family. Each needs a
 decision: register it, retire it, or deduplicate it.
 
+`balanced-scorecard-service`
+`consolidation-service`
 `credit-risk-analysis-service`
 `finance-service`
 `financial-distress-prediction-service`
@@ -436,9 +431,14 @@ decision: register it, retire it, or deduplicate it.
 `identity-service`
 `internal-control-evaluation-service`
 `internal-controls-testing-service`
+`inventory-valuation-service`
 `market-risk-service`
+`net-realizable-value-service`
 `options-pricing-service`
+`partnership-accounting-service`
+`partnership-sale-service`
 `payment-optimization-service`
+`pension-accounting-service`
 `r-and-d-tax-service`
 `regulatory-ratio-service`
 `substantive-testing-service`

@@ -128,14 +128,6 @@
       "strip_prefix": false
     },
     {
-      "name": "balanced-scorecard-service",
-      "path": "/balanced-scorecard",
-      "url": "http://localhost:9001",
-      "port": 8279,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "bank-feed-service",
       "path": "/bank-feed",
       "url": "http://localhost:9003",
@@ -283,14 +275,6 @@
       "path": "/company-accounting",
       "url": "http://localhost:9011",
       "port": 8101,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "consolidation-service",
-      "path": "/consolidation",
-      "url": "http://localhost:9011",
-      "port": 8031,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -606,14 +590,6 @@
       "strip_prefix": false
     },
     {
-      "name": "inventory-valuation-service",
-      "path": "/inventory-valuation",
-      "url": "http://localhost:9009",
-      "port": 8377,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "investment-monitoring-service",
       "path": "/investment-monitoring",
       "url": "http://localhost:9003",
@@ -715,14 +691,6 @@
       "strip_prefix": false
     },
     {
-      "name": "net-realizable-value-service",
-      "path": "/net-realizable-value",
-      "url": "http://localhost:9011",
-      "port": 8084,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "notifications-service",
       "path": "/notifications",
       "url": "http://localhost:9008",
@@ -762,14 +730,6 @@
       "strip_prefix": false
     },
     {
-      "name": "partnership-accounting-service",
-      "path": "/partnership-accounting",
-      "url": "http://localhost:9011",
-      "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "partnership-agreement-service",
       "path": "/partnership-agreement",
       "url": "http://localhost:9011",
@@ -802,14 +762,6 @@
       "strip_prefix": false
     },
     {
-      "name": "partnership-sale-service",
-      "path": "/partnership-sale",
-      "url": "http://localhost:9011",
-      "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "payback-period-service",
       "path": "/payback-period",
       "url": "http://localhost:9012",
@@ -822,14 +774,6 @@
       "path": "/payment-gateway",
       "url": "http://localhost:9003",
       "port": 8098,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "pension-accounting-service",
-      "path": "/pension-accounting",
-      "url": "http://localhost:9006",
-      "port": 8368,
       "auth_required": true,
       "strip_prefix": false
     },

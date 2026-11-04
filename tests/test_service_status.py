@@ -44,6 +44,17 @@ def test_index_file_exists():
 # De-registered once the calculation behind them was proven in Rust: the files stay as
 # parity oracles, but nothing routes to them any more.
 UNDECIDED = {
+    "annual-report-service",
+    "balanced-scorecard-service",
+    "capital-budgeting-service",
+    "capital-expenditure-budget-service",
+    "consolidation-service",
+    "divestiture-service",
+    "inventory-valuation-service",
+    "net-realizable-value-service",
+    "partnership-accounting-service",
+    "partnership-sale-service",
+    "pension-accounting-service",
     "credit-risk-analysis-service",
     "fraud-risk-assessment-service",
     "financial-distress-prediction-service",
