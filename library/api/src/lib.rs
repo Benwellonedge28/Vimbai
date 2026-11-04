@@ -420,6 +420,10 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "vat-return",
         (|p| via_seam(bridge::assurance::vat_return_json, p)) as Calculator,
     );
+    map.insert(
+        "xbrl",
+        (|p| via_seam_today(bridge::assurance::xbrl_json, p)) as Calculator,
+    );
     map
 }
 
