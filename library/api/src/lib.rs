@@ -424,6 +424,16 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "xbrl",
         (|p| via_seam_today(bridge::assurance::xbrl_json, p)) as Calculator,
     );
+    map.insert("margin-of-safety", (|p| margin_safety(p)) as Calculator);
+    map.insert("arr-decision", (|p| arr_decision(p)) as Calculator);
+    map.insert(
+        "discounted-payback",
+        (|p| discounted_payback(p)) as Calculator,
+    );
+    map.insert(
+        "treasury-analytics",
+        (|p| treasury_analytics(p)) as Calculator,
+    );
     map
 }
 
@@ -560,4 +570,144 @@ fn civil_from_days(days: i64) -> (i64, u32, u32) {
         shifted_month - 9
     } as u32;
     (if month <= 2 { year + 1 } else { year }, month, day)
+}
+/// These four calculations take typed arguments rather than a JSON payload, so they had
+/// no way to answer an HTTP request. Rather than reimplement them, these adapters read
+/// the fields the Python service always sent and call the same maths.
+fn number(payload: &Value, key: &str) -> Result<f64, String> {
+    match payload.get(key) {
+        Some(Value::Number(value)) => value
+            .as_f64()
+            .ok_or_else(|| format!("{key} is not a number")),
+        Some(Value::String(text)) => text
+            .trim()
+            .parse::<f64>()
+            .map_err(|_| format!("{key} is not a number")),
+        Some(other) => Err(format!("{key} is {other}, expected a number")),
+        None => Err(format!("{key} is required")),
+    }
+}
+
+fn number_list(payload: &Value, key: &str) -> Result<Vec<f64>, String> {
+    let items = payload
+        .get(key)
+        .and_then(Value::as_array)
+        .ok_or_else(|| format!("{key} must be a list of numbers"))?;
+    items
+        .iter()
+        .map(|item| match item {
+            Value::Number(value) => value
+                .as_f64()
+                .ok_or_else(|| format!("{key} holds a non-number")),
+            Value::String(text) => text
+                .trim()
+                .parse::<f64>()
+                .map_err(|_| format!("{key} holds a non-number")),
+            _ => Err(format!("{key} holds a non-number")),
+        })
+        .collect()
+}
+
+fn to_value<T: serde::Serialize>(output: &T) -> Result<Value, String> {
+    serde_json::to_value(output).map_err(|error| error.to_string())
+}
+
+fn margin_safety(payload: &Value) -> Result<Value, String> {
+    let output = cost_accounting::margin_safety::margin_of_safety(
+        number(payload, "current_output")?,
+        number(payload, "current_revenue")?,
+        number(payload, "break_even_output")?,
+        number(payload, "break_even_revenue")?,
+    );
+    to_value(&output)
+}
+
+fn arr_decision(payload: &Value) -> Result<Value, String> {
+    Ok(capital_valuation::capital_returns::arr_decision(
+        number(payload, "arr")?,
+        number(payload, "target_return")?,
+    ))
+}
+
+fn discounted_payback(payload: &Value) -> Result<Value, String> {
+    let flows = number_list(payload, "cash_flows")?;
+    let output = capital_valuation::capital_returns::discounted_payback(
+        number(payload, "initial_investment")?,
+        &flows,
+        number(payload, "discount_rate")?,
+    );
+    to_value(&output)
+}
+
+fn treasury_analytics(payload: &Value) -> Result<Value, String> {
+    let request: treasury_fx::analytics::TreasuryAnalyticsRequest =
+        serde_json::from_value(payload.clone())
+            .map_err(|error| format!("invalid treasury analytics request: {error}"))?;
+    to_value(&treasury_fx::analytics::analyze_treasury(&request))
+}
+
+#[cfg(test)]
+mod typed_adapters {
+    use super::*;
+    use serde_json::json;
+
+    fn calculate(name: &str, payload: Value) -> Value {
+        let registry = calculators();
+        let entry = registry
+            .get(name)
+            .unwrap_or_else(|| panic!("{name} is not registered"));
+        entry(&payload).unwrap_or_else(|error| panic!("{name} failed: {error}"))
+    }
+
+    #[test]
+    fn margin_of_safety_takes_the_service_field_names() {
+        let out = calculate(
+            "margin-of-safety",
+            json!({
+                "current_output": 1000.0,
+                "current_revenue": 50000.0,
+                "break_even_output": 800.0,
+                "break_even_revenue": 40000.0
+            }),
+        );
+        assert!(out.is_object());
+        assert_eq!(out["margin_of_safety_units"], json!(200.0));
+    }
+
+    #[test]
+    fn arr_decision_answers_with_a_verdict() {
+        let out = calculate("arr-decision", json!({"arr": 18.0, "target_return": 12.0}));
+        assert_eq!(out["decision"], json!("Accept"));
+    }
+
+    #[test]
+    fn discounted_payback_walks_the_cash_flows() {
+        let out = calculate(
+            "discounted-payback",
+            json!({
+                "initial_investment": 1000.0,
+                "cash_flows": [400.0, 400.0, 400.0],
+                "discount_rate": 10.0
+            }),
+        );
+        assert!(out.is_object());
+    }
+
+    #[test]
+    fn treasury_analytics_parses_its_request() {
+        let out = calculate(
+            "treasury-analytics",
+            json!({
+                "company_id": "c-1",
+                "total_cash": "250000",
+                "monthly_inflow": "90000",
+                "monthly_outflow": "60000",
+                "short_term_debt": "40000",
+                "total_debt": "120000",
+                "investments": "50000",
+                "fx_exposure": "10000"
+            }),
+        );
+        assert!(out.is_object());
+    }
 }

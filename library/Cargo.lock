@@ -1278,6 +1278,7 @@ dependencies = [
  "vimbai_assets",
  "vimbai_bridge",
  "vimbai_budgeting",
+ "vimbai_capital_valuation",
  "vimbai_common",
  "vimbai_cost_accounting",
  "vimbai_group_accounting",
