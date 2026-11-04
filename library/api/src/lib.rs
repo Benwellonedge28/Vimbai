@@ -296,6 +296,130 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "nrv-compare-cost",
         performance_measures::realizable::compare_cost_nrv_from_json,
     );
+    map.insert(
+        "acquisition",
+        (|p| via_seam(bridge::assurance::acquisition_json, p)) as Calculator,
+    );
+    map.insert(
+        "capex-budget",
+        (|p| via_seam(bridge::assurance::capex_budget_json, p)) as Calculator,
+    );
+    map.insert(
+        "control-evaluation",
+        (|p| via_seam(bridge::assurance::control_evaluation_json, p)) as Calculator,
+    );
+    map.insert(
+        "controls",
+        (|p| via_seam(bridge::assurance::controls_json, p)) as Calculator,
+    );
+    map.insert(
+        "credit",
+        (|p| via_seam(bridge::assurance::credit_json, p)) as Calculator,
+    );
+    map.insert(
+        "credit-risk",
+        (|p| via_seam(bridge::assurance::credit_risk_json, p)) as Calculator,
+    );
+    map.insert(
+        "distress",
+        (|p| via_seam(bridge::assurance::distress_json, p)) as Calculator,
+    );
+    map.insert(
+        "fraud-risk",
+        (|p| via_seam(bridge::assurance::fraud_risk_json, p)) as Calculator,
+    );
+    map.insert(
+        "fx-convert",
+        (|p| via_seam_today(bridge::assurance::fx_convert_json, p)) as Calculator,
+    );
+    map.insert(
+        "fx-hedge",
+        (|p| via_seam(bridge::assurance::fx_hedge_json, p)) as Calculator,
+    );
+    map.insert(
+        "goodwill-impairment",
+        (|p| via_seam(bridge::assurance::goodwill_impairment_json, p)) as Calculator,
+    );
+    map.insert(
+        "grant",
+        (|p| via_seam(bridge::assurance::grant_json, p)) as Calculator,
+    );
+    map.insert(
+        "group-tax",
+        (|p| via_seam(bridge::assurance::group_tax_json, p)) as Calculator,
+    );
+    map.insert(
+        "inventory",
+        (|p| via_seam(bridge::assurance::inventory_json, p)) as Calculator,
+    );
+    map.insert(
+        "nrv",
+        (|p| via_seam(bridge::assurance::nrv_json, p)) as Calculator,
+    );
+    map.insert(
+        "nrv-compare",
+        (|p| via_seam(bridge::assurance::nrv_compare_json, p)) as Calculator,
+    );
+    map.insert(
+        "options-price",
+        (|p| via_seam(bridge::assurance::options_price_json, p)) as Calculator,
+    );
+    map.insert(
+        "partner-buyout",
+        (|p| via_seam(bridge::assurance::partner_buyout_json, p)) as Calculator,
+    );
+    map.insert(
+        "partnership-allocation",
+        (|p| via_seam(bridge::assurance::partnership_allocation_json, p)) as Calculator,
+    );
+    map.insert(
+        "partnership-goodwill",
+        (|p| via_seam(bridge::assurance::partnership_goodwill_json, p)) as Calculator,
+    );
+    map.insert(
+        "pd-historical",
+        (|p| via_seam(bridge::assurance::pd_historical_json, p)) as Calculator,
+    );
+    map.insert(
+        "pension",
+        (|p| via_seam(bridge::assurance::pension_json, p)) as Calculator,
+    );
+    map.insert(
+        "profit",
+        (|p| via_seam(bridge::assurance::profit_json, p)) as Calculator,
+    );
+    map.insert(
+        "regulatory-ratio",
+        (|p| via_seam(bridge::assurance::regulatory_ratio_json, p)) as Calculator,
+    );
+    map.insert(
+        "residual",
+        (|p| via_seam(bridge::assurance::residual_json, p)) as Calculator,
+    );
+    map.insert(
+        "scorecard",
+        (|p| via_seam(bridge::assurance::scorecard_json, p)) as Calculator,
+    );
+    map.insert(
+        "scrap",
+        (|p| via_seam(bridge::assurance::scrap_json, p)) as Calculator,
+    );
+    map.insert(
+        "tax-provision",
+        (|p| via_seam(bridge::assurance::tax_provision_json, p)) as Calculator,
+    );
+    map.insert(
+        "tax-risk",
+        (|p| via_seam(bridge::assurance::tax_risk_json, p)) as Calculator,
+    );
+    map.insert(
+        "var",
+        (|p| via_seam(bridge::assurance::var_json, p)) as Calculator,
+    );
+    map.insert(
+        "vat-return",
+        (|p| via_seam(bridge::assurance::vat_return_json, p)) as Calculator,
+    );
     map
 }
 
@@ -385,4 +509,51 @@ async fn run(
         )
             .into_response(),
     }
+}
+
+/// Some calculations only ever had a Python entry point: they take a JSON string and
+/// return one. These adapters put the same maths behind the HTTP calculator registry,
+/// so the two front ends cannot drift apart.
+fn via_seam(
+    calculate: fn(&str) -> Result<String, String>,
+    payload: &Value,
+) -> Result<Value, String> {
+    let rendered = calculate(&payload.to_string())?;
+    serde_json::from_str(&rendered).map_err(|error| error.to_string())
+}
+
+fn via_seam_today(
+    calculate: fn(&str, &str) -> Result<String, String>,
+    payload: &Value,
+) -> Result<Value, String> {
+    let rendered = calculate(&payload.to_string(), &today())?;
+    serde_json::from_str(&rendered).map_err(|error| error.to_string())
+}
+
+/// Today as an ISO date, for the seams that date their own defaults.
+fn today() -> String {
+    let seconds = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs())
+        .unwrap_or(0);
+    let (year, month, day) = civil_from_days((seconds / 86_400) as i64);
+    format!("{year:04}-{month:02}-{day:02}")
+}
+
+fn civil_from_days(days: i64) -> (i64, u32, u32) {
+    let shifted = days + 719_468;
+    let era = shifted.div_euclid(146_097);
+    let day_of_era = shifted.rem_euclid(146_097);
+    let year_of_era =
+        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let shifted_month = (5 * day_of_year + 2) / 153;
+    let day = (day_of_year - (153 * shifted_month + 2) / 5 + 1) as u32;
+    let month = if shifted_month < 10 {
+        shifted_month + 3
+    } else {
+        shifted_month - 9
+    } as u32;
+    (if month <= 2 { year + 1 } else { year }, month, day)
 }
