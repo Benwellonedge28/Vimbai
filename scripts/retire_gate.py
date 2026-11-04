@@ -85,9 +85,15 @@ def published_endpoints(service):
     return sorted({p.strip("/") for p in paths if p.strip("/") not in ("", "health", "docs", "openapi.json")})
 
 
+# Services whose routes carry a short prefix rather than the full base name. Declared
+# here rather than guessed, because a suffix match alone would let `/calculate` count
+# as served by any other service's `-calculate` route.
+SHORT_PREFIX = {"net-realizable-value-service": "nrv"}
+
+
 def routes_for(service, endpoints):
     """The route names that would answer each of a service's fixed paths."""
-    base = service.removesuffix("-service")
+    base = SHORT_PREFIX.get(service, service.removesuffix("-service"))
     return [f"{base}-{path.replace('/', '-')}" for path in endpoints]
 
 
@@ -105,9 +111,13 @@ def main():
     for service, seams in sorted(wired.items()):
         bound = functions is not None and all(name in functions for name in seams)
         tested = service in parity
-        base = service.removesuffix("-service")
+        base = SHORT_PREFIX.get(service, service.removesuffix("-service"))
         endpoints = published_endpoints(service)
-        http = base in served or (bool(endpoints) and all(name in served for name in routes_for(service, endpoints)))
+        # A single-endpoint service is served by the route named after it. With more
+        # than one path that shortcut would let a partly served service pass, so each
+        # published path has to have its own route.
+        single = base in served and len(endpoints) <= 1
+        http = single or (bool(endpoints) and all(name in served for name in routes_for(service, endpoints)))
         rows.append((service, seams, bound, tested, http))
 
     print(f"{'service':48s} {'seam bound':10s} {'parity':7s} {'http':5s} verdict")
