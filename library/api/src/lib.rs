@@ -435,28 +435,49 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         (|p| treasury_analytics(p)) as Calculator,
     );
     map.insert(
+        "accounting-rate-return-calculate",
+        (|p| arr_calculate(p)) as Calculator,
+    );
+    map.insert(
+        "accounting-rate-return-from-annual-profits",
+        (|p| arr_from_annual_profits(p)) as Calculator,
+    );
+    map.insert(
+        "accounting-rate-return-average-profit",
+        (|p| arr_average_profit(p)) as Calculator,
+    );
+    map.insert(
+        "accounting-rate-return-average-capital",
+        (|p| arr_average_capital(p)) as Calculator,
+    );
+    map.insert(
+        "accounting-rate-return-compare",
+        (|p| arr_compare(p)) as Calculator,
+    );
+    map.insert(
+        "accounting-rate-return-decision",
+        (|p| arr_decision(p)) as Calculator,
+    );
+    map.insert(
         "discount-factor-calculate",
-        capital_valuation::discount_factors::calculate_from_json,
+        (|p| df_calculate(p)) as Calculator,
     );
     map.insert(
         "discount-factor-calculate-percent",
-        capital_valuation::discount_factors::calculate_percent_from_json,
+        (|p| df_calculate_percent(p)) as Calculator,
     );
     map.insert(
         "discount-factor-annuity-factor",
-        capital_valuation::discount_factors::annuity_factor_from_json,
+        (|p| df_annuity(p)) as Calculator,
     );
     map.insert(
         "discount-factor-annuity-factor-percent",
-        capital_valuation::discount_factors::annuity_factor_percent_from_json,
+        (|p| df_annuity_percent(p)) as Calculator,
     );
-    map.insert(
-        "discount-factor-table",
-        capital_valuation::discount_factors::table_from_json,
-    );
+    map.insert("discount-factor-table", (|p| df_table(p)) as Calculator);
     map.insert(
         "discount-factor-table-range",
-        capital_valuation::discount_factors::table_range_from_json,
+        (|p| df_table_range(p)) as Calculator,
     );
     map
 }
@@ -733,5 +754,212 @@ mod typed_adapters {
             }),
         );
         assert!(out.is_object());
+    }
+}
+
+fn whole(payload: &Value, key: &str) -> Result<i64, String> {
+    Ok(number(payload, key)?.trunc() as i64)
+}
+
+fn optional_number(payload: &Value, key: &str, fallback: f64) -> Result<f64, String> {
+    if payload.get(key).is_none() || payload.get(key) == Some(&Value::Null) {
+        return Ok(fallback);
+    }
+    number(payload, key)
+}
+
+fn arr_calculate(payload: &Value) -> Result<Value, String> {
+    let output = capital_valuation::capital_returns::accounting_rate_of_return(
+        number(payload, "initial_investment")?,
+        number(payload, "residual_value")?,
+        number(payload, "total_profits")?,
+        whole(payload, "years")?,
+    )?;
+    to_value(&output)
+}
+
+fn arr_from_annual_profits(payload: &Value) -> Result<Value, String> {
+    let profits = number_list(payload, "annual_profits")?;
+    let output = capital_valuation::capital_returns::arr_from_annual_profits(
+        &profits,
+        number(payload, "initial_investment")?,
+        optional_number(payload, "residual_value", 0.0)?,
+    )?;
+    to_value(&output)
+}
+
+fn arr_average_profit(payload: &Value) -> Result<Value, String> {
+    capital_valuation::capital_returns::average_profit(
+        number(payload, "total_profits")?,
+        whole(payload, "years")?,
+    )
+}
+
+fn arr_average_capital(payload: &Value) -> Result<Value, String> {
+    Ok(capital_valuation::capital_returns::average_capital(
+        number(payload, "initial_investment")?,
+        number(payload, "residual_value")?,
+    ))
+}
+
+/// Projects arrive as objects, and the crate ranks them by ARR; a project with no profits
+/// is dropped from the ranking rather than ranked last, which is what the service does.
+fn arr_compare(payload: &Value) -> Result<Value, String> {
+    let projects = payload
+        .get("projects")
+        .and_then(Value::as_array)
+        .ok_or("projects must be a list")?;
+    let mut parsed = Vec::with_capacity(projects.len());
+    for project in projects {
+        let name = project
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or("Unknown")
+            .to_string();
+        parsed.push((
+            name,
+            optional_number(project, "initial_investment", 0.0)?,
+            optional_number(project, "residual_value", 0.0)?,
+            project
+                .get("annual_profits")
+                .map(|_| number_list(project, "annual_profits"))
+                .transpose()?
+                .unwrap_or_default(),
+        ));
+    }
+    to_value(&capital_valuation::capital_returns::arr_comparison(&parsed))
+}
+
+fn df_calculate(payload: &Value) -> Result<Value, String> {
+    to_value(&capital_valuation::capital_returns::discount_factor(
+        number(payload, "rate")?,
+        whole(payload, "years")?,
+    )?)
+}
+
+fn df_calculate_percent(payload: &Value) -> Result<Value, String> {
+    to_value(
+        &capital_valuation::capital_returns::discount_factor_percent(
+            number(payload, "rate_percent")?,
+            whole(payload, "years")?,
+        ),
+    )
+}
+
+fn df_annuity(payload: &Value) -> Result<Value, String> {
+    to_value(&capital_valuation::capital_returns::annuity_factor(
+        number(payload, "rate")?,
+        whole(payload, "years")?,
+    ))
+}
+
+fn df_annuity_percent(payload: &Value) -> Result<Value, String> {
+    to_value(&capital_valuation::capital_returns::annuity_factor_percent(
+        number(payload, "rate_percent")?,
+        whole(payload, "years")?,
+    ))
+}
+
+fn df_table(payload: &Value) -> Result<Value, String> {
+    let years = number_list(payload, "years")?
+        .into_iter()
+        .map(|year| year.trunc() as i64)
+        .collect::<Vec<_>>();
+    to_value(&capital_valuation::capital_returns::discount_factor_table(
+        number(payload, "base_rate")?,
+        &years,
+    ))
+}
+
+fn df_table_range(payload: &Value) -> Result<Value, String> {
+    to_value(
+        &capital_valuation::capital_returns::discount_factor_table_range(
+            number(payload, "rate_start")?,
+            number(payload, "rate_end")?,
+            number(payload, "rate_step")?,
+            whole(payload, "years")?,
+        )?,
+    )
+}
+
+#[cfg(test)]
+mod capital_adapters {
+    use super::*;
+    use serde_json::json;
+
+    fn calculate(name: &str, payload: Value) -> Value {
+        let registry = calculators();
+        let entry = registry
+            .get(name)
+            .unwrap_or_else(|| panic!("{name} is not registered"));
+        entry(&payload).unwrap_or_else(|error| panic!("{name} failed: {error}"))
+    }
+
+    #[test]
+    fn arr_calculate_puts_the_return_at_forty_percent() {
+        let out = calculate(
+            "accounting-rate-return-calculate",
+            json!({
+                "initial_investment": 100000.0,
+                "residual_value": 0.0,
+                "total_profits": 60000.0,
+                "years": 3
+            }),
+        );
+        assert_eq!(out["average_annual_profit"], json!(20000.0));
+        assert_eq!(out["average_investment"], json!(50000.0));
+        assert_eq!(out["arr_percentage"], json!(40.0));
+        assert_eq!(out["arr_decimal"], json!(0.4));
+    }
+
+    #[test]
+    fn a_project_with_no_profits_is_left_out_of_the_ranking() {
+        let out = calculate(
+            "accounting-rate-return-compare",
+            json!({"projects": [
+                {"name": "A", "initial_investment": 100000.0, "residual_value": 0.0, "annual_profits": [30000.0, 30000.0]},
+                {"name": "B", "initial_investment": 50000.0, "residual_value": 0.0, "annual_profits": [20000.0, 20000.0]},
+                {"name": "C", "initial_investment": 1000.0, "annual_profits": []}
+            ]}),
+        );
+        let ranked = out["project_comparison"].as_array().unwrap();
+        assert_eq!(ranked.len(), 2);
+        assert_eq!(out["recommended_project"], json!("B"));
+    }
+
+    #[test]
+    fn the_discount_factor_table_rounds_like_the_service() {
+        let out = calculate(
+            "discount-factor-table",
+            json!({"base_rate": 0.1, "years": [1, 2]}),
+        );
+        assert_eq!(out["factors"][0]["discount_factor"], json!(0.909091));
+        assert_eq!(out["factors"][1]["discount_factor"], json!(0.826446));
+    }
+
+    #[test]
+    fn a_zero_rate_step_is_refused_rather_than_spinning() {
+        let registry = calculators();
+        let entry = registry.get("discount-factor-table-range").unwrap();
+        let failure = entry(&json!({
+            "rate_start": 0.05,
+            "rate_end": 0.1,
+            "rate_step": 0.0,
+            "years": 2
+        }));
+        assert!(failure.is_err());
+    }
+
+    #[test]
+    fn a_percentage_discount_factor_is_the_decimal_one() {
+        let decimal = calculate(
+            "discount-factor-calculate",
+            json!({"rate": 0.1, "years": 5}),
+        );
+        let percent = calculate(
+            "discount-factor-calculate-percent",
+            json!({"rate_percent": 10.0, "years": 5}),
+        );
+        assert_eq!(decimal["discount_factor"], percent["discount_factor"]);
     }
 }
