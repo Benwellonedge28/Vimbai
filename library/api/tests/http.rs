@@ -302,3 +302,36 @@ async fn eva_charges_exact_capital_and_splits_the_segments() {
     assert_eq!(body["wealth_created"], true);
     assert_eq!(body["eva_momentum"], "improving");
 }
+
+#[tokio::test]
+async fn amortization_charges_exact_decimals_down_to_the_cent() {
+    let (status, body) = call(
+        "/calc/amortization",
+        Some(json!({
+            "company_id": "c1",
+            "period_start": "2026-01-01",
+            "period_end": "2026-12-31",
+            "intangibles": [
+                {"intangible_id": "i1", "type": "software", "cost": 48000.0,
+                 "residual_value": 0.0, "useful_life_years": 4,
+                 "accumulated_amortization": 10000.0, "rate": 0.25, "method": "straight_line"},
+                // a cost whose reducing-balance charge does not divide evenly
+                {"intangible_id": "i2", "type": "patent", "cost": "123456.79",
+                 "residual_value": "5678.91", "useful_life_years": 7,
+                 "accumulated_amortization": "20000.05", "rate": "0.2",
+                 "method": "reducing_balance"},
+            ],
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["period"]["start"], "2026-01-01");
+    let patent = &body["schedules"][1];
+    // (123456.79 - 20000.05) * 0.2 = 20691.348, to the cent
+    assert_eq!(patent["annual_amortization"], 20691.35);
+    assert_eq!(patent["monthly_amortization"], 1724.28);
+    assert_eq!(patent["net_book_value"], 82765.39);
+    // totals are summed as decimals, not folded in a double
+    assert_eq!(body["total_amortization"], 32691.35);
+    assert_eq!(body["total_net_book_value"], 108765.39);
+}

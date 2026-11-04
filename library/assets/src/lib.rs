@@ -19,7 +19,9 @@ pub mod inventory;
 pub mod nrv;
 pub mod revaluation;
 
-pub use amortization::{amortization, AmortizationAsset, AmortizationOutput, AmortizationRow};
+pub use amortization::{
+    amortization, amortization_from_json, AmortizationAsset, AmortizationOutput, AmortizationRow,
+};
 pub use depreciation::{
     depreciation_batch, depreciation_method, DepreciationAsset, DepreciationMethodOutput,
     DepreciationOutput, DepreciationScheduleRow, MethodScheduleRow,

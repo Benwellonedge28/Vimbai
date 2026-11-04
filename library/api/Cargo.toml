@@ -15,6 +15,7 @@ treasury_fx = { package = "vimbai_treasury_fx", path = "../treasury_fx" }
 group_accounting = { package = "vimbai_group_accounting", path = "../group_accounting" }
 budgeting = { package = "vimbai_budgeting", path = "../budgeting" }
 ratios_statements = { package = "vimbai_ratios_statements", path = "../ratios_statements" }
+assets = { package = "vimbai_assets", path = "../assets" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 axum = "0.7"

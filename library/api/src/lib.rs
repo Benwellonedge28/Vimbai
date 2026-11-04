@@ -33,6 +33,7 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
     map.insert("divestiture", group_accounting::divestiture::evaluate);
     map.insert("eps", ratios_statements::eps_from_json);
     map.insert("croic", ratios_statements::croic_from_json);
+    map.insert("amortization", assets::amortization_from_json);
     map.insert("eva", ratios_statements::eva_from_json);
     map.insert("du-pont", ratios_statements::du_pont_from_json);
     map.insert(
