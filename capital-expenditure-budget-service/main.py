@@ -4,12 +4,24 @@ Port: 8178
 CapEx planning, project ranking, payback period budgeting
 """
 
+import importlib.util
+import os
+import sys
 from typing import Any, Dict, List
 
 import httpx
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("capex_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["capex_calc"] = calc
+_spec.loader.exec_module(calc)
 
 logger = structlog.get_logger()
 app = FastAPI(title="Capital Expenditure Budget Service", version="1.0.0")
@@ -57,10 +69,27 @@ async def health_check():
     return {"status": "healthy", "service": "capital-expenditure-budget", "version": "1.0.0"}
 
 
-@app.post("/prepare", response_model=CapExBudgetResponse)
-async def prepare_capex_budget(request: CapExBudgetRequest):
-    logger.info("Preparing CapEx budget", company=request.company_id)
+def _namespace(value):
+    """Nested dicts become attribute holders, lists keep their order, so the original
+    code can be kept verbatim."""
+    if isinstance(value, dict):
+        return _Payload(value)
+    if isinstance(value, list):
+        return [_namespace(item) for item in value]
+    return value
 
+
+class _Payload:
+    """The request as the original code saw it: attributes, not keys."""
+
+    def __init__(self, payload):
+        for key, item in payload.items():
+            setattr(self, key, _namespace(item))
+
+
+def _reference(payload):
+    """The original Python calculation, kept as the oracle."""
+    request = _Payload(payload)
     sorted_projects = sorted(request.projects, key=lambda x: x.priority)
     remaining = request.total_capex_budget
     funded = []
@@ -99,7 +128,7 @@ async def prepare_capex_budget(request: CapExBudgetRequest):
                 }
             )
 
-    return CapExBudgetResponse(
+    return dict(
         company_id=request.company_id,
         budget_year=request.budget_year,
         total_capex_budget=request.total_capex_budget,
@@ -108,6 +137,13 @@ async def prepare_capex_budget(request: CapExBudgetRequest):
         total_payback_period=round(sum(p["payback_period"] for p in funded) / len(funded), 1) if funded else 0,
         expected_roi=round(total_roi / len(request.projects), 2) if request.projects else 0,
     )
+
+
+@app.post("/prepare", response_model=CapExBudgetResponse)
+async def prepare_capex_budget(request: CapExBudgetRequest):
+    logger.info("Allocating the budget", company=request.company_id)
+    result = calc.prepare(request.model_dump(), _reference)
+    return CapExBudgetResponse(**result)
 
 
 if __name__ == "__main__":

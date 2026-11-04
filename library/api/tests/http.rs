@@ -153,3 +153,27 @@ async fn divestiture_keeps_every_cent() {
     assert_eq!(body["net_proceeds"], "123456789012345678901234.55");
     assert_eq!(body["gain_or_loss"], "23456789012345678901234.55");
 }
+
+#[tokio::test]
+async fn capex_budget_funds_against_an_exact_remainder() {
+    let (status, body) = call(
+        "/calc/capex-budget",
+        Some(json!({
+            "company_id": "c1",
+            "budget_year": "2026",
+            "total_capex_budget": "123456789012345678901.01",
+            "projects": [
+                {"project_id": "a", "project_name": "A", "priority": 1,
+                 "initial_investment": "123456789012345678900.99",
+                 "annual_cash_flow": "1000", "project_life": "2"},
+                {"project_id": "b", "project_name": "B", "priority": 2,
+                 "initial_investment": "0.02", "annual_cash_flow": "5", "project_life": "2"},
+            ],
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    // the two cents left over fund the second project exactly
+    assert_eq!(body["funded_projects"].as_array().unwrap().len(), 2);
+    assert_eq!(body["budget_year"], "2026");
+}

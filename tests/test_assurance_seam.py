@@ -1483,3 +1483,39 @@ def test_divestiture_with_a_retained_interest_keeps_the_service_arithmetic():
     assert rust["gain_or_loss"] == 150000.0
     # the retained interest is added on top without reducing the carrying value
     assert rust["total_gain_recognized"] == 400000.0
+
+
+CAPEX_PAYLOAD = {
+    "company_id": "c1",
+    "budget_year": "2026",
+    "total_capex_budget": 100000.0,
+    "projects": [
+        {
+            "project_id": "b",
+            "project_name": "B",
+            "priority": 2,
+            "initial_investment": 60000.0,
+            "annual_cash_flow": 20000.0,
+            "project_life": 5.0,
+        },
+        {
+            "project_id": "a",
+            "project_name": "A",
+            "priority": 1,
+            "initial_investment": 50000.0,
+            "annual_cash_flow": 15000.0,
+            "project_life": 5.0,
+        },
+    ],
+}
+
+
+def test_capex_budget_matches_the_reference():
+    rust, reference = _both_engines("capital-expenditure-budget-service", "/prepare", CAPEX_PAYLOAD)
+    assert rust == reference
+    # priority 1 is funded first, and the second project no longer fits
+    assert [p["project_id"] for p in rust["funded_projects"]] == ["a"]
+    assert [p["project_id"] for p in rust["deferred_projects"]] == ["b"]
+    assert rust["funded_projects"][0]["roi"] == 50.0
+    # the year is text and stays text through the decimal seam
+    assert rust["budget_year"] == "2026"

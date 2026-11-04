@@ -1045,17 +1045,35 @@ fn absorption_cost_plus_json(payload: &str) -> PyResult<String> {
 /// Used only where a Python service already publishes f64 and its clients read it
 /// that way. The library itself keeps the digits.
 pub(crate) fn floats_from_strings(value: &serde_json::Value) -> serde_json::Value {
+    floats_from_strings_except(value, &[])
+}
+
+/// The same conversion, leaving named fields as text. A year such as "2026" parses as
+/// a number, so a service that publishes it as a string keeps it a string.
+pub(crate) fn floats_from_strings_except(
+    value: &serde_json::Value,
+    keep_text: &[&str],
+) -> serde_json::Value {
     match value {
         serde_json::Value::String(text) => text
             .parse::<f64>()
             .map(|n| serde_json::Value::from(n))
             .unwrap_or_else(|_| value.clone()),
-        serde_json::Value::Array(items) => {
-            serde_json::Value::Array(items.iter().map(floats_from_strings).collect())
-        }
+        serde_json::Value::Array(items) => serde_json::Value::Array(
+            items
+                .iter()
+                .map(|item| floats_from_strings_except(item, keep_text))
+                .collect(),
+        ),
         serde_json::Value::Object(map) => serde_json::Value::Object(
             map.iter()
-                .map(|(k, v)| (k.clone(), floats_from_strings(v)))
+                .map(|(k, v)| {
+                    if keep_text.contains(&k.as_str()) {
+                        (k.clone(), v.clone())
+                    } else {
+                        (k.clone(), floats_from_strings_except(v, keep_text))
+                    }
+                })
                 .collect(),
         ),
         other => other.clone(),
@@ -2062,6 +2080,10 @@ fn divestiture_json(payload: &str) -> PyResult<String> {
     assurance::divestiture_json(payload).map_err(PyValueError::new_err)
 }
 #[pyfunction]
+fn capex_budget_json(payload: &str) -> PyResult<String> {
+    assurance::capex_budget_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
 fn control_evaluation_json(payload: &str) -> PyResult<String> {
     assurance::control_evaluation_json(payload).map_err(PyValueError::new_err)
 }
@@ -2137,6 +2159,7 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(payment_optimization_json, m)?)?;
     m.add_function(wrap_pyfunction!(substantive_testing_json, m)?)?;
     m.add_function(wrap_pyfunction!(divestiture_json, m)?)?;
+    m.add_function(wrap_pyfunction!(capex_budget_json, m)?)?;
     m.add_function(wrap_pyfunction!(control_evaluation_json, m)?)?;
     m.add_function(wrap_pyfunction!(scorecard_json, m)?)?;
     m.add_function(wrap_pyfunction!(controls_test_json, m)?)?;

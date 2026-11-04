@@ -1660,3 +1660,12 @@ pub fn divestiture_json(payload: &str) -> Result<String, String> {
     let legacy = crate::floats_from_strings(&answer);
     serde_json::to_string(&legacy).map_err(|e| e.to_string())
 }
+
+/// capital-expenditure-budget-service `/prepare`.
+pub fn capex_budget_json(payload: &str) -> Result<String, String> {
+    let request: serde_json::Value = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let answer = vimbai_budgeting::capex::prepare_from_json(&request)?;
+    // budget_year is numeric-looking text and must stay text
+    let legacy = crate::floats_from_strings_except(&answer, &["budget_year"]);
+    serde_json::to_string(&legacy).map_err(|e| e.to_string())
+}

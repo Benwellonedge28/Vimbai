@@ -1090,6 +1090,7 @@ dependencies = [
  "tokio",
  "tower",
  "vimbai_advisory",
+ "vimbai_budgeting",
  "vimbai_common",
  "vimbai_cost_accounting",
  "vimbai_group_accounting",

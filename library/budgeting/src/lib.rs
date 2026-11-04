@@ -25,7 +25,10 @@ pub use budget::{
     ForecastResult, MonitorResult, PrepareResult, Projection, RollingForecastResult,
     VarianceItemAnalysis, VarianceSummary,
 };
-pub use capex::{prepare_capex_budget, CapexProject, CapexResult, DeferredProject, FundedProject};
+pub use capex::{
+    prepare_capex_budget, prepare_from_json, CapexProject, CapexResult, DeferredProject,
+    FundedProject,
+};
 pub use cash::{
     prepare_cash_budget, CashBudgetPeriod, CashBudgetRequest, CashBudgetResult, CashFlowItem,
 };
