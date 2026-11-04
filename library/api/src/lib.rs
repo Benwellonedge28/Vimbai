@@ -176,6 +176,14 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         group_accounting::consolidation_views::validate_from_json,
     );
     map.insert(
+        "corporate-tax-calculate",
+        tax::statutory::statutory_from_json,
+    );
+    map.insert(
+        "corporate-tax-compute",
+        tax::statutory::compute_tax_from_json,
+    );
+    map.insert(
         "cost-accounting-job-cost",
         cost_accounting::wire::cost_accounting_job_cost_from_json,
     );

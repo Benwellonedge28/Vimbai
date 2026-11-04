@@ -207,6 +207,16 @@ fn corporate_tax_json(payload: &str) -> PyResult<String> {
     serde_json::to_string(&result).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
+/// corporate-tax-service's backward-compatible flat-rate view.
+#[pyfunction]
+fn corporate_tax_compute_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_tax::statutory::compute_tax_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
 /// tax-calculation-service's bracket engine. Brackets arrive as JSON so the
 /// caller can pass the country's own ladder; omitted, the ZW fixture applies.
 #[pyfunction]
@@ -1855,6 +1865,7 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(nrv_json, m)?)?;
     m.add_function(wrap_pyfunction!(cost_accounting_job_cost_json, m)?)?;
     m.add_function(wrap_pyfunction!(cost_accounting_standards_json, m)?)?;
+    m.add_function(wrap_pyfunction!(corporate_tax_compute_json, m)?)?;
     m.add_function(wrap_pyfunction!(consolidation_eliminations_json, m)?)?;
     m.add_function(wrap_pyfunction!(consolidation_nci_json, m)?)?;
     m.add_function(wrap_pyfunction!(consolidation_goodwill_json, m)?)?;

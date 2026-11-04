@@ -201,3 +201,56 @@ mod tests {
         assert_eq!(result.tax_before_credits, 0.0);
     }
 }
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ComputeTaxInput {
+    pub company_id: String,
+    pub tax_year: i64,
+    pub revenue: f64,
+    pub deductible_expenses: f64,
+    #[serde(default)]
+    pub capital_allowances: f64,
+    #[serde(default = "default_rate")]
+    pub tax_rate: f64,
+    #[serde(default)]
+    pub credits: f64,
+}
+
+fn default_rate() -> f64 {
+    25.0
+}
+
+/// `/compute`, the backward-compatible flat-rate view.
+///
+/// Taxable income is never negative, and the effective rate is zero when no revenue
+/// is stated rather than a division by nothing.
+pub fn compute_tax(input: &ComputeTaxInput) -> serde_json::Value {
+    let taxable = (input.revenue - input.deductible_expenses - input.capital_allowances).max(0.0);
+    let tax_owed = taxable * (input.tax_rate / 100.0);
+    let net = (tax_owed - input.credits).max(0.0);
+    let effective = if input.revenue != 0.0 {
+        vimbai_common::py_round2(net / input.revenue * 100.0)
+    } else {
+        0.0
+    };
+    serde_json::json!({
+        "taxable_income": vimbai_common::py_round2(taxable),
+        "tax_owed": vimbai_common::py_round2(tax_owed),
+        "net_tax_liability": vimbai_common::py_round2(net),
+        "effective_rate": effective,
+    })
+}
+
+pub fn compute_tax_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    let input: ComputeTaxInput =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+    Ok(compute_tax(&input))
+}
+
+/// `corporate_tax_json`'s body, reachable as a plain JSON adapter for the HTTP
+/// interface.
+pub fn statutory_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    let input: CorporateTaxInput =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+    serde_json::to_value(statutory_corporate_tax(&input)).map_err(|e| e.to_string())
+}
