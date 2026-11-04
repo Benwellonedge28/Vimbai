@@ -4,7 +4,9 @@ Disposal accounting, gain/loss calculation, and retained interest measurement.
 Port: 8387
 """
 
+import importlib.util
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -22,6 +24,15 @@ structlog.configure(
         structlog.processors.JSONRenderer(),
     ]
 )
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("divestiture_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["divestiture_calc"] = calc
+_spec.loader.exec_module(calc)
+
 logger = structlog.get_logger(SERVICE_NAME)
 app = FastAPI(title="Vimbai Divestiture Service", version="2.0.0", docs_url="/docs")
 try:
@@ -64,8 +75,16 @@ async def health():
     return {"status": "healthy", "service": SERVICE_NAME, "version": "2.0.0"}
 
 
-@app.post("/dispose", response_model=DivestitureResult)
-async def calculate_disposal(req: DivestitureRequest):
+class _Payload:
+    """The request as the original code saw it: attributes, not keys."""
+
+    def __init__(self, payload):
+        self.__dict__.update(payload)
+
+
+def _reference(payload):
+    """The original Python calculation, kept as the oracle."""
+    req = _Payload(payload)
     net_proceeds = req.disposal_proceeds - req.disposal_costs
     gain_loss = net_proceeds - (req.carrying_value - req.associated_goodwill)
 
@@ -96,7 +115,7 @@ async def calculate_disposal(req: DivestitureRequest):
         ]
     entries = [e for e in entries if e]
 
-    return DivestitureResult(
+    return dict(
         company_id=req.company_id,
         subsidiary_name=req.subsidiary_name,
         disposal_method=req.disposal_method,
@@ -108,6 +127,14 @@ async def calculate_disposal(req: DivestitureRequest):
         goodwill_derecognized=round(req.associated_goodwill, 2),
         journal_entries=entries,
     )
+
+
+@app.post("/dispose", response_model=DivestitureResult)
+async def calculate_disposal(request: DivestitureRequest):
+    logger.info("Calculating a disposal", subsidiary=request.subsidiary_name)
+    result = calc.dispose(request.model_dump(), _reference)
+    result.setdefault("id", str(uuid.uuid4()))
+    return DivestitureResult(**result)
 
 
 if __name__ == "__main__":

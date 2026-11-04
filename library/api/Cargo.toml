@@ -12,6 +12,7 @@ common = { package = "vimbai_common", path = "../common" }
 cost_accounting = { package = "vimbai_cost_accounting", path = "../cost_accounting" }
 performance_measures = { package = "vimbai_performance_measures", path = "../performance_measures" }
 treasury_fx = { package = "vimbai_treasury_fx", path = "../treasury_fx" }
+group_accounting = { package = "vimbai_group_accounting", path = "../group_accounting" }
 ratios_statements = { package = "vimbai_ratios_statements", path = "../ratios_statements" }
 serde = { workspace = true }
 serde_json = { workspace = true }

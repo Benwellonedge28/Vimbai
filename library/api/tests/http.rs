@@ -134,3 +134,22 @@ async fn substantive_testing_projects_over_the_wire() {
     assert_eq!(body["projected_misstatement"], "125.00");
     assert_eq!(body["conclusion"], "qualified");
 }
+
+#[tokio::test]
+async fn divestiture_keeps_every_cent() {
+    let (status, body) = call(
+        "/calc/divestiture",
+        Some(json!({
+            "company_id": "c1",
+            "subsidiary_name": "Sub",
+            "disposal_method": "sale",
+            "disposal_proceeds": "123456789012345678901234.56",
+            "disposal_costs": "0.01",
+            "carrying_value": "100000000000000000000000",
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["net_proceeds"], "123456789012345678901234.55");
+    assert_eq!(body["gain_or_loss"], "23456789012345678901234.55");
+}

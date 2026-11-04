@@ -1449,3 +1449,37 @@ def test_substantive_testing_matches_the_reference():
     assert rust["projected_misstatement"] == 125.0
     assert rust["exceptions_found"] == 1
     assert rust["conclusion"] == "qualified"
+
+
+DISPOSAL_PAYLOAD = {
+    "company_id": "c1",
+    "subsidiary_name": "Sub",
+    "disposal_method": "sale",
+    "disposal_proceeds": 1000000.0,
+    "disposal_costs": 50000.0,
+    "carrying_value": 800000.0,
+    "associated_goodwill": 0.0,
+    "retained_interest_pct": 0.0,
+    "retained_interest_fair_value": 0.0,
+}
+
+
+def test_divestiture_matches_the_reference():
+    rust, reference = _both_engines("divestiture-service", "/dispose", DISPOSAL_PAYLOAD)
+    rust.pop("id"), reference.pop("id")
+    assert rust == reference
+    assert rust["net_proceeds"] == 950000.0
+    assert rust["gain_or_loss"] == 150000.0
+    # the entry text is part of the contract, down to Python's float rendering
+    assert rust["journal_entries"][0] == "Dr Cash/Bank (950000.0)"
+    assert rust["journal_entries"][-1] == "Cr Gain on Disposal (150000.0)"
+
+
+def test_divestiture_with_a_retained_interest_keeps_the_service_arithmetic():
+    body = dict(DISPOSAL_PAYLOAD, retained_interest_pct=20.0, retained_interest_fair_value=250000.0)
+    rust, reference = _both_engines("divestiture-service", "/dispose", body)
+    rust.pop("id"), reference.pop("id")
+    assert rust == reference
+    assert rust["gain_or_loss"] == 150000.0
+    # the retained interest is added on top without reducing the carrying value
+    assert rust["total_gain_recognized"] == 400000.0

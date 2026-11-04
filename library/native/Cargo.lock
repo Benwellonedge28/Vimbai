@@ -378,6 +378,7 @@ dependencies = [
  "indexmap",
  "serde",
  "serde_json",
+ "vimbai_common",
 ]
 
 [[package]]

@@ -1092,6 +1092,7 @@ dependencies = [
  "vimbai_advisory",
  "vimbai_common",
  "vimbai_cost_accounting",
+ "vimbai_group_accounting",
  "vimbai_performance_measures",
  "vimbai_ratios_statements",
  "vimbai_treasury_fx",
@@ -1167,6 +1168,7 @@ dependencies = [
  "indexmap",
  "serde",
  "serde_json",
+ "vimbai_common",
 ]
 
 [[package]]

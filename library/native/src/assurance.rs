@@ -1652,3 +1652,11 @@ pub fn substantive_testing_json(payload: &str) -> Result<String, String> {
     let legacy = crate::floats_from_strings(&answer);
     serde_json::to_string(&legacy).map_err(|e| e.to_string())
 }
+
+/// divestiture-service `/dispose`.
+pub fn divestiture_json(payload: &str) -> Result<String, String> {
+    let request: serde_json::Value = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let answer = vimbai_group_accounting::divestiture::evaluate(&request)?;
+    let legacy = crate::floats_from_strings(&answer);
+    serde_json::to_string(&legacy).map_err(|e| e.to_string())
+}
