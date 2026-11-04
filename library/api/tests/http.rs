@@ -157,7 +157,7 @@ async fn divestiture_keeps_every_cent() {
 #[tokio::test]
 async fn capex_budget_funds_against_an_exact_remainder() {
     let (status, body) = call(
-        "/calc/capex-budget",
+        "/calc/capital-expenditure-budget",
         Some(json!({
             "company_id": "c1",
             "budget_year": "2026",
