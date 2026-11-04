@@ -7,6 +7,7 @@ authors.workspace = true
 description = "Cost and management accounting math: absorption, marginal, standard, target, throughput costing, CVP, limiting factor, make-or-buy, order acceptance, equivalent units, overhead rates"
 
 [dependencies]
+vimbai_capital_valuation = { path = "../capital_valuation" }
 vimbai_common = { path = "../common" }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -784,11 +784,8 @@ pub fn cost_of_capital_calculate_from_json(payload: &Value) -> Result<Value, Str
     }
     let body: Body =
         serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
-    serde_json::to_value(crate::cost_of_capital::calculate(
-        body.interest_rate,
-        body.risk_premium,
-    ))
-    .map_err(|e| e.to_string())
+    let value = crate::cost_of_capital::cost_of_capital(body.interest_rate, body.risk_premium);
+    serde_json::to_value(value).map_err(|e| e.to_string())
 }
 
 /// `cost_of_capital_from_percent` as JSON in, JSON out.
@@ -802,11 +799,11 @@ pub fn cost_of_capital_from_percent_from_json(payload: &Value) -> Result<Value, 
     }
     let body: Body =
         serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
-    serde_json::to_value(crate::cost_of_capital::from_percent(
+    let value = crate::cost_of_capital::cost_of_capital_percent(
         body.interest_rate_percent,
         body.risk_premium_percent,
-    ))
-    .map_err(|e| e.to_string())
+    );
+    serde_json::to_value(value).map_err(|e| e.to_string())
 }
 
 /// `cost_of_capital_wacc`. A refusal is a 200 with an `error` body, which is what
@@ -834,12 +831,13 @@ pub fn cost_of_capital_wacc_from_json(payload: &Value) -> Result<Value, String> 
         body.cost_of_debt,
         body.tax_rate,
     ) {
-        Ok(answer) => serde_json::to_value(answer).map_err(|e| e.to_string()),
+        Ok(value) => Ok(serde_json::to_value(value).map_err(|e| e.to_string())?),
         Err(message) => Ok(serde_json::json!({ "error": message })),
     }
 }
 
 /// `cost_of_capital_simple_rate`, refusal as an `error` body for the same reason.
+/// The service also prints the rate as a percentage, which is added here.
 pub fn cost_of_capital_simple_rate_from_json(payload: &Value) -> Result<Value, String> {
     #[derive(Deserialize)]
     struct Body {
@@ -853,7 +851,13 @@ pub fn cost_of_capital_simple_rate_from_json(payload: &Value) -> Result<Value, S
     let body: Body =
         serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
     match crate::cost_of_capital::simple_rate(body.principal, body.amount_after, body.years) {
-        Ok(answer) => serde_json::to_value(answer).map_err(|e| e.to_string()),
+        Ok(value) => Ok(serde_json::json!({
+            "principal": value.principal,
+            "amount_after": value.amount_after,
+            "years": value.years,
+            "simple_rate": value.simple_rate,
+            "rate_percent": format!("{:.2}%", value.simple_rate * 100.0),
+        })),
         Err(message) => Ok(serde_json::json!({ "error": message })),
     }
 }
@@ -872,15 +876,14 @@ pub fn cost_of_capital_compound_rate_from_json(payload: &Value) -> Result<Value,
     let body: Body =
         serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
     match crate::cost_of_capital::compound_rate(body.present_value, body.future_value, body.years) {
-        Ok(answer) => serde_json::to_value(answer).map_err(|e| e.to_string()),
+        Ok(value) => Ok(serde_json::to_value(value).map_err(|e| e.to_string())?),
         Err(message) => Ok(serde_json::json!({ "error": message })),
     }
 }
 
 /// `cost_of_capital_standard_rates`, the service's fixed table.
 pub fn cost_of_capital_list_from_json(_payload: &Value) -> Result<Value, String> {
-    serde_json::to_value(serde_json::json!({
+    Ok(serde_json::json!({
         "standard_rates": crate::cost_of_capital::standard_rates(),
     }))
-    .map_err(|e| e.to_string())
 }
