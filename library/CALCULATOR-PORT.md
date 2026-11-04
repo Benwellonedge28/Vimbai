@@ -5,7 +5,7 @@ Generated from the tree.
 Rules for every port in this file: safe Rust only, money carried as `vimbai_common::Money`
 (decimal, exact at any magnitude), amounts published as decimal strings from the library.
 `library/HTTP.md` describes the surface that makes deletion possible; `scripts/retire_gate.py`
-says which services have passed every check. 169 stateless calculators; 45 answer through the Rust library today.
+says which services have passed every check. 169 stateless calculators; 45 answer through the Rust library today, 17 of them served at /calc/.
 
 ## Wired to the Rust library
 
