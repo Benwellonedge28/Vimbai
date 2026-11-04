@@ -507,6 +507,26 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "interim-reporting-effective-tax-rate",
         ratios_statements::interim_reporting::effective_tax_rate_from_json,
     );
+    map.insert(
+        "currency-hedging-analyze",
+        (|p| currency_hedging_analyze(p)) as Calculator,
+    );
+    map.insert(
+        "commodity-hedging-analyze",
+        (|p| commodity_hedging_analyze(p)) as Calculator,
+    );
+    map.insert(
+        "futures-hedging-analyze",
+        (|p| futures_hedging_analyze(p)) as Calculator,
+    );
+    map.insert(
+        "interest-rate-hedging-analyze",
+        (|p| interest_rate_hedging_analyze(p)) as Calculator,
+    );
+    map.insert(
+        "cross-currency-swap-value",
+        (|p| cross_currency_swap_value(p)) as Calculator,
+    );
     map
 }
 
@@ -1146,5 +1166,182 @@ mod marginal_adapters {
         assert_eq!(out["contribution"], json!(50000.0));
         assert_eq!(out["profit"], json!(30000.0));
         assert_eq!(out["variable_cost_breakdown"]["materials"], json!(30000.0));
+    }
+}
+
+/// The hedging services all take one request object, so the payload is parsed straight
+/// into the request struct the port already expects. Every one of those structs defaults
+/// its fields, which is how the services treat an omitted optional figure.
+fn hedged<T>(payload: &Value, what: &str) -> Result<T, String>
+where
+    T: serde::de::DeserializeOwned,
+{
+    serde_json::from_value(payload.clone()).map_err(|error| format!("{what}: {error}"))
+}
+
+fn currency_hedging_analyze(payload: &Value) -> Result<Value, String> {
+    let request: treasury_fx::fx_hedging::CurrencyHedgingRequest = hedged(payload, "exposures")?;
+    to_value(&treasury_fx::fx_hedging::analyze_currency_hedge(&request))
+}
+
+fn commodity_hedging_analyze(payload: &Value) -> Result<Value, String> {
+    let request: treasury_fx::hedging_analytics::CommodityHedgingRequest =
+        hedged(payload, "exposures")?;
+    to_value(&treasury_fx::hedging_analytics::analyze_commodity_hedge(
+        &request,
+    ))
+}
+
+fn futures_hedging_analyze(payload: &Value) -> Result<Value, String> {
+    let request: treasury_fx::hedging_analytics::FuturesHedgingRequest =
+        hedged(payload, "positions")?;
+    to_value(&treasury_fx::hedging_analytics::analyze_futures_hedge(
+        &request,
+    ))
+}
+
+fn interest_rate_hedging_analyze(payload: &Value) -> Result<Value, String> {
+    let request: treasury_fx::hedging_analytics::InterestRateHedgingRequest =
+        hedged(payload, "exposures")?;
+    to_value(&treasury_fx::hedging_analytics::analyze_interest_rate_hedge(&request))
+}
+
+fn cross_currency_swap_value(payload: &Value) -> Result<Value, String> {
+    let request: treasury_fx::derivatives::CrossCurrencySwapRequest = hedged(payload, "swaps")?;
+    to_value(&treasury_fx::derivatives::value_cross_currency_swaps(
+        &request,
+    ))
+}
+
+#[cfg(test)]
+mod hedging_adapters {
+    use super::*;
+    use serde_json::json;
+
+    fn calculate(name: &str, payload: Value) -> Value {
+        let registry = calculators();
+        let entry = registry
+            .get(name)
+            .unwrap_or_else(|| panic!("{name} is not registered"));
+        entry(&payload).unwrap_or_else(|error| panic!("{name} failed: {error}"))
+    }
+
+    #[test]
+    fn currency_hedging_reads_its_exposures() {
+        let out = calculate(
+            "currency-hedging-analyze",
+            json!({
+                "company_id": "c-1",
+                "current_hedge_ratio": 0.4,
+                "target_hedge_ratio": 0.8,
+                "risk_aversion": 2.0,
+                "exposures": [{
+                    "currency_pair": "USD/ZWL",
+                    "exposure_amount": 100000.0,
+                    "spot_rate": 1.0,
+                    "expected_rate": 1.05,
+                    "volatility": 0.12
+                }]
+            }),
+        );
+        assert_eq!(out["exposure_analysis"].as_array().unwrap().len(), 1);
+        assert!(out["portfolio_metrics"].is_object());
+        assert!(!out["recommendations"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_commodity_hedge_reads_its_exposures() {
+        let out = calculate(
+            "commodity-hedging-analyze",
+            json!({
+                "company_id": "c-1",
+                "hedge_ratio": 0.6,
+                "budget_rate": {"copper": 9000.0},
+                "exposures": [{
+                    "commodity": "copper",
+                    "exposure_type": "purchase",
+                    "volume": 100.0,
+                    "unit": "tonnes",
+                    "current_price": 9500.0,
+                    "budget_price": 9000.0,
+                    "volatility": 0.2
+                }]
+            }),
+        );
+        assert_eq!(out["exposure_analysis"].as_array().unwrap().len(), 1);
+        assert!(out["hedge_plan"].as_array().is_some());
+        assert!(out["budget_impact"].is_object());
+    }
+
+    #[test]
+    fn an_interest_rate_hedge_reads_its_debt_exposures() {
+        let out = calculate(
+            "interest-rate-hedging-analyze",
+            json!({
+                "company_id": "c-1",
+                "total_debt": 5000000.0,
+                "variable_debt": 2000000.0,
+                "yield_curve_slope": 0.015,
+                "rate_shock_scenarios": [-0.01, 0.01, 0.02],
+                "exposures": [{
+                    "debt_id": "d-1",
+                    "principal": 2000000.0,
+                    "current_rate": 0.09,
+                    "rate_type": "variable",
+                    "maturity_years": 3.0,
+                    "reference_rate": "ZWL prime"
+                }]
+            }),
+        );
+        assert!(out["exposure_summary"].is_object());
+        assert_eq!(out["sensitivity_analysis"].as_array().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn a_futures_hedge_reads_its_positions() {
+        let out = calculate(
+            "futures-hedging-analyze",
+            json!({
+                "company_id": "c-1",
+                "spot_exposure": 1000000.0,
+                "target_hedge_ratio": 0.75,
+                "basis_risk": 0.005,
+                "positions": [{
+                    "future_id": "f-1",
+                    "contract_month": "2027-03",
+                    "position_size": 10.0,
+                    "entry_price": 1.0,
+                    "current_price": 1.02,
+                    "contract_size": 100000.0
+                }]
+            }),
+        );
+        assert_eq!(out["position_analysis"].as_array().unwrap().len(), 1);
+        assert!(out["optimal_hedge_ratio"].is_number());
+    }
+
+    #[test]
+    fn a_cross_currency_swap_is_valued_per_swap() {
+        let out = calculate(
+            "cross-currency-swap-value",
+            json!({
+                "company_id": "c-1",
+                "ois_rates": {"USD": 0.05},
+                "fx_spot": {"USD/ZWL": 1.0},
+                "swaps": [{
+                    "swap_id": "s-1",
+                    "notional_1": 1000000.0,
+                    "currency_1": "USD",
+                    "rate_1": 0.04,
+                    "notional_2": 1000000.0,
+                    "currency_2": "ZWL",
+                    "rate_2": 0.09,
+                    "tenor_years": 5.0,
+                    "exchange_at_inception": false
+                }]
+            }),
+        );
+        assert_eq!(out["swap_valuations"].as_array().unwrap().len(), 1);
+        assert!(out["currency_exposure"].is_object());
     }
 }
