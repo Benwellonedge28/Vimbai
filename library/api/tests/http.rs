@@ -89,3 +89,23 @@ async fn controls_still_answer_through_the_wire() {
     assert_eq!(body["effective_controls"], 1);
     assert_eq!(body["overall_assessment"], "ineffective_with_deficiencies");
 }
+
+#[tokio::test]
+async fn payment_optimization_decides_on_the_wire() {
+    let (status, body) = call(
+        "/calc/payment-optimization",
+        Some(json!({
+            "company_id": "c1",
+            "available_cash": "100000",
+            "payments": [
+                {"payment_id": "p1", "amount": "50000", "due_date": "2026-03-31",
+                 "discount_available": "10", "discount_days": 10},
+            ],
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["payment_schedule"][0]["action"], "PAY_EARLY");
+    // the wire keeps the decimal: a client never sees 50000.0
+    assert_eq!(body["payment_schedule"][0]["amount"], "50000.00");
+}

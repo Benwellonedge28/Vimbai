@@ -18,6 +18,7 @@ pub mod liquidity;
 pub mod multi_currency;
 pub mod operations;
 pub mod options;
+pub mod payment_optimization;
 
 pub use cash::{
     add_days, calculate_liquidity_ratios, optimize_cash_flow, reconcile_bank,

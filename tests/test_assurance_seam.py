@@ -1390,3 +1390,36 @@ def test_target_costing_holds_amounts_a_float_cannot():
     # 12.5% of the price, to the cent, from a number an f64 would have rounded
     assert body["target_profit"] == 15432098626543209862654.32
     assert body["target_cost"] == 108024690385802469038580.24
+
+
+PAYMENTS_PAYLOAD = {
+    "company_id": "c1",
+    "available_cash": 100000.0,
+    "credit_available": 50000.0,
+    "payments": [
+        {
+            "payment_id": "p1",
+            "amount": 50000.0,
+            "due_date": "2026-03-31",
+            "discount_available": 10.0,
+            "discount_days": 10,
+        },
+        {
+            "payment_id": "p2",
+            "amount": 20000.0,
+            "due_date": "2026-04-15",
+            "discount_available": 500.0,
+            "discount_days": 15,
+        },
+    ],
+}
+
+
+def test_payment_optimization_matches_the_reference():
+    rust, reference = _both_engines("payment-optimization-service", "/optimize", PAYMENTS_PAYLOAD)
+    assert rust == reference
+    # 10 days of a 0.02% discount annualises at 0.73%, well under the ceiling
+    assert rust["payment_schedule"][0]["action"] == "PAY_EARLY"
+    # 15 days of 2.5% annualises at 60.83%, so it is left alone despite the cash
+    assert rust["payment_schedule"][1]["action"] == "PAY_NORMAL"
+    assert rust["savings_analysis"]["discount_utilization"] == 1.96

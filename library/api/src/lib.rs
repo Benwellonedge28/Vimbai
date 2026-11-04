@@ -30,6 +30,10 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         (|payload| Ok(advisory::evaluate_controls(payload))) as Calculator,
     );
     map.insert("target-costing", cost_accounting::target_cost::evaluate);
+    map.insert(
+        "payment-optimization",
+        treasury_fx::payment_optimization::evaluate,
+    );
     map
 }
 

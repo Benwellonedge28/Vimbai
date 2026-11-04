@@ -4,12 +4,24 @@ Port: 8261
 Payment timing and method optimization
 """
 
+import importlib.util
+import os
+import sys
 from typing import Any, Dict, List
 
 import httpx
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("payment_optimization_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["payment_optimization_calc"] = calc
+_spec.loader.exec_module(calc)
 
 logger = structlog.get_logger()
 app = FastAPI(title="Payment Optimization Service", version="1.0.0")
@@ -42,48 +54,46 @@ async def health_check():
     return {"status": "healthy", "service": "payment-optimization", "version": "1.0.0"}
 
 
-@app.post("/optimize", response_model=PaymentOptimizationResponse)
-async def optimize_payments(request: PaymentOptimizationRequest):
-    logger.info("Optimizing payments", company=request.company_id)
-
+def _reference(payload):
+    """The original Python calculation, kept as the oracle."""
     payment_schedule = []
     total_discount_taken = 0
     total_discount_available = 0
 
-    for p in request.payments:
-        discount_rate = p.discount_available / p.amount if p.amount else 0
-        annualized_cost = discount_rate / p.discount_days * 365 if p.discount_days > 0 else 0
+    for p in payload["payments"]:
+        discount_rate = p["discount_available"] / p["amount"] if p["amount"] else 0
+        annualized_cost = discount_rate / p["discount_days"] * 365 if p["discount_days"] > 0 else 0
 
         take_discount = annualized_cost < 0.20
 
-        if take_discount and p.amount <= request.available_cash:
+        if take_discount and p["amount"] <= payload["available_cash"]:
             action = "PAY_EARLY"
             payment_date = f"Early (discount)"
-            savings = p.discount_available
-            total_discount_taken += p.discount_available
+            savings = p["discount_available"]
+            total_discount_taken += p["discount_available"]
         else:
             action = "PAY_NORMAL"
-            payment_date = p.due_date
+            payment_date = p["due_date"]
             savings = 0
 
-        total_discount_available += p.discount_available
+        total_discount_available += p["discount_available"]
 
         payment_schedule.append(
             {
-                "payment_id": p.payment_id,
-                "amount": p.amount,
-                "due_date": p.due_date,
+                "payment_id": p["payment_id"],
+                "amount": p["amount"],
+                "due_date": p["due_date"],
                 "payment_date": payment_date,
                 "action": action,
-                "discount_available": p.discount_available,
+                "discount_available": p["discount_available"],
                 "savings": round(savings, 2),
                 "annualized_cost_pct": round(annualized_cost * 100, 2),
             }
         )
 
     savings_analysis = {
-        "total_payments": len(request.payments),
-        "total_amount": round(sum(p.amount for p in request.payments), 2),
+        "total_payments": len(payload["payments"]),
+        "total_amount": round(sum(p["amount"] for p in payload["payments"]), 2),
         "discount_available": round(total_discount_available, 2),
         "discount_taken": round(total_discount_taken, 2),
         "discount_utilization": (
@@ -94,15 +104,22 @@ async def optimize_payments(request: PaymentOptimizationRequest):
     recommendations = []
     if savings_analysis["discount_utilization"] < 50:
         recommendations.append("Low discount utilization - consider paying invoices early to capture discounts")
-    if request.available_cash < sum(p.amount for p in request.payments) * 0.3:
+    if payload["available_cash"] < sum(p["amount"] for p in payload["payments"]) * 0.3:
         recommendations.append("Limited cash - prioritize high-value discounts")
 
-    return PaymentOptimizationResponse(
-        company_id=request.company_id,
+    return dict(
+        company_id=payload["company_id"],
         payment_schedule=payment_schedule,
         savings_analysis=savings_analysis,
         recommendations=recommendations,
     )
+
+
+@app.post("/optimize", response_model=PaymentOptimizationResponse)
+async def optimize_payments(request: PaymentOptimizationRequest):
+    logger.info("Calculating", company=request.company_id)
+    result = calc.optimize(request.model_dump(), _reference)
+    return PaymentOptimizationResponse(**result)
 
 
 if __name__ == "__main__":

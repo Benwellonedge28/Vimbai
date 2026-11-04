@@ -1044,7 +1044,7 @@ fn absorption_cost_plus_json(payload: &str) -> PyResult<String> {
 ///
 /// Used only where a Python service already publishes f64 and its clients read it
 /// that way. The library itself keeps the digits.
-fn floats_from_strings(value: &serde_json::Value) -> serde_json::Value {
+pub(crate) fn floats_from_strings(value: &serde_json::Value) -> serde_json::Value {
     match value {
         serde_json::Value::String(text) => text
             .parse::<f64>()
@@ -2050,6 +2050,10 @@ fn xbrl_json(payload: &str, generated_at: &str) -> PyResult<String> {
 
 // ---- performance, market and credit risk seam ----
 #[pyfunction]
+fn payment_optimization_json(payload: &str) -> PyResult<String> {
+    assurance::payment_optimization_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
 fn control_evaluation_json(payload: &str) -> PyResult<String> {
     assurance::control_evaluation_json(payload).map_err(PyValueError::new_err)
 }
@@ -2122,6 +2126,7 @@ fn fx_convert_json(payload: &str, today: &str) -> PyResult<String> {
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
+    m.add_function(wrap_pyfunction!(payment_optimization_json, m)?)?;
     m.add_function(wrap_pyfunction!(control_evaluation_json, m)?)?;
     m.add_function(wrap_pyfunction!(scorecard_json, m)?)?;
     m.add_function(wrap_pyfunction!(controls_test_json, m)?)?;

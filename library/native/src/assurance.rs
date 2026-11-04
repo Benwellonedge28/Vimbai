@@ -1635,3 +1635,12 @@ pub fn control_evaluation_json(payload: &str) -> Result<String, String> {
     let answer = evaluate_controls(&request);
     serde_json::to_string(&answer).map_err(|e| e.to_string())
 }
+
+/// payment-optimization-service `/optimize`.
+pub fn payment_optimization_json(payload: &str) -> Result<String, String> {
+    let request: serde_json::Value = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let answer = vimbai_treasury_fx::payment_optimization::evaluate(&request)?;
+    // the library keeps amounts as text; this service already publishes floats
+    let legacy = crate::floats_from_strings(&answer);
+    serde_json::to_string(&legacy).map_err(|e| e.to_string())
+}
