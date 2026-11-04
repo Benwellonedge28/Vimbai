@@ -527,6 +527,22 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "cross-currency-swap-value",
         (|p| cross_currency_swap_value(p)) as Calculator,
     );
+    map.insert(
+        "multi-currency-convert",
+        (|p| multi_currency_convert(p)) as Calculator,
+    );
+    map.insert(
+        "multi-currency-hedge",
+        (|p| multi_currency_hedge(p)) as Calculator,
+    );
+    map.insert(
+        "multi-currency-transaction",
+        (|p| multi_currency_transaction(p)) as Calculator,
+    );
+    map.insert(
+        "foreign-currency-translation-translate",
+        (|p| foreign_currency_translate(p)) as Calculator,
+    );
     map
 }
 
@@ -1343,5 +1359,142 @@ mod hedging_adapters {
         );
         assert_eq!(out["swap_valuations"].as_array().unwrap().len(), 1);
         assert!(out["currency_exposure"].is_object());
+    }
+}
+
+fn multi_currency_convert(payload: &Value) -> Result<Value, String> {
+    let request: treasury_fx::multi_currency::CurrencyConversionRequest =
+        hedged(payload, "from_currency")?;
+    // The service stamps the conversion with the wall clock unless the caller supplied one.
+    let converted_at = request
+        .conversion_date
+        .clone()
+        .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+    to_value(&treasury_fx::multi_currency::convert_fixed(
+        &request,
+        &converted_at,
+    ))
+}
+
+fn multi_currency_hedge(payload: &Value) -> Result<Value, String> {
+    let request: treasury_fx::multi_currency::HedgeRequest = hedged(payload, "exposure_amount")?;
+    let hedge_id = format!("HEDGE-{}", chrono::Utc::now().format("%Y%m%d%H%M"));
+    to_value(&treasury_fx::multi_currency::create_hedge(
+        &request, &hedge_id,
+    ))
+}
+
+fn multi_currency_transaction(payload: &Value) -> Result<Value, String> {
+    let request: treasury_fx::multi_currency::TransactionRequest =
+        hedged(payload, "transaction_id")?;
+    to_value(&treasury_fx::multi_currency::process_transaction(&request))
+}
+
+fn foreign_currency_translate(payload: &Value) -> Result<Value, String> {
+    let request: treasury_fx::fx_translation::TranslationRequest = hedged(payload, "net_assets")?;
+    to_value(&treasury_fx::fx_translation::translate_financials(&request))
+}
+
+#[cfg(test)]
+mod currency_adapters {
+    use super::*;
+    use serde_json::json;
+
+    fn calculate(name: &str, payload: Value) -> Value {
+        let registry = calculators();
+        let entry = registry
+            .get(name)
+            .unwrap_or_else(|| panic!("{name} is not registered"));
+        entry(&payload).unwrap_or_else(|error| panic!("{name} failed: {error}"))
+    }
+
+    #[test]
+    fn a_known_pair_converts_at_its_table_rate_less_the_spread() {
+        let out = calculate(
+            "multi-currency-convert",
+            json!({
+                "company_id": "c-1",
+                "amount": 1000.0,
+                "from_currency": "USD",
+                "to_currency": "EUR"
+            }),
+        );
+        // 0.91 is the table rate, less the flat 0.2 per cent spread.
+        assert_eq!(out["exchange_rate"], json!(0.91));
+        assert_eq!(out["converted_amount"], json!(908.18));
+    }
+
+    #[test]
+    fn an_unknown_pair_converts_at_one_less_the_spread() {
+        let out = calculate(
+            "multi-currency-convert",
+            json!({
+                "company_id": "c-1",
+                "amount": 1000.0,
+                "from_currency": "ZWL",
+                "to_currency": "GBP"
+            }),
+        );
+        assert_eq!(out["exchange_rate"], json!(1.0));
+        assert_eq!(out["converted_amount"], json!(998.0));
+    }
+
+    #[test]
+    fn a_hedge_mints_its_own_identifier() {
+        let out = calculate(
+            "multi-currency-hedge",
+            json!({
+                "company_id": "c-1",
+                "exposure_amount": 100000.0,
+                "currency_pair": "USD/ZWL",
+                "hedge_type": "forward",
+                "tenor": 3,
+                "notional": 100000.0
+            }),
+        );
+        assert!(out["hedge_id"].as_str().unwrap().starts_with("HEDGE-"));
+        assert_eq!(out["strike_rate"], json!(1.1));
+    }
+
+    #[test]
+    fn every_transaction_is_booked_in_usd() {
+        let out = calculate(
+            "multi-currency-transaction",
+            json!({
+                "company_id": "c-1",
+                "transaction_id": "t-1",
+                "amount": 5000.0,
+                "currency": "ZWL",
+                "transaction_type": "purchase",
+                "counterparty_currency": "ZWL"
+            }),
+        );
+        assert_eq!(out["amount_in_functional"], json!(5000.0));
+        assert_eq!(out["functional_currency"], json!("USD"));
+        assert_eq!(out["fx_gain_loss"], json!(50.0));
+    }
+
+    #[test]
+    fn translation_reports_the_same_adjustment_twice() {
+        let out = calculate(
+            "foreign-currency-translation-translate",
+            json!({
+                "company_id": "c-1",
+                "subsidiary": "Harare",
+                "functional_currency": "USD",
+                "presentation_currency": "ZWL",
+                "closing_rate": 30.0,
+                "avg_rate": 28.0,
+                "historical_rate": 25.0,
+                "goodwill": 0.0,
+                "net_assets": [{"account": "cash", "amount": 1000.0, "is_monetary": true}],
+                "income_statement": [{"account": "revenue", "amount": 500.0, "is_monetary": false}]
+            }),
+        );
+        assert_eq!(
+            out["cumulative_translation_adjustment"],
+            out["exchange_differences"]
+        );
+        assert_eq!(out["cumulative_translation_adjustment"], json!(2000.0));
     }
 }

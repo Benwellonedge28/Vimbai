@@ -25,6 +25,7 @@ serde_json = { workspace = true }
 axum = "0.7"
 url = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
