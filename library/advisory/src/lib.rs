@@ -61,7 +61,7 @@ pub fn with_id(mut answer: Value, id: &str) -> Value {
     answer
 }
 
-pub use audit::{analyze_analytical_procedures, analyze_transfer_pricing};
+pub use audit::{analyze_analytical_procedures, analyze_transfer_pricing, evaluate_controls};
 pub use contracts::analyze_construction_contracts;
 pub use portfolios::{
     analyze_fund_management, analyze_interest_rate_risk, analyze_investment_portfolio,
@@ -308,5 +308,57 @@ mod tests {
             ]
         }"#;
         assert_parity(analyze_construction_contracts(&request), expected);
+    }
+
+    #[test]
+    fn a_material_weakness_makes_the_whole_engagement_ineffective() {
+        let request = json!({
+            "audit_id": "a1",
+            "controls_to_test": [
+                {"id": "C1", "description": "Segregation of duties", "type": "preventive", "deficiency": "none"},
+                {"id": "C2", "description": "Month-end review", "type": "detective", "deficiency": "significant"},
+                {"id": "C3", "description": "Access control", "deficiency": "material"}
+            ]
+        });
+        let out = evaluate_controls(&request);
+        assert_eq!(out["controls_tested"], 3);
+        assert_eq!(out["effective_controls"], 1);
+        assert_eq!(out["material_weaknesses"], 1);
+        assert_eq!(out["significant_deficiencies"], 1);
+        assert_eq!(out["overall_assessment"], "ineffective_with_deficiencies");
+        // a missing type defaults the way the service defaults it
+        assert_eq!(out["control_test_results"][2]["control_type"], "preventive");
+        assert_eq!(
+            out["remediation_recommendations"].as_array().unwrap().len(),
+            3
+        );
+    }
+
+    #[test]
+    fn any_other_deficiency_marker_is_still_a_deficiency() {
+        let request = json!({
+            "audit_id": "a2",
+            "controls_to_test": [{"id": "C1", "deficiency": "minor"}]
+        });
+        let out = evaluate_controls(&request);
+        assert_eq!(out["effective_controls"], 0);
+        assert_eq!(
+            out["control_test_results"][0]["testing_result"],
+            "ineffective"
+        );
+        // it carries no severity, so it does not stop a clean overall assessment
+        assert_eq!(out["overall_assessment"], "effective");
+        assert_eq!(
+            out["remediation_recommendations"][0],
+            "Continue monitoring control effectiveness"
+        );
+    }
+
+    #[test]
+    fn no_controls_at_all_is_an_effective_engagement() {
+        let out = evaluate_controls(&json!({"audit_id": "a3"}));
+        assert_eq!(out["controls_tested"], 0);
+        assert_eq!(out["deficiencies_found"], 0);
+        assert_eq!(out["overall_assessment"], "effective");
     }
 }

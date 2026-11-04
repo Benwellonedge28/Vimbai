@@ -4,12 +4,24 @@ Port: 8200
 Control testing and deficiency assessment
 """
 
+import importlib.util
+import os
+import sys
 from typing import Any, Dict, List
 
 import httpx
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("internal_control_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["internal_control_calc"] = calc
+_spec.loader.exec_module(calc)
 
 logger = structlog.get_logger()
 app = FastAPI(title="Internal Control Evaluation Service", version="1.0.0")
@@ -57,18 +69,27 @@ async def call_internal_service(service_url: str, endpoint: str, data: dict = No
 
 @app.get("/")
 async def health_check():
-    return {"status": "healthy", "service": "internal-control-evaluation", "version": "1.0.0"}
+    return {
+        "status": "healthy",
+        "service": "internal-control-evaluation",
+        "version": "1.0.0",
+        "calculation_engine": calc.engine_in_use(),
+    }
 
 
 @app.post("/evaluate", response_model=ControlEvaluationResponse)
 async def evaluate_internal_controls(request: ControlEvaluationRequest):
     logger.info("Evaluating internal controls", audit=request.audit_id, company=request.company_id)
+    result = calc.evaluate(request.model_dump(), _reference)
+    return ControlEvaluationResponse(**result)
 
+
+def _reference(payload):
     test_results = []
     material_weaknesses = 0
     significant_deficiencies = 0
 
-    for control in request.controls_to_test:
+    for control in payload["controls_to_test"]:
         deficiency = control.get("deficiency", "none")
         severity = "none"
 
@@ -93,10 +114,10 @@ async def evaluate_internal_controls(request: ControlEvaluationRequest):
     effective_count = len([r for r in test_results if r.testing_result == "effective"])
 
     return ControlEvaluationResponse(
-        audit_id=request.audit_id,
-        controls_tested=len(request.controls_to_test),
+        audit_id=payload["audit_id"],
+        controls_tested=len(payload["controls_to_test"]),
         effective_controls=effective_count,
-        deficiencies_found=len(request.controls_to_test) - effective_count,
+        deficiencies_found=len(payload["controls_to_test"]) - effective_count,
         material_weaknesses=material_weaknesses,
         significant_deficiencies=significant_deficiencies,
         control_test_results=test_results,

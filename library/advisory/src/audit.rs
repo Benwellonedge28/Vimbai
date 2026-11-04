@@ -254,6 +254,85 @@ pub fn analyze_analytical_procedures(request: &Value) -> Value {
     })
 }
 
+/// Internal control evaluation.
+///
+/// Ported from internal-control-evaluation-service. A control counts as
+/// ineffective as soon as any deficiency is recorded against it, and the
+/// engagement is effective only when neither a material weakness nor a
+/// significant deficiency was found. The remediation list is fixed: the
+/// service sends the same three suggestions whenever a material weakness
+/// exists and the same single line otherwise.
+pub fn evaluate_controls(request: &Value) -> Value {
+    let audit_id = text(request, "audit_id");
+    let controls = request
+        .get("controls_to_test")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+
+    let mut results = Vec::with_capacity(controls.len());
+    let mut material_weaknesses = 0i64;
+    let mut significant_deficiencies = 0i64;
+    let mut effective_controls = 0i64;
+
+    for control in &controls {
+        let deficiency = match control.get("deficiency").and_then(Value::as_str) {
+            Some(value) => value.to_string(),
+            None => "none".to_string(),
+        };
+
+        let (severity, effective) = match deficiency.as_str() {
+            "material" => {
+                material_weaknesses += 1;
+                ("material_weakness", false)
+            }
+            "significant" => {
+                significant_deficiencies += 1;
+                ("significant_deficiency", false)
+            }
+            "none" => ("none", true),
+            // Any other marker is still a deficiency; it just carries no severity.
+            _ => ("none", false),
+        };
+
+        if effective {
+            effective_controls += 1;
+        }
+
+        results.push(json!({
+            "control_id": control.get("id").and_then(Value::as_str).unwrap_or(""),
+            "control_description": control.get("description").and_then(Value::as_str).unwrap_or(""),
+            "control_type": control.get("type").and_then(Value::as_str).unwrap_or("preventive"),
+            "testing_result": if effective { "effective" } else { "ineffective" },
+            "deficiency": deficiency,
+            "severity": severity,
+        }));
+    }
+
+    let clean = material_weaknesses == 0 && significant_deficiencies == 0;
+    let recommendations = if material_weaknesses > 0 {
+        json!([
+            "Implement segregation of duties for payment processing",
+            "Strengthen access controls to financial systems",
+            "Enhance management review procedures",
+        ])
+    } else {
+        json!(["Continue monitoring control effectiveness"])
+    };
+
+    json!({
+        "audit_id": audit_id,
+        "controls_tested": controls.len(),
+        "effective_controls": effective_controls,
+        "deficiencies_found": controls.len() as i64 - effective_controls,
+        "material_weaknesses": material_weaknesses,
+        "significant_deficiencies": significant_deficiencies,
+        "control_test_results": results,
+        "overall_assessment": if clean { "effective" } else { "ineffective_with_deficiencies" },
+        "remediation_recommendations": recommendations,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

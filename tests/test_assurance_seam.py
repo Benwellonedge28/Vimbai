@@ -1173,3 +1173,52 @@ def test_credit_risk_endpoint_no_longer_fails_on_its_own_grade():
     body = response.json()
     assert isinstance(body["pd_calculations"]["rating_grade"], int)
     assert body["pd_calculations"]["rating_grade"] == body["rating_grade"]
+
+
+CONTROL_PAYLOAD = {
+    "audit_id": "a1",
+    "company_id": "c1",
+    "control_framework": "coso",
+    "testing_approach": "substantive",
+    "controls_to_test": [
+        {"id": "C1", "description": "Segregation of duties", "type": "preventive", "deficiency": "none"},
+        {"id": "C2", "description": "Month-end review", "type": "detective", "deficiency": "significant"},
+        {"id": "C3", "description": "Access control", "deficiency": "material"},
+    ],
+}
+
+
+def test_internal_controls_match_the_reference():
+    rust, reference = _both_engines("internal-control-evaluation-service", "/evaluate", CONTROL_PAYLOAD)
+    assert rust == reference
+    assert rust["controls_tested"] == 3
+    assert rust["effective_controls"] == 1
+    assert rust["material_weaknesses"] == 1
+    assert rust["significant_deficiencies"] == 1
+    assert rust["overall_assessment"] == "ineffective_with_deficiencies"
+    # a control with no type is preventive, as the service has always defaulted it
+    assert rust["control_test_results"][2]["control_type"] == "preventive"
+    assert len(rust["remediation_recommendations"]) == 3
+
+
+def test_a_deficiency_the_service_does_not_recognise_still_fails_the_control():
+    payload = dict(
+        CONTROL_PAYLOAD,
+        audit_id="a2",
+        controls_to_test=[{"id": "C9", "description": "Odd one", "deficiency": "minor"}],
+    )
+    rust, reference = _both_engines("internal-control-evaluation-service", "/evaluate", payload)
+    assert rust == reference
+    # no severity is attached, so the control fails without dragging the assessment down
+    assert rust["effective_controls"] == 0
+    assert rust["overall_assessment"] == "effective"
+    assert rust["remediation_recommendations"] == ["Continue monitoring control effectiveness"]
+
+
+def test_an_engagement_with_no_controls_tests_nothing():
+    payload = dict(CONTROL_PAYLOAD, audit_id="a3", controls_to_test=[])
+    rust, reference = _both_engines("internal-control-evaluation-service", "/evaluate", payload)
+    assert rust == reference
+    assert rust["controls_tested"] == 0
+    assert rust["deficiencies_found"] == 0
+    assert rust["overall_assessment"] == "effective"

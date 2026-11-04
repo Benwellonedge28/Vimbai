@@ -23,6 +23,7 @@ use vimbai_market_risk::fraud;
 use vimbai_market_risk::options;
 use vimbai_market_risk::regulatory;
 use vimbai_market_risk::var;
+use vimbai_advisory::evaluate_controls;
 use vimbai_performance_measures::controls;
 use vimbai_performance_measures::fx;
 use vimbai_performance_measures::inventory;
@@ -1623,4 +1624,14 @@ mod risk_tests {
         assert_eq!(out["overall_compliance"], "compliant");
         assert_eq!(out["capital_ratios"][0]["actual_value"], 0.09);
     }
+}
+
+/// internal-control-evaluation-service `/evaluate`: the whole payload in, the whole
+/// answer out. A control is ineffective the moment any deficiency is recorded, and
+/// the engagement is effective only with no material weakness and no significant
+/// deficiency.
+pub fn control_evaluation_json(payload: &str) -> Result<String, String> {
+    let request: serde_json::Value = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let answer = evaluate_controls(&request);
+    serde_json::to_string(&answer).map_err(|e| e.to_string())
 }

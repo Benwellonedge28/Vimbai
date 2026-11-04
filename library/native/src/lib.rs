@@ -2024,6 +2024,10 @@ fn xbrl_json(payload: &str, generated_at: &str) -> PyResult<String> {
 
 // ---- performance, market and credit risk seam ----
 #[pyfunction]
+fn control_evaluation_json(payload: &str) -> PyResult<String> {
+    assurance::control_evaluation_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
 fn scorecard_json(payload: &str) -> PyResult<String> {
     assurance::scorecard_json(payload).map_err(PyValueError::new_err)
 }
@@ -2092,6 +2096,7 @@ fn fx_convert_json(payload: &str, today: &str) -> PyResult<String> {
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
+    m.add_function(wrap_pyfunction!(control_evaluation_json, m)?)?;
     m.add_function(wrap_pyfunction!(scorecard_json, m)?)?;
     m.add_function(wrap_pyfunction!(controls_test_json, m)?)?;
     m.add_function(wrap_pyfunction!(profit_json, m)?)?;
