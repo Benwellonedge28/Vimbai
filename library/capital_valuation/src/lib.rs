@@ -18,6 +18,7 @@ pub mod capital_budgeting;
 pub mod capital_returns;
 pub mod corporate_events;
 pub mod dcf;
+pub mod discount_factors;
 pub mod growth;
 pub mod irr;
 pub mod merger;

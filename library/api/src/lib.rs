@@ -434,6 +434,30 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "treasury-analytics",
         (|p| treasury_analytics(p)) as Calculator,
     );
+    map.insert(
+        "discount-factor-calculate",
+        capital_valuation::discount_factors::calculate_from_json,
+    );
+    map.insert(
+        "discount-factor-calculate-percent",
+        capital_valuation::discount_factors::calculate_percent_from_json,
+    );
+    map.insert(
+        "discount-factor-annuity-factor",
+        capital_valuation::discount_factors::annuity_factor_from_json,
+    );
+    map.insert(
+        "discount-factor-annuity-factor-percent",
+        capital_valuation::discount_factors::annuity_factor_percent_from_json,
+    );
+    map.insert(
+        "discount-factor-table",
+        capital_valuation::discount_factors::table_from_json,
+    );
+    map.insert(
+        "discount-factor-table-range",
+        capital_valuation::discount_factors::table_range_from_json,
+    );
     map
 }
 
