@@ -32,7 +32,7 @@ pub use fixed_assets::{
     CategoryAnalysis, FixedAsset, FixedAssetsAnalysis, FixedAssetsError, FixedAssetsRequest,
     ScheduleRow,
 };
-pub use goodwill::{impairment_test, Cgu, ImpairmentResult, TestMethod};
+pub use goodwill::{impairment_test, impairment_test_from_json, Cgu, ImpairmentResult, TestMethod};
 pub use inventory::{inventory_valuation, InventoryOutput, Purchase, Sale, ValuationMethod};
 pub use nrv::{
     compare_cost_nrv, nrv, residual_value, scrap_value, CostNrvComparison, NrvOutput,

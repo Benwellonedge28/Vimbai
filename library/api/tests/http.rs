@@ -425,3 +425,37 @@ async fn fixed_assets_reports_a_register_in_decimals() {
         60000.0
     );
 }
+
+#[tokio::test]
+async fn goodwill_impairment_caps_the_loss_at_goodwill_first() {
+    let (status, body) = call(
+        "/calc/goodwill",
+        Some(json!({
+            "company_id": "c1", "fiscal_year": 2026, "test_method": "higher_of",
+            "cgu": {"name": "cgu1", "carrying_value": "1000.00", "fair_value": "700.00",
+                    "value_in_use": "750.00", "goodwill_allocated": "200.00"},
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["recoverable_amount"], 750.0);
+    assert_eq!(body["impairment_loss"], 250.0);
+    assert_eq!(body["goodwill_impaired"], 200.0);
+    assert_eq!(body["other_assets_impaired"], 50.0);
+    assert_eq!(body["post_impairment_carrying"], 750.0);
+    assert_eq!(body["is_impaired"], true);
+
+    // a one-cent shortfall is a real impairment, and it hits goodwill only
+    let (_, cent) = call(
+        "/calc/goodwill",
+        Some(json!({
+            "company_id": "c1", "fiscal_year": 2026, "test_method": "fair_value_only",
+            "cgu": {"name": "cgu2", "carrying_value": "1234567.89", "fair_value": "1234567.88",
+                    "value_in_use": "900000.00", "goodwill_allocated": "250000.00"},
+        })),
+    )
+    .await;
+    assert_eq!(cent["impairment_loss"], 0.01);
+    assert_eq!(cent["other_assets_impaired"], 0.0);
+    assert_eq!(cent["post_impairment_carrying"], 1234567.88);
+}
