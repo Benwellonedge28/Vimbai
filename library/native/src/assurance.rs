@@ -1603,7 +1603,7 @@ mod risk_tests {
         // perfect financials plus positive/good/leader qualitative: composite 95.5
         assert_eq!(out["credit_rating"], "AAA");
         assert_eq!(out["rating_grade"], 1);
-        assert_eq!(out["pd_calculations"]["rating_grade"], "1");
+        assert_eq!(out["pd_calculations"]["rating_grade"], 1);
         assert_eq!(out["lgd_calculations"]["recovery_rate"], 0.5);
     }
 

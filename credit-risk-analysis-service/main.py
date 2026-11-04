@@ -4,6 +4,9 @@ Port: 8163
 Credit scoring, probability of default, loss given default, exposure at default
 """
 
+import importlib.util
+import os
+import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -11,6 +14,15 @@ import httpx
 import structlog
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("credit_risk_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["credit_risk_calc"] = calc
+_spec.loader.exec_module(calc)
 
 logger = structlog.get_logger()
 app = FastAPI(title="Credit Risk Analysis Service", version="1.0.0")
@@ -65,7 +77,10 @@ class PDCalculation(BaseModel):
     five_year_pd: float
     lifetime_pd: float
     shadow_rating: str
-    rating_grade: str
+    # The grade is a number everywhere else in this response, and the endpoint has
+    # always passed the integer through, so declaring it a string made every call
+    # fail validation. It is the integer it was always given.
+    rating_grade: int
     rating_agency_equivalent: str
 
 
@@ -133,66 +148,65 @@ async def health_check():
     return {"status": "healthy", "service": "credit-risk-analysis", "version": "1.0.0"}
 
 
-@app.post("/analyze", response_model=CreditRiskResponse)
-async def analyze_credit_risk(request: CreditRiskRequest):
+def _reference(payload):
+    """The original Python analysis, kept as the oracle."""
     """Perform comprehensive credit risk analysis."""
-    logger.info("Analyzing credit risk", borrower=request.borrower.borrower_name)
 
     # Calculate composite score
     financial_score = 0.0
-    if request.financials.debt_to_equity < 1.0:
+    if payload["financials"]["debt_to_equity"] < 1.0:
         financial_score += 25
-    elif request.financials.debt_to_equity < 2.0:
+    elif payload["financials"]["debt_to_equity"] < 2.0:
         financial_score += 20
-    elif request.financials.debt_to_equity < 3.0:
+    elif payload["financials"]["debt_to_equity"] < 3.0:
         financial_score += 15
     else:
         financial_score += 5
 
-    if request.financials.interest_coverage > 5:
+    if payload["financials"]["interest_coverage"] > 5:
         financial_score += 25
-    elif request.financials.interest_coverage > 3:
+    elif payload["financials"]["interest_coverage"] > 3:
         financial_score += 20
-    elif request.financials.interest_coverage > 1.5:
+    elif payload["financials"]["interest_coverage"] > 1.5:
         financial_score += 10
     else:
         financial_score += 0
 
-    if request.financials.current_ratio > 2:
+    if payload["financials"]["current_ratio"] > 2:
         financial_score += 25
-    elif request.financials.current_ratio > 1.5:
+    elif payload["financials"]["current_ratio"] > 1.5:
         financial_score += 20
-    elif request.financials.current_ratio > 1.0:
+    elif payload["financials"]["current_ratio"] > 1.0:
         financial_score += 10
     else:
         financial_score += 0
 
-    if request.financials.free_cash_flow > request.borrower.total_exposure * 0.2:
+    if payload["financials"]["free_cash_flow"] > payload["borrower"]["total_exposure"] * 0.2:
         financial_score += 25
-    elif request.financials.free_cash_flow > 0:
+    elif payload["financials"]["free_cash_flow"] > 0:
         financial_score += 15
     else:
         financial_score += 0
 
     # Qualitative adjustment
     qual_score = 50  # Base
-    if request.qualitative.industry_outlook == "positive":
+    if payload["qualitative"]["industry_outlook"] == "positive":
         qual_score += 10
-    elif request.qualitative.industry_outlook == "negative":
+    elif payload["qualitative"]["industry_outlook"] == "negative":
         qual_score -= 10
 
-    if request.qualitative.management_quality == "excellent":
+    if payload["qualitative"]["management_quality"] == "excellent":
         qual_score += 15
-    elif request.qualitative.management_quality == "good":
+    elif payload["qualitative"]["management_quality"] == "good":
         qual_score += 10
-    elif request.qualitative.management_quality == "poor":
+    elif payload["qualitative"]["management_quality"] == "poor":
         qual_score -= 15
 
-    if request.qualitative.market_position == "leader":
+    if payload["qualitative"]["market_position"] == "leader":
         qual_score += 15
-    elif request.qualitative.market_position == "strong":
+    elif payload["qualitative"]["market_position"] == "strong":
         qual_score += 10
-    elif request.qualitative.market_position == "weak":
+    elif payload["qualitative"]["market_position"] == "weak":
         qual_score -= 10
 
     composite_score = financial_score * 0.7 + qual_score * 0.3
@@ -229,10 +243,10 @@ async def analyze_credit_risk(request: CreditRiskRequest):
 
     # PD calculations
     five_year_pd = 1 - (1 - pd) ** 5
-    lifetime_pd = 1 - (1 - pd) ** (request.credit_period_days / 365)
+    lifetime_pd = 1 - (1 - pd) ** (payload["credit_period_days"] / 365)
 
     pd_calc = PDCalculation(
-        borrower_id=request.borrower.borrower_id,
+        borrower_id=payload["borrower"]["borrower_id"],
         one_year_pd=pd,
         five_year_pd=five_year_pd,
         lifetime_pd=lifetime_pd,
@@ -242,20 +256,22 @@ async def analyze_credit_risk(request: CreditRiskRequest):
     )
 
     # LGD calculations
-    total_security = request.borrower.collateral_value + request.borrower.guarantee_value
+    total_security = payload["borrower"]["collateral_value"] + payload["borrower"]["guarantee_value"]
     recovery_rate = (
-        min(0.9, total_security / request.borrower.total_exposure) if request.borrower.total_exposure > 0 else 0.1
+        min(0.9, total_security / payload["borrower"]["total_exposure"])
+        if payload["borrower"]["total_exposure"] > 0
+        else 0.1
     )
     lgd = 1 - recovery_rate
 
-    secured_exposure = min(request.borrower.current_exposure, request.borrower.collateral_value)
-    unsecured_exposure = max(0, request.borrower.current_exposure - secured_exposure)
+    secured_exposure = min(payload["borrower"]["current_exposure"], payload["borrower"]["collateral_value"])
+    unsecured_exposure = max(0, payload["borrower"]["current_exposure"] - secured_exposure)
 
     lgd_calc = LGDCalculation(
-        borrower_id=request.borrower.borrower_id,
-        facility_type=request.borrower.facility_type,
-        collateral_value=request.borrower.collateral_value,
-        guarantee_value=request.borrower.guarantee_value,
+        borrower_id=payload["borrower"]["borrower_id"],
+        facility_type=payload["borrower"]["facility_type"],
+        collateral_value=payload["borrower"]["collateral_value"],
+        guarantee_value=payload["borrower"]["guarantee_value"],
         recovery_rate=recovery_rate,
         loss_given_default=lgd,
         secured_exposure=secured_exposure,
@@ -263,22 +279,22 @@ async def analyze_credit_risk(request: CreditRiskRequest):
     )
 
     # EAD calculations
-    if request.borrower.facility_type == "revolving":
+    if payload["borrower"]["facility_type"] == "revolving":
         conversion_factor = 0.75
-    elif request.borrower.facility_type == "term_loan":
+    elif payload["borrower"]["facility_type"] == "term_loan":
         conversion_factor = 1.0
     else:
         conversion_factor = 0.85
 
-    ead = request.borrower.current_exposure + request.borrower.undrawn_committed * conversion_factor
+    ead = payload["borrower"]["current_exposure"] + payload["borrower"]["undrawn_committed"] * conversion_factor
 
     ead_calc = EADCalculation(
-        borrower_id=request.borrower.borrower_id,
-        current_drawdown=request.borrower.current_exposure,
-        undrawn_committed=request.borrower.undrawn_committed,
+        borrower_id=payload["borrower"]["borrower_id"],
+        current_drawdown=payload["borrower"]["current_exposure"],
+        undrawn_committed=payload["borrower"]["undrawn_committed"],
         conversion_factor=conversion_factor,
         exposure_at_default=ead,
-        potential_future_exposure=request.borrower.undrawn_committed * 0.5,
+        potential_future_exposure=payload["borrower"]["undrawn_committed"] * 0.5,
     )
 
     # Expected Loss
@@ -287,7 +303,7 @@ async def analyze_credit_risk(request: CreditRiskRequest):
     economic_capital = unexpected_loss - expected_loss
 
     el_calc = ExpectedLossCalculation(
-        borrower_id=request.borrower.borrower_id,
+        borrower_id=payload["borrower"]["borrower_id"],
         probability_of_default=pd,
         loss_given_default=lgd,
         exposure_at_default=ead,
@@ -309,7 +325,7 @@ async def analyze_credit_risk(request: CreditRiskRequest):
     recommendation = "APPROVE" if grade <= 5 else "DECLINE" if grade >= 7 else "REVIEW"
 
     response = CreditRiskResponse(
-        borrower_id=request.borrower.borrower_id,
+        borrower_id=payload["borrower"]["borrower_id"],
         credit_rating=rating,
         rating_grade=grade,
         pd_calculations=pd_calc,
@@ -318,16 +334,24 @@ async def analyze_credit_risk(request: CreditRiskRequest):
         expected_loss_calculations=el_calc,
         total_expected_loss=expected_loss,
         risk_adjusted_return=(
-            (request.borrower.current_exposure * 0.08 - expected_loss) / request.borrower.current_exposure * 100
-            if request.borrower.current_exposure > 0
+            (payload["borrower"]["current_exposure"] * 0.08 - expected_loss)
+            / payload["borrower"]["current_exposure"]
+            * 100
+            if payload["borrower"]["current_exposure"] > 0
             else 0
         ),
         recommendation=recommendation,
         covenants_required=covenants,
     )
 
-    logger.info("Credit risk analysis complete", borrower=request.borrower.borrower_name, rating=rating)
     return response
+
+
+@app.post("/analyze", response_model=CreditRiskResponse)
+async def analyze_credit_risk(request: CreditRiskRequest):
+    """Perform comprehensive credit risk analysis."""
+    result = calc.analyze(request.model_dump(), _reference)
+    return result if isinstance(result, CreditRiskResponse) else CreditRiskResponse(**result)
 
 
 @app.post("/pd-historical")

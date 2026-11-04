@@ -1105,3 +1105,71 @@ def test_amortization_holds_a_zero_life_intangible_at_zero():
     assert rust == reference
     assert rust["schedules"][0]["annual_amortization"] == 0.0
     assert rust["schedules"][0]["remaining_life_years"] == 0.0
+
+
+def _credit_payload(**overrides):
+    borrower = {
+        "borrower_id": "borrower-seam",
+        "borrower_name": "Seam Ltd",
+        "credit_facility_id": "facility-seam",
+        "facility_type": "term_loan",
+        "total_exposure": 1e6,
+        "current_exposure": 8e5,
+        "undrawn_committed": 2e5,
+        "collateral_value": 4e5,
+        "guarantee_value": 1e5,
+        "repayment_terms": "monthly",
+    }
+    financials = {
+        "borrower_id": "borrower-seam",
+        "debt_to_equity": 1.2,
+        "debt_to_ebitda": 2.5,
+        "interest_coverage": 4.0,
+        "current_ratio": 1.8,
+        "quick_ratio": 1.1,
+        "profit_margin": 0.12,
+        "operating_cash_flow": 2e5,
+        "free_cash_flow": 1.2e5,
+    }
+    qualitative = {
+        "borrower_id": "borrower-seam",
+        "industry_outlook": "stable",
+        "management_quality": "good",
+        "market_position": "strong",
+        "regulatory_environment": "stable",
+        "competitive_advantage": "brand",
+    }
+    borrower.update(overrides.get("borrower", {}))
+    financials.update(overrides.get("financials", {}))
+    qualitative.update(overrides.get("qualitative", {}))
+    return {"borrower": borrower, "financials": financials, "qualitative": qualitative}
+
+
+def test_credit_risk_matches_the_reference():
+    rust, reference = _both_engines("credit-risk-analysis-service", "/analyze", _credit_payload())
+    assert rust == reference
+    assert rust["credit_rating"] == "A"
+    assert rust["pd_calculations"]["one_year_pd"] == 0.001
+
+
+def test_credit_risk_agrees_on_a_distressed_borrower():
+    payload = _credit_payload(
+        financials={"debt_to_equity": 3.5, "interest_coverage": 1.0, "current_ratio": 0.9, "free_cash_flow": -5e4},
+        qualitative={"industry_outlook": "negative", "management_quality": "poor", "market_position": "weak"},
+    )
+    rust, reference = _both_engines("credit-risk-analysis-service", "/analyze", payload)
+    assert rust == reference
+    assert rust["credit_rating"] == "CCC"
+    assert rust["recommendation"] == "DECLINE"
+
+
+def test_credit_risk_endpoint_no_longer_fails_on_its_own_grade():
+    # PDCalculation declared rating_grade a string and was handed an integer, so every
+    # call failed validation. The field is the number it was always given.
+    payload = _credit_payload()
+    client = _client("credit-risk-analysis-service", "credit_risk_grade")
+    response = client.post("/analyze", json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body["pd_calculations"]["rating_grade"], int)
+    assert body["pd_calculations"]["rating_grade"] == body["rating_grade"]

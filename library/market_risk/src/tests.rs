@@ -166,7 +166,7 @@ fn credit_risk_matches_the_service() {
     assert_eq!(result.total_expected_loss, 250.0); // 0.0005 * 0.5 * 1,000,000
                                                    // the PD block carries the grade as a string, as its model declared; the
                                                    // endpoint's own int is what used to crash every call
-    assert_eq!(result.pd_calculations["rating_grade"], "2");
+    assert_eq!(result.pd_calculations["rating_grade"], 2);
     assert_eq!(result.rating_grade, 2);
 }
 

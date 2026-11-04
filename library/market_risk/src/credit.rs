@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::money::{money, round_dp};
+use crate::money::money;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Borrower {
@@ -298,7 +298,7 @@ pub fn analyze(request: &CreditRequest) -> CreditRiskResponse {
             // endpoint passed an int, so /analyze raised a validation error and
             // answered 500 on every request. Rendered as a string here, matching
             // the declared model; the top-level grade stays numeric.
-            "rating_grade": grade.to_string(),
+            "rating_grade": grade,
             "rating_agency_equivalent": rating,
         }),
         lgd_calculations: json!({
@@ -329,7 +329,9 @@ pub fn analyze(request: &CreditRequest) -> CreditRiskResponse {
             "economic_capital": economic_capital,
         }),
         total_expected_loss: money(expected_loss),
-        risk_adjusted_return: round_dp(raroc, 2),
+        // The service reports this figure unrounded; rounding it here would change
+        // what every existing caller receives.
+        risk_adjusted_return: raroc,
         recommendation: recommendation.to_string(),
         covenants_required: covenants,
     }
