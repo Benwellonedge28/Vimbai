@@ -184,6 +184,45 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         tax::statutory::compute_tax_from_json,
     );
     map.insert(
+        "regulatory-ratio-calculate",
+        bridge::http::regulatory_ratio_from_json,
+    );
+    map.insert("tax-risk-assess", bridge::http::tax_risk_from_json);
+    map.insert("group-tax-consolidate", bridge::http::group_tax_from_json);
+    map.insert(
+        "vat-reporting-prepare-return",
+        bridge::http::vat_return_from_json,
+    );
+    map.insert("government-grants-recognize", bridge::http::grant_from_json);
+    map.insert(
+        "balanced-scorecard-score",
+        bridge::http::scorecard_from_json,
+    );
+    map.insert(
+        "financial-distress-prediction-predict",
+        bridge::http::distress_from_json,
+    );
+    map.insert(
+        "fraud-risk-assessment-assess",
+        bridge::http::fraud_risk_from_json,
+    );
+    map.insert(
+        "pension-accounting-calculate",
+        bridge::http::pension_from_json,
+    );
+    map.insert(
+        "partnership-accounting-allocate",
+        bridge::http::partnership_allocation_from_json,
+    );
+    map.insert(
+        "partnership-sale-goodwill",
+        bridge::http::partnership_goodwill_from_json,
+    );
+    map.insert(
+        "partnership-sale-retirement",
+        bridge::http::partner_buyout_from_json,
+    );
+    map.insert(
         "cost-accounting-job-cost",
         cost_accounting::wire::cost_accounting_job_cost_from_json,
     );

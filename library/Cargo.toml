@@ -5,6 +5,7 @@ resolver = "2"
 exclude = ["native"]
 members = [
     "common",
+    "bridge",
     "api",
     "advisory",
     "automation",
