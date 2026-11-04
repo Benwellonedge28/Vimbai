@@ -1,0 +1,181 @@
+# Calculator port tracker
+
+Generated from the tree. 169 stateless calculators; 40 answer through the Rust library today.
+
+## Wired to the Rust library
+
+- activity-based-costing-service
+- actual-cost-service
+- amortization-service
+- annual-report-service
+- asset-turnover-service
+- balanced-scorecard-service
+- budgeted-cost-service
+- capital-budgeting-service
+- consolidation-service
+- corporate-tax-service
+- credit-risk-analysis-service
+- croic-service
+- depreciation-service
+- du-pont-service
+- eps-service
+- eva-service
+- financial-distress-prediction-service
+- fixed-assets-service
+- fraud-risk-assessment-service
+- goodwill-service
+- government-grants-service
+- group-tax-service
+- internal-control-evaluation-service
+- internal-controls-testing-service
+- inventory-valuation-service
+- liquidity-forecast-service
+- liquidity-risk-service
+- market-risk-service
+- net-realizable-value-service
+- options-pricing-service
+- partnership-accounting-service
+- partnership-sale-service
+- pension-accounting-service
+- r-and-d-tax-service
+- regulatory-ratio-service
+- standard-cost-service
+- tax-provision-service
+- tax-risk-service
+- throughput-accounting-service
+- vat-reporting-service
+
+## Crate already has the maths, service not yet wired
+
+- accounting-rate-return-service -> capital_valuation::accounting_rate_of_return
+- bank-fee-analysis-service -> ratios_statements::analyze_bank_fees, reporting::analyze_bank_fees
+- budget-service -> budgeting::prepare_budget, budgeting::monitor_budget
+- cash-budget-service -> budgeting::prepare_cash_budget
+- cash-flow-forecasting-service -> capital_valuation::present_value_of_cash_flows, performance_measures::from_cash_flow
+- cost-of-capital-service -> capital_valuation::cost_of_capital, capital_valuation::cost_of_capital_percent
+- credit-derivatives-service -> treasury_fx::analyze_credit_derivatives
+- cross-currency-swap-service -> treasury_fx::value_cross_currency_swaps
+- discount-factor-service -> capital_valuation::discount_factor, capital_valuation::discount_factor_percent
+- discounted-payback-period-service -> capital_valuation::discounted_payback
+- equivalent-units-service -> cost_accounting::equivalent_units
+- flexible-budget-service -> cost_accounting::flexible_budget
+- forward-contracts-service -> treasury_fx::analyze_forward_contracts
+- ifrs-16-lease-accounting-service -> ifrs::calculate_ifrs16
+- income-statement-service -> cost_accounting::marginal_income_statement, ratios_statements::prepare_income_statement
+- interest-rate-hedging-service -> advisory::analyze_interest_rate_risk, treasury_fx::analyze_interest_rate_hedge
+- labour-cost-variance-service -> cost_accounting::actual_labour_cost, cost_accounting::labour_cost_rate
+- labour-rate-variance-service -> cost_accounting::labour_hours_rate, cost_accounting::labour_cost_rate
+- make-or-buy-decision-service -> cost_accounting::analyze_make_or_buy
+- management-accounts-service -> ratios_statements::prepare_management_accounts
+- master-budget-service -> budgeting::prepare_master_budget
+- material-cost-variance-service -> cost_accounting::actual_material_cost, cost_accounting::material_cost_variance
+- material-price-variance-service -> variance::material_price_variance
+- material-usage-variance-service -> variance::material_usage_variance
+- multi-currency-service -> treasury_fx::validate_multi_currency_transaction
+- payback-period-service -> capital_valuation::payback_period
+- payroll-service -> equity_payroll::payroll_run, equity_payroll::payroll_taxes
+- present-value-service -> capital_valuation::present_value, capital_valuation::present_value_percent
+- profit-service -> native::profit_json, advisory::analyze_profitability_index
+- project-appraisal-service -> capital_valuation::project_appraisal
+- reporting-service -> advisory::analyze_events_after_reporting
+- risk-return-analysis-service -> capital_valuation::analyze_risk_return
+- rolling-forecast-service -> budgeting::rolling_forecast
+- sales-price-variance-service -> variance::sales_price_volume_analysis
+- sales-volume-variance-service -> variance::sales_price_volume_analysis, variance::sales_volume_cm_analysis
+- sustainable-growth-service -> capital_valuation::sustainable_growth
+- tax-return-preparation-service -> tax::prepare_tax_return
+- tax-service -> native::group_tax_json, native::tax_provision_json
+- times-interest-earned-service -> ratios_statements::analyze_times_interest_earned
+- treasury-operations-service -> treasury_fx::analyze_treasury_operations
+- variance-service -> budgeting::analyze_budget_variance, budgeting::detailed_variance_analysis
+- working-capital-finance-service -> ratios_statements::analyze_working_capital, ratios_statements::optimize_working_capital
+- working-capital-optimization-service -> ratios_statements::analyze_working_capital, ratios_statements::optimize_working_capital
+- working-capital-service -> ratios_statements::analyze_working_capital, ratios_statements::optimize_working_capital
+- zero-based-budget-service -> budgeting::prepare_zero_based_budget
+
+## Needs the maths written in Rust
+
+- acquisition-financing-service
+- asset-allocation-service
+- audit-evidence-service
+- audit-sampling-service
+- banking-integration-service
+- biological-assets-service
+- business-combination-service
+- business-documents-service
+- business-valuation-service
+- capital-allocation-service
+- capital-expenditure-budget-service
+- commodity-hedging-service
+- comparative-financial-statements-service
+- corporate-governance-service
+- cost-accounting-service
+- currency-hedging-service
+- dashboard-service
+- deal-structuring-service
+- disposal-account-service
+- distributed-workflow-orchestration-service
+- divestiture-service
+- double-entry-principles-service
+- due-diligence-service
+- encrypted-backup-service
+- esg-reporting-service
+- etl-service
+- exotic-derivatives-service
+- financial-forecasting-service
+- financial-planning-service
+- financial-reporting-service
+- financial-statements-service
+- foreign-currency-translation-service
+- foreign-exchange-service
+- futures-hedging-service
+- going-concern-service
+- graphql-service
+- identity-service
+- ifrs-15-revenue-recognition-service
+- ifrs-2-share-based-payment-service
+- ifrs-9-financial-instruments-service
+- interim-financial-reporting-service
+- internal-rate-return-service
+- investment-appraisal-service
+- investment-property-service
+- kpi-tracking-service
+- labour-efficiency-variance-service
+- lease-management-service
+- liquidity-management-service
+- management-dashboard-service
+- management-reporting-service
+- merger-valuation-service
+- mva-service
+- net-present-value-service
+- operational-risk-service
+- payment-gateway-service
+- payment-optimization-service
+- payroll-accounting-service
+- performance-benchmarking-service
+- portfolio-optimization-service
+- post-merger-service
+- privacy-admin-dashboard-service
+- profit-loss-account-service
+- project-accounting-service
+- provisions-contingencies-service
+- ratio-analysis-service
+- realtime-calculation-engine
+- regulatory-reporting-service
+- report-automation-service
+- report-distribution-service
+- revaluation-model-service
+- scenario-budget-service
+- segment-reporting-service
+- statutory-filing-service
+- substantive-testing-service
+- suspense-error-service
+- swap-valuation-service
+- synergy-analysis-service
+- target-costing-service
+- tax-calculation-service
+- time-value-of-money-service
+- treasury-cash-service
+- trial-balance-service
+- websocket-service
+- xbrl-reporting-service

@@ -1283,3 +1283,68 @@ def test_liquidity_shortfall_is_reported_as_required_credit():
     assert len(gaps) == 1
     assert gaps[0]["date"] == "2026-02-28"
     assert gaps[0]["shortfall"] == gaps[0]["required_credit"]
+
+
+def _module(service_dir, name):
+    """Load a service module by path, the same way _client does, and return it."""
+    if REPO_ROOT not in sys.path:
+        sys.path.insert(0, REPO_ROOT)
+    sys.modules.pop("calc", None)
+    service_path = os.path.join(REPO_ROOT, service_dir)
+    sys.path.insert(0, service_path)
+    try:
+        spec = importlib.util.spec_from_file_location(name, os.path.join(service_path, "main.py"))
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(service_path)
+    return module
+
+
+def _payload_from(model):
+    """A request body built from the model itself, so a schema change cannot hide."""
+    import typing
+
+    def value_for(annotation, depth):
+        origin = getattr(annotation, "__origin__", None)
+        if origin in (list, typing.List):
+            return [value_for(annotation.__args__[0], depth + 1)] * 2
+        if origin in (dict, typing.Dict):
+            return {}
+        if hasattr(annotation, "model_fields") and depth < 3:
+            return from_model(annotation, depth + 1)
+        if annotation is int:
+            return 12
+        if annotation is float:
+            return 123456.78
+        if annotation is bool:
+            return True
+        return "sample"
+
+    def from_model(cls, depth=0):
+        return {
+            name: (
+                value_for(field.annotation, depth)
+                if field.is_required()
+                else field.get_default(call_default_factory=True)
+            )
+            for name, field in cls.model_fields.items()
+        }
+
+    return from_model(model)
+
+
+@pytest.mark.parametrize(
+    ("service", "path", "request_model"),
+    [
+        ("annual-report-service", "/prepare", "AnnualReportRequest"),
+        ("fixed-assets-service", "/analyze", "FixedAssetsRequest"),
+        ("liquidity-risk-service", "/analyze", "LiquidityAnalysisRequest"),
+    ],
+)
+def test_statement_services_match_the_reference(service, path, request_model):
+    module = _module(service, f"schema_{service.replace('-', '_')}")
+    payload = _payload_from(getattr(module, request_model))
+    rust, reference = _both_engines(service, path, payload)
+    assert rust == reference

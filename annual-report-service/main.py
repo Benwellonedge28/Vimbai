@@ -4,12 +4,24 @@ Port: 8210
 Annual report preparation and compliance checklist
 """
 
+import importlib.util
+import os
+import sys
 from typing import Any, Dict, List
 
 import httpx
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("annual_report_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["annual_report_calc"] = calc
+_spec.loader.exec_module(calc)
 
 logger = structlog.get_logger()
 app = FastAPI(title="Annual Report Service", version="1.0.0")
@@ -61,15 +73,13 @@ async def health_check():
     return {"status": "healthy", "service": "annual-report", "version": "1.0.0"}
 
 
-@app.post("/prepare", response_model=AnnualReportResponse)
-async def prepare_annual_report(request: AnnualReportRequest):
-    logger.info("Preparing annual report", company=request.company_id, year=request.fiscal_year)
-
+def _reference(payload):
+    """The original Python calculation, kept as the oracle."""
     sections = []
     completed = 0
     pending = 0
 
-    for section in request.sections_included:
+    for section in payload["sections_included"]:
         status = section.get("status", "pending")
         if status == "completed":
             completed += 1
@@ -86,29 +96,31 @@ async def prepare_annual_report(request: AnnualReportRequest):
         )
 
     regulatory_filings = {
-        "sec_filing": "SEC Filing" in request.regulatory_filings,
-        "stock_exchange": "Stock Exchange" in request.regulatory_filings,
-        "tax_return": "Tax Return" in request.regulatory_filings,
+        "sec_filing": "SEC Filing" in payload["regulatory_filings"],
+        "stock_exchange": "Stock Exchange" in payload["regulatory_filings"],
+        "tax_return": "Tax Return" in payload["regulatory_filings"],
     }
 
     outstanding = [s.section_name for s in sections if not s.completed and s.required]
 
     report_status = "Ready for publication" if pending == 0 else "In preparation"
-    if request.audit_opinion != "unqualified":
-        report_status += f" ({request.audit_opinion} opinion)"
+    if payload["audit_opinion"] != "unqualified":
+        opinion = payload["audit_opinion"]
+        report_status += f" ({opinion} opinion)"
 
-    return AnnualReportResponse(
-        company_id=request.company_id,
-        fiscal_year=request.fiscal_year,
+    year = payload["fiscal_year"]
+    return dict(
+        company_id=payload["company_id"],
+        fiscal_year=year,
         report_status=report_status,
         sections=sections,
         completed_sections=completed,
         pending_sections=pending,
         regulatory_compliance=regulatory_filings,
         filing_deadlines={
-            "annual_report": f"{request.fiscal_year}-04-30",
-            "sec_filing": f"{request.fiscal_year}-03-31",
-            "agm": f"{request.fiscal_year}-06-30",
+            "annual_report": f"{year}-04-30",
+            "sec_filing": f"{year}-03-31",
+            "agm": f"{year}-06-30",
         },
         outstanding_items=outstanding if outstanding else ["All required sections completed"],
         recommendations=(
@@ -122,6 +134,13 @@ async def prepare_annual_report(request: AnnualReportRequest):
             else ["Proceed with report publication"]
         ),
     )
+
+
+@app.post("/prepare", response_model=AnnualReportResponse)
+async def prepare_annual_report(request: AnnualReportRequest):
+    logger.info("Calculating", company=getattr(request, "company_id", ""))
+    result = calc.analyze(request.model_dump(), _reference)
+    return AnnualReportResponse(**result)
 
 
 if __name__ == "__main__":
