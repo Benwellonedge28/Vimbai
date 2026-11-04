@@ -9,6 +9,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
+use vimbai_common::Money;
 use vimbai_group_accounting::buyout::{self, BuyoutRequest, RemainingPartner};
 use vimbai_group_accounting::combination::{self, AcquisitionRequest, IdentifiableAsset};
 use vimbai_group_accounting::consolidation::{
@@ -935,6 +936,11 @@ fn default_fifo() -> String {
     "fifo".to_string()
 }
 
+/// A typed float from the service payload, as the decimal the library works in.
+fn decimal(value: f64) -> Money {
+    Money::parse(&value.to_string()).unwrap_or_else(|_| Money::zero())
+}
+
 pub fn inventory_json(payload: &str) -> Result<String, String> {
     let dto: InventoryDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
     let request = inventory::ValuationRequest {
@@ -946,7 +952,7 @@ pub fn inventory_json(payload: &str) -> Result<String, String> {
             .map(|p| inventory::PurchaseRecord {
                 date: p.date.clone(),
                 quantity: p.quantity,
-                unit_cost: p.unit_cost,
+                unit_cost: decimal(p.unit_cost),
             })
             .collect(),
         sales: dto
@@ -955,10 +961,10 @@ pub fn inventory_json(payload: &str) -> Result<String, String> {
             .map(|s| inventory::SaleRecord {
                 date: s.date.clone(),
                 quantity: s.quantity,
-                unit_price: s.unit_price,
+                unit_price: decimal(s.unit_price),
             })
             .collect(),
-        opening_inventory: dto.opening_inventory,
+        opening_inventory: decimal(dto.opening_inventory),
         opening_qty: dto.opening_qty,
     };
     serde_json::to_string(&inventory::calculate(&request)).map_err(|e| e.to_string())

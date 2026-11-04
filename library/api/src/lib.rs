@@ -38,6 +38,10 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
     map.insert("depreciation-method", assets::depreciation_method_from_json);
     map.insert("fixed-assets", assets::analyze_fixed_assets_from_json);
     map.insert("goodwill", assets::impairment_test_from_json);
+    map.insert(
+        "inventory-valuation",
+        performance_measures::inventory_from_json,
+    );
     map.insert("eva", ratios_statements::eva_from_json);
     map.insert("du-pont", ratios_statements::du_pont_from_json);
     map.insert(

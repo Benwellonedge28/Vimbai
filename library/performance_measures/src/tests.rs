@@ -1,5 +1,7 @@
 //! Parity figures captured from the six Python services on canonical inputs.
 
+use vimbai_common::Money;
+
 use crate::controls::{test as test_controls, Control, DeficiencyLevel, TestingRequest};
 use crate::fx::{convert, hedge, rate_of, ConversionRequest, HedgeRequest};
 use crate::inventory::{
@@ -182,12 +184,16 @@ fn average_accounting_profit_matches_the_service() {
 fn inventory_methods_match_the_service() {
     let base = || {
         ValuationRequest::new("co", ValuationMethod::Fifo)
-            .with_opening(5_000.0, 50)
+            .with_opening(Money::from_i64(5_000), 50)
             .with_purchases(vec![
-                PurchaseRecord::new("2026-02-01", 100, 110.0),
-                PurchaseRecord::new("2026-01-15", 100, 100.0),
+                PurchaseRecord::new("2026-02-01", 100, Money::from_i64(110)),
+                PurchaseRecord::new("2026-01-15", 100, Money::from_i64(100)),
             ])
-            .with_sales(vec![SaleRecord::new("2026-03-01", 120, 200.0)])
+            .with_sales(vec![SaleRecord::new(
+                "2026-03-01",
+                120,
+                Money::from_i64(200),
+            )])
     };
 
     let fifo = value(&ValuationRequest {

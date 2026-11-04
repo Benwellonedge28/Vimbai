@@ -22,8 +22,8 @@ pub use fx::{
     UnsupportedCurrency, RATES,
 };
 pub use inventory::{
-    calculate as value_inventory, PurchaseRecord, SaleRecord, ValuationMethod, ValuationRequest,
-    ValuationResult,
+    calculate as value_inventory, calculate_from_json as inventory_from_json, PurchaseRecord,
+    SaleRecord, ValuationMethod, ValuationRequest, ValuationResult,
 };
 pub use money::{money, python_float, round_dp};
 pub use profit::{

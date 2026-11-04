@@ -459,3 +459,46 @@ async fn goodwill_impairment_caps_the_loss_at_goodwill_first() {
     assert_eq!(cent["other_assets_impaired"], 0.0);
     assert_eq!(cent["post_impairment_carrying"], 1234567.88);
 }
+
+#[tokio::test]
+async fn inventory_valuation_costs_the_same_register_the_same_way() {
+    let register = json!({
+        "company_id": "c1", "method": "fifo",
+        "opening_inventory": 5000.0, "opening_qty": 50,
+        "purchases": [
+            {"date": "2026-02-01", "quantity": 100, "unit_cost": 110.0},
+            {"date": "2026-01-15", "quantity": 100, "unit_cost": 100.0},
+        ],
+        "sales": [{"date": "2026-03-01", "quantity": 120, "unit_price": 200.0}],
+    });
+    let (status, body) = call("/calc/inventory-valuation", Some(register)).await;
+    assert_eq!(status, StatusCode::OK);
+    // opening stock goes first: 50 @ 100 plus 70 of the January layer
+    assert_eq!(body["cost_of_goods_sold"], 12000.0);
+    assert_eq!(body["ending_inventory"], 14000.0);
+    assert_eq!(body["gross_margin"], 50.0);
+}
+
+#[tokio::test]
+async fn inventory_lifo_book_value_is_exact_even_on_a_cent_tie() {
+    // total cost 10142.494, LIFO cogs 9041.949, so book value is 1100.545.
+    // The Python service folds this in a double, lands a hair above the tie and
+    // rounds up to 1100.55. Exactly, it is a tie, and a tie rounds to even.
+    let (status, body) = call(
+        "/calc/inventory-valuation",
+        Some(json!({
+            "company_id": "c1", "method": "lifo",
+            "opening_inventory": 1000.55, "opening_qty": 3,
+            "purchases": [
+                {"date": "2026-02-01", "quantity": 7, "unit_cost": 1234.567},
+                {"date": "2026-01-15", "quantity": 5, "unit_cost": 99.995},
+            ],
+            "sales": [{"date": "2026-03-01", "quantity": 11, "unit_price": 2000.0}],
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_goods_available"], 10142.49);
+    assert_eq!(body["cost_of_goods_sold"], 9041.95);
+    assert_eq!(body["ending_inventory"], 1100.54);
+}
