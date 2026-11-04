@@ -80,10 +80,7 @@ use vimbai_ratios_statements::working_capital::{
     analyze_wc_finance, analyze_working_capital, calculate_factoring, optimize_working_capital,
     FactoringInput, WcAnalysisInput, WcFinanceInput, WcOptimizeInput,
 };
-use vimbai_ratios_statements::{
-    asset_turnover, croic, du_pont_analysis, eps, eva, CroicRequest, DuPontRequest, EpsRequest,
-    EvaRequest, TurnoverRequest,
-};
+use vimbai_ratios_statements::{croic, eva, CroicRequest, EvaRequest};
 use vimbai_reporting::annual::{prepare_annual_report, AnnualReportRequest};
 use vimbai_reporting::financial::{generate_financial_report, FinancialReportingRequest};
 use vimbai_reporting::management::{generate_management_report, ManagementReportingRequest};
@@ -296,19 +293,21 @@ fn amortization_json(payload: &str) -> PyResult<String> {
 /// du_pont-service, body in and body out.
 #[pyfunction]
 fn du_pont_json(payload: &str) -> PyResult<String> {
-    let request: DuPontRequest =
+    let request: serde_json::Value =
         serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    let response = du_pont_analysis(&request);
-    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+    let answer = vimbai_ratios_statements::du_pont_from_json(&request)
+        .map_err(|e| seam_error(SeamError(e.to_string())))?;
+    serde_json::to_string(&answer).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
 /// asset_turnover-service, body in and body out.
 #[pyfunction]
 fn asset_turnover_json(payload: &str) -> PyResult<String> {
-    let request: TurnoverRequest =
+    let request: serde_json::Value =
         serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    let response = asset_turnover(&request);
-    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+    let answer = vimbai_ratios_statements::asset_turnover_from_json(&request)
+        .map_err(|e| seam_error(SeamError(e.to_string())))?;
+    serde_json::to_string(&answer).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
 /// croic-service, body in and body out.

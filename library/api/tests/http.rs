@@ -204,3 +204,49 @@ async fn eps_keeps_whole_shares_and_exact_cents() {
     // 123,456,789,012,345,678,901,234.56 / 1,000 keeps every cent
     assert_eq!(body["basic_eps"], "123456789012345678901.2346");
 }
+
+#[tokio::test]
+async fn du_pont_decomposes_and_calls_the_industry_gap() {
+    let (status, body) = call(
+        "/calc/du-pont",
+        Some(json!({
+            "company_id": "c1", "period": "2026",
+            "revenue": 1_000_000.0, "net_income": 120_000.0, "ebt": 160_000.0,
+            "ebit": 200_000.0, "total_assets": 800_000.0, "total_equity": 400_000.0,
+            "total_debt": 400_000.0,
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let metrics = &body["du_pont_metrics"];
+    assert_eq!(metrics["net_profit_margin"], 0.12);
+    assert_eq!(metrics["asset_turnover"], 1.25);
+    assert_eq!(metrics["financial_leverage"], 2.0);
+    // the three factors multiply back to ROE
+    let roe = metrics["return_on_equity"].as_f64().unwrap();
+    let product = 0.12 * 1.25 * 2.0;
+    assert!((roe - product).abs() < 1e-9);
+    assert_eq!(body["conclusions"]["profitability"], "Strong");
+    assert_eq!(body["peer_comparison"]["industry_avg_roe"], 15.0);
+}
+
+#[tokio::test]
+async fn turnover_reports_a_whole_day_count() {
+    let (status, body) = call(
+        "/calc/asset-turnover",
+        Some(json!({
+            "company_id": "c1", "period": "2026",
+            "revenue": 900_000.0, "cost_of_goods_sold": 600_000.0,
+            "total_assets": 500_000.0, "fixed_assets": 200_000.0,
+            "current_assets": 300_000.0, "current_liabilities": 150_000.0,
+            "accounts_receivable": 120_000.0, "inventory": 90_000.0,
+            "accounts_payable": 80_000.0,
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["turnover_metrics"]["total_asset_turnover"], 1.8);
+    // dso 48.67 + dio 54.75 - dpo 48.67, truncated to whole days
+    assert_eq!(body["turnover_metrics"]["cash_conversion_cycle"], 54);
+    assert_eq!(body["efficiency_assessment"], "efficient");
+}

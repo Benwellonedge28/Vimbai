@@ -276,6 +276,26 @@ pub fn asset_turnover(request: &TurnoverRequest) -> TurnoverResponse {
     }
 }
 
+/// The `/analyze` payload for the DuPont decomposition.
+///
+/// The money here is only ever used as a ratio of money (`net_income / revenue`,
+/// `revenue / total_assets`), so the inputs stay floats: a quotient of two large
+/// amounts is dimensionless and lands well inside double precision even when the
+/// amounts themselves are too big to hold exactly. Amounts that must survive as
+/// amounts (free cash flow, capital charges) take `Money` instead.
+pub fn du_pont_from_json(payload: &Value) -> Result<Value, String> {
+    let request: DuPontRequest =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+    serde_json::to_value(du_pont_analysis(&request)).map_err(|e| e.to_string())
+}
+
+/// The `/analyze` payload for the turnover profile. Ratios and a day count, no money.
+pub fn asset_turnover_from_json(payload: &Value) -> Result<Value, String> {
+    let request: TurnoverRequest =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+    serde_json::to_value(asset_turnover(&request)).map_err(|e| e.to_string())
+}
+
 // --- CROIC ------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
