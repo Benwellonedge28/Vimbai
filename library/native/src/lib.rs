@@ -80,7 +80,7 @@ use vimbai_ratios_statements::working_capital::{
     analyze_wc_finance, analyze_working_capital, calculate_factoring, optimize_working_capital,
     FactoringInput, WcAnalysisInput, WcFinanceInput, WcOptimizeInput,
 };
-use vimbai_ratios_statements::{croic, eva, CroicRequest, EvaRequest};
+
 use vimbai_reporting::annual::{prepare_annual_report, AnnualReportRequest};
 use vimbai_reporting::financial::{generate_financial_report, FinancialReportingRequest};
 use vimbai_reporting::management::{generate_management_report, ManagementReportingRequest};
@@ -313,19 +313,21 @@ fn asset_turnover_json(payload: &str) -> PyResult<String> {
 /// croic-service, body in and body out.
 #[pyfunction]
 fn croic_json(payload: &str) -> PyResult<String> {
-    let request: CroicRequest =
+    let request: serde_json::Value =
         serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    let response = croic(&request);
-    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+    let answer = vimbai_ratios_statements::croic_from_json(&request)
+        .map_err(|e| seam_error(SeamError(e.to_string())))?;
+    serde_json::to_string(&answer).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
 /// eva-service, body in and body out.
 #[pyfunction]
 fn eva_json(payload: &str) -> PyResult<String> {
-    let request: EvaRequest =
+    let request: serde_json::Value =
         serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    let response = eva(&request);
-    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+    let answer = vimbai_ratios_statements::eva_from_json(&request)
+        .map_err(|e| seam_error(SeamError(e.to_string())))?;
+    serde_json::to_string(&answer).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
 /// eps-service, body in and body out.

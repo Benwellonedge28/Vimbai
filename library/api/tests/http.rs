@@ -250,3 +250,55 @@ async fn turnover_reports_a_whole_day_count() {
     assert_eq!(body["turnover_metrics"]["cash_conversion_cycle"], 54);
     assert_eq!(body["efficiency_assessment"], "efficient");
 }
+
+#[tokio::test]
+async fn croic_keeps_free_cash_flow_exact_for_a_huge_company() {
+    let (status, body) = call(
+        "/calc/croic",
+        Some(json!({
+            "company_id": "c1",
+            // a quadrillion, with cents the double type could not hold
+            "operating_cash_flow": "1234567890123456.78",
+            "capital_expenditures": "234567890123.45",
+            "total_assets": "9999999999999999.99",
+            "current_liabilities": "1000000000000.00",
+            "tax_rate": "0.25",
+            "periods": ["2024", "2025"],
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    // the subtraction keeps every cent, and the ratio is only rounded on the way out
+    assert_eq!(body["current_croic"]["free_cash_flow"], 1234333322233333.3);
+    assert_eq!(
+        body["current_croic"]["invested_capital"],
+        9998999999999999.99
+    );
+    // about 0.1234 of invested capital: past 0.10, short of 0.15
+    assert_eq!(body["current_croic"]["capital_efficiency_rating"], "good");
+}
+
+#[tokio::test]
+async fn eva_charges_exact_capital_and_splits_the_segments() {
+    let (status, body) = call(
+        "/calc/eva",
+        Some(json!({
+            "company_id": "c1", "period": "2026",
+            "ebit": 900_000.0, "tax_rate": 0.25,
+            "total_assets": 5_000_000.0, "current_liabilities": 1_000_000.0,
+            "debt": 2_000_000.0, "equity": 3_000_000.0,
+            "cost_of_debt": 0.06, "cost_of_equity": 0.12,
+            "expected_growth": 0.05,
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let metrics = &body["eva_metrics"];
+    assert_eq!(metrics["invested_capital"], 4_000_000.0);
+    assert_eq!(metrics["weighted_average_cost_of_capital"], 0.09);
+    assert_eq!(metrics["net_operating_profit_after_tax"], 675_000.0);
+    assert_eq!(metrics["capital_charge"], 360_000.0);
+    assert_eq!(metrics["economic_value_added"], 315_000.0);
+    assert_eq!(body["wealth_created"], true);
+    assert_eq!(body["eva_momentum"], "improving");
+}

@@ -296,15 +296,22 @@ pub fn asset_turnover_from_json(payload: &Value) -> Result<Value, String> {
     serde_json::to_value(asset_turnover(&request)).map_err(|e| e.to_string())
 }
 
+/// A fixed threshold from the service, as an exact decimal. Written as a string so
+/// 0.15 is a tenth and a half, not the double nearest to it.
+fn threshold(text: &str) -> Money {
+    Money::parse(text).unwrap_or_else(|_| Money::zero())
+}
+
 // --- CROIC ------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CroicRequest {
     pub company_id: String,
-    pub operating_cash_flow: f64,
-    pub capital_expenditures: f64,
-    pub total_assets: f64,
-    pub current_liabilities: f64,
+    /// Cash flows and balances are decimals so a large company's cents survive.
+    pub operating_cash_flow: Money,
+    pub capital_expenditures: Money,
+    pub total_assets: Money,
+    pub current_liabilities: Money,
     #[serde(default)]
     pub periods: Vec<String>,
 }
@@ -335,15 +342,17 @@ pub struct CroicResponse {
 }
 
 pub fn croic(request: &CroicRequest) -> CroicResponse {
-    let fcf = request.operating_cash_flow - request.capital_expenditures;
-    let invested_capital = request.total_assets - request.current_liabilities;
-    let ratio = safe_div(fcf, invested_capital);
+    let fcf = request
+        .operating_cash_flow
+        .minus(&request.capital_expenditures);
+    let invested_capital = request.total_assets.minus(&request.current_liabilities);
+    let ratio = fcf.over(&invested_capital);
 
-    let rating = if ratio > 0.15 {
+    let rating = if ratio > threshold("0.15") {
         "excellent"
-    } else if ratio > 0.10 {
+    } else if ratio > threshold("0.10") {
         "good"
-    } else if ratio > 0.05 {
+    } else if ratio > threshold("0.05") {
         "fair"
     } else {
         "poor"
@@ -351,23 +360,26 @@ pub fn croic(request: &CroicRequest) -> CroicResponse {
 
     // Every historical period is the current ratio scaled by 0.9. It is a
     // stand-in the service has always published, not a real history.
+    let nine_tenths = threshold("0.9");
     let historical_croic: Vec<CroicPeriod> = request
         .periods
         .iter()
         .map(|period| CroicPeriod {
             period: period.clone(),
-            croic: py_round(ratio * 0.9, 4),
+            croic: ratio.times(&nine_tenths).round(4).to_f64_lossy(),
         })
         .collect();
 
+    // The average is taken over published (rounded) ratios, in floats, exactly
+    // as the reference did: the mean of five four-place figures cannot drift.
     let avg_5yr = if historical_croic.is_empty() {
-        ratio
+        ratio.round(4).to_f64_lossy()
     } else {
         historical_croic.iter().map(|row| row.croic).sum::<f64>() / historical_croic.len() as f64
     };
 
     let industry_benchmark = 0.12;
-    let vs_industry = if ratio > industry_benchmark {
+    let vs_industry = if ratio > threshold("0.12") {
         "outperforming"
     } else {
         "underperforming"
@@ -390,9 +402,9 @@ pub fn croic(request: &CroicRequest) -> CroicResponse {
     CroicResponse {
         company_id: request.company_id.clone(),
         current_croic: CroicMetrics {
-            free_cash_flow: py_round2(fcf),
-            invested_capital: py_round2(invested_capital),
-            cash_return_on_invested_capital: py_round(ratio, 4),
+            free_cash_flow: fcf.round(2).to_f64_lossy(),
+            invested_capital: invested_capital.round(2).to_f64_lossy(),
+            cash_return_on_invested_capital: ratio.round(4).to_f64_lossy(),
             croic_5_year_avg: py_round(avg_5yr, 4),
             capital_efficiency_rating: rating.to_string(),
         },
@@ -409,14 +421,14 @@ pub fn croic(request: &CroicRequest) -> CroicResponse {
 pub struct EvaRequest {
     pub company_id: String,
     pub period: String,
-    pub ebit: f64,
-    pub tax_rate: f64,
-    pub total_assets: f64,
-    pub current_liabilities: f64,
-    pub debt: f64,
-    pub equity: f64,
-    pub cost_of_debt: f64,
-    pub cost_of_equity: f64,
+    pub ebit: Money,
+    pub tax_rate: Money,
+    pub total_assets: Money,
+    pub current_liabilities: Money,
+    pub debt: Money,
+    pub equity: Money,
+    pub cost_of_debt: Money,
+    pub cost_of_equity: Money,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -441,33 +453,50 @@ pub struct EvaResponse {
 }
 
 pub fn eva(request: &EvaRequest) -> EvaResponse {
-    let capital = request.debt + request.equity;
-    let debt_ratio = safe_div(request.debt, capital);
-    let equity_ratio = safe_div(request.equity, capital);
+    let one = Money::from_i64(1);
+    let capital = request.debt.plus(&request.equity);
+    let debt_ratio = request.debt.over(&capital);
+    let equity_ratio = request.equity.over(&capital);
+    let after_tax = one.minus(&request.tax_rate);
 
-    let wacc = debt_ratio * request.cost_of_debt * (1.0 - request.tax_rate)
-        + equity_ratio * request.cost_of_equity;
-    let invested_capital = request.total_assets - request.current_liabilities;
-    let nopat = request.ebit * (1.0 - request.tax_rate);
-    let capital_charge = invested_capital * wacc;
-    let eva = nopat - capital_charge;
-    let value_creation_index = safe_div(nopat, capital_charge);
+    let wacc = debt_ratio
+        .times(&request.cost_of_debt)
+        .times(&after_tax)
+        .plus(&equity_ratio.times(&request.cost_of_equity));
+    let invested_capital = request.total_assets.minus(&request.current_liabilities);
+    let nopat = request.ebit.times(&after_tax);
+    let capital_charge = invested_capital.times(&wacc);
+    let eva = nopat.minus(&capital_charge);
+    let value_creation_index = nopat.over(&capital_charge);
 
     // Fixed split, not a real segment attribution: 70/20/10 of total EVA.
     let mut eva_by_segment = BTreeMap::new();
-    eva_by_segment.insert("core_operations".into(), py_round2(eva * 0.7));
-    eva_by_segment.insert("growth_investments".into(), py_round2(eva * 0.2));
-    eva_by_segment.insert("non_operating".into(), py_round2(eva * 0.1));
+    let seventy = threshold("0.7");
+    let twenty = threshold("0.2");
+    let ten = threshold("0.1");
+    eva_by_segment.insert(
+        "core_operations".into(),
+        eva.times(&seventy).round(2).to_f64_lossy(),
+    );
+    eva_by_segment.insert(
+        "growth_investments".into(),
+        eva.times(&twenty).round(2).to_f64_lossy(),
+    );
+    eva_by_segment.insert(
+        "non_operating".into(),
+        eva.times(&ten).round(2).to_f64_lossy(),
+    );
 
     // The -1m floor is the service's own cutoff for calling EVA "declining".
-    let momentum = if eva > 0.0 {
+    let floor = Money::from_i64(-1_000_000);
+    let momentum = if eva > Money::zero() {
         "improving"
-    } else if eva < -1_000_000.0 {
+    } else if eva < floor {
         "declining"
     } else {
         "stable"
     };
-    let wealth_created = eva > 0.0;
+    let wealth_created = eva > Money::zero();
 
     let recommendations = if wealth_created {
         vec![
@@ -487,18 +516,34 @@ pub fn eva(request: &EvaRequest) -> EvaResponse {
         company_id: request.company_id.clone(),
         period: request.period.clone(),
         eva_metrics: EvaMetrics {
-            invested_capital: py_round2(invested_capital),
-            weighted_average_cost_of_capital: py_round(wacc, 4),
-            net_operating_profit_after_tax: py_round2(nopat),
-            capital_charge: py_round2(capital_charge),
-            economic_value_added: py_round2(eva),
-            value_creation_index: py_round2(value_creation_index),
+            invested_capital: invested_capital.round(2).to_f64_lossy(),
+            weighted_average_cost_of_capital: wacc.round(4).to_f64_lossy(),
+            net_operating_profit_after_tax: nopat.round(2).to_f64_lossy(),
+            capital_charge: capital_charge.round(2).to_f64_lossy(),
+            economic_value_added: eva.round(2).to_f64_lossy(),
+            value_creation_index: value_creation_index.round(2).to_f64_lossy(),
         },
         eva_by_segment,
         eva_momentum: momentum.to_string(),
         wealth_created,
         recommendations,
     }
+}
+
+/// The `/analyze` payload for CROIC. Cash flows and invested capital are decimals,
+/// so free cash flow stays exact however large the company is.
+pub fn croic_from_json(payload: &Value) -> Result<Value, String> {
+    let request: CroicRequest =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+    serde_json::to_value(croic(&request)).map_err(|e| e.to_string())
+}
+
+/// The `/analyze` payload for EVA. NOPAT, invested capital and the capital charge
+/// are all amounts, so the whole chain runs in decimals.
+pub fn eva_from_json(payload: &Value) -> Result<Value, String> {
+    let request: EvaRequest =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+    serde_json::to_value(eva(&request)).map_err(|e| e.to_string())
 }
 
 // --- EPS --------------------------------------------------------------------
