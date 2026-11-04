@@ -1423,3 +1423,29 @@ def test_payment_optimization_matches_the_reference():
     # 15 days of 2.5% annualises at 60.83%, so it is left alone despite the cash
     assert rust["payment_schedule"][1]["action"] == "PAY_NORMAL"
     assert rust["savings_analysis"]["discount_utilization"] == 1.96
+
+
+SUBSTANTIVE_PAYLOAD = {
+    "audit_id": "a1",
+    "account_id": "acc1",
+    "assertions": ["existence", "valuation"],
+    "sample_size": 4,
+    "misstatement_threshold": 50.0,
+    "population": [
+        {"item_id": "1", "amount": 1000.0, "misstatement": 100.0},
+        {"item_id": "2", "amount": 1000.0, "misstatement": 0.0},
+        {"item_id": "3", "amount": 1000.0, "misstatement": 0.0},
+        {"item_id": "4", "amount": 1000.0, "misstatement": 0.0},
+        {"item_id": "5", "amount": 1000.0, "misstatement": 0.0},
+    ],
+}
+
+
+def test_substantive_testing_matches_the_reference():
+    rust, reference = _both_engines("substantive-testing-service", "/test", SUBSTANTIVE_PAYLOAD)
+    assert rust == reference
+    assert rust["total_misstatement"] == 100.0
+    # five items sampled at four projects 1.25x, which is the service's rule
+    assert rust["projected_misstatement"] == 125.0
+    assert rust["exceptions_found"] == 1
+    assert rust["conclusion"] == "qualified"

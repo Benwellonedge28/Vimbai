@@ -2054,6 +2054,10 @@ fn payment_optimization_json(payload: &str) -> PyResult<String> {
     assurance::payment_optimization_json(payload).map_err(PyValueError::new_err)
 }
 #[pyfunction]
+fn substantive_testing_json(payload: &str) -> PyResult<String> {
+    assurance::substantive_testing_json(payload).map_err(PyValueError::new_err)
+}
+#[pyfunction]
 fn control_evaluation_json(payload: &str) -> PyResult<String> {
     assurance::control_evaluation_json(payload).map_err(PyValueError::new_err)
 }
@@ -2127,6 +2131,7 @@ fn fx_convert_json(payload: &str, today: &str) -> PyResult<String> {
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
     m.add_function(wrap_pyfunction!(payment_optimization_json, m)?)?;
+    m.add_function(wrap_pyfunction!(substantive_testing_json, m)?)?;
     m.add_function(wrap_pyfunction!(control_evaluation_json, m)?)?;
     m.add_function(wrap_pyfunction!(scorecard_json, m)?)?;
     m.add_function(wrap_pyfunction!(controls_test_json, m)?)?;

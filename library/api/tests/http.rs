@@ -109,3 +109,28 @@ async fn payment_optimization_decides_on_the_wire() {
     // the wire keeps the decimal: a client never sees 50000.0
     assert_eq!(body["payment_schedule"][0]["amount"], "50000.00");
 }
+
+#[tokio::test]
+async fn substantive_testing_projects_over_the_wire() {
+    let (status, body) = call(
+        "/calc/substantive-testing",
+        Some(json!({
+            "audit_id": "a1",
+            "account_id": "acc1",
+            "sample_size": 4,
+            "misstatement_threshold": "50",
+            "population": [
+                {"item_id": "1", "amount": "1000", "misstatement": "100"},
+                {"item_id": "2", "amount": "1000", "misstatement": "0"},
+                {"item_id": "3", "amount": "1000", "misstatement": "0"},
+                {"item_id": "4", "amount": "1000", "misstatement": "0"},
+                {"item_id": "5", "amount": "1000", "misstatement": "0"},
+            ],
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_misstatement"], "100.00");
+    assert_eq!(body["projected_misstatement"], "125.00");
+    assert_eq!(body["conclusion"], "qualified");
+}

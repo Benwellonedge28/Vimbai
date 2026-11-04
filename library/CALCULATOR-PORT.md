@@ -5,7 +5,7 @@ Generated from the tree.
 Rules for every port in this file: safe Rust only, money carried as `vimbai_common::Money`
 (decimal, exact at any magnitude), amounts published as decimal strings from the library.
 `library/HTTP.md` describes the surface that makes deletion possible; `scripts/retire_gate.py`
-says which services have passed every check. 169 stateless calculators; 42 answer through the Rust library today.
+says which services have passed every check. 169 stateless calculators; 43 answer through the Rust library today.
 
 ## Wired to the Rust library
 
@@ -46,6 +46,7 @@ says which services have passed every check. 169 stateless calculators; 42 answe
 - r-and-d-tax-service
 - regulatory-ratio-service
 - standard-cost-service
+- substantive-testing-service
 - target-costing-service
 - tax-provision-service
 - tax-risk-service

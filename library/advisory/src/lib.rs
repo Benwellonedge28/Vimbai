@@ -9,6 +9,7 @@ pub mod audit;
 pub mod contracts;
 pub mod portfolios;
 pub mod studies;
+pub mod substantive_testing;
 pub mod treasury;
 
 use serde_json::Value;

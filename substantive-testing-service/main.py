@@ -4,12 +4,24 @@ Port: 8198
 Detailed testing of account balances and transactions
 """
 
+import importlib.util
+import os
+import sys
 from typing import Any, Dict, List
 
 import httpx
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("substantive_testing_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["substantive_testing_calc"] = calc
+_spec.loader.exec_module(calc)
 
 logger = structlog.get_logger()
 app = FastAPI(title="Substantive Testing Service", version="1.0.0")
@@ -61,30 +73,28 @@ async def health_check():
     return {"status": "healthy", "service": "substantive-testing", "version": "1.0.0"}
 
 
-@app.post("/test", response_model=SubstantiveTestResponse)
-async def perform_substantive_tests(request: SubstantiveTestRequest):
-    logger.info("Performing substantive tests", audit=request.audit_id, account=request.account_id)
-
+def _reference(payload):
+    """The original Python calculation, kept as the oracle."""
     exceptions = []
     total_misstatement = 0.0
 
-    for item in request.population[: request.sample_size]:
+    for item in payload["population"][: payload["sample_size"]]:
         misstatement = item.get("misstatement", 0.0)
         total_misstatement += abs(misstatement)
-        if abs(misstatement) > request.misstatement_threshold:
+        if abs(misstatement) > payload["misstatement_threshold"]:
             exceptions.append(
                 {"item_id": item.get("item_id", ""), "amount": item.get("amount", 0.0), "misstatement": misstatement}
             )
 
-    population_total = sum(item.get("amount", 0.0) for item in request.population)
-    sample_ratio = len(request.population) / request.sample_size if request.sample_size else 1
+    population_total = sum(item.get("amount", 0.0) for item in payload["population"])
+    sample_ratio = len(payload["population"]) / payload["sample_size"] if payload["sample_size"] else 1
     projected = total_misstatement * sample_ratio
 
-    conclusion = "unqualified" if projected < request.misstatement_threshold * 0.1 else "qualified"
+    conclusion = "unqualified" if projected < payload["misstatement_threshold"] * 0.1 else "qualified"
 
-    return SubstantiveTestResponse(
-        audit_id=request.audit_id,
-        account_id=request.account_id,
+    return dict(
+        audit_id=payload["audit_id"],
+        account_id=payload["account_id"],
         tests_performed=[
             "existence",
             "completeness",
@@ -95,13 +105,20 @@ async def perform_substantive_tests(request: SubstantiveTestRequest):
             "classification",
             "presentation",
         ],
-        items_tested=request.sample_size,
+        items_tested=payload["sample_size"],
         exceptions_found=len(exceptions),
         total_misstatement=round(total_misstatement, 2),
         projected_misstatement=round(projected, 2),
         conclusion=conclusion,
         recommendation="Extend testing" if len(exceptions) > 3 else "Conclude on account balance",
     )
+
+
+@app.post("/test", response_model=SubstantiveTestResponse)
+async def perform_substantive_tests(request: SubstantiveTestRequest):
+    logger.info("Testing a sample", audit=request.audit_id)
+    result = calc.test_sample(request.model_dump(), _reference)
+    return SubstantiveTestResponse(**result)
 
 
 if __name__ == "__main__":

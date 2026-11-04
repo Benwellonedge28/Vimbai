@@ -31,6 +31,10 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
     );
     map.insert("target-costing", cost_accounting::target_cost::evaluate);
     map.insert(
+        "substantive-testing",
+        advisory::substantive_testing::evaluate,
+    );
+    map.insert(
         "payment-optimization",
         treasury_fx::payment_optimization::evaluate,
     );
