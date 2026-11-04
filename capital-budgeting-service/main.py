@@ -4,12 +4,24 @@ Port: 8232
 Capital investment appraisal and ranking
 """
 
+import importlib.util
+import os
+import sys
 from typing import Any, Dict, List
 
 import httpx
 import structlog
 from fastapi import FastAPI
 from pydantic import BaseModel
+
+# The calculator sits beside this file. It is loaded under its own module name so
+# that a process holding two services at once cannot hand this one the other's
+# calculator; a plain `import calc` would.
+_CALC_DIR = os.path.dirname(os.path.abspath(__file__))
+_spec = importlib.util.spec_from_file_location("capital_budgeting_calc", os.path.join(_CALC_DIR, "calc.py"))
+calc = importlib.util.module_from_spec(_spec)
+sys.modules["capital_budgeting_calc"] = calc
+_spec.loader.exec_module(calc)
 
 logger = structlog.get_logger()
 app = FastAPI(title="Capital Budgeting Service", version="1.0.0")
@@ -60,20 +72,18 @@ async def health_check():
     return {"status": "healthy", "service": "capital-budgeting", "version": "1.0.0"}
 
 
-@app.post("/analyze", response_model=CapitalBudgetingResponse)
-async def analyze_capital_budget(request: CapitalBudgetingRequest):
-    logger.info("Analyzing capital budget", company=request.company_id)
-
+def _reference(payload):
+    """The original Python calculation, kept as the oracle."""
     projects_analyzed = []
     total_investment = 0.0
     irr_values = []
 
-    for project in request.projects:
+    for project in payload["projects"]:
         investment = project.get("initial_investment", 0)
         cash_flows = project.get("cash_flows", [])
         total_investment += investment
 
-        pv = sum(cf / ((1 + request.cost_of_capital) ** (i + 1)) for i, cf in enumerate(cash_flows))
+        pv = sum(cf / ((1 + payload["cost_of_capital"]) ** (i + 1)) for i, cf in enumerate(cash_flows))
         npv = pv - investment
         pi = pv / investment if investment else 0
 
@@ -85,7 +95,7 @@ async def analyze_capital_budget(request: CapitalBudgetingRequest):
                 payback = i + 1
                 break
 
-        irr = request.cost_of_capital + (npv / investment * 0.1) if investment else 0
+        irr = payload["cost_of_capital"] + (npv / investment * 0.1) if investment else 0
 
         projects_analyzed.append(
             InvestmentProject(
@@ -104,9 +114,9 @@ async def analyze_capital_budget(request: CapitalBudgetingRequest):
     ranked = sorted(projects_analyzed, key=lambda x: x.npv, reverse=True)
     optimal = [p.project_id for p in ranked if p.accept][:5]
 
-    return CapitalBudgetingResponse(
-        company_id=request.company_id,
-        planning_period=request.planning_period,
+    return dict(
+        company_id=payload["company_id"],
+        planning_period=payload["planning_period"],
         projects_analyzed=projects_analyzed,
         optimal_portfolio=optimal,
         total_investment=round(total_investment, 2),
@@ -117,6 +127,13 @@ async def analyze_capital_budget(request: CapitalBudgetingRequest):
             "Review IRR against cost of capital",
         ],
     )
+
+
+@app.post("/analyze", response_model=CapitalBudgetingResponse)
+async def analyze_capital_budget(request: CapitalBudgetingRequest):
+    logger.info("Calculating", company=request.company_id)
+    result = calc.analyze(request.model_dump(), _reference)
+    return CapitalBudgetingResponse(**result)
 
 
 if __name__ == "__main__":

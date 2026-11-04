@@ -1222,3 +1222,64 @@ def test_an_engagement_with_no_controls_tests_nothing():
     assert rust["controls_tested"] == 0
     assert rust["deficiencies_found"] == 0
     assert rust["overall_assessment"] == "effective"
+
+
+BUDGET_PAYLOAD = {
+    "company_id": "c1",
+    "planning_period": "2026",
+    "cost_of_capital": 0.1,
+    "capital_budget_limit": 1000000.0,
+    "projects": [
+        {
+            "id": "P1",
+            "name": "Line A",
+            "initial_investment": 400000.0,
+            "cash_flows": [120000.0, 150000.0, 180000.0, 200000.0],
+        },
+        {"id": "P2", "name": "Line B", "initial_investment": 900000.0, "cash_flows": [200000.0, 200000.0, 200000.0]},
+    ],
+}
+
+LIQUIDITY_PAYLOAD = {
+    "company_id": "c1",
+    "starting_cash": 100000.0,
+    "credit_lines_available": 200000.0,
+    "minimum_cash_requirement": 120000.0,
+    "cash_flows": [
+        {"date": "2026-01-31", "inflow": 150000.0, "outflow": 120000.0, "net": 30000.0},
+        {"date": "2026-02-28", "inflow": 110000.0, "outflow": 160000.0, "net": -50000.0},
+    ],
+}
+
+
+def test_capital_budgeting_matches_on_both_engines():
+    rust, reference = _both_engines("capital-budgeting-service", "/analyze", BUDGET_PAYLOAD)
+    assert rust == reference
+    assert len(rust["projects_analyzed"]) == 2
+
+
+def test_capital_budgeting_irr_is_an_approximation_not_a_root():
+    """The reported IRR is cost of capital plus a tenth of the NPV ratio.
+
+    It is not a solved internal rate of return, and P2 - which never recovers its
+    cost inside the horizon - is still given a payback of the full three years.
+    """
+    rust, _ = _both_engines("capital-budgeting-service", "/analyze", BUDGET_PAYLOAD)
+    by_id = {p["project_id"]: p for p in rust["projects_analyzed"]}
+    p1, p2 = by_id["P1"], by_id["P2"]
+    assert p1["irr"] == round(0.1 + p1["npv"] / 400000.0 * 0.1, 4)
+    assert p2["payback_period"] == 3
+    assert p1["accept"] is True and p2["accept"] is False
+
+
+def test_liquidity_forecast_matches_on_both_engines():
+    rust, reference = _both_engines("liquidity-forecast-service", "/forecast", LIQUIDITY_PAYLOAD)
+    assert rust == reference
+
+
+def test_liquidity_shortfall_is_reported_as_required_credit():
+    rust, _ = _both_engines("liquidity-forecast-service", "/forecast", LIQUIDITY_PAYLOAD)
+    gaps = rust["liquidity_gaps"]
+    assert len(gaps) == 1
+    assert gaps[0]["date"] == "2026-02-28"
+    assert gaps[0]["shortfall"] == gaps[0]["required_credit"]
