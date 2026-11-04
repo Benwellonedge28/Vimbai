@@ -277,7 +277,12 @@ fn depreciation_method_json(
     useful_life: i64,
     method: &str,
 ) -> PyResult<String> {
-    let output = depreciation_method(method, cost, salvage_value, useful_life);
+    let output = depreciation_method(
+        method,
+        &Money::parse(&cost.to_string()).unwrap_or_else(|_| Money::zero()),
+        &Money::parse(&salvage_value.to_string()).unwrap_or_else(|_| Money::zero()),
+        useful_life,
+    );
     serde_json::to_string(&output).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 

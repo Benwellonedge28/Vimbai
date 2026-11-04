@@ -335,3 +335,50 @@ async fn amortization_charges_exact_decimals_down_to_the_cent() {
     assert_eq!(body["total_amortization"], 32691.35);
     assert_eq!(body["total_net_book_value"], 108765.39);
 }
+
+#[tokio::test]
+async fn depreciation_totals_the_register_as_decimals() {
+    let (status, body) = call(
+        "/calc/depreciation",
+        Some(json!({
+            "company_id": "c1",
+            "method": "straight_line",
+            "period_start": "2026-01-01", "period_end": "2026-12-31",
+            "assets": [
+                {"asset_id": "a1", "cost": 10000.0, "salvage": 1000.0, "useful_life_years": 5},
+                {"asset_id": "a2", "cost": "1234567.89", "salvage": "1234.56",
+                 "useful_life_years": 7},
+            ],
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    // (1234567.89 - 1234.56) / 7 = 176190.4757..., to the cent
+    assert_eq!(
+        body["asset_depreciation"][1]["annual_depreciation"],
+        176190.48
+    );
+    // 1800 + 176190.4757 = 177990.4757: the register total is exact before rounding
+    assert_eq!(body["total_depreciation"], 177990.48);
+    // the forecast line is total * 0.9, and 0.9 here is exactly nine tenths
+    assert_eq!(body["schedule"][0]["depreciation"], 160191.43);
+    assert_eq!(body["schedule"].as_array().unwrap().len(), 5);
+}
+
+#[tokio::test]
+async fn depreciation_method_walks_the_carrying_amount_down() {
+    let (status, body) = call(
+        "/calc/depreciation-method",
+        Some(json!({
+            "cost": "1234567.89", "salvage_value": "1234.56",
+            "useful_life": 7, "method": "double_declining",
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["annual_depreciation"], 352733.68);
+    // the schedule keeps the name the endpoint has always published
+    assert_eq!(body["depreciation_schedule"][1]["accumulated"], 705467.37);
+    assert_eq!(body["depreciation_schedule"][1]["book_value"], 529100.52);
+    assert_eq!(body["depreciation_schedule"].as_array().unwrap().len(), 7);
+}

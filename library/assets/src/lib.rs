@@ -23,8 +23,9 @@ pub use amortization::{
     amortization, amortization_from_json, AmortizationAsset, AmortizationOutput, AmortizationRow,
 };
 pub use depreciation::{
-    depreciation_batch, depreciation_method, DepreciationAsset, DepreciationMethodOutput,
-    DepreciationOutput, DepreciationScheduleRow, MethodScheduleRow,
+    depreciation_batch, depreciation_batch_from_json, depreciation_method,
+    depreciation_method_from_json, AssetDepreciationRow, DepreciationAsset,
+    DepreciationMethodOutput, DepreciationOutput, DepreciationScheduleRow, MethodScheduleRow,
 };
 pub use fixed_assets::{
     analyze_fixed_assets, AssetSummary, CapitalExpenditurePlan, CategoryAnalysis, FixedAsset,
