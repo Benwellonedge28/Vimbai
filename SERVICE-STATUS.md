@@ -10,9 +10,9 @@ because their regression suites still run in CI.
 ## Summary
 
 ```
-live and routed          182
+live and routed          173
 retained, not routed     127
-unrouted, undecided      5
+unrouted, undecided      14
 ```
 
 ## Live services
@@ -93,16 +93,12 @@ Routed by the API gateway and deployed. These are the running product.
 `fund-accounting-service`
 `general-reserve-service`
 `going-concern-service`
-`government-grants-service`
 `graphql-service`
-`group-tax-service`
 `ifrs-reporting-service`
 `initial-investment-service`
 `insurance-claims-service`
 `intangible-assets-service`
 `intercompany-service`
-`internal-control-evaluation-service`
-`internal-controls-testing-service`
 `internal-rate-return-service`
 `inventory-valuation-service`
 `investment-monitoring-service`
@@ -151,7 +147,6 @@ Routed by the API gateway and deployed. These are the running product.
 `provision-doubtful-debts-service`
 `provisions-contingencies-service`
 `purchases-ledger-control-service`
-`r-and-d-tax-service`
 `ratio-analysis-service`
 `realtime-calculation-engine`
 `regulatory-compliance-service`
@@ -177,13 +172,10 @@ Routed by the API gateway and deployed. These are the running product.
 `sox-compliance-service`
 `statutory-filing-service`
 `subscription-plans-service`
-`substantive-testing-service`
 `tax-accounting-service`
 `tax-compliance-service`
 `tax-planning-service`
-`tax-provision-service`
 `tax-return-preparation-service`
-`tax-risk-service`
 `tax-service`
 `trade-finance-service`
 `trading-account-service`
@@ -194,7 +186,6 @@ Routed by the API gateway and deployed. These are the running product.
 `treasury-reporting-service`
 `treasury-risk-service`
 `trial-balance-service`
-`vat-reporting-service`
 `webhook-service`
 `websocket-service`
 `workflow-service`
@@ -444,5 +435,14 @@ decision: register it, retire it, or deduplicate it.
 `finance-service`
 `fraud-detection-service`
 `goodwill-service`
+`government-grants-service`
+`group-tax-service`
 `identity-service`
+`internal-control-evaluation-service`
+`internal-controls-testing-service`
+`r-and-d-tax-service`
+`substantive-testing-service`
 `supply-chain-service`
+`tax-provision-service`
+`tax-risk-service`
+`vat-reporting-service`

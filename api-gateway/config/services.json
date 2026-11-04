@@ -574,26 +574,10 @@
       "strip_prefix": false
     },
     {
-      "name": "government-grants-service",
-      "path": "/government-grants",
-      "url": "http://localhost:9011",
-      "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "graphql-service",
       "path": "/graphql",
       "url": "http://localhost:9013",
       "port": 8095,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "group-tax-service",
-      "path": "/group-tax",
-      "url": "http://localhost:9004",
-      "port": 8062,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -634,22 +618,6 @@
       "path": "/intercompany",
       "url": "http://localhost:9011",
       "port": 8350,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "internal-control-evaluation-service",
-      "path": "/internal-control-evaluation",
-      "url": "http://localhost:9005",
-      "port": 8200,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "internal-controls-testing-service",
-      "path": "/internal-controls-testing",
-      "url": "http://localhost:9005",
-      "port": 8284,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1025,14 +993,6 @@
       "strip_prefix": false
     },
     {
-      "name": "r-and-d-tax-service",
-      "path": "/r-and-d-tax",
-      "url": "http://localhost:9004",
-      "port": 8111,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "ratio-analysis-service",
       "path": "/ratio-analysis",
       "url": "http://localhost:9007",
@@ -1232,14 +1192,6 @@
       "strip_prefix": false
     },
     {
-      "name": "substantive-testing-service",
-      "path": "/substantive-testing",
-      "url": "http://localhost:9011",
-      "port": 8198,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "tax-accounting-service",
       "path": "/tax-accounting",
       "url": "http://localhost:9004",
@@ -1264,26 +1216,10 @@
       "strip_prefix": false
     },
     {
-      "name": "tax-provision-service",
-      "path": "/tax-provision",
-      "url": "http://localhost:9004",
-      "port": 8131,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "tax-return-preparation-service",
       "path": "/tax-return-preparation",
       "url": "http://localhost:9004",
       "port": 8228,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "tax-risk-service",
-      "path": "/tax-risk",
-      "url": "http://localhost:9004",
-      "port": 8296,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1364,14 +1300,6 @@
       "path": "/trial-balance",
       "url": "http://localhost:9002",
       "port": 8137,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "vat-reporting-service",
-      "path": "/vat-reporting",
-      "url": "http://localhost:9002",
-      "port": 8295,
       "auth_required": true,
       "strip_prefix": false
     },
