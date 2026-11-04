@@ -671,3 +671,283 @@ async fn options_pricing_answers_in_the_shape_the_service_published() {
     assert_eq!(body["option_valuations"][1]["moneyness"], "ITM");
     assert!(body["recommendations"].is_array());
 }
+
+#[tokio::test]
+async fn the_cost_accounting_endpoints_all_answer() {
+    // One call per route the services published, with the request shape the
+    // extension was already taking. The maths is held to Python by the seam tests;
+    // what these check is that each route is wired to its own endpoint.
+    let cases: Vec<(&str, serde_json::Value)> = vec![
+        (
+            "activity-based-costing-calculate",
+            json!({
+                "company_id": "comp-9",
+                "activities": [
+                    {"activity_id": "machining", "activity_name": "Machining", "activity_type": "unit_level",
+                     "cost_pool": 10000, "cost_driver": "machine_hours", "driver_volume": 1000},
+                    {"activity_id": "setup", "activity_name": "Setup", "activity_type": "batch_level",
+                     "cost_pool": 5000, "cost_driver": "batches", "driver_volume": 50},
+                    {"activity_id": "design", "activity_name": "Design", "activity_type": "product_level",
+                     "cost_pool": 2000, "cost_driver": "designs", "driver_volume": 0}
+                ],
+                "products": [
+                    {"product_id": "p1", "product_name": "Widget",
+                     "unit_level_drivers": {"machining": 120}, "batch_level_drivers": {"setup": 4},
+                     "product_level_activities": {"design": 250.0}},
+                    {"product_id": "p2", "product_name": "Gadget",
+                     "unit_level_drivers": {"machining": 45, "idle": 7}, "batch_level_drivers": {},
+                     "product_level_activities": {}}
+                ]
+            }),
+        ),
+        (
+            "throughput-accounting-analyze",
+            json!({
+                "company_id": "comp-1", "operating_expenses": 150000.0,
+                "products": [{"name": "Widget", "selling_price": 50.0, "material_cost": 20.0,
+                              "demand": 400, "time_on_constraint": 5.0}],
+                "available_constraint_minutes": 1000
+            }),
+        ),
+        (
+            "standard-cost-material-standard",
+            json!({
+                "standard_price_per_unit": 20.0, "standard_quantity": 300
+            }),
+        ),
+        (
+            "standard-cost-labour-standard",
+            json!({
+                "standard_rate_per_hour": 15.0, "standard_hours": 40
+            }),
+        ),
+        (
+            "standard-cost-overhead-standard",
+            json!({
+                "overhead_rate": 1110.0, "standard_activity_level": 6
+            }),
+        ),
+        (
+            "standard-cost-total-standard",
+            json!({
+                "standard_direct_material": 6000.0, "standard_direct_labour": 600.0, "standard_overhead": 6660.0
+            }),
+        ),
+        (
+            "standard-cost-per-unit",
+            json!({
+                "standard_material_cost": 6000.0, "standard_labour_cost": 600.0,
+                "standard_overhead": 6660.0, "units_produced": 300
+            }),
+        ),
+        (
+            "standard-cost-variance-analysis",
+            json!({
+                "standard_cost": 13260.0, "actual_cost": 13000.0
+            }),
+        ),
+        (
+            "actual-cost-material-actual",
+            json!({
+                "actual_quantity": 320, "actual_price_per_unit": 19.0
+            }),
+        ),
+        (
+            "actual-cost-labour-actual",
+            json!({
+                "actual_hours": 400, "actual_rate_per_hour": 15.0
+            }),
+        ),
+        (
+            "actual-cost-total-actual",
+            json!({
+                "actual_direct_material": 6120.0, "actual_direct_labour": 5888.0, "actual_overhead": 3200.0
+            }),
+        ),
+        (
+            "actual-cost-compare-to-budget",
+            json!({
+                "actual_cost": 15208.0, "budgeted_cost": 16000.0
+            }),
+        ),
+        (
+            "actual-cost-variance-breakdown",
+            json!({
+                "actual_material": 6120.0, "budgeted_material": 6000.0,
+                "actual_labour": 5888.0, "budgeted_labour": 6000.0,
+                "actual_overhead": 3200.0, "budgeted_overhead": 4000.0
+            }),
+        ),
+        (
+            "budgeted-cost-create",
+            json!({
+                "department": "Assembly", "period": "2026-Q1",
+                "items": [{"item": "material", "amount": 12000}, {"item": "labour", "amount": 4500},
+                          {"item": "overhead", "amount": 1500}]
+            }),
+        ),
+        (
+            "budgeted-cost-flexible-budget",
+            json!({
+                "fixed_cost": 40000.0, "variable_cost_per_unit": 12.0,
+                "actual_output": 5000, "budgeted_output": 4000
+            }),
+        ),
+        (
+            "budgeted-cost-total-budget",
+            json!({
+                "budgeted_costs": [{"item": "material", "amount": 12000}, {"item": "labour", "amount": 4500},
+                                   {"item": "overhead"}]
+            }),
+        ),
+        (
+            "budgeted-cost-compare-output",
+            json!({
+                "budgeted_output": 4000, "actual_output": 4800,
+                "budgeted_cost": 96000.0, "actual_cost": 108000.0
+            }),
+        ),
+        (
+            "budgeted-cost-cost-breakdown",
+            json!({
+                "total_budgeted_cost": 18000.0, "material_percent": 60.0,
+                "labour_percent": 25.0, "overhead_percent": 15.0
+            }),
+        ),
+        (
+            "prime-cost-calculate",
+            json!({
+                "product_id": "p1", "period": "2026-01",
+                "direct_materials": 5000.0, "direct_labor": 2000.0, "direct_expenses": 500.0
+            }),
+        ),
+        (
+            "prime-cost-calculate-with-items",
+            json!({
+                "product_id": "p1", "period": "2026-01",
+                "items": [{"item_name": "steel", "item_type": "material", "amount": 5000.0},
+                          {"item_name": "fitting", "item_type": "labor", "amount": 2000.0}]
+            }),
+        ),
+        (
+            "cost-centre-summary-generate",
+            json!({
+                "cost_centre_id": "cc1",
+                "period": "2026-01",
+                "costs": [{"cost_centre_id": "cc1", "cost_code": "M-100", "cost_description": "steel",
+                           "amount": 1200.0, "cost_type": "material", "period": "2026-01"}]
+            }),
+        ),
+        (
+            "overhead-apportionment-apportion",
+            json!({
+                "overhead_id": "o1",
+                "overhead_name": "rent",
+                "total_amount": 3000.0,
+                "basis": "floor_area",
+                "period": "2026-01",
+                "cost_centre_data": [
+                    {"cost_centre_id": "cc1", "cost_centre_name": "Assembly", "floor_area": 300.0},
+                    {"cost_centre_id": "cc2", "cost_centre_name": "Finishing", "floor_area": 100.0}
+                ]
+            }),
+        ),
+        (
+            "limiting-factor-analyze",
+            json!({
+                "limiting_factor": "machine_hours",
+                "factor_type": "machine_hours",
+                "total_available": 1000.0,
+                "products": [
+                    {"product_id": "p1", "product_name": "Widget", "demand": 600.0,
+                     "contribution_per_unit": 20.0, "factor_per_unit": 2.0}
+                ]
+            }),
+        ),
+        (
+            "limiting-factor-compare-products",
+            json!({
+                "limiting_factor": "machine_hours",
+                "factor_type": "machine_hours",
+                "total_available": 1000.0,
+                "products": [
+                    {"product_id": "p1", "product_name": "Widget", "demand": 600.0,
+                     "contribution_per_unit": 20.0, "factor_per_unit": 2.0},
+                    {"product_id": "p2", "product_name": "Gadget", "demand": 400.0,
+                     "contribution_per_unit": 15.0, "factor_per_unit": 1.0}
+                ]
+            }),
+        ),
+        (
+            "order-acceptance-analyze",
+            json!({
+                "order_id": "o-1", "product_id": "p1", "product_name": "Widget",
+                "customer_name": "Acme", "normal_selling_price": 25.0, "offered_price": 18.0,
+                "variable_cost_per_unit": 12.0, "units_requested": 5000.0,
+                "full_cost_per_unit": 16.0, "incremental_fixed_costs": 2000.0
+            }),
+        ),
+        (
+            "order-acceptance-one-time-order",
+            json!({
+                "product_name": "Widget", "offered_price": 140.0, "variable_cost_per_unit": 120.0,
+                "units": 2000.0, "has_spare_capacity": false
+            }),
+        ),
+    ];
+
+    for (route, payload) in cases {
+        let (status, body) = call(&format!("/calc/{route}"), Some(payload)).await;
+        assert_eq!(status, StatusCode::OK, "{route}: {body}");
+        let object = body
+            .as_object()
+            .unwrap_or_else(|| panic!("{route}: {body}"));
+        assert!(!object.is_empty(), "{route} answered nothing");
+        assert!(object.get("error").is_none(), "{route}: {body}");
+    }
+
+    // and a figure that only the right activity pool produces
+    let (status, body) = call(
+        "/calc/activity-based-costing-calculate",
+        Some(json!({
+            "company_id": "comp-9",
+            "activities": [{"activity_id": "machining", "activity_name": "Machining",
+                            "activity_type": "unit_level", "cost_pool": 10000,
+                            "cost_driver": "machine_hours", "driver_volume": 1000}],
+            "products": [{"product_id": "p1", "product_name": "Widget",
+                          "unit_level_drivers": {"machining": 120}, "batch_level_drivers": {},
+                          "product_level_activities": {}}]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["activity_rates"][0]["rate_per_driver"], 10.0);
+    assert_eq!(body["product_costs"][0]["unit_level_cost"], 1200.0);
+}
+
+#[tokio::test]
+async fn a_query_string_answers_the_cost_endpoints_the_way_their_body_does() {
+    // standard-cost was published as `POST /variance-analysis?standard_cost=...`,
+    // so a client that called it has query parameters rather than a body.
+    let (status, body) = call(
+        "/calc/standard-cost-variance-analysis?standard_cost=13260&actual_cost=13000",
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, sent) = call(
+        "/calc/standard-cost-variance-analysis",
+        Some(json!({"standard_cost": 13260.0, "actual_cost": 13000.0})),
+    )
+    .await;
+    assert_eq!(body, sent);
+
+    // and a body still wins where both are given
+    let (status, filled) = call(
+        "/calc/standard-cost-variance-analysis?standard_cost=1",
+        Some(json!({"standard_cost": 13260.0, "actual_cost": 13000.0})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(filled, sent);
+}

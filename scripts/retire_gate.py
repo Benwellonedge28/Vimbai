@@ -19,7 +19,10 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SEAM_TEST = ROOT / "tests" / "test_assurance_seam.py"
+SEAM_TESTS = (
+    ROOT / "tests" / "test_assurance_seam.py",
+    ROOT / "tests" / "test_cost_accounting_seam.py",
+)
 TRACKER = ROOT / "library" / "CALCULATOR-PORT.md"
 API_REGISTRY = ROOT / "library" / "api" / "src" / "lib.rs"
 
@@ -48,8 +51,26 @@ def api_names():
     return set(re.findall(r'map\.insert\(\s*"([\w-]+)"', API_REGISTRY.read_text()))
 
 
+STATIC_ENDPOINTS = re.compile(r'@app\.(?:post|get)\("([^"{}]+)"')
+
+
+def published_endpoints(service):
+    """The fixed paths a service answers, as a client would call them."""
+    main = ROOT / service / "main.py"
+    if not main.exists():
+        return []
+    paths = STATIC_ENDPOINTS.findall(main.read_text())
+    return sorted({p.strip("/") for p in paths if p.strip("/") not in ("", "health", "docs", "openapi.json")})
+
+
+def routes_for(service, endpoints):
+    """The route names that would answer each of a service's fixed paths."""
+    base = service.removesuffix("-service")
+    return [f"{base}-{path.replace('/', '-')}" for path in endpoints]
+
+
 def parity_tested():
-    return SEAM_TEST.read_text() if SEAM_TEST.exists() else ""
+    return "".join(path.read_text() for path in SEAM_TESTS if path.exists())
 
 
 def main():
@@ -62,7 +83,11 @@ def main():
     for service, seams in sorted(wired.items()):
         bound = functions is not None and all(name in functions for name in seams)
         tested = service in parity
-        http = service.removesuffix("-service") in served
+        base = service.removesuffix("-service")
+        endpoints = published_endpoints(service)
+        http = base in served or (
+            bool(endpoints) and all(name in served for name in routes_for(service, endpoints))
+        )
         rows.append((service, seams, bound, tested, http))
 
     print(f"{'service':48s} {'seam bound':10s} {'parity':7s} {'http':5s} verdict")
