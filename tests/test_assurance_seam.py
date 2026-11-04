@@ -6,6 +6,7 @@ the service already reported.
 """
 
 import importlib.util
+import json
 import os
 import pathlib
 import sys
@@ -1348,3 +1349,44 @@ def test_statement_services_match_the_reference(service, path, request_model):
     payload = _payload_from(getattr(module, request_model))
     rust, reference = _both_engines(service, path, payload)
     assert rust == reference
+
+
+TARGET_COST_PAYLOAD = {
+    "company_id": "c1",
+    "product_name": "Widget",
+    "target_selling_price": 100.0,
+    "desired_profit_margin_pct": 20.0,
+    "current_cost": 120.0,
+    "component_costs": {"parts": 60.0, "labour": 40.0},
+}
+
+
+def test_target_costing_matches_the_reference():
+    rust, reference = _both_engines("target-costing-service", "/calculate", TARGET_COST_PAYLOAD)
+    rust.pop("id"), reference.pop("id")
+    assert rust == reference
+    assert rust["target_profit"] == 20.0
+    assert rust["target_cost"] == 80.0
+    assert rust["cost_reduction_pct"] == 33.33
+    assert rust["feasible"] is False
+    # the component order is the caller's, not the alphabet's
+    assert [c["component"] for c in rust["component_analysis"]] == ["parts", "labour"]
+
+
+def test_target_costing_holds_amounts_a_float_cannot():
+    """The library computes in decimals; only the legacy float edge rounds."""
+    import vimbai_native
+
+    huge = {
+        "company_id": "c1",
+        "product_name": "Widget",
+        "target_selling_price": "123456789012345678901234.56",
+        "desired_profit_margin_pct": "12.5",
+        "current_cost": "100000000000000000000000.00",
+        "component_costs": {"parts": "1", "labour": "1"},
+    }
+    exact = vimbai_native.target_cost_json(json.dumps(huge))
+    body = json.loads(exact)
+    # 12.5% of the price, to the cent, from a number an f64 would have rounded
+    assert body["target_profit"] == 15432098626543209862654.32
+    assert body["target_cost"] == 108024690385802469038580.24

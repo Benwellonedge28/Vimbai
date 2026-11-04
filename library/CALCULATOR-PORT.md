@@ -1,6 +1,11 @@
 # Calculator port tracker
 
-Generated from the tree. 169 stateless calculators; 40 answer through the Rust library today.
+Generated from the tree.
+
+Rules for every port in this file: safe Rust only, money carried as `vimbai_common::Money`
+(decimal, exact at any magnitude), amounts published as decimal strings from the library.
+`library/HTTP.md` describes the surface that makes deletion possible; `scripts/retire_gate.py`
+says which services have passed every check. 169 stateless calculators; 41 answer through the Rust library today.
 
 ## Wired to the Rust library
 
@@ -40,6 +45,7 @@ Generated from the tree. 169 stateless calculators; 40 answer through the Rust l
 - r-and-d-tax-service
 - regulatory-ratio-service
 - standard-cost-service
+- target-costing-service
 - tax-provision-service
 - tax-risk-service
 - throughput-accounting-service

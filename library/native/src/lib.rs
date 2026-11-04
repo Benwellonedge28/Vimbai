@@ -65,7 +65,6 @@ use vimbai_cost_accounting::standard_cost::{
     labour_standard, material_standard, overhead_standard, standard_per_unit, total_standard,
     variance_analysis,
 };
-use vimbai_cost_accounting::target_costing::{calculate_target_cost, TargetCostRequest};
 use vimbai_cost_accounting::throughput::{analyze_throughput, ThroughputRequest};
 use vimbai_cost_accounting::total_production_cost::calculate_total_production_cost;
 use vimbai_ifrs::interim::{
@@ -1041,14 +1040,41 @@ fn absorption_cost_plus_json(payload: &str) -> PyResult<String> {
     ))
 }
 
+/// Turn decimal strings back into JSON numbers for the legacy float contract.
+///
+/// Used only where a Python service already publishes f64 and its clients read it
+/// that way. The library itself keeps the digits.
+fn floats_from_strings(value: &serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::String(text) => text
+            .parse::<f64>()
+            .map(|n| serde_json::Value::from(n))
+            .unwrap_or_else(|_| value.clone()),
+        serde_json::Value::Array(items) => {
+            serde_json::Value::Array(items.iter().map(floats_from_strings).collect())
+        }
+        serde_json::Value::Object(map) => serde_json::Value::Object(
+            map.iter()
+                .map(|(k, v)| (k.clone(), floats_from_strings(v)))
+                .collect(),
+        ),
+        other => other.clone(),
+    }
+}
+
 /// `/calculate` on the target costing service. `component_costs` is sent as
 /// `[[name, cost], ...]` pairs so the component analysis keeps the caller's
 /// insertion order, which the Python dict relied on.
 #[pyfunction]
 fn target_cost_json(payload: &str) -> PyResult<String> {
-    let request: TargetCostRequest =
+    let request: serde_json::Value =
         serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    json_out(&calculate_target_cost(&request))
+    let exact = vimbai_cost_accounting::target_cost::evaluate(&request)
+        .map_err(PyValueError::new_err)?;
+    // The library keeps amounts as decimal text; this binding is the legacy float
+    // contract the Python service already publishes, so the loss happens here and
+    // nowhere earlier.
+    Ok(floats_from_strings(&exact).to_string())
 }
 
 /// `/costs/add` on the marginal costing service: a registered marginal cost item.

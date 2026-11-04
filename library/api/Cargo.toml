@@ -1,0 +1,26 @@
+[package]
+name = "vimbai_api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "HTTP surface for the Vimbai calculation library. Safe Rust only."
+
+[dependencies]
+advisory = { package = "vimbai_advisory", path = "../advisory" }
+common = { package = "vimbai_common", path = "../common" }
+cost_accounting = { package = "vimbai_cost_accounting", path = "../cost_accounting" }
+performance_measures = { package = "vimbai_performance_measures", path = "../performance_measures" }
+treasury_fx = { package = "vimbai_treasury_fx", path = "../treasury_fx" }
+ratios_statements = { package = "vimbai_ratios_statements", path = "../ratios_statements" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+
+[[bin]]
+name = "vimbai-api"
+path = "src/main.rs"
