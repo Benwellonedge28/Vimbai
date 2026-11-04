@@ -10,9 +10,9 @@ because their regression suites still run in CI.
 ## Summary
 
 ```
-live and routed          173
+live and routed          166
 retained, not routed     127
-unrouted, undecided      14
+unrouted, undecided      21
 ```
 
 ## Live services
@@ -61,7 +61,6 @@ Routed by the API gateway and deployed. These are the running product.
 `continue-shutdown-decision-service`
 `control-account-reconciliation-service`
 `corporate-governance-service`
-`credit-risk-analysis-service`
 `currency-service`
 `cvp-analysis-service`
 `dashboard-service`
@@ -81,7 +80,6 @@ Routed by the API gateway and deployed. These are the running product.
 `etl-service`
 `expense-tracking-service`
 `family-community-group-service`
-`financial-distress-prediction-service`
 `financial-identity-service`
 `financial-integrity-service`
 `financial-planning-service`
@@ -89,7 +87,6 @@ Routed by the API gateway and deployed. These are the running product.
 `fixed-assets-register-service`
 `fixed-assets-schedule-service`
 `foreign-exchange-service`
-`fraud-risk-assessment-service`
 `fund-accounting-service`
 `general-reserve-service`
 `going-concern-service`
@@ -110,7 +107,6 @@ Routed by the API gateway and deployed. These are the running product.
 `lease-termination-service`
 `management-accounts-service`
 `management-dashboard-service`
-`market-risk-service`
 `message-bus-service`
 `mfa-auth-service`
 `multimodal-pipeline-service`
@@ -120,7 +116,6 @@ Routed by the API gateway and deployed. These are the running product.
 `npo-scale-service`
 `npo-service`
 `operational-risk-service`
-`options-pricing-service`
 `ordinary-shares-service`
 `overhead-absorption-rate-service`
 `partnership-accounting-service`
@@ -131,7 +126,6 @@ Routed by the API gateway and deployed. These are the running product.
 `partnership-sale-service`
 `payback-period-service`
 `payment-gateway-service`
-`payment-optimization-service`
 `pension-accounting-service`
 `performance-benchmarking-service`
 `personal-finance-service`
@@ -150,7 +144,6 @@ Routed by the API gateway and deployed. These are the running product.
 `ratio-analysis-service`
 `realtime-calculation-engine`
 `regulatory-compliance-service`
-`regulatory-ratio-service`
 `report-automation-service`
 `report-distribution-service`
 `reporting-service`
@@ -432,15 +425,22 @@ Routed by the API gateway and deployed. These are the running product.
 Not in the gateway and not part of any retirement family. Each needs a
 decision: register it, retire it, or deduplicate it.
 
+`credit-risk-analysis-service`
 `finance-service`
+`financial-distress-prediction-service`
 `fraud-detection-service`
+`fraud-risk-assessment-service`
 `goodwill-service`
 `government-grants-service`
 `group-tax-service`
 `identity-service`
 `internal-control-evaluation-service`
 `internal-controls-testing-service`
+`market-risk-service`
+`options-pricing-service`
+`payment-optimization-service`
 `r-and-d-tax-service`
+`regulatory-ratio-service`
 `substantive-testing-service`
 `supply-chain-service`
 `tax-provision-service`

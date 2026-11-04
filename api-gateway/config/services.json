@@ -319,14 +319,6 @@
       "strip_prefix": false
     },
     {
-      "name": "credit-risk-analysis-service",
-      "path": "/credit-risk-analysis",
-      "url": "http://localhost:9003",
-      "port": 8163,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "currency-service",
       "path": "/currency",
       "url": "http://localhost:9003",
@@ -478,14 +470,6 @@
       "strip_prefix": false
     },
     {
-      "name": "financial-distress-prediction-service",
-      "path": "/financial-distress-prediction",
-      "url": "http://localhost:9007",
-      "port": 8169,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "financial-identity-service",
       "path": "/financial-identity",
       "url": "http://localhost:9011",
@@ -538,14 +522,6 @@
       "path": "/foreign-exchange",
       "url": "http://localhost:9012",
       "port": 8192,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "fraud-risk-assessment-service",
-      "path": "/fraud-risk-assessment",
-      "url": "http://localhost:9005",
-      "port": 8199,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -709,14 +685,6 @@
       "strip_prefix": false
     },
     {
-      "name": "market-risk-service",
-      "path": "/market-risk",
-      "url": "http://localhost:9005",
-      "port": 8165,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "message-bus-service",
       "path": "/message-bus",
       "url": "http://localhost:8097",
@@ -774,14 +742,6 @@
       "path": "/operational-risk",
       "url": "http://localhost:9005",
       "port": 8166,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "options-pricing-service",
-      "path": "/options-pricing",
-      "url": "http://localhost:9012",
-      "port": 8248,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -862,14 +822,6 @@
       "path": "/payment-gateway",
       "url": "http://localhost:9003",
       "port": 8098,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "payment-optimization-service",
-      "path": "/payment-optimization",
-      "url": "http://localhost:9003",
-      "port": 8261,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1013,14 +965,6 @@
       "path": "/regulatory-compliance",
       "url": "http://localhost:9004",
       "port": 8285,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "regulatory-ratio-service",
-      "path": "/regulatory-ratio",
-      "url": "http://localhost:9007",
-      "port": 8229,
       "auth_required": true,
       "strip_prefix": false
     },
