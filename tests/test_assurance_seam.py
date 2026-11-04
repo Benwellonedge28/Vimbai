@@ -1033,3 +1033,75 @@ def test_depreciation_calculate_endpoint_is_deliberately_not_wired():
     source = (pathlib.Path(__file__).resolve().parents[1] / "depreciation-service" / "main.py").read_text()
     calculate = source[source.index('@app.post("/calculate"') : source.index('@app.post("/method"')]
     assert "calc." not in calculate
+
+
+AMORTIZATION_ASSETS = [
+    {
+        "intangible_id": "i1",
+        "type": "patent",
+        "cost": 120000.0,
+        "residual_value": 0.0,
+        "useful_life_years": 10,
+        "accumulated_amortization": 24000.0,
+        "method": "straight_line",
+        "rate": 0.25,
+    },
+    {
+        "intangible_id": "i2",
+        "type": "software",
+        "cost": 60000.0,
+        "residual_value": 5000.0,
+        "useful_life_years": 5,
+        "accumulated_amortization": 10000.0,
+        "method": "reducing_balance",
+        "rate": 0.3,
+    },
+]
+
+
+def test_amortization_matches_the_reference():
+    payload = {
+        "company_id": "comp-seam",
+        "intangibles": AMORTIZATION_ASSETS,
+        "period_start": "2026-01-01",
+        "period_end": "2026-12-31",
+    }
+    rust, reference = _both_engines("amortization-service", "/calculate", payload)
+    assert rust["schedules"] == reference["schedules"]
+    for field in ("total_amortization", "total_net_book_value", "period"):
+        assert rust[field] == reference[field]
+
+    # straight line divides the depreciable amount; reducing balance charges the
+    # rate against cost less accumulated, so the two never coincide here
+    patent, software = rust["schedules"]
+    assert patent["annual_amortization"] == 12000.0
+    assert software["annual_amortization"] == 15000.0
+    assert rust["total_amortization"] == 27000.0
+
+
+def test_amortization_holds_a_zero_life_intangible_at_zero():
+    # a goodwill line with no useful life must not divide by zero or invent a charge
+    payload = {
+        "company_id": "comp-seam",
+        "intangibles": [
+            {
+                "intangible_id": "i3",
+                "type": "goodwill",
+                "cost": 200000.0,
+                "residual_value": 0.0,
+                "useful_life_years": 0,
+                "accumulated_amortization": 0.0,
+                "method": "straight_line",
+                "rate": 0.25,
+            }
+        ],
+        "period_start": "2026-01-01",
+        "period_end": "2026-06-30",
+    }
+    rust, reference = _both_engines("amortization-service", "/calculate", payload)
+    # the response carries a fresh id per request; everything else must agree
+    for answer in (rust, reference):
+        answer.pop("id", None)
+    assert rust == reference
+    assert rust["schedules"][0]["annual_amortization"] == 0.0
+    assert rust["schedules"][0]["remaining_life_years"] == 0.0
