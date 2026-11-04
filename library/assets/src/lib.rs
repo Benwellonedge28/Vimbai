@@ -28,8 +28,9 @@ pub use depreciation::{
     DepreciationMethodOutput, DepreciationOutput, DepreciationScheduleRow, MethodScheduleRow,
 };
 pub use fixed_assets::{
-    analyze_fixed_assets, AssetSummary, CapitalExpenditurePlan, CategoryAnalysis, FixedAsset,
-    FixedAssetsAnalysis, FixedAssetsError, FixedAssetsRequest, ScheduleRow,
+    analyze_fixed_assets, analyze_fixed_assets_from_json, AssetSummary, CapitalExpenditurePlan,
+    CategoryAnalysis, FixedAsset, FixedAssetsAnalysis, FixedAssetsError, FixedAssetsRequest,
+    ScheduleRow,
 };
 pub use goodwill::{impairment_test, Cgu, ImpairmentResult, TestMethod};
 pub use inventory::{inventory_valuation, InventoryOutput, Purchase, Sale, ValuationMethod};

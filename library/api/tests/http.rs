@@ -382,3 +382,46 @@ async fn depreciation_method_walks_the_carrying_amount_down() {
     assert_eq!(body["depreciation_schedule"][1]["book_value"], 529100.52);
     assert_eq!(body["depreciation_schedule"].as_array().unwrap().len(), 7);
 }
+
+#[tokio::test]
+async fn fixed_assets_reports_a_register_in_decimals() {
+    let (status, body) = call(
+        "/calc/fixed-assets",
+        Some(json!({
+            "company_id": "c1",
+            "capital_budget": "200000.00",
+            "target_capitalization_rate": "0.4",
+            "assets": [
+                {"asset_id": "a1", "asset_name": "Truck", "category": "vehicle",
+                 "purchase_date": "2022-01-01", "purchase_cost": 60000.0, "salvage_value": 6000.0,
+                 "useful_life_years": 5, "depreciation_method": "straight_line",
+                 "accumulated_depreciation": 36000.0},
+                {"asset_id": "a2", "asset_name": "Rig", "category": "equipment",
+                 "purchase_date": "2021-06-30", "purchase_cost": "1234567.89",
+                 "salvage_value": "12345.67", "useful_life_years": 10,
+                 "depreciation_method": "straight_line",
+                 "accumulated_depreciation": "458123.45"},
+            ],
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    // 60000.00 + 1234567.89 summed as a decimal, not folded in a double
+    assert_eq!(body["asset_summary"]["total_cost"], 1294567.89);
+    assert_eq!(body["asset_summary"]["net_book_value"], 800444.44);
+    // (1234567.89 - 12345.67) / 10 = 122222.222, to the cent
+    assert_eq!(
+        body["depreciation_schedule"][1]["annual_depreciation"],
+        122222.22
+    );
+    assert_eq!(body["asset_category_analysis"][1]["net_value"], 776444.44);
+    // replacement needs are a tenth of cost, expansion a third of the budget
+    assert_eq!(
+        body["capital_expenditure_plan"]["replacement_needs"],
+        129456.79
+    );
+    assert_eq!(
+        body["capital_expenditure_plan"]["expansion_allocations"],
+        60000.0
+    );
+}
