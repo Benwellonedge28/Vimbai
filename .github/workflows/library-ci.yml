@@ -94,4 +94,18 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 || \
             gh release create "$TAG" --title "Calculation wheel $TAG" \
               --notes "vimbai_native, built from library/native. Services install it with VIMBAI_NATIVE_WHEEL_URL."
-          gh release upload "$TAG" library/native/dist/*.whl --clobber
+          # The tag carries one wheel and every push replaces it, so the old asset is
+          # deleted first. `--clobber` did that too, but when its delete raced the
+          # upload it failed the job with a 404 on a wheel that had built fine, so the
+          # steps are explicit here and a transient 404 is retried rather than fatal.
+          for wheel in library/native/dist/*.whl; do
+            name=$(basename "$wheel")
+            gh release delete-asset "$TAG" "$name" --yes >/dev/null 2>&1 || true
+            for attempt in 1 2 3; do
+              gh release upload "$TAG" "$wheel" && break
+              echo "upload of $name failed (attempt $attempt), retrying"
+              sleep 5
+              gh release delete-asset "$TAG" "$name" --yes >/dev/null 2>&1 || true
+              test "$attempt" = 3 && exit 1
+            done
+          done
