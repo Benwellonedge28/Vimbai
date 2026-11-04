@@ -585,3 +585,62 @@ async fn nrv_scrap_residual_and_write_down_paths_answer() {
     assert_eq!(nil["lower_of_cost_or_nrv"], 100.0);
     assert_eq!(nil["write_down_amount"], 115.0);
 }
+
+#[tokio::test]
+async fn consolidation_answers_in_the_shape_the_service_published() {
+    let (status, body) = call(
+        "/calc/consolidation",
+        Some(json!({
+            "parent_company_id": "parent-seam",
+            "period": "2026",
+            "subsidiaries": [
+                {"subsidiary_id": "s1", "subsidiary_name": "Trading sub", "ownership_percentage": 80,
+                 "non_controlling_interests_percentage": 20,
+                 "financial_data": {"revenue": 2000000, "profit": 300000, "assets": 5000000, "liabilities": 2500000}},
+                {"subsidiary_id": "s2", "subsidiary_name": "Loss-making sub", "ownership_percentage": 100,
+                 "non_controlling_interests_percentage": 0,
+                 "financial_data": {"revenue": 1200000, "profit": -150000, "assets": 3000000, "liabilities": 1000000}}
+            ],
+            "intercompany_transactions": [
+                {"transaction_id": "t1", "transaction_type": "sale", "amount": 200000},
+                {"transaction_id": "t2", "transaction_type": "dividend", "amount": 50000}
+            ]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["consolidated_profit"]["subsidiary_profits"]["s1"],
+        240000.0
+    );
+    assert_eq!(
+        body["consolidated_profit"]["subsidiary_profits"]["s2"],
+        -150000.0
+    );
+    assert_eq!(
+        body["consolidated_profit"]["goodwill_amortization"],
+        50000.0
+    );
+    // only sales come out of revenue; the dividend does not
+    assert_eq!(
+        body["consolidated_revenue"]["intercompany_sales_elimination"],
+        200000.0
+    );
+    assert_eq!(body["elimination_count"], 2);
+    // the balance sheet is split 60/40 as the endpoint always split it
+    let assets = body["consolidated_balance_sheet"]["total_assets"]
+        .as_f64()
+        .unwrap();
+    assert!(
+        (body["consolidated_balance_sheet"]["non_current_assets"]
+            .as_f64()
+            .unwrap()
+            - assets * 0.6)
+            .abs()
+            < 0.011
+    );
+    assert_eq!(
+        body["consolidated_cash_flow"]["net_increase_in_cash"],
+        710000.0
+    );
+}

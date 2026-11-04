@@ -224,3 +224,57 @@ pub fn price(request: &PricingRequest) -> PricingResponse {
         recommendations,
     }
 }
+
+// ---- the /price payload -------------------------------------------------
+
+fn call() -> String {
+    "call".to_string()
+}
+
+fn one() -> f64 {
+    1.0
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct OptionDto {
+    #[serde(default = "call")]
+    pub option_type: String,
+    pub strike_price: f64,
+    pub spot_price: f64,
+    pub time_to_expiry: f64,
+    pub volatility: f64,
+    pub risk_free_rate: f64,
+    #[serde(default = "one")]
+    pub notional: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PricingDto {
+    pub company_id: String,
+    #[serde(default)]
+    pub options: Vec<OptionDto>,
+}
+
+/// `/price` as JSON in, JSON out. An option with no kind is a call and a contract
+/// with no notional is one unit, which is what the endpoint assumed.
+pub fn pricing_from_json(payload: &Value) -> Result<Value, String> {
+    let dto: PricingDto =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+    let request = PricingRequest {
+        company_id: dto.company_id.clone(),
+        options: dto
+            .options
+            .iter()
+            .map(|o| Option {
+                option_type: o.option_type.clone(),
+                strike_price: o.strike_price,
+                spot_price: o.spot_price,
+                time_to_expiry: o.time_to_expiry,
+                volatility: o.volatility,
+                risk_free_rate: o.risk_free_rate,
+                notional: o.notional,
+            })
+            .collect(),
+    };
+    serde_json::to_value(price(&request)).map_err(|e| e.to_string())
+}

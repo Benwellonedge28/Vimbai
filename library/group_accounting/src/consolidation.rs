@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::money::money;
+use vimbai_common::Money;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SubsidiaryFinancials {
@@ -252,4 +253,285 @@ pub fn consolidate(request: &ConsolidationRequest) -> ConsolidationResult {
         goodwill_recognized: money(goodwill_recognized),
         elimination_count: request.intercompany_transactions.len(),
     }
+}
+
+// ---- the /consolidate payload -------------------------------------------
+//
+// The endpoint took the parent's figures at the top level and each subsidiary's
+// in a list, and filled in three things the client never had to send: a
+// subsidiary's non-controlling interest is the share nobody else owns, its equity
+// is what is left after liabilities, and an intercompany line without a kind is
+// a sale. Those defaults are the endpoint's, not the library's, so they live here
+// with the wire shape.
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SubsidiaryDto {
+    pub subsidiary_id: String,
+    #[serde(default)]
+    pub name: String,
+    pub ownership_percentage: f64,
+    #[serde(default)]
+    pub non_controlling_interests_percentage: Option<f64>,
+    pub revenue: f64,
+    pub profit: f64,
+    pub assets: f64,
+    pub liabilities: f64,
+    #[serde(default)]
+    pub equity: Option<f64>,
+    #[serde(default)]
+    pub goodwill: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct IntercompanyDto {
+    #[serde(default)]
+    pub description: String,
+    #[serde(default = "sale")]
+    pub transaction_type: String,
+    pub amount: f64,
+}
+
+fn sale() -> String {
+    "sale".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ConsolidationDto {
+    pub parent_company_id: String,
+    #[serde(default)]
+    pub period: String,
+    pub parent_revenue: f64,
+    pub parent_profit: f64,
+    pub parent_assets: f64,
+    pub parent_liabilities: f64,
+    #[serde(default)]
+    pub subsidiaries: Vec<SubsidiaryDto>,
+    #[serde(default)]
+    pub intercompany_transactions: Vec<IntercompanyDto>,
+}
+
+impl ConsolidationDto {
+    /// The request the library works in, with the endpoint's defaults filled in.
+    pub fn request(&self) -> ConsolidationRequest {
+        ConsolidationRequest {
+            parent_company_id: self.parent_company_id.clone(),
+            period: self.period.clone(),
+            parent: ParentFinancials {
+                revenue: self.parent_revenue,
+                profit: self.parent_profit,
+                assets: self.parent_assets,
+                liabilities: self.parent_liabilities,
+            },
+            subsidiaries: self
+                .subsidiaries
+                .iter()
+                .map(|s| SubsidiaryFinancials {
+                    subsidiary_id: s.subsidiary_id.clone(),
+                    name: s.name.clone(),
+                    ownership_percentage: s.ownership_percentage,
+                    non_controlling_interests_percentage: s
+                        .non_controlling_interests_percentage
+                        .unwrap_or(100.0 - s.ownership_percentage),
+                    revenue: s.revenue,
+                    profit: s.profit,
+                    assets: s.assets,
+                    liabilities: s.liabilities,
+                    equity: s.equity.unwrap_or(s.assets - s.liabilities),
+                    goodwill: s.goodwill,
+                })
+                .collect(),
+            intercompany_transactions: self
+                .intercompany_transactions
+                .iter()
+                .map(|t| IntercompanyTransaction {
+                    description: t.description.clone(),
+                    transaction_type: t.transaction_type.clone(),
+                    amount: t.amount,
+                })
+                .collect(),
+        }
+    }
+}
+
+/// `/consolidate` as JSON in, JSON out.
+pub fn consolidate_from_json(payload: &Value) -> Result<Value, String> {
+    let dto: ConsolidationDto =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+    serde_json::to_value(consolidate(&dto.request())).map_err(|e| e.to_string())
+}
+
+// ---- the /consolidate endpoint, whole --------------------------------
+//
+// The endpoint returned more than the library measures: it split the balance
+// sheet 60/40 and 40/60, amortised a fixed 50,000 of goodwill, and published a
+// cash flow block of fixed placeholders inherited from the original service. The
+// parent's own figures are placeholders too, taken from the accounting service for
+// the same period in production. All of that is presentation, and it lived in the
+// service's calculator; it lives here now so the endpoint can be answered without
+// the Python service.
+
+/// The parent figures the endpoint has always used while nothing feeds it the
+/// parent's own accounts for the period.
+pub const PARENT_REVENUE: f64 = 10_000_000.0;
+pub const PARENT_PROFIT: f64 = 1_500_000.0;
+pub const PARENT_ASSETS: f64 = 50_000_000.0;
+pub const PARENT_LIABILITIES: f64 = 30_000_000.0;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SubsidiaryInput {
+    pub subsidiary_id: String,
+    #[serde(default)]
+    pub subsidiary_name: String,
+    pub ownership_percentage: f64,
+    #[serde(default)]
+    pub goodwill: f64,
+    #[serde(default)]
+    pub non_controlling_interests_percentage: f64,
+    #[serde(default)]
+    pub financial_data: std::collections::HashMap<String, f64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct IntercompanyInput {
+    #[serde(default)]
+    pub transaction_type: String,
+    pub amount: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct StatementDto {
+    pub parent_company_id: String,
+    #[serde(default)]
+    pub period: String,
+    #[serde(default)]
+    pub subsidiaries: Vec<SubsidiaryInput>,
+    #[serde(default)]
+    pub intercompany_transactions: Vec<IntercompanyInput>,
+    #[serde(default = "yes")]
+    pub minority_interest: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn figure(data: &std::collections::HashMap<String, f64>, key: &str, fallback: f64) -> f64 {
+    data.get(key).copied().unwrap_or(fallback)
+}
+
+/// `/consolidate` exactly as the service answered it.
+pub fn consolidate_statement_from_json(payload: &Value) -> Result<Value, String> {
+    let dto: StatementDto =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+
+    let request = ConsolidationRequest {
+        parent_company_id: dto.parent_company_id.clone(),
+        period: dto.period.clone(),
+        parent: ParentFinancials {
+            revenue: PARENT_REVENUE,
+            profit: PARENT_PROFIT,
+            assets: PARENT_ASSETS,
+            liabilities: PARENT_LIABILITIES,
+        },
+        subsidiaries: dto
+            .subsidiaries
+            .iter()
+            .map(|s| SubsidiaryFinancials {
+                subsidiary_id: s.subsidiary_id.clone(),
+                name: s.subsidiary_name.clone(),
+                ownership_percentage: s.ownership_percentage,
+                non_controlling_interests_percentage: s.non_controlling_interests_percentage,
+                revenue: figure(&s.financial_data, "revenue", 2_000_000.0),
+                profit: figure(&s.financial_data, "profit", 300_000.0),
+                assets: figure(&s.financial_data, "assets", 5_000_000.0),
+                liabilities: figure(&s.financial_data, "liabilities", 2_500_000.0),
+                equity: s.financial_data.get("equity").copied().unwrap_or_else(|| {
+                    figure(&s.financial_data, "assets", 5_000_000.0)
+                        - figure(&s.financial_data, "liabilities", 2_500_000.0)
+                }),
+                goodwill: s.goodwill,
+            })
+            .collect(),
+        intercompany_transactions: dto
+            .intercompany_transactions
+            .iter()
+            .map(|t| IntercompanyTransaction {
+                description: String::new(),
+                transaction_type: t.transaction_type.clone(),
+                amount: t.amount,
+            })
+            .collect(),
+    };
+
+    let core = consolidate(&request);
+    let mut body = serde_json::to_value(&core).map_err(|e| e.to_string())?;
+
+    let mut total_sub_equity = Money::zero();
+    let mut nci_pct_total = 0.0;
+    for sub in &request.subsidiaries {
+        total_sub_equity = total_sub_equity.plus(&decimal(sub.equity));
+        nci_pct_total += sub.non_controlling_interests_percentage;
+    }
+    let nci_pct = if request.subsidiaries.is_empty() {
+        0.0
+    } else {
+        nci_pct_total / request.subsidiaries.len() as f64
+    };
+    let nci_equity_share = total_sub_equity.times(&percent(nci_pct));
+    let minority = if dto.minority_interest {
+        total_sub_equity
+            .plus(&Money::from_i64(PARENT_ASSETS as i64))
+            .minus(&Money::from_i64(PARENT_LIABILITIES as i64))
+            .times(&decimal(0.1))
+    } else {
+        Money::zero()
+    };
+
+    if let Some(profit) = body.get_mut("consolidated_profit") {
+        profit["goodwill_amortization"] = serde_json::json!(50_000.0);
+    }
+    if let Some(sheet) = body.get_mut("consolidated_balance_sheet") {
+        let assets = decimal(amount(&sheet["total_assets"]));
+        let liabilities = decimal(amount(&sheet["total_liabilities"]));
+        sheet["non_current_assets"] =
+            serde_json::json!(assets.times(&percent(60.0)).round(2).to_f64_lossy());
+        sheet["current_assets"] =
+            serde_json::json!(assets.times(&percent(40.0)).round(2).to_f64_lossy());
+        sheet["non_current_liabilities"] =
+            serde_json::json!(liabilities.times(&percent(40.0)).round(2).to_f64_lossy());
+        sheet["current_liabilities"] =
+            serde_json::json!(liabilities.times(&percent(60.0)).round(2).to_f64_lossy());
+    }
+    body["consolidated_cash_flow"] = serde_json::json!({
+        "operating_activities": 2_000_000.0,
+        "investing_activities": -800_000.0,
+        "financing_activities": -500_000.0,
+        "effect_of_exchange_rate": 10_000.0,
+        "net_increase_in_cash": 710_000.0,
+    });
+    body["nci_at_fair_value"] = serde_json::json!(nci_equity_share
+        .times(&decimal(1.2))
+        .round(2)
+        .to_f64_lossy());
+    body["minority_interest"] = serde_json::json!(minority.round(2).to_f64_lossy());
+    Ok(body)
+}
+
+/// A percentage as a decimal multiplier.
+fn percent(value: f64) -> Money {
+    Money::parse(&(value / 100.0).to_string()).unwrap_or_else(|_| Money::zero())
+}
+
+/// A number read back out of a JSON body.
+fn amount(value: &Value) -> f64 {
+    match value {
+        Value::Number(n) => n.as_f64().unwrap_or(0.0),
+        Value::String(text) => text.parse().unwrap_or(0.0),
+        _ => 0.0,
+    }
+}
+
+/// An amount as the decimal the library works in.
+fn decimal(value: f64) -> Money {
+    Money::parse(&value.to_string()).unwrap_or_else(|_| Money::zero())
 }

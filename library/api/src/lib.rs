@@ -43,6 +43,12 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         performance_measures::inventory_from_json,
     );
     map.insert("eva", ratios_statements::eva_from_json);
+    // the endpoint's own payload: parent figures, nested subsidiary accounts, and
+    // the presentation the service published around the consolidated core
+    map.insert(
+        "consolidation",
+        group_accounting::consolidation::consolidate_statement_from_json,
+    );
     map.insert("du-pont", ratios_statements::du_pont_from_json);
     map.insert(
         "asset-turnover",

@@ -742,45 +742,9 @@ pub struct ConsolidationDto {
 }
 
 pub fn consolidation_json(payload: &str) -> Result<String, String> {
-    let dto: ConsolidationDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
-    let request = ConsolidationRequest {
-        parent_company_id: dto.parent_company_id,
-        period: dto.period,
-        parent: ParentFinancials {
-            revenue: dto.parent_revenue,
-            profit: dto.parent_profit,
-            assets: dto.parent_assets,
-            liabilities: dto.parent_liabilities,
-        },
-        subsidiaries: dto
-            .subsidiaries
-            .iter()
-            .map(|s| SubsidiaryFinancials {
-                subsidiary_id: s.subsidiary_id.clone(),
-                name: s.name.clone(),
-                ownership_percentage: s.ownership_percentage,
-                non_controlling_interests_percentage: s
-                    .non_controlling_interests_percentage
-                    .unwrap_or(100.0 - s.ownership_percentage),
-                revenue: s.revenue,
-                profit: s.profit,
-                assets: s.assets,
-                liabilities: s.liabilities,
-                equity: s.equity.unwrap_or(s.assets - s.liabilities),
-                goodwill: s.goodwill,
-            })
-            .collect(),
-        intercompany_transactions: dto
-            .intercompany_transactions
-            .iter()
-            .map(|t| IntercompanyTransaction {
-                description: t.description.clone(),
-                transaction_type: t.transaction_type.clone(),
-                amount: t.amount,
-            })
-            .collect(),
-    };
-    serde_json::to_string(&consolidation::consolidate(&request)).map_err(|e| e.to_string())
+    let value: serde_json::Value = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let answer = consolidation::consolidate_from_json(&value)?;
+    serde_json::to_string(&answer).map_err(|e| e.to_string())
 }
 
 // ---- performance measures ----
@@ -1105,24 +1069,9 @@ pub struct PricingDto {
 }
 
 pub fn options_price_json(payload: &str) -> Result<String, String> {
-    let dto: PricingDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
-    let request = options::PricingRequest {
-        company_id: dto.company_id,
-        options: dto
-            .options
-            .iter()
-            .map(|o| options::Option {
-                option_type: o.option_type.clone(),
-                strike_price: o.strike_price,
-                spot_price: o.spot_price,
-                time_to_expiry: o.time_to_expiry,
-                volatility: o.volatility,
-                risk_free_rate: o.risk_free_rate,
-                notional: o.notional,
-            })
-            .collect(),
-    };
-    serde_json::to_string(&options::price(&request)).map_err(|e| e.to_string())
+    let value: serde_json::Value = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let answer = options::pricing_from_json(&value)?;
+    serde_json::to_string(&answer).map_err(|e| e.to_string())
 }
 
 #[derive(Debug, Clone, Deserialize)]

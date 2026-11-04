@@ -1095,6 +1095,7 @@ dependencies = [
  "vimbai_common",
  "vimbai_cost_accounting",
  "vimbai_group_accounting",
+ "vimbai_market_risk",
  "vimbai_performance_measures",
  "vimbai_ratios_statements",
  "vimbai_treasury_fx",
