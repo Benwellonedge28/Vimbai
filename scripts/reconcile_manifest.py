@@ -16,6 +16,8 @@ import pathlib
 import re
 import sys
 
+import yaml
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST = os.path.join(ROOT, "api-gateway", "config", "services.json")
 K8S = os.path.join(ROOT, "k8s")
@@ -46,16 +48,17 @@ def manifest_names():
 def document_name(document):
     """The workload name, from a Deployment only.
 
-    Services, HPAs, PDBs and network policies reuse the same name, and config objects
-    like vimbai-secrets and otel-collector have nothing to do with the gateway.
+    Parsed properly rather than by regex: an autoscaler document names its target as
+    scaleTargetRef, and reading a name near "metadata" picked those up as deployments.
     """
-    if not re.search(r"^kind: Deployment\s*$", document, re.MULTILINE):
+    try:
+        payload = yaml.safe_load(document)
+    except yaml.YAMLError:
         return None
-    anchor = METADATA_LINE.search(document)
-    if not anchor:
+    if not isinstance(payload, dict) or payload.get("kind") != "Deployment":
         return None
-    match = DOC_NAME_LINE.search(document, anchor.end())
-    return match.group(1) if match else None
+    name = (payload.get("metadata") or {}).get("name")
+    return name if isinstance(name, str) else None
 
 
 def deployed_manifests():
