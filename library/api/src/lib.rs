@@ -49,6 +49,10 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "consolidation",
         group_accounting::consolidation::consolidate_statement_from_json,
     );
+    map.insert(
+        "options-pricing",
+        market_risk::options::pricing_statement_from_json,
+    );
     map.insert("du-pont", ratios_statements::du_pont_from_json);
     map.insert(
         "asset-turnover",

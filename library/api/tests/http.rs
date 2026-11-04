@@ -644,3 +644,30 @@ async fn consolidation_answers_in_the_shape_the_service_published() {
         710000.0
     );
 }
+
+#[tokio::test]
+async fn options_pricing_answers_in_the_shape_the_service_published() {
+    let (status, body) = call(
+        "/calc/options-pricing",
+        Some(json!({
+            "company_id": "options-seam",
+            "current_spot": 100.0,
+            "options": [
+                {"option_type": "call", "strike_price": 100.0, "spot_price": 100.0,
+                 "time_to_expiry": 1.0, "volatility": 0.2, "risk_free_rate": 0.05, "notional": 10000},
+                {"option_type": "put", "strike_price": 110.0, "spot_price": 100.0,
+                 "time_to_expiry": 0.5, "volatility": 0.25, "risk_free_rate": 0.03, "notional": 5000}
+            ]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let valuation = &body["option_valuations"][0];
+    assert_eq!(valuation["premium"], 10.4506);
+    // the residual carries four places, not the fifteenth digit of a normal CDF
+    let time_value = valuation["time_value"].as_f64().unwrap();
+    assert_eq!(time_value, (time_value * 10_000.0).round() / 10_000.0);
+    assert_eq!(body["portfolio_summary"]["option_count"], 2);
+    assert_eq!(body["option_valuations"][1]["moneyness"], "ITM");
+    assert!(body["recommendations"].is_array());
+}

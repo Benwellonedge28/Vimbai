@@ -278,3 +278,48 @@ pub fn pricing_from_json(payload: &Value) -> Result<Value, String> {
     };
     serde_json::to_value(price(&request)).map_err(|e| e.to_string())
 }
+
+/// `/price` exactly as the service answered it.
+///
+/// The service rounded the residual time value to four places after the library
+/// answered: left raw it carries the last bits of whichever normal CDF did the
+/// work, and the library's and scipy's differ at the fifteenth digit. `current_spot`
+/// was accepted by the endpoint and never used, so it is accepted and ignored here.
+pub fn pricing_statement_from_json(payload: &Value) -> Result<Value, String> {
+    let request: PricingDto =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+    let priced = price(&PricingRequest {
+        company_id: request.company_id.clone(),
+        options: request
+            .options
+            .iter()
+            .map(|o| Option {
+                option_type: o.option_type.clone(),
+                strike_price: o.strike_price,
+                spot_price: o.spot_price,
+                time_to_expiry: o.time_to_expiry,
+                volatility: o.volatility,
+                risk_free_rate: o.risk_free_rate,
+                notional: o.notional,
+            })
+            .collect(),
+    });
+    let mut body = serde_json::to_value(&priced).map_err(|e| e.to_string())?;
+    if let Some(valuations) = body
+        .get_mut("option_valuations")
+        .and_then(Value::as_array_mut)
+    {
+        for valuation in valuations.iter_mut() {
+            if let Some(time_value) = valuation.get("time_value").and_then(Value::as_f64) {
+                valuation["time_value"] = serde_json::json!(round_to(time_value, 4));
+            }
+        }
+    }
+    Ok(body)
+}
+
+/// A number to a given number of places, half away from zero as the service rounded.
+fn round_to(value: f64, places: u32) -> f64 {
+    let scale = 10f64.powi(places as i32);
+    (value * scale).round() / scale
+}
