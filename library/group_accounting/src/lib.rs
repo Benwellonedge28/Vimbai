@@ -12,6 +12,7 @@
 pub mod buyout;
 pub mod combination;
 pub mod consolidation;
+pub mod consolidation_views;
 pub mod divestiture;
 pub mod impairment;
 pub mod money;

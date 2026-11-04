@@ -1786,6 +1786,60 @@ fn cost_accounting_standards_json(payload: &str) -> PyResult<String> {
     json_out(&answer)
 }
 
+/// consolidation-service `/eliminations`.
+#[pyfunction]
+fn consolidation_eliminations_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_group_accounting::consolidation_views::eliminations_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
+
+/// consolidation-service `/nci`.
+#[pyfunction]
+fn consolidation_nci_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_group_accounting::consolidation_views::nci_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
+
+/// consolidation-service `/goodwill`.
+#[pyfunction]
+fn consolidation_goodwill_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_group_accounting::consolidation_views::goodwill_calculation_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
+
+/// consolidation-service `/currency-translation`.
+#[pyfunction]
+fn consolidation_currency_translation_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_group_accounting::consolidation_views::currency_translation_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
+
+/// consolidation-service `/validate`.
+#[pyfunction]
+fn consolidation_validate_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_group_accounting::consolidation_views::validate_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -1801,6 +1855,11 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(nrv_json, m)?)?;
     m.add_function(wrap_pyfunction!(cost_accounting_job_cost_json, m)?)?;
     m.add_function(wrap_pyfunction!(cost_accounting_standards_json, m)?)?;
+    m.add_function(wrap_pyfunction!(consolidation_eliminations_json, m)?)?;
+    m.add_function(wrap_pyfunction!(consolidation_nci_json, m)?)?;
+    m.add_function(wrap_pyfunction!(consolidation_goodwill_json, m)?)?;
+    m.add_function(wrap_pyfunction!(consolidation_currency_translation_json, m)?)?;
+    m.add_function(wrap_pyfunction!(consolidation_validate_json, m)?)?;
     m.add_function(wrap_pyfunction!(cost_of_capital_calculate_json, m)?)?;
     m.add_function(wrap_pyfunction!(cost_of_capital_from_percent_json, m)?)?;
     m.add_function(wrap_pyfunction!(cost_of_capital_wacc_json, m)?)?;

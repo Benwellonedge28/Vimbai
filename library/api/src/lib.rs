@@ -156,6 +156,26 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         cost_accounting::wire::order_acceptance_from_json,
     );
     map.insert(
+        "consolidation-eliminations",
+        group_accounting::consolidation_views::eliminations_from_json,
+    );
+    map.insert(
+        "consolidation-nci-calculation",
+        group_accounting::consolidation_views::nci_from_json,
+    );
+    map.insert(
+        "consolidation-goodwill-calculation",
+        group_accounting::consolidation_views::goodwill_calculation_from_json,
+    );
+    map.insert(
+        "consolidation-currency-translation",
+        group_accounting::consolidation_views::currency_translation_from_json,
+    );
+    map.insert(
+        "consolidation-validate",
+        group_accounting::consolidation_views::validate_from_json,
+    );
+    map.insert(
         "cost-accounting-job-cost",
         cost_accounting::wire::cost_accounting_job_cost_from_json,
     );

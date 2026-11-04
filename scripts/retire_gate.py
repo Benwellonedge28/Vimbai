@@ -26,6 +26,7 @@ SEAM_TESTS = tuple(
         "test_cost_accounting_seam.py",
         "test_cost_of_capital_seam.py",
         "test_cost_accounting_service_seam.py",
+        "test_consolidation_views_seam.py",
     )
 )
 TRACKER = ROOT / "library" / "CALCULATOR-PORT.md"
@@ -93,6 +94,7 @@ SHORT_PREFIX = {"net-realizable-value-service": "nrv"}
 # Paths whose route is not named after the path. Each entry was read off the router and
 # checked against the adapter it points at; nothing here is inferred from a name.
 PATH_ROUTES = {
+    ("consolidation-service", "consolidate"): "consolidation",
     ("net-realizable-value-service", "calculate-nrv"): "net-realizable-value",
     ("net-realizable-value-service", "NRV-inventory"): "nrv-inventory",
     ("net-realizable-value-service", "compare-cost-nrv"): "nrv-compare-cost",
