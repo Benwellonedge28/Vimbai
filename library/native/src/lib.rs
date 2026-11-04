@@ -1767,6 +1767,25 @@ fn cost_of_capital_list_json(payload: &str) -> PyResult<String> {
     json_out(&answer)
 }
 
+/// cost-accounting-service, answered by the library's own adapters.
+#[pyfunction]
+fn cost_accounting_job_cost_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_cost_accounting::wire::cost_accounting_job_cost_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
+#[pyfunction]
+fn cost_accounting_standards_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_cost_accounting::wire::cost_accounting_standards_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -1780,6 +1799,8 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(profit_json, m)?)?;
     m.add_function(wrap_pyfunction!(inventory_valuation_json, m)?)?;
     m.add_function(wrap_pyfunction!(nrv_json, m)?)?;
+    m.add_function(wrap_pyfunction!(cost_accounting_job_cost_json, m)?)?;
+    m.add_function(wrap_pyfunction!(cost_accounting_standards_json, m)?)?;
     m.add_function(wrap_pyfunction!(cost_of_capital_calculate_json, m)?)?;
     m.add_function(wrap_pyfunction!(cost_of_capital_from_percent_json, m)?)?;
     m.add_function(wrap_pyfunction!(cost_of_capital_wacc_json, m)?)?;

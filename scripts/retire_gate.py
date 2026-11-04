@@ -25,6 +25,7 @@ SEAM_TESTS = tuple(
         "test_assurance_seam.py",
         "test_cost_accounting_seam.py",
         "test_cost_of_capital_seam.py",
+        "test_cost_accounting_service_seam.py",
     )
 )
 TRACKER = ROOT / "library" / "CALCULATOR-PORT.md"

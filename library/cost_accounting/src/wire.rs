@@ -887,3 +887,31 @@ pub fn cost_of_capital_list_from_json(_payload: &Value) -> Result<Value, String>
         "standard_rates": crate::cost_of_capital::standard_rates(),
     }))
 }
+
+/// `cost_accounting_job_cost` as JSON in, JSON out.
+pub fn cost_accounting_job_cost_from_json(payload: &Value) -> Result<Value, String> {
+    let request: crate::cost_accounting_core::JobCostRequest =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+    let answer = crate::cost_accounting_core::calculate_job_cost(&request);
+    serde_json::to_value(answer).map_err(|e| e.to_string())
+}
+
+/// `cost_accounting_standards` as JSON in, JSON out.
+///
+/// The crate's view keeps the figures unrounded for other callers, so the service's
+/// shaped and rounded answer is built here: one decimal on per-unit actual cost, the
+/// rest to two, and a `favorable` flag that counts zero as favourable.
+pub fn cost_accounting_standards_from_json(payload: &Value) -> Result<Value, String> {
+    let request: crate::cost_accounting_core::StandardCostReq =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+    let answer = crate::cost_accounting_core::standard_costing(&request);
+    Ok(serde_json::json!({
+        "standard_cost_per_unit": answer.standard_cost_per_unit,
+        "actual_cost_per_unit": vimbai_common::py_round(answer.actual_cost_per_unit, 1),
+        "material_variance": vimbai_common::py_round2(answer.material_variance),
+        "labor_variance": vimbai_common::py_round2(answer.labor_variance),
+        "overhead_variance": vimbai_common::py_round2(answer.overhead_variance),
+        "total_variance": vimbai_common::py_round2(answer.total_variance),
+        "favorable": answer.total_variance <= 0.0,
+    }))
+}

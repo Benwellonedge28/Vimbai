@@ -156,6 +156,14 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         cost_accounting::wire::order_acceptance_from_json,
     );
     map.insert(
+        "cost-accounting-job-cost",
+        cost_accounting::wire::cost_accounting_job_cost_from_json,
+    );
+    map.insert(
+        "cost-accounting-standards",
+        cost_accounting::wire::cost_accounting_standards_from_json,
+    );
+    map.insert(
         "cost-of-capital-calculate",
         cost_accounting::wire::cost_of_capital_calculate_from_json,
     );
