@@ -90,6 +90,14 @@ def published_endpoints(service):
 # as served by any other service's `-calculate` route.
 SHORT_PREFIX = {"net-realizable-value-service": "nrv"}
 
+# Paths whose route is not named after the path. Each entry was read off the router and
+# checked against the adapter it points at; nothing here is inferred from a name.
+PATH_ROUTES = {
+    ("net-realizable-value-service", "calculate-nrv"): "net-realizable-value",
+    ("net-realizable-value-service", "NRV-inventory"): "nrv-inventory",
+    ("net-realizable-value-service", "compare-cost-nrv"): "nrv-compare-cost",
+}
+
 
 def routes_for(service, endpoints):
     """The route names that would answer each of a service's fixed paths."""
