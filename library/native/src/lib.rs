@@ -1711,6 +1711,62 @@ fn fx_convert_json(payload: &str, today: &str) -> PyResult<String> {
     assurance::fx_convert_json(payload, today).map_err(PyValueError::new_err)
 }
 
+
+/// cost-of-capital-service, answered by the library's own adapters.
+#[pyfunction]
+fn cost_of_capital_calculate_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_cost_accounting::wire::cost_of_capital_calculate_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
+#[pyfunction]
+fn cost_of_capital_from_percent_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_cost_accounting::wire::cost_of_capital_from_percent_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
+#[pyfunction]
+fn cost_of_capital_wacc_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_cost_accounting::wire::cost_of_capital_wacc_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
+#[pyfunction]
+fn cost_of_capital_simple_rate_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_cost_accounting::wire::cost_of_capital_simple_rate_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
+#[pyfunction]
+fn cost_of_capital_compound_rate_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_cost_accounting::wire::cost_of_capital_compound_rate_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
+#[pyfunction]
+fn cost_of_capital_list_json(payload: &str) -> PyResult<String> {
+    let value: serde_json::Value =
+        serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
+    let answer = vimbai_cost_accounting::wire::cost_of_capital_list_from_json(&value)
+        .map_err(PyValueError::new_err)?;
+    json_out(&answer)
+}
+
 #[pymodule]
 fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sum_amounts, m)?)?;
@@ -1724,6 +1780,13 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(profit_json, m)?)?;
     m.add_function(wrap_pyfunction!(inventory_valuation_json, m)?)?;
     m.add_function(wrap_pyfunction!(nrv_json, m)?)?;
+    m.add_function(wrap_pyfunction!(cost_of_capital_calculate_json, m)?)?;
+    m.add_function(wrap_pyfunction!(cost_of_capital_from_percent_json, m)?)?;
+    m.add_function(wrap_pyfunction!(cost_of_capital_wacc_json, m)?)?;
+    m.add_function(wrap_pyfunction!(cost_of_capital_simple_rate_json, m)?)?;
+    m.add_function(wrap_pyfunction!(cost_of_capital_compound_rate_json, m)?)?;
+    m.add_function(wrap_pyfunction!(cost_of_capital_list_json, m)?)?;
+
     m.add_function(wrap_pyfunction!(nrv_inventory_json, m)?)?;
     m.add_function(wrap_pyfunction!(nrv_compare_json, m)?)?;
     m.add_function(wrap_pyfunction!(scrap_value_json, m)?)?;

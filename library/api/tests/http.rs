@@ -951,3 +951,64 @@ async fn a_query_string_answers_the_cost_endpoints_the_way_their_body_does() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(filled, sent);
 }
+
+#[tokio::test]
+async fn the_cost_of_capital_endpoints_answer() {
+    let (status, body) = call(
+        "/calc/cost-of-capital-calculate?interest_rate=0.08&risk_premium=0.03",
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_cost_of_capital"], 0.11);
+
+    let (status, body) = call(
+        "/calc/cost-of-capital-wacc",
+        Some(json!({"equity_value": 600000.0, "cost_of_equity": 0.12,
+                    "debt_value": 400000.0, "cost_of_debt": 0.08, "tax_rate": 25.0})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_capital"], 1000000.0);
+    assert_eq!(body["after_tax_cost_debt"], 0.06);
+    assert_eq!(body["wacc"], 0.096);
+    assert_eq!(body["wacc_percent"], "9.60%");
+
+    // no capital is answered, not refused: the service returned a 200 with an error
+    let (status, body) = call(
+        "/calc/cost-of-capital-wacc",
+        Some(json!({"equity_value": 0.0, "debt_value": 0.0})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["error"], "Total capital cannot be zero");
+
+    let (status, body) = call(
+        "/calc/cost-of-capital-compound-rate",
+        Some(json!({"present_value": 1000.0, "future_value": 1610.51, "years": 5})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["compound_rate"], 0.1);
+    assert_eq!(body["rate_percent"], "10.00%");
+
+    let (status, body) = call(
+        "/calc/cost-of-capital-from-percent?interest_rate_percent=8&risk_premium_percent=3",
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_rate_decimal"], 0.11);
+
+    let (status, body) = call("/calc/cost-of-capital-list", Some(json!({}))).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["standard_rates"].as_array().map(|r| r.len()), Some(4));
+
+    let (status, body) = call(
+        "/calc/cost-of-capital-simple-rate",
+        Some(json!({"principal": 1000.0, "amount_after": 1150.0, "years": 3})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["simple_rate"], 0.05);
+}

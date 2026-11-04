@@ -70,4 +70,5 @@ pub use overhead::{
     OverUnderOutput, RateOutput, SimpleOverUnderOutput, SpendingVarianceOutput,
     VolumeVarianceOutput,
 };
+pub mod cost_of_capital;
 pub mod wire;

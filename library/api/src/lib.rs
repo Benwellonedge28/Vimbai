@@ -156,6 +156,30 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         cost_accounting::wire::order_acceptance_from_json,
     );
     map.insert(
+        "cost-of-capital-calculate",
+        cost_accounting::wire::cost_of_capital_calculate_from_json,
+    );
+    map.insert(
+        "cost-of-capital-from-percent",
+        cost_accounting::wire::cost_of_capital_from_percent_from_json,
+    );
+    map.insert(
+        "cost-of-capital-wacc",
+        cost_accounting::wire::cost_of_capital_wacc_from_json,
+    );
+    map.insert(
+        "cost-of-capital-simple-rate",
+        cost_accounting::wire::cost_of_capital_simple_rate_from_json,
+    );
+    map.insert(
+        "cost-of-capital-compound-rate",
+        cost_accounting::wire::cost_of_capital_compound_rate_from_json,
+    );
+    map.insert(
+        "cost-of-capital-list",
+        cost_accounting::wire::cost_of_capital_list_from_json,
+    );
+    map.insert(
         "order-acceptance-one-time-order",
         cost_accounting::wire::one_time_order_from_json,
     );
