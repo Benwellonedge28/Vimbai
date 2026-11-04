@@ -479,6 +479,22 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "discount-factor-table-range",
         (|p| df_table_range(p)) as Calculator,
     );
+    map.insert(
+        "marginal-costing-contribution",
+        (|p| marginal_contribution(p)) as Calculator,
+    );
+    map.insert(
+        "marginal-costing-profit-forecast",
+        (|p| marginal_forecast(p)) as Calculator,
+    );
+    map.insert(
+        "marginal-costing-cost-item",
+        (|p| marginal_cost_item_adapter(p)) as Calculator,
+    );
+    map.insert(
+        "marginal-costing-income-statement",
+        (|p| marginal_income_statement_adapter(p)) as Calculator,
+    );
     map
 }
 
@@ -961,5 +977,162 @@ mod capital_adapters {
             json!({"rate_percent": 10.0, "years": 5}),
         );
         assert_eq!(decimal["discount_factor"], percent["discount_factor"]);
+    }
+}
+
+fn text(payload: &Value, key: &str) -> Result<String, String> {
+    payload
+        .get(key)
+        .and_then(Value::as_str)
+        .map(|value| value.to_string())
+        .ok_or_else(|| format!("{key} must be a string"))
+}
+
+fn number_map(
+    payload: &Value,
+    key: &str,
+) -> Result<std::collections::BTreeMap<String, f64>, String> {
+    let object = payload
+        .get(key)
+        .and_then(Value::as_object)
+        .ok_or_else(|| format!("{key} must be an object of numbers"))?;
+    let mut parsed = std::collections::BTreeMap::new();
+    for (name, value) in object {
+        let amount = match value {
+            Value::Number(number) => number
+                .as_f64()
+                .ok_or_else(|| format!("{key}.{name} is not a number"))?,
+            Value::String(text) => text
+                .trim()
+                .parse::<f64>()
+                .map_err(|_| format!("{key}.{name} is not a number"))?,
+            _ => return Err(format!("{key}.{name} is not a number")),
+        };
+        parsed.insert(name.clone(), amount);
+    }
+    Ok(parsed)
+}
+
+fn marginal_contribution(payload: &Value) -> Result<Value, String> {
+    let output = cost_accounting::marginal::contribution_analysis(
+        &text(payload, "product_id")?,
+        number(payload, "selling_price")?,
+        number(payload, "variable_cost_per_unit")?,
+        number(payload, "units_sold")?,
+        optional_number(payload, "fixed_costs", 0.0)?,
+    );
+    to_value(&output)
+}
+
+fn marginal_forecast(payload: &Value) -> Result<Value, String> {
+    let output = cost_accounting::marginal::forecast_profit(
+        number(payload, "selling_price")?,
+        number(payload, "variable_cost_per_unit")?,
+        number(payload, "fixed_costs")?,
+        number(payload, "expected_units")?,
+    );
+    to_value(&output)
+}
+
+fn marginal_cost_item_adapter(payload: &Value) -> Result<Value, String> {
+    let output = cost_accounting::marginal::marginal_cost_item(
+        &text(payload, "cost_name")?,
+        &text(payload, "cost_code")?,
+        number(payload, "variable_cost")?,
+        number(payload, "fixed_cost")?,
+        number(payload, "units")?,
+        &text(payload, "cost_driver")?,
+    );
+    to_value(&output)
+}
+
+fn marginal_income_statement_adapter(payload: &Value) -> Result<Value, String> {
+    let variable_costs = number_map(payload, "variable_costs")?;
+    let output = cost_accounting::marginal::marginal_income_statement(
+        &text(payload, "company_id")?,
+        &text(payload, "period")?,
+        number(payload, "sales_revenue")?,
+        &variable_costs,
+        number(payload, "fixed_costs")?,
+    );
+    to_value(&output)
+}
+
+#[cfg(test)]
+mod marginal_adapters {
+    use super::*;
+    use serde_json::json;
+
+    fn calculate(name: &str, payload: Value) -> Value {
+        let registry = calculators();
+        let entry = registry
+            .get(name)
+            .unwrap_or_else(|| panic!("{name} is not registered"));
+        entry(&payload).unwrap_or_else(|error| panic!("{name} failed: {error}"))
+    }
+
+    #[test]
+    fn contribution_per_unit_and_profit_from_product() {
+        let out = calculate(
+            "marginal-costing-contribution",
+            json!({
+                "product_id": "p-1",
+                "selling_price": 100.0,
+                "variable_cost_per_unit": 60.0,
+                "units_sold": 500.0,
+                "fixed_costs": 5000.0
+            }),
+        );
+        assert_eq!(out["contribution_per_unit"], json!(40.0));
+        assert_eq!(out["contribution_margin_ratio"], json!(40.0));
+        assert_eq!(out["total_contribution"], json!(20000.0));
+        assert_eq!(out["profit_from_product"], json!(15000.0));
+    }
+
+    #[test]
+    fn forecast_profit_subtracts_the_fixed_costs_once() {
+        let out = calculate(
+            "marginal-costing-profit-forecast",
+            json!({
+                "selling_price": 250.0,
+                "variable_cost_per_unit": 150.0,
+                "fixed_costs": 40000.0,
+                "expected_units": 800.0
+            }),
+        );
+        assert_eq!(out["total_contribution"], json!(80000.0));
+        assert_eq!(out["forecast_profit"], json!(40000.0));
+    }
+
+    #[test]
+    fn a_zero_price_does_not_divide_by_zero() {
+        let out = calculate(
+            "marginal-costing-profit-forecast",
+            json!({
+                "selling_price": 0.0,
+                "variable_cost_per_unit": 10.0,
+                "fixed_costs": 100.0,
+                "expected_units": 5.0
+            }),
+        );
+        assert_eq!(out["contribution_margin_ratio"], json!(0.0));
+    }
+
+    #[test]
+    fn the_income_statement_breaks_variable_costs_down() {
+        let out = calculate(
+            "marginal-costing-income-statement",
+            json!({
+                "company_id": "c-1",
+                "period": "2026-03",
+                "sales_revenue": 100000.0,
+                "variable_costs": {"materials": "30000", "labour": 20000.0},
+                "fixed_costs": 20000.0
+            }),
+        );
+        assert_eq!(out["total_variable_costs"], json!(50000.0));
+        assert_eq!(out["contribution"], json!(50000.0));
+        assert_eq!(out["profit"], json!(30000.0));
+        assert_eq!(out["variable_cost_breakdown"]["materials"], json!(30000.0));
     }
 }
