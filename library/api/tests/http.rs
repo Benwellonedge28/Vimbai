@@ -502,3 +502,86 @@ async fn inventory_lifo_book_value_is_exact_even_on_a_cent_tie() {
     assert_eq!(body["cost_of_goods_sold"], 9041.95);
     assert_eq!(body["ending_inventory"], 1100.54);
 }
+
+#[tokio::test]
+async fn net_realizable_value_subtracts_at_cost() {
+    let (status, body) = call(
+        "/calc/net-realizable-value",
+        Some(json!({
+            "selling_Price": 500.0, "Completion_Cost": 120.0, "selling_cost": 30.0,
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["net_realizable_value"], 350.0);
+    assert_eq!(body["formula"], "500.0 - 120.0 - 30.0 = 350.0");
+
+    // two subtractions that land on a round figure, exactly
+    let (_, drift) = call(
+        "/calc/net-realizable-value",
+        Some(json!({"selling_price": 100.10, "completion_cost": 15.05, "selling_cost": 5.02})),
+    )
+    .await;
+    assert_eq!(drift["net_realizable_value"], 80.03);
+
+    // where a double runs out of room: 0.3 - 0.1 - 0.1 is 0.09999999999999998
+    // in Python, and a tenth of a unit here
+    let (_, tenth) = call(
+        "/calc/net-realizable-value",
+        Some(json!({"selling_price": 0.3, "completion_cost": 0.1, "selling_cost": 0.1})),
+    )
+    .await;
+    assert_eq!(tenth["net_realizable_value"], 0.1);
+}
+
+#[tokio::test]
+async fn nrv_scrap_residual_and_write_down_paths_answer() {
+    let (_, scrap) = call(
+        "/calc/nrv-scrap-value",
+        Some(json!({
+            "original_cost": 100000, "accumulated_depreciation": 60000,
+            "disposal_cost": 2000, "proceeds_from_sale": 30000,
+        })),
+    )
+    .await;
+    assert_eq!(scrap["net_book_value"], 40000.0);
+    assert_eq!(scrap["scrap_value"], 28000.0);
+    assert_eq!(scrap["gain_loss_on_disposal"], -12000.0);
+
+    let (_, residual) = call(
+        "/calc/nrv-residual-value",
+        Some(json!({"original_cost": 100000, "depreciation_rate": 0.25, "useful_life_years": 5})),
+    )
+    .await;
+    assert_eq!(residual["total_depreciation"], 125000.0);
+    assert_eq!(residual["residual_value"], 0.0);
+
+    let (_, inventory) = call(
+        "/calc/nrv-inventory",
+        Some(json!({
+            "estimated_selling_price": 250, "estimated_completion_cost": 40,
+            "estimated_selling_expenses": 10,
+        })),
+    )
+    .await;
+    assert_eq!(inventory["net_realizable_value"], 200.0);
+
+    let (_, compared) = call(
+        "/calc/nrv-compare-cost",
+        Some(json!({"cost": 100, "selling_price": 100, "completion_cost": 10, "selling_cost": 5})),
+    )
+    .await;
+    assert_eq!(compared["net_realizable_value"], 85.0);
+    assert_eq!(compared["lower_of_cost_or_nrv"], 85.0);
+    assert_eq!(compared["write_down_required"], true);
+    assert_eq!(compared["write_down_amount"], 15.0);
+
+    // a non-positive NRV leaves the cost in place rather than valuing stock at nil
+    let (_, nil) = call(
+        "/calc/nrv-compare-cost",
+        Some(json!({"cost": 100, "selling_price": 50, "completion_cost": 60, "selling_cost": 5})),
+    )
+    .await;
+    assert_eq!(nil["lower_of_cost_or_nrv"], 100.0);
+    assert_eq!(nil["write_down_amount"], 115.0);
+}

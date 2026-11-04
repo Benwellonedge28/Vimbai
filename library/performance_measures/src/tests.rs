@@ -233,16 +233,25 @@ fn inventory_methods_match_the_service() {
 
 #[test]
 fn realizable_values_match_the_service() {
-    let nrv = net_realizable_value(500.0, 120.0, 30.0);
+    let nrv = net_realizable_value(
+        Money::from_i64(500),
+        Money::from_i64(120),
+        Money::from_i64(30),
+    );
     assert_eq!(nrv.net_realizable_value, 350.0);
     assert_eq!(nrv.formula, "500.0 - 120.0 - 30.0 = 350.0");
 
-    let scrap = scrap_value(100_000.0, 60_000.0, 2_000.0, 30_000.0);
+    let scrap = scrap_value(
+        Money::from_i64(100_000),
+        Money::from_i64(60_000),
+        Money::from_i64(2_000),
+        Money::from_i64(30_000),
+    );
     assert_eq!(scrap.net_book_value, 40_000.0);
     assert_eq!(scrap.scrap_value, 28_000.0);
     assert_eq!(scrap.gain_loss_on_disposal, -12_000.0);
 
-    let residual = residual_value(100_000.0, 0.25, 5);
+    let residual = residual_value(Money::from_i64(100_000), 0.25, 5);
     assert_eq!(residual.total_depreciation, 125_000.0);
     assert_eq!(residual.residual_value, 0.0, "floored, never negative");
 }

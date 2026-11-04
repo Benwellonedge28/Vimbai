@@ -2114,6 +2114,16 @@ fn inventory_valuation_json(payload: &str) -> PyResult<String> {
     assurance::inventory_json(payload).map_err(PyValueError::new_err)
 }
 #[pyfunction]
+fn nrv_inventory_json(payload: &str) -> PyResult<String> {
+    assurance::nrv_inventory_json(payload).map_err(PyValueError::new_err)
+}
+
+#[pyfunction]
+fn nrv_compare_json(payload: &str) -> PyResult<String> {
+    assurance::nrv_compare_json(payload).map_err(PyValueError::new_err)
+}
+
+#[pyfunction]
 fn nrv_json(payload: &str) -> PyResult<String> {
     assurance::nrv_json(payload).map_err(PyValueError::new_err)
 }
@@ -2176,6 +2186,8 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(profit_json, m)?)?;
     m.add_function(wrap_pyfunction!(inventory_valuation_json, m)?)?;
     m.add_function(wrap_pyfunction!(nrv_json, m)?)?;
+    m.add_function(wrap_pyfunction!(nrv_inventory_json, m)?)?;
+    m.add_function(wrap_pyfunction!(nrv_compare_json, m)?)?;
     m.add_function(wrap_pyfunction!(scrap_value_json, m)?)?;
     m.add_function(wrap_pyfunction!(residual_value_json, m)?)?;
     m.add_function(wrap_pyfunction!(fx_hedge_json, m)?)?;

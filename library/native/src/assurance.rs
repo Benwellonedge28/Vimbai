@@ -971,18 +971,9 @@ pub fn inventory_json(payload: &str) -> Result<String, String> {
 }
 
 pub fn nrv_json(payload: &str) -> Result<String, String> {
-    let dto: NrvDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
-    let selling = dto.selling_price.or(dto.selling_price_upper).unwrap_or(0.0);
-    let completion = dto
-        .completion_cost
-        .or(dto.completion_cost_upper)
-        .unwrap_or(0.0);
-    serde_json::to_string(&realizable::net_realizable_value(
-        selling,
-        completion,
-        dto.selling_cost,
-    ))
-    .map_err(|e| e.to_string())
+    let value: serde_json::Value = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let answer = realizable::net_realizable_value_from_json(&value)?;
+    serde_json::to_string(&answer).map_err(|e| e.to_string())
 }
 
 /// The service accepted the first two fields in either spelling, because the
@@ -1012,14 +1003,9 @@ pub struct ScrapDto {
 }
 
 pub fn scrap_json(payload: &str) -> Result<String, String> {
-    let dto: ScrapDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
-    serde_json::to_string(&realizable::scrap_value(
-        dto.original_cost,
-        dto.accumulated_depreciation,
-        dto.disposal_cost,
-        dto.proceeds_from_sale,
-    ))
-    .map_err(|e| e.to_string())
+    let value: serde_json::Value = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let answer = realizable::scrap_value_from_json(&value)?;
+    serde_json::to_string(&answer).map_err(|e| e.to_string())
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1030,13 +1016,21 @@ pub struct ResidualDto {
 }
 
 pub fn residual_json(payload: &str) -> Result<String, String> {
-    let dto: ResidualDto = serde_json::from_str(payload).map_err(|e| e.to_string())?;
-    serde_json::to_string(&realizable::residual_value(
-        dto.original_cost,
-        dto.depreciation_rate,
-        dto.useful_life_years,
-    ))
-    .map_err(|e| e.to_string())
+    let value: serde_json::Value = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let answer = realizable::residual_value_from_json(&value)?;
+    serde_json::to_string(&answer).map_err(|e| e.to_string())
+}
+
+pub fn nrv_inventory_json(payload: &str) -> Result<String, String> {
+    let value: serde_json::Value = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let answer = realizable::inventory_nrv_from_json(&value)?;
+    serde_json::to_string(&answer).map_err(|e| e.to_string())
+}
+
+pub fn nrv_compare_json(payload: &str) -> Result<String, String> {
+    let value: serde_json::Value = serde_json::from_str(payload).map_err(|e| e.to_string())?;
+    let answer = realizable::compare_cost_nrv_from_json(&value)?;
+    serde_json::to_string(&answer).map_err(|e| e.to_string())
 }
 
 #[derive(Debug, Clone, Deserialize)]

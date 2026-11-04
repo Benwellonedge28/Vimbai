@@ -60,6 +60,26 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "payment-optimization",
         treasury_fx::payment_optimization::evaluate,
     );
+    map.insert(
+        "net-realizable-value",
+        performance_measures::realizable::net_realizable_value_from_json,
+    );
+    map.insert(
+        "nrv-scrap-value",
+        performance_measures::realizable::scrap_value_from_json,
+    );
+    map.insert(
+        "nrv-residual-value",
+        performance_measures::realizable::residual_value_from_json,
+    );
+    map.insert(
+        "nrv-inventory",
+        performance_measures::realizable::inventory_nrv_from_json,
+    );
+    map.insert(
+        "nrv-compare-cost",
+        performance_measures::realizable::compare_cost_nrv_from_json,
+    );
     map
 }
 
