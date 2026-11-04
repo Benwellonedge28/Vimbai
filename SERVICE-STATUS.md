@@ -10,9 +10,9 @@ because their regression suites still run in CI.
 ## Summary
 
 ```
-live and routed          183
+live and routed          182
 retained, not routed     127
-unrouted, undecided      4
+unrouted, undecided      5
 ```
 
 ## Live services
@@ -93,7 +93,6 @@ Routed by the API gateway and deployed. These are the running product.
 `fund-accounting-service`
 `general-reserve-service`
 `going-concern-service`
-`goodwill-service`
 `government-grants-service`
 `graphql-service`
 `group-tax-service`
@@ -444,5 +443,6 @@ decision: register it, retire it, or deduplicate it.
 
 `finance-service`
 `fraud-detection-service`
+`goodwill-service`
 `identity-service`
 `supply-chain-service`

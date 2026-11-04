@@ -574,14 +574,6 @@
       "strip_prefix": false
     },
     {
-      "name": "goodwill-service",
-      "path": "/goodwill",
-      "url": "http://localhost:9011",
-      "port": 8359,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "government-grants-service",
       "path": "/government-grants",
       "url": "http://localhost:9011",

@@ -41,7 +41,10 @@ def test_index_file_exists():
 # Unrouted and not part of any retirement family. Pinned so the list can only
 # shrink on purpose: a newly added service has to be registered (or retired)
 # rather than quietly joining the grey zone.
+# De-registered once the calculation behind them was proven in Rust: the files stay as
+# parity oracles, but nothing routes to them any more.
 UNDECIDED = {
+    "goodwill-service",
     "finance-service",
     "fraud-detection-service",
     "identity-service",
