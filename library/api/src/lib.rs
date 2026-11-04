@@ -495,6 +495,18 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "marginal-costing-income-statement",
         (|p| marginal_income_statement_adapter(p)) as Calculator,
     );
+    map.insert(
+        "segment-reporting-report",
+        ratios_statements::segment_reporting::report_from_json,
+    );
+    map.insert(
+        "interim-reporting-year-to-date",
+        ratios_statements::interim_reporting::year_to_date_from_json,
+    );
+    map.insert(
+        "interim-reporting-effective-tax-rate",
+        ratios_statements::interim_reporting::effective_tax_rate_from_json,
+    );
     map
 }
 
