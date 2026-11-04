@@ -8,8 +8,9 @@
 //! strings are reproduced because clients already display them.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::BTreeMap;
-use vimbai_common::{py_round, py_round2};
+use vimbai_common::{py_round, py_round2, Money};
 
 // --- DuPont -----------------------------------------------------------------
 
@@ -482,110 +483,180 @@ pub fn eva(request: &EvaRequest) -> EvaResponse {
 
 // --- EPS --------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ShareOptionInput {
-    #[serde(default)]
-    pub id: String,
-    #[serde(default)]
-    pub exercise_price: f64,
-    #[serde(default)]
-    pub average_market_price: f64,
-    #[serde(default)]
-    pub number_of_options: f64,
-}
-
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AntiDilutiveItem {
     #[serde(default)]
-    pub anti_dilutive_shares: f64,
+    pub anti_dilutive_shares: Money,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EpsRequest {
     pub company_id: String,
     pub period: String,
-    pub net_profit_attributable: f64,
-    pub weighted_average_shares: f64,
+    /// Profit and prices are decimals; share counts are whole and truncated like
+    /// Python's int().
+    pub net_profit_attributable: Money,
+    pub weighted_average_shares: Money,
     #[serde(default)]
-    pub discontinued_operations_profit: f64,
+    pub discontinued_operations_profit: Money,
     #[serde(default)]
     pub potential_dilutive_shares: Vec<ShareOptionInput>,
     #[serde(default)]
     pub anti_dilutive_items: Vec<AntiDilutiveItem>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShareOptionInput {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub option_id: String,
+    #[serde(default)]
+    pub number_of_options: Money,
+    #[serde(default)]
+    pub exercise_price: Money,
+    #[serde(default)]
+    pub average_market_price: Money,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShareOption {
     pub option_id: String,
-    pub number_of_options: f64,
-    pub exercise_price: f64,
-    pub average_market_price: f64,
-    pub dilution_effect: f64,
+    pub number_of_options: Money,
+    pub exercise_price: Money,
+    pub average_market_price: Money,
+    pub dilution_effect: Money,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EpsResponse {
     pub company_id: String,
     pub period: String,
-    pub basic_eps: f64,
-    pub diluted_eps: f64,
-    pub eps_from_continuing_operations: f64,
-    pub weighted_average_shares: f64,
-    pub diluted_shares: f64,
-    pub dilutive_effect: f64,
-    pub anti_dilutive_effect: f64,
+    pub basic_eps: Money,
+    pub diluted_eps: Money,
+    pub eps_from_continuing_operations: Money,
+    pub weighted_average_shares: Money,
+    pub diluted_shares: Money,
+    pub dilutive_effect: Money,
+    pub anti_dilutive_effect: Money,
     pub potential_dilutive_instruments: Vec<ShareOption>,
 }
 
+/// Earnings per share, from the treasury-stock method the service uses: potential
+/// options count only when the market price is above the exercise price, and the
+/// shares they would add are truncated to whole shares.
 pub fn eps(request: &EpsRequest) -> EpsResponse {
-    let basic_eps = safe_div(
-        request.net_profit_attributable,
-        request.weighted_average_shares,
-    );
-    let continuing_profit =
-        request.net_profit_attributable - request.discontinued_operations_profit;
-    let eps_continuing = safe_div(continuing_profit, request.weighted_average_shares);
+    let basic_eps = if request.weighted_average_shares.is_zero() {
+        Money::zero()
+    } else {
+        request
+            .net_profit_attributable
+            .over(&request.weighted_average_shares)
+    };
+    let continuing_profit = request
+        .net_profit_attributable
+        .minus(&request.discontinued_operations_profit);
+    let eps_continuing = if request.weighted_average_shares.is_zero() {
+        Money::zero()
+    } else {
+        continuing_profit.over(&request.weighted_average_shares)
+    };
 
-    let mut dilutive_effect = 0.0;
+    let mut dilutive_effect = Money::zero();
     let mut instruments = Vec::new();
     for option in &request.potential_dilutive_shares {
         if option.average_market_price > option.exercise_price {
-            // Treasury-stock method, truncated to whole shares like the service.
-            let treasury_shares = (option.number_of_options
-                * (1.0 - option.exercise_price / option.average_market_price))
-                as i64;
-            let delta = treasury_shares as f64;
-            dilutive_effect += delta;
+            let ratio = option.exercise_price.over(&option.average_market_price);
+            let treasury_shares = option
+                .number_of_options
+                .times(&Money::from_i64(1).minus(&ratio))
+                .truncate();
+            dilutive_effect = dilutive_effect.plus(&treasury_shares);
             instruments.push(ShareOption {
-                option_id: option.id.clone(),
-                number_of_options: option.number_of_options,
-                exercise_price: option.exercise_price,
-                average_market_price: option.average_market_price,
-                dilution_effect: delta,
+                option_id: if option.option_id.is_empty() {
+                    option.id.clone()
+                } else {
+                    option.option_id.clone()
+                },
+                number_of_options: option.number_of_options.clone(),
+                exercise_price: option.exercise_price.clone(),
+                average_market_price: option.average_market_price.clone(),
+                dilution_effect: treasury_shares,
             });
         }
     }
 
-    let anti_total: f64 = request
-        .anti_dilutive_items
-        .iter()
-        .map(|item| item.anti_dilutive_shares)
-        .sum();
-    dilutive_effect -= anti_total;
+    let anti_total = Money::sum(
+        request
+            .anti_dilutive_items
+            .iter()
+            .map(|i| &i.anti_dilutive_shares),
+    );
+    let dilutive_effect = dilutive_effect.minus(&anti_total);
 
-    let diluted_shares = request.weighted_average_shares + dilutive_effect.max(0.0);
-    let diluted_eps = safe_div(request.net_profit_attributable, diluted_shares);
+    let diluted_shares = request
+        .weighted_average_shares
+        .plus(&dilutive_effect.clone().max_zero());
+    let diluted_eps = if diluted_shares.is_zero() {
+        Money::zero()
+    } else {
+        request.net_profit_attributable.over(&diluted_shares)
+    };
 
     EpsResponse {
         company_id: request.company_id.clone(),
         period: request.period.clone(),
-        basic_eps: py_round(basic_eps, 4),
-        diluted_eps: py_round(diluted_eps, 4),
-        eps_from_continuing_operations: py_round(eps_continuing, 4),
-        weighted_average_shares: request.weighted_average_shares,
+        basic_eps: basic_eps.round(4),
+        diluted_eps: diluted_eps.round(4),
+        eps_from_continuing_operations: eps_continuing.round(4),
+        weighted_average_shares: request.weighted_average_shares.clone(),
         diluted_shares,
-        dilutive_effect: dilutive_effect.max(0.0),
-        anti_dilutive_effect: anti_total.abs().max(0.0),
+        dilutive_effect: dilutive_effect.max_zero(),
+        anti_dilutive_effect: anti_total.abs(),
         potential_dilutive_instruments: instruments,
+    }
+}
+
+/// The `/calculate` payload. Share counts are published as whole numbers, the way the
+/// service's integer fields were, while the per-share figures stay decimal strings.
+pub fn eps_from_json(payload: &Value) -> Result<Value, String> {
+    let request: EpsRequest =
+        serde_json::from_value(payload.clone()).map_err(|e| format!("invalid request: {e}"))?;
+    let response = eps(&request);
+
+    let instruments: Vec<Value> = response
+        .potential_dilutive_instruments
+        .iter()
+        .map(|i| {
+            serde_json::json!({
+                "option_id": i.option_id,
+                "number_of_options": whole(&i.number_of_options),
+                "exercise_price": i.exercise_price.to_fixed(2),
+                "average_market_price": i.average_market_price.to_fixed(2),
+                "dilution_effect": whole(&i.dilution_effect),
+            })
+        })
+        .collect();
+
+    Ok(serde_json::json!({
+        "company_id": response.company_id,
+        "period": response.period,
+        "basic_eps": response.basic_eps.to_fixed(4),
+        "diluted_eps": response.diluted_eps.to_fixed(4),
+        "eps_from_continuing_operations": response.eps_from_continuing_operations.to_fixed(4),
+        "weighted_average_shares": whole(&response.weighted_average_shares),
+        "diluted_shares": whole(&response.diluted_shares),
+        "dilutive_effect": whole(&response.dilutive_effect),
+        "anti_dilutive_effect": whole(&response.anti_dilutive_effect),
+        "potential_dilutive_instruments": instruments,
+    }))
+}
+
+/// A whole number as JSON, so integer fields stay integers on the wire.
+fn whole(value: &Money) -> Value {
+    let rounded = value.truncate();
+    match rounded.to_fixed(0).parse::<i64>() {
+        Ok(number) => Value::from(number),
+        Err(_) => Value::from(0),
     }
 }

@@ -44,10 +44,10 @@ pub use consolidation::{
 };
 pub use income_statement::{prepare_income_statement, IncomeStatementInput, IncomeStatementOutput};
 pub use investor_metrics::{
-    asset_turnover, croic, du_pont_analysis, eps, eva, AntiDilutiveItem, CroicMetrics, CroicPeriod,
-    CroicRequest, CroicResponse, DuPontMetrics, DuPontRequest, DuPontResponse, EpsRequest,
-    EpsResponse, EvaMetrics, EvaRequest, EvaResponse, ShareOption, ShareOptionInput,
-    TurnoverMetrics, TurnoverRequest, TurnoverResponse,
+    asset_turnover, croic, du_pont_analysis, eps, eps_from_json, eva, AntiDilutiveItem,
+    CroicMetrics, CroicPeriod, CroicRequest, CroicResponse, DuPontMetrics, DuPontRequest,
+    DuPontResponse, EpsRequest, EpsResponse, EvaMetrics, EvaRequest, EvaResponse, ShareOption,
+    ShareOptionInput, TurnoverMetrics, TurnoverRequest, TurnoverResponse,
 };
 pub use ledger_controls::{
     analyze_bank_fees, analyze_suspense, analyze_times_interest_earned, BankCharge,

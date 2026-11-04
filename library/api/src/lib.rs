@@ -31,6 +31,7 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
     );
     map.insert("target-costing", cost_accounting::target_cost::evaluate);
     map.insert("divestiture", group_accounting::divestiture::evaluate);
+    map.insert("eps", ratios_statements::eps_from_json);
     map.insert(
         "capital-expenditure-budget",
         budgeting::capex::prepare_from_json,

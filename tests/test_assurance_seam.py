@@ -942,6 +942,35 @@ def test_eps_matches_the_reference():
     assert rust["diluted_eps"] <= rust["basic_eps"]
 
 
+def test_eps_treasury_shares_are_exact_not_float_truncated():
+    """A documented divergence, kept visible rather than tolerated.
+
+    The service computed the treasury-stock shares in floats:
+    ``int(10000 * (1 - 40 / 50))`` is 1999, because 40/50 lands just under 0.8 in
+    binary. The exact answer is 2000 shares. The library takes the exact one, so
+    diluted shares and diluted EPS differ from the old service by that single share.
+    Both numbers are asserted here, so the change can never happen silently.
+    """
+    payload = {
+        "company_id": "eps-treasury",
+        "period": "2026",
+        "net_profit_attributable": 500000,
+        "weighted_average_shares": 200000,
+        "discontinued_operations_profit": 0,
+        "potential_dilutive_shares": [
+            {"id": "o1", "number_of_options": 10000, "exercise_price": 40, "average_market_price": 50}
+        ],
+        "anti_dilutive_items": [],
+    }
+    rust, reference = _both_engines("eps-service", "/calculate", payload)
+    assert reference["dilutive_effect"] == 1999  # float truncation in the old service
+    assert rust["dilutive_effect"] == 2000  # 20% of 10,000 options, exactly
+    assert rust["diluted_shares"] == 202000
+    assert reference["diluted_shares"] == 201999
+    assert rust["basic_eps"] == reference["basic_eps"] == 2.5
+    assert rust["period"] == reference["period"] == "2026"
+
+
 def test_goodwill_impairment_matches_the_reference():
     payload = {
         "company_id": "goodwill-seam",

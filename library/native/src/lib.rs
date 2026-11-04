@@ -332,10 +332,14 @@ fn eva_json(payload: &str) -> PyResult<String> {
 /// eps-service, body in and body out.
 #[pyfunction]
 fn eps_json(payload: &str) -> PyResult<String> {
-    let request: EpsRequest =
+    let request: serde_json::Value =
         serde_json::from_str(payload).map_err(|e| seam_error(SeamError::from(e)))?;
-    let response = eps(&request);
-    serde_json::to_string(&response).map_err(|e| seam_error(SeamError(e.to_string())))
+    let answer = vimbai_ratios_statements::eps_from_json(&request)
+        .map_err(|e| seam_error(SeamError(e.to_string())))?;
+    // per-share figures become floats for the service; share counts are already
+    // JSON integers and stay integers. `period` is numeric-looking text and stays text.
+    let rendered = floats_from_strings_except(&answer, &["period"]);
+    serde_json::to_string(&rendered).map_err(|e| seam_error(SeamError(e.to_string())))
 }
 
 #[pyfunction]

@@ -177,3 +177,30 @@ async fn capex_budget_funds_against_an_exact_remainder() {
     assert_eq!(body["funded_projects"].as_array().unwrap().len(), 2);
     assert_eq!(body["budget_year"], "2026");
 }
+
+#[tokio::test]
+async fn eps_keeps_whole_shares_and_exact_cents() {
+    let (status, body) = call(
+        "/calc/eps",
+        Some(json!({
+            "company_id": "c1",
+            "period": "2026",
+            "net_profit_attributable": "123456789012345678901234.56",
+            "weighted_average_shares": "1000",
+            "discontinued_operations_profit": "0",
+            "potential_dilutive_shares": [
+                {"id": "o1", "number_of_options": "10000",
+                 "exercise_price": "40", "average_market_price": "50"}
+            ],
+            "anti_dilutive_items": [],
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    // 20% of the options are free shares, exactly, and the count stays an integer
+    assert_eq!(body["dilutive_effect"], 2000);
+    assert_eq!(body["diluted_shares"], 3000);
+    assert_eq!(body["period"], "2026");
+    // 123,456,789,012,345,678,901,234.56 / 1,000 keeps every cent
+    assert_eq!(body["basic_eps"], "123456789012345678901.2346");
+}

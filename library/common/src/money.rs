@@ -98,6 +98,14 @@ impl Money {
     }
 
     /// Absolute value.
+    /// Drop the fraction toward zero, the way Python's `int()` does. A share count
+    /// from the treasury-stock method is truncated, not rounded.
+    pub fn truncate(&self) -> Self {
+        // `with_scale_round(0, Down)` truncates toward zero, which is what
+        // Python's int() does for a positive share count
+        Money(self.0.with_scale_round(0, RoundingMode::Down))
+    }
+
     pub fn abs(&self) -> Self {
         Money(self.0.abs())
     }
@@ -108,6 +116,15 @@ impl Money {
     }
 
     /// True when the amount is exactly zero.
+    /// The amount, or zero when it is negative. `max(0, x)` in one call.
+    pub fn max_zero(&self) -> Self {
+        if self.is_negative() {
+            Money::zero()
+        } else {
+            self.clone()
+        }
+    }
+
     pub fn is_zero(&self) -> bool {
         self.0 == zero_dec()
     }
