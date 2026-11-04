@@ -125,7 +125,10 @@ def main():
         # than one path that shortcut would let a partly served service pass, so each
         # published path has to have its own route.
         single = base in served and len(endpoints) <= 1
-        http = single or (bool(endpoints) and all(name in served for name in routes_for(service, endpoints)))
+        named = [
+            PATH_ROUTES.get((service, path), name) for path, name in zip(endpoints, routes_for(service, endpoints))
+        ]
+        http = single or (bool(endpoints) and all(name in served for name in named))
         rows.append((service, seams, bound, tested, http))
 
     print(f"{'service':48s} {'seam bound':10s} {'parity':7s} {'http':5s} verdict")
