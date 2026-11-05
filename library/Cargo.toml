@@ -27,6 +27,7 @@ members = [
     "ratios_statements",
     "equity_payroll",
     "reporting",
+    "store",
 ]
 
 [workspace.package]
