@@ -21,7 +21,8 @@ use axum::{
 };
 use serde_json::{json, Value};
 use store::{
-    absorption, insurance_claims, job_costing, treasury_analytics, BookScope, Graph, StoreError,
+    absorption, cash_flow, insurance_claims, job_costing, treasury_analytics, BookScope, Graph,
+    StoreError,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -338,6 +339,42 @@ async fn treasury_kpi(
     answer(treasury_analytics::kpi(graph.as_ref(), &scope, &company_id))
 }
 
+async fn generate_cash_flow_statement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_flow::generate(graph.as_ref(), &scope, &payload))
+}
+
+async fn latest_cash_flow_statement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_flow::latest(graph.as_ref(), &scope, &company_id))
+}
+
+async fn cash_flow_statement_history(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_flow::history(graph.as_ref(), &scope, &company_id))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone()).merge(service_root_router(graph))
 }
@@ -377,6 +414,18 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/treasury-analytics/kpi/:company_id",
             get(treasury_kpi),
         )
+        .route(
+            "/records/cash-flow-statement/generate",
+            post(generate_cash_flow_statement),
+        )
+        .route(
+            "/records/cash-flow-statement/latest/:company_id",
+            get(latest_cash_flow_statement),
+        )
+        .route(
+            "/records/cash-flow-statement/history/:company_id",
+            get(cash_flow_statement_history),
+        )
         .with_state(graph)
 }
 
@@ -407,6 +456,18 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         )
         .route("/treasury-analytics/analyze", post(analyze_treasury))
         .route("/treasury-analytics/kpi/:company_id", get(treasury_kpi))
+        .route(
+            "/cash-flow-statement/generate",
+            post(generate_cash_flow_statement),
+        )
+        .route(
+            "/cash-flow-statement/latest/:company_id",
+            get(latest_cash_flow_statement),
+        )
+        .route(
+            "/cash-flow-statement/history/:company_id",
+            get(cash_flow_statement_history),
+        )
         .with_state(graph)
 }
 

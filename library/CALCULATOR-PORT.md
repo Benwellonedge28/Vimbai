@@ -18,6 +18,7 @@ says which services have passed every check. 169 stateless calculators; 45 answe
 - budgeted-cost-service
 - capital-budgeting-service
 - capital-expenditure-budget-service
+- cash-flow-statement-service
 - consolidation-service
 - corporate-tax-service
 - credit-risk-analysis-service
