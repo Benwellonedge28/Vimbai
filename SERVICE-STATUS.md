@@ -11,8 +11,8 @@ because their regression suites still run in CI.
 
 ```
 live and routed          159
-retained, not routed     109
-unrouted, undecided      8
+retained, not routed     96
+unrouted, undecided      4
 ```
 
 ## Live services
@@ -192,9 +192,8 @@ Routed by the API gateway and deployed. These are the running product.
 
 ### absorption / margin calculator -> `cost_accounting`
 
-2 services. Source kept as the Rust parity reference and CI oracle.
+1 services. Source kept as the Rust parity reference and CI oracle.
 
-`margin-safety-service`
 `over-under-absorption-service`
 
 ### business valuation calculator -> `capital_valuation`
@@ -232,19 +231,12 @@ Routed by the API gateway and deployed. These are the running product.
 
 ### cost accounting calculator -> `cost_accounting`
 
-12 services. Source kept as the Rust parity reference and CI oracle.
+5 services. Source kept as the Rust parity reference and CI oracle.
 
-`cost-centre-service`
 `equivalent-units-service`
 `fixed-cost-service`
 `lifecycle-costing-service`
-`limiting-factor-service`
 `make-or-buy-decision-service`
-`marginal-costing-service`
-`order-acceptance-service`
-`overhead-apportionment-service`
-`prime-cost-service`
-`total-production-cost-service`
 `variable-cost-service`
 
 ### duplicate of risk-assessment-service
@@ -255,26 +247,18 @@ Routed by the API gateway and deployed. These are the running product.
 `risk-mitigation-service`
 `risk-reporting-service`
 
-### fixed asset calculator -> `ratios_statements`
-
-1 services. Source kept as the Rust parity reference and CI oracle.
-
-`depreciation-service`
-
 ### hedging, FX and reporting calculator -> `reporting`
 
-4 services. Source kept as the Rust parity reference and CI oracle.
+3 services. Source kept as the Rust parity reference and CI oracle.
 
-`annual-report-service`
 `financial-reporting-service`
 `management-reporting-service`
 `regulatory-reporting-service`
 
 ### hedging, FX and reporting calculator -> `treasury_fx`
 
-23 services. Source kept as the Rust parity reference and CI oracle.
+20 services. Source kept as the Rust parity reference and CI oracle.
 
-`capital-budgeting-service`
 `cash-flow-forecasting-service`
 `commodity-hedging-service`
 `comparative-financial-statements-service`
@@ -288,9 +272,7 @@ Routed by the API gateway and deployed. These are the running product.
 `futures-hedging-service`
 `interest-rate-hedging-service`
 `interim-financial-reporting-service`
-`liquidity-forecast-service`
 `liquidity-management-service`
-`liquidity-risk-service`
 `multi-currency-service`
 `segment-reporting-service`
 `swap-valuation-service`
@@ -390,11 +372,7 @@ Routed by the API gateway and deployed. These are the running product.
 Not in the gateway and not part of any retirement family. Each needs a
 decision: register it, retire it, or deduplicate it.
 
-`credit-risk-analysis-service`
 `finance-service`
 `fraud-detection-service`
 `identity-service`
-`internal-controls-testing-service`
-`market-risk-service`
-`r-and-d-tax-service`
 `supply-chain-service`

@@ -1062,13 +1062,6 @@ def test_depreciation_double_declining_ignores_salvage_in_the_rate():
     assert rust["annual_depreciation"] == 20000.0
 
 
-def test_depreciation_calculate_endpoint_is_deliberately_not_wired():
-    """Its schedule is synthetic; the library builds a real ladder. Not swapped silently."""
-    source = (pathlib.Path(__file__).resolve().parents[1] / "depreciation-service" / "main.py").read_text()
-    calculate = source[source.index('@app.post("/calculate"') : source.index('@app.post("/method"')]
-    assert "calc." not in calculate
-
-
 AMORTIZATION_ASSETS = [
     {
         "intangible_id": "i1",

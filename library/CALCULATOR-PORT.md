@@ -189,3 +189,10 @@ says which services have passed every check. 169 stateless calculators; 45 answe
 - trial-balance-service
 - websocket-service
 - xbrl-reporting-service
+
+## Divergences worth knowing
+
+`depreciation-service` published a `/calculate` schedule that was synthetic: it was never wired
+to the library, and its Python body did not call the seam. The Rust ladder in `vimbai_assets`
+is the real implementation, so the figures from that one endpoint were never a like-for-like
+reference. The `/method` endpoint was wired and watched by parity tests.

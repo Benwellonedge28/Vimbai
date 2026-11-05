@@ -304,6 +304,23 @@ ABSORPTION_MARGIN_PORTS = {
 # covered by the Rust crates' own tests, with the figures captured from the services before
 # deletion, so their absence is the expected state and the check below enforces it.
 DELETED_PORTS = {
+    "annual-report-service",
+    "capital-budgeting-service",
+    "cost-centre-service",
+    "credit-risk-analysis-service",
+    "depreciation-service",
+    "internal-controls-testing-service",
+    "limiting-factor-service",
+    "liquidity-forecast-service",
+    "liquidity-risk-service",
+    "margin-safety-service",
+    "marginal-costing-service",
+    "market-risk-service",
+    "order-acceptance-service",
+    "overhead-apportionment-service",
+    "prime-cost-service",
+    "r-and-d-tax-service",
+    "total-production-cost-service",
     "activity-based-costing-service",
     "actual-cost-service",
     "amortization-service",
