@@ -83,3 +83,79 @@ pub fn average_accounting_profit(
         average_annual_profit: annual,
     })
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct NetProfitAfterTax {
+    pub revenue: f64,
+    pub costs: f64,
+    pub gross_profit: f64,
+    pub tax_rate: f64,
+    pub tax_amount: f64,
+    pub net_profit_after_tax: f64,
+}
+
+/// Net profit after tax. A non-positive rate charges nothing rather than crediting a refund.
+/// Figures are returned unrounded because that is what the service reports.
+pub fn net_profit_after_tax(revenue: f64, costs: f64, tax_rate: f64) -> NetProfitAfterTax {
+    let gross = revenue - costs;
+    let tax = if tax_rate > 0.0 {
+        gross * (tax_rate / 100.0)
+    } else {
+        0.0
+    };
+    NetProfitAfterTax {
+        revenue,
+        costs,
+        gross_profit: gross,
+        tax_rate,
+        tax_amount: tax,
+        net_profit_after_tax: gross - tax,
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ProjectProfit {
+    pub revenue: f64,
+    pub costs: f64,
+    pub profit: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ProfitComparison {
+    pub project_a: ProjectProfit,
+    pub project_b: ProjectProfit,
+    pub difference: f64,
+    pub recommendation: String,
+}
+
+/// Two projects side by side. A tie recommends neither, and says so.
+pub fn compare_profits(
+    project_a_revenue: f64,
+    project_a_costs: f64,
+    project_b_revenue: f64,
+    project_b_costs: f64,
+) -> ProfitComparison {
+    let profit_a = project_a_revenue - project_a_costs;
+    let profit_b = project_b_revenue - project_b_costs;
+    let recommendation = if profit_a > profit_b {
+        "Project A"
+    } else if profit_b > profit_a {
+        "Project B"
+    } else {
+        "Equal"
+    };
+    ProfitComparison {
+        project_a: ProjectProfit {
+            revenue: project_a_revenue,
+            costs: project_a_costs,
+            profit: profit_a,
+        },
+        project_b: ProjectProfit {
+            revenue: project_b_revenue,
+            costs: project_b_costs,
+            profit: profit_b,
+        },
+        difference: profit_a - profit_b,
+        recommendation: recommendation.to_string(),
+    }
+}

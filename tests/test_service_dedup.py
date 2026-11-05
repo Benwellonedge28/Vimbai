@@ -304,6 +304,12 @@ ABSORPTION_MARGIN_PORTS = {
 # the Rust implementation was proven, rather than kept as a parity oracle. Their maths is
 # covered by the Rust crates' own tests, with the figures captured from the services before
 # deletion, so their absence is the expected state and the check below enforces it.
+# Services de-registered from the gateway because every published path is answered by a Rust
+# route. Kept on disk as the parity oracle for the port.
+RETIRED_PORTS = {
+    "profit-service",
+}
+
 DELETED_PORTS = {
     "accounting-rate-return-service",
     "commodity-hedging-service",
@@ -385,6 +391,7 @@ ALL_DEREGISTERED = (
     | LEDGER_ANALYTICS_PORTS
     | ADVISORY_PORTS
     | AUDIT_ENGAGEMENT_MERGE
+    | RETIRED_PORTS
 )
 
 # Families whose Python code is no longer run anywhere, so their names must stay
@@ -502,3 +509,28 @@ def test_only_triaged_containers_remain():
     for svc, names in found.items():
         allowed = SEED_CATALOGUES.get(svc, set())
         assert names <= allowed, f"{svc} holds untriaged state: {sorted(names - allowed)}"
+
+
+def _gateway_routes():
+    routes = json.load(open(os.path.join(_ROOT, "api-gateway", "config", "services.json")))["services"]
+    return {r["name"] for r in routes}
+
+
+def test_profit_service_paths_are_answered_by_rust():
+    """De-registered, so every path it used to answer has to exist in the registry."""
+    assert "profit-service" not in _gateway_routes()
+    registry = open(os.path.join(_ROOT, "library", "api", "src", "lib.rs")).read()
+    for path in (
+        "calculate",
+        "from-cash-flow",
+        "average-profit",
+        "average-accounting-profit",
+        "net-profit",
+        "profit-compare",
+    ):
+        assert f'"profit-{path}"' in registry, f"profit-{path} is not served"
+
+
+def test_retired_ports_keep_their_files():
+    for service in RETIRED_PORTS:
+        assert os.path.isfile(os.path.join(_ROOT, service, "main.py")), f"{service} was deleted"

@@ -10,8 +10,8 @@ because their regression suites still run in CI.
 ## Summary
 
 ```
-live and routed          159
-retained, not routed     86
+live and routed          158
+retained, not routed     87
 unrouted, undecided      4
 ```
 
@@ -128,7 +128,6 @@ Routed by the API gateway and deployed. These are the running product.
 `privacy-admin-dashboard-service`
 `process-costing-service`
 `product-costing-service`
-`profit-service`
 `project-accounting-service`
 `provision-bad-debts-service`
 `provision-doubtful-debts-service`
@@ -189,6 +188,12 @@ Routed by the API gateway and deployed. These are the running product.
 `ifrs-16-lease-accounting-service`
 `ifrs-2-share-based-payment-service`
 `ifrs-9-financial-instruments-service`
+
+### RETIRED_PORTS -> `performance_measures`
+
+1 services. Source kept as the Rust parity reference and CI oracle.
+
+`profit-service`
 
 ### absorption / margin calculator -> `cost_accounting`
 

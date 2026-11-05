@@ -153,11 +153,6 @@
       "dir": "preference-shares-service"
     },
     {
-      "path": "/profit",
-      "name": "profit-service",
-      "dir": "profit-service"
-    },
-    {
       "path": "/provisions-contingencies",
       "name": "provisions-contingencies-service",
       "dir": "provisions-contingencies-service"

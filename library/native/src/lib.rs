@@ -842,6 +842,73 @@ fn financial_report_json(payload: &str) -> PyResult<String> {
     json_out(&generate_financial_report(&body.request, &body.report_date))
 }
 
+/// `/calculate` on the profit service: profit and the margin on it.
+#[pyfunction]
+fn profit_calculate_json(revenue: f64, total_costs: f64) -> PyResult<String> {
+    json_out(&vimbai_performance_measures::profit::calculate(revenue, total_costs))
+}
+
+/// `/from-cash-flow` on the profit service.
+#[pyfunction]
+fn profit_from_cash_flow_json(cash_inflows: f64, cash_outflows: f64) -> PyResult<String> {
+    json_out(&vimbai_performance_measures::profit::from_cash_flow(
+        cash_inflows,
+        cash_outflows,
+    ))
+}
+
+/// `/average-profit` on the profit service: an empty list is zero, not an error.
+#[pyfunction]
+fn profit_average_profit_json(annual_profits: Vec<f64>) -> PyResult<String> {
+    json_out(&serde_json::json!({
+        "annual_profits": annual_profits,
+        "number_of_years": annual_profits.len(),
+        "average_profit": vimbai_performance_measures::profit::average_profit(&annual_profits),
+    }))
+}
+
+/// `/average-accounting-profit` on the profit service.
+#[pyfunction]
+fn profit_average_accounting_profit_json(
+    total_revenues: f64,
+    total_costs: f64,
+    years: i64,
+) -> PyResult<String> {
+    match vimbai_performance_measures::profit::average_accounting_profit(
+        total_revenues,
+        total_costs,
+        years as i32,
+    ) {
+        Some(output) => json_out(&output),
+        None => json_out(&serde_json::json!({"error": "Years must be positive"})),
+    }
+}
+
+/// `/net-profit` on the profit service.
+#[pyfunction]
+fn profit_net_profit_json(revenue: f64, costs: f64, tax_rate: f64) -> PyResult<String> {
+    json_out(&vimbai_performance_measures::profit::net_profit_after_tax(
+        revenue, costs, tax_rate,
+    ))
+}
+
+/// `/profit-compare` on the profit service.
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+fn profit_compare_json(
+    project_a_revenue: f64,
+    project_a_costs: f64,
+    project_b_revenue: f64,
+    project_b_costs: f64,
+) -> PyResult<String> {
+    json_out(&vimbai_performance_measures::profit::compare_profits(
+        project_a_revenue,
+        project_a_costs,
+        project_b_revenue,
+        project_b_costs,
+    ))
+}
+
 /// `/prepare` on the annual report service.
 #[pyfunction]
 fn annual_report_json(payload: &str) -> PyResult<String> {
@@ -1968,6 +2035,12 @@ fn vimbai_native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(management_report_json, m)?)?;
     m.add_function(wrap_pyfunction!(financial_report_json, m)?)?;
     m.add_function(wrap_pyfunction!(annual_report_json, m)?)?;
+    m.add_function(wrap_pyfunction!(profit_calculate_json, m)?)?;
+    m.add_function(wrap_pyfunction!(profit_from_cash_flow_json, m)?)?;
+    m.add_function(wrap_pyfunction!(profit_average_profit_json, m)?)?;
+    m.add_function(wrap_pyfunction!(profit_average_accounting_profit_json, m)?)?;
+    m.add_function(wrap_pyfunction!(profit_net_profit_json, m)?)?;
+    m.add_function(wrap_pyfunction!(profit_compare_json, m)?)?;
     m.add_function(wrap_pyfunction!(interim_report_json, m)?)?;
     m.add_function(wrap_pyfunction!(interim_ytd_json, m)?)?;
     m.add_function(wrap_pyfunction!(interim_tax_json, m)?)?;

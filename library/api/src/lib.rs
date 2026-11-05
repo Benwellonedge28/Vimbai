@@ -388,6 +388,27 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "profit",
         (|p| via_seam(bridge::assurance::profit_json, p)) as Calculator,
     );
+    map.insert("profit-calculate", (|p| profit_calculate(p)) as Calculator);
+    map.insert(
+        "profit-from-cash-flow",
+        (|p| profit_from_cash_flow(p)) as Calculator,
+    );
+    map.insert(
+        "profit-average-profit",
+        (|p| profit_average_profit(p)) as Calculator,
+    );
+    map.insert(
+        "profit-average-accounting-profit",
+        (|p| profit_average_accounting_profit(p)) as Calculator,
+    );
+    map.insert(
+        "profit-net-profit",
+        (|p| profit_net_profit(p)) as Calculator,
+    );
+    map.insert(
+        "profit-profit-compare",
+        (|p| profit_compare(p)) as Calculator,
+    );
     map.insert(
         "regulatory-ratio",
         (|p| via_seam(bridge::assurance::regulatory_ratio_json, p)) as Calculator,
@@ -830,6 +851,58 @@ fn optional_number(payload: &Value, key: &str, fallback: f64) -> Result<f64, Str
         return Ok(fallback);
     }
     number(payload, key)
+}
+
+fn profit_calculate(payload: &Value) -> Result<Value, String> {
+    to_value(&performance_measures::profit::calculate(
+        number(payload, "revenue")?,
+        number(payload, "total_costs")?,
+    ))
+}
+
+fn profit_from_cash_flow(payload: &Value) -> Result<Value, String> {
+    to_value(&performance_measures::profit::from_cash_flow(
+        number(payload, "cash_inflows")?,
+        number(payload, "cash_outflows")?,
+    ))
+}
+
+/// An empty year list reports zero rather than refusing, which is what the service does.
+fn profit_average_profit(payload: &Value) -> Result<Value, String> {
+    let profits = number_list(payload, "annual_profits")?;
+    Ok(serde_json::json!({
+        "annual_profits": profits,
+        "number_of_years": profits.len(),
+        "average_profit": performance_measures::profit::average_profit(&profits),
+    }))
+}
+
+fn profit_average_accounting_profit(payload: &Value) -> Result<Value, String> {
+    match performance_measures::profit::average_accounting_profit(
+        number(payload, "total_revenues")?,
+        number(payload, "total_costs")?,
+        whole(payload, "years")? as i32,
+    ) {
+        Some(output) => to_value(&output),
+        None => Ok(serde_json::json!({"error": "Years must be positive"})),
+    }
+}
+
+fn profit_net_profit(payload: &Value) -> Result<Value, String> {
+    to_value(&performance_measures::profit::net_profit_after_tax(
+        number(payload, "revenue")?,
+        number(payload, "costs")?,
+        number(payload, "tax_rate")?,
+    ))
+}
+
+fn profit_compare(payload: &Value) -> Result<Value, String> {
+    to_value(&performance_measures::profit::compare_profits(
+        number(payload, "project_a_revenue")?,
+        number(payload, "project_a_costs")?,
+        number(payload, "project_b_revenue")?,
+        number(payload, "project_b_costs")?,
+    ))
 }
 
 fn arr_calculate(payload: &Value) -> Result<Value, String> {

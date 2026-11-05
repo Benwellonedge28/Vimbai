@@ -73,6 +73,7 @@ FAMILY_CANDIDATES = {
     "INVESTOR_METRIC_PORTS": ["ratios_statements", "capital_valuation"],
     "FIXED_ASSETS_PORTS": ["ratios_statements"],
     "TAX_PORTS": ["tax"],
+    "RETIRED_PORTS": ["performance_measures"],
 }
 
 BUDGET_NAMES = ("budget",)

@@ -1847,3 +1847,82 @@ def test_financial_forecast_matches_the_service_for_every_path():
         served_body.pop("id")
         rust.pop("id")
         _bodies_match(served_body, rust, str(body))
+
+
+def _profit_parity(path, params, seam_call):
+    import json
+
+    client = TestClient(load_service("profit-service").main.app)
+    served = client.post(path, params=params)
+    assert served.status_code == 200, served.text
+    return served.json(), json.loads(seam_call(*params.values()))
+
+
+def test_profit_calculate_matches_the_service():
+    # The service mints an id and a created_at per call, so the figures are what can be compared.
+    params = {"revenue": 250000.0, "total_costs": 180000.0}
+    service, rust = _profit_parity("/calculate", params, native.profit_calculate_json)
+    for key in ("revenue", "total_costs", "profit", "profit_margin"):
+        assert service[key] == rust[key], key
+    assert rust["profit_margin"] == 28.000000000000004
+
+
+def test_profit_from_cash_flow_matches_the_service():
+    params = {"cash_inflows": 90000.0, "cash_outflows": 64000.0}
+    service, rust = _profit_parity("/from-cash-flow", params, native.profit_from_cash_flow_json)
+    assert service == rust
+
+
+def test_profit_average_profit_matches_the_service():
+    import json
+
+    client = TestClient(load_service("profit-service").main.app)
+    body = {"annual_profits": [12000.0, 18000.0, 9000.0]}
+    service = client.post("/average-profit", json=body["annual_profits"]).json()
+    rust = json.loads(native.profit_average_profit_json(body["annual_profits"]))
+    assert service == rust
+
+
+def test_profit_average_profit_is_zero_without_years():
+    import json
+
+    client = TestClient(load_service("profit-service").main.app)
+    service = client.post("/average-profit", json=[]).json()
+    rust = json.loads(native.profit_average_profit_json([]))
+    assert service["average_profit"] == 0
+    assert rust["average_profit"] == 0
+
+
+def test_profit_average_accounting_profit_matches_the_service():
+    params = {"total_revenues": 600000.0, "total_costs": 420000.0, "years": 3}
+    service, rust = _profit_parity("/average-accounting-profit", params, native.profit_average_accounting_profit_json)
+    assert service == rust
+
+
+def test_profit_average_accounting_profit_refuses_zero_years():
+    import json
+
+    client = TestClient(load_service("profit-service").main.app)
+    service = client.post(
+        "/average-accounting-profit", params={"total_revenues": 1.0, "total_costs": 0.0, "years": 0}
+    ).json()
+    rust = json.loads(native.profit_average_accounting_profit_json(1.0, 0.0, 0))
+    assert service == rust
+
+
+def test_profit_net_profit_matches_the_service():
+    params = {"revenue": 500000.0, "costs": 310000.0, "tax_rate": 25.0}
+    service, rust = _profit_parity("/net-profit", params, native.profit_net_profit_json)
+    assert service == rust
+
+
+def test_profit_compare_matches_the_service():
+    params = {
+        "project_a_revenue": 300000.0,
+        "project_a_costs": 210000.0,
+        "project_b_revenue": 250000.0,
+        "project_b_costs": 140000.0,
+    }
+    service, rust = _profit_parity("/profit-compare", params, native.profit_compare_json)
+    assert service == rust
+    assert rust["recommendation"] == "Project B"

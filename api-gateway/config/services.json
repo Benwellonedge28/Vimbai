@@ -841,14 +841,6 @@
       "strip_prefix": false
     },
     {
-      "name": "profit-service",
-      "path": "/profit",
-      "url": "http://localhost:9011",
-      "port": 8107,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "project-accounting-service",
       "path": "/project-accounting",
       "url": "http://localhost:9009",
