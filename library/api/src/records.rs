@@ -232,8 +232,17 @@ async fn company_profitability(
     ))
 }
 
-/// The record routes, mounted by the main router.
+/// The same routes on the paths the two services publish, so the gateway can point at this
+/// service without the client noticing. `strip_prefix` is off in the gateway, so a request to
+/// `/absorption-costing/product-costs` arrives here unchanged.
+///
+/// Kept beside the `/records` mount rather than replacing it: one path names the shape (records),
+/// the other names the service being replaced.
 pub fn router(graph: GraphHandle) -> Router {
+    records_router(graph.clone()).merge(service_root_router(graph))
+}
+
+fn records_router(graph: GraphHandle) -> Router {
     Router::new()
         .route(
             "/records/absorption-costing/product-costs",
@@ -254,6 +263,28 @@ pub fn router(graph: GraphHandle) -> Router {
             get(company_profitability),
         )
         .route("/records/job-costing/jobs/:job_id/costs", post(charge_cost))
+        .with_state(graph)
+}
+
+/// The drop-in paths, identical to what the Python services answered.
+pub fn service_root_router(graph: GraphHandle) -> Router {
+    Router::new()
+        .route(
+            "/absorption-costing/product-costs",
+            get(product_costs).post(keep_product_cost),
+        )
+        .route(
+            "/absorption-costing/product-costs/:product_id/latest",
+            get(latest_product_cost),
+        )
+        .route("/absorption-costing/stock-valuation", get(stock_valuation))
+        .route("/job-costing/jobs", post(open_job))
+        .route("/job-costing/jobs/:company_id", get(company_jobs))
+        .route(
+            "/job-costing/jobs/:company_id/profitability",
+            get(company_profitability),
+        )
+        .route("/job-costing/jobs/:job_id/costs", post(charge_cost))
         .with_state(graph)
 }
 
@@ -309,6 +340,21 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
         assert_eq!(fake.seen.lock().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn the_service_paths_answer_from_the_same_handlers() {
+        let (app, fake) = app(vec![json!({"x": {"product_id": "p-1"}})]);
+        let response = app
+            .oneshot(get_request(
+                "/absorption-costing/product-costs",
+                "user-1",
+                "book-1",
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(fake.seen.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]

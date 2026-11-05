@@ -1253,6 +1253,14 @@
       "port": 8371,
       "auth_required": true,
       "strip_prefix": false
+    },
+    {
+      "name": "calculation-api",
+      "path": "/calcs",
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": false
     }
   ]
 }

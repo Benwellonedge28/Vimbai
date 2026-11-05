@@ -28,6 +28,10 @@ K8S = os.path.join(ROOT, "k8s")
 # Deployments that are infrastructure rather than services the gateway routes to.
 INFRA = {"api-gateway", "jaeger", "otel-collector"}
 
+# Services whose code lives in the Rust workspace (library/) instead of a top-level
+# directory. There is no <name>/main.py to find, and its absence is not drift.
+IN_WORKSPACE = {"calculation-api"}
+
 UNDECIDED = {
     "finance-service",
     "fraud-detection-service",
@@ -91,7 +95,11 @@ def drift():
     cluster = cluster_names()
     deployed = set(manifest)
     return {
-        "advertised without a directory": sorted(name for name in manifest if name not in set(directory_names())),
+        "advertised without a directory": sorted(
+            name
+            for name in manifest
+            if name not in set(directory_names()) and name not in IN_WORKSPACE
+        ),
         "in the cluster but not the gateway": sorted(
             name for name in cluster if name not in deployed and name not in UNDECIDED
         ),

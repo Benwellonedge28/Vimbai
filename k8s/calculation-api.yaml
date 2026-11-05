@@ -1,0 +1,83 @@
+# The Rust calculation API.
+#
+# Two reasons this exists. The calculators that already answer here are cheaper and faster than
+# the Python services they replace, and the record endpoints (absorption costing, job costing)
+# need the same service: they read and write a Book's records through vimbai_store.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calculation-api
+  namespace: vimbai
+  labels:
+    app: calculation-api
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: calculation-api
+  template:
+    metadata:
+      labels:
+        app: calculation-api
+        tier: backend
+    spec:
+      containers:
+      - name: calculation-api
+        image: ghcr.io/benwellonedge28/vimbai/calculation-api:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8099
+          name: http
+        env:
+        - name: VIMBAI_API_ADDR
+          value: "0.0.0.0:8099"
+        - name: NEO4J_URI
+          valueFrom:
+            configMapKeyRef:
+              name: vimbai-config
+              key: NEO4J_URI
+        - name: NEO4J_USER
+          valueFrom:
+            configMapKeyRef:
+              name: vimbai-config
+              key: NEO4J_USER
+        - name: NEO4J_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vimbai-secrets
+              key: NEO4J_PASSWORD
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8099
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8099
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: calculation-api
+  namespace: vimbai
+  labels:
+    app: calculation-api
+spec:
+  selector:
+    app: calculation-api
+  ports:
+  - port: 8099
+    targetPort: 8099
+    name: http
