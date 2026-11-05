@@ -1,0 +1,84 @@
+{
+  "route": "capital-allocation-allocate",
+  "endpoint": "/allocate",
+  "request": {
+    "company_id": "c-1",
+    "capital_budget": 1500000.0,
+    "projects": [
+      {
+        "name": "Line A",
+        "initial_investment": 800000.0,
+        "annual_cash_flows": [
+          250000.0,
+          300000.0,
+          320000.0
+        ],
+        "discount_rate": 0.11,
+        "strategic_value": 7
+      },
+      {
+        "name": "Line B",
+        "initial_investment": 600000.0,
+        "annual_cash_flows": [
+          180000.0,
+          220000.0,
+          260000.0
+        ],
+        "discount_rate": 0.09,
+        "strategic_value": 4
+      },
+      {
+        "name": "Line C",
+        "initial_investment": 450000.0,
+        "annual_cash_flows": [
+          150000.0,
+          160000.0,
+          170000.0
+        ]
+      }
+    ]
+  },
+  "response": {
+    "id": "75b0b0ee-e873-42cb-b83b-65e8a5359973",
+    "company_id": "c-1",
+    "capital_budget": 1500000.0,
+    "selected_projects": [
+      {
+        "name": "Line C",
+        "initial_investment": 450000.0,
+        "npv": -53681.44,
+        "irr": 5.0,
+        "profitability_index": 0.881,
+        "strategic_value": 5,
+        "score": -12208.87
+      },
+      {
+        "name": "Line B",
+        "initial_investment": 600000.0,
+        "npv": -48925.08,
+        "irr": 5.0,
+        "profitability_index": 0.918,
+        "strategic_value": 4,
+        "score": -13355.05
+      }
+    ],
+    "rejected_projects": [
+      {
+        "name": "Line A",
+        "initial_investment": 800000.0,
+        "npv": -97306.8,
+        "irr": 5.0,
+        "profitability_index": 0.878,
+        "strategic_value": 7,
+        "score": -30384.08
+      }
+    ],
+    "total_investment": 1050000.0,
+    "total_npv": -102606.52,
+    "utilization_pct": 70.0,
+    "ranking_method": "NPV_weighted_with_strategic_value"
+  },
+  "ignore": [
+    "id"
+  ]
+}

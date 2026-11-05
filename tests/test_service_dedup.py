@@ -191,8 +191,6 @@ CAPITAL_RETURN_PORTS = {
     "present-value-service",
     "mva-service",
     "sustainable-growth-service",
-    "capital-allocation-service",
-    "investment-appraisal-service",
 }
 
 # Risk-adjusted returns, business valuation and merger valuation, ported into
@@ -308,6 +306,8 @@ RETIRED_PORTS = {
 }
 
 DELETED_PORTS = {
+    "investment-appraisal-service",
+    "capital-allocation-service",
     "portfolio-optimization-service",
     "project-appraisal-service",
     "asset-allocation-service",

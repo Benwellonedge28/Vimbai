@@ -273,3 +273,124 @@ pub fn portfolio_optimization_service_from_json(
     ))
     .map_err(|error| format!("could not serialise: {error}"))
 }
+
+/// `capital-allocation-service /allocate`.
+///
+/// Projects default their discount rate to 10% and strategic value to 5, as the service's models do.
+/// Selection is greedy in score order, so a project can be rejected while a smaller one below it fits.
+pub fn capital_allocation_service_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let projects: Vec<allocation::RationProject> = payload
+        .get("projects")
+        .and_then(serde_json::Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .map(|project| allocation::RationProject {
+                    name: project
+                        .get("name")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    initial_investment: project
+                        .get("initial_investment")
+                        .and_then(serde_json::Value::as_f64)
+                        .unwrap_or(0.0),
+                    annual_cash_flows: project
+                        .get("annual_cash_flows")
+                        .and_then(serde_json::Value::as_array)
+                        .map(|flows| flows.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect())
+                        .unwrap_or_default(),
+                    discount_rate: project
+                        .get("discount_rate")
+                        .and_then(serde_json::Value::as_f64)
+                        .unwrap_or(0.10),
+                    strategic_value: project
+                        .get("strategic_value")
+                        .and_then(serde_json::Value::as_i64)
+                        .unwrap_or(5) as i32,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let company_id = payload
+        .get("company_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    let capital_budget = payload
+        .get("capital_budget")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let mut out = serde_json::to_value(allocation::allocate_capital(
+        company_id,
+        capital_budget,
+        &projects,
+    ))
+    .map_err(|error| format!("could not serialise: {error}"))?;
+    if let Some(object) = out.as_object_mut() {
+        object.insert("id".into(), serde_json::Value::String(service_id()));
+    }
+    Ok(out)
+}
+
+/// `investment-appraisal-service /appraise`.
+///
+/// `evaluation_criteria` is accepted and ignored, as the service does. Missing project fields fall
+/// back to the service's `.get` defaults: 7 for the strategic, environmental, social and governance
+/// scores, 0.5 for risk, 0 for NPV.
+pub fn investment_appraisal_service_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let projects: Vec<appraisal::ScoredProjectInput> = payload
+        .get("projects")
+        .and_then(serde_json::Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .map(|project| {
+                    let field = |key: &str, fallback: f64| {
+                        project
+                            .get(key)
+                            .and_then(serde_json::Value::as_f64)
+                            .unwrap_or(fallback)
+                    };
+                    appraisal::ScoredProjectInput {
+                        id: project
+                            .get("id")
+                            .and_then(serde_json::Value::as_str)
+                            .unwrap_or_default()
+                            .to_string(),
+                        npv: field("npv", 0.0),
+                        strategic_value: field("strategic_value", 7.0),
+                        risk_level: field("risk_level", 0.5),
+                        environmental_impact: field("environmental_impact", 7.0),
+                        social_impact: field("social_impact", 7.0),
+                        governance_score: field("governance_score", 7.0),
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let weights_json = payload
+        .get("weights")
+        .and_then(serde_json::Value::as_object);
+    let weight = |key: &str, fallback: f64| {
+        weights_json
+            .and_then(|map| map.get(key))
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(fallback)
+    };
+    let weights = appraisal::AppraisalWeights {
+        financial: weight("financial", 0.4),
+        strategic: weight("strategic", 0.2),
+        risk: weight("risk", 0.2),
+        esg: weight("esg", 0.2),
+    };
+    let company_id = payload
+        .get("company_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    serde_json::to_value(appraisal::appraise_investments(
+        company_id, &projects, &weights,
+    ))
+    .map_err(|error| format!("could not serialise: {error}"))
+}

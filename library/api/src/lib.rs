@@ -695,6 +695,14 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "portfolio-optimization-optimize",
         capital_valuation::portfolio_optimization_service_from_json,
     );
+    map.insert(
+        "capital-allocation-allocate",
+        capital_valuation::capital_allocation_service_from_json,
+    );
+    map.insert(
+        "investment-appraisal-appraise",
+        capital_valuation::investment_appraisal_service_from_json,
+    );
     map
 }
 

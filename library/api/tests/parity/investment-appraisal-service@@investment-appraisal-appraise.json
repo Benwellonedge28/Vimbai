@@ -1,0 +1,91 @@
+{
+  "route": "investment-appraisal-appraise",
+  "endpoint": "/appraise",
+  "request": {
+    "company_id": "c-1",
+    "evaluation_criteria": {
+      "min_npv": 0
+    },
+    "weights": {
+      "financial": 0.4,
+      "strategic": 0.2,
+      "risk": 0.2,
+      "esg": 0.2
+    },
+    "projects": [
+      {
+        "id": "p1",
+        "npv": 2200000.0,
+        "strategic_value": 8,
+        "risk_level": 0.3,
+        "environmental_impact": 8,
+        "social_impact": 7,
+        "governance_score": 9
+      },
+      {
+        "id": "p2",
+        "npv": 900000.0,
+        "strategic_value": 4,
+        "risk_level": 0.6,
+        "environmental_impact": 5,
+        "social_impact": 6,
+        "governance_score": 6
+      },
+      {
+        "id": "p3",
+        "npv": 1500000.0,
+        "strategic_value": 7
+      }
+    ]
+  },
+  "response": {
+    "company_id": "c-1",
+    "appraisal_results": [
+      {
+        "project_id": "p1",
+        "financial_score": 2.2,
+        "strategic_score": 0.8,
+        "risk_score": 0.7,
+        "environmental_score": 0.8,
+        "social_score": 0.7,
+        "governance_score": 0.9,
+        "overall_score": 1.34,
+        "recommendation": "approve"
+      },
+      {
+        "project_id": "p2",
+        "financial_score": 0.9,
+        "strategic_score": 0.4,
+        "risk_score": 0.4,
+        "environmental_score": 0.5,
+        "social_score": 0.6,
+        "governance_score": 0.6,
+        "overall_score": 0.6333,
+        "recommendation": "approve"
+      },
+      {
+        "project_id": "p3",
+        "financial_score": 1.5,
+        "strategic_score": 0.7,
+        "risk_score": 0.5,
+        "environmental_score": 0.7,
+        "social_score": 0.7,
+        "governance_score": 0.7,
+        "overall_score": 0.98,
+        "recommendation": "approve"
+      }
+    ],
+    "best_project": "p1",
+    "recommended_projects": [
+      "p1",
+      "p3",
+      "p2"
+    ],
+    "recommendations": [
+      "Prioritize highest scoring investments",
+      "Review medium-scored projects for improvement",
+      "Consider portfolio diversification"
+    ]
+  },
+  "ignore": []
+}

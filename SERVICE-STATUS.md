@@ -11,7 +11,7 @@ because their regression suites still run in CI.
 
 ```
 live and routed          137
-retained, not routed     82
+retained, not routed     80
 unrouted, undecided      4
 ```
 
@@ -190,11 +190,9 @@ Routed by the API gateway and deployed. These are the running product.
 
 ### capital return calculator -> `capital_valuation`
 
-5 services. Source kept as the Rust parity reference and CI oracle.
+3 services. Source kept as the Rust parity reference and CI oracle.
 
-`capital-allocation-service`
 `discounted-payback-period-service`
-`investment-appraisal-service`
 `present-value-service`
 `time-value-of-money-service`
 
