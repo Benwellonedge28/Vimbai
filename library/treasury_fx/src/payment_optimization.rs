@@ -9,17 +9,8 @@
 //! sit far below 100%.
 
 use serde_json::{json, Value};
+use vimbai_common::money::amount_of as money_of;
 use vimbai_common::Money;
-
-fn money_of(value: Option<&Value>) -> Result<Money, String> {
-    match value {
-        Some(Value::String(text)) => Money::parse(text).map_err(|e| e.0),
-        Some(Value::Number(number)) => Money::from_f64_shortest(number.as_f64().unwrap_or(0.0))
-            .map_err(|e| format!("{}: {e}", number)),
-        Some(Value::Null) | None => Ok(Money::zero()),
-        Some(other) => Err(format!("expected an amount, found {other}")),
-    }
-}
 
 fn text_of<'a>(item: &'a Value, key: &str) -> &'a str {
     item.get(key).and_then(Value::as_str).unwrap_or("")

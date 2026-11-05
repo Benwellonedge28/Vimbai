@@ -383,6 +383,20 @@ impl PartialOrd<BigDecimal> for Money {
     }
 }
 
+/// Reads an amount out of a JSON payload. Every port that takes money off the wire
+/// came with its own copy of this; the copies disagreed only in wording, so they live
+/// here now and the crates import it.
+pub fn amount_of(value: Option<&serde_json::Value>) -> Result<Money, String> {
+    use serde_json::Value;
+    match value {
+        Some(Value::String(text)) => Money::parse(text).map_err(|e| e.0),
+        Some(Value::Number(number)) => Money::from_f64_shortest(number.as_f64().unwrap_or(0.0))
+            .map_err(|e| format!("{}: {e}", number)),
+        Some(Value::Null) | None => Ok(Money::zero()),
+        Some(other) => Err(format!("expected an amount, found {other}")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
