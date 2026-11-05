@@ -27,6 +27,7 @@ says which services have passed every check. 169 stateless calculators; 45 answe
 - divestiture-service
 - du-pont-service
 - eps-service
+- equity-changes-service
 - eva-service
 - financial-distress-prediction-service
 - fixed-assets-service

@@ -21,8 +21,8 @@ use axum::{
 };
 use serde_json::{json, Value};
 use store::{
-    absorption, cash_flow, insurance_claims, job_costing, treasury_analytics, BookScope, Graph,
-    StoreError,
+    absorption, cash_flow, equity_changes, insurance_claims, job_costing, treasury_analytics,
+    BookScope, Graph, StoreError,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -375,6 +375,73 @@ async fn cash_flow_statement_history(
     answer(cash_flow::history(graph.as_ref(), &scope, &company_id))
 }
 
+async fn record_equity_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity_changes::create_transaction(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn company_equity_transactions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let tx_type = query_param(query.as_deref(), "tx_type");
+    answer(equity_changes::transactions(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        tx_type.as_deref(),
+    ))
+}
+
+async fn generate_equity_statement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity_changes::generate_statement(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn company_equity_statements(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity_changes::statements(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone()).merge(service_root_router(graph))
 }
@@ -426,6 +493,22 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/cash-flow-statement/history/:company_id",
             get(cash_flow_statement_history),
         )
+        .route(
+            "/records/equity-changes/transactions",
+            post(record_equity_transaction),
+        )
+        .route(
+            "/records/equity-changes/transactions/:company_id",
+            get(company_equity_transactions),
+        )
+        .route(
+            "/records/equity-changes/statement",
+            post(generate_equity_statement),
+        )
+        .route(
+            "/records/equity-changes/statements/:company_id",
+            get(company_equity_statements),
+        )
         .with_state(graph)
 }
 
@@ -467,6 +550,19 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route(
             "/cash-flow-statement/history/:company_id",
             get(cash_flow_statement_history),
+        )
+        .route(
+            "/equity-changes/transactions",
+            post(record_equity_transaction),
+        )
+        .route(
+            "/equity-changes/transactions/:company_id",
+            get(company_equity_transactions),
+        )
+        .route("/equity-changes/statement", post(generate_equity_statement))
+        .route(
+            "/equity-changes/statements/:company_id",
+            get(company_equity_statements),
         )
         .with_state(graph)
 }
