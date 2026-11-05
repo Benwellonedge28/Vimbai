@@ -761,14 +761,6 @@
       "strip_prefix": false
     },
     {
-      "name": "ratio-analysis-service",
-      "path": "/ratio-analysis",
-      "url": "http://localhost:9007",
-      "port": 8348,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "realtime-calculation-engine",
       "path": "/realtime-calculation",
       "url": "http://localhost:9013",

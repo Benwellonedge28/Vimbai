@@ -639,6 +639,18 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "xbrl-reporting-generate",
         reporting::xbrl_generate_from_json,
     );
+    map.insert(
+        "ratio-analysis-ratios",
+        ratios_statements::ratio_analysis_ratios_from_json,
+    );
+    map.insert(
+        "ratio-analysis-peer-comparison",
+        ratios_statements::ratio_analysis_peer_comparison_from_json,
+    );
+    map.insert(
+        "ratio-analysis-trend",
+        ratios_statements::ratio_analysis_trend_from_json,
+    );
     map
 }
 

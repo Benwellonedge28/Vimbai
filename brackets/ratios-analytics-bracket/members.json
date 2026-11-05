@@ -16,11 +16,6 @@
       "path": "/performance-benchmarking",
       "name": "performance-benchmarking-service",
       "dir": "performance-benchmarking-service"
-    },
-    {
-      "path": "/ratio-analysis",
-      "name": "ratio-analysis-service",
-      "dir": "ratio-analysis-service"
     }
   ]
 }

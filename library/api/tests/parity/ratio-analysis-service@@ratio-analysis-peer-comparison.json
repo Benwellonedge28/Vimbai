@@ -1,0 +1,55 @@
+{
+  "route": "ratio-analysis-peer-comparison",
+  "endpoint": "/peer-comparison",
+  "request": {
+    "company_id": "c-1",
+    "industry": "Retail",
+    "company_ratios": {
+      "current_ratio": 1.5,
+      "net_margin": 8.0,
+      "debt_to_equity": 1.25
+    },
+    "peer_ratios": [
+      {
+        "current_ratio": 2.0,
+        "net_margin": 12.0,
+        "debt_to_equity": 0.8
+      },
+      {
+        "current_ratio": 1.1,
+        "net_margin": 5.0,
+        "debt_to_equity": 1.9
+      },
+      {
+        "current_ratio": 1.7,
+        "net_margin": 9.5,
+        "debt_to_equity": 1.0
+      }
+    ]
+  },
+  "response": {
+    "company_id": "c-1",
+    "industry": "Retail",
+    "percentile_rankings": {
+      "current_ratio": 25.0,
+      "net_margin": 25.0,
+      "debt_to_equity": 50.0
+    },
+    "strengths": [],
+    "weaknesses": [
+      "current_ratio",
+      "net_margin"
+    ],
+    "improvement_areas": [
+      {
+        "ratio": "current_ratio",
+        "industry_avg": 50
+      },
+      {
+        "ratio": "net_margin",
+        "industry_avg": 50
+      }
+    ]
+  },
+  "ignore": []
+}

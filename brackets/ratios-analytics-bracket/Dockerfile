@@ -19,7 +19,6 @@ COPY brackets/ratios-analytics-bracket/main.py ./main.py
 COPY distributed-workflow-orchestration-service ./distributed-workflow-orchestration-service
 COPY internal-rate-return-service ./internal-rate-return-service
 COPY performance-benchmarking-service ./performance-benchmarking-service
-COPY ratio-analysis-service ./ratio-analysis-service
 
 USER vimbai
 

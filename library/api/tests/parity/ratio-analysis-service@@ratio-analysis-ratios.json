@@ -1,0 +1,72 @@
+{
+  "route": "ratio-analysis-ratios",
+  "endpoint": "/ratios",
+  "request": {
+    "company_id": "c-1",
+    "period": "FY2026",
+    "balance_sheet": {
+      "current_assets": 3000000.0,
+      "current_liabilities": 2000000.0,
+      "total_assets": 9000000.0,
+      "total_debt": 5000000.0,
+      "total_equity": 4000000.0,
+      "inventory": 600000.0,
+      "accounts_receivable": 1100000.0,
+      "accounts_payable": 450000.0,
+      "cash": 500000.0,
+      "marketable_securities": 250000.0,
+      "market_cap": 14000000.0
+    },
+    "income_statement": {
+      "revenue": 10000000.0,
+      "net_income": 800000.0,
+      "ebit": 1200000.0,
+      "cogs": 6000000.0,
+      "interest_expense": 300000.0
+    },
+    "cash_flow": {
+      "operating": 900000.0
+    }
+  },
+  "response": {
+    "company_id": "c-1",
+    "period": "FY2026",
+    "liquidity_ratios": {
+      "current_ratio": 1.5,
+      "quick_ratio": 1.2,
+      "cash_ratio": 0.375,
+      "working_capital": 1000000.0
+    },
+    "profitability_ratios": {
+      "gross_margin": 40.0,
+      "operating_margin": 12.0,
+      "net_margin": 8.0,
+      "roe": 20.0,
+      "roa": 8.89,
+      "roce": 17.14
+    },
+    "leverage_ratios": {
+      "debt_to_equity": 1.25,
+      "debt_to_assets": 0.5556,
+      "interest_coverage": 4.0,
+      "equity_multiplier": 2.25
+    },
+    "efficiency_ratios": {
+      "asset_turnover": 1.1111,
+      "inventory_turnover": 10.0,
+      "ar_turnover": 9.0909,
+      "ap_turnover": 13.3333,
+      "days_sales_outstanding": 40.15
+    },
+    "valuation_ratios": {
+      "pe_ratio": 17.5,
+      "pb_ratio": 3.5,
+      "ps_ratio": 1.4
+    },
+    "overall_score": 47.33,
+    "recommendations": [
+      "Focus on cost reduction"
+    ]
+  },
+  "ignore": []
+}

@@ -1,0 +1,58 @@
+{
+  "route": "ratio-analysis-trend",
+  "endpoint": "/trend",
+  "request": {
+    "company_id": "c-1",
+    "periods": [
+      "FY2024",
+      "FY2025",
+      "FY2026"
+    ],
+    "ratio_history": {
+      "current_ratio": [
+        1.2,
+        1.35,
+        1.5
+      ],
+      "net_margin": [
+        12.0,
+        10.0,
+        8.0
+      ],
+      "quick_ratio": [
+        0.9
+      ]
+    }
+  },
+  "response": {
+    "company_id": "c-1",
+    "trend_summary": {
+      "current_ratio": {
+        "change": 0.3,
+        "pct_change": 25.0,
+        "current": 1.5,
+        "average": 1.35
+      },
+      "net_margin": {
+        "change": -4.0,
+        "pct_change": -33.33,
+        "current": 8.0,
+        "average": 10.0
+      },
+      "quick_ratio": {
+        "current": 0.9
+      }
+    },
+    "momentum": {
+      "current_ratio": "improving",
+      "net_margin": "declining",
+      "quick_ratio": "stable"
+    },
+    "predictions": {
+      "current_ratio": 1.53,
+      "net_margin": 8.16
+    },
+    "alerts": []
+  },
+  "ignore": []
+}

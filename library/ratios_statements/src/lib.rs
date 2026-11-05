@@ -17,6 +17,7 @@ pub mod ledger_controls;
 pub mod management_accounts;
 pub mod management_pack;
 pub mod profit_loss;
+pub mod ratio_analysis;
 pub mod ratios;
 pub mod segment_reporting;
 pub mod statements;
@@ -108,4 +109,25 @@ pub fn financial_planning_from_json(
     payload: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     management_pack::create_financial_plan(payload)
+}
+
+/// `ratio-analysis-service /ratios`.
+pub fn ratio_analysis_ratios_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    ratio_analysis::ratios(payload)
+}
+
+/// `ratio-analysis-service /peer-comparison`.
+pub fn ratio_analysis_peer_comparison_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    ratio_analysis::peer_comparison(payload)
+}
+
+/// `ratio-analysis-service /trend`.
+pub fn ratio_analysis_trend_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    ratio_analysis::trend(payload)
 }
