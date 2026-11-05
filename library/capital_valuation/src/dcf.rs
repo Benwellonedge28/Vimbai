@@ -210,78 +210,6 @@ pub fn profitability_index(
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiscountFactorResult {
-    pub rate: f64,
-    pub years: u32,
-    pub discount_factor: f64,
-}
-
-/// Discount factor `DF = 1 / (1 + r)^n` (discount-factor-service).
-pub fn discount_factor(rate: f64, years: u32) -> DiscountFactorResult {
-    DiscountFactorResult {
-        rate,
-        years,
-        discount_factor: 1.0 / (1.0 + rate).powi(years as i32),
-    }
-}
-
-/// Discount factor from a percentage rate.
-pub fn discount_factor_percent(rate_percent: f64, years: u32) -> DiscountFactorResult {
-    discount_factor(rate_percent / 100.0, years)
-}
-
-/// Present-value annuity factor `PVAF = [1 - 1/(1+r)^n] / r`
-/// (rate 0 => n).
-pub fn annuity_factor(rate: f64, years: u32) -> f64 {
-    if rate == 0.0 {
-        years as f64
-    } else {
-        (1.0 - 1.0 / (1.0 + rate).powi(years as i32)) / rate
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DiscountFactorEntry {
-    pub rate: f64,
-    pub years: u32,
-    pub discount_factor: f64,
-}
-
-/// Discount factor table for one rate over several horizons.
-pub fn discount_factor_table(base_rate: f64, years: &[u32]) -> Vec<DiscountFactorEntry> {
-    years
-        .iter()
-        .map(|&y| DiscountFactorEntry {
-            rate: base_rate,
-            years: y,
-            discount_factor: discount_factor(base_rate, y).discount_factor,
-        })
-        .collect()
-}
-
-/// Discount factor table across a rate range (inclusive, fixed step).
-pub fn discount_factor_table_range(
-    rate_start: f64,
-    rate_end: f64,
-    rate_step: f64,
-    years: u32,
-) -> Vec<DiscountFactorEntry> {
-    let mut entries = Vec::new();
-    let mut rate = rate_start;
-    let mut guard = 0;
-    while rate <= rate_end + 1e-12 && guard < 10_000 {
-        entries.push(DiscountFactorEntry {
-            rate: py_round(rate, 6),
-            years,
-            discount_factor: discount_factor(rate, years).discount_factor,
-        });
-        rate += rate_step;
-        guard += 1;
-    }
-    entries
-}
-
 #[cfg(test)]
 mod tests {
 
@@ -323,28 +251,6 @@ mod tests {
         ];
         let ranked = npv_project_comparison(&projects, 0.10);
         assert_eq!(ranked[0].name, "B");
-    }
-
-    #[test]
-    fn discount_factor_basics() {
-        let df = discount_factor(0.10, 1);
-        assert!((df.discount_factor - 0.909090909).abs() < 1e-9);
-        let dfp = discount_factor_percent(10.0, 2);
-        assert!((dfp.discount_factor - 0.826446281).abs() < 1e-9);
-    }
-
-    #[test]
-    fn annuity_factor_matches_formula() {
-        // [1 - 1/(1.1)^3]/0.1 = 2.48685...
-        assert!((annuity_factor(0.10, 3) - 2.486851991).abs() < 1e-9);
-        assert_eq!(annuity_factor(0.0, 5), 5.0);
-    }
-
-    #[test]
-    fn table_range_spans_rates() {
-        let t = discount_factor_table_range(0.05, 0.15, 0.05, 5);
-        assert_eq!(t.len(), 3);
-        assert!((t[0].rate - 0.05).abs() < 1e-12);
     }
 
     #[test]

@@ -2,44 +2,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::fx_rates::round_half_even;
-
-/// Error function from its positive-term series,
-/// `2/sqrt(pi) * exp(-x^2) * sum 2^n x^(2n+1) / (1*3*...*(2n+1))`, which
-/// converges everywhere and stays within a few ulps of libm out to |x| = 5.
-/// Beyond that the tail is below 1.5e-12 and is taken as saturated.
-pub fn erf(x: f64) -> f64 {
-    if x == 0.0 {
-        return 0.0;
-    }
-    let sign = if x < 0.0 { -1.0 } else { 1.0 };
-    let a = x.abs();
-    if a > 5.0 {
-        return sign;
-    }
-    let a2 = a * a;
-    let mut term = a;
-    let mut sum = a;
-    let mut n = 1;
-    while n < 300 {
-        term *= 2.0 * a2 / (2.0 * n as f64 + 1.0);
-        sum += term;
-        if term.abs() < 1e-18 * sum.abs() {
-            break;
-        }
-        n += 1;
-    }
-    sign * 2.0 / std::f64::consts::PI.sqrt() * (-a2).exp() * sum
-}
-
-/// Standard normal cumulative distribution.
-pub fn norm_cdf(x: f64) -> f64 {
-    0.5 * (1.0 + erf(x / std::f64::consts::SQRT_2))
-}
-
-/// Standard normal density.
-pub fn norm_pdf(x: f64) -> f64 {
-    (-0.5 * x * x).exp() / (2.0 * std::f64::consts::PI).sqrt()
-}
+use vimbai_common::normal;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Option {
@@ -99,23 +62,6 @@ pub struct OptionsPricingResult {
     pub recommendations: Vec<String>,
 }
 
-fn d1_d2(s: f64, k: f64, t: f64, r: f64, sigma: f64) -> (f64, f64) {
-    let d1 = ((s / k).ln() + (r + sigma * sigma / 2.0) * t) / (sigma * t.sqrt());
-    (d1, d1 - sigma * t.sqrt())
-}
-
-/// Standard Black-Scholes call value.
-pub fn black_scholes_call(s: f64, k: f64, t: f64, r: f64, sigma: f64) -> f64 {
-    let (d1, d2) = d1_d2(s, k, t, r, sigma);
-    s * norm_cdf(d1) - k * (-r * t).exp() * norm_cdf(d2)
-}
-
-/// Standard Black-Scholes put value.
-pub fn black_scholes_put(s: f64, k: f64, t: f64, r: f64, sigma: f64) -> f64 {
-    let (d1, d2) = d1_d2(s, k, t, r, sigma);
-    k * (-r * t).exp() * norm_cdf(-d2) - s * norm_cdf(-d1)
-}
-
 /// `/price` on the options pricing service.
 ///
 /// PYTHON QUIRKS, preserved:
@@ -148,25 +94,29 @@ pub fn price_options(req: &OptionsPricingRequest) -> OptionsPricingResult {
         );
         let is_call = opt.option_type == "call";
         let price = if is_call {
-            black_scholes_call(s, k, t, r, sigma)
+            normal::black_scholes_call(s, k, t, r, sigma)
         } else {
-            black_scholes_put(s, k, t, r, sigma)
+            normal::black_scholes_put(s, k, t, r, sigma)
         };
 
-        let (d1, _d2) = d1_d2(s, k, t, r, sigma);
+        let (d1, _d2) = normal::d1_d2(s, k, t, r, sigma);
         let delta = if is_call {
-            norm_cdf(d1)
+            normal::norm_cdf(d1)
         } else {
-            norm_cdf(d1) - 1.0
+            normal::norm_cdf(d1) - 1.0
         };
-        let gamma = norm_pdf(d1) / (s * sigma * t.sqrt());
+        let gamma = normal::norm_pdf(d1) / (s * sigma * t.sqrt());
         // the put branch uses cdf(-d1) where textbook Black-Scholes needs
         // cdf(-d2)
-        let strike_cdf = if is_call { norm_cdf(d1) } else { norm_cdf(-d1) };
-        let theta = (-s * norm_pdf(d1) * sigma / (2.0 * t.sqrt())
+        let strike_cdf = if is_call {
+            normal::norm_cdf(d1)
+        } else {
+            normal::norm_cdf(-d1)
+        };
+        let theta = (-s * normal::norm_pdf(d1) * sigma / (2.0 * t.sqrt())
             - r * k * (-r * t).exp() * strike_cdf)
             / 365.0;
-        let vega = s * t.sqrt() * norm_pdf(d1) / 100.0;
+        let vega = s * t.sqrt() * normal::norm_pdf(d1) / 100.0;
 
         let intrinsic = if is_call {
             (s - k).max(0.0)

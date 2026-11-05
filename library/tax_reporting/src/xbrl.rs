@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::money::money;
+use vimbai_common::numbers::money;
 
 pub const REQUIRED_CONCEPTS: [&str; 5] = [
     "RevenueFromContracts",

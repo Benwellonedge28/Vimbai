@@ -16,7 +16,6 @@ pub mod depreciation;
 pub mod fixed_assets;
 pub mod goodwill;
 pub mod inventory;
-pub mod nrv;
 pub mod revaluation;
 
 pub use amortization::{
@@ -34,8 +33,4 @@ pub use fixed_assets::{
 };
 pub use goodwill::{impairment_test, impairment_test_from_json, Cgu, ImpairmentResult, TestMethod};
 pub use inventory::{inventory_valuation, InventoryOutput, Purchase, Sale, ValuationMethod};
-pub use nrv::{
-    compare_cost_nrv, nrv, residual_value, scrap_value, CostNrvComparison, NrvOutput,
-    ResidualValueOutput, ScrapValueOutput,
-};
 pub use revaluation::{revalue, AssetBook, RevaluationAsset, RevaluationOutput, RevaluationRow};

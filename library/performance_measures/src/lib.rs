@@ -9,7 +9,6 @@
 pub mod controls;
 pub mod fx;
 pub mod inventory;
-pub mod money;
 pub mod profit;
 pub mod realizable;
 pub mod scorecard;
@@ -25,7 +24,6 @@ pub use inventory::{
     calculate as value_inventory, calculate_from_json as inventory_from_json, PurchaseRecord,
     SaleRecord, ValuationMethod, ValuationRequest, ValuationResult,
 };
-pub use money::{money, python_float, round_dp};
 pub use profit::{
     average_accounting_profit, average_profit, calculate as calculate_profit, from_cash_flow,
     AverageAccountingProfit, CashFlowProfit, ProfitCalculation,
@@ -35,6 +33,7 @@ pub use realizable::{
     ScrapValueResult,
 };
 pub use scorecard::{score, Kpi, ScorecardRequest, ScorecardResult, PERSPECTIVES};
+pub use vimbai_common::numbers::{money, python_float, round_dp};
 
 #[cfg(test)]
 mod tests;

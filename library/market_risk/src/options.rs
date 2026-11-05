@@ -1,10 +1,11 @@
 //! European option pricing: Black-Scholes, the greeks, and moneyness.
 
+use crate::normal;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::money::round_dp;
 use crate::normal::{norm_cdf, norm_pdf};
+use vimbai_common::numbers::round_dp;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Option {
@@ -79,18 +80,6 @@ impl Option {
     }
 }
 
-pub fn black_scholes_call(s: f64, k: f64, t: f64, r: f64, sigma: f64) -> f64 {
-    let d1 = ((s / k).ln() + (r + sigma * sigma / 2.0) * t) / (sigma * t.sqrt());
-    let d2 = d1 - sigma * t.sqrt();
-    s * norm_cdf(d1) - k * (-r * t).exp() * norm_cdf(d2)
-}
-
-pub fn black_scholes_put(s: f64, k: f64, t: f64, r: f64, sigma: f64) -> f64 {
-    let d1 = ((s / k).ln() + (r + sigma * sigma / 2.0) * t) / (sigma * t.sqrt());
-    let d2 = d1 - sigma * t.sqrt();
-    k * (-r * t).exp() * norm_cdf(-d2) - s * norm_cdf(-d1)
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct PricingRequest {
     pub company_id: String,
@@ -139,9 +128,9 @@ pub fn price(request: &PricingRequest) -> PricingResponse {
         let sigma = option.volatility;
 
         let price = if option.is_call() {
-            black_scholes_call(s, k, t, r, sigma)
+            normal::black_scholes_call(s, k, t, r, sigma)
         } else {
-            black_scholes_put(s, k, t, r, sigma)
+            normal::black_scholes_put(s, k, t, r, sigma)
         };
 
         let d1 = ((s / k).ln() + (r + sigma * sigma / 2.0) * t) / (sigma * t.sqrt());

@@ -11,8 +11,7 @@
 pub mod credit;
 pub mod distress;
 pub mod fraud;
-pub mod money;
-pub mod normal;
+pub use vimbai_common::normal;
 pub mod options;
 pub mod regulatory;
 pub mod var;
@@ -23,16 +22,13 @@ pub use credit::{
 };
 pub use distress::{predict as predict_distress, CompanyData, DistressPrediction};
 pub use fraud::{assess as assess_fraud_risk, FraudAssessment, FraudAssessmentRequest};
-pub use money::{money, round_dp};
-pub use normal::{erf, norm_cdf, norm_pdf};
-pub use options::{
-    black_scholes_call, black_scholes_put, price as price_options, Option, PricingRequest,
-    PricingResponse,
-};
+pub use normal::{black_scholes_call, black_scholes_put, erf, norm_cdf, norm_pdf};
+pub use options::{price as price_options, Option, PricingRequest, PricingResponse};
 pub use regulatory::{
     calculate as calculate_regulatory, RegulatoryRatio, RegulatoryRequest, RegulatoryResponse,
 };
 pub use var::{calculate as calculate_var, Position, VarRequest, VarResult};
+pub use vimbai_common::numbers::{money, python_float, round_dp};
 
 #[cfg(test)]
 mod tests;

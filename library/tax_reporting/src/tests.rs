@@ -6,11 +6,11 @@
 use crate::credit::{calculate as credit, ClaimRequest, Expenditure};
 use crate::grants::{recognize, GrantRequest, GrantType};
 use crate::group::{consolidate, GroupTaxRequest, Subsidiary};
-use crate::money::python_float;
 use crate::provision::{calculate as provision, ProvisionRequest, TemporaryDifference};
 use crate::risk::{assess, overall_level, RiskLevel, TaxRiskItem};
 use crate::vat::{prepare, VatReturnRequest, VatTransaction};
 use crate::xbrl::{generate, FinancialConcept, XbrlRequest};
+use vimbai_common::numbers::python_float;
 
 #[test]
 fn r_and_d_credit_matches_the_service() {

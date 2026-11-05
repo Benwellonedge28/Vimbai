@@ -14,7 +14,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::money::money;
+use vimbai_common::numbers::money;
 use vimbai_common::Money;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

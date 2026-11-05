@@ -2,6 +2,8 @@
 //! Shared helpers for all Vimbai calculation libraries.
 
 pub mod money;
+pub mod normal;
+pub mod numbers;
 
 pub use money::{Money, MoneyError};
 

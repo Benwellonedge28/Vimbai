@@ -3,7 +3,7 @@
 use serde::Serialize;
 use serde_json::{json, Value};
 
-use crate::money::{money, python_float};
+use vimbai_common::numbers::{money, python_float};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FraudAssessmentRequest {

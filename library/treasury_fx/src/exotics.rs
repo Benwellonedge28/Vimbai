@@ -10,64 +10,8 @@
 //! branch.
 
 use serde::{Deserialize, Serialize};
+use vimbai_common::normal::{norm_cdf, norm_pdf};
 use vimbai_common::py_round;
-
-fn norm_cdf(value: f64) -> f64 {
-    0.5 * (1.0 + erf(value / std::f64::consts::SQRT_2))
-}
-
-fn norm_pdf(value: f64) -> f64 {
-    (-0.5 * value * value).exp() / (2.0 * std::f64::consts::PI).sqrt()
-}
-
-/// `math.erf` to about 1e-14: a Maclaurin series for the middle of the range
-/// and the asymptotic complementary expansion beyond |x| = 3. The services
-/// quote prices to four places, but gamma is rounded to six, so a 1e-7
-/// polynomial approximation is not good enough here.
-fn erf(x: f64) -> f64 {
-    let sign = if x < 0.0 { -1.0 } else { 1.0 };
-    let x = x.abs();
-    let value = if x < 3.0 {
-        let mut term = x;
-        let mut sum = x;
-        let mut n = 1u32;
-        loop {
-            term *= -x * x / n as f64;
-            let add = term / (2 * n + 1) as f64;
-            sum += add;
-            n += 1;
-            if add.abs() < sum.abs() * 1e-18 || n > 200 {
-                break;
-            }
-        }
-        sum * 2.0 / std::f64::consts::PI.sqrt()
-    } else if x < 40.0 {
-        // erfc(x) = e^(-x^2)/(x sqrt(pi)) * sum (-1)^n (2n-1)!!/(2x^2)^n
-        1.0 - erfc_asymptotic(x)
-    } else {
-        1.0
-    };
-    sign * value
-}
-
-fn erfc_asymptotic(x: f64) -> f64 {
-    let mut term = 1.0;
-    let mut sum = 1.0;
-    let mut n = 1.0;
-    loop {
-        let next = term * (2.0 * n - 1.0) / (2.0 * x * x);
-        if next.abs() > term.abs() {
-            break;
-        }
-        term = -next;
-        sum += term;
-        n += 1.0;
-        if term.abs() < 1e-18 {
-            break;
-        }
-    }
-    sum * (-x * x).exp() / (x * std::f64::consts::PI.sqrt())
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DerivativeRequest {
@@ -296,6 +240,7 @@ mod tests {
 
     #[test]
     fn erf_matches_the_reference_values() {
+        use vimbai_common::normal::erf;
         assert!((erf(0.5) - 0.5204998778130465).abs() < 1e-12);
         assert!((erf(-1.0) - (-0.8427007929497149)).abs() < 1e-12);
         assert!((erf(2.5) - 0.999593047982555).abs() < 1e-12);

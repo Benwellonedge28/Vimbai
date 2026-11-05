@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::money::money;
+use vimbai_common::numbers::money;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IdentifiableAsset {
@@ -145,7 +145,7 @@ pub fn acquire(request: &AcquisitionRequest) -> AcquisitionResult {
                 "type": asset.r#type,
                 "fair_value": money(asset.fair_value),
                 // percentages are against total assets, as the service computed them
-                "allocation_pct": super::money::round_dp(
+                "allocation_pct": vimbai_common::numbers::round_dp(
                     asset.fair_value.abs() / total_assets.max(1.0) * 100.0,
                     1
                 ),

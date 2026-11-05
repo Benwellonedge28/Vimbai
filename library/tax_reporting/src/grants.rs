@@ -2,7 +2,7 @@
 
 use serde::Serialize;
 
-use crate::money::{money, python_float};
+use vimbai_common::numbers::{money, python_float};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]

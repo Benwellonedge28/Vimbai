@@ -48,9 +48,8 @@ pub use corporate_events::{
     SynergyPerformance, SynergySummary, TaxConsiderations, TaxView,
 };
 pub use dcf::{
-    annuity_factor, discount_factor, discount_factor_percent, discount_factor_table,
-    discount_factor_table_range, npv, npv_percent, npv_project_comparison, profitability_index,
-    NpvDecision, NpvDetail, NpvOutput, ProjectNpv,
+    npv, npv_percent, npv_project_comparison, profitability_index, NpvDecision, NpvDetail,
+    NpvOutput, ProjectNpv,
 };
 pub use growth::{
     market_value_added, sustainable_growth, GrowthComparison, GrowthInput, GrowthMetrics,

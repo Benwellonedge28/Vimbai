@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::money::money;
+use vimbai_common::numbers::money;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ProfitCalculation {

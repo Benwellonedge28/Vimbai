@@ -6,7 +6,7 @@
 
 use serde::Serialize;
 
-use crate::money::{money, round_dp};
+use vimbai_common::numbers::{money, round_dp};
 
 /// Units of each currency per one US dollar.
 pub const RATES: [(&str, f64); 11] = [

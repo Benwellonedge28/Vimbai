@@ -70,9 +70,10 @@ pub use operations::{
     TreasuryOperationsRequest, TreasuryOperationsResult, TreasuryTransaction,
 };
 pub use options::{
-    black_scholes_call, black_scholes_put, erf, norm_cdf, norm_pdf, price_options, GreeksSummary,
-    Option, OptionValuation, OptionsPortfolioSummary, OptionsPricingRequest, OptionsPricingResult,
+    price_options, GreeksSummary, Option, OptionValuation, OptionsPortfolioSummary,
+    OptionsPricingRequest, OptionsPricingResult,
 };
+pub use vimbai_common::normal::{black_scholes_call, black_scholes_put, d1_d2, norm_cdf, norm_pdf};
 
 #[cfg(test)]
 mod tests;

@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::money::money;
+use vimbai_common::numbers::money;
 
 /// Standard rate used when a transaction does not state one.
 pub const VAT_STANDARD_RATE: f64 = 0.15;

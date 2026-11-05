@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::money::python_float;
+use vimbai_common::numbers::python_float;
 use vimbai_common::Money;
 
 /// A number from the service payload, as the decimal the library works in.

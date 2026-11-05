@@ -5,6 +5,7 @@ use crate::fx_rates::*;
 use crate::fx_translation::*;
 use crate::multi_currency::*;
 use std::collections::BTreeMap;
+use vimbai_common::normal::{black_scholes_call, black_scholes_put, erf, norm_cdf, norm_pdf};
 
 fn currencies() -> Vec<Currency> {
     vec![

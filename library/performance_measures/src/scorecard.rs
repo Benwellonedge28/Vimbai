@@ -5,7 +5,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::money::round_dp;
+use vimbai_common::numbers::round_dp;
 
 /// The four perspectives, in the order the service emitted them.
 pub const PERSPECTIVES: [&str; 4] = ["financial", "customer", "internal", "learning_growth"];

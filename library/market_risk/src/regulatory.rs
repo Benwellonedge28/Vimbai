@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::money::round_dp;
+use vimbai_common::numbers::round_dp;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RegulatoryRatio {

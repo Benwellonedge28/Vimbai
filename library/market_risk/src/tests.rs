@@ -5,9 +5,10 @@ use crate::credit::{
 };
 use crate::distress::{predict, CompanyData};
 use crate::fraud::{assess, FraudAssessmentRequest};
-use crate::options::{black_scholes_call, black_scholes_put, price, Option, PricingRequest};
+use crate::options::{price, Option, PricingRequest};
 use crate::regulatory::{calculate, RegulatoryRequest};
 use crate::var::{calculate as var, Position, VarRequest};
+use crate::{black_scholes_call, black_scholes_put};
 
 #[test]
 fn black_scholes_matches_the_service() {

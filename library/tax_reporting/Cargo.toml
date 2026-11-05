@@ -6,6 +6,7 @@ description = "Vimbai tax calculations: R&D credit, group tax, VAT, provisions, 
 license = "Proprietary"
 
 [dependencies]
+vimbai_common = { path = "../common" }
 indexmap = { version = "2.7.1", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

@@ -19,7 +19,6 @@
 pub mod credit;
 pub mod grants;
 pub mod group;
-pub mod money;
 pub mod provision;
 pub mod risk;
 pub mod vat;
@@ -32,7 +31,6 @@ pub use grants::{
 pub use group::{
     consolidate as consolidate_group_tax, GroupTaxRequest, GroupTaxResult, Subsidiary,
 };
-pub use money::{money, round_dp};
 pub use provision::{
     calculate as calculate_provision, ProvisionRequest, ProvisionResult, TemporaryDifference,
 };
@@ -40,6 +38,7 @@ pub use risk::{assess as assess_tax_risk, RiskLevel, TaxRiskAssessment, TaxRiskI
 pub use vat::{
     prepare as prepare_vat_return, VatReturn, VatReturnRequest, VatTransaction, VAT_STANDARD_RATE,
 };
+pub use vimbai_common::numbers::{money, python_float, round_dp};
 pub use xbrl::{generate as generate_xbrl, FinancialConcept, XbrlRequest, XbrlResult};
 
 #[cfg(test)]

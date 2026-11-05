@@ -15,7 +15,6 @@ pub mod consolidation;
 pub mod consolidation_views;
 pub mod divestiture;
 pub mod impairment;
-pub mod money;
 pub mod partnership;
 pub mod pension;
 
@@ -31,9 +30,9 @@ pub use consolidation::{
 pub use impairment::{
     test as test_impairment, Cgu, ImpairmentRequest, ImpairmentResult, TestMethod,
 };
-pub use money::money;
 pub use partnership::{allocate, Partner, PartnerAccount, PartnershipRequest, PartnershipResult};
 pub use pension::{calculate as calculate_pension, PensionRequest, PensionResult};
+pub use vimbai_common::numbers::{money, round_dp};
 
 #[cfg(test)]
 mod tests;
