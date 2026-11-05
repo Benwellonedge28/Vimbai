@@ -20,7 +20,7 @@ use axum::{
     Json, Router,
 };
 use serde_json::{json, Value};
-use store::{absorption, job_costing, BookScope, Graph, StoreError};
+use store::{absorption, insurance_claims, job_costing, BookScope, Graph, StoreError};
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
 /// connections, so one handle serves every request.
@@ -238,6 +238,76 @@ async fn company_profitability(
 ///
 /// Kept beside the `/records` mount rather than replacing it: one path names the shape (records),
 /// the other names the service being replaced.
+async fn file_claim(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(insurance_claims::file_claim(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn insurance_claims(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company_id = match query_param(query.as_deref(), "company_id") {
+        Some(company_id) => company_id,
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": "company_id is required"})),
+            )
+                .into_response()
+        }
+    };
+    let status = query_param(query.as_deref(), "status");
+    answer(
+        insurance_claims::claims(graph.as_ref(), &scope, &company_id, status.as_deref())
+            .map(|claims| json!(claims)),
+    )
+}
+
+async fn process_insurance_claim(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(claim_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company_id = match query_param(query.as_deref(), "company_id") {
+        Some(company_id) => company_id,
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": "company_id is required"})),
+            )
+                .into_response()
+        }
+    };
+    answer(insurance_claims::process_claim(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        &claim_id,
+    ))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone()).merge(service_root_router(graph))
 }
@@ -263,6 +333,12 @@ fn records_router(graph: GraphHandle) -> Router {
             get(company_profitability),
         )
         .route("/records/job-costing/jobs/:job_id/costs", post(charge_cost))
+        .route("/records/insurance-claims/file", post(file_claim))
+        .route("/records/insurance-claims/claims", get(insurance_claims))
+        .route(
+            "/records/insurance-claims/claims/:claim_id/process",
+            post(process_insurance_claim),
+        )
         .with_state(graph)
 }
 
@@ -285,6 +361,12 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(company_profitability),
         )
         .route("/job-costing/jobs/:job_id/costs", post(charge_cost))
+        .route("/insurance-claims/file", post(file_claim))
+        .route("/insurance-claims/claims", get(insurance_claims))
+        .route(
+            "/insurance-claims/claims/:claim_id/process",
+            post(process_insurance_claim),
+        )
         .with_state(graph)
 }
 

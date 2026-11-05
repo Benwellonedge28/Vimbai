@@ -27,6 +27,7 @@ pub mod absorption;
 mod amounts;
 #[cfg(test)]
 pub(crate) mod fake;
+pub mod insurance_claims;
 pub mod job_costing;
 pub mod neo4j_client;
 
@@ -73,6 +74,9 @@ pub const OVERHEAD_ABSORPTION: RecordKind =
 /// The records job-costing-service used to own.
 pub const JOB: RecordKind = RecordKind::new("Job", "OWNS_JOB");
 pub const JOB_COST_ENTRY: RecordKind = RecordKind::new("JobCostEntry", "HAS_COST");
+
+/// The records insurance-claims-service used to own.
+pub const INSURANCE_CLAIM: RecordKind = RecordKind::new("InsuranceClaim", "OWNS_CLAIM");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StoreError {

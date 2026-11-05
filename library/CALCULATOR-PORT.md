@@ -54,6 +54,7 @@ says which services have passed every check. 169 stateless calculators; 45 answe
 - tax-risk-service
 - throughput-accounting-service
 - vat-reporting-service
+- insurance-claims-service
 
 ## Crate already has the maths, service not yet wired
 
@@ -189,6 +190,7 @@ says which services have passed every check. 169 stateless calculators; 45 answe
 - trial-balance-service
 - websocket-service
 - xbrl-reporting-service
+
 
 ## Divergences worth knowing
 
