@@ -11,7 +11,7 @@ because their regression suites still run in CI.
 
 ```
 live and routed          159
-retained, not routed     96
+retained, not routed     86
 unrouted, undecided      4
 ```
 
@@ -206,12 +206,10 @@ Routed by the API gateway and deployed. These are the running product.
 
 ### capital return calculator -> `capital_valuation`
 
-12 services. Source kept as the Rust parity reference and CI oracle.
+10 services. Source kept as the Rust parity reference and CI oracle.
 
-`accounting-rate-return-service`
 `asset-allocation-service`
 `capital-allocation-service`
-`discount-factor-service`
 `discounted-payback-period-service`
 `investment-appraisal-service`
 `mva-service`
@@ -257,24 +255,16 @@ Routed by the API gateway and deployed. These are the running product.
 
 ### hedging, FX and reporting calculator -> `treasury_fx`
 
-20 services. Source kept as the Rust parity reference and CI oracle.
+12 services. Source kept as the Rust parity reference and CI oracle.
 
 `cash-flow-forecasting-service`
-`commodity-hedging-service`
 `comparative-financial-statements-service`
 `credit-derivatives-service`
-`cross-currency-swap-service`
-`currency-hedging-service`
 `exotic-derivatives-service`
 `financial-forecasting-service`
-`foreign-currency-translation-service`
 `forward-contracts-service`
-`futures-hedging-service`
-`interest-rate-hedging-service`
 `interim-financial-reporting-service`
 `liquidity-management-service`
-`multi-currency-service`
-`segment-reporting-service`
 `swap-valuation-service`
 `working-capital-finance-service`
 `working-capital-optimization-service`

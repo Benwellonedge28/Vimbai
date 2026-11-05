@@ -305,6 +305,16 @@ ABSORPTION_MARGIN_PORTS = {
 # covered by the Rust crates' own tests, with the figures captured from the services before
 # deletion, so their absence is the expected state and the check below enforces it.
 DELETED_PORTS = {
+    "accounting-rate-return-service",
+    "commodity-hedging-service",
+    "cross-currency-swap-service",
+    "currency-hedging-service",
+    "discount-factor-service",
+    "foreign-currency-translation-service",
+    "futures-hedging-service",
+    "interest-rate-hedging-service",
+    "multi-currency-service",
+    "segment-reporting-service",
     "annual-report-service",
     "capital-budgeting-service",
     "cost-centre-service",
@@ -492,54 +502,3 @@ def test_only_triaged_containers_remain():
     for svc, names in found.items():
         allowed = SEED_CATALOGUES.get(svc, set())
         assert names <= allowed, f"{svc} holds untriaged state: {sorted(names - allowed)}"
-
-
-# Services whose maths is fully published by the Rust library and whose Python source is kept
-# only as the parity oracle. They are absent from the gateway, the manifests and the brackets;
-# these tests keep them that way, and prove the library still answers every published path.
-RETIRED_PORTS = {
-    "accounting-rate-return-service",
-    "commodity-hedging-service",
-    "cross-currency-swap-service",
-    "currency-hedging-service",
-    "discount-factor-service",
-    "foreign-currency-translation-service",
-    "futures-hedging-service",
-    "interest-rate-hedging-service",
-    "multi-currency-service",
-    "segment-reporting-service",
-}
-
-
-def _published_paths(service):
-    source = (pathlib.Path(_ROOT) / service / "main.py").read_text()
-    return [
-        path
-        for path in re.findall(r'@app\.(?:get|post|put|delete)\(\s*"([^"]+)"', source)
-        if path not in ("/", "/health", "/healthz")
-    ]
-
-
-def test_retired_ports_are_unreachable():
-    manifest = json.loads((pathlib.Path(_ROOT) / "api-gateway" / "config" / "services.json").read_text())
-    routed = {entry["name"] for entry in manifest["services"]}
-    compose = (pathlib.Path(_ROOT) / "docker-compose.yml").read_text()
-    for service in sorted(RETIRED_PORTS):
-        assert service not in routed, f"{service} answers from Rust now; the gateway must not route it"
-        assert service not in compose, f"{service} must not be built as its own container"
-        assert not os.path.exists(pathlib.Path(_ROOT) / "k8s" / "all-services.yaml") or (
-            f"name: {service}" not in (pathlib.Path(_ROOT) / "k8s" / "all-services.yaml").read_text()
-        )
-
-
-def test_retired_ports_keep_their_oracle_and_their_routes():
-    """The source stays as the reference; every path it published must still answer in Rust."""
-    library = (pathlib.Path(_ROOT) / "library" / "api" / "src" / "lib.rs").read_text()
-    served = set(re.findall(r'map\.insert\(\s*"([a-z0-9\-]+)"', library))
-    for service in sorted(RETIRED_PORTS):
-        source = pathlib.Path(_ROOT) / service / "main.py"
-        assert source.is_file(), f"{service} is the parity oracle and its source must stay"
-        base = service.removesuffix("-service")
-        for path in _published_paths(service):
-            route = f"{base}-{path.strip('/').replace('/', '-')}"
-            assert route in served, f"{service}{path} has no Rust route ({route}); it would vanish"
