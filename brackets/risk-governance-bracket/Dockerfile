@@ -16,7 +16,6 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 COPY brackets/risk-governance-bracket/main.py ./main.py
-COPY corporate-governance-service ./corporate-governance-service
 COPY risk-assessment-service ./risk-assessment-service
 
 USER vimbai

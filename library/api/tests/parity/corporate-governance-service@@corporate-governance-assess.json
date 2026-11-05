@@ -1,0 +1,97 @@
+{
+  "route": "corporate-governance-assess",
+  "endpoint": "/assess",
+  "request": {
+    "company_id": "c-1",
+    "jurisdiction": "ZW",
+    "governance_code": "King IV",
+    "board_composition": {
+      "total_directors": 8,
+      "independent_directors": 2,
+      "female_directors": 3,
+      "avg_tenure": 4.5
+    },
+    "committees": [
+      {
+        "name": "Audit",
+        "members": 4,
+        "meetings_held": 5
+      },
+      {
+        "name": "Risk",
+        "members": 3,
+        "meetings_held": 2
+      }
+    ],
+    "policies": [
+      "Code of conduct",
+      "Whistleblowing"
+    ],
+    "risk_management": {
+      "framework": "ISO 31000"
+    }
+  },
+  "response": {
+    "company_id": "c-1",
+    "jurisdiction": "ZW",
+    "governance_code": "King IV",
+    "overall_compliance_score": 75.0,
+    "board_metrics": {
+      "total_directors": 8,
+      "independent_directors": 2,
+      "independence_ratio": 0.25,
+      "gender_diversity": 0.38,
+      "average_tenure_years": 4.5
+    },
+    "committee_effectiveness": [
+      {
+        "name": "Audit",
+        "members": 4,
+        "meetings": 5,
+        "effective": true
+      },
+      {
+        "name": "Risk",
+        "members": 3,
+        "meetings": 2,
+        "effective": false
+      }
+    ],
+    "compliance_metrics": [
+      {
+        "area": "Board Composition",
+        "requirement": "At least 30% independent directors",
+        "compliant": false,
+        "gap": "Independent director threshold not met"
+      },
+      {
+        "area": "Board Composition",
+        "requirement": "Gender diversity target",
+        "compliant": true,
+        "gap": "Compliant"
+      },
+      {
+        "area": "Audit Committee",
+        "requirement": "All independent members",
+        "compliant": true,
+        "gap": ""
+      },
+      {
+        "area": "Risk Management",
+        "requirement": "Documented risk framework",
+        "compliant": true,
+        "gap": "Compliant"
+      }
+    ],
+    "non_compliant_areas": [
+      "Board Composition"
+    ],
+    "recommendations": [
+      "Recruit additional independent directors",
+      "Increase gender diversity on the board",
+      "Ensure all committees meet minimum meeting requirements",
+      "Review and update governance policies annually"
+    ]
+  },
+  "ignore": []
+}

@@ -1,0 +1,95 @@
+{
+  "route": "audit-evidence-evaluate",
+  "endpoint": "/evaluate",
+  "request": {
+    "audit_id": "ae-1",
+    "assertion": "existence",
+    "required_evidence_types": [
+      "invoice",
+      "bank_statement"
+    ],
+    "evidence_items": [
+      {
+        "id": "e1",
+        "source": "supplier",
+        "type": "invoice",
+        "description": "Purchase invoice",
+        "date": "2026-01-10",
+        "sufficiency": true,
+        "appropriateness": true
+      },
+      {
+        "id": "e2",
+        "source": "bank",
+        "type": "bank_statement",
+        "description": "Bank confirmation",
+        "date": "2026-01-12",
+        "sufficiency": true,
+        "appropriateness": false
+      },
+      {
+        "id": "e3",
+        "source": "internal",
+        "type": "ledger",
+        "description": "Ledger extract",
+        "date": "2026-01-15",
+        "sufficiency": false,
+        "appropriateness": true
+      }
+    ],
+    "reliability_factors": {
+      "supplier": "medium",
+      "bank": "high"
+    }
+  },
+  "response": {
+    "audit_id": "ae-1",
+    "assertion": "existence",
+    "evidence_gathered": 3,
+    "evidence_types_used": [
+      "ledger",
+      "invoice",
+      "bank_statement"
+    ],
+    "sufficiency_assessment": "insufficient",
+    "appropriateness_assessment": "concerns_noted",
+    "reliability_score": 0.67,
+    "evidence_items": [
+      {
+        "evidence_id": "e1",
+        "source": "supplier",
+        "type": "invoice",
+        "description": "Purchase invoice",
+        "obtained_date": "2026-01-10",
+        "sufficiency": true,
+        "appropriateness": true
+      },
+      {
+        "evidence_id": "e2",
+        "source": "bank",
+        "type": "bank_statement",
+        "description": "Bank confirmation",
+        "obtained_date": "2026-01-12",
+        "sufficiency": true,
+        "appropriateness": false
+      },
+      {
+        "evidence_id": "e3",
+        "source": "internal",
+        "type": "ledger",
+        "description": "Ledger extract",
+        "obtained_date": "2026-01-15",
+        "sufficiency": false,
+        "appropriateness": true
+      }
+    ],
+    "conclusion": "Evidence requires supplementation",
+    "additional_evidence_required": [
+      "Extend sample sizes",
+      "Obtain corroborating evidence from independent sources"
+    ]
+  },
+  "ignore": [
+    "evidence_types_used"
+  ]
+}

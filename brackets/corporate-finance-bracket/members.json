@@ -33,11 +33,6 @@
       "dir": "debentures-service"
     },
     {
-      "path": "/due-diligence",
-      "name": "due-diligence-service",
-      "dir": "due-diligence-service"
-    },
-    {
       "path": "/foreign-exchange",
       "name": "foreign-exchange-service",
       "dir": "foreign-exchange-service"

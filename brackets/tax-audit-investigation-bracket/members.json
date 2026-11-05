@@ -13,11 +13,6 @@
       "dir": "audit-engagement-service"
     },
     {
-      "path": "/audit-evidence",
-      "name": "audit-evidence-service",
-      "dir": "audit-evidence-service"
-    },
-    {
       "path": "/audit-sampling",
       "name": "audit-sampling-service",
       "dir": "audit-sampling-service"

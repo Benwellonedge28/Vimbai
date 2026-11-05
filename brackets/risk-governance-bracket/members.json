@@ -3,11 +3,6 @@
   "port": 9005,
   "members": [
     {
-      "path": "/corporate-governance",
-      "name": "corporate-governance-service",
-      "dir": "corporate-governance-service"
-    },
-    {
       "path": "/risk-assessment",
       "name": "risk-assessment-service",
       "dir": "risk-assessment-service"

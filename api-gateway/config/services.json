@@ -72,14 +72,6 @@
       "strip_prefix": false
     },
     {
-      "name": "audit-evidence-service",
-      "path": "/audit-evidence",
-      "url": "http://localhost:9004",
-      "port": 8201,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "audit-sampling-service",
       "path": "/audit-sampling",
       "url": "http://localhost:9004",
@@ -271,14 +263,6 @@
       "strip_prefix": false
     },
     {
-      "name": "corporate-governance-service",
-      "path": "/corporate-governance",
-      "url": "http://localhost:9005",
-      "port": 8209,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "currency-service",
       "path": "/currency",
       "url": "http://localhost:9003",
@@ -370,14 +354,6 @@
       "path": "/double-entry-principles",
       "url": "http://localhost:9011",
       "port": 8047,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "due-diligence-service",
-      "path": "/due-diligence",
-      "url": "http://localhost:9012",
-      "port": 8242,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -490,14 +466,6 @@
       "path": "/general-reserve",
       "url": "http://localhost:9011",
       "port": 8061,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "going-concern-service",
-      "path": "/going-concern",
-      "url": "http://localhost:9011",
-      "port": 8203,
       "auth_required": true,
       "strip_prefix": false
     },

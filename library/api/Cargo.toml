@@ -14,6 +14,7 @@ store = { package = "vimbai_store", path = "../store" }
 performance_measures = { package = "vimbai_performance_measures", path = "../performance_measures" }
 treasury_fx = { package = "vimbai_treasury_fx", path = "../treasury_fx" }
 group_accounting = { package = "vimbai_group_accounting", path = "../group_accounting" }
+assurance = { package = "vimbai_assurance", path = "../assurance" }
 bridge = { package = "vimbai_bridge", path = "../bridge" }
 tax = { package = "vimbai_tax", path = "../tax" }
 ifrs = { package = "vimbai_ifrs", path = "../ifrs" }

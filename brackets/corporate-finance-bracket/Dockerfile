@@ -22,7 +22,6 @@ COPY cash-management-service ./cash-management-service
 COPY cash-optimization-service ./cash-optimization-service
 COPY cvp-analysis-service ./cvp-analysis-service
 COPY debentures-service ./debentures-service
-COPY due-diligence-service ./due-diligence-service
 COPY foreign-exchange-service ./foreign-exchange-service
 COPY insurance-claims-service ./insurance-claims-service
 COPY net-present-value-service ./net-present-value-service

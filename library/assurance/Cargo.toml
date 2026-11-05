@@ -1,0 +1,9 @@
+[package]
+name = "vimbai_assurance"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+vimbai_common = { path = "../common" }

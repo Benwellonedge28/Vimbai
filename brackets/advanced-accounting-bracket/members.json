@@ -83,11 +83,6 @@
       "dir": "general-reserve-service"
     },
     {
-      "path": "/going-concern",
-      "name": "going-concern-service",
-      "dir": "going-concern-service"
-    },
-    {
       "path": "/intangible-assets",
       "name": "intangible-assets-service",
       "dir": "intangible-assets-service"

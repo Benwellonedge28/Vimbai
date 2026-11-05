@@ -1,0 +1,68 @@
+{
+  "route": "going-concern-assess",
+  "endpoint": "/assess",
+  "request": {
+    "company_id": "c-1",
+    "audit_id": "gc-1",
+    "financial_data": {
+      "current_assets": 400000.0,
+      "non_current_assets": 600000.0,
+      "current_liabilities": 500000.0,
+      "non_current_liabilities": 700000.0,
+      "going_concern_modifications": 1.0,
+      "dividend_arrears": 0.0,
+      "extensions_granted": 0.0
+    },
+    "debt_covenants": [
+      {
+        "amount": 200000.0,
+        "breach": true,
+        "violation": false
+      },
+      {
+        "amount": 100000.0,
+        "breach": false,
+        "violation": true
+      }
+    ],
+    "cash_flows": {
+      "operating": 80000.0,
+      "financing": -20000.0
+    },
+    "management_plans": [
+      "Cost reduction programme"
+    ],
+    "financing_arrangements": [
+      "Renewed overdraft facility"
+    ]
+  },
+  "response": {
+    "company_id": "c-1",
+    "audit_id": "gc-1",
+    "assessment_date": "2024-06-30",
+    "risk_indicators": {
+      "negative_working_capital": true,
+      "borrowing_agreement_breaches": true,
+      "covenant_violations": true,
+      "going_concern_modifications": true,
+      "arrears_on_dividends": false,
+      "loan_repayment_extensions": false
+    },
+    "liquidity_score": 30.0,
+    "solvency_score": 0.0,
+    "cash_flow_adequacy": 0.2,
+    "assessment_result": "high_risk",
+    "material_uncertainty": true,
+    "mitigating_factors": [
+      "Management has prepared mitigation plans",
+      "Committed financing facilities in place",
+      "Positive cash flow from operations"
+    ],
+    "conclusions": {
+      "going_concern": "Basis for concern exists",
+      "disclosure": "Material uncertainty disclosure required",
+      "opinion_impact": "Qualified or emphasis of matter"
+    }
+  },
+  "ignore": []
+}

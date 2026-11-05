@@ -1824,6 +1824,7 @@ dependencies = [
  "url",
  "vimbai_advisory",
  "vimbai_assets",
+ "vimbai_assurance",
  "vimbai_bridge",
  "vimbai_budgeting",
  "vimbai_capital_valuation",
@@ -1843,6 +1844,15 @@ dependencies = [
 
 [[package]]
 name = "vimbai_assets"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "vimbai_common",
+]
+
+[[package]]
+name = "vimbai_assurance"
 version = "0.1.0"
 dependencies = [
  "serde",

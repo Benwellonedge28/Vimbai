@@ -32,7 +32,6 @@ COPY financial-identity-service ./financial-identity-service
 COPY financial-integrity-service ./financial-integrity-service
 COPY fund-accounting-service ./fund-accounting-service
 COPY general-reserve-service ./general-reserve-service
-COPY going-concern-service ./going-concern-service
 COPY intangible-assets-service ./intangible-assets-service
 COPY intercompany-service ./intercompany-service
 COPY lease-termination-service ./lease-termination-service

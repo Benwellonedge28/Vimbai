@@ -624,6 +624,16 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "business-combination-acquire",
         group_accounting::business_combination_from_json,
     );
+    map.insert(
+        "audit-evidence-evaluate",
+        assurance::audit_evidence_from_json,
+    );
+    map.insert("going-concern-assess", assurance::going_concern_from_json);
+    map.insert(
+        "corporate-governance-assess",
+        assurance::corporate_governance_from_json,
+    );
+    map.insert("due-diligence-assess", assurance::due_diligence_from_json);
     map
 }
 

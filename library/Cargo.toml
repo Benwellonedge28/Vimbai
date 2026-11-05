@@ -4,6 +4,7 @@ resolver = "2"
 # pulled into `cargo test --workspace` for the calculation crates.
 exclude = ["native"]
 members = [
+    "assurance",
     "common",
     "bridge",
     "api",
