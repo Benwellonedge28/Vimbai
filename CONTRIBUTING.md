@@ -28,7 +28,7 @@
 
 ## Pull Request Checklist
 
-- [ ] Code passes all linters (black, flake8, isort, eslint)
+- [ ] `./scripts/preflight.sh` is clean, which runs the linters, the Rust workspace and the Python extension
 - [ ] Tests written and passing
 - [ ] No hardcoded secrets
 - [ ] Dockerfile uses non-root user
