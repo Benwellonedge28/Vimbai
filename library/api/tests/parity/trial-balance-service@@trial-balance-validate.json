@@ -1,0 +1,16 @@
+{
+  "route": "trial-balance-validate",
+  "endpoint": "/validate",
+  "request": {
+    "total_debits": 1000.0,
+    "total_credits": 995.5
+  },
+  "response": {
+    "total_debits": 1000.0,
+    "total_credits": 995.5,
+    "difference": 4.5,
+    "is_valid": false,
+    "message": "Trial balance disagrees by 4.5"
+  },
+  "ignore": []
+}

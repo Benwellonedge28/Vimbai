@@ -1,0 +1,50 @@
+{
+  "route": "trial-balance-from-ledgers",
+  "endpoint": "/from-ledgers",
+  "request": [
+    {
+      "account_name": "Cash",
+      "account_type": "asset",
+      "debit_balance": 900.0,
+      "credit_balance": 100.0
+    },
+    {
+      "account_name": "Loan",
+      "account_type": "liability",
+      "debit_balance": 100.0,
+      "credit_balance": 900.0
+    },
+    {
+      "account_name": "Suspense",
+      "debit_balance": 500.0
+    }
+  ],
+  "response": {
+    "trial_balance": [
+      {
+        "account_name": "Cash",
+        "account_type": "asset",
+        "debit": 800.0,
+        "credit": 0
+      },
+      {
+        "account_name": "Loan",
+        "account_type": "liability",
+        "debit": 800.0,
+        "credit": 0
+      },
+      {
+        "account_name": "Suspense",
+        "account_type": "",
+        "debit": 0,
+        "credit": 500.0
+      }
+    ],
+    "total_debits": 1600.0,
+    "total_credits": 500.0,
+    "is_balanced": false,
+    "difference": 1100.0,
+    "status": "Disagree - Check balances"
+  },
+  "ignore": []
+}

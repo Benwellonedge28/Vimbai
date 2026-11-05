@@ -1,0 +1,63 @@
+{
+  "route": "trial-balance-adjusted",
+  "endpoint": "/adjusted",
+  "request": {
+    "pre_adjustment": [
+      {
+        "account_name": "Rent",
+        "account_type": "expense",
+        "debit_balance": 100.0
+      },
+      {
+        "account_name": "Rent",
+        "account_type": "expense",
+        "debit_balance": 100.0
+      },
+      {
+        "account_name": "Accruals",
+        "account_type": "liability",
+        "credit_balance": 0.0
+      }
+    ],
+    "adjustments": [
+      {
+        "account_name": "Rent",
+        "debit": 50.0,
+        "credit": 0.0
+      },
+      {
+        "account_name": "Accruals",
+        "debit": 0.0,
+        "credit": 50.0
+      }
+    ]
+  },
+  "response": {
+    "trial_balance": [
+      {
+        "account_name": "Rent",
+        "account_type": "expense",
+        "debit": 150.0,
+        "credit": 0
+      },
+      {
+        "account_name": "Rent",
+        "account_type": "expense",
+        "debit": 100.0,
+        "credit": 0
+      },
+      {
+        "account_name": "Accruals",
+        "account_type": "liability",
+        "debit": 50.0,
+        "credit": 0
+      }
+    ],
+    "total_debits": 300.0,
+    "total_credits": 0,
+    "is_balanced": false,
+    "difference": 300.0,
+    "status": "Disagree - Check balances"
+  },
+  "ignore": []
+}

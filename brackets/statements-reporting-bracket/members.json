@@ -46,11 +46,6 @@
       "path": "/treasury-reporting",
       "name": "treasury-reporting-service",
       "dir": "treasury-reporting-service"
-    },
-    {
-      "path": "/trial-balance",
-      "name": "trial-balance-service",
-      "dir": "trial-balance-service"
     }
   ]
 }

@@ -1024,14 +1024,6 @@
       "strip_prefix": false
     },
     {
-      "name": "trial-balance-service",
-      "path": "/trial-balance",
-      "url": "http://localhost:9002",
-      "port": 8137,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "webhook-service",
       "path": "/webhook",
       "url": "http://localhost:9008",

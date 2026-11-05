@@ -25,7 +25,6 @@ COPY report-distribution-service ./report-distribution-service
 COPY reporting-service ./reporting-service
 COPY sales-ledger-control-service ./sales-ledger-control-service
 COPY treasury-reporting-service ./treasury-reporting-service
-COPY trial-balance-service ./trial-balance-service
 
 USER vimbai
 

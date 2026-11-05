@@ -22,6 +22,7 @@ pub mod ratios;
 pub mod segment_reporting;
 pub mod statements;
 pub mod trading_account;
+pub mod trial_balance;
 pub mod working_capital;
 
 pub use balance_sheet::{
@@ -130,4 +131,39 @@ pub fn ratio_analysis_trend_from_json(
     payload: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     ratio_analysis::trend(payload)
+}
+
+/// `trial-balance-service /generate`.
+pub fn trial_balance_generate_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    trial_balance::generate(payload)
+}
+
+/// `trial-balance-service /from-ledgers`.
+pub fn trial_balance_from_ledgers_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    trial_balance::generate(payload)
+}
+
+/// `trial-balance-service /validate`.
+pub fn trial_balance_validate_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    trial_balance::validate(payload)
+}
+
+/// `trial-balance-service /classification-summary`.
+pub fn trial_balance_classification_summary_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    trial_balance::classification_summary(payload)
+}
+
+/// `trial-balance-service /adjusted`.
+pub fn trial_balance_adjusted_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    trial_balance::adjusted(payload)
 }

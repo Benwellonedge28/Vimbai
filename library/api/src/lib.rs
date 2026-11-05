@@ -655,6 +655,26 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
     map.insert("tax-provision", tax::tax_provision_from_json);
     map.insert("tax-transfer-pricing", tax::tax_transfer_pricing_from_json);
     map.insert("tax-compliance", tax::tax_compliance_from_json);
+    map.insert(
+        "trial-balance-generate",
+        ratios_statements::trial_balance_generate_from_json,
+    );
+    map.insert(
+        "trial-balance-from-ledgers",
+        ratios_statements::trial_balance_from_ledgers_from_json,
+    );
+    map.insert(
+        "trial-balance-validate",
+        ratios_statements::trial_balance_validate_from_json,
+    );
+    map.insert(
+        "trial-balance-classification-summary",
+        ratios_statements::trial_balance_classification_summary_from_json,
+    );
+    map.insert(
+        "trial-balance-adjusted",
+        ratios_statements::trial_balance_adjusted_from_json,
+    );
     map
 }
 

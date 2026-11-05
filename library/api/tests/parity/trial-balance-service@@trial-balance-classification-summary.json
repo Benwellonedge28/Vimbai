@@ -1,0 +1,53 @@
+{
+  "route": "trial-balance-classification-summary",
+  "endpoint": "/classification-summary",
+  "request": [
+    {
+      "account_name": "Loan",
+      "account_type": "liability",
+      "debit_balance": 100.0,
+      "credit_balance": 400.0
+    },
+    {
+      "account_name": "Cash",
+      "account_type": "asset",
+      "debit_balance": 250.0
+    }
+  ],
+  "response": {
+    "assets": {
+      "accounts": [
+        {
+          "account_name": "Cash",
+          "account_type": "asset",
+          "debit_balance": 250.0
+        }
+      ],
+      "total": 250.0
+    },
+    "liabilities": {
+      "accounts": [
+        {
+          "account_name": "Loan",
+          "account_type": "liability",
+          "debit_balance": 100.0,
+          "credit_balance": 400.0
+        }
+      ],
+      "total": 500.0
+    },
+    "equity": {
+      "accounts": [],
+      "total": 0
+    },
+    "revenues": {
+      "accounts": [],
+      "total": 0
+    },
+    "expenses": {
+      "accounts": [],
+      "total": 0
+    }
+  },
+  "ignore": []
+}
