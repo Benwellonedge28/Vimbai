@@ -683,6 +683,10 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "sustainable-growth-calculate",
         capital_valuation::sustainable_growth_service_from_json,
     );
+    map.insert(
+        "asset-allocation-allocate",
+        capital_valuation::asset_allocation_service_from_json,
+    );
     map
 }
 

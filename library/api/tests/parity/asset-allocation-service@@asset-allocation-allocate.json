@@ -1,0 +1,70 @@
+{
+  "route": "asset-allocation-allocate",
+  "endpoint": "/allocate",
+  "request": {
+    "company_id": "c-1",
+    "investor_profile": "aggressive",
+    "time_horizon": 10,
+    "risk_tolerance": "high",
+    "current_portfolio": {
+      "equities": 700000.0,
+      "bonds": 250000.0,
+      "cash": 50000.0
+    },
+    "total_portfolio_value": 1000000.0
+  },
+  "response": {
+    "company_id": "c-1",
+    "investor_profile": "aggressive",
+    "allocation_results": [
+      {
+        "asset_class": "equities",
+        "current_allocation": 70.0,
+        "target_allocation": 70.0,
+        "deviation": 0.0,
+        "rebalance_amount": 0.0
+      },
+      {
+        "asset_class": "bonds",
+        "current_allocation": 25.0,
+        "target_allocation": 20.0,
+        "deviation": 5.0,
+        "rebalance_amount": -50000.0
+      },
+      {
+        "asset_class": "cash",
+        "current_allocation": 5.0,
+        "target_allocation": 5.0,
+        "deviation": 0.0,
+        "rebalance_amount": 0.0
+      },
+      {
+        "asset_class": "alternatives",
+        "current_allocation": 0.0,
+        "target_allocation": 5.0,
+        "deviation": 5.0,
+        "rebalance_amount": 50000.0
+      }
+    ],
+    "total_deviation": 10.0,
+    "rebalancing_required": true,
+    "strategic_allocation": {
+      "equities": 70.0,
+      "bonds": 20.0,
+      "cash": 5.0,
+      "alternatives": 5.0
+    },
+    "tactical_allocation": {
+      "equities": 73.5,
+      "bonds": 21.0,
+      "cash": 5.25,
+      "alternatives": 5.25
+    },
+    "recommendations": [
+      "Rebalance if deviation exceeds 5%",
+      "Review allocation quarterly",
+      "Consider tax implications of rebalancing"
+    ]
+  },
+  "ignore": []
+}

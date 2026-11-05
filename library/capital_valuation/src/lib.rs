@@ -103,3 +103,64 @@ pub fn sustainable_growth_service_from_json(
     serde_json::to_value(growth::sustainable_growth(&input))
         .map_err(|error| format!("could not serialise: {error}"))
 }
+
+/// `asset-allocation-service /allocate`.
+///
+/// The portfolio arrives as an object keyed by asset class, while `AssetAllocationInput` holds pairs.
+/// Only the four target classes are read, so a holding outside them is ignored rather than weighted.
+pub fn asset_allocation_service_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let field_str = |key: &str| {
+        payload
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    };
+    let portfolio = payload
+        .get("current_portfolio")
+        .and_then(serde_json::Value::as_object)
+        .map(|map| {
+            map.iter()
+                .map(|(name, value)| (name.clone(), value.as_f64().unwrap_or(0.0)))
+                .collect::<Vec<(String, f64)>>()
+        })
+        .unwrap_or_default();
+    let input = allocation::AssetAllocationInput {
+        company_id: field_str("company_id"),
+        investor_profile: field_str("investor_profile"),
+        time_horizon: payload
+            .get("time_horizon")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0) as u32,
+        risk_tolerance: field_str("risk_tolerance"),
+        current_portfolio: portfolio,
+        total_portfolio_value: payload
+            .get("total_portfolio_value")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.0),
+    };
+    let mut out = serde_json::to_value(allocation::allocate_assets(&input))
+        .map_err(|error| format!("could not serialise: {error}"))?;
+    // The allocator holds these two as ordered pairs; the service answered with objects keyed by
+    // asset class, and clients read them that way.
+    if let Some(object) = out.as_object_mut() {
+        for key in ["strategic_allocation", "tactical_allocation"] {
+            if let Some(serde_json::Value::Array(pairs)) = object.get(key).cloned() {
+                let mut mapped = serde_json::Map::new();
+                for pair in pairs {
+                    if let serde_json::Value::Array(kv) = pair {
+                        if let (Some(name), Some(value)) = (kv.first(), kv.get(1)) {
+                            if let Some(name) = name.as_str() {
+                                mapped.insert(name.to_string(), value.clone());
+                            }
+                        }
+                    }
+                }
+                object.insert(key.to_string(), serde_json::Value::Object(mapped));
+            }
+        }
+    }
+    Ok(out)
+}
