@@ -1,0 +1,19 @@
+{
+  "route": "flexible-budget-variance-analysis",
+  "endpoint": "/variance-analysis",
+  "request": {
+    "static_budget": 450000.0,
+    "flexed_budget": 480000.0,
+    "actual_result": 472500.0
+  },
+  "response": {
+    "static_budget": 450000.0,
+    "flexed_budget": 480000.0,
+    "actual_result": 472500.0,
+    "sales_volume_variance": 30000.0,
+    "expenditure_variance": 7500.0,
+    "total_variance": -22500.0,
+    "interpretation": "Adverse"
+  },
+  "ignore": []
+}

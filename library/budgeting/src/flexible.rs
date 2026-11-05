@@ -4,6 +4,7 @@
 //! `/cost-per-unit`, `/prepare-flexed`).
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use vimbai_common::py_round2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,7 +31,12 @@ pub fn flex_budget(
         budgeted_activity,
         actual_activity,
         flexed_budget: (budgeted_cost / budgeted_activity) * actual_activity,
-        budget_formula: format!("({budgeted_cost} / {budgeted_activity}) × {actual_activity}"),
+        budget_formula: format!(
+            "({} / {}) × {}",
+            vimbai_common::py_float_repr(budgeted_cost),
+            vimbai_common::py_float_repr(budgeted_activity),
+            vimbai_common::py_float_repr(actual_activity)
+        ),
     })
 }
 
@@ -193,6 +199,62 @@ pub fn prepare_flexed(
         volume_variance: py_round2(volume_variance),
         variance_type,
     }
+}
+
+fn read_two(payload: &Value, first: &str, second: &str, third: &str) -> (f64, f64, f64) {
+    let get = |key: &str| payload.get(key).and_then(Value::as_f64).unwrap_or(0.0);
+    (get(first), get(second), get(third))
+}
+
+/// `flexible-budget-service /calculate`. A zero budgeted activity comes back as a 200 with an
+/// `error` key, not a failure, so the adapter reproduces that instead of propagating.
+pub fn calculate_from_json(payload: &Value) -> Result<Value, String> {
+    let (budgeted_cost, budgeted_activity, actual_activity) = read_two(
+        payload,
+        "budgeted_cost",
+        "budgeted_activity",
+        "actual_activity",
+    );
+    match flex_budget(budgeted_cost, budgeted_activity, actual_activity) {
+        Ok(result) => {
+            serde_json::to_value(result).map_err(|error| format!("could not serialise: {error}"))
+        }
+        Err(message) => Ok(serde_json::json!({ "error": message })),
+    }
+}
+
+/// `flexible-budget-service /multi-level`. Arguments arrive as query parameters and are merged into
+/// the payload by the API layer.
+pub fn multi_level_from_json(payload: &Value) -> Result<Value, String> {
+    let (budgeted_fixed_cost, budgeted_variable_rate, budgeted_activity) = read_two(
+        payload,
+        "budgeted_fixed_cost",
+        "budgeted_variable_rate",
+        "budgeted_activity",
+    );
+    let actual_activity = payload
+        .get("actual_activity")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    serde_json::to_value(flex_multi_level(
+        budgeted_fixed_cost,
+        budgeted_variable_rate,
+        budgeted_activity,
+        actual_activity,
+    ))
+    .map_err(|error| format!("could not serialise: {error}"))
+}
+
+/// `flexible-budget-service /variance-analysis`.
+pub fn variance_from_json(payload: &Value) -> Result<Value, String> {
+    let (static_budget, flexed_budget, actual_result) =
+        read_two(payload, "static_budget", "flexed_budget", "actual_result");
+    serde_json::to_value(flex_variance_analysis(
+        static_budget,
+        flexed_budget,
+        actual_result,
+    ))
+    .map_err(|error| format!("could not serialise: {error}"))
 }
 
 #[cfg(test)]

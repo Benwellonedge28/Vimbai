@@ -4,6 +4,7 @@
 //! service and is preserved verbatim.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MasterBudgetRequest {
@@ -89,6 +90,77 @@ pub fn prepare_master_budget(req: &MasterBudgetRequest) -> MasterBudgetResult {
         total_assets: 1_000_000.0,
         total_equity: 600_000.0,
     }
+}
+
+/// `master-budget-service /prepare`.
+///
+/// The crate keeps the figures flat; the service published them as six named statements, so the
+/// adapter regroups them. Inventory openings and closings are the fixed 1000 the service assumes.
+pub fn prepare_from_json(payload: &Value) -> Result<Value, String> {
+    let number = |key: &str| payload.get(key).and_then(Value::as_f64).unwrap_or(0.0);
+    let request = MasterBudgetRequest {
+        company_id: payload
+            .get("company_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        budget_year: payload
+            .get("budget_year")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        expected_sales_units: number("expected_sales_units"),
+        selling_price_per_unit: number("selling_price_per_unit"),
+        expected_production_units: number("expected_production_units"),
+        direct_material_cost_per_unit: number("direct_material_cost_per_unit"),
+        direct_labour_cost_per_unit: number("direct_labour_cost_per_unit"),
+        variable_overhead_rate: number("variable_overhead_rate"),
+        fixed_overhead: number("fixed_overhead"),
+        operating_expenses: number("operating_expenses"),
+    };
+    let result = prepare_master_budget(&request);
+    Ok(serde_json::json!({
+        "company_id": result.company_id,
+        "budget_year": result.budget_year,
+        "sales_budget": {
+            "units": result.sales_units,
+            "revenue": result.sales_revenue,
+        },
+        "production_budget": {
+            "units_to_produce": result.units_to_produce,
+            "opening_inventory": result.opening_inventory,
+            "closing_inventory": result.closing_inventory,
+        },
+        "direct_materials_budget": {
+            "cost_per_unit": request.direct_material_cost_per_unit,
+            "total_cost": result.materials_total,
+        },
+        "direct_labour_budget": {
+            "cost_per_unit": request.direct_labour_cost_per_unit,
+            "total_cost": result.labour_total,
+        },
+        "overhead_budget": {
+            "variable": result.overhead_variable,
+            "fixed": result.overhead_fixed,
+            "total": result.overhead_total,
+        },
+        "budgeted_balance_sheet": {
+            "total_assets": result.total_assets,
+            "total_equity": result.total_equity,
+        },
+        "budgeted_cash_flow": {
+            "operating": result.operating_profit,
+            "financing": 0.0,
+        },
+        "expected_profit": result.operating_profit,
+        "budgeted_income_statement": {
+            "revenue": result.sales_revenue,
+            "cost_of_goods_sold": result.cost_of_goods_sold,
+            "gross_profit": result.gross_profit,
+            "operating_expenses": result.operating_expenses,
+            "operating_profit": result.operating_profit,
+        },
+    }))
 }
 
 #[cfg(test)]

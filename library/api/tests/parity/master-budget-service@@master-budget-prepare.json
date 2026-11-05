@@ -1,0 +1,59 @@
+{
+  "route": "master-budget-prepare",
+  "endpoint": "/prepare",
+  "request": {
+    "company_id": "c-1",
+    "budget_year": "FY2027",
+    "expected_sales_units": 12000,
+    "selling_price_per_unit": 85.0,
+    "expected_production_units": 12500,
+    "direct_material_cost_per_unit": 22.5,
+    "direct_labour_cost_per_unit": 18.0,
+    "variable_overhead_rate": 7.5,
+    "fixed_overhead": 180000.0,
+    "operating_expenses": 95000.0
+  },
+  "response": {
+    "company_id": "c-1",
+    "budget_year": "FY2027",
+    "sales_budget": {
+      "units": 12000.0,
+      "revenue": 1020000.0
+    },
+    "production_budget": {
+      "units_to_produce": 12500.0,
+      "opening_inventory": 1000.0,
+      "closing_inventory": 1000.0
+    },
+    "direct_materials_budget": {
+      "cost_per_unit": 22.5,
+      "total_cost": 281250.0
+    },
+    "direct_labour_budget": {
+      "cost_per_unit": 18.0,
+      "total_cost": 225000.0
+    },
+    "overhead_budget": {
+      "variable": 93750.0,
+      "fixed": 180000.0,
+      "total": 273750.0
+    },
+    "budgeted_income_statement": {
+      "revenue": 1020000.0,
+      "cost_of_goods_sold": 780000.0,
+      "gross_profit": 240000.0,
+      "operating_expenses": 95000.0,
+      "operating_profit": 145000.0
+    },
+    "budgeted_balance_sheet": {
+      "total_assets": 1000000.0,
+      "total_equity": 600000.0
+    },
+    "budgeted_cash_flow": {
+      "operating": 145000.0,
+      "financing": 0.0
+    },
+    "expected_profit": 145000.0
+  },
+  "ignore": []
+}

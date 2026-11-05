@@ -30,6 +30,17 @@ pub fn favorable_adverse(value: f64) -> &'static str {
     }
 }
 
+/// Python's `repr` for a float: shortest round-tripping form, with a trailing `.0` kept on whole
+/// numbers. Rust's `Display` already gives the shortest form, so only the suffix is added.
+pub fn py_float_repr(value: f64) -> String {
+    let text = format!("{value}");
+    if text.contains('.') || text.contains('e') || text.contains("inf") || text.contains("NaN") {
+        text
+    } else {
+        format!("{text}.0")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

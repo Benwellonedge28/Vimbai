@@ -708,6 +708,22 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "zero-based-budget-prepare",
         budgeting::zero_based::prepare_from_json,
     );
+    map.insert(
+        "master-budget-prepare",
+        budgeting::master::prepare_from_json,
+    );
+    map.insert(
+        "flexible-budget-calculate",
+        budgeting::flexible::calculate_from_json,
+    );
+    map.insert(
+        "flexible-budget-multi-level",
+        budgeting::flexible::multi_level_from_json,
+    );
+    map.insert(
+        "flexible-budget-variance-analysis",
+        budgeting::flexible::variance_from_json,
+    );
     map
 }
 

@@ -11,7 +11,7 @@ because their regression suites still run in CI.
 
 ```
 live and routed          137
-retained, not routed     78
+retained, not routed     76
 unrouted, undecided      4
 ```
 
@@ -309,13 +309,6 @@ Routed by the API gateway and deployed. These are the running product.
 
 `treasury-cash-service`
 `treasury-operations-service`
-
-### variance / budget calculator -> `budgeting`
-
-2 services. Source kept as the Rust parity reference and CI oracle.
-
-`flexible-budget-service`
-`master-budget-service`
 
 ### variance / budget calculator -> `variance`
 

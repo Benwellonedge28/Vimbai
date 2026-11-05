@@ -115,9 +115,7 @@ VARIANCE_BUDGET_PORTS = {
     "labour-efficiency-variance-service",
     "sales-price-variance-service",
     "sales-volume-variance-service",
-    "master-budget-service",
     "capital-expenditure-budget-service",
-    "flexible-budget-service",
     "budget-service",
 }
 
@@ -304,6 +302,8 @@ RETIRED_PORTS = {
 }
 
 DELETED_PORTS = {
+    "flexible-budget-service",
+    "master-budget-service",
     "zero-based-budget-service",
     "cash-budget-service",
     "investment-appraisal-service",

@@ -1,0 +1,17 @@
+{
+  "route": "flexible-budget-calculate",
+  "endpoint": "/calculate",
+  "request": {
+    "budgeted_cost": 450000.0,
+    "budgeted_activity": 9000.0,
+    "actual_activity": 9600.0
+  },
+  "response": {
+    "budgeted_cost": 450000.0,
+    "budgeted_activity": 9000.0,
+    "actual_activity": 9600.0,
+    "flexed_budget": 480000.0,
+    "budget_formula": "(450000.0 / 9000.0) \u00d7 9600.0"
+  },
+  "ignore": []
+}

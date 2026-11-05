@@ -1,0 +1,23 @@
+{
+  "route": "flexible-budget-multi-level",
+  "endpoint": "/multi-level",
+  "request": {
+    "budgeted_fixed_cost": 180000.0,
+    "budgeted_variable_rate": 24.0,
+    "budgeted_activity": 9000.0,
+    "actual_activity": 9600.0
+  },
+  "response": {
+    "budgeted_fixed_cost": 180000.0,
+    "budgeted_variable_rate": 24.0,
+    "budgeted_activity": 9000.0,
+    "actual_activity": 9600.0,
+    "flexed_fixed_cost": 180000.0,
+    "flexed_variable_cost": 230400.0,
+    "flexed_total_budget": 410400.0,
+    "original_budget": 396000.0,
+    "spending_variance": -14400.0,
+    "activity_variance": 14400.0
+  },
+  "ignore": []
+}
