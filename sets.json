@@ -26,22 +26,14 @@
     "treasury-operations-service"
   ],
   "COST_CALCULATOR_PORTS": [
-    "activity-based-costing-service",
-    "actual-cost-service",
-    "budgeted-cost-service",
-    "cost-accounting-service",
     "equivalent-units-service",
     "fixed-cost-service",
     "lifecycle-costing-service",
     "make-or-buy-decision-service",
-    "standard-cost-service",
-    "target-costing-service",
-    "throughput-accounting-service",
     "variable-cost-service"
   ],
   "VARIANCE_BUDGET_PORTS": [
     "budget-service",
-    "capital-expenditure-budget-service",
     "cash-budget-service",
     "flexible-budget-service",
     "labour-cost-variance-service",
@@ -98,23 +90,12 @@
   ],
   "CAPITAL_RETURN_PORTS": [
     "accounting-rate-return-service",
-    "cost-of-capital-service",
     "discount-factor-service",
     "discounted-payback-period-service"
   ],
-  "INVESTOR_METRIC_PORTS": [
-    "asset-turnover-service",
-    "croic-service",
-    "du-pont-service",
-    "eps-service",
-    "eva-service"
-  ],
-  "FIXED_ASSETS_PORTS": [
-    "amortization-service",
-    "fixed-assets-service"
-  ],
+  "INVESTOR_METRIC_PORTS": [],
+  "FIXED_ASSETS_PORTS": [],
   "TAX_PORTS": [
-    "corporate-tax-service",
     "tax-calculation-service"
   ],
   "ABSORPTION_MARGIN_PORTS": [
