@@ -11,6 +11,7 @@ pub mod instruments;
 pub mod interim;
 pub mod lease_accounting;
 pub mod lease_management;
+pub mod provisions;
 pub mod revenue;
 pub mod segments;
 pub mod share_based;
@@ -52,4 +53,11 @@ pub fn lease_calculate_from_json(payload: &serde_json::Value) -> Result<serde_js
 /// `lease-management-service /payment`.
 pub fn lease_payment_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
     lease_management::process_payment(payload)
+}
+
+/// `provisions-contingencies-service /assess`.
+pub fn provisions_assess_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    provisions::assess(payload)
 }

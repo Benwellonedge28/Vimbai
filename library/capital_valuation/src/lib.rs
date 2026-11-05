@@ -12,6 +12,7 @@
 //! synergy-analysis in `corporate_events.rs`. With those the capital and
 //! valuation family is fully ported; see `queued.rs` for what remains.
 
+pub mod acquisition_financing;
 pub mod allocation;
 pub mod appraisal;
 pub mod capital_budgeting;
@@ -77,3 +78,10 @@ pub use valuation::{
     ComparableResult, DcfInputs, DcfResult, DdmResult, PrecedentInput, PrecedentOutput,
     ValuationOutput, ValuationRequest, WaccInput, WaccOutput,
 };
+
+/// `acquisition-financing-service /structure`.
+pub fn acquisition_financing_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    acquisition_financing::structure(payload)
+}

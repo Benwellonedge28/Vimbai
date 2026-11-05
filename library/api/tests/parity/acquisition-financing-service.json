@@ -1,0 +1,77 @@
+{
+  "route": "acquisition-financing-structure",
+  "endpoint": "/structure",
+  "request": {
+    "deal_id": "d-1",
+    "acquirer_id": "a-1",
+    "target_id": "t-1",
+    "deal_value": 10000000.0,
+    "acquirer_equity": 3000000.0,
+    "acquirer_debt_capacity": 4000000.0,
+    "current_leverage": 0.3,
+    "target_leverage": 0.5,
+    "interest_rate": 0.08,
+    "equity_cost": 0.12
+  },
+  "response": {
+    "deal_id": "d-1",
+    "optimal_structure": {
+      "tranches": [
+        {
+          "type": "Senior Debt",
+          "amount": 2400000.0,
+          "rate": 0.08,
+          "term": 5,
+          "percentage": 60
+        },
+        {
+          "type": "Mezzanine",
+          "amount": 1000000.0,
+          "rate": 0.11,
+          "term": 7,
+          "percentage": 25
+        },
+        {
+          "type": "Equity",
+          "amount": 6000000.0,
+          "rate": 0.12,
+          "term": 0,
+          "percentage": 15
+        }
+      ],
+      "total_debt": 4000000.0,
+      "total_equity": 6000000.0
+    },
+    "financing_options": [
+      {
+        "debt_percentage": 40,
+        "debt": 4000000.0,
+        "equity": 6000000.0,
+        "wacc": 0.096,
+        "interest_coverage": 6.25
+      },
+      {
+        "debt": 4000000.0,
+        "equity": 6000000.0,
+        "debt_percentage": 40.0,
+        "equity_percentage": 60.0,
+        "wacc": 9.6
+      },
+      {
+        "debt_percentage": 70,
+        "debt": 7000000.0,
+        "equity": 3000000.0,
+        "wacc": 0.07799999999999999,
+        "interest_coverage": 3.5714285714285716
+      }
+    ],
+    "leverage_analysis": {
+      "total_leverage": 0.4,
+      "interest_expense": 320000.0,
+      "after_tax_cost": 240000.0
+    },
+    "cost_of_capital": 9.6,
+    "recommendations": []
+  },
+  "ignore": []
+}

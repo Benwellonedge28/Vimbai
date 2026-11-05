@@ -603,6 +603,14 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "foreign-currency-translation-translate",
         (|p| foreign_currency_translate(p)) as Calculator,
     );
+    map.insert(
+        "provisions-contingencies-assess",
+        ifrs::provisions_assess_from_json,
+    );
+    map.insert(
+        "acquisition-financing-structure",
+        capital_valuation::acquisition_financing_from_json,
+    );
     map
 }
 

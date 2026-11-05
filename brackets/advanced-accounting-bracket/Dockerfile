@@ -44,7 +44,6 @@ COPY partnership-dissolution-service ./partnership-dissolution-service
 COPY partnership-revaluation-service ./partnership-revaluation-service
 COPY petty-cash-service ./petty-cash-service
 COPY preference-shares-service ./preference-shares-service
-COPY provisions-contingencies-service ./provisions-contingencies-service
 COPY retained-profits-service ./retained-profits-service
 COPY revaluation-model-service ./revaluation-model-service
 COPY revaluation-reserve-service ./revaluation-reserve-service

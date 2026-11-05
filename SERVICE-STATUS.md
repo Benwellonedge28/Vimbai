@@ -10,7 +10,7 @@ because their regression suites still run in CI.
 ## Summary
 
 ```
-live and routed          150
+live and routed          148
 retained, not routed     87
 unrouted, undecided      4
 ```
@@ -23,7 +23,6 @@ Routed by the API gateway and deployed. These are the running product.
 `absorption-costing-statement-service`
 `accounting-service`
 `accounting-standards-service`
-`acquisition-financing-service`
 `activity-based-budget-service`
 `admin-service`
 `alerts-service`
@@ -125,7 +124,6 @@ Routed by the API gateway and deployed. These are the running product.
 `project-accounting-service`
 `provision-bad-debts-service`
 `provision-doubtful-debts-service`
-`provisions-contingencies-service`
 `purchases-ledger-control-service`
 `ratio-analysis-service`
 `realtime-calculation-engine`
