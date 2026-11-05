@@ -191,7 +191,6 @@ CAPITAL_RETURN_PORTS = {
     "present-value-service",
     "mva-service",
     "sustainable-growth-service",
-    "portfolio-optimization-service",
     "capital-allocation-service",
     "investment-appraisal-service",
 }
@@ -309,6 +308,7 @@ RETIRED_PORTS = {
 }
 
 DELETED_PORTS = {
+    "portfolio-optimization-service",
     "project-appraisal-service",
     "asset-allocation-service",
     "accounting-rate-return-service",

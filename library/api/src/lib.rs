@@ -691,6 +691,10 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "project-appraisal-appraise",
         capital_valuation::project_appraisal_service_from_json,
     );
+    map.insert(
+        "portfolio-optimization-optimize",
+        capital_valuation::portfolio_optimization_service_from_json,
+    );
     map
 }
 

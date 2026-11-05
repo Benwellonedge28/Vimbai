@@ -1,0 +1,87 @@
+{
+  "route": "portfolio-optimization-optimize",
+  "endpoint": "/optimize",
+  "request": {
+    "company_id": "c-1",
+    "target_return": 0.12,
+    "risk_free_rate": 0.045,
+    "constraints": {
+      "max_weight": 0.6
+    },
+    "assets": [
+      {
+        "id": "a1",
+        "name": "Equities",
+        "market_value": 600000.0,
+        "expected_return": 0.11
+      },
+      {
+        "id": "a2",
+        "name": "Bonds",
+        "market_value": 300000.0,
+        "expected_return": 0.05
+      },
+      {
+        "id": "a3",
+        "name": "Cash",
+        "market_value": 100000.0
+      }
+    ]
+  },
+  "response": {
+    "company_id": "c-1",
+    "optimized_allocations": [
+      {
+        "asset_id": "a1",
+        "asset_name": "Equities",
+        "current_weight": 0.6,
+        "optimal_weight": 0.3333,
+        "target_allocation": 33.33,
+        "adjustment_needed": -266666.67
+      },
+      {
+        "asset_id": "a2",
+        "asset_name": "Bonds",
+        "current_weight": 0.3,
+        "optimal_weight": 0.3333,
+        "target_allocation": 33.33,
+        "adjustment_needed": 33333.33
+      },
+      {
+        "asset_id": "a3",
+        "asset_name": "Cash",
+        "current_weight": 0.1,
+        "optimal_weight": 0.3333,
+        "target_allocation": 33.33,
+        "adjustment_needed": 233333.33
+      }
+    ],
+    "expected_return": 0.0867,
+    "expected_risk": 0.15,
+    "sharpe_ratio": 0.2778,
+    "efficient_frontier": [
+      {
+        "return": 0.05,
+        "risk": 0.08
+      },
+      {
+        "return": 0.08,
+        "risk": 0.12
+      },
+      {
+        "return": 0.12,
+        "risk": 0.18
+      },
+      {
+        "return": 0.15,
+        "risk": 0.22
+      }
+    ],
+    "recommendations": [
+      "Rebalance portfolio to optimal weights",
+      "Monitor Sharpe ratio regularly",
+      "Consider risk-adjusted returns"
+    ]
+  },
+  "ignore": []
+}

@@ -222,3 +222,54 @@ pub fn project_appraisal_service_from_json(
     }
     Ok(out)
 }
+
+/// `portfolio-optimization-service /optimize`.
+///
+/// The service ignores `target_return` and `constraints`; so does this, deliberately. Assets arrive as
+/// free-form objects, with missing fields falling back the way the service's `.get(...)` calls do.
+pub fn portfolio_optimization_service_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let assets: Vec<allocation::PortfolioAsset> = payload
+        .get("assets")
+        .and_then(serde_json::Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .map(|asset| allocation::PortfolioAsset {
+                    id: asset
+                        .get("id")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    name: asset
+                        .get("name")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    market_value: asset
+                        .get("market_value")
+                        .and_then(serde_json::Value::as_f64)
+                        .unwrap_or(0.0),
+                    expected_return: asset
+                        .get("expected_return")
+                        .and_then(serde_json::Value::as_f64)
+                        .unwrap_or(0.1),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let company_id = payload
+        .get("company_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    let risk_free_rate = payload
+        .get("risk_free_rate")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    serde_json::to_value(allocation::optimize_portfolio(
+        company_id,
+        &assets,
+        risk_free_rate,
+    ))
+    .map_err(|error| format!("could not serialise: {error}"))
+}
