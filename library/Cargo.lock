@@ -1288,6 +1288,7 @@ dependencies = [
  "vimbai_ratios_statements",
  "vimbai_tax",
  "vimbai_treasury_fx",
+ "vimbai_variance",
 ]
 
 [[package]]
