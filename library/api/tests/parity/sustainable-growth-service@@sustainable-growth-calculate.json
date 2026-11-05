@@ -1,0 +1,37 @@
+{
+  "route": "sustainable-growth-calculate",
+  "endpoint": "/calculate",
+  "request": {
+    "company_id": "c-1",
+    "period": "FY2026",
+    "net_income": 800000.0,
+    "total_equity": 4000000.0,
+    "dividends_paid": 240000.0,
+    "target_debt_to_equity": 1.25,
+    "actual_debt_to_equity": 1.0
+  },
+  "response": {
+    "company_id": "c-1",
+    "period": "FY2026",
+    "growth_metrics": {
+      "return_on_equity": 0.2,
+      "dividend_payout_ratio": 0.3,
+      "retention_ratio": 0.7,
+      "internal_growth_rate": 0.14,
+      "sustainable_growth_rate": 0.315,
+      "achievable_growth_rate": 0.252
+    },
+    "growth_comparison": {
+      "internal_growth": 14.0,
+      "sustainable_growth": 31.5,
+      "achievable_growth": 25.2
+    },
+    "growth_assessment": "aggressive",
+    "recommendations": [
+      "Consider adjusting growth targets",
+      "Monitor ROE sustainability",
+      "Balance dividend policy with growth investments"
+    ]
+  },
+  "ignore": []
+}

@@ -85,3 +85,21 @@ pub fn acquisition_financing_from_json(
 ) -> Result<serde_json::Value, String> {
     acquisition_financing::structure(payload)
 }
+
+/// `mva-service /calculate`.
+pub fn mva_service_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    let input: growth::MvaInput = serde_json::from_value(payload.clone())
+        .map_err(|error| format!("invalid request: {error}"))?;
+    serde_json::to_value(growth::market_value_added(&input))
+        .map_err(|error| format!("could not serialise: {error}"))
+}
+
+/// `sustainable-growth-service /calculate`.
+pub fn sustainable_growth_service_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let input: growth::GrowthInput = serde_json::from_value(payload.clone())
+        .map_err(|error| format!("invalid request: {error}"))?;
+    serde_json::to_value(growth::sustainable_growth(&input))
+        .map_err(|error| format!("could not serialise: {error}"))
+}

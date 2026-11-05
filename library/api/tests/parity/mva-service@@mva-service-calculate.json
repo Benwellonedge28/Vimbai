@@ -1,0 +1,39 @@
+{
+  "route": "mva-service-calculate",
+  "endpoint": "/calculate",
+  "request": {
+    "company_id": "c-1",
+    "period": "FY2026",
+    "share_price": 14.0,
+    "shares_outstanding": 1000000.0,
+    "total_assets": 9000000.0,
+    "current_liabilities": 2000000.0,
+    "equity": 4000000.0,
+    "intangibles_book_value": 750000.0
+  },
+  "response": {
+    "company_id": "c-1",
+    "period": "FY2026",
+    "mva_metrics": {
+      "market_capitalization": 14000000.0,
+      "invested_capital": 7000000.0,
+      "market_value_added": 7000000.0,
+      "mva_ratio": 2.0,
+      "market_to_book_ratio": 3.5,
+      "q_ratio": 1.64
+    },
+    "shareholder_value_analysis": {
+      "value_created_for_shareholders": 7000000.0,
+      "return_on_market_value": 100.0,
+      "intangible_value_recognized": 10000000.0
+    },
+    "premium_discount": "premium",
+    "investment_signal": "buy",
+    "recommendations": [
+      "Market values company at a premium - growth expectations high",
+      "Focus on sustaining intangible value creation",
+      "Communicate value drivers to market"
+    ]
+  },
+  "ignore": []
+}

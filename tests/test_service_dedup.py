@@ -312,6 +312,9 @@ RETIRED_PORTS = {
 
 DELETED_PORTS = {
     "accounting-rate-return-service",
+    # retired through the calculation API, verified by the parity harness
+    "mva-service",
+    "sustainable-growth-service",
     "commodity-hedging-service",
     "cross-currency-swap-service",
     "currency-hedging-service",

@@ -675,6 +675,14 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "trial-balance-adjusted",
         ratios_statements::trial_balance_adjusted_from_json,
     );
+    map.insert(
+        "mva-service-calculate",
+        capital_valuation::mva_service_from_json,
+    );
+    map.insert(
+        "sustainable-growth-calculate",
+        capital_valuation::sustainable_growth_service_from_json,
+    );
     map
 }
 
