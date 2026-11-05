@@ -25,6 +25,7 @@ use serde_json::{json, Map, Value};
 
 pub mod absorption;
 mod amounts;
+pub mod appropriation_control;
 pub mod cash_flow;
 pub mod cash_optimization;
 pub mod equity_changes;
@@ -88,6 +89,11 @@ pub const INSURANCE_CLAIM: RecordKind = RecordKind::new("InsuranceClaim", "OWNS_
 /// The records equity-changes-service used to own.
 /// The records cash-optimization-service used to own.
 /// The records trading-account-service used to own.
+/// The records appropriation-control-service used to own.
+pub const APPROPRIATION: RecordKind = RecordKind::new("Appropriation", "OWNS_APPROPRIATION");
+pub const APPROPRIATION_TX: RecordKind =
+    RecordKind::new("AppropriationTransaction", "OWNS_APPROPRIATION_TX");
+
 pub const TRADING_ACCOUNT: RecordKind = RecordKind::new("TradingAccount", "OWNS_TRADING_ACCOUNT");
 
 pub const CASH_ACCOUNT: RecordKind = RecordKind::new("CashAccount", "OWNS_ACCOUNT");

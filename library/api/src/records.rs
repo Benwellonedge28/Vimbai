@@ -21,8 +21,9 @@ use axum::{
 };
 use serde_json::{json, Value};
 use store::{
-    absorption, cash_flow, cash_optimization, equity_changes, insurance_claims, job_costing,
-    trading_account, treasury_analytics, BookScope, Graph, StoreError,
+    absorption, appropriation_control, cash_flow, cash_optimization, equity_changes,
+    insurance_claims, job_costing, trading_account, treasury_analytics, BookScope, Graph,
+    StoreError,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -547,6 +548,80 @@ async fn get_trading_account(
     answer(trading_account::get(graph.as_ref(), &scope, &account_id))
 }
 
+async fn create_appropriation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(appropriation_control::create(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn company_appropriations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let department = query_param(query.as_deref(), "department").unwrap_or_default();
+    answer(appropriation_control::list(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        &department,
+    ))
+}
+
+async fn appropriation_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(appropriation_control::transact(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn appropriation_check(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(appropriation_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    // `amount` arrives as a query parameter, as the service declared it.
+    let amount = match query_param(query.as_deref(), "amount") {
+        Some(text) => serde_json::from_str::<Value>(&text).unwrap_or(Value::Null),
+        None => Value::Null,
+    };
+    answer(appropriation_control::check(
+        graph.as_ref(),
+        &scope,
+        &appropriation_id,
+        &amount,
+    ))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone()).merge(service_root_router(graph))
 }
@@ -642,6 +717,22 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/trading-account/accounts/:account_id",
             get(get_trading_account),
         )
+        .route(
+            "/records/appropriation-control/appropriations",
+            post(create_appropriation),
+        )
+        .route(
+            "/records/appropriation-control/appropriations/:company_id",
+            get(company_appropriations),
+        )
+        .route(
+            "/records/appropriation-control/transactions",
+            post(appropriation_transaction),
+        )
+        .route(
+            "/records/appropriation-control/check/:appropriation_id",
+            get(appropriation_check),
+        )
         .with_state(graph)
 }
 
@@ -715,6 +806,22 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route(
             "/trading-account/accounts/:account_id",
             get(get_trading_account),
+        )
+        .route(
+            "/appropriation-control/appropriations",
+            post(create_appropriation),
+        )
+        .route(
+            "/appropriation-control/appropriations/:company_id",
+            get(company_appropriations),
+        )
+        .route(
+            "/appropriation-control/transactions",
+            post(appropriation_transaction),
+        )
+        .route(
+            "/appropriation-control/check/:appropriation_id",
+            get(appropriation_check),
         )
         .with_state(graph)
 }

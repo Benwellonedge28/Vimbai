@@ -13,6 +13,7 @@ says which services have passed every check. 169 stateless calculators; 45 answe
 - actual-cost-service
 - amortization-service
 - annual-report-service
+- appropriation-control-service
 - asset-turnover-service
 - balanced-scorecard-service
 - budgeted-cost-service
