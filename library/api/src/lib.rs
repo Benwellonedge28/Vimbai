@@ -20,6 +20,8 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+pub mod records;
+
 pub type Calculator = fn(&Value) -> Result<Value, String>;
 
 /// The registered calculators, by the name clients call them.
@@ -576,11 +578,16 @@ pub fn router() -> Router {
     let state = AppState {
         calculators: Arc::new(calculators()),
     };
-    Router::new()
+    let calculations = Router::new()
         .route("/health", get(health))
         .route("/calculators", get(list))
         .route("/calc/:name", post(run))
-        .with_state(state)
+        .with_state(state);
+    // the endpoints that own records need a caller, so they are a separate mount
+    match records::from_env() {
+        Some(graph) => calculations.merge(records::router(graph)),
+        None => calculations,
+    }
 }
 
 async fn health(State(state): State<AppState>) -> impl IntoResponse {

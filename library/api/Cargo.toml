@@ -10,6 +10,7 @@ description = "HTTP surface for the Vimbai calculation library. Safe Rust only."
 advisory = { package = "vimbai_advisory", path = "../advisory" }
 common = { package = "vimbai_common", path = "../common" }
 cost_accounting = { package = "vimbai_cost_accounting", path = "../cost_accounting" }
+store = { package = "vimbai_store", path = "../store" }
 performance_measures = { package = "vimbai_performance_measures", path = "../performance_measures" }
 treasury_fx = { package = "vimbai_treasury_fx", path = "../treasury_fx" }
 group_accounting = { package = "vimbai_group_accounting", path = "../group_accounting" }

@@ -14,7 +14,7 @@ use vimbai_common::Money;
 use crate::amounts::{amount, stored_amount, wire};
 use crate::{BookScope, Graph, Records, StoreError, JOB, JOB_COST_ENTRY};
 
-fn company_jobs<G: Graph>(
+fn company_jobs<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     company_id: &str,
@@ -27,7 +27,7 @@ fn company_jobs<G: Graph>(
 }
 
 /// `/jobs`: open a job, stamped with the caller's Book.
-pub fn create_job<G: Graph>(
+pub fn create_job<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     payload: &Value,
@@ -57,7 +57,7 @@ pub fn create_job<G: Graph>(
 }
 
 /// `/jobs/{company_id}`: the caller's jobs for a company, optionally by status.
-pub fn jobs<G: Graph>(
+pub fn jobs<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     company_id: &str,
@@ -81,7 +81,7 @@ pub fn jobs<G: Graph>(
 ///
 /// A job that is not the caller's is a miss, so a cost can never be charged to someone else's job
 /// by guessing its id.
-pub fn add_cost<G: Graph>(
+pub fn add_cost<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     job_id: &str,
@@ -125,7 +125,7 @@ pub fn add_cost<G: Graph>(
 }
 
 /// `/jobs/{company_id}/profitability`: the company's jobs, summed exactly.
-pub fn profitability<G: Graph>(
+pub fn profitability<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     company_id: &str,

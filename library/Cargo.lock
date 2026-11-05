@@ -1833,6 +1833,7 @@ dependencies = [
  "vimbai_market_risk",
  "vimbai_performance_measures",
  "vimbai_ratios_statements",
+ "vimbai_store",
  "vimbai_tax",
  "vimbai_treasury_fx",
  "vimbai_variance",

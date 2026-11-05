@@ -20,7 +20,7 @@ fn text_matches(record: &Value, key: &str, wanted: Option<&str>) -> bool {
 }
 
 /// `/product-costs`: the caller's product costs, optionally narrowed to one product or period.
-pub fn list_product_costs<G: Graph>(
+pub fn list_product_costs<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     product_id: Option<&str>,
@@ -39,7 +39,7 @@ pub fn list_product_costs<G: Graph>(
 /// `/product-costs/{product_id}/latest`: the most recent cost recorded for a product.
 ///
 /// The store lists newest first, so the first match is the latest one.
-pub fn latest_product_cost<G: Graph>(
+pub fn latest_product_cost<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     product_id: &str,
@@ -54,7 +54,7 @@ pub fn latest_product_cost<G: Graph>(
 ///
 /// The multiplication is exact, so a long closing stock and a long unit cost do not lose digits on
 /// the way to the figure.
-pub fn stock_valuation<G: Graph>(
+pub fn stock_valuation<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     product_id: &str,
@@ -76,7 +76,7 @@ pub fn stock_valuation<G: Graph>(
 ///
 /// The payload is the calculation's own output, so the figures are recorded as they were worked
 /// out rather than recomputed here.
-pub fn record_product_cost<G: Graph>(
+pub fn record_product_cost<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     payload: &Value,

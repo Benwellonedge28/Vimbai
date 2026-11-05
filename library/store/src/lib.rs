@@ -103,12 +103,12 @@ pub trait Graph {
 }
 
 /// Book-scoped CRUD over one record kind.
-pub struct Records<'a, G: Graph> {
+pub struct Records<'a, G: Graph + ?Sized> {
     graph: &'a G,
     kind: RecordKind,
 }
 
-impl<'a, G: Graph> Records<'a, G> {
+impl<'a, G: Graph + ?Sized> Records<'a, G> {
     pub fn new(graph: &'a G, kind: RecordKind) -> Self {
         Self { graph, kind }
     }
