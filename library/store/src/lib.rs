@@ -26,6 +26,7 @@ use serde_json::{json, Map, Value};
 pub mod absorption;
 mod amounts;
 pub mod cash_flow;
+pub mod cash_optimization;
 pub mod equity_changes;
 #[cfg(test)]
 pub(crate) mod fake;
@@ -84,6 +85,11 @@ pub const INSURANCE_CLAIM: RecordKind = RecordKind::new("InsuranceClaim", "OWNS_
 /// The records treasury-analytics-service used to own.
 /// The records cash-flow-statement-service used to own.
 /// The records equity-changes-service used to own.
+/// The records cash-optimization-service used to own.
+pub const CASH_ACCOUNT: RecordKind = RecordKind::new("CashAccount", "OWNS_ACCOUNT");
+pub const CASH_SUGGESTION: RecordKind =
+    RecordKind::new("OptimizationSuggestion", "OWNS_SUGGESTION");
+
 pub const EQUITY_TRANSACTION: RecordKind = RecordKind::new("EquityTransaction", "OWNS_TRANSACTION");
 pub const EQUITY_STATEMENT: RecordKind = RecordKind::new("EquityStatement", "OWNS_STATEMENT");
 

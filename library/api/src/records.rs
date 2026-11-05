@@ -21,8 +21,8 @@ use axum::{
 };
 use serde_json::{json, Value};
 use store::{
-    absorption, cash_flow, equity_changes, insurance_claims, job_costing, treasury_analytics,
-    BookScope, Graph, StoreError,
+    absorption, cash_flow, cash_optimization, equity_changes, insurance_claims, job_costing,
+    treasury_analytics, BookScope, Graph, StoreError,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -442,6 +442,70 @@ async fn company_equity_statements(
     ))
 }
 
+async fn add_cash_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_optimization::add_account(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn company_cash_accounts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_optimization::accounts(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn run_cash_optimization(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_optimization::optimize(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn company_cash_suggestions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_optimization::suggestions(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone()).merge(service_root_router(graph))
 }
@@ -509,6 +573,22 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/equity-changes/statements/:company_id",
             get(company_equity_statements),
         )
+        .route(
+            "/records/cash-optimization/accounts",
+            post(add_cash_account),
+        )
+        .route(
+            "/records/cash-optimization/accounts/:company_id",
+            get(company_cash_accounts),
+        )
+        .route(
+            "/records/cash-optimization/optimize/:company_id",
+            post(run_cash_optimization),
+        )
+        .route(
+            "/records/cash-optimization/suggestions/:company_id",
+            get(company_cash_suggestions),
+        )
         .with_state(graph)
 }
 
@@ -563,6 +643,19 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route(
             "/equity-changes/statements/:company_id",
             get(company_equity_statements),
+        )
+        .route("/cash-optimization/accounts", post(add_cash_account))
+        .route(
+            "/cash-optimization/accounts/:company_id",
+            get(company_cash_accounts),
+        )
+        .route(
+            "/cash-optimization/optimize/:company_id",
+            post(run_cash_optimization),
+        )
+        .route(
+            "/cash-optimization/suggestions/:company_id",
+            get(company_cash_suggestions),
         )
         .with_state(graph)
 }
