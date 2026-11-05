@@ -28,11 +28,6 @@
       "dir": "sox-compliance-service"
     },
     {
-      "path": "/tax",
-      "name": "tax-service",
-      "dir": "tax-service"
-    },
-    {
       "path": "/tax-accounting",
       "name": "tax-accounting-service",
       "dir": "tax-accounting-service"

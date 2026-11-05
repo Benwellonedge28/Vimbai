@@ -651,6 +651,10 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "ratio-analysis-trend",
         ratios_statements::ratio_analysis_trend_from_json,
     );
+    map.insert("tax-calculate", tax::tax_calculate_from_json);
+    map.insert("tax-provision", tax::tax_provision_from_json);
+    map.insert("tax-transfer-pricing", tax::tax_transfer_pricing_from_json);
+    map.insert("tax-compliance", tax::tax_compliance_from_json);
     map
 }
 

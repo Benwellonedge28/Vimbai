@@ -960,14 +960,6 @@
       "strip_prefix": false
     },
     {
-      "name": "tax-service",
-      "path": "/tax",
-      "url": "http://localhost:9004",
-      "port": 8346,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "trade-finance-service",
       "path": "/trade-finance",
       "url": "http://localhost:9012",

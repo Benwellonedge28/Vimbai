@@ -21,7 +21,6 @@ COPY audit-engagement-service ./audit-engagement-service
 COPY audit-sampling-service ./audit-sampling-service
 COPY regulatory-compliance-service ./regulatory-compliance-service
 COPY sox-compliance-service ./sox-compliance-service
-COPY tax-service ./tax-service
 COPY tax-accounting-service ./tax-accounting-service
 COPY tax-compliance-service ./tax-compliance-service
 COPY tax-planning-service ./tax-planning-service

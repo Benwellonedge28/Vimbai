@@ -1,0 +1,46 @@
+{
+  "route": "tax-provision",
+  "endpoint": "/provision",
+  "request": {
+    "company_id": "c-1",
+    "interim_periods": 2,
+    "expected_annual_rate": 0.25,
+    "period_income": [
+      100000.0,
+      120000.0
+    ],
+    "permanent_differences": [
+      {
+        "amount": 40000.0
+      }
+    ],
+    "temporary_differences": [
+      {
+        "amount": 80000.0
+      }
+    ]
+  },
+  "response": {
+    "company_id": "c-1",
+    "provision_periods": [
+      {
+        "period": 1,
+        "income": 100000.0,
+        "annualized_income": 1200000.0,
+        "provision": 150000.0
+      },
+      {
+        "period": 2,
+        "income": 120000.0,
+        "annualized_income": 720000.0,
+        "provision": 90000.0
+      }
+    ],
+    "total_provision": 240000.0,
+    "deferred_tax_assets": 16800.0,
+    "deferred_tax_liabilities": 8400.0,
+    "effective_tax_rate": 25.0,
+    "reconciliation": []
+  },
+  "ignore": []
+}

@@ -1,0 +1,32 @@
+{
+  "route": "tax-transfer-pricing",
+  "endpoint": "/transfer-pricing",
+  "request": {
+    "company_id": "c-1",
+    "related_party_id": "rp-1",
+    "transaction_type": "services",
+    "transaction_amount": 1200000.0,
+    "currency": "USD",
+    "comparable_data": [
+      {
+        "price": 1000000.0
+      },
+      {
+        "price": 1050000.0
+      }
+    ]
+  },
+  "response": {
+    "company_id": "c-1",
+    "transaction_id": "TP-20261105",
+    "arm_length_amount": 1025000.0,
+    "adjustment_required": 175000.0,
+    "method_used": "Comparable Uncontrolled Price",
+    "range_low": 922500.0,
+    "range_high": 1127500.0,
+    "compliance_status": "review_required"
+  },
+  "ignore": [
+    "transaction_id"
+  ]
+}

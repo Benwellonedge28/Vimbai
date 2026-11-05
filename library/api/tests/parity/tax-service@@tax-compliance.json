@@ -1,0 +1,28 @@
+{
+  "route": "tax-compliance",
+  "endpoint": "/compliance",
+  "request": {
+    "company_id": "c-1",
+    "jurisdiction": "UK",
+    "filing_type": "CT600",
+    "period": "FY2026",
+    "amounts": {
+      "tax": 221250.0
+    }
+  },
+  "response": {
+    "company_id": "c-1",
+    "filing_id": "FILING-202611050854",
+    "status": "filed",
+    "filed_date": "2026-11-05T08:54:39.781942",
+    "amounts_confirmed": {
+      "tax": 221250.0
+    },
+    "penalties_interest": 0.0,
+    "next_filing_date": "2024-04-15"
+  },
+  "ignore": [
+    "filing_id",
+    "filed_date"
+  ]
+}

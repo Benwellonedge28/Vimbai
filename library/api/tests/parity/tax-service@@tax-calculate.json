@@ -1,0 +1,39 @@
+{
+  "route": "tax-calculate",
+  "endpoint": "/calculate",
+  "request": {
+    "company_id": "c-1",
+    "jurisdiction": "UK",
+    "tax_type": "corporation",
+    "taxable_income": 1000000.0,
+    "deductions": [
+      {
+        "amount": 50000.0
+      },
+      {
+        "amount": 25000.0
+      }
+    ],
+    "tax_credits": [
+      {
+        "amount": 10000.0
+      }
+    ],
+    "period_start": "2026-01-01",
+    "period_end": "2026-12-31"
+  },
+  "response": {
+    "company_id": "c-1",
+    "jurisdiction": "UK",
+    "tax_type": "corporation",
+    "gross_income": 1075000.0,
+    "total_deductions": 75000.0,
+    "taxable_income": 925000.0,
+    "tax_rate": 0.25,
+    "gross_tax": 231250.0,
+    "tax_credits": 10000.0,
+    "net_tax": 221250.0,
+    "effective_rate": 22.12
+  },
+  "ignore": []
+}

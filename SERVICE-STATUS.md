@@ -10,7 +10,7 @@ because their regression suites still run in CI.
 ## Summary
 
 ```
-live and routed          139
+live and routed          138
 retained, not routed     87
 unrouted, undecided      4
 ```
@@ -143,7 +143,6 @@ Routed by the API gateway and deployed. These are the running product.
 `tax-accounting-service`
 `tax-compliance-service`
 `tax-planning-service`
-`tax-service`
 `trade-finance-service`
 `trading-account-service`
 `treasury-analytics-service`

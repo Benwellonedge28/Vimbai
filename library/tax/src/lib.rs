@@ -17,6 +17,7 @@ pub mod group;
 pub mod rd_credit;
 pub mod returns;
 pub mod risk;
+pub mod service;
 pub mod statutory;
 pub mod transfer_pricing;
 
@@ -130,4 +131,26 @@ pub fn tax_return_preparation_from_json(
         ]),
     );
     Ok(value)
+}
+
+/// `tax-service /calculate`.
+pub fn tax_calculate_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    service::calculate(payload)
+}
+
+/// `tax-service /provision`.
+pub fn tax_provision_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    service::provision(payload)
+}
+
+/// `tax-service /transfer-pricing`.
+pub fn tax_transfer_pricing_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    service::transfer_pricing(payload)
+}
+
+/// `tax-service /compliance`.
+pub fn tax_compliance_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    service::compliance(payload)
 }
