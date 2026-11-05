@@ -194,7 +194,6 @@ CAPITAL_RETURN_PORTS = {
     "portfolio-optimization-service",
     "capital-allocation-service",
     "investment-appraisal-service",
-    "project-appraisal-service",
 }
 
 # Risk-adjusted returns, business valuation and merger valuation, ported into
@@ -310,6 +309,7 @@ RETIRED_PORTS = {
 }
 
 DELETED_PORTS = {
+    "project-appraisal-service",
     "asset-allocation-service",
     "accounting-rate-return-service",
     # retired through the calculation API, verified by the parity harness

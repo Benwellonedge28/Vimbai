@@ -1,0 +1,64 @@
+{
+  "route": "project-appraisal-appraise",
+  "endpoint": "/appraise",
+  "request": {
+    "company_id": "c-1",
+    "project_name": "Mill upgrade",
+    "initial_investment": 850000.0,
+    "cash_flows": [
+      220000.0,
+      260000.0,
+      310000.0,
+      300000.0,
+      180000.0
+    ],
+    "discount_rate": 0.12,
+    "salvage_value": 60000.0
+  },
+  "response": {
+    "id": "f7c518c4-ba1e-4aae-bbe4-50a15af9453a",
+    "company_id": "c-1",
+    "project_name": "Mill upgrade",
+    "npv": 101188.73,
+    "irr": 17.0,
+    "payback_period": 3.2,
+    "discounted_payback": 5.0,
+    "profitability_index": 1.119,
+    "recommendation": "Accept: NPV positive (101189), IRR (17.0%) exceeds discount rate",
+    "cash_flow_analysis": [
+      {
+        "year": 1,
+        "cash_flow": 220000.0,
+        "discounted": 196428.57,
+        "cumulative": -630000.0
+      },
+      {
+        "year": 2,
+        "cash_flow": 260000.0,
+        "discounted": 207270.41,
+        "cumulative": -370000.0
+      },
+      {
+        "year": 3,
+        "cash_flow": 310000.0,
+        "discounted": 220651.88,
+        "cumulative": -60000.0
+      },
+      {
+        "year": 4,
+        "cash_flow": 300000.0,
+        "discounted": 190655.42,
+        "cumulative": 240000.0
+      },
+      {
+        "year": 5,
+        "cash_flow": 240000.0,
+        "discounted": 136182.45,
+        "cumulative": 480000.0
+      }
+    ]
+  },
+  "ignore": [
+    "id"
+  ]
+}

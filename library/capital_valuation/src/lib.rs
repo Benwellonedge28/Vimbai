@@ -164,3 +164,61 @@ pub fn asset_allocation_service_from_json(
     }
     Ok(out)
 }
+
+/// A uuid4-shaped identifier, matching the `id` the service gives each appraisal.
+fn service_id() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let hex = format!("{nanos:032x}");
+    format!(
+        "{}-{}-4{}-a{}-{}",
+        &hex[16..24],
+        &hex[24..28],
+        &hex[8..11],
+        &hex[12..15],
+        &hex[0..8]
+    )
+}
+
+/// `project-appraisal-service /appraise`.
+pub fn project_appraisal_service_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let request = appraisal::AppraisalRequest {
+        company_id: payload
+            .get("company_id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        project_name: payload
+            .get("project_name")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        initial_investment: payload
+            .get("initial_investment")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.0),
+        cash_flows: payload
+            .get("cash_flows")
+            .and_then(serde_json::Value::as_array)
+            .map(|rows| rows.iter().map(|v| v.as_f64().unwrap_or(0.0)).collect())
+            .unwrap_or_default(),
+        discount_rate: payload
+            .get("discount_rate")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.10),
+        salvage_value: payload
+            .get("salvage_value")
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.0),
+    };
+    let mut out = serde_json::to_value(appraisal::project_appraisal(&request))
+        .map_err(|error| format!("could not serialise: {error}"))?;
+    if let Some(object) = out.as_object_mut() {
+        object.insert("id".into(), serde_json::Value::String(service_id()));
+    }
+    Ok(out)
+}
