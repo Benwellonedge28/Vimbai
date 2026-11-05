@@ -38,26 +38,27 @@
         "account_name": "Rent",
         "account_type": "expense",
         "debit": 150.0,
-        "credit": 0
+        "credit": 0.0
       },
       {
         "account_name": "Rent",
         "account_type": "expense",
         "debit": 100.0,
-        "credit": 0
+        "credit": 0.0
       },
       {
         "account_name": "Accruals",
         "account_type": "liability",
-        "debit": 50.0,
-        "credit": 0
+        "debit": 0.0,
+        "credit": 50.0
       }
     ],
-    "total_debits": 300.0,
-    "total_credits": 0,
+    "total_debits": 250.0,
+    "total_credits": 50.0,
     "is_balanced": false,
-    "difference": 300.0,
+    "difference": 200.0,
     "status": "Disagree - Check balances"
   },
-  "ignore": []
+  "ignore": [],
+  "corrected": "Expected answer follows the corrected sign rule agreed 2026-11-05: the measured balance sits on the account's natural side, and an overdraw crosses columns."
 }

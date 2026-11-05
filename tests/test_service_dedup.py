@@ -302,6 +302,7 @@ RETIRED_PORTS = {
 }
 
 DELETED_PORTS = {
+    "trial-balance-service",
     "flexible-budget-service",
     "master-budget-service",
     "zero-based-budget-service",

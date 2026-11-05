@@ -7,14 +7,17 @@
 //! minus debit. An account with an unrecognised type, or none at all - which is what an adjustment
 //! creates when it adds a new account - is treated as credit-natural.
 //!
-//! That measured balance is then placed in the debit column whenever it is positive. This is the
-//! most serious defect found in any ported calculator and it is preserved rather than corrected:
-//! a credit-natural account with a normal credit balance therefore lands in the *debit* column. A
-//! plain two-line book - cash 500 debit, payables 500 credit - reports 1000 of debits, nothing of
-//! credits, and a status of "Disagree - Check balances". Every credit-natural account with a
-//! positive balance is misclassified, so the endpoint can only agree when those accounts are
-//! overdrawn. Anything reading `status` from this service has been getting "Disagree" for correct
-//! books.
+//! The measured balance then goes into the column matching the account's natural side, so a
+//! credit-natural account with a normal credit balance lands in the credit column. An overdraw moves
+//! an account to the opposite column: a liability with more debit than credit is a debit.
+//!
+//! This corrects the service's behaviour rather than preserving it. The original placed every
+//! positive measured balance in the debit column regardless of side, so a plain two-line book -
+//! cash 500 debit, payables 500 credit - reported 1000 of debits, nothing of credits, and a status of
+//! "Disagree - Check balances". Every client reading `status` from that service was told a correct
+//! book disagreed. The corrected rule is the one Samuel chose on 2026-11-05, so the parity captures
+//! for `/generate`, `/from-ledgers` and `/adjusted` now carry the corrected answers as their
+//! expectation; the recorded requests are untouched.
 //!
 //! `classification_summary` adds the debit and credit columns together instead of netting them. A
 //! liability with a 400 credit and a 100 debit reports 500, and the section total is a sum of both
@@ -59,13 +62,16 @@ pub fn generate(payload: &Value) -> Result<Value, String> {
         let kind = text(account, "account_type", "");
         let debit = number(account, "debit_balance");
         let credit = number(account, "credit_balance");
-        let balance = if kind == "asset" || kind == "expense" {
+        let debit_natural = kind == "asset" || kind == "expense";
+        let balance = if debit_natural {
             debit - credit
         } else {
             credit - debit
         };
-        if balance >= 0.0 {
-            let dr = if balance > 0.0 { balance } else { 0.0 };
+        // Normal side takes the balance; an overdraw crosses to the other column.
+        if (balance >= 0.0) == debit_natural {
+            // An overdraw reaches here with a negative balance, so take the magnitude.
+            let dr = balance.abs();
             total_debits += dr;
             rows.push(serde_json::json!({
                 "account_name": text(account, "account_name", "Unknown"),
@@ -223,18 +229,17 @@ mod tests {
     }
 
     #[test]
-    fn a_correct_book_reports_everything_as_debit() {
-        // The defect, pinned: cash 500 debit and payables 500 credit is a balanced book, and the
-        // service calls it 1000 of debits, no credits, and a disagreement.
+    fn a_correct_book_agrees() {
+        // The defect corrected: this was 1000 of debits, no credits, and a disagreement.
         let out = generate(&accounts()).unwrap();
-        assert_eq!(out["total_debits"], json!(1000.0));
-        assert_eq!(out["total_credits"], json!(0.0));
-        assert_eq!(out["is_balanced"], json!(false));
-        assert_eq!(out["status"], json!("Disagree - Check balances"));
+        assert_eq!(out["total_debits"], json!(500.0));
+        assert_eq!(out["total_credits"], json!(500.0));
+        assert_eq!(out["is_balanced"], json!(true));
+        assert_eq!(out["status"], json!("Agree"));
     }
 
     #[test]
-    fn a_credit_balance_lands_in_the_debit_column() {
+    fn a_credit_balance_lands_in_the_credit_column() {
         let out = generate(&json!([
             {"account_name": "Cash", "account_type": "asset",
              "debit_balance": 900.0, "credit_balance": 100.0},
@@ -243,29 +248,47 @@ mod tests {
         ]))
         .unwrap();
         assert_eq!(out["trial_balance"][0]["debit"], json!(800.0));
-        assert_eq!(out["trial_balance"][1]["debit"], json!(800.0));
-        assert_eq!(out["trial_balance"][1]["credit"], json!(0.0));
+        assert_eq!(out["trial_balance"][1]["debit"], json!(0.0));
+        assert_eq!(out["trial_balance"][1]["credit"], json!(800.0));
+        assert_eq!(out["status"], json!("Agree"));
     }
 
     #[test]
-    fn only_an_overdrawn_credit_account_reaches_the_credit_column() {
+    fn an_overdrawn_credit_account_crosses_to_the_debit_column() {
         let out = generate(&json!([
             {"account_name": "Loan", "account_type": "liability",
              "debit_balance": 600.0, "credit_balance": 200.0}
         ]))
         .unwrap();
-        assert_eq!(out["trial_balance"][0]["credit"], json!(400.0));
-        assert_eq!(out["total_credits"], json!(400.0));
+        assert_eq!(out["trial_balance"][0]["debit"], json!(400.0));
+        assert_eq!(out["trial_balance"][0]["credit"], json!(0.0));
+        assert_eq!(out["total_debits"], json!(400.0));
     }
 
     #[test]
-    fn an_unknown_type_falls_back_to_credit_natural() {
+    fn an_overdrawn_debit_account_crosses_to_the_credit_column() {
         let out = generate(&json!([
-            {"account_name": "Suspense", "debit_balance": 500.0}
+            {"account_name": "Bank", "account_type": "asset",
+             "debit_balance": 100.0, "credit_balance": 450.0}
+        ]))
+        .unwrap();
+        assert_eq!(out["trial_balance"][0]["credit"], json!(350.0));
+        assert_eq!(out["total_credits"], json!(350.0));
+    }
+
+    #[test]
+    fn an_unknown_type_is_treated_as_credit_natural() {
+        let out = generate(&json!([
+            {"account_name": "Suspense", "credit_balance": 500.0}
         ]))
         .unwrap();
         assert_eq!(out["trial_balance"][0]["credit"], json!(500.0));
-        assert_eq!(out["status"], json!("Disagree - Check balances"));
+        // and with the opposite sign it reads as a debit, which is an overdraw for that side
+        let overdrawn = generate(&json!([
+            {"account_name": "Suspense", "debit_balance": 500.0}
+        ]))
+        .unwrap();
+        assert_eq!(overdrawn["trial_balance"][0]["debit"], json!(500.0));
     }
 
     #[test]
@@ -283,7 +306,7 @@ mod tests {
              "debit_balance": 100.0, "credit_balance": 400.0}
         ]))
         .unwrap();
-        // a 300 credit balance is reported as 500
+        // a 300 credit balance is still reported as 500; this defect was left alone
         assert_eq!(out["liabilities"]["total"], json!(500.0));
     }
 
@@ -293,7 +316,7 @@ mod tests {
             "pre_adjustment": [
                 {"account_name": "Rent", "account_type": "expense", "debit_balance": 100.0},
                 {"account_name": "Rent", "account_type": "expense", "debit_balance": 100.0},
-                {"account_name": "Accruals", "account_type": "liability", "credit_balance": 0.0}
+                {"account_name": "Accruals", "account_type": "liability", "credit_balance": 50.0}
             ],
             "adjustments": [
                 {"account_name": "Rent", "debit": 50.0, "credit": 0.0},
@@ -303,18 +326,36 @@ mod tests {
         .unwrap();
         assert_eq!(out["trial_balance"][0]["debit"], json!(150.0));
         assert_eq!(out["trial_balance"][1]["debit"], json!(100.0));
-        // debits 300 against no credits, for the reason given above
-        assert_eq!(out["is_balanced"], json!(false));
+        assert_eq!(out["total_debits"], json!(250.0));
+        assert_eq!(out["total_credits"], json!(100.0));
     }
 
     #[test]
-    fn a_new_account_from_an_adjustment_has_no_type_so_lands_in_credit() {
+    fn a_new_account_from_an_adjustment_has_no_type_and_reads_as_a_debit() {
         let out = adjusted(&json!({
             "pre_adjustment": [],
             "adjustments": [{"account_name": "New expense", "debit": 75.0}]
         }))
         .unwrap();
         assert_eq!(out["trial_balance"][0]["account_type"], json!(""));
-        assert_eq!(out["trial_balance"][0]["credit"], json!(75.0));
+        assert_eq!(out["trial_balance"][0]["debit"], json!(75.0));
+    }
+
+    #[test]
+    fn a_balanced_book_agrees_through_the_adjusted_endpoint() {
+        let out = adjusted(&json!({
+            "pre_adjustment": [
+                {"account_name": "Cash", "account_type": "asset", "debit_balance": 400.0},
+                {"account_name": "Payables", "account_type": "liability", "credit_balance": 400.0}
+            ],
+            "adjustments": [
+                {"account_name": "Cash", "debit": 100.0, "credit": 0.0},
+                {"account_name": "Payables", "debit": 0.0, "credit": 100.0}
+            ]
+        }))
+        .unwrap();
+        assert_eq!(out["total_debits"], json!(500.0));
+        assert_eq!(out["total_credits"], json!(500.0));
+        assert_eq!(out["status"], json!("Agree"));
     }
 }
