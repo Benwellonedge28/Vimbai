@@ -8,11 +8,6 @@
       "dir": "corporate-governance-service"
     },
     {
-      "path": "/operational-risk",
-      "name": "operational-risk-service",
-      "dir": "operational-risk-service"
-    },
-    {
       "path": "/risk-assessment",
       "name": "risk-assessment-service",
       "dir": "risk-assessment-service"

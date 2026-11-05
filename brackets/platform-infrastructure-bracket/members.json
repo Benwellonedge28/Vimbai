@@ -33,11 +33,6 @@
       "dir": "graphql-service"
     },
     {
-      "path": "/management-dashboard",
-      "name": "management-dashboard-service",
-      "dir": "management-dashboard-service"
-    },
-    {
       "path": "/mfa-auth",
       "name": "mfa-auth-service",
       "dir": "mfa-auth-service"

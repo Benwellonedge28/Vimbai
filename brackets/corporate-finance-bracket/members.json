@@ -38,11 +38,6 @@
       "dir": "due-diligence-service"
     },
     {
-      "path": "/financial-planning",
-      "name": "financial-planning-service",
-      "dir": "financial-planning-service"
-    },
-    {
       "path": "/foreign-exchange",
       "name": "foreign-exchange-service",
       "dir": "foreign-exchange-service"

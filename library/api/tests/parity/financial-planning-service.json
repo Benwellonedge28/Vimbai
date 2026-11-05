@@ -1,0 +1,80 @@
+{
+  "endpoint": "/plan",
+  "request": {
+    "company_id": "c-1",
+    "fiscal_year": "2026",
+    "historical_data": {
+      "revenue": 10000000.0
+    },
+    "growth_assumptions": {
+      "revenue_growth": 0.12
+    },
+    "strategic_initiatives": []
+  },
+  "response": {
+    "company_id": "c-1",
+    "fiscal_year": "2026",
+    "financial_plan": {
+      "company_id": "c-1",
+      "planning_period": "2026",
+      "revenue_projections": [
+        11200000.0,
+        12544000.0,
+        14049280.0,
+        15735193.6,
+        17623416.83
+      ],
+      "cost_projections": [
+        7840000.0,
+        8780800.0,
+        9834496.0,
+        11014635.52,
+        12336391.78
+      ],
+      "capital_expenditure_plan": [
+        1120000.0,
+        1254400.0,
+        1404928.0,
+        1573519.36,
+        1762341.68
+      ],
+      "working_capital_requirements": [
+        1680000.0,
+        1881600.0,
+        2107392.0,
+        2360279.04,
+        2643512.52
+      ],
+      "financing_plan": {
+        "debt_ratio": 0.4,
+        "equity_ratio": 0.6
+      }
+    },
+    "key_assumptions": {
+      "revenue_growth": 0.12
+    },
+    "sensitivity_analysis": {
+      "revenue_growth": [
+        10080000.000000002,
+        11289600.000000002,
+        12644352.000000004,
+        14161674.240000006,
+        15861075.148800006
+      ],
+      "cost_increase": [
+        8232000.000000001,
+        9219840.0,
+        10326220.800000003,
+        11565367.296000004,
+        12953211.371520003
+      ]
+    },
+    "recommendations": [
+      "Monitor revenue growth assumptions quarterly",
+      "Review cost structure annually",
+      "Maintain capital reserve for contingencies"
+    ]
+  },
+  "route": "financial-planning-plan",
+  "ignore": []
+}

@@ -470,14 +470,6 @@
       "strip_prefix": false
     },
     {
-      "name": "financial-planning-service",
-      "path": "/financial-planning",
-      "url": "http://localhost:9012",
-      "port": 8231,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "financial-state-machine-service",
       "path": "/financial-state-machine",
       "url": "http://localhost:9013",
@@ -645,22 +637,6 @@
       "strip_prefix": false
     },
     {
-      "name": "management-accounts-service",
-      "path": "/management-accounts",
-      "url": "http://localhost:9011",
-      "port": 8281,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "management-dashboard-service",
-      "path": "/management-dashboard",
-      "url": "http://localhost:9013",
-      "port": 8271,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "message-bus-service",
       "path": "/message-bus",
       "url": "http://localhost:8097",
@@ -704,14 +680,6 @@
       "url": "http://localhost:8085",
       "port": 8085,
       "auth_required": true
-    },
-    {
-      "name": "operational-risk-service",
-      "path": "/operational-risk",
-      "url": "http://localhost:9005",
-      "port": 8166,
-      "auth_required": true,
-      "strip_prefix": false
     },
     {
       "name": "ordinary-shares-service",

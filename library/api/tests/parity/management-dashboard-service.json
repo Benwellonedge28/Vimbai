@@ -1,0 +1,99 @@
+{
+  "endpoint": "/generate",
+  "request": {
+    "company_id": "c-1",
+    "period_end": "2026-03-31",
+    "metrics": [
+      {
+        "metric_name": "Revenue",
+        "current_value": 150000.0,
+        "target_value": 120000.0,
+        "trend": "up",
+        "kpi_category": "financial"
+      },
+      {
+        "metric_name": "Cost",
+        "current_value": 94000.0,
+        "target_value": 100000.0,
+        "trend": "down",
+        "kpi_category": "financial"
+      },
+      {
+        "metric_name": "Churn",
+        "current_value": 40.0,
+        "target_value": 50.0,
+        "trend": "up",
+        "kpi_category": "customer"
+      },
+      {
+        "metric_name": "Tickets",
+        "current_value": 70.0,
+        "target_value": 100.0,
+        "trend": "flat",
+        "kpi_category": "operations"
+      }
+    ]
+  },
+  "response": {
+    "company_id": "c-1",
+    "dashboard_date": "2026-11-05T08:09:56.829241",
+    "kpi_summary": {
+      "total_metrics": 4,
+      "on_target": 1,
+      "above_target": 1,
+      "below_target": 2,
+      "health_score": 50.0
+    },
+    "metric_analysis": [
+      {
+        "metric": "Revenue",
+        "current": 150000.0,
+        "target": 120000.0,
+        "variance": 30000.0,
+        "pct_of_target": 125.0,
+        "trend": "up",
+        "status": "Above Target"
+      },
+      {
+        "metric": "Cost",
+        "current": 94000.0,
+        "target": 100000.0,
+        "variance": -6000.0,
+        "pct_of_target": 94.0,
+        "trend": "down",
+        "status": "On Target"
+      },
+      {
+        "metric": "Churn",
+        "current": 40.0,
+        "target": 50.0,
+        "variance": -10.0,
+        "pct_of_target": 80.0,
+        "trend": "up",
+        "status": "Below Target"
+      },
+      {
+        "metric": "Tickets",
+        "current": 70.0,
+        "target": 100.0,
+        "variance": -30.0,
+        "pct_of_target": 70.0,
+        "trend": "flat",
+        "status": "Below Target"
+      }
+    ],
+    "alerts": [
+      "Churn is 20.0% below target",
+      "Tickets is 30.0% below target"
+    ],
+    "top_performers": [
+      "Revenue",
+      "Cost",
+      "Churn"
+    ]
+  },
+  "route": "management-dashboard-generate",
+  "ignore": [
+    "dashboard_date"
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "endpoint": "/assess",
+  "request": {
+    "company_id": "c-1",
+    "reporting_date": "2026-03-31",
+    "loss_events": [
+      {
+        "event_id": "e1",
+        "event_type": "fraud",
+        "loss_amount": 12000.0,
+        "event_date": "2026-01-10",
+        "business_line": "retail"
+      },
+      {
+        "event_id": "e2",
+        "event_type": "outage",
+        "loss_amount": 4500.0,
+        "event_date": "2026-02-02",
+        "business_line": "payments"
+      }
+    ],
+    "kris": [
+      {
+        "indicator_id": "k1",
+        "indicator_name": "Failed trades",
+        "current_value": 3.0,
+        "threshold_green": 5.0,
+        "threshold_amber": 10.0,
+        "threshold_red": 20.0
+      },
+      {
+        "indicator_id": "k2",
+        "indicator_name": "Downtime",
+        "current_value": 12.0,
+        "threshold_green": 5.0,
+        "threshold_amber": 10.0,
+        "threshold_red": 20.0
+      }
+    ],
+    "business_line_revenues": {
+      "retail": 100000.0,
+      "payments": 40000.0
+    }
+  },
+  "response": {
+    "company_id": "c-1",
+    "total_losses": 16500.0,
+    "average_loss": 8250.0,
+    "max_loss": 12000.0,
+    "loss_count": 2,
+    "var_99_9": 30000.0,
+    "regulatory_capital": 375000.0,
+    "kri_status": {
+      "Failed trades": "GREEN",
+      "Downtime": "RED"
+    },
+    "risk_rating": "MEDIUM"
+  },
+  "route": "operational-risk-assess",
+  "ignore": []
+}

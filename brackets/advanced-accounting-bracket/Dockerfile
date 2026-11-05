@@ -37,7 +37,6 @@ COPY intangible-assets-service ./intangible-assets-service
 COPY intercompany-service ./intercompany-service
 COPY lease-management-service ./lease-management-service
 COPY lease-termination-service ./lease-termination-service
-COPY management-accounts-service ./management-accounts-service
 COPY ordinary-shares-service ./ordinary-shares-service
 COPY overhead-absorption-rate-service ./overhead-absorption-rate-service
 COPY partnership-agreement-service ./partnership-agreement-service

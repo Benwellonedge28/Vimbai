@@ -12,6 +12,7 @@ pub mod credit;
 pub mod distress;
 pub mod fraud;
 pub use vimbai_common::normal;
+pub mod operational;
 pub mod options;
 pub mod regulatory;
 pub mod var;
@@ -32,3 +33,10 @@ pub use vimbai_common::numbers::{money, python_float, round_dp};
 
 #[cfg(test)]
 mod tests;
+
+/// `operational-risk-service /assess`.
+pub fn operational_risk_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    operational::assess(payload)
+}

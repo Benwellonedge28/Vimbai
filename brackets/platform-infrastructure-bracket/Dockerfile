@@ -22,7 +22,6 @@ COPY encrypted-backup-service ./encrypted-backup-service
 COPY etl-service ./etl-service
 COPY financial-state-machine-service ./financial-state-machine-service
 COPY graphql-service ./graphql-service
-COPY management-dashboard-service ./management-dashboard-service
 COPY mfa-auth-service ./mfa-auth-service
 COPY realtime-calculation-engine ./realtime-calculation-engine
 COPY websocket-service ./websocket-service

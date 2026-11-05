@@ -108,11 +108,6 @@
       "dir": "lease-termination-service"
     },
     {
-      "path": "/management-accounts",
-      "name": "management-accounts-service",
-      "dir": "management-accounts-service"
-    },
-    {
       "path": "/ordinary-shares",
       "name": "ordinary-shares-service",
       "dir": "ordinary-shares-service"

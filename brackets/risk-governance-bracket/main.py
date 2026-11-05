@@ -1,6 +1,6 @@
 """
 Vimbai Risk & Governance Bracket Service
-One container hosting 3 merged microservices. Each member service's
+One container hosting 2 merged microservices. Each member service's
 FastAPI app is mounted at its original gateway path prefix, so every
 external URL is unchanged.
 
@@ -19,16 +19,12 @@ SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "9005"))
 
 # (gateway path prefix, service directory) pairs
-MEMBERS = [
-    ["corporate-governance", "corporate-governance-service"],
-    ["operational-risk", "operational-risk-service"],
-    ["risk-assessment", "risk-assessment-service"],
-]
+MEMBERS = [["corporate-governance", "corporate-governance-service"], ["risk-assessment", "risk-assessment-service"]]
 
 app = FastAPI(
     title="Vimbai Risk & Governance Bracket Service",
     version=SERVICE_VERSION,
-    description="Bracket container for 3 Vimbai microservices.",
+    description="Bracket container for 2 Vimbai microservices.",
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))

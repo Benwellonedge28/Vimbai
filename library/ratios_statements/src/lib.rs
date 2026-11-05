@@ -15,6 +15,7 @@ pub mod interim_reporting;
 pub mod investor_metrics;
 pub mod ledger_controls;
 pub mod management_accounts;
+pub mod management_pack;
 pub mod profit_loss;
 pub mod ratios;
 pub mod segment_reporting;
@@ -59,3 +60,52 @@ pub use working_capital::{
     FactoringInput, FactoringResult, WcAnalysis, WcError, WcFinanceInput, WcFinanceResult,
     WcOptimization, WcOptimizeInput,
 };
+
+/// `management-accounts-service /prepare`, from the wire payload.
+///
+/// The service took its line items as maps; the calculator takes ordered pairs, so the caller's
+/// order is preserved and the figures come out in the same sequence.
+pub fn management_accounts_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    fn items(payload: &serde_json::Value, key: &str) -> management_accounts::Items {
+        payload
+            .get(key)
+            .and_then(|v| v.as_object())
+            .map(|map| {
+                map.iter()
+                    .map(|(k, v)| (k.clone(), v.as_f64().unwrap_or(0.0)))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+    let text = |key: &str| {
+        payload
+            .get(key)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    let accounts = management_accounts::prepare_management_accounts(
+        &text("company_id"),
+        &text("period"),
+        &items(payload, "revenue_items"),
+        &items(payload, "cost_items"),
+        &items(payload, "balance_sheet_items"),
+    );
+    serde_json::to_value(accounts).map_err(|err| err.to_string())
+}
+
+/// `management-dashboard-service /generate`.
+pub fn management_dashboard_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    management_pack::generate_dashboard(payload)
+}
+
+/// `financial-planning-service /plan`.
+pub fn financial_planning_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    management_pack::create_financial_plan(payload)
+}
