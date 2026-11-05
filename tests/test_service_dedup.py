@@ -299,6 +299,51 @@ ABSORPTION_MARGIN_PORTS = {
     "margin-safety-service",
 }
 
+# The owner asked for the Python source of these curved-away calculators to be deleted once
+# the Rust implementation was proven, rather than kept as a parity oracle. Their maths is
+# covered by the Rust crates' own tests, with the figures captured from the services before
+# deletion, so their absence is the expected state and the check below enforces it.
+DELETED_PORTS = {
+    "activity-based-costing-service",
+    "actual-cost-service",
+    "amortization-service",
+    "asset-turnover-service",
+    "balanced-scorecard-service",
+    "budgeted-cost-service",
+    "capital-expenditure-budget-service",
+    "consolidation-service",
+    "corporate-tax-service",
+    "cost-accounting-service",
+    "cost-of-capital-service",
+    "croic-service",
+    "divestiture-service",
+    "du-pont-service",
+    "eps-service",
+    "eva-service",
+    "financial-distress-prediction-service",
+    "fixed-assets-service",
+    "fraud-risk-assessment-service",
+    "goodwill-service",
+    "government-grants-service",
+    "group-tax-service",
+    "internal-control-evaluation-service",
+    "inventory-valuation-service",
+    "net-realizable-value-service",
+    "options-pricing-service",
+    "partnership-accounting-service",
+    "partnership-sale-service",
+    "payment-optimization-service",
+    "pension-accounting-service",
+    "regulatory-ratio-service",
+    "standard-cost-service",
+    "substantive-testing-service",
+    "target-costing-service",
+    "tax-provision-service",
+    "tax-risk-service",
+    "throughput-accounting-service",
+    "vat-reporting-service",
+}
+
 ALL_DEREGISTERED = (
     RISK_DUPLICATES
     | PLATFORM_TEMPLATE_DUPLICATES
@@ -362,6 +407,9 @@ def test_duplicate_source_is_accounted_for(dup):
         marker = "ledger_core::analytics" if dup in LEDGER_ANALYTICS_PORTS else "vimbai_advisory"
         assert marker in open(os.path.join(_ROOT, "docs", "SERVICE-CONSOLIDATION.md")).read()
         return
+    if dup in DELETED_PORTS:
+        assert not os.path.exists(source), f"{dup} has a Rust replacement and must be gone"
+        return
     assert os.path.isdir(source)
     assert os.path.isfile(os.path.join(source, "main.py"))
 
@@ -384,8 +432,12 @@ def test_ported_calculator_keeps_its_reference_implementation(ported):
     "ported", sorted(COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS | ABSORPTION_MARGIN_PORTS | SCENARIO_BUDGET_PORTS)
 )
 def test_cost_calculator_keeps_its_ci_coverage(ported):
-    # the Python reference maths stays tested even though it is not deployed
+    # A ported calculator whose Python source is gone must not appear in any CI list; one
+    # that still keeps its source stays tested even though it is not deployed.
     ci = open(os.path.join(_ROOT, ".github", "workflows", "test-core.yml")).read()
+    if ported in DELETED_PORTS:
+        assert ported not in ci, f"{ported} has no source left to test"
+        return
     assert ported in ci, f"{ported} reference tests must stay wired into CI"
 
 

@@ -58,11 +58,6 @@
       "dir": "net-present-value-service"
     },
     {
-      "path": "/options-pricing",
-      "name": "options-pricing-service",
-      "dir": "options-pricing-service"
-    },
-    {
       "path": "/payback-period",
       "name": "payback-period-service",
       "dir": "payback-period-service"

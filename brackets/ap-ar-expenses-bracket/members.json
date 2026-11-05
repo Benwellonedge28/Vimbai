@@ -11,11 +11,6 @@
       "path": "/expense-tracking",
       "name": "expense-tracking-service",
       "dir": "expense-tracking-service"
-    },
-    {
-      "path": "/pension-accounting",
-      "name": "pension-accounting-service",
-      "dir": "pension-accounting-service"
     }
   ]
 }

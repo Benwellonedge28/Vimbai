@@ -27,7 +27,6 @@ COPY reporting-service ./reporting-service
 COPY sales-ledger-control-service ./sales-ledger-control-service
 COPY treasury-reporting-service ./treasury-reporting-service
 COPY trial-balance-service ./trial-balance-service
-COPY vat-reporting-service ./vat-reporting-service
 COPY xbrl-reporting-service ./xbrl-reporting-service
 
 USER vimbai

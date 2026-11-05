@@ -1,6 +1,6 @@
 """
 Vimbai Advanced Accounting Bracket Service
-One container hosting 48 merged microservices. Each member service's
+One container hosting 41 merged microservices. Each member service's
 FastAPI app is mounted at its original gateway path prefix, so every
 external URL is unchanged.
 
@@ -25,7 +25,6 @@ MEMBERS = [
     ["bonus-shares", "bonus-shares-service"],
     ["cashbook", "cashbook-service"],
     ["company-accounting", "company-accounting-service"],
-    ["consolidation", "consolidation-service"],
     ["continue-shutdown-decision", "continue-shutdown-decision-service"],
     ["control-account-reconciliation", "control-account-reconciliation-service"],
     ["departmental-accounting", "departmental-accounting-service"],
@@ -38,22 +37,17 @@ MEMBERS = [
     ["fund-accounting", "fund-accounting-service"],
     ["general-reserve", "general-reserve-service"],
     ["going-concern", "going-concern-service"],
-    ["goodwill", "goodwill-service"],
-    ["government-grants", "government-grants-service"],
     ["intangible-assets", "intangible-assets-service"],
     ["intercompany", "intercompany-service"],
     ["lease-management", "lease-management-service"],
     ["lease-termination", "lease-termination-service"],
     ["management-accounts", "management-accounts-service"],
-    ["net-realizable-value", "net-realizable-value-service"],
     ["ordinary-shares", "ordinary-shares-service"],
     ["overhead-absorption-rate", "overhead-absorption-rate-service"],
-    ["partnership-accounting", "partnership-accounting-service"],
     ["partnership-agreement", "partnership-agreement-service"],
     ["partnership-changes", "partnership-changes-service"],
     ["partnership-dissolution", "partnership-dissolution-service"],
     ["partnership-revaluation", "partnership-revaluation-service"],
-    ["partnership-sale", "partnership-sale-service"],
     ["petty-cash", "petty-cash-service"],
     ["preference-shares", "preference-shares-service"],
     ["profit", "profit-service"],
@@ -66,14 +60,13 @@ MEMBERS = [
     ["share-premium", "share-premium-service"],
     ["share-redemption", "share-redemption-service"],
     ["statutory-filing", "statutory-filing-service"],
-    ["substantive-testing", "substantive-testing-service"],
     ["trading-account", "trading-account-service"],
 ]
 
 app = FastAPI(
     title="Vimbai Advanced Accounting Bracket Service",
     version=SERVICE_VERSION,
-    description="Bracket container for 48 Vimbai microservices.",
+    description="Bracket container for 41 Vimbai microservices.",
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))

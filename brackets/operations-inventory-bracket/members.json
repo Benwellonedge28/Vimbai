@@ -18,11 +18,6 @@
       "dir": "fixed-assets-register-service"
     },
     {
-      "path": "/inventory-valuation",
-      "name": "inventory-valuation-service",
-      "dir": "inventory-valuation-service"
-    },
-    {
       "path": "/project-accounting",
       "name": "project-accounting-service",
       "dir": "project-accounting-service"

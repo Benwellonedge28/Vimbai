@@ -1,6 +1,6 @@
 """
 Vimbai AP/AR, Payroll & Expenses Bracket Service
-One container hosting 3 merged microservices. Each member service's
+One container hosting 2 merged microservices. Each member service's
 FastAPI app is mounted at its original gateway path prefix, so every
 external URL is unchanged.
 
@@ -19,16 +19,12 @@ SERVICE_VERSION = "1.0.0"
 PORT = int(os.getenv("PORT", "9006"))
 
 # (gateway path prefix, service directory) pairs
-MEMBERS = [
-    ["benefits-admin", "benefits-admin-service"],
-    ["expense-tracking", "expense-tracking-service"],
-    ["pension-accounting", "pension-accounting-service"],
-]
+MEMBERS = [["benefits-admin", "benefits-admin-service"], ["expense-tracking", "expense-tracking-service"]]
 
 app = FastAPI(
     title="Vimbai AP/AR, Payroll & Expenses Bracket Service",
     version=SERVICE_VERSION,
-    description="Bracket container for 3 Vimbai microservices.",
+    description="Bracket container for 2 Vimbai microservices.",
 )
 
 _HERE = os.path.dirname(os.path.abspath(__file__))

@@ -23,16 +23,6 @@
       "dir": "audit-sampling-service"
     },
     {
-      "path": "/group-tax",
-      "name": "group-tax-service",
-      "dir": "group-tax-service"
-    },
-    {
-      "path": "/r-and-d-tax",
-      "name": "r-and-d-tax-service",
-      "dir": "r-and-d-tax-service"
-    },
-    {
       "path": "/regulatory-compliance",
       "name": "regulatory-compliance-service",
       "dir": "regulatory-compliance-service"
@@ -63,19 +53,9 @@
       "dir": "tax-planning-service"
     },
     {
-      "path": "/tax-provision",
-      "name": "tax-provision-service",
-      "dir": "tax-provision-service"
-    },
-    {
       "path": "/tax-return-preparation",
       "name": "tax-return-preparation-service",
       "dir": "tax-return-preparation-service"
-    },
-    {
-      "path": "/tax-risk",
-      "name": "tax-risk-service",
-      "dir": "tax-risk-service"
     }
   ]
 }

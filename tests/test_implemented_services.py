@@ -16,6 +16,12 @@ sys.path.insert(0, REPO_ROOT)
 
 
 def load_service_app(service_dir):
+    from tests.conftest import service_missing
+
+    if service_missing(service_dir):
+        import pytest
+
+        pytest.skip(f"{service_dir} has been deleted; its maths lives in the Rust library")
     """Dynamically load a service's FastAPI app from a hyphenated directory name."""
     main_path = os.path.join(REPO_ROOT, service_dir, "main.py")
     spec = importlib.util.spec_from_file_location(f"{service_dir}.main", main_path)

@@ -23,11 +23,6 @@
       "dir": "appropriation-control-service"
     },
     {
-      "path": "/balanced-scorecard",
-      "name": "balanced-scorecard-service",
-      "dir": "balanced-scorecard-service"
-    },
-    {
       "path": "/job-costing",
       "name": "job-costing-service",
       "dir": "job-costing-service"

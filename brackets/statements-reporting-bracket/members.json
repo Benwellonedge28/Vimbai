@@ -58,11 +58,6 @@
       "dir": "trial-balance-service"
     },
     {
-      "path": "/vat-reporting",
-      "name": "vat-reporting-service",
-      "dir": "vat-reporting-service"
-    },
-    {
       "path": "/xbrl-reporting",
       "name": "xbrl-reporting-service",
       "dir": "xbrl-reporting-service"

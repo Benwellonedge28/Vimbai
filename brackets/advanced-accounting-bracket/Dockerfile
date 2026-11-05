@@ -21,7 +21,6 @@ COPY basis-apportionment-service ./basis-apportionment-service
 COPY bonus-shares-service ./bonus-shares-service
 COPY cashbook-service ./cashbook-service
 COPY company-accounting-service ./company-accounting-service
-COPY consolidation-service ./consolidation-service
 COPY continue-shutdown-decision-service ./continue-shutdown-decision-service
 COPY control-account-reconciliation-service ./control-account-reconciliation-service
 COPY departmental-accounting-service ./departmental-accounting-service
@@ -34,22 +33,17 @@ COPY financial-integrity-service ./financial-integrity-service
 COPY fund-accounting-service ./fund-accounting-service
 COPY general-reserve-service ./general-reserve-service
 COPY going-concern-service ./going-concern-service
-COPY goodwill-service ./goodwill-service
-COPY government-grants-service ./government-grants-service
 COPY intangible-assets-service ./intangible-assets-service
 COPY intercompany-service ./intercompany-service
 COPY lease-management-service ./lease-management-service
 COPY lease-termination-service ./lease-termination-service
 COPY management-accounts-service ./management-accounts-service
-COPY net-realizable-value-service ./net-realizable-value-service
 COPY ordinary-shares-service ./ordinary-shares-service
 COPY overhead-absorption-rate-service ./overhead-absorption-rate-service
-COPY partnership-accounting-service ./partnership-accounting-service
 COPY partnership-agreement-service ./partnership-agreement-service
 COPY partnership-changes-service ./partnership-changes-service
 COPY partnership-dissolution-service ./partnership-dissolution-service
 COPY partnership-revaluation-service ./partnership-revaluation-service
-COPY partnership-sale-service ./partnership-sale-service
 COPY petty-cash-service ./petty-cash-service
 COPY preference-shares-service ./preference-shares-service
 COPY profit-service ./profit-service
@@ -62,7 +56,6 @@ COPY right-issues-service ./right-issues-service
 COPY share-premium-service ./share-premium-service
 COPY share-redemption-service ./share-redemption-service
 COPY statutory-filing-service ./statutory-filing-service
-COPY substantive-testing-service ./substantive-testing-service
 COPY trading-account-service ./trading-account-service
 
 USER vimbai

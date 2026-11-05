@@ -11,8 +11,8 @@ because their regression suites still run in CI.
 
 ```
 live and routed          159
-retained, not routed     127
-unrouted, undecided      28
+retained, not routed     109
+unrouted, undecided      8
 ```
 
 ## Live services
@@ -207,12 +207,11 @@ Routed by the API gateway and deployed. These are the running product.
 
 ### capital return calculator -> `capital_valuation`
 
-13 services. Source kept as the Rust parity reference and CI oracle.
+12 services. Source kept as the Rust parity reference and CI oracle.
 
 `accounting-rate-return-service`
 `asset-allocation-service`
 `capital-allocation-service`
-`cost-of-capital-service`
 `discount-factor-service`
 `discounted-payback-period-service`
 `investment-appraisal-service`
@@ -225,21 +224,16 @@ Routed by the API gateway and deployed. These are the running product.
 
 ### corporate event calculator -> `capital_valuation`
 
-4 services. Source kept as the Rust parity reference and CI oracle.
+3 services. Source kept as the Rust parity reference and CI oracle.
 
 `deal-structuring-service`
-`divestiture-service`
 `post-merger-service`
 `synergy-analysis-service`
 
 ### cost accounting calculator -> `cost_accounting`
 
-19 services. Source kept as the Rust parity reference and CI oracle.
+12 services. Source kept as the Rust parity reference and CI oracle.
 
-`activity-based-costing-service`
-`actual-cost-service`
-`budgeted-cost-service`
-`cost-accounting-service`
 `cost-centre-service`
 `equivalent-units-service`
 `fixed-cost-service`
@@ -250,9 +244,6 @@ Routed by the API gateway and deployed. These are the running product.
 `order-acceptance-service`
 `overhead-apportionment-service`
 `prime-cost-service`
-`standard-cost-service`
-`target-costing-service`
-`throughput-accounting-service`
 `total-production-cost-service`
 `variable-cost-service`
 
@@ -266,11 +257,9 @@ Routed by the API gateway and deployed. These are the running product.
 
 ### fixed asset calculator -> `ratios_statements`
 
-3 services. Source kept as the Rust parity reference and CI oracle.
+1 services. Source kept as the Rust parity reference and CI oracle.
 
-`amortization-service`
 `depreciation-service`
-`fixed-assets-service`
 
 ### hedging, FX and reporting calculator -> `reporting`
 
@@ -308,21 +297,6 @@ Routed by the API gateway and deployed. These are the running product.
 `working-capital-finance-service`
 `working-capital-optimization-service`
 `working-capital-service`
-
-### investor metric calculator -> `capital_valuation`
-
-1 services. Source kept as the Rust parity reference and CI oracle.
-
-`du-pont-service`
-
-### investor metric calculator -> `ratios_statements`
-
-4 services. Source kept as the Rust parity reference and CI oracle.
-
-`asset-turnover-service`
-`croic-service`
-`eps-service`
-`eva-service`
 
 ### platform template duplicate
 
@@ -376,9 +350,8 @@ Routed by the API gateway and deployed. These are the running product.
 
 ### tax calculator -> `tax`
 
-2 services. Source kept as the Rust parity reference and CI oracle.
+1 services. Source kept as the Rust parity reference and CI oracle.
 
-`corporate-tax-service`
 `tax-calculation-service`
 
 ### treasury calculator -> `treasury_fx`
@@ -390,9 +363,8 @@ Routed by the API gateway and deployed. These are the running product.
 
 ### variance / budget calculator -> `budgeting`
 
-5 services. Source kept as the Rust parity reference and CI oracle.
+4 services. Source kept as the Rust parity reference and CI oracle.
 
-`capital-expenditure-budget-service`
 `cash-budget-service`
 `flexible-budget-service`
 `master-budget-service`
@@ -418,31 +390,11 @@ Routed by the API gateway and deployed. These are the running product.
 Not in the gateway and not part of any retirement family. Each needs a
 decision: register it, retire it, or deduplicate it.
 
-`balanced-scorecard-service`
-`consolidation-service`
 `credit-risk-analysis-service`
 `finance-service`
-`financial-distress-prediction-service`
 `fraud-detection-service`
-`fraud-risk-assessment-service`
-`goodwill-service`
-`government-grants-service`
-`group-tax-service`
 `identity-service`
-`internal-control-evaluation-service`
 `internal-controls-testing-service`
-`inventory-valuation-service`
 `market-risk-service`
-`net-realizable-value-service`
-`options-pricing-service`
-`partnership-accounting-service`
-`partnership-sale-service`
-`payment-optimization-service`
-`pension-accounting-service`
 `r-and-d-tax-service`
-`regulatory-ratio-service`
-`substantive-testing-service`
 `supply-chain-service`
-`tax-provision-service`
-`tax-risk-service`
-`vat-reporting-service`

@@ -18,7 +18,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY brackets/ap-ar-expenses-bracket/main.py ./main.py
 COPY benefits-admin-service ./benefits-admin-service
 COPY expense-tracking-service ./expense-tracking-service
-COPY pension-accounting-service ./pension-accounting-service
 
 USER vimbai
 

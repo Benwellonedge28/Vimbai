@@ -8,11 +8,6 @@
       "dir": "distributed-workflow-orchestration-service"
     },
     {
-      "path": "/financial-distress-prediction",
-      "name": "financial-distress-prediction-service",
-      "dir": "financial-distress-prediction-service"
-    },
-    {
       "path": "/internal-rate-return",
       "name": "internal-rate-return-service",
       "dir": "internal-rate-return-service"
@@ -26,11 +21,6 @@
       "path": "/ratio-analysis",
       "name": "ratio-analysis-service",
       "dir": "ratio-analysis-service"
-    },
-    {
-      "path": "/regulatory-ratio",
-      "name": "regulatory-ratio-service",
-      "dir": "regulatory-ratio-service"
     }
   ]
 }

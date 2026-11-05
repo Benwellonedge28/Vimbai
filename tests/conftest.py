@@ -47,6 +47,18 @@ def pytest_configure(config):
     pass
 
 
+# Services that have been deleted once their arithmetic moved into the Rust library. Tests
+# that exercised them, or compared them against the seam, are obsolete by definition: there
+# is no Python left to run. They skip with this reason rather than erroring, so the suite says
+# plainly why a case is not running.
+def service_missing(name):
+    return not os.path.isdir(os.path.join(root, name))
+
+
 # Make loader available to test files
 def load_service(name):
+    if service_missing(name):
+        import pytest
+
+        pytest.skip(f"{name} has been deleted; its maths lives in the Rust library")
     return _load_service(name, root)

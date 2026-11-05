@@ -52,6 +52,10 @@ def _client(service_dir, name):
     cached `calc` module is dropped first; otherwise the second service would
     silently import the first one's calculator.
     """
+    from tests.conftest import service_missing
+
+    if service_missing(service_dir):
+        pytest.skip(f"{service_dir} has been deleted; its maths lives in the Rust library")
     if REPO_ROOT not in sys.path:
         sys.path.insert(0, REPO_ROOT)
     sys.modules.pop("calc", None)
@@ -1317,6 +1321,10 @@ def test_liquidity_shortfall_is_reported_as_required_credit():
 
 def _module(service_dir, name):
     """Load a service module by path, the same way _client does, and return it."""
+    from tests.conftest import service_missing
+
+    if service_missing(service_dir):
+        pytest.skip(f"{service_dir} has been deleted; its maths lives in the Rust library")
     if REPO_ROOT not in sys.path:
         sys.path.insert(0, REPO_ROOT)
     sys.modules.pop("calc", None)

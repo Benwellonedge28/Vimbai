@@ -20,17 +20,13 @@ COPY audit-compliance-service ./audit-compliance-service
 COPY audit-engagement-service ./audit-engagement-service
 COPY audit-evidence-service ./audit-evidence-service
 COPY audit-sampling-service ./audit-sampling-service
-COPY group-tax-service ./group-tax-service
-COPY r-and-d-tax-service ./r-and-d-tax-service
 COPY regulatory-compliance-service ./regulatory-compliance-service
 COPY sox-compliance-service ./sox-compliance-service
 COPY tax-service ./tax-service
 COPY tax-accounting-service ./tax-accounting-service
 COPY tax-compliance-service ./tax-compliance-service
 COPY tax-planning-service ./tax-planning-service
-COPY tax-provision-service ./tax-provision-service
 COPY tax-return-preparation-service ./tax-return-preparation-service
-COPY tax-risk-service ./tax-risk-service
 
 USER vimbai
 

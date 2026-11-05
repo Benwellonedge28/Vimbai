@@ -27,7 +27,6 @@ COPY financial-planning-service ./financial-planning-service
 COPY foreign-exchange-service ./foreign-exchange-service
 COPY insurance-claims-service ./insurance-claims-service
 COPY net-present-value-service ./net-present-value-service
-COPY options-pricing-service ./options-pricing-service
 COPY payback-period-service ./payback-period-service
 COPY personal-finance-service ./personal-finance-service
 COPY rolling-forecast-service ./rolling-forecast-service

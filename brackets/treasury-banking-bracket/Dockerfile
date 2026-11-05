@@ -23,7 +23,6 @@ COPY bank-feed-service ./bank-feed-service
 COPY bank-reconciliation-service ./bank-reconciliation-service
 COPY bank-relationship-service ./bank-relationship-service
 COPY cash-flow-service ./cash-flow-service
-COPY credit-risk-analysis-service ./credit-risk-analysis-service
 COPY currency-service ./currency-service
 COPY debt-management-service ./debt-management-service
 COPY initial-investment-service ./initial-investment-service
@@ -31,7 +30,6 @@ COPY investment-monitoring-service ./investment-monitoring-service
 COPY investment-property-service ./investment-property-service
 COPY issued-share-capital-service ./issued-share-capital-service
 COPY payment-gateway-service ./payment-gateway-service
-COPY payment-optimization-service ./payment-optimization-service
 COPY provision-bad-debts-service ./provision-bad-debts-service
 COPY provision-doubtful-debts-service ./provision-doubtful-debts-service
 COPY sovereign-treasury-service ./sovereign-treasury-service

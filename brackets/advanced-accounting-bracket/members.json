@@ -28,11 +28,6 @@
       "dir": "company-accounting-service"
     },
     {
-      "path": "/consolidation",
-      "name": "consolidation-service",
-      "dir": "consolidation-service"
-    },
-    {
       "path": "/continue-shutdown-decision",
       "name": "continue-shutdown-decision-service",
       "dir": "continue-shutdown-decision-service"
@@ -93,16 +88,6 @@
       "dir": "going-concern-service"
     },
     {
-      "path": "/goodwill",
-      "name": "goodwill-service",
-      "dir": "goodwill-service"
-    },
-    {
-      "path": "/government-grants",
-      "name": "government-grants-service",
-      "dir": "government-grants-service"
-    },
-    {
       "path": "/intangible-assets",
       "name": "intangible-assets-service",
       "dir": "intangible-assets-service"
@@ -128,11 +113,6 @@
       "dir": "management-accounts-service"
     },
     {
-      "path": "/net-realizable-value",
-      "name": "net-realizable-value-service",
-      "dir": "net-realizable-value-service"
-    },
-    {
       "path": "/ordinary-shares",
       "name": "ordinary-shares-service",
       "dir": "ordinary-shares-service"
@@ -141,11 +121,6 @@
       "path": "/overhead-absorption-rate",
       "name": "overhead-absorption-rate-service",
       "dir": "overhead-absorption-rate-service"
-    },
-    {
-      "path": "/partnership-accounting",
-      "name": "partnership-accounting-service",
-      "dir": "partnership-accounting-service"
     },
     {
       "path": "/partnership-agreement",
@@ -166,11 +141,6 @@
       "path": "/partnership-revaluation",
       "name": "partnership-revaluation-service",
       "dir": "partnership-revaluation-service"
-    },
-    {
-      "path": "/partnership-sale",
-      "name": "partnership-sale-service",
-      "dir": "partnership-sale-service"
     },
     {
       "path": "/petty-cash",
@@ -231,11 +201,6 @@
       "path": "/statutory-filing",
       "name": "statutory-filing-service",
       "dir": "statutory-filing-service"
-    },
-    {
-      "path": "/substantive-testing",
-      "name": "substantive-testing-service",
-      "dir": "substantive-testing-service"
     },
     {
       "path": "/trading-account",
