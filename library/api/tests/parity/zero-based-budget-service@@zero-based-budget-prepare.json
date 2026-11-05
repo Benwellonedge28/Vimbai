@@ -1,0 +1,74 @@
+{
+  "route": "zero-based-budget-prepare",
+  "endpoint": "/prepare",
+  "request": {
+    "company_id": "c-1",
+    "budget_year": "FY2027",
+    "total_available": 250000.0,
+    "expense_items": [
+      {
+        "item_id": "e1",
+        "description": "Fleet telemetry",
+        "department": "Operations",
+        "requested_amount": 90000.0,
+        "justification": "Downtime costs",
+        "mandatory": true
+      },
+      {
+        "item_id": "e2",
+        "description": "Showroom refit",
+        "department": "Sales",
+        "requested_amount": 120000.0,
+        "justification": "Footfall",
+        "mandatory": false
+      },
+      {
+        "item_id": "e3",
+        "description": "Safety training",
+        "department": "HR",
+        "requested_amount": 60000.0,
+        "justification": "Compliance",
+        "mandatory": true
+      }
+    ]
+  },
+  "response": {
+    "company_id": "c-1",
+    "budget_year": "FY2027",
+    "total_available": 250000.0,
+    "total_requested": 270000.0,
+    "funded_items": [
+      {
+        "item_id": "e1",
+        "description": "Fleet telemetry",
+        "department": "Operations",
+        "requested_amount": 90000.0,
+        "priority_score": 100.0,
+        "funded": true,
+        "funded_amount": 90000.0
+      },
+      {
+        "item_id": "e3",
+        "description": "Safety training",
+        "department": "HR",
+        "requested_amount": 60000.0,
+        "priority_score": 100.0,
+        "funded": true,
+        "funded_amount": 60000.0
+      }
+    ],
+    "unfunded_items": [
+      {
+        "item_id": "e2",
+        "description": "Showroom refit",
+        "department": "Sales",
+        "requested_amount": 120000.0,
+        "priority_score": 50.0,
+        "funded": false,
+        "funded_amount": 0.0
+      }
+    ],
+    "funding_coverage": 66.66666666666666
+  },
+  "ignore": []
+}

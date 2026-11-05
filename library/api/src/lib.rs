@@ -703,6 +703,11 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "investment-appraisal-appraise",
         capital_valuation::investment_appraisal_service_from_json,
     );
+    map.insert("cash-budget-prepare", budgeting::cash::prepare_from_json);
+    map.insert(
+        "zero-based-budget-prepare",
+        budgeting::zero_based::prepare_from_json,
+    );
     map
 }
 

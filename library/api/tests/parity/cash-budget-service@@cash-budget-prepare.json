@@ -1,0 +1,163 @@
+{
+  "route": "cash-budget-prepare",
+  "endpoint": "/prepare",
+  "request": {
+    "company_id": "c-1",
+    "budget_period": "FY2027",
+    "opening_cash": 180000.0,
+    "minimum_cash_balance": 120000.0,
+    "expected_receipts": [
+      {
+        "item_id": "r1",
+        "category": "sales",
+        "description": "Q1 receipts",
+        "amount": 260000.0,
+        "timing": "Q1"
+      },
+      {
+        "item_id": "r2",
+        "category": "sales",
+        "description": "Q3 receipts",
+        "amount": 310000.0,
+        "timing": "Q3"
+      }
+    ],
+    "expected_payments": [
+      {
+        "item_id": "p1",
+        "category": "payroll",
+        "description": "Q1 payroll",
+        "amount": 300000.0,
+        "timing": "Q1"
+      },
+      {
+        "item_id": "p2",
+        "category": "suppliers",
+        "description": "Q2 purchases",
+        "amount": 150000.0,
+        "timing": "Q2"
+      }
+    ]
+  },
+  "response": {
+    "company_id": "c-1",
+    "budget_period": "FY2027",
+    "periods": [
+      {
+        "period": "Month 1",
+        "opening_balance": 180000.0,
+        "receipts": 260000.0,
+        "payments": 300000.0,
+        "closing_balance": 140000.0,
+        "financing": 0.0,
+        "cumulative_cash": 140000.0
+      },
+      {
+        "period": "Month 2",
+        "opening_balance": 140000.0,
+        "receipts": 260000.0,
+        "payments": 300000.0,
+        "closing_balance": 120000.0,
+        "financing": 20000.0,
+        "cumulative_cash": 100000.0
+      },
+      {
+        "period": "Month 3",
+        "opening_balance": 120000.0,
+        "receipts": 260000.0,
+        "payments": 300000.0,
+        "closing_balance": 120000.0,
+        "financing": 40000.0,
+        "cumulative_cash": 60000.0
+      },
+      {
+        "period": "Month 4",
+        "opening_balance": 120000.0,
+        "receipts": 0.0,
+        "payments": 150000.0,
+        "closing_balance": 120000.0,
+        "financing": 150000.0,
+        "cumulative_cash": -90000.0
+      },
+      {
+        "period": "Month 5",
+        "opening_balance": 120000.0,
+        "receipts": 0.0,
+        "payments": 150000.0,
+        "closing_balance": 120000.0,
+        "financing": 150000.0,
+        "cumulative_cash": -240000.0
+      },
+      {
+        "period": "Month 6",
+        "opening_balance": 120000.0,
+        "receipts": 0.0,
+        "payments": 150000.0,
+        "closing_balance": 120000.0,
+        "financing": 150000.0,
+        "cumulative_cash": -390000.0
+      },
+      {
+        "period": "Month 7",
+        "opening_balance": 120000.0,
+        "receipts": 310000.0,
+        "payments": 0.0,
+        "closing_balance": 430000.0,
+        "financing": 0.0,
+        "cumulative_cash": -80000.0
+      },
+      {
+        "period": "Month 8",
+        "opening_balance": 430000.0,
+        "receipts": 310000.0,
+        "payments": 0.0,
+        "closing_balance": 740000.0,
+        "financing": 0.0,
+        "cumulative_cash": 230000.0
+      },
+      {
+        "period": "Month 9",
+        "opening_balance": 740000.0,
+        "receipts": 310000.0,
+        "payments": 0.0,
+        "closing_balance": 1050000.0,
+        "financing": 0.0,
+        "cumulative_cash": 540000.0
+      },
+      {
+        "period": "Month 10",
+        "opening_balance": 1050000.0,
+        "receipts": 0.0,
+        "payments": 0.0,
+        "closing_balance": 1050000.0,
+        "financing": 0.0,
+        "cumulative_cash": 540000.0
+      },
+      {
+        "period": "Month 11",
+        "opening_balance": 1050000.0,
+        "receipts": 0.0,
+        "payments": 0.0,
+        "closing_balance": 1050000.0,
+        "financing": 0.0,
+        "cumulative_cash": 540000.0
+      },
+      {
+        "period": "Month 12",
+        "opening_balance": 1050000.0,
+        "receipts": 0.0,
+        "payments": 0.0,
+        "closing_balance": 1050000.0,
+        "financing": 0.0,
+        "cumulative_cash": 540000.0
+      }
+    ],
+    "total_receipts": 1710000.0,
+    "total_payments": 1350000.0,
+    "net_cash_flow": 360000.0,
+    "minimum_cash_balance": 120000.0,
+    "peak_financing_required": 150000.0,
+    "total_financing_cost": 7500.0
+  },
+  "ignore": []
+}

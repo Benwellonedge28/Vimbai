@@ -5,6 +5,7 @@
 //! funded while budget remains.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExpenseItem {
@@ -97,6 +98,69 @@ pub fn prepare_zero_based_budget(req: &ZeroBasedRequest) -> ZeroBasedResult {
         funded_items: funded,
         unfunded_items: unfunded,
     }
+}
+
+/// `zero-based-budget-service /prepare`.
+///
+/// `funding_coverage` is part of the service's answer, so it is passed through untouched.
+pub fn prepare_from_json(payload: &Value) -> Result<Value, String> {
+    let items: Vec<ExpenseItem> = payload
+        .get("expense_items")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .map(|item| ExpenseItem {
+                    item_id: item
+                        .get("item_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    description: item
+                        .get("description")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    department: item
+                        .get("department")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    requested_amount: item
+                        .get("requested_amount")
+                        .and_then(Value::as_f64)
+                        .unwrap_or(0.0),
+                    justification: item
+                        .get("justification")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    mandatory: item
+                        .get("mandatory")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let request = ZeroBasedRequest {
+        company_id: payload
+            .get("company_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        budget_year: payload
+            .get("budget_year")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        total_available: payload
+            .get("total_available")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0),
+        expense_items: items,
+    };
+    serde_json::to_value(prepare_zero_based_budget(&request))
+        .map_err(|error| format!("could not serialise: {error}"))
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@
 //! which months a receipt/payment lands in.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CashFlowItem {
@@ -111,6 +112,55 @@ pub fn prepare_cash_budget(req: &CashBudgetRequest) -> CashBudgetResult {
         peak_financing_required: peak_financing,
         total_financing_cost: peak_financing * 0.05,
     }
+}
+
+/// `cash-budget-service /prepare`.
+///
+/// Items arrive with id, category and description, but the service only ever reads amount and timing,
+/// so those are all this takes.
+pub fn prepare_from_json(payload: &Value) -> Result<Value, String> {
+    let items = |key: &str| {
+        payload
+            .get(key)
+            .and_then(Value::as_array)
+            .map(|rows| {
+                rows.iter()
+                    .map(|item| CashFlowItem {
+                        amount: item.get("amount").and_then(Value::as_f64).unwrap_or(0.0),
+                        timing: item
+                            .get("timing")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default()
+                            .to_string(),
+                    })
+                    .collect::<Vec<CashFlowItem>>()
+            })
+            .unwrap_or_default()
+    };
+    let request = CashBudgetRequest {
+        company_id: payload
+            .get("company_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        budget_period: payload
+            .get("budget_period")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        opening_cash: payload
+            .get("opening_cash")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0),
+        minimum_cash_balance: payload
+            .get("minimum_cash_balance")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0),
+        expected_receipts: items("expected_receipts"),
+        expected_payments: items("expected_payments"),
+    };
+    serde_json::to_value(prepare_cash_budget(&request))
+        .map_err(|error| format!("could not serialise: {error}"))
 }
 
 #[cfg(test)]
