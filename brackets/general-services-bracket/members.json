@@ -8,11 +8,6 @@
       "dir": "business-combination-service"
     },
     {
-      "path": "/business-documents",
-      "name": "business-documents-service",
-      "dir": "business-documents-service"
-    },
-    {
       "path": "/family-community-group",
       "name": "family-community-group-service",
       "dir": "family-community-group-service"

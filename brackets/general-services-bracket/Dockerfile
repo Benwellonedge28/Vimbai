@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY brackets/general-services-bracket/main.py ./main.py
 COPY business-combination-service ./business-combination-service
-COPY business-documents-service ./business-documents-service
 COPY family-community-group-service ./family-community-group-service
 COPY selling-price-reduction-service ./selling-price-reduction-service
 

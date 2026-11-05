@@ -98,11 +98,6 @@
       "dir": "intercompany-service"
     },
     {
-      "path": "/lease-management",
-      "name": "lease-management-service",
-      "dir": "lease-management-service"
-    },
-    {
       "path": "/lease-termination",
       "name": "lease-termination-service",
       "dir": "lease-termination-service"
@@ -186,11 +181,6 @@
       "path": "/share-redemption",
       "name": "share-redemption-service",
       "dir": "share-redemption-service"
-    },
-    {
-      "path": "/statutory-filing",
-      "name": "statutory-filing-service",
-      "dir": "statutory-filing-service"
     },
     {
       "path": "/trading-account",

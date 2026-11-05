@@ -35,6 +35,27 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
     map.insert("divestiture", group_accounting::divestiture::evaluate);
     map.insert("eps", ratios_statements::eps_from_json);
     map.insert(
+        "lease-management-calculate",
+        ifrs::lease_calculate_from_json,
+    );
+    map.insert("lease-management-payment", ifrs::lease_payment_from_json);
+    map.insert(
+        "statutory-filing-assess",
+        tax::statutory_filing_assess_from_json,
+    );
+    map.insert(
+        "tax-return-preparation-prepare",
+        tax::tax_return_preparation_from_json,
+    );
+    map.insert(
+        "business-documents-generate",
+        reporting::business_documents_generate_from_json,
+    );
+    map.insert(
+        "business-documents-generate-batch",
+        reporting::business_documents_generate_batch_from_json,
+    );
+    map.insert(
         "management-accounts-prepare",
         ratios_statements::management_accounts_from_json,
     );

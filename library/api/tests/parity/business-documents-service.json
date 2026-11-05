@@ -1,0 +1,61 @@
+{
+  "route": "business-documents-generate",
+  "endpoint": "/generate",
+  "request": {
+    "company_id": "c-1",
+    "document_type": "invoice",
+    "company_name": "Vimbai Ltd",
+    "recipient": "Beta Traders",
+    "reference_number": "AB12CD34",
+    "date": "2026-03-31",
+    "line_items": [
+      {
+        "description": "Consulting",
+        "quantity": 2,
+        "unit_price": 750.0,
+        "tax_rate": 0.15
+      },
+      {
+        "description": "Licence",
+        "quantity": 1,
+        "unit_price": 1200.5,
+        "tax_rate": 0.0
+      }
+    ],
+    "notes": "Thank you",
+    "payment_terms": "Net 30"
+  },
+  "response": {
+    "id": "b5514b5e-51c3-435c-9621-5ad036b92367",
+    "company_id": "c-1",
+    "document_type": "invoice",
+    "reference_number": "AB12CD34",
+    "date": "2026-03-31",
+    "company_name": "Vimbai Ltd",
+    "recipient": "Beta Traders",
+    "subtotal": 2700.5,
+    "tax_total": 225.0,
+    "grand_total": 2925.5,
+    "line_items": [
+      {
+        "description": "Consulting",
+        "quantity": 2.0,
+        "unit_price": 750.0,
+        "line_total": 1500.0,
+        "tax": 225.0
+      },
+      {
+        "description": "Licence",
+        "quantity": 1.0,
+        "unit_price": 1200.5,
+        "line_total": 1200.5,
+        "tax": 0.0
+      }
+    ],
+    "notes": "Thank you",
+    "payment_terms": "Net 30"
+  },
+  "ignore": [
+    "id"
+  ]
+}

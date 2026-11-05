@@ -1,0 +1,76 @@
+{
+  "route": "lease-management-calculate",
+  "endpoint": "/calculate",
+  "request": {
+    "company_id": "c-1",
+    "leases": [
+      {
+        "lease_id": "L1",
+        "lessee_id": "t-1",
+        "asset_type": "office",
+        "lease_term_months": 36,
+        "payments": [
+          10000.0,
+          10000.0,
+          10000.0
+        ],
+        "payment_frequency": "annual",
+        "discount_rate": 0.06,
+        "commencement_date": "2026-01-01"
+      },
+      {
+        "lease_id": "L2",
+        "lessee_id": "t-1",
+        "asset_type": "vehicle",
+        "lease_term_months": 24,
+        "payments": [
+          5000.0,
+          6000.0
+        ],
+        "payment_frequency": "annual",
+        "discount_rate": 0.05,
+        "commencement_date": "2026-02-01"
+      }
+    ]
+  },
+  "response": {
+    "company_id": "c-1",
+    "total_lease_liability": 36934.2,
+    "total_right_of_use_asset": 36934.2,
+    "lease_details": [
+      {
+        "lease_id": "L1",
+        "liability": 26730.12,
+        "asset": 26730.12
+      },
+      {
+        "lease_id": "L2",
+        "liability": 10204.08,
+        "asset": 10204.08
+      }
+    ],
+    "maturity_schedule": [
+      {
+        "year": 1,
+        "amount": 7386.84
+      },
+      {
+        "year": 2,
+        "amount": 7386.84
+      },
+      {
+        "year": 3,
+        "amount": 7386.84
+      },
+      {
+        "year": 4,
+        "amount": 7386.84
+      },
+      {
+        "year": 5,
+        "amount": 7386.84
+      }
+    ]
+  },
+  "ignore": []
+}

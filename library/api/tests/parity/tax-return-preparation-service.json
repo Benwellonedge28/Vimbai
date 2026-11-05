@@ -1,0 +1,59 @@
+{
+  "route": "tax-return-preparation-prepare",
+  "endpoint": "/prepare",
+  "request": {
+    "company_id": "c-1",
+    "fiscal_year": "2026",
+    "jurisdictions": [
+      "ZW"
+    ],
+    "accounting_profit": 500000.0,
+    "permanent_differences": [
+      {
+        "adjustment": 20000.0
+      }
+    ],
+    "temporary_differences": [
+      {
+        "dtl_assets": 15000.0,
+        "dtl_liabilities": 9000.0
+      }
+    ],
+    "tax_credits": [
+      {
+        "credit_amount": 40000.0
+      }
+    ]
+  },
+  "response": {
+    "company_id": "c-1",
+    "fiscal_year": "2026",
+    "tax_components": [
+      {
+        "component_name": "Corporate Income Tax",
+        "taxable_amount": 520000.0,
+        "tax_rate": 0.25,
+        "tax_amount": 130000.0
+      },
+      {
+        "component_name": "Tax Credits",
+        "taxable_amount": 0.0,
+        "tax_rate": 0.0,
+        "tax_amount": -40000.0
+      }
+    ],
+    "total_taxable_income": 520000.0,
+    "total_tax_payable": 90000.0,
+    "effective_tax_rate": 0.18,
+    "deferred_tax_assets": 15000.0,
+    "deferred_tax_liabilities": 9000.0,
+    "tax_credits_applied": 40000.0,
+    "return_status": "ready_for_filing",
+    "recommendations": [
+      "Review all tax positions",
+      "Ensure documentation is complete",
+      "File before deadline"
+    ]
+  },
+  "ignore": []
+}

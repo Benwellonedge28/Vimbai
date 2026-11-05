@@ -26,7 +26,6 @@ COPY tax-service ./tax-service
 COPY tax-accounting-service ./tax-accounting-service
 COPY tax-compliance-service ./tax-compliance-service
 COPY tax-planning-service ./tax-planning-service
-COPY tax-return-preparation-service ./tax-return-preparation-service
 
 USER vimbai
 

@@ -10,6 +10,7 @@
 pub mod instruments;
 pub mod interim;
 pub mod lease_accounting;
+pub mod lease_management;
 pub mod revenue;
 pub mod segments;
 pub mod share_based;
@@ -42,3 +43,13 @@ pub use instruments::{
     BusinessModelAssessment, ClassificationResult, EclCalculation, FinancialAsset, GeneralEcl,
     HedgeEffectiveness, Ifrs9Request, Ifrs9Response, MeasurementResult, SimplifiedEcl, SppiResult,
 };
+
+/// `lease-management-service /calculate`.
+pub fn lease_calculate_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    lease_management::calculate(payload)
+}
+
+/// `lease-management-service /payment`.
+pub fn lease_payment_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    lease_management::process_payment(payload)
+}

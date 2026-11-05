@@ -5,6 +5,7 @@
 
 pub mod analysis;
 pub mod annual;
+pub mod documents;
 pub mod financial;
 pub mod management;
 pub mod regulatory;
@@ -26,3 +27,17 @@ pub use management::{
     PerformanceSummary,
 };
 pub use regulatory::{generate_report, ReportRequest, ReportResult, ValidationCheck};
+
+/// `business-documents-service /generate`.
+pub fn business_documents_generate_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    documents::generate(payload)
+}
+
+/// `business-documents-service /generate/batch`.
+pub fn business_documents_generate_batch_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    documents::generate_batch(payload)
+}

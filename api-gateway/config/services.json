@@ -199,14 +199,6 @@
       "strip_prefix": false
     },
     {
-      "name": "business-documents-service",
-      "path": "/business-documents",
-      "url": "http://localhost:9010",
-      "port": 8000,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "cache-service",
       "path": "/cache",
       "url": "http://localhost:9013",
@@ -621,14 +613,6 @@
       "strip_prefix": false
     },
     {
-      "name": "lease-management-service",
-      "path": "/lease-management",
-      "url": "http://localhost:9011",
-      "port": 8353,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "lease-termination-service",
       "path": "/lease-termination",
       "url": "http://localhost:9011",
@@ -1024,14 +1008,6 @@
       "strip_prefix": false
     },
     {
-      "name": "statutory-filing-service",
-      "path": "/statutory-filing",
-      "url": "http://localhost:9011",
-      "port": 8227,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "subscription-plans-service",
       "path": "/subscription-plans",
       "url": "http://localhost:9009",
@@ -1060,14 +1036,6 @@
       "path": "/tax-planning",
       "url": "http://localhost:9004",
       "port": 8292,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "tax-return-preparation-service",
-      "path": "/tax-return-preparation",
-      "url": "http://localhost:9004",
-      "port": 8228,
       "auth_required": true,
       "strip_prefix": false
     },

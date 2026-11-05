@@ -1,0 +1,67 @@
+{
+  "route": "statutory-filing-assess",
+  "endpoint": "/assess",
+  "request": {
+    "company_id": "c-1",
+    "fiscal_year": "2026",
+    "jurisdictions": [
+      "ZW"
+    ],
+    "filings_required": [
+      {
+        "type": "VAT",
+        "jurisdiction": "ZW",
+        "deadline": "2026-04-25",
+        "submitted": true,
+        "late_penalty": 50.0
+      },
+      {
+        "type": "PAYE",
+        "jurisdiction": "ZW",
+        "deadline": "2026-05-10",
+        "submitted": false,
+        "late_penalty": 120.0
+      }
+    ],
+    "previous_filings": []
+  },
+  "response": {
+    "company_id": "c-1",
+    "fiscal_year": "2026",
+    "filing_requirements": [
+      {
+        "filing_type": "VAT",
+        "jurisdiction": "ZW",
+        "deadline": "2026-04-25",
+        "status": "submitted",
+        "submitted": true,
+        "late_filing_penalty": 0.0
+      },
+      {
+        "filing_type": "PAYE",
+        "jurisdiction": "ZW",
+        "deadline": "2026-05-10",
+        "status": "pending",
+        "submitted": false,
+        "late_filing_penalty": 120.0
+      }
+    ],
+    "upcoming_deadlines": [
+      {
+        "type": "PAYE",
+        "deadline": "2026-05-10"
+      }
+    ],
+    "compliance_status": "pending_filings",
+    "outstanding_filings": [
+      "PAYE - ZW"
+    ],
+    "late_filing_exposure": 120.0,
+    "recommendations": [
+      "Submit all outstanding filings before deadlines",
+      "Review filing requirements for each jurisdiction",
+      "Set up filing calendar reminders"
+    ]
+  },
+  "ignore": []
+}

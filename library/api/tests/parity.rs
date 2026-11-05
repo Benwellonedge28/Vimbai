@@ -48,6 +48,9 @@ fn compare(
                 } else {
                     format!("{path}.{key}")
                 };
+                if ignore.iter().any(|field| field == &child) {
+                    continue;
+                }
                 match b.get(key) {
                     Some(other) => compare(&child, value, other, ignore, problems),
                     None => problems.push(format!("{child}: missing from the Rust answer")),
@@ -60,6 +63,9 @@ fn compare(
                     } else {
                         format!("{path}.{key}")
                     };
+                    if ignore.iter().any(|field| field == &child) {
+                        continue;
+                    }
                     problems.push(format!("{child}: present only in the Rust answer"));
                 }
             }

@@ -35,7 +35,6 @@ COPY general-reserve-service ./general-reserve-service
 COPY going-concern-service ./going-concern-service
 COPY intangible-assets-service ./intangible-assets-service
 COPY intercompany-service ./intercompany-service
-COPY lease-management-service ./lease-management-service
 COPY lease-termination-service ./lease-termination-service
 COPY ordinary-shares-service ./ordinary-shares-service
 COPY overhead-absorption-rate-service ./overhead-absorption-rate-service
@@ -53,7 +52,6 @@ COPY revenue-recognition-service ./revenue-recognition-service
 COPY right-issues-service ./right-issues-service
 COPY share-premium-service ./share-premium-service
 COPY share-redemption-service ./share-redemption-service
-COPY statutory-filing-service ./statutory-filing-service
 COPY trading-account-service ./trading-account-service
 
 USER vimbai

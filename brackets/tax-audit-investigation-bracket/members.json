@@ -51,11 +51,6 @@
       "path": "/tax-planning",
       "name": "tax-planning-service",
       "dir": "tax-planning-service"
-    },
-    {
-      "path": "/tax-return-preparation",
-      "name": "tax-return-preparation-service",
-      "dir": "tax-return-preparation-service"
     }
   ]
 }
