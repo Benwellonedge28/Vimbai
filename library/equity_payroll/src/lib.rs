@@ -16,7 +16,6 @@ pub mod payroll_accounting;
 pub mod pension;
 pub mod retained_profits;
 pub mod share_capital;
-pub mod share_options;
 pub mod share_registry;
 
 pub use eps::{calculate_eps, AntiDilutiveItem, EpsOutput, OptionInput};
