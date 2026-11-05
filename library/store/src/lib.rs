@@ -30,6 +30,7 @@ pub(crate) mod fake;
 pub mod insurance_claims;
 pub mod job_costing;
 pub mod neo4j_client;
+pub mod treasury_analytics;
 
 pub use neo4j_client::Neo4jGraph;
 
@@ -77,6 +78,10 @@ pub const JOB_COST_ENTRY: RecordKind = RecordKind::new("JobCostEntry", "HAS_COST
 
 /// The records insurance-claims-service used to own.
 pub const INSURANCE_CLAIM: RecordKind = RecordKind::new("InsuranceClaim", "OWNS_CLAIM");
+
+/// The records treasury-analytics-service used to own.
+pub const TREASURY_SNAPSHOT: RecordKind =
+    RecordKind::new("TreasuryAnalyticsSnapshot", "OWNS_SNAPSHOT");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StoreError {

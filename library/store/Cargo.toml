@@ -9,5 +9,6 @@ description = "Neo4j-backed record store for the services that still own graph r
 [dependencies]
 neo4j = "0.2"
 vimbai_common = { path = "../common" }
+treasury_fx = { package = "vimbai_treasury_fx", path = "../treasury_fx" }
 serde = { workspace = true }
 serde_json = { workspace = true }

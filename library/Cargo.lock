@@ -2031,6 +2031,7 @@ dependencies = [
  "serde",
  "serde_json",
  "vimbai_common",
+ "vimbai_treasury_fx",
 ]
 
 [[package]]

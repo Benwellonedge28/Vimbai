@@ -20,7 +20,9 @@ use axum::{
     Json, Router,
 };
 use serde_json::{json, Value};
-use store::{absorption, insurance_claims, job_costing, BookScope, Graph, StoreError};
+use store::{
+    absorption, insurance_claims, job_costing, treasury_analytics, BookScope, Graph, StoreError,
+};
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
 /// connections, so one handle serves every request.
@@ -308,6 +310,34 @@ async fn process_insurance_claim(
     ))
 }
 
+async fn analyze_treasury(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_analytics::analyze(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn treasury_kpi(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_analytics::kpi(graph.as_ref(), &scope, &company_id))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone()).merge(service_root_router(graph))
 }
@@ -339,6 +369,14 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/insurance-claims/claims/:claim_id/process",
             post(process_insurance_claim),
         )
+        .route(
+            "/records/treasury-analytics/analyze",
+            post(analyze_treasury),
+        )
+        .route(
+            "/records/treasury-analytics/kpi/:company_id",
+            get(treasury_kpi),
+        )
         .with_state(graph)
 }
 
@@ -367,6 +405,8 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/insurance-claims/claims/:claim_id/process",
             post(process_insurance_claim),
         )
+        .route("/treasury-analytics/analyze", post(analyze_treasury))
+        .route("/treasury-analytics/kpi/:company_id", get(treasury_kpi))
         .with_state(graph)
 }
 
