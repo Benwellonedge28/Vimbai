@@ -297,11 +297,85 @@ ABSORPTION_MARGIN_PORTS = {
 # deletion, so their absence is the expected state and the check below enforces it.
 # Services de-registered from the gateway because every published path is answered by a Rust
 # route. Kept on disk as the parity oracle for the port.
-RETIRED_PORTS = {
-    "profit-service",
-}
+RETIRED_PORTS = set()
 
 DELETED_PORTS = {
+    "ai-readiness-service",
+    "bank-fee-analysis-service",
+    "business-valuation-service",
+    "cash-flow-forecasting-service",
+    "comparative-financial-statements-service",
+    "cqrs-event-sourcing-service",
+    "credit-derivatives-service",
+    "data-sovereignty-service",
+    "deal-structuring-service",
+    "disaster-recovery-service",
+    "discounted-payback-period-service",
+    "edge-computing-service",
+    "equivalent-units-service",
+    "event-streaming-service",
+    "exotic-derivatives-service",
+    "federated-network-service",
+    "financial-forecasting-service",
+    "financial-reporting-service",
+    "financial-statements-service",
+    "fixed-cost-service",
+    "forward-contracts-service",
+    "fraud-detection-service",
+    "grpc-service",
+    "high-availability-service",
+    "ifrs-15-revenue-recognition-service",
+    "ifrs-16-lease-accounting-service",
+    "ifrs-2-share-based-payment-service",
+    "ifrs-9-financial-instruments-service",
+    "income-statement-service",
+    "infrastructure-as-code-service",
+    "interim-financial-reporting-service",
+    "investigation-service",
+    "kpi-tracking-service",
+    "labour-cost-variance-service",
+    "labour-efficiency-variance-service",
+    "labour-rate-variance-service",
+    "lifecycle-costing-service",
+    "liquidity-management-service",
+    "make-or-buy-decision-service",
+    "management-reporting-service",
+    "material-cost-variance-service",
+    "material-price-variance-service",
+    "material-usage-variance-service",
+    "merger-valuation-service",
+    "multi-cloud-service",
+    "multi-tenant-service",
+    "observability-service",
+    "offline-sync-service",
+    "over-under-absorption-service",
+    "payroll-accounting-service",
+    "payroll-service",
+    "plugin-extension-service",
+    "post-merger-service",
+    "profit-loss-account-service",
+    "profit-service",
+    "regulatory-reporting-service",
+    "risk-mitigation-service",
+    "risk-reporting-service",
+    "risk-return-analysis-service",
+    "sales-price-variance-service",
+    "sales-volume-variance-service",
+    "scenario-budget-service",
+    "supply-chain-service",
+    "suspense-error-service",
+    "swap-valuation-service",
+    "synergy-analysis-service",
+    "tax-calculation-service",
+    "time-value-of-money-service",
+    "times-interest-earned-service",
+    "treasury-cash-service",
+    "treasury-operations-service",
+    "variable-cost-service",
+    "variance-service",
+    "working-capital-finance-service",
+    "working-capital-optimization-service",
+    "working-capital-service",
     "trial-balance-service",
     "flexible-budget-service",
     "master-budget-service",
@@ -462,9 +536,17 @@ def test_brackets_do_not_mount_ported_calculators():
 
 
 @pytest.mark.parametrize("ported", sorted(CALCULATOR_PORTS))
-def test_ported_calculator_keeps_its_reference_implementation(ported):
-    # the Python maths stays as the reference the Rust port is tested against
-    assert os.path.isfile(os.path.join(_ROOT, ported, "main.py"))
+def test_ported_calculator_keeps_its_evidence(ported):
+    # 2026-11-05: Samuel asked for the retired Python sources to be deleted outright, so the
+    # reference implementation is no longer the evidence. The recorded request/response captures
+    # in library/api/tests/parity are, and they are what the Rust port is tested against.
+    assert not os.path.exists(os.path.join(_ROOT, ported)), f"{ported} was deleted on instruction"
+    captures = os.path.join(_ROOT, "library", "api", "tests", "parity")
+    stem = ported[: -len("-service")]
+    has_capture = any(f.startswith(stem) for f in os.listdir(captures))
+    port_map = open(os.path.join(_ROOT, "library", "CALCULATOR-PORT.md")).read()
+    assert has_capture or ported in port_map, \
+        f"{ported} needs a parity capture or a line in CALCULATOR-PORT.md to stand in for its deleted source"
 
 
 @pytest.mark.parametrize(

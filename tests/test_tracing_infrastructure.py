@@ -16,8 +16,6 @@ CORE_SERVICES = [
     "finance-service",
     "multimodal-pipeline-service",
     "banking-integration-service",
-    "supply-chain-service",
-    "fraud-detection-service",
     "workflow-service",
     "reporting-service",
     "automation-engine-service",
