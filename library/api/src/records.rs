@@ -22,7 +22,7 @@ use axum::{
 use serde_json::{json, Value};
 use store::{
     absorption, cash_flow, cash_optimization, equity_changes, insurance_claims, job_costing,
-    treasury_analytics, BookScope, Graph, StoreError,
+    trading_account, treasury_analytics, BookScope, Graph, StoreError,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -506,6 +506,47 @@ async fn company_cash_suggestions(
     ))
 }
 
+async fn generate_trading_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(trading_account::generate(graph.as_ref(), &scope, &payload))
+}
+
+async fn list_trading_accounts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let period = query_param(query.as_deref(), "period");
+    answer(trading_account::list(
+        graph.as_ref(),
+        &scope,
+        period.as_deref(),
+    ))
+}
+
+async fn get_trading_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(account_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(trading_account::get(graph.as_ref(), &scope, &account_id))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone()).merge(service_root_router(graph))
 }
@@ -589,6 +630,18 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/cash-optimization/suggestions/:company_id",
             get(company_cash_suggestions),
         )
+        .route(
+            "/records/trading-account/generate",
+            post(generate_trading_account),
+        )
+        .route(
+            "/records/trading-account/accounts",
+            get(list_trading_accounts),
+        )
+        .route(
+            "/records/trading-account/accounts/:account_id",
+            get(get_trading_account),
+        )
         .with_state(graph)
 }
 
@@ -656,6 +709,12 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route(
             "/cash-optimization/suggestions/:company_id",
             get(company_cash_suggestions),
+        )
+        .route("/trading-account/generate", post(generate_trading_account))
+        .route("/trading-account/accounts", get(list_trading_accounts))
+        .route(
+            "/trading-account/accounts/:account_id",
+            get(get_trading_account),
         )
         .with_state(graph)
 }

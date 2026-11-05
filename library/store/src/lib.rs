@@ -33,6 +33,7 @@ pub(crate) mod fake;
 pub mod insurance_claims;
 pub mod job_costing;
 pub mod neo4j_client;
+pub mod trading_account;
 pub mod treasury_analytics;
 
 pub use neo4j_client::Neo4jGraph;
@@ -86,6 +87,9 @@ pub const INSURANCE_CLAIM: RecordKind = RecordKind::new("InsuranceClaim", "OWNS_
 /// The records cash-flow-statement-service used to own.
 /// The records equity-changes-service used to own.
 /// The records cash-optimization-service used to own.
+/// The records trading-account-service used to own.
+pub const TRADING_ACCOUNT: RecordKind = RecordKind::new("TradingAccount", "OWNS_TRADING_ACCOUNT");
+
 pub const CASH_ACCOUNT: RecordKind = RecordKind::new("CashAccount", "OWNS_ACCOUNT");
 pub const CASH_SUGGESTION: RecordKind =
     RecordKind::new("OptimizationSuggestion", "OWNS_SUGGESTION");

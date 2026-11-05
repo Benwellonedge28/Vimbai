@@ -56,6 +56,7 @@ says which services have passed every check. 169 stateless calculators; 45 answe
 - tax-provision-service
 - tax-risk-service
 - throughput-accounting-service
+- trading-account-service
 - treasury-analytics-service
 - vat-reporting-service
 - insurance-claims-service
