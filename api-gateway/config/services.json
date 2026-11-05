@@ -183,14 +183,6 @@
       "strip_prefix": false
     },
     {
-      "name": "business-combination-service",
-      "path": "/business-combination",
-      "url": "http://localhost:9010",
-      "port": 8384,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "cache-service",
       "path": "/cache",
       "url": "http://localhost:9013",
@@ -781,14 +773,6 @@
       "path": "/product-costing",
       "url": "http://localhost:9001",
       "port": 8106,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
-      "name": "project-accounting-service",
-      "path": "/project-accounting",
-      "url": "http://localhost:9009",
-      "port": 8352,
       "auth_required": true,
       "strip_prefix": false
     },

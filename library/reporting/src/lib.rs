@@ -8,6 +8,7 @@ pub mod annual;
 pub mod documents;
 pub mod financial;
 pub mod management;
+pub mod project_accounting;
 pub mod regulatory;
 
 pub use analysis::{
@@ -40,4 +41,19 @@ pub fn business_documents_generate_batch_from_json(
     payload: &serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     documents::generate_batch(payload)
+}
+
+/// `project-accounting-service /costs`.
+pub fn project_costs_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    project_accounting::costs(payload)
+}
+
+/// `project-accounting-service /budget`.
+pub fn project_budget_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    project_accounting::budget(payload)
+}
+
+/// `project-accounting-service /wip`.
+pub fn project_wip_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    project_accounting::wip(payload)
 }

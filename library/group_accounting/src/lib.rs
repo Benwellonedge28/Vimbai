@@ -9,6 +9,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod business_combination;
 pub mod buyout;
 pub mod combination;
 pub mod consolidation;
@@ -36,3 +37,10 @@ pub use vimbai_common::numbers::{money, round_dp};
 
 #[cfg(test)]
 mod tests;
+
+/// `business-combination-service /acquire`.
+pub fn business_combination_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    business_combination::acquire(payload)
+}

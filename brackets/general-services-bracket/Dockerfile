@@ -16,7 +16,6 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 COPY brackets/general-services-bracket/main.py ./main.py
-COPY business-combination-service ./business-combination-service
 COPY family-community-group-service ./family-community-group-service
 COPY selling-price-reduction-service ./selling-price-reduction-service
 

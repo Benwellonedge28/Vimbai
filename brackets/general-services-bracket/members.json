@@ -3,11 +3,6 @@
   "port": 9010,
   "members": [
     {
-      "path": "/business-combination",
-      "name": "business-combination-service",
-      "dir": "business-combination-service"
-    },
-    {
       "path": "/family-community-group",
       "name": "family-community-group-service",
       "dir": "family-community-group-service"

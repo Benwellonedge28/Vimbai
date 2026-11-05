@@ -611,6 +611,19 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "acquisition-financing-structure",
         capital_valuation::acquisition_financing_from_json,
     );
+    map.insert(
+        "project-accounting-costs",
+        reporting::project_costs_from_json,
+    );
+    map.insert(
+        "project-accounting-budget",
+        reporting::project_budget_from_json,
+    );
+    map.insert("project-accounting-wip", reporting::project_wip_from_json);
+    map.insert(
+        "business-combination-acquire",
+        group_accounting::business_combination_from_json,
+    );
     map
 }
 

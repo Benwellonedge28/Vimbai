@@ -1,0 +1,27 @@
+{
+  "route": "project-accounting-budget",
+  "endpoint": "/budget",
+  "request": {
+    "project_id": "p-1",
+    "budget_items": [
+      {
+        "name": "Labor",
+        "amount": 2000.0
+      },
+      {
+        "name": "Tools",
+        "amount": 750.25
+      }
+    ],
+    "contingencies": 500.0
+  },
+  "response": {
+    "project_id": "p-1",
+    "total_budget": 3250.25,
+    "allocated": 2750.25,
+    "contingency": 500.0,
+    "remaining": 500.0,
+    "variance_alerts": []
+  },
+  "ignore": []
+}

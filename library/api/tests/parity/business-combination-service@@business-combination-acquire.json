@@ -1,0 +1,75 @@
+{
+  "route": "business-combination-acquire",
+  "endpoint": "/acquire",
+  "request": {
+    "company_id": "c-1",
+    "acquirer": "Vimbai Ltd",
+    "acquiree": "Beta Traders",
+    "purchase_price": 5000000.0,
+    "goodwill_recognized": true,
+    "identifiable_assets": [
+      {
+        "name": "Plant",
+        "type": "tangible",
+        "fair_value": 3000000.0
+      },
+      {
+        "name": "Brand",
+        "type": "intangible",
+        "fair_value": 1200000.0
+      },
+      {
+        "name": "Loan",
+        "type": "liability",
+        "fair_value": -800000.0
+      }
+    ],
+    "contingent_consideration": 200000.0,
+    "acquisition_costs": 50000.0,
+    "non_controlling_interest": 100000.0
+  },
+  "response": {
+    "id": "b880f0c8-8da2-4b10-82f6-da25ddffff65",
+    "company_id": "c-1",
+    "acquirer": "Vimbai Ltd",
+    "acquiree": "Beta Traders",
+    "purchase_price": 5000000.0,
+    "total_identifiable_assets": 4200000.0,
+    "total_identifiable_liabilities": 800000.0,
+    "net_identifiable_assets": 3400000.0,
+    "goodwill": 1900000.0,
+    "bargain_purchase": 0.0,
+    "contingent_consideration": 200000.0,
+    "acquisition_costs": 50000.0,
+    "non_controlling_interest": 100000.0,
+    "purchase_price_allocation": [
+      {
+        "asset": "Plant",
+        "type": "tangible",
+        "fair_value": 3000000.0,
+        "allocation_pct": 71.4
+      },
+      {
+        "asset": "Brand",
+        "type": "intangible",
+        "fair_value": 1200000.0,
+        "allocation_pct": 28.6
+      },
+      {
+        "asset": "Loan",
+        "type": "liability",
+        "fair_value": -800000.0,
+        "allocation_pct": 19.0
+      },
+      {
+        "asset": "Goodwill",
+        "type": "intangible",
+        "fair_value": 1900000.0,
+        "allocation_pct": 0
+      }
+    ]
+  },
+  "ignore": [
+    "id"
+  ]
+}

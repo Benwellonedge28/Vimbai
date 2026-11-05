@@ -1,0 +1,37 @@
+{
+  "route": "project-accounting-costs",
+  "endpoint": "/costs",
+  "request": {
+    "project_id": "p-1",
+    "costs": [
+      {
+        "description": "Materials",
+        "amount": 1000.0
+      },
+      {
+        "amount": 250.5
+      }
+    ],
+    "labor_hours": {
+      "eng": 10.0,
+      "design": 2.0
+    },
+    "billable_amounts": {
+      "client_a": 6000.0,
+      "client_b": 1500.0
+    }
+  },
+  "response": {
+    "project_id": "p-1",
+    "total_cost": 2150.5,
+    "total_billable": 7500.0,
+    "profit": 5349.5,
+    "margin": 83.33,
+    "cost_breakdown": {
+      "materials": 1250.5,
+      "labor": 900.0
+    },
+    "utilization_rate": 85.5
+  },
+  "ignore": []
+}

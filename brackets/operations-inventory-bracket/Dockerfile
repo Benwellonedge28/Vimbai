@@ -19,7 +19,6 @@ COPY brackets/operations-inventory-bracket/main.py ./main.py
 COPY biological-assets-service ./biological-assets-service
 COPY data-warehouse-service ./data-warehouse-service
 COPY fixed-assets-register-service ./fixed-assets-register-service
-COPY project-accounting-service ./project-accounting-service
 COPY subscription-plans-service ./subscription-plans-service
 
 USER vimbai
