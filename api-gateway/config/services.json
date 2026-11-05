@@ -374,14 +374,6 @@
       "strip_prefix": false
     },
     {
-      "name": "esg-reporting-service",
-      "path": "/esg-reporting",
-      "url": "http://localhost:9002",
-      "port": 8230,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "etl-service",
       "path": "/etl",
       "url": "http://localhost:9013",
@@ -1077,14 +1069,6 @@
       "url": "http://localhost:8142",
       "port": 8142,
       "auth_required": true
-    },
-    {
-      "name": "xbrl-reporting-service",
-      "path": "/xbrl-reporting",
-      "url": "http://localhost:9002",
-      "port": 8274,
-      "auth_required": true,
-      "strip_prefix": false
     },
     {
       "name": "zero-based-budgeting-service",

@@ -634,6 +634,11 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         assurance::corporate_governance_from_json,
     );
     map.insert("due-diligence-assess", assurance::due_diligence_from_json);
+    map.insert("esg-reporting-report", reporting::esg_report_from_json);
+    map.insert(
+        "xbrl-reporting-generate",
+        reporting::xbrl_generate_from_json,
+    );
     map
 }
 

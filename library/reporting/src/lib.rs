@@ -6,10 +6,12 @@
 pub mod analysis;
 pub mod annual;
 pub mod documents;
+pub mod esg;
 pub mod financial;
 pub mod management;
 pub mod project_accounting;
 pub mod regulatory;
+pub mod xbrl;
 
 pub use analysis::{
     analyze_bank_fees, analyze_coverage, analyze_suspense, track_kpis, BankCharge, Correction,
@@ -56,4 +58,14 @@ pub fn project_budget_from_json(payload: &serde_json::Value) -> Result<serde_jso
 /// `project-accounting-service /wip`.
 pub fn project_wip_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
     project_accounting::wip(payload)
+}
+
+/// `esg-reporting-service /report`.
+pub fn esg_report_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    esg::report(payload)
+}
+
+/// `xbrl-reporting-service /generate`.
+pub fn xbrl_generate_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    xbrl::generate(payload)
 }

@@ -18,7 +18,6 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY brackets/statements-reporting-bracket/main.py ./main.py
 COPY balance-sheet-service ./balance-sheet-service
 COPY cash-flow-statement-service ./cash-flow-statement-service
-COPY esg-reporting-service ./esg-reporting-service
 COPY ifrs-reporting-service ./ifrs-reporting-service
 COPY purchases-ledger-control-service ./purchases-ledger-control-service
 COPY report-automation-service ./report-automation-service
@@ -27,7 +26,6 @@ COPY reporting-service ./reporting-service
 COPY sales-ledger-control-service ./sales-ledger-control-service
 COPY treasury-reporting-service ./treasury-reporting-service
 COPY trial-balance-service ./trial-balance-service
-COPY xbrl-reporting-service ./xbrl-reporting-service
 
 USER vimbai
 

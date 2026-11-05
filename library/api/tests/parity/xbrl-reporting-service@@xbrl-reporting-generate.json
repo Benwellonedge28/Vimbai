@@ -1,0 +1,84 @@
+{
+  "route": "xbrl-reporting-generate",
+  "endpoint": "/generate",
+  "request": {
+    "company_id": "c-1",
+    "fiscal_year": 2026,
+    "entity_name": "Vimbai Ltd",
+    "entity_identifier": "ZW-123456",
+    "taxonomy": "ifrs-full",
+    "concepts": [
+      {
+        "concept": "RevenueFromContracts",
+        "value": 1234567.891,
+        "context_ref": "CY2026",
+        "unit_ref": "ZWL",
+        "decimals": -2
+      },
+      {
+        "concept": "ProfitLoss",
+        "value": 234567.5,
+        "context_ref": "CY2026",
+        "unit_ref": "ZWL",
+        "decimals": -2
+      },
+      {
+        "concept": "Assets",
+        "value": 9000000.0,
+        "context_ref": "CY2026",
+        "unit_ref": "ZWL",
+        "decimals": -2
+      }
+    ]
+  },
+  "response": {
+    "id": "b25beb80-cbdb-47f5-86e3-1eb70f074585",
+    "company_id": "c-1",
+    "entity_name": "Vimbai Ltd",
+    "fiscal_year": 2026,
+    "taxonomy": "ifrs-full",
+    "concept_count": 3,
+    "validation_status": "invalid",
+    "validation_errors": [
+      "Missing required concept: Liabilities",
+      "Missing required concept: Equity"
+    ],
+    "xbrl_facts": [
+      {
+        "concept": "RevenueFromContracts",
+        "taxonomy_ref": "ifrs-full:RevenueFromContracts",
+        "value": 1234567.89,
+        "context": "CY2026",
+        "unit": "ZWL",
+        "decimals": -2
+      },
+      {
+        "concept": "ProfitLoss",
+        "taxonomy_ref": "ifrs-full:ProfitLoss",
+        "value": 234567.5,
+        "context": "CY2026",
+        "unit": "ZWL",
+        "decimals": -2
+      },
+      {
+        "concept": "Assets",
+        "taxonomy_ref": "ifrs-full:Assets",
+        "value": 9000000.0,
+        "context": "CY2026",
+        "unit": "ZWL",
+        "decimals": -2
+      }
+    ],
+    "filing_metadata": {
+      "entity_identifier": "ZW-123456",
+      "reporting_period": "FY2026",
+      "generated_at": "2026-11-05T08:46:51.570322+00:00",
+      "schema": "https://xbrl.ifrs.org/taxonomy/ifrs-full/",
+      "language": "en"
+    }
+  },
+  "ignore": [
+    "id",
+    "filing_metadata.generated_at"
+  ]
+}

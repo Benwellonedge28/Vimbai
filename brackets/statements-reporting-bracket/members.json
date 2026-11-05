@@ -13,11 +13,6 @@
       "dir": "cash-flow-statement-service"
     },
     {
-      "path": "/esg-reporting",
-      "name": "esg-reporting-service",
-      "dir": "esg-reporting-service"
-    },
-    {
       "path": "/ifrs-reporting",
       "name": "ifrs-reporting-service",
       "dir": "ifrs-reporting-service"
@@ -56,11 +51,6 @@
       "path": "/trial-balance",
       "name": "trial-balance-service",
       "dir": "trial-balance-service"
-    },
-    {
-      "path": "/xbrl-reporting",
-      "name": "xbrl-reporting-service",
-      "dir": "xbrl-reporting-service"
     }
   ]
 }

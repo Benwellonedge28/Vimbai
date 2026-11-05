@@ -1,0 +1,126 @@
+{
+  "route": "esg-reporting-report",
+  "endpoint": "/report",
+  "request": {
+    "company_id": "c-1",
+    "reporting_period": "FY2026",
+    "framework": "GRI",
+    "environmental_metrics": [
+      {
+        "name": "Carbon intensity",
+        "value": 120.0,
+        "unit": "tCO2e/m",
+        "target": 100.0
+      },
+      {
+        "name": "Water use",
+        "value": 900.0,
+        "unit": "ML",
+        "target": 1000.0
+      }
+    ],
+    "social_metrics": [
+      {
+        "name": "Safety incidents",
+        "value": 2.0,
+        "unit": "count",
+        "target": 1.0
+      },
+      {
+        "name": "Training hours",
+        "value": 40.0,
+        "unit": "hours",
+        "target": 30.0
+      }
+    ],
+    "governance_metrics": [
+      {
+        "name": "Board independence",
+        "value": 0.55,
+        "unit": "ratio",
+        "target": 0.5
+      },
+      {
+        "name": "Ethics training",
+        "value": 0.8,
+        "unit": "ratio",
+        "target": 0.95
+      }
+    ]
+  },
+  "response": {
+    "company_id": "c-1",
+    "reporting_period": "FY2026",
+    "framework": "GRI",
+    "environmental_metrics": [
+      {
+        "metric_name": "Carbon intensity",
+        "category": "Environmental",
+        "value": 120.0,
+        "unit": "tCO2e/m",
+        "target": 100.0,
+        "status": "below_target"
+      },
+      {
+        "metric_name": "Water use",
+        "category": "Environmental",
+        "value": 900.0,
+        "unit": "ML",
+        "target": 1000.0,
+        "status": "on_track"
+      }
+    ],
+    "social_metrics": [
+      {
+        "metric_name": "Safety incidents",
+        "category": "Social",
+        "value": 2.0,
+        "unit": "count",
+        "target": 1.0,
+        "status": "on_track"
+      },
+      {
+        "metric_name": "Training hours",
+        "category": "Social",
+        "value": 40.0,
+        "unit": "hours",
+        "target": 30.0,
+        "status": "on_track"
+      }
+    ],
+    "governance_metrics": [
+      {
+        "metric_name": "Board independence",
+        "category": "Governance",
+        "value": 0.55,
+        "unit": "ratio",
+        "target": 0.5,
+        "status": "compliant"
+      },
+      {
+        "metric_name": "Ethics training",
+        "category": "Governance",
+        "value": 0.8,
+        "unit": "ratio",
+        "target": 0.95,
+        "status": "non_compliant"
+      }
+    ],
+    "overall_esg_score": 66.67,
+    "rating_agency_comparison": {
+      "msci_rating": "A",
+      "cdp_score": "B+",
+      "sustainalytics_risk": "Low"
+    },
+    "gaps_identified": [
+      "Environmental: Carbon intensity target not met",
+      "Governance: Ethics training below threshold"
+    ],
+    "recommendations": [
+      "Address identified gaps in next reporting period",
+      "Set ambitious but achievable targets",
+      "Improve data collection processes"
+    ]
+  },
+  "ignore": []
+}
