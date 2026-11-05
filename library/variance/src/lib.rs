@@ -15,13 +15,8 @@
 
 pub mod generic;
 pub mod labour;
-pub mod material;
 pub mod sales;
 
 pub use generic::{cost_variance, revenue_variance, VarianceKind};
 pub use labour::{department_labour_analysis, labour_rate_variance, labour_variance};
-pub use material::{
-    material_cost_variance, material_efficiency_variance, material_price_variance,
-    material_total_variance, material_usage_variance, multi_material_variance,
-};
 pub use sales::{sales_price_volume_analysis, sales_volume_cm_analysis};

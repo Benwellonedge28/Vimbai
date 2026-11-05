@@ -60,7 +60,10 @@ pub use marginal::{
     contribution_analysis, forecast_profit, marginal_cost_item, marginal_income_statement,
     ContributionAnalysisOutput, MarginalCostOutput, MarginalIncomeStatementOutput,
 };
-pub use material_variance::{simple_material_variance, MaterialInput, SimpleVariance};
+pub use material_variance::{
+    material_cost_variance, multi_material_variance, simple_material_variance, MaterialInput,
+    MaterialVariance, MultiMaterialVariance, SimpleVariance,
+};
 pub use overhead::{
     labour_cost_rate, labour_hours_rate, machine_hours_rate, material_cost_rate, oar,
     over_under_absorption, simple_over_under, spending_variance, volume_variance, Cause, OarOutput,
