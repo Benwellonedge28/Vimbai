@@ -109,6 +109,19 @@ def routes_for(service, endpoints):
     return [f"{base}-{path.replace('/', '-')}" for path in endpoints]
 
 
+def still_routed():
+    """The services the gateway still advertises.
+
+    Only these can be retired. A service already gone from the manifest is done, and
+    listing it as failing a check it no longer needs makes the report unreadable.
+    """
+    manifest = ROOT / "api-gateway" / "config" / "services.json"
+    if not manifest.exists():
+        return None
+    payload = json.loads(manifest.read_text())
+    return {entry["name"] for entry in payload["services"]}
+
+
 def parity_tested():
     return "".join(path.read_text() for path in SEAM_TESTS if path.exists())
 
@@ -118,6 +131,7 @@ def main():
     wired = services_with_calculator()
     served = api_names()
     parity = parity_tested()
+    routed = still_routed()
 
     rows = []
     for service, seams in sorted(wired.items()):
@@ -133,19 +147,30 @@ def main():
             PATH_ROUTES.get((service, path), name) for path, name in zip(endpoints, routes_for(service, endpoints))
         ]
         http = single or (bool(endpoints) and all(name in served for name in named))
-        rows.append((service, seams, bound, tested, http))
+        live = routed is None or service in routed
+        rows.append((service, seams, bound, tested, http, live))
 
-    print(f"{'service':48s} {'seam bound':10s} {'parity':7s} {'http':5s} verdict")
+    print(f"{'service':48s} {'routed':6s} {'seam bound':10s} {'parity':7s} {'http':5s} verdict")
     ready = []
-    for service, seams, bound, tested, http in rows:
-        verdict = "delete-safe" if (bound and tested and http) else "keep"
-        if verdict == "delete-safe":
+    retired = []
+    keeping = []
+    for service, seams, bound, tested, http, live in rows:
+        if not live:
+            verdict = "retired"
+            retired.append(service)
+        elif bound and tested and http:
+            verdict = "delete-safe"
             ready.append(service)
-        print(f"{service:48s} {str(bound):10s} {str(tested):7s} {str(http):5s} {verdict}")
+        else:
+            verdict = "keep"
+            keeping.append(service)
+        print(f"{service:48s} {str(live):6s} {str(bound):10s} {str(tested):7s} {str(http):5s} {verdict}")
 
     print()
     print(f"{len(rows)} services answer through the seam")
-    print(f"{len(ready)} pass every check and may be retired: {', '.join(ready) or 'none yet'}")
+    print(f"{len(retired)} already retired from the gateway")
+    print(f"{len(ready)} routed and safe to retire now: {', '.join(ready) or 'none'}")
+    print(f"{len(keeping)} keep: {', '.join(keeping) or 'none'}")
     if functions is None:
         print("the extension is not installed here, so 'seam bound' could not be checked")
     return 0 if ready else 1
