@@ -2017,6 +2017,7 @@ dependencies = [
  "neo4j",
  "serde",
  "serde_json",
+ "vimbai_common",
 ]
 
 [[package]]
