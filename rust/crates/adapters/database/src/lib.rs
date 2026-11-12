@@ -35,6 +35,7 @@ pub(crate) mod fake;
 pub mod insurance_claims;
 pub mod job_costing;
 pub mod neo4j_client;
+pub mod price_reduction;
 pub mod trading_account;
 pub mod treasury_analytics;
 
@@ -115,6 +116,10 @@ pub const TREASURY_SNAPSHOT: RecordKind =
 /// query that filters by company only, so each one already answers with the other's records. One
 /// constant serves both, because splitting the label would invent a distinction the data never made.
 pub const COST_CALCULATION: RecordKind = RecordKind::new("CostCalculation", "OWNS_CALCULATION");
+
+/// The price reduction decisions selling-price-reduction-service owns.
+pub const SELLING_PRICE_ANALYSIS: RecordKind =
+    RecordKind::new("PriceReductionAnalysis", "OWNS_PRICE_ANALYSIS");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StoreError {

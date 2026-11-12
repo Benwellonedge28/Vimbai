@@ -22,8 +22,8 @@ use axum::{
 use serde_json::{json, Value};
 use store::{
     absorption, appropriation_control, cash_flow, cash_optimization, cost_calculations,
-    equity_changes, insurance_claims, job_costing, trading_account, treasury_analytics, BookScope,
-    Graph, StoreError,
+    equity_changes, insurance_claims, job_costing, price_reduction, trading_account,
+    treasury_analytics, BookScope, Graph, StoreError,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -301,6 +301,43 @@ async fn cost_summary(
         graph.as_ref(),
         &scope,
         &company_id,
+    ))
+}
+
+async fn price_analysis(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(price_reduction::create_analysis(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn price_discount_analysis(Json(payload): Json<Value>) -> Response {
+    answer(price_reduction::discount_analysis(&payload))
+}
+
+async fn price_analyses(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let product = query_param(query.as_deref(), "product_id");
+    answer(price_reduction::analyses(
+        graph.as_ref(),
+        &scope,
+        product.as_deref(),
     ))
 }
 
@@ -785,6 +822,18 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/trading-account/accounts/:account_id",
             get(get_trading_account),
         )
+        .route(
+            "/records/selling-price-reduction/analyze",
+            post(price_analysis),
+        )
+        .route(
+            "/records/selling-price-reduction/discount-analysis",
+            post(price_discount_analysis),
+        )
+        .route(
+            "/records/selling-price-reduction/analyses",
+            get(price_analyses),
+        )
         .route("/records/process-costing/calculate", post(cost_calculation))
         .route(
             "/records/process-costing/calculations/:company_id",
@@ -901,6 +950,12 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/trading-account/accounts/:account_id",
             get(get_trading_account),
         )
+        .route("/selling-price-reduction/analyze", post(price_analysis))
+        .route(
+            "/selling-price-reduction/discount-analysis",
+            post(price_discount_analysis),
+        )
+        .route("/selling-price-reduction/analyses", get(price_analyses))
         .route("/process-costing/calculate", post(cost_calculation))
         .route(
             "/process-costing/calculations/:company_id",

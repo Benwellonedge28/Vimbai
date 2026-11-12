@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 38 are proven on a Rust engine. 99 are still Python-only.
+The gateway routes 137 services. 39 are proven on a Rust engine. 98 are still Python-only.
 
-Of the backlog, 1 own no records and can be ported as pure functions; 98 own records and
+Of the backlog, 1 own no records and can be ported as pure functions; 97 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-38 services.
+39 services.
 
 ```
 accounting-service                             8000  routes=1   records=yes rust http
@@ -51,6 +51,7 @@ revaluation-model-service                      8144  routes=6   records=no  rust
 revenue-recognition-service                    8115  routes=5   records=yes rust http
 risk-assessment-service                        8117  routes=6   records=yes rust http
 rolling-forecast-service                       8173  routes=7   records=yes rust http
+selling-price-reduction-service                8123  routes=5   records=yes rust http
 trading-account-service                        8000  routes=5   records=yes rust http
 treasury-analytics-service                     8134  routes=4   records=yes rust http
 websocket-service                              8141  routes=4   records=no  rust http
@@ -66,7 +67,7 @@ cache-service                                  8000  routes=7   records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-98 services.
+97 services.
 
 ```
 job-costing-service                            8073  routes=5   records=yes none
@@ -111,7 +112,6 @@ treasury-reporting-service                     8262  routes=7   records=yes none
 intercompany-service                           8350  routes=8   records=yes none
 continue-shutdown-decision-service             8032  routes=6   records=yes none
 ordinary-shares-service                        8090  routes=5   records=yes none
-selling-price-reduction-service                8123  routes=5   records=yes none
 issued-share-capital-service                   8071  routes=7   records=yes none
 treasury-policy-service                        8263  routes=8   records=yes none
 workflow-service                               8142  routes=1   records=yes none

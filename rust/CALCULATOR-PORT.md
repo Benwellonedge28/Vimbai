@@ -56,6 +56,7 @@ routes; they are listed here too, because the Python service is no longer the en
 - product-costing-service
 - r-and-d-tax-service
 - regulatory-ratio-service
+- selling-price-reduction-service
 - standard-cost-service
 - substantive-testing-service
 - target-costing-service
@@ -204,3 +205,9 @@ routes; they are listed here too, because the Python service is no longer the en
 to the library, and its Python body did not call the seam. The Rust ladder in `vimbai_assets`
 is the real implementation, so the figures from that one endpoint were never a like-for-like
 reference. The `/method` endpoint was wired and watched by parity tests.
+
+`selling-price-reduction-service` answered `break_even_volume_increase: Infinity` when the new
+contribution per unit was not positive. That is not valid JSON, so a strict client saw a parse error
+where the service meant "no volume breaks even". The port answers `null` for that case and leaves the
+recommendation (`REJECT`/`CONDITIONAL_APPROVAL`) to carry the meaning; every other figure is the same
+arithmetic, held in `Money` instead of floats.

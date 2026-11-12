@@ -147,7 +147,7 @@ services:
   port: 8123
   gateway_path: /selling-price-reduction
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
