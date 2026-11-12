@@ -283,3 +283,90 @@ async fn the_price_routes_answer_under_the_records_prefix_too() {
     let (status, _) = call(graph, "/records/selling-price-reduction/analyses", None).await;
     assert_eq!(status, StatusCode::OK);
 }
+
+#[tokio::test]
+async fn a_cvp_analysis_is_stored_and_reported_on_the_published_path() {
+    let stored = json!({"x": {
+        "id": "a-1",
+        "entity_id": "e-1",
+        "entity_name": "Widget line",
+        "selling_price_per_unit": "100.000000",
+        "variable_cost_per_unit": "60.000000",
+        "fixed_costs": "8000.000000",
+        "expected_sales_units": "300.000000",
+        "target_profit": "0.000000",
+        "contribution_per_unit": "40.000000",
+        "contribution_margin_ratio": "0.400000",
+        "break_even_units": "200.000000",
+        "break_even_revenue": "20000.000000",
+        "profit_at_expected_sales": "4000.000000",
+        "margin_of_safety_percentage": "33.333333",
+        "degree_of_operating_leverage": "3.000000"
+    }});
+    let graph = Scripted::returning(vec![stored]);
+    let (status, body) = call(
+        graph,
+        "/cvp-analysis/analyze",
+        Some(json!({
+            "entity_id": "e-1",
+            "entity_name": "Widget line",
+            "selling_price_per_unit": 100,
+            "variable_cost_per_unit": 60,
+            "fixed_costs": 8000,
+            "expected_sales_units": 300
+        })),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["break_even_units"], json!(200.0));
+    assert_eq!(body["degree_of_operating_leverage"], json!(3.0));
+}
+
+#[tokio::test]
+async fn a_target_profit_the_contribution_cannot_reach_is_refused() {
+    let graph = Scripted::returning(vec![]);
+    let (status, _) = call(
+        graph,
+        "/cvp-analysis/target-profit",
+        Some(json!({
+            "entity_name": "Widget",
+            "selling_price_per_unit": 100,
+            "variable_cost_per_unit": 100,
+            "fixed_costs": 1000,
+            "target_profit": 500
+        })),
+    )
+    .await;
+    // Python raised 400 here; the record ports answer 422 for every rejected submission, and this
+    // one shares that mapping rather than carrying a second convention for a single rule.
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn the_quick_analysis_answers_null_where_nothing_breaks_even() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call(
+        graph,
+        "/cvp-analysis/quick-analysis",
+        Some(json!({"fixed_costs": 8000, "selling_price": 50, "variable_cost": 60})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["break_even_units"], Value::Null);
+}
+
+#[tokio::test]
+async fn a_cvp_analysis_that_is_not_the_callers_is_a_404() {
+    let graph = Scripted::returning(vec![]);
+    let (status, _) = call(graph, "/cvp-analysis/analyses/missing", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn the_cvp_routes_answer_under_the_records_prefix_too() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call(graph, "/records/cvp-analysis/analyses", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total"], json!(0));
+}

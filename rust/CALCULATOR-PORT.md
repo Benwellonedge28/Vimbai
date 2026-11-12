@@ -56,6 +56,7 @@ routes; they are listed here too, because the Python service is no longer the en
 - product-costing-service
 - r-and-d-tax-service
 - regulatory-ratio-service
+- cvp-analysis-service
 - selling-price-reduction-service
 - standard-cost-service
 - substantive-testing-service
@@ -211,3 +212,9 @@ contribution per unit was not positive. That is not valid JSON, so a strict clie
 where the service meant "no volume breaks even". The port answers `null` for that case and leaves the
 recommendation (`REJECT`/`CONDITIONAL_APPROVAL`) to carry the meaning; every other figure is the same
 arithmetic, held in `Money` instead of floats.
+
+`cvp-analysis-service` answered `Infinity` for the figures that do not exist when the contribution
+is not positive (break-even volume and revenue, and - in a product mix - break-even and target
+revenue). Those are `null` in the port. It also refused a non-positive contribution on
+`/target-profit` with 400; the record ports answer 422 for every rejected submission, so that is
+what a bad target-profit call gets now.

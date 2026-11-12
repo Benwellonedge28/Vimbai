@@ -21,7 +21,7 @@ use axum::{
 };
 use serde_json::{json, Value};
 use store::{
-    absorption, appropriation_control, cash_flow, cash_optimization, cost_calculations,
+    absorption, appropriation_control, cash_flow, cash_optimization, cost_calculations, cvp,
     equity_changes, insurance_claims, job_costing, price_reduction, trading_account,
     treasury_analytics, BookScope, Graph, StoreError,
 };
@@ -339,6 +339,59 @@ async fn price_analyses(
         &scope,
         product.as_deref(),
     ))
+}
+
+async fn cvp_analysis(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cvp::create_analysis(graph.as_ref(), &scope, &payload))
+}
+
+async fn cvp_quick_analysis(Json(payload): Json<Value>) -> Response {
+    answer(cvp::quick_analysis(&payload))
+}
+
+async fn cvp_contribution(Json(payload): Json<Value>) -> Response {
+    answer(cvp::contribution(&payload))
+}
+
+async fn cvp_target_profit(Json(payload): Json<Value>) -> Response {
+    answer(cvp::target_profit(&payload))
+}
+
+async fn cvp_multi_product(Json(payload): Json<Value>) -> Response {
+    answer(cvp::multi_product(&payload))
+}
+
+async fn cvp_analyses(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let entity = query_param(query.as_deref(), "entity_id");
+    answer(cvp::analyses(graph.as_ref(), &scope, entity.as_deref()))
+}
+
+async fn cvp_analysis_by_id(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(analysis_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cvp::analysis(graph.as_ref(), &scope, &analysis_id))
 }
 
 /// The same routes on the paths the two services publish, so the gateway can point at this
@@ -834,6 +887,25 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/selling-price-reduction/analyses",
             get(price_analyses),
         )
+        .route("/records/cvp-analysis/analyze", post(cvp_analysis))
+        .route(
+            "/records/cvp-analysis/quick-analysis",
+            post(cvp_quick_analysis),
+        )
+        .route("/records/cvp-analysis/contribution", post(cvp_contribution))
+        .route(
+            "/records/cvp-analysis/target-profit",
+            post(cvp_target_profit),
+        )
+        .route(
+            "/records/cvp-analysis/multi-product",
+            post(cvp_multi_product),
+        )
+        .route("/records/cvp-analysis/analyses", get(cvp_analyses))
+        .route(
+            "/records/cvp-analysis/analyses/:analysis_id",
+            get(cvp_analysis_by_id),
+        )
         .route("/records/process-costing/calculate", post(cost_calculation))
         .route(
             "/records/process-costing/calculations/:company_id",
@@ -956,6 +1028,16 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             post(price_discount_analysis),
         )
         .route("/selling-price-reduction/analyses", get(price_analyses))
+        .route("/cvp-analysis/analyze", post(cvp_analysis))
+        .route("/cvp-analysis/quick-analysis", post(cvp_quick_analysis))
+        .route("/cvp-analysis/contribution", post(cvp_contribution))
+        .route("/cvp-analysis/target-profit", post(cvp_target_profit))
+        .route("/cvp-analysis/multi-product", post(cvp_multi_product))
+        .route("/cvp-analysis/analyses", get(cvp_analyses))
+        .route(
+            "/cvp-analysis/analyses/:analysis_id",
+            get(cvp_analysis_by_id),
+        )
         .route("/process-costing/calculate", post(cost_calculation))
         .route(
             "/process-costing/calculations/:company_id",

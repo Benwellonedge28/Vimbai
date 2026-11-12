@@ -29,6 +29,7 @@ pub mod appropriation_control;
 pub mod cash_flow;
 pub mod cash_optimization;
 pub mod cost_calculations;
+pub mod cvp;
 pub mod equity_changes;
 #[cfg(test)]
 pub(crate) mod fake;
@@ -116,6 +117,9 @@ pub const TREASURY_SNAPSHOT: RecordKind =
 /// query that filters by company only, so each one already answers with the other's records. One
 /// constant serves both, because splitting the label would invent a distinction the data never made.
 pub const COST_CALCULATION: RecordKind = RecordKind::new("CostCalculation", "OWNS_CALCULATION");
+
+/// The cost-volume-profit analyses cvp-analysis-service owns.
+pub const CVP_ANALYSIS: RecordKind = RecordKind::new("CVPAnalysis", "OWNS_CVP_ANALYSIS");
 
 /// The price reduction decisions selling-price-reduction-service owns.
 pub const SELLING_PRICE_ANALYSIS: RecordKind =
