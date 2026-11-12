@@ -41,6 +41,16 @@ impl FakeGraph {
             .expect("no statement ran")
     }
 
+    /// The nth statement the code ran, in order, for a path whose first query matters as much as
+    /// its last.
+    pub fn statement(&self, index: usize) -> (String, Value) {
+        self.seen
+            .borrow()
+            .get(index)
+            .cloned()
+            .expect("statement not run")
+    }
+
     pub fn statements(&self) -> usize {
         self.seen.borrow().len()
     }

@@ -149,6 +149,16 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records ordinary-shares-service and preference-shares-service own.
+pub const ORDINARY_DIVIDEND: RecordKind =
+    RecordKind::new("OrdinaryDividendNode", "OWNS_ORDINARY_DIVIDEND");
+pub const PREFERENCE_CLASS: RecordKind =
+    RecordKind::new("PreferenceShareClassNode", "OWNS_PREF_SHARE_CLASS");
+pub const PREFERENCE_DIVIDEND: RecordKind =
+    RecordKind::new("PreferenceDividendNode", "OWNS_PREF_DIVIDEND");
+pub const PREFERENCE_REDEMPTION: RecordKind =
+    RecordKind::new("PreferenceRedemptionNode", "OWNS_PREF_REDEMPTION");
+
 /// The records authorized-share-capital-service owns.
 pub const SHARE_CLASS: RecordKind = RecordKind::new("ShareClassNode", "OWNS_SHARE_CLASS");
 pub const SHARE_ISSUANCE: RecordKind = RecordKind::new("ShareIssuanceNode", "OWNS_SHARE_ISSUANCE");

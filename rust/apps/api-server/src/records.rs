@@ -1422,6 +1422,214 @@ fn overlay(query: Value, body: Option<Value>) -> Value {
     Value::Object(merged)
 }
 
+async fn declare_ordinary_dividend(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::declare_ordinary_dividend(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn pay_ordinary_dividend(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(dividend_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::pay_ordinary_dividend(
+        graph.as_ref(),
+        &scope,
+        &dividend_id,
+        &body,
+    ))
+}
+
+async fn ordinary_dividends(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    answer(equity::list_ordinary_dividends(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn create_preference_class(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::create_preference_class(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn preference_classes(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    answer(equity::list_preference_classes(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn issue_preference_shares(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(class_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::issue_preference_shares(
+        graph.as_ref(),
+        &scope,
+        &class_id,
+        &body,
+    ))
+}
+
+async fn declare_preference_dividend(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(class_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::declare_preference_dividend(
+        graph.as_ref(),
+        &scope,
+        &class_id,
+        &body,
+    ))
+}
+
+async fn pay_preference_dividend(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(dividend_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::pay_preference_dividend(
+        graph.as_ref(),
+        &scope,
+        &dividend_id,
+        &body,
+    ))
+}
+
+async fn redeem_preference_shares(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(class_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::redeem_preference_shares(
+        graph.as_ref(),
+        &scope,
+        &class_id,
+        &body,
+    ))
+}
+
+async fn preference_dividends(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    answer(equity::list_preference_dividends(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
 async fn create_share_class(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -1690,6 +1898,38 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/records/fixed-assets-schedule/summary",
             get(schedule_summary),
+        )
+        .route(
+            "/records/ordinary-shares/dividends",
+            get(ordinary_dividends).post(declare_ordinary_dividend),
+        )
+        .route(
+            "/records/ordinary-shares/dividends/:dividend_id/pay",
+            post(pay_ordinary_dividend),
+        )
+        .route(
+            "/records/preference-shares/classes",
+            get(preference_classes).post(create_preference_class),
+        )
+        .route(
+            "/records/preference-shares/classes/:class_id/issue",
+            post(issue_preference_shares),
+        )
+        .route(
+            "/records/preference-shares/classes/:class_id/dividends",
+            post(declare_preference_dividend),
+        )
+        .route(
+            "/records/preference-shares/dividends/:dividend_id/pay",
+            post(pay_preference_dividend),
+        )
+        .route(
+            "/records/preference-shares/classes/:class_id/redeem",
+            post(redeem_preference_shares),
+        )
+        .route(
+            "/records/preference-shares/dividends",
+            get(preference_dividends),
         )
         .route(
             "/records/authorized-share-capital/share-classes",
@@ -2121,6 +2361,35 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route(
+            "/ordinary-shares/dividends",
+            get(ordinary_dividends).post(declare_ordinary_dividend),
+        )
+        .route(
+            "/ordinary-shares/dividends/:dividend_id/pay",
+            post(pay_ordinary_dividend),
+        )
+        .route(
+            "/preference-shares/classes",
+            get(preference_classes).post(create_preference_class),
+        )
+        .route(
+            "/preference-shares/classes/:class_id/issue",
+            post(issue_preference_shares),
+        )
+        .route(
+            "/preference-shares/classes/:class_id/dividends/declare",
+            post(declare_preference_dividend),
+        )
+        .route(
+            "/preference-shares/classes/:class_id/dividends/:dividend_id/pay",
+            post(pay_preference_dividend),
+        )
+        .route(
+            "/preference-shares/classes/:class_id/redeem",
+            post(redeem_preference_shares),
+        )
+        .route("/preference-shares/dividends", get(preference_dividends))
         .route(
             "/authorized-share-capital/share-classes",
             get(share_classes).post(create_share_class),

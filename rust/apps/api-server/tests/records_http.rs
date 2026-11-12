@@ -756,3 +756,74 @@ async fn the_share_class_routes_answer_under_the_records_prefix_too() {
     .await;
     assert_eq!(status, StatusCode::OK);
 }
+
+#[tokio::test]
+async fn an_ordinary_dividend_is_declared_and_paid_on_the_published_paths() {
+    let graph = Scripted::returning(vec![json!({"id": "d-1"})]);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/ordinary-shares/dividends?dividend_type=interim&per_share_amount=0.35&total_shares=1000&record_date=2026-03-01",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let paying = Scripted::returning(vec![json!({
+        "id": "d-1", "dividend_type": "interim", "total_dividend": "350"
+    })]);
+    let (status, body) = call_with(
+        paying,
+        "POST",
+        "/ordinary-shares/dividends/d-1/pay?payment_date=2026-04-01",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["id"], json!("d-1"));
+}
+
+#[tokio::test]
+async fn preference_classes_are_issued_declared_and_redeemed_on_one_prefix() {
+    let creating = Scripted::returning(vec![json!({"id": "c-1", "name": "A"})]);
+    let (status, _) = call_with(
+        creating,
+        "POST",
+        "/preference-shares/classes?name=A&company_id=co-1&nominal_value=1&issue_price=2.5",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let redeeming = Scripted::returning(vec![json!({
+        "id": "c-1", "name": "A", "nominal_value": "1",
+        "shares_issued": 200, "shares_outstanding": 200
+    })]);
+    let (status, body) = call_with(
+        redeeming,
+        "POST",
+        "/preference-shares/classes/c-1/redeem?shares_redeemed=100&redemption_price=1.75",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["id"], json!("c-1"));
+
+    let listing = Scripted::returning(Vec::new());
+    let (status, body) = call_with(listing, "GET", "/preference-shares/dividends", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["dividends"], json!([]));
+}
+
+#[tokio::test]
+async fn the_dividend_routes_answer_under_the_records_prefix_too() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, _) = call_with(
+        graph,
+        "GET",
+        "/records/ordinary-shares/dividends?company_id=co-1",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}

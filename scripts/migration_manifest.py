@@ -129,6 +129,8 @@ OWNERS = {
     "lease-termination-service": "assets",
     "revaluation-model-service": "assets",
     "authorized-share-capital-service": "equity",
+    "ordinary-shares-service": "equity",
+    "preference-shares-service": "equity",
     "bonus-shares-service": "equity",
     "capital-reconstruction-service": "equity",
     "capital-redemption-reserve-service": "equity",
@@ -143,6 +145,8 @@ OWNERS = {
     # an asset revaluation reserve is an asset question, and its records live in the assets crate
     "revaluation-reserve-service": "assets",
     "authorized-share-capital-service": "equity",
+    "ordinary-shares-service": "equity",
+    "preference-shares-service": "equity",
     "right-issues-service": "equity",
     "share-premium-service": "equity",
     "share-redemption-service": "equity",

@@ -12,6 +12,10 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- ordinary-shares-service and preference-shares-service -> equity crate, records on the store:
+  dividends declared and paid, preference classes, their issuances and redemptions. The declared
+  total is per-share over the shares in issue, plus arrears for preference stock; journal entries are
+  built and returned, not posted.
 - authorized-share-capital-service -> equity crate, records on the store: share classes, their
   issuances and buybacks, and the used-capacity summary. The ceiling is enforced on issue and the
   issued count on buyback.
