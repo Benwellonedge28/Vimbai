@@ -12,6 +12,19 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- company-accounting-service -> accounting crate, records on the store: companies and the four equity
+  accounts each one needs, the shareholder register, share capital, capital transactions, dividends and
+  their per-shareholder payments, retained earnings, reserves, and the three reports (equity statement,
+  shareholder register, dividend history). Shapes kept as shipped and pinned: registering a holder
+  recalculates every holding in the company and leaves them alone when the total is zero; paid-up capital
+  is issued shares times paid-up value, with premium carried separately; a dividend pays only holders of
+  its own class at a flat ten percent withholding whatever the dividend itself declared; the equity
+  statement takes the newest share capital and retained-earnings records. Journals are returned rather
+  than posted, because posting belongs to whoever owns the ledger.
+- the shareholder register has one writer: this port and issued-share-capital-service write the same
+  `:ShareholderNode` rows through one shared shape in the store crate (accepting `name` or
+  `shareholder_name`), and the equity route now registers through this port so a holding always has its
+  percentage recalculated.
 - cashbook-service -> accounting crate, records on the store: cash accounts (a code used once per
   Book), entries that move the account balance as they are written, posting and voiding, the account
   summary, bank reconciliations including the outstanding items, cash-flow entries with their summary,

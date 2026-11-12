@@ -106,23 +106,6 @@ pub fn record_issue<G: Graph + ?Sized>(
     )
 }
 
-/// `/shareholders/register`.
-pub fn register_shareholder<G: Graph + ?Sized>(
-    graph: &G,
-    scope: &BookScope,
-    payload: &Value,
-) -> Result<Value, StoreError> {
-    Records::new(graph, SHAREHOLDER).create(
-        scope,
-        &json!({
-            "company_id": text(payload, "company_id"),
-            "name": text(payload, "name"),
-            "address": text(payload, "address"),
-            "shares_held": count(payload, "shares_held"),
-        }),
-    )
-}
-
 fn company_rows<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,

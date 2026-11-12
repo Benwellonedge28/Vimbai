@@ -662,7 +662,7 @@ services:
   port: 8101
   gateway_path: /company-accounting
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

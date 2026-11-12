@@ -2,6 +2,7 @@
 //!
 //! Services here:
 //! * `cash-flow-statement-service`
+//! * `company-accounting-service` (companies, their register, capital, dividends, reserves, reports)
 //! * `cashbook-service` (cash accounts, their entries, bank reconciliations, cash flow and position)
 //! * `ifrs-reporting-service` (IFRS reports, their figures, and their disclosure notes)
 //! * `intercompany-service` (group entities, the transactions between them, and their eliminations)
@@ -24,6 +25,7 @@ pub mod balance_sheet;
 pub mod cash_flow;
 pub mod cash_flow_schedule;
 pub mod cashbook;
+pub mod company_accounting;
 pub mod fund_accounting;
 pub mod ifrs_reports;
 pub mod intercompany;
@@ -50,6 +52,14 @@ pub use cashbook::{
     outstanding_items as cash_reconciliation_outstanding, post_entry as post_cash_entry,
     summary as cashbook_summary, update_account as update_cash_account,
     void_entry as void_cash_entry,
+};
+pub use company_accounting::{
+    create_company, create_reserve as create_company_reserve, create_share_capital,
+    declare_dividend, dividend_history, dividend_payments, equity_statement, get_company,
+    list_capital_transactions, list_companies, list_dividends, list_share_capital,
+    list_shareholders, pay_dividend, record_capital_transaction, record_retained_earnings,
+    register_shareholder, reserves as company_reserves, retained_earnings, shareholder_register,
+    update_company,
 };
 pub use fund_accounting::{
     create_fund, list_funds, list_transactions as list_fund_transactions,

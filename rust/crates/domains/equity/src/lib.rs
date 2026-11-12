@@ -69,7 +69,6 @@ pub use initial_investment::{
 };
 pub use issued_share_capital::{
     capital_summary, issue_capital, issue_proceeds, list_issues, list_shareholders, record_issue,
-    register_shareholder,
 };
 pub use redemption_reserve::{
     capital_account, create_crr, crr_summary, list_creations as list_crr_creations,

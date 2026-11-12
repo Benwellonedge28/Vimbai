@@ -149,6 +149,19 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records company-accounting-service owns.
+pub const COMPANY: RecordKind = RecordKind::new("Company", "OWNS_COMPANY");
+pub const COMPANY_SHARE_CAPITAL: RecordKind =
+    RecordKind::new("CompanyShareCapital", "OWNS_COMPANY_SHARE_CAPITAL");
+pub const CAPITAL_TRANSACTION: RecordKind =
+    RecordKind::new("CapitalTransaction", "OWNS_CAPITAL_TRANSACTION");
+pub const DIVIDEND: RecordKind = RecordKind::new("Dividend", "OWNS_DIVIDEND");
+pub const DIVIDEND_PAYMENT: RecordKind =
+    RecordKind::new("DividendPayment", "OWNS_DIVIDEND_PAYMENT");
+pub const RETAINED_EARNINGS: RecordKind =
+    RecordKind::new("RetainedEarnings", "OWNS_RETAINED_EARNINGS");
+pub const COMPANY_RESERVE: RecordKind = RecordKind::new("CompanyReserve", "OWNS_COMPANY_RESERVE");
+
 /// The records cashbook-service owns.
 pub const CASH_BANK_ACCOUNT: RecordKind = RecordKind::new("CashBankAccount", "OWNS_CASH_ACCOUNT");
 pub const CASH_ENTRY: RecordKind = RecordKind::new("CashBookEntry", "OWNS_CASH_ENTRY");
@@ -435,6 +448,46 @@ fn unwrap_node(row: Value) -> Value {
         }
     }
     row
+}
+
+/// The one shape a shareholder row has, whichever service registers it.
+///
+/// issued-share-capital-service and company-accounting-service both keep a company's shareholder
+/// register, and both write `:ShareholderNode`. They used to write different fields for the same
+/// facts (`name` in one, `shareholder_name` in the other), which would have made the register depend
+/// on which service had written the row. Both now write this shape, and both accept either spelling
+/// on the way in.
+pub fn shareholder_record(payload: &Value) -> Value {
+    let name = payload
+        .get("shareholder_name")
+        .or_else(|| payload.get("name"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    serde_json::json!({
+        "company_id": payload.get("company_id").and_then(Value::as_str).unwrap_or_default(),
+        "shareholder_name": name,
+        "shareholder_type": payload
+            .get("shareholder_type")
+            .and_then(Value::as_str)
+            .unwrap_or("individual"),
+        "share_class": payload.get("share_class").and_then(Value::as_str).unwrap_or("ordinary"),
+        "shares_held": payload.get("shares_held").and_then(Value::as_i64).unwrap_or_default(),
+        "percentage_holding": payload
+            .get("percentage_holding")
+            .and_then(Value::as_f64)
+            .unwrap_or_default(),
+        "registration_date": payload
+            .get("registration_date")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "address": payload.get("address").and_then(Value::as_str).unwrap_or_default(),
+        "tax_status": payload.get("tax_status").and_then(Value::as_str).unwrap_or_default(),
+        "is_controlling_party": payload
+            .get("is_controlling_party")
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
+    })
 }
 
 /// A created record, whichever shape the driver returned it in.

@@ -1753,3 +1753,92 @@ async fn the_cash_position_adds_up_every_account() {
     assert_eq!(body["total_bank"], json!("1000.550000"));
     assert_eq!(body["by_currency"]["USD"], json!("1020.550000"));
 }
+
+#[tokio::test]
+async fn a_company_answers_the_equity_accounts_it_needs() {
+    let graph = Scripted::returning(vec![json!({"id": "c-1"})]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/company-accounting/companies",
+        Some(json!({"company_code": "ACME", "company_name": "Acme Ltd",
+                    "incorporation_date": "2020-01-01T00:00:00Z"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["company"]["company_code"], json!("ACME"));
+    assert_eq!(
+        body["equity_accounts"][0]["account_number"],
+        json!("ACME-SHARE_CAPITAL")
+    );
+}
+
+#[tokio::test]
+async fn a_dividend_pays_the_matching_holders_exactly() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "d-1"})],
+        vec![
+            json!({"id": "h-1", "company_id": "c-1", "shareholder_name": "Ana",
+                    "share_class": "ordinary", "shares_held": 3}),
+        ],
+        vec![json!({"id": "p-1"})],
+        vec![json!({"id": "c-1", "company_code": "ACME"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/company-accounting/dividends",
+        Some(
+            json!({"company_id": "c-1", "dividend_type": "final", "share_class": "ordinary",
+                    "declaration_date": "2026-03-01T00:00:00Z",
+                    "total_amount": "30000000000000000000.03", "tax_withheld": "0",
+                    "per_share_amount": "10000000000000000000.01"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let payments = body["payments"].as_array().expect("payments");
+    assert_eq!(payments.len(), 1);
+    assert_eq!(
+        payments[0]["gross_amount"],
+        json!("30000000000000000000.030000")
+    );
+    assert_eq!(
+        payments[0]["net_amount"],
+        json!("27000000000000000000.027000")
+    );
+}
+
+#[tokio::test]
+async fn the_shareholder_register_prints_its_percentages() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "c-1", "company_code": "ACME"})],
+        vec![
+            json!({"id": "h-1", "company_id": "c-1", "shareholder_name": "Ana",
+                    "shareholder_type": "individual", "shares_held": 1,
+                    "percentage_holding": 100.0, "is_controlling_party": true}),
+        ],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/company-accounting/reports/shareholder-register/c-1",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["shareholders"][0]["percentage"], json!("100.00%"));
+}
+
+#[tokio::test]
+async fn a_company_report_needs_the_company_it_is_about() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, _) = call_with(
+        graph,
+        "GET",
+        "/company-accounting/reports/dividend-history/gone",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}

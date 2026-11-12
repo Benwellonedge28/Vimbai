@@ -79,6 +79,15 @@ fn answer(result: Result<Value, StoreError>) -> Response {
     }
 }
 
+/// A required parameter the caller did not send.
+fn refused(message: &str) -> Response {
+    (
+        StatusCode::UNPROCESSABLE_ENTITY,
+        Json(json!({ "error": message })),
+    )
+        .into_response()
+}
+
 /// Every query parameter as an object of strings, for the services whose listings take several.
 fn query_object(query: Option<&str>) -> Value {
     let mut object = serde_json::Map::new();
@@ -1761,6 +1770,367 @@ async fn crr_requirements(
         status.as_deref(),
     ))
 }
+async fn create_company(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_company(graph.as_ref(), &scope, &body))
+}
+
+async fn list_companies(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_companies(graph.as_ref(), &scope, &filters))
+}
+
+async fn get_company(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::get_company(graph.as_ref(), &scope, &item_id))
+}
+
+async fn update_company(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::update_company(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+        &body,
+    ))
+}
+
+async fn register_company_shareholder(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::register_shareholder(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_company_shareholders(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_shareholders(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn create_share_capital(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_share_capital(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_share_capital(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_share_capital(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn record_capital_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::record_capital_transaction(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_capital_transactions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_capital_transactions(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn declare_dividend(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::declare_dividend(graph.as_ref(), &scope, &body))
+}
+
+async fn list_dividends(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_dividends(graph.as_ref(), &scope, &filters))
+}
+
+async fn pay_dividend(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::pay_dividend(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+        &body,
+    ))
+}
+
+async fn dividend_payments(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::dividend_payments(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+    ))
+}
+
+async fn record_retained_earnings(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::record_retained_earnings(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn retained_earnings(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let Some(company_id) = query_param(query.as_deref(), "company_id") else {
+        return refused("company_id is required");
+    };
+    answer(accounting::retained_earnings(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn company_reserves(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let Some(company_id) = query_param(query.as_deref(), "company_id") else {
+        return refused("company_id is required");
+    };
+    answer(accounting::company_reserves(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn create_company_reserve(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_company_reserve(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn equity_statement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::equity_statement(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        &filters,
+    ))
+}
+
+async fn shareholder_register(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::shareholder_register(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn dividend_history(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::dividend_history(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
 async fn create_cash_account(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -2924,7 +3294,12 @@ async fn register_shareholder(
         body_or_query(query.as_deref()),
         payload.map(|Json(value)| value),
     );
-    answer(equity::register_shareholder(graph.as_ref(), &scope, &body))
+    // one register: this also recalculates each holding's share of the company
+    answer(accounting::register_shareholder(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
 }
 
 async fn company_shareholders(
@@ -4512,6 +4887,57 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route("/company-accounting/companies", post(create_company))
+        .route("/company-accounting/companies", get(list_companies))
+        .route("/company-accounting/companies/:company_id", get(get_company))
+        .route("/company-accounting/companies/:company_id", put(update_company))
+        .route(
+            "/company-accounting/shareholders",
+            post(register_company_shareholder),
+        )
+        .route(
+            "/company-accounting/shareholders",
+            get(list_company_shareholders),
+        )
+        .route("/company-accounting/share-capital", post(create_share_capital))
+        .route("/company-accounting/share-capital", get(list_share_capital))
+        .route(
+            "/company-accounting/capital-transactions",
+            post(record_capital_transaction),
+        )
+        .route(
+            "/company-accounting/capital-transactions",
+            get(list_capital_transactions),
+        )
+        .route("/company-accounting/dividends", post(declare_dividend))
+        .route("/company-accounting/dividends", get(list_dividends))
+        .route(
+            "/company-accounting/dividends/:dividend_id/pay",
+            put(pay_dividend),
+        )
+        .route(
+            "/company-accounting/dividends/:dividend_id/payments",
+            get(dividend_payments),
+        )
+        .route(
+            "/company-accounting/retained-earnings",
+            post(record_retained_earnings),
+        )
+        .route("/company-accounting/retained-earnings", get(retained_earnings))
+        .route("/company-accounting/reserves", post(create_company_reserve))
+        .route("/company-accounting/reserves", get(company_reserves))
+        .route(
+            "/company-accounting/reports/equity-statement/:company_id",
+            get(equity_statement),
+        )
+        .route(
+            "/company-accounting/reports/shareholder-register/:company_id",
+            get(shareholder_register),
+        )
+        .route(
+            "/company-accounting/reports/dividend-history/:company_id",
+            get(dividend_history),
+        )
         .route("/cashbook/accounts", post(create_cash_account))
         .route("/cashbook/accounts", get(list_cash_accounts))
         .route("/cashbook/accounts/:account_id", get(get_cash_account))
@@ -4714,6 +5140,57 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(share_redemption_detail),
         )
         .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route("/records/company-accounting/companies", post(create_company))
+        .route("/records/company-accounting/companies", get(list_companies))
+        .route("/records/company-accounting/companies/:company_id", get(get_company))
+        .route("/records/company-accounting/companies/:company_id", put(update_company))
+        .route(
+            "/records/company-accounting/shareholders",
+            post(register_company_shareholder),
+        )
+        .route(
+            "/records/company-accounting/shareholders",
+            get(list_company_shareholders),
+        )
+        .route("/records/company-accounting/share-capital", post(create_share_capital))
+        .route("/records/company-accounting/share-capital", get(list_share_capital))
+        .route(
+            "/records/company-accounting/capital-transactions",
+            post(record_capital_transaction),
+        )
+        .route(
+            "/records/company-accounting/capital-transactions",
+            get(list_capital_transactions),
+        )
+        .route("/records/company-accounting/dividends", post(declare_dividend))
+        .route("/records/company-accounting/dividends", get(list_dividends))
+        .route(
+            "/records/company-accounting/dividends/:dividend_id/pay",
+            put(pay_dividend),
+        )
+        .route(
+            "/records/company-accounting/dividends/:dividend_id/payments",
+            get(dividend_payments),
+        )
+        .route(
+            "/records/company-accounting/retained-earnings",
+            post(record_retained_earnings),
+        )
+        .route("/records/company-accounting/retained-earnings", get(retained_earnings))
+        .route("/records/company-accounting/reserves", post(create_company_reserve))
+        .route("/records/company-accounting/reserves", get(company_reserves))
+        .route(
+            "/records/company-accounting/reports/equity-statement/:company_id",
+            get(equity_statement),
+        )
+        .route(
+            "/records/company-accounting/reports/shareholder-register/:company_id",
+            get(shareholder_register),
+        )
+        .route(
+            "/records/company-accounting/reports/dividend-history/:company_id",
+            get(dividend_history),
+        )
         .route("/records/cashbook/accounts", post(create_cash_account))
         .route("/records/cashbook/accounts", get(list_cash_accounts))
         .route("/records/cashbook/accounts/:account_id", get(get_cash_account))
