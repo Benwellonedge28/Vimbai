@@ -1422,6 +1422,132 @@ fn overlay(query: Value, body: Option<Value>) -> Value {
     Value::Object(merged)
 }
 
+async fn issue_bonus_shares(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::issue_bonus_shares(graph.as_ref(), &scope, &body))
+}
+
+async fn bonus_issues(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    answer(equity::list_bonus_issues(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn offer_rights(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::offer_rights(graph.as_ref(), &scope, &body))
+}
+
+async fn accept_rights(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(issue_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::accept_rights(
+        graph.as_ref(),
+        &scope,
+        &issue_id,
+        &body,
+    ))
+}
+
+async fn renounce_rights(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(issue_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::renounce_rights(
+        graph.as_ref(),
+        &scope,
+        &issue_id,
+        &body,
+    ))
+}
+
+async fn right_issues(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    answer(equity::list_right_issues(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn one_right_issue(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(issue_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::get_right_issue(graph.as_ref(), &scope, &issue_id))
+}
+
 async fn declare_ordinary_dividend(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -1899,6 +2025,24 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/fixed-assets-schedule/summary",
             get(schedule_summary),
         )
+        .route("/records/bonus-shares/issue", post(issue_bonus_shares))
+        .route("/records/bonus-shares/issues", get(bonus_issues))
+        .route(
+            "/records/right-issues/right-issues",
+            get(right_issues).post(offer_rights),
+        )
+        .route(
+            "/records/right-issues/right-issues/:issue_id",
+            get(one_right_issue),
+        )
+        .route(
+            "/records/right-issues/right-issues/:issue_id/accept",
+            post(accept_rights),
+        )
+        .route(
+            "/records/right-issues/right-issues/:issue_id/renounce",
+            post(renounce_rights),
+        )
         .route(
             "/records/ordinary-shares/dividends",
             get(ordinary_dividends).post(declare_ordinary_dividend),
@@ -2361,6 +2505,19 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route("/bonus-shares/issue", post(issue_bonus_shares))
+        .route("/bonus-shares/issues", get(bonus_issues))
+        .route("/right-issues/offer", post(offer_rights))
+        .route("/right-issues/right-issues", get(right_issues))
+        .route("/right-issues/right-issues/:issue_id", get(one_right_issue))
+        .route(
+            "/right-issues/right-issues/:issue_id/accept",
+            post(accept_rights),
+        )
+        .route(
+            "/right-issues/right-issues/:issue_id/renounce",
+            post(renounce_rights),
+        )
         .route(
             "/ordinary-shares/dividends",
             get(ordinary_dividends).post(declare_ordinary_dividend),

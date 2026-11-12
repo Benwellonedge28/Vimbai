@@ -827,3 +827,48 @@ async fn the_dividend_routes_answer_under_the_records_prefix_too() {
     .await;
     assert_eq!(status, StatusCode::OK);
 }
+
+#[tokio::test]
+async fn a_bonus_issue_and_a_rights_offer_answer_on_their_published_paths() {
+    let bonus = Scripted::returning(vec![json!({"id": "b-1"})]);
+    let (status, _) = call_with(
+        bonus,
+        "POST",
+        "/bonus-shares/issue?company_id=co-1&shares_issued=1000&nominal_value=0.5&source_reserve=share_premium",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let offer = Scripted::returning(vec![json!({"id": "r-1"})]);
+    let (status, _) = call_with(
+        offer,
+        "POST",
+        "/right-issues/offer?company_id=co-1&rights_offered=2000&new_shares_offered=1000&issue_price=1.25&nominal_value=1",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let listing = Scripted::returning(Vec::new());
+    let (status, body) = call_with(listing, "GET", "/right-issues/right-issues", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["right_issues"], json!([]));
+}
+
+#[tokio::test]
+async fn a_rights_renunciation_is_refused_when_the_issue_forbids_it() {
+    let graph = Scripted::returning(vec![json!({"id": "r-1", "renouncement_allowed": false})]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/right-issues/right-issues/r-1/renounce?shareholder_id=s-1&new_shareholder_id=s-9",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        body["error"],
+        json!("Renouncement not allowed for this issue")
+    );
+}

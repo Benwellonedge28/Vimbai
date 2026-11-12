@@ -12,6 +12,9 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- bonus-shares-service and right-issues-service -> equity crate, records on the store: bonus issues
+  and the reserve each capitalises, rights offers with their acceptances and renunciations. An issue
+  completes when every entitlement is covered, counting one unit per renunciation as the service did.
 - ordinary-shares-service and preference-shares-service -> equity crate, records on the store:
   dividends declared and paid, preference classes, their issuances and redemptions. The declared
   total is per-share over the shares in issue, plus arrears for preference stock; journal entries are

@@ -149,6 +149,11 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records bonus-shares-service and right-issues-service own.
+pub const BONUS_ISSUE: RecordKind = RecordKind::new("BonusIssueNode", "OWNS_BONUS_ISSUE");
+pub const RIGHT_ISSUE: RecordKind = RecordKind::new("RightIssue", "OWNS_RIGHT_ISSUE");
+pub const RENUNCIATION: RecordKind = RecordKind::new("Renunciation", "OWNS_RENUNCIATION");
+
 /// The records ordinary-shares-service and preference-shares-service own.
 pub const ORDINARY_DIVIDEND: RecordKind =
     RecordKind::new("OrdinaryDividendNode", "OWNS_ORDINARY_DIVIDEND");
