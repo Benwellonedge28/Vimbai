@@ -12,6 +12,12 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- ifrs-reporting-service -> accounting crate, records on the store: reports limited to the five kinds,
+  the filtered listing, the payload kept as given, disclosure notes, and approval. Adding a note also
+  appends its number and title to the report's own disclosure index, so the report carries its notes;
+  approval is from draft or reviewed only; and notes for a report that does not exist list empty while
+  reading that report refuses. The IFRS calculators (revenue, share-based payment, instruments) stay in
+  their own crates: this is the paperwork, not the arithmetic.
 - intercompany-service -> accounting crate, records on the store: group entities, the transactions between
   them limited to the five known types, the filtered listing, matching a pair, and the eliminations.
   Four shapes kept as shipped and pinned: a match is exact equality with no tolerance and no currency

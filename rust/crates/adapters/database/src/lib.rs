@@ -149,6 +149,10 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records ifrs-reporting-service owns.
+pub const IFRS_REPORT: RecordKind = RecordKind::new("IfrsReport", "OWNS_IFRS_REPORT");
+pub const DISCLOSURE_NOTE: RecordKind = RecordKind::new("DisclosureNote", "OWNS_DISCLOSURE_NOTE");
+
 /// The records intercompany-service owns.
 pub const INTERCOMPANY_ENTITY: RecordKind = RecordKind::new("IntercompanyEntity", "OWNS_ENTITY");
 pub const INTERCOMPANY_TRANSACTION: RecordKind =
@@ -424,6 +428,26 @@ fn unwrap_node(row: Value) -> Value {
         }
     }
     row
+}
+
+/// A created record, whichever shape the driver returned it in.
+///
+/// The driver answers `CREATE ... RETURN x` with the node, so a record comes back as an object. A test
+/// double may answer with the bare id instead. Reading the record through this function means a port
+/// does not have to know which happened, and returning it to a caller does not depend on it either.
+pub fn created_record(created: &Value) -> Value {
+    match created {
+        Value::String(id) => serde_json::json!({ "id": id }),
+        other => other.clone(),
+    }
+}
+
+/// The id of a created record, whichever shape the driver returned it in.
+pub fn created_id(created: &Value) -> Value {
+    created_record(created)
+        .get("id")
+        .cloned()
+        .unwrap_or(Value::Null)
 }
 
 /// A stable local id. Not a real UUID: the store only needs uniqueness within a Book, and

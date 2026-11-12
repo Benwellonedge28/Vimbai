@@ -202,7 +202,7 @@ services:
   port: 8268
   gateway_path: /ifrs-reporting
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

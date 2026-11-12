@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount_or_zero, stored_amount, wire};
-use vimbai_store::{BookScope, Graph, Records, StoreError, FUND, FUND_TRANSACTION};
+use vimbai_store::{created_id, BookScope, Graph, Records, StoreError, FUND, FUND_TRANSACTION};
 
 fn text(payload: &Value, key: &str) -> String {
     payload
@@ -155,7 +155,7 @@ pub fn record_transaction<G: Graph + ?Sized>(
     )?;
 
     Ok(json!({
-        "id": crate::intercompany::id_of(&recorded),
+        "id": created_id(&recorded),
         "status": "recorded",
     }))
 }

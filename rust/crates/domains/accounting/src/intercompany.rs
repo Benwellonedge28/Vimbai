@@ -25,8 +25,8 @@ use serde_json::{json, Value};
 
 use vimbai_store::amounts::{amount_or_zero, stored_amount, wire};
 use vimbai_store::{
-    BookScope, Graph, Records, StoreError, INTERCOMPANY_ELIMINATION, INTERCOMPANY_ENTITY,
-    INTERCOMPANY_TRANSACTION,
+    created_id, BookScope, Graph, Records, StoreError, INTERCOMPANY_ELIMINATION,
+    INTERCOMPANY_ENTITY, INTERCOMPANY_TRANSACTION,
 };
 
 /// The types a transaction may be.
@@ -182,17 +182,8 @@ pub fn match_transactions<G: Graph + ?Sized>(
 
     Ok(json!({
         "matched": true,
-        "elimination_id": id_of(&elimination),
+        "elimination_id": created_id(&elimination),
     }))
-}
-
-/// The id of a created record, which the driver returns either as the record or as its id.
-pub(crate) fn id_of(created: &Value) -> Value {
-    match created {
-        Value::Object(fields) => fields.get("id").cloned().unwrap_or(Value::Null),
-        Value::String(id) => json!(id),
-        _ => Value::Null,
-    }
 }
 
 /// `/eliminations`.

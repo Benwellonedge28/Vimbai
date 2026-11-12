@@ -1621,3 +1621,60 @@ async fn legs_that_do_not_agree_on_the_amount_are_refused() {
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
+
+#[tokio::test]
+async fn an_ifrs_report_is_created_as_a_draft() {
+    let graph = Scripted::returning(vec![json!({"id": "r-1"})]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/ifrs-reporting/reports",
+        Some(
+            json!({"report_type": "balance_sheet", "ifrs_standard": "IAS1",
+                    "period": "2026-03", "reporting_date": "2026-03-31"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, params) = seen.last();
+    assert_eq!(params["props"]["status"], json!("draft"));
+}
+
+#[tokio::test]
+async fn an_unknown_ifrs_report_type_is_refused() {
+    let graph = Scripted::returning(vec![json!({"id": "r-1"})]);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/ifrs-reporting/reports",
+        Some(
+            json!({"report_type": "trial_balance", "ifrs_standard": "IAS1",
+                    "period": "2026-03", "reporting_date": "2026-03-31"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn notes_for_a_report_that_is_not_there_list_empty() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, body) = call_with(graph, "GET", "/ifrs-reporting/reports/gone/notes", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, json!([]));
+}
+
+#[tokio::test]
+async fn a_published_ifrs_report_cannot_be_approved_again() {
+    let graph = Scripted::queue(vec![vec![json!({"id": "r-1", "status": "published",
+                                                  "disclosures": []})]]);
+    let (status, _) = call_with(
+        graph,
+        "PUT",
+        "/ifrs-reporting/reports/r-1/approve",
+        Some(json!({"approved_by": "auditor"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}

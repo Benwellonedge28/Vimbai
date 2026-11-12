@@ -2,6 +2,7 @@
 //!
 //! Services here:
 //! * `cash-flow-statement-service`
+//! * `ifrs-reporting-service` (IFRS reports, their figures, and their disclosure notes)
 //! * `intercompany-service` (group entities, the transactions between them, and their eliminations)
 //! * `cash-flow-service` (a project's yearly flows, kept, with the standalone flow calculators)
 //! * `balance-sheet-service` (the sheet, its three totals, and the ratios read off the latest)
@@ -22,6 +23,7 @@ pub mod balance_sheet;
 pub mod cash_flow;
 pub mod cash_flow_schedule;
 pub mod fund_accounting;
+pub mod ifrs_reports;
 pub mod intercompany;
 pub mod revenue_recognition;
 pub mod suspense;
@@ -39,6 +41,11 @@ pub use fund_accounting::{
     create_fund, list_funds, list_transactions as list_fund_transactions,
     net_assets as fund_net_assets, record_transaction as record_fund_transaction,
     totals as fund_totals,
+};
+pub use ifrs_reports::{
+    add_note as add_ifrs_note, approve_report as approve_ifrs_report,
+    create_report as create_ifrs_report, get_report as get_ifrs_report,
+    list_notes as list_ifrs_notes, list_reports as list_ifrs_reports,
 };
 pub use intercompany::{
     create_entity as create_intercompany_entity,

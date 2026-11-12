@@ -1752,6 +1752,120 @@ async fn crr_requirements(
         status.as_deref(),
     ))
 }
+async fn create_ifrs_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_ifrs_report(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_ifrs_reports(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = json!({
+        "report_type": query_param(query.as_deref(), "report_type"),
+        "ifrs_standard": query_param(query.as_deref(), "ifrs_standard"),
+        "status": query_param(query.as_deref(), "status"),
+    });
+    answer(accounting::list_ifrs_reports(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn get_ifrs_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(report_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::get_ifrs_report(
+        graph.as_ref(),
+        &scope,
+        &report_id,
+    ))
+}
+
+async fn add_ifrs_note(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(report_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::add_ifrs_note(
+        graph.as_ref(),
+        &scope,
+        &report_id,
+        &body,
+    ))
+}
+
+async fn list_ifrs_notes(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(report_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::list_ifrs_notes(
+        graph.as_ref(),
+        &scope,
+        &report_id,
+    ))
+}
+
+async fn approve_ifrs_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(report_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::approve_ifrs_report(
+        graph.as_ref(),
+        &scope,
+        &report_id,
+        &body,
+    ))
+}
+
 async fn create_intercompany_entity(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -4043,6 +4157,21 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route("/ifrs-reporting/reports", post(create_ifrs_report))
+        .route("/ifrs-reporting/reports", get(list_ifrs_reports))
+        .route("/ifrs-reporting/reports/:report_id", get(get_ifrs_report))
+        .route(
+            "/ifrs-reporting/reports/:report_id/notes",
+            post(add_ifrs_note),
+        )
+        .route(
+            "/ifrs-reporting/reports/:report_id/notes",
+            get(list_ifrs_notes),
+        )
+        .route(
+            "/ifrs-reporting/reports/:report_id/approve",
+            put(approve_ifrs_report),
+        )
         .route("/intercompany/entities", post(create_intercompany_entity))
         .route("/intercompany/entities", get(list_intercompany_entities))
         .route(
@@ -4192,6 +4321,21 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(share_redemption_detail),
         )
         .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route("/records/ifrs-reporting/reports", post(create_ifrs_report))
+        .route("/records/ifrs-reporting/reports", get(list_ifrs_reports))
+        .route("/records/ifrs-reporting/reports/:report_id", get(get_ifrs_report))
+        .route(
+            "/records/ifrs-reporting/reports/:report_id/notes",
+            post(add_ifrs_note),
+        )
+        .route(
+            "/records/ifrs-reporting/reports/:report_id/notes",
+            get(list_ifrs_notes),
+        )
+        .route(
+            "/records/ifrs-reporting/reports/:report_id/approve",
+            put(approve_ifrs_report),
+        )
         .route("/records/intercompany/entities", post(create_intercompany_entity))
         .route("/records/intercompany/entities", get(list_intercompany_entities))
         .route(

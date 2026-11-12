@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 43 are proven on a Rust engine. 94 are still Python-only.
+The gateway routes 137 services. 44 are proven on a Rust engine. 93 are still Python-only.
 
-Of the backlog, 22 own no records and can be ported as pure functions; 72 own records and
+Of the backlog, 22 own no records and can be ported as pure functions; 71 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-43 services.
+44 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -37,6 +37,7 @@ fixed-assets-register-service                  8355  routes=9   records=yes rust
 fixed-assets-schedule-service                  8056  routes=9   records=yes rust http
 fund-accounting-service                        8060  routes=5   records=yes rust http
 general-reserve-service                        8061  routes=8   records=yes rust http
+ifrs-reporting-service                         8268  routes=8   records=yes rust http
 initial-investment-service                     8067  routes=7   records=yes rust http
 insurance-claims-service                       8367  routes=5   records=yes rust http
 intangible-assets-service                      8358  routes=7   records=yes rust http
@@ -92,7 +93,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-72 services.
+71 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -120,7 +121,6 @@ partnership-dissolution-service                8096  routes=5   records=yes none
 rolling-forecast-service                       8173  routes=7   records=yes none
 control-account-reconciliation-service         8033  routes=8   records=yes none
 mfa-auth-service                               8007  routes=6   records=yes none
-ifrs-reporting-service                         8268  routes=8   records=yes none
 partnership-agreement-service                  8094  routes=8   records=yes none
 data-warehouse-service                         8362  routes=9   records=yes none
 investment-monitoring-service                  8290  routes=9   records=yes none
