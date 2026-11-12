@@ -157,6 +157,9 @@ deleted service was one of several front doors to the same arithmetic:
 - financial-forecasting-service is `budgeting::forecasting`
 - financial-reporting-service and financial-statements-service are `ratios_statements::statements`,
   routed as `financial-statements-prepare` (one body shape, two services that always shared it)
+- deal-structuring-service, post-merger-service and synergy-analysis-service share
+  `capital_valuation::corporate_events`, routed as `deal-structuring-structure`,
+  `post-merger-track` and `synergy-analysis-analyze`
 - ifrs-9-financial-instruments-service is `ifrs::instruments`, routed as `ifrs-9-classify`,
   `-sppi-test`, `-business-model`, `-ecl-general`, `-ecl-simplified` and `-hedge-effectiveness`
 - ifrs-2-share-based-payment-service is `ifrs::share_based`, routed as `ifrs-2-calculate`,
@@ -181,11 +184,9 @@ these is a route or a seam function away, not a calculation away:
 - deal-structuring-service - `capital_valuation::acquisition_financing`, `corporate_events`
 - kpi-tracking-service - `reporting::analysis`
 - merger-valuation-service - `capital_valuation::merger`
-- post-merger-service - `capital_valuation::corporate_events`
 - profit-loss-account-service - `ratios_statements::profit_loss`
 - scenario-budget-service - `budgeting::scenario`
 - suspense-error-service - `ratios_statements::ledger_controls`
-- synergy-analysis-service - `capital_valuation::corporate_events`
 
 Pinned in `tests/test_port_tracker.py` so the set cannot change without the tracker changing with it,
 and in `tests/test_unrouted_maths.py` so a module cannot be routed without the tracker losing the

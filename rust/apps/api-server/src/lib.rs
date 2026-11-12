@@ -33,6 +33,18 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
     );
     map.insert("target-costing", cost_accounting::target_cost::evaluate);
     map.insert("divestiture", group_accounting::divestiture::evaluate);
+    map.insert(
+        "deal-structuring-structure",
+        capital_valuation::deal_structuring_from_json,
+    );
+    map.insert(
+        "post-merger-track",
+        capital_valuation::post_merger_from_json,
+    );
+    map.insert(
+        "synergy-analysis-analyze",
+        capital_valuation::synergy_analysis_from_json,
+    );
     map.insert("eps", ratios_statements::eps_from_json);
     map.insert(
         "payroll-accounting-process",
@@ -1368,6 +1380,49 @@ mod typed_adapters {
         );
         assert_eq!(hedge["hedge_ratio"], json!(0.9));
         assert_eq!(hedge["rebalancing_required"], json!(true));
+    }
+
+    #[test]
+    fn corporate_event_capabilities_are_reachable() {
+        let deal = calculate(
+            "deal-structuring-structure",
+            json!({"deal_id": "D1", "target_id": "T1", "total_value": "1000.00",
+                   "seller_preference": "stock", "earnout_required": true,
+                   "escrow_percentage": 0.05, "deal_date": "2026-11-03"}),
+        );
+        assert_eq!(
+            deal["structure_options"][1]["upfront_payment"],
+            json!("800.00")
+        );
+        assert_eq!(
+            deal["recommended_structure"]["structure_type"],
+            json!("Share Exchange")
+        );
+        assert_eq!(deal["deal_date"], json!("2026-11-03"));
+
+        let post = calculate(
+            "post-merger-track",
+            json!({"deal_id": "D1", "synergies_achieved": "75", "synergies_target": "100",
+                   "integration_costs_actual": "55", "integration_costs_budget": "40",
+                   "days_since_close": 45, "status_date": "2026-11-03",
+                   "milestones": [{"milestone_id": "M1", "status": "Completed",
+                                   "completion_percentage": 100.0}]}),
+        );
+        assert_eq!(post["synergy_performance"]["variance"], json!("-25.00"));
+        assert_eq!(post["overall_status"], json!("Red"));
+
+        let synergy = calculate(
+            "synergy-analysis-analyze",
+            json!({"deal_id": "D1", "integration_costs": "150",
+                   "cost_of_capital": 0.09,
+                   "synergies": [{"category": "cost", "annual_value": "200",
+                                  "probability": 0.8, "timing_months": 6.0}]}),
+        );
+        assert_eq!(
+            synergy["synergy_summary"]["cost_synergies"],
+            json!("160.00")
+        );
+        assert_eq!(synergy["pv_integration_costs"], json!("165.00"));
     }
 
     #[test]

@@ -42,7 +42,8 @@ pub use capital_budgeting::{
     ProjectInput,
 };
 pub use corporate_events::{
-    analyze_synergies, calculate_disposal, structure_deal, track_integration, CostPerformance,
+    analyze_synergies, calculate_disposal, deal_structuring_from_json, post_merger_from_json,
+    structure_deal, synergy_analysis_from_json, track_integration, CostPerformance,
     DealStructuringOutput, DealStructuringRequest, DivestitureOutput, DivestitureRequest,
     IntegrationMilestone, IntegrationProgress, PostMergerOutput, PostMergerRequest, RiskAllocation,
     RiskSplit, StructureOption, SynergyAnalysisOutput, SynergyAnalysisRequest, SynergyItem,

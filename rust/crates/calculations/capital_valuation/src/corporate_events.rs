@@ -27,18 +27,14 @@
 //! three-year CAGR on zero integration costs) yield 0.0 rather than crashing.
 
 use serde::{Deserialize, Serialize};
-use vimbai_common::py_round;
+use vimbai_common::{py_round, Money};
 
 fn r2(value: f64) -> f64 {
     py_round(value, 2)
 }
 
-fn safe_div(numerator: f64, denominator: f64) -> f64 {
-    if denominator == 0.0 {
-        0.0
-    } else {
-        numerator / denominator
-    }
+fn rate(value: f64) -> Money {
+    Money::from_f64_shortest(value).unwrap_or_else(|_| Money::zero())
 }
 
 /// Python's `str(float)` for the values used in journal text: whole numbers keep
@@ -61,7 +57,7 @@ fn py_float_str(value: f64) -> String {
 pub struct DealStructuringRequest {
     pub deal_id: String,
     pub target_id: String,
-    pub total_value: f64,
+    pub total_value: Money,
     #[serde(default)]
     pub seller_preference: String,
     #[serde(default)]
@@ -77,10 +73,10 @@ pub struct DealStructuringRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StructureOption {
     pub structure_type: String,
-    pub upfront_payment: f64,
-    pub deferred_payment: f64,
-    pub earnout: f64,
-    pub escrow: f64,
+    pub upfront_payment: Money,
+    pub deferred_payment: Money,
+    pub earnout: Money,
+    pub escrow: Money,
     pub tax_efficiency: f64,
     pub speed_close: f64,
     pub risk_transfer: f64,
@@ -125,14 +121,14 @@ pub struct DealStructuringOutput {
 }
 
 pub fn structure_deal(request: &DealStructuringRequest, deal_date: &str) -> DealStructuringOutput {
-    let total = request.total_value;
+    let total = request.total_value.clone();
 
     let cash_deal = StructureOption {
         structure_type: "All Cash".to_string(),
-        upfront_payment: total,
-        deferred_payment: 0.0,
-        earnout: 0.0,
-        escrow: total * 0.1,
+        upfront_payment: total.clone(),
+        deferred_payment: Money::zero(),
+        earnout: Money::zero(),
+        escrow: total.times(&rate(0.1)).round(2),
         tax_efficiency: 0.7,
         speed_close: 0.9,
         risk_transfer: 0.8,
@@ -140,10 +136,10 @@ pub fn structure_deal(request: &DealStructuringRequest, deal_date: &str) -> Deal
 
     let share_deal = StructureOption {
         structure_type: "Share Exchange".to_string(),
-        upfront_payment: total * 0.8,
-        deferred_payment: 0.0,
-        earnout: total * 0.2,
-        escrow: total * 0.05,
+        upfront_payment: total.times(&rate(0.8)).round(2),
+        deferred_payment: Money::zero(),
+        earnout: total.times(&rate(0.2)).round(2),
+        escrow: total.times(&rate(0.05)).round(2),
         tax_efficiency: 0.9,
         speed_close: 0.5,
         risk_transfer: 0.6,
@@ -151,10 +147,10 @@ pub fn structure_deal(request: &DealStructuringRequest, deal_date: &str) -> Deal
 
     let hybrid = StructureOption {
         structure_type: "Hybrid (Cash + Stock)".to_string(),
-        upfront_payment: total * 0.6,
-        deferred_payment: total * 0.2,
-        earnout: total * 0.2,
-        escrow: total * 0.08,
+        upfront_payment: total.times(&rate(0.6)).round(2),
+        deferred_payment: total.times(&rate(0.2)).round(2),
+        earnout: total.times(&rate(0.2)).round(2),
+        escrow: total.times(&rate(0.08)).round(2),
         tax_efficiency: 0.85,
         speed_close: 0.7,
         risk_transfer: 0.7,
@@ -340,12 +336,14 @@ pub struct IntegrationMilestone {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PostMergerRequest {
     pub deal_id: String,
+    #[serde(default)]
     pub acquirer_id: String,
+    #[serde(default)]
     pub target_id: String,
-    pub synergies_achieved: f64,
-    pub synergies_target: f64,
-    pub integration_costs_actual: f64,
-    pub integration_costs_budget: f64,
+    pub synergies_achieved: Money,
+    pub synergies_target: Money,
+    pub integration_costs_actual: Money,
+    pub integration_costs_budget: Money,
     #[serde(default)]
     pub days_since_close: i64,
     #[serde(default)]
@@ -354,19 +352,19 @@ pub struct PostMergerRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SynergyPerformance {
-    pub target: f64,
-    pub achieved: f64,
+    pub target: Money,
+    pub achieved: Money,
     pub rate: f64,
-    pub variance: f64,
+    pub variance: Money,
     pub status: String,
-    pub daily_rate: f64,
+    pub daily_rate: Money,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CostPerformance {
-    pub budget: f64,
-    pub actual: f64,
-    pub variance: f64,
+    pub budget: Money,
+    pub actual: Money,
+    pub variance: Money,
     pub variance_percentage: f64,
     pub status: String,
 }
@@ -394,8 +392,18 @@ pub struct PostMergerOutput {
 }
 
 pub fn track_integration(request: &PostMergerRequest, status_date: &str) -> PostMergerOutput {
-    let synergy_rate = safe_div(request.synergies_achieved, request.synergies_target);
-    let synergy_variance = request.synergies_achieved - request.synergies_target;
+    let synergy_rate = if request.synergies_target.is_zero() {
+        0.0
+    } else {
+        request
+            .synergies_achieved
+            .over(&request.synergies_target)
+            .to_f64_lossy()
+    };
+    let synergy_variance = request
+        .synergies_achieved
+        .minus(&request.synergies_target)
+        .round(2);
     let synergy_status = if synergy_rate >= 0.9 {
         "On Track"
     } else if synergy_rate >= 0.7 {
@@ -404,7 +412,10 @@ pub fn track_integration(request: &PostMergerRequest, status_date: &str) -> Post
         "Critical"
     };
 
-    let cost_variance = request.integration_costs_actual - request.integration_costs_budget;
+    let cost_variance = request
+        .integration_costs_actual
+        .minus(&request.integration_costs_budget)
+        .round(2);
 
     let completed = request
         .milestones
@@ -436,7 +447,7 @@ pub fn track_integration(request: &PostMergerRequest, status_date: &str) -> Post
     if synergy_rate < 0.8 {
         risk_areas.push("Synergy realization behind schedule".to_string());
     }
-    if cost_variance > request.integration_costs_budget * 0.1 {
+    if cost_variance > request.integration_costs_budget.times(&rate(0.1)) {
         risk_areas.push("Integration costs exceeding budget".to_string());
     }
     if delayed as f64 > request.milestones.len() as f64 * 0.3 {
@@ -459,7 +470,7 @@ pub fn track_integration(request: &PostMergerRequest, status_date: &str) -> Post
     if delayed > 2 {
         recommendations.push("Review delayed milestones and reallocate resources".to_string());
     }
-    if cost_variance > 0.0 {
+    if cost_variance > Money::zero() {
         recommendations
             .push("Cost overrun requires immediate attention - review scope".to_string());
     }
@@ -468,25 +479,33 @@ pub fn track_integration(request: &PostMergerRequest, status_date: &str) -> Post
         deal_id: request.deal_id.clone(),
         status_date: status_date.to_string(),
         synergy_performance: SynergyPerformance {
-            target: request.synergies_target,
-            achieved: request.synergies_achieved,
+            target: request.synergies_target.clone(),
+            achieved: request.synergies_achieved.clone(),
             rate: r2(synergy_rate * 100.0),
-            variance: r2(synergy_variance),
+            variance: synergy_variance,
             status: synergy_status.to_string(),
             daily_rate: if request.days_since_close == 0 {
-                0.0
+                Money::zero()
             } else {
-                r2(request.synergies_achieved / request.days_since_close as f64)
+                request
+                    .synergies_achieved
+                    .over(&rate(request.days_since_close as f64))
+                    .round(2)
             },
         },
         cost_performance: CostPerformance {
-            budget: request.integration_costs_budget,
-            actual: request.integration_costs_actual,
-            variance: r2(cost_variance),
-            variance_percentage: r2(
-                safe_div(cost_variance, request.integration_costs_budget) * 100.0
-            ),
-            status: if cost_variance > 0.0 {
+            budget: request.integration_costs_budget.clone(),
+            actual: request.integration_costs_actual.clone(),
+            variance: cost_variance.clone(),
+            variance_percentage: if request.integration_costs_budget.is_zero() {
+                0.0
+            } else {
+                r2(cost_variance
+                    .over(&request.integration_costs_budget)
+                    .to_f64_lossy()
+                    * 100.0)
+            },
+            status: if cost_variance > Money::zero() {
                 "Over Budget"
             } else {
                 "Under Budget"
@@ -514,7 +533,7 @@ pub struct SynergyItem {
     pub category: String,
     #[serde(default)]
     pub description: String,
-    pub annual_value: f64,
+    pub annual_value: Money,
     #[serde(default)]
     pub probability: f64,
     #[serde(default)]
@@ -524,90 +543,104 @@ pub struct SynergyItem {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SynergyAnalysisRequest {
     pub deal_id: String,
+    #[serde(default)]
     pub acquirer_id: String,
+    #[serde(default)]
     pub target_id: String,
     #[serde(default)]
     pub synergies: Vec<SynergyItem>,
-    pub integration_costs: f64,
+    pub integration_costs: Money,
     pub cost_of_capital: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SynergySummary {
-    pub revenue_synergies: f64,
-    pub cost_synergies: f64,
-    pub operational_synergies: f64,
-    pub other_synergies: f64,
-    pub total_annual_synergies: f64,
+    pub revenue_synergies: Money,
+    pub cost_synergies: Money,
+    pub operational_synergies: Money,
+    pub other_synergies: Money,
+    pub total_annual_synergies: Money,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SynergyAnalysisOutput {
     pub deal_id: String,
     pub synergy_summary: SynergySummary,
-    pub pv_synergies: f64,
-    pub pv_integration_costs: f64,
-    pub net_synergy_value: f64,
+    pub pv_synergies: Money,
+    pub pv_integration_costs: Money,
+    pub net_synergy_value: Money,
     pub irr: f64,
     pub payback_months: f64,
-    pub risk_adjusted_value: f64,
+    pub risk_adjusted_value: Money,
     pub recommendations: Vec<String>,
 }
 
 pub fn analyze_synergies(request: &SynergyAnalysisRequest) -> SynergyAnalysisOutput {
-    let mut revenue = 0.0;
-    let mut cost = 0.0;
-    let mut operational = 0.0;
-    let mut other = 0.0;
+    let mut revenue = Money::zero();
+    let mut cost = Money::zero();
+    let mut operational = Money::zero();
+    let mut other = Money::zero();
 
     for item in &request.synergies {
-        let weighted = item.annual_value * item.probability;
+        let weighted = item.annual_value.times(&rate(item.probability)).round(2);
         match item.category.as_str() {
-            "revenue" => revenue += weighted,
-            "cost" => cost += weighted,
-            "operational" => operational += weighted,
-            _ => other += weighted,
+            "revenue" => revenue = revenue.plus(&weighted),
+            "cost" => cost = cost.plus(&weighted),
+            "operational" => operational = operational.plus(&weighted),
+            _ => other = other.plus(&weighted),
         }
     }
 
-    let total_annual = revenue + cost + operational + other;
+    let total_annual = revenue.clone().plus(&cost).plus(&operational).plus(&other);
 
-    let pv_synergies: f64 = request
-        .synergies
-        .iter()
-        .map(|item| {
-            item.annual_value * item.probability
-                / (1.0 + request.cost_of_capital).powf(item.timing_months / 12.0)
-        })
-        .sum();
+    // Discounting raises a sum to a fractional power, so each present value is the
+    // floating-point figure rounded once to the cent. The undiscounted amounts stay exact.
+    let pv_synergies = Money::sum(
+        request
+            .synergies
+            .iter()
+            .map(|item| {
+                rate(
+                    item.annual_value.to_f64_lossy() * item.probability
+                        / (1.0 + request.cost_of_capital).powf(item.timing_months / 12.0),
+                )
+                .round(2)
+            })
+            .collect::<Vec<Money>>()
+            .iter(),
+    );
 
-    let total_integration = request.integration_costs * 1.1;
-    let net_value = pv_synergies - total_integration;
+    let total_integration = request.integration_costs.times(&rate(1.1)).round(2);
+    let net_value = pv_synergies.minus(&total_integration).round(2);
 
-    let monthly_benefit = total_annual / 12.0;
-    let payback_months = safe_div(total_integration, monthly_benefit);
-
-    let irr_3yr = if total_integration == 0.0 {
+    let monthly_benefit = total_annual.over(&rate(12.0)).round(2);
+    let payback_months = if monthly_benefit.is_zero() {
         0.0
     } else {
-        ((pv_synergies / total_integration).powf(1.0 / 3.0) - 1.0) * 100.0
+        r2(total_integration.over(&monthly_benefit).to_f64_lossy())
     };
 
-    let risk_adjusted = pv_synergies * 0.75;
+    let irr_3yr = if total_integration.is_zero() {
+        0.0
+    } else {
+        ((pv_synergies.over(&total_integration).to_f64_lossy()).powf(1.0 / 3.0) - 1.0) * 100.0
+    };
+
+    let risk_adjusted = pv_synergies.times(&rate(0.75)).round(2);
 
     let mut recommendations = Vec::new();
-    if total_annual < request.integration_costs * 0.2 {
+    if total_annual < request.integration_costs.times(&rate(0.2)) {
         recommendations.push("Synergy case appears weak relative to integration costs".to_string());
     }
     if payback_months > 36.0 {
         recommendations
             .push("Long payback period - ensure board alignment on timeline".to_string());
     }
-    if revenue < total_annual * 0.2 {
+    if revenue < total_annual.times(&rate(0.2)) {
         recommendations
             .push("Limited revenue synergies - ensure cost synergies are achievable".to_string());
     }
-    if net_value < 0.0 {
+    if net_value.is_negative() {
         recommendations
             .push("WARNING: Negative net synergy value - reconsider deal economics".to_string());
     }
@@ -615,31 +648,85 @@ pub fn analyze_synergies(request: &SynergyAnalysisRequest) -> SynergyAnalysisOut
     SynergyAnalysisOutput {
         deal_id: request.deal_id.clone(),
         synergy_summary: SynergySummary {
-            revenue_synergies: r2(revenue),
-            cost_synergies: r2(cost),
-            operational_synergies: r2(operational),
-            other_synergies: r2(other),
-            total_annual_synergies: r2(total_annual),
+            revenue_synergies: revenue,
+            cost_synergies: cost,
+            operational_synergies: operational,
+            other_synergies: other,
+            total_annual_synergies: total_annual,
         },
-        pv_synergies: r2(pv_synergies),
-        pv_integration_costs: r2(total_integration),
-        net_synergy_value: r2(net_value),
+        pv_synergies,
+        pv_integration_costs: total_integration,
+        net_synergy_value: net_value,
         irr: r2(irr_3yr),
-        payback_months: r2(payback_months),
-        risk_adjusted_value: r2(risk_adjusted),
+        payback_months,
+        risk_adjusted_value: risk_adjusted,
         recommendations,
     }
+}
+
+// ------------------------------------------------------------- doors
+
+fn parse<T: for<'de> Deserialize<'de>>(payload: &serde_json::Value) -> Result<T, String> {
+    serde_json::from_value(payload.clone()).map_err(|error| format!("invalid request: {error}"))
+}
+
+fn to_value<T: Serialize>(value: &T) -> Result<serde_json::Value, String> {
+    serde_json::to_value(value).map_err(|error| error.to_string())
+}
+
+/// `deal-structuring-service /structure`.
+pub fn deal_structuring_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    #[derive(Deserialize)]
+    struct Request {
+        #[serde(flatten)]
+        deal: DealStructuringRequest,
+        #[serde(default)]
+        deal_date: String,
+    }
+    let request: Request = parse(payload)?;
+    to_value(&structure_deal(&request.deal, &request.deal_date))
+}
+
+/// `post-merger-service /track`.
+pub fn post_merger_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    #[derive(Deserialize)]
+    struct Request {
+        #[serde(flatten)]
+        deal: PostMergerRequest,
+        #[serde(default)]
+        status_date: String,
+    }
+    let request: Request = parse(payload)?;
+    to_value(&track_integration(&request.deal, &request.status_date))
+}
+
+/// `synergy-analysis-service /analyze`.
+pub fn synergy_analysis_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let request: SynergyAnalysisRequest = parse(payload)?;
+    to_value(&analyze_synergies(&request))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn m(text: &str) -> Money {
+        Money::parse(text).expect("amount")
+    }
+
+    fn fixed(amount: &Money) -> String {
+        amount.to_fixed(2)
+    }
+
     fn deal_request() -> DealStructuringRequest {
         DealStructuringRequest {
             deal_id: "D1".to_string(),
             target_id: "T1".to_string(),
-            total_value: 1000.0,
+            total_value: m("1000.0"),
             seller_preference: "stock".to_string(),
             tax_efficiency_priority: true,
             earnout_required: true,
@@ -653,12 +740,12 @@ mod tests {
         let out = structure_deal(&deal_request(), "2026-11-03T00:00:00");
         assert_eq!(out.structure_options.len(), 3);
         assert_eq!(out.structure_options[0].structure_type, "All Cash");
-        assert_eq!(out.structure_options[0].escrow, 100.0);
-        assert_eq!(out.structure_options[1].upfront_payment, 800.0);
-        assert_eq!(out.structure_options[1].earnout, 200.0);
-        assert_eq!(out.structure_options[1].escrow, 50.0);
-        assert_eq!(out.structure_options[2].deferred_payment, 200.0);
-        assert_eq!(out.structure_options[2].escrow, 80.0);
+        assert_eq!(out.structure_options[0].escrow, m("100.0"));
+        assert_eq!(out.structure_options[1].upfront_payment, m("800.0"));
+        assert_eq!(out.structure_options[1].earnout, m("200.0"));
+        assert_eq!(out.structure_options[1].escrow, m("50.0"));
+        assert_eq!(out.structure_options[2].deferred_payment, m("200.0"));
+        assert_eq!(out.structure_options[2].escrow, m("80.0"));
 
         assert_eq!(out.recommended_structure.structure_type, "Share Exchange");
         assert_eq!(out.tax_considerations.recommended, "Hybrid");
@@ -781,10 +868,10 @@ mod tests {
             deal_id: "D1".to_string(),
             acquirer_id: "A".to_string(),
             target_id: "T".to_string(),
-            synergies_achieved: 75.0,
-            synergies_target: 100.0,
-            integration_costs_actual: 55.0,
-            integration_costs_budget: 40.0,
+            synergies_achieved: m("75.0"),
+            synergies_target: m("100.0"),
+            integration_costs_actual: m("55.0"),
+            integration_costs_budget: m("40.0"),
             days_since_close: 45,
             milestones: vec![
                 milestone("M1", "Completed", 100.0),
@@ -799,10 +886,10 @@ mod tests {
     fn post_merger_tracking_matches_the_service() {
         let out = track_integration(&post_merger_request(), "2026-11-03T00:00:00");
         assert_eq!(out.synergy_performance.rate, 75.0);
-        assert_eq!(out.synergy_performance.variance, -25.0);
+        assert_eq!(fixed(&out.synergy_performance.variance), "-25.00");
         assert_eq!(out.synergy_performance.status, "Behind");
-        assert_eq!(out.synergy_performance.daily_rate, 1.67);
-        assert_eq!(out.cost_performance.variance, 15.0);
+        assert_eq!(out.synergy_performance.daily_rate, m("1.67"));
+        assert_eq!(fixed(&out.cost_performance.variance), "15.00");
         assert_eq!(out.cost_performance.variance_percentage, 37.5);
         assert_eq!(out.cost_performance.status, "Over Budget");
         assert_eq!(out.integration_progress.completed, 1);
@@ -823,8 +910,8 @@ mod tests {
     #[test]
     fn healthy_integration_is_green() {
         let mut req = post_merger_request();
-        req.synergies_achieved = 95.0;
-        req.integration_costs_actual = 30.0;
+        req.synergies_achieved = m("95.0");
+        req.integration_costs_actual = m("30.0");
         req.milestones = vec![IntegrationMilestone {
             milestone_id: "M1".to_string(),
             description: String::new(),
@@ -841,10 +928,10 @@ mod tests {
     }
 
     fn synergy_request() -> SynergyAnalysisRequest {
-        let item = |category: &str, value: f64, probability: f64, months: f64| SynergyItem {
+        let item = |category: &str, value: &str, probability: f64, months: f64| SynergyItem {
             category: category.to_string(),
             description: String::new(),
-            annual_value: value,
+            annual_value: m(value),
             probability,
             timing_months: months,
         };
@@ -853,12 +940,12 @@ mod tests {
             acquirer_id: "A".to_string(),
             target_id: "T".to_string(),
             synergies: vec![
-                item("revenue", 120.0, 0.6, 12.0),
-                item("cost", 200.0, 0.8, 6.0),
-                item("operational", 50.0, 0.5, 24.0),
-                item("other", 30.0, 1.0, 0.0),
+                item("revenue", "120.0", 0.6, 12.0),
+                item("cost", "200.0", 0.8, 6.0),
+                item("operational", "50.0", 0.5, 24.0),
+                item("other", "30.0", 1.0, 0.0),
             ],
-            integration_costs: 150.0,
+            integration_costs: m("150.0"),
             cost_of_capital: 0.09,
         }
     }
@@ -866,17 +953,17 @@ mod tests {
     #[test]
     fn synergy_analysis_matches_the_service() {
         let out = analyze_synergies(&synergy_request());
-        assert_eq!(out.synergy_summary.revenue_synergies, 72.0);
-        assert_eq!(out.synergy_summary.cost_synergies, 160.0);
-        assert_eq!(out.synergy_summary.operational_synergies, 25.0);
-        assert_eq!(out.synergy_summary.other_synergies, 30.0);
-        assert_eq!(out.synergy_summary.total_annual_synergies, 287.0);
-        assert_eq!(out.pv_synergies, 270.35);
-        assert_eq!(out.pv_integration_costs, 165.0);
-        assert_eq!(out.net_synergy_value, 105.35);
+        assert_eq!(out.synergy_summary.revenue_synergies, m("72.0"));
+        assert_eq!(out.synergy_summary.cost_synergies, m("160.0"));
+        assert_eq!(out.synergy_summary.operational_synergies, m("25.0"));
+        assert_eq!(out.synergy_summary.other_synergies, m("30.0"));
+        assert_eq!(out.synergy_summary.total_annual_synergies, m("287.0"));
+        assert_eq!(out.pv_synergies, m("270.35"));
+        assert_eq!(out.pv_integration_costs, m("165.0"));
+        assert_eq!(out.net_synergy_value, m("105.35"));
         assert_eq!(out.irr, 17.89);
-        assert_eq!(out.payback_months, 6.9);
-        assert_eq!(out.risk_adjusted_value, 202.76);
+        assert!((out.payback_months - 6.9).abs() < 1e-9);
+        assert_eq!(out.risk_adjusted_value, m("202.76"));
         assert!(out.recommendations.is_empty());
     }
 
@@ -886,13 +973,13 @@ mod tests {
         req.synergies = vec![SynergyItem {
             category: "cost".to_string(),
             description: String::new(),
-            annual_value: 5.0,
+            annual_value: m("5.0"),
             probability: 1.0,
             timing_months: 0.0,
         }];
-        req.integration_costs = 100.0;
+        req.integration_costs = m("100.0");
         let out = analyze_synergies(&req);
-        assert!(out.net_synergy_value < 0.0);
+        assert!(out.net_synergy_value.is_negative());
         assert_eq!(out.recommendations.len(), 4);
         assert!(out.recommendations[3].starts_with("WARNING: Negative net synergy value"));
     }
@@ -907,15 +994,15 @@ mod tests {
     #[test]
     fn zero_denominators_do_not_divide() {
         let mut req = synergy_request();
-        req.integration_costs = 0.0;
+        req.integration_costs = m("0");
         assert_eq!(analyze_synergies(&req).irr, 0.0);
 
         let mut pm = post_merger_request();
         pm.days_since_close = 0;
-        pm.synergies_target = 0.0;
-        pm.integration_costs_budget = 0.0;
+        pm.synergies_target = m("0");
+        pm.integration_costs_budget = m("0");
         let out = track_integration(&pm, "2026-11-03");
-        assert_eq!(out.synergy_performance.daily_rate, 0.0);
+        assert_eq!(fixed(&out.synergy_performance.daily_rate), "0.00");
         assert_eq!(out.synergy_performance.rate, 0.0);
         assert_eq!(out.cost_performance.variance_percentage, 0.0);
     }
