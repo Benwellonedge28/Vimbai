@@ -4,6 +4,7 @@
 //!
 //! Services here:
 //! * `cash-management-service`
+//! * `debt-management-service`
 //! * `sovereign-treasury-service`
 //! * `treasury-compliance-service`
 //! * `treasury-reporting-service`
@@ -23,6 +24,7 @@ mod helpers;
 
 pub mod cash_management;
 pub mod cash_optimization;
+pub mod debt_management;
 pub mod sovereign_treasury;
 pub mod treasury_analytics;
 pub mod treasury_compliance;

@@ -46,6 +46,15 @@ pub(crate) fn field<'a>(record: &'a Value, key: &str) -> &'a str {
     record.get(key).and_then(Value::as_str).unwrap_or("")
 }
 
+/// A whole number, given as a number or as digits in a string, and nothing when it is neither.
+pub(crate) fn whole(record: &Value, key: &str) -> u32 {
+    match record.get(key) {
+        Some(Value::Number(number)) => number.as_u64().map_or(0, |value| value as u32),
+        Some(Value::String(digits)) => digits.trim().parse().unwrap_or(0),
+        _ => 0,
+    }
+}
+
 /// An amount the caller must supply.
 pub(crate) fn money(payload: &Value, key: &str) -> Result<Money, StoreError> {
     match payload.get(key) {
@@ -81,14 +90,25 @@ pub(crate) fn percent(payload: &Value, key: &str, fallback: &str) -> String {
 }
 
 /// Write a record and answer with it, so the caller sees what was stored rather than what was sent.
-pub(crate) fn remember(
-    graph: &(impl Graph + ?Sized),
+/// Store a record and answer with it exactly as it was written back.
+pub(crate) fn store_record<G: Graph + ?Sized>(
+    graph: &G,
     scope: &BookScope,
     kind: vimbai_store::RecordKind,
     body: Value,
 ) -> Result<Value, StoreError> {
     let saved = Records::new(graph, kind).create(scope, &body)?;
-    let mut answer = created_record(&saved);
+    Ok(created_record(&saved))
+}
+
+/// Store a record and answer with it, with anything the store left out filled in from what was sent.
+pub(crate) fn remember<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    kind: vimbai_store::RecordKind,
+    body: Value,
+) -> Result<Value, StoreError> {
+    let mut answer = store_record(graph, scope, kind, body.clone())?;
     if let (Some(answer), Some(fields)) = (answer.as_object_mut(), body.as_object()) {
         for (key, value) in fields {
             answer.entry(key.clone()).or_insert_with(|| value.clone());

@@ -822,7 +822,7 @@ services:
   port: 8194
   gateway_path: /debt-management
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

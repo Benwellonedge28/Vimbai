@@ -360,6 +360,15 @@ xbrl-reporting-service
   the `ComplianceCheck` the accounting standards service uses: that records whether the books follow a standard,
   and one label would let a standards verdict land in a treasury compliance rate.
 
+- debt-management-service -> treasury crate, records on the store: the loans a company carries, the schedule that
+  pays each one down, and the summary the book adds up to. Arithmetic is the service's own in decimals: a monthly
+  payment is the annuity formula with the rate over twelve, and a zero rate simply divides the principal over the
+  term rather than dividing by nothing; the schedule charges interest on what is still owed, puts the rest of the
+  payment against the principal, and reports a balance of nothing rather than a negative from the last penny; the
+  summary weights the rate by balance rather than by loan, publishes the rate in the decimal it works in, and
+  reports no ratio rather than dividing when there is no debt or no equity. The payment is computed once, here;
+  the debt portfolio report takes its weighted rate as given rather than recomputing it.
+
 ## Crate already has the maths, service not yet wired
 
 These are the cheapest ports left: the crate already holds the arithmetic, so the work is a

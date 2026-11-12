@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 56 are proven on a Rust engine. 81 are still Python-only.
+The gateway routes 137 services. 57 are proven on a Rust engine. 80 are still Python-only.
 
-Of the backlog, 22 own no records and can be ported as pure functions; 59 own records and
+Of the backlog, 22 own no records and can be ported as pure functions; 58 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-56 services.
+57 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -35,6 +35,7 @@ cashbook-service                               8098  routes=21  records=yes rust
 company-accounting-service                     8101  routes=23  records=yes rust http
 cvp-analysis-service                           8039  routes=9   records=yes rust http
 debentures-service                             8041  routes=10  records=yes rust http
+debt-management-service                        8194  routes=6   records=yes rust http
 departmental-accounting-service                8100  routes=22  records=yes rust http
 disposal-account-service                       8045  routes=6   records=no  rust http
 disposal-group-service                         8226  routes=8   records=yes rust http
@@ -105,12 +106,11 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-59 services.
+58 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
 regulatory-compliance-service                  8285  routes=6   records=yes none
-debt-management-service                        8194  routes=6   records=yes none
 financial-identity-service                     8053  routes=5   records=yes none
 tax-planning-service                           8292  routes=5   records=yes none
 trade-finance-service                          8191  routes=6   records=yes none

@@ -16,9 +16,9 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 use vimbai_store::amounts::wire;
 use vimbai_store::query::query_page;
-use vimbai_store::{created_record, BookScope, Graph, Records, StoreError, TREASURY_REPORT};
+use vimbai_store::{BookScope, Graph, Records, StoreError, TREASURY_REPORT};
 
-use crate::helpers::{field, money_or_nothing, or_default, text};
+use crate::helpers::{field, money_or_nothing, or_default, store_record, text};
 
 /// The report types the service generated; anything else is a listing filter, not a generator.
 pub const REPORT_TYPES: [&str; 5] = [
@@ -28,16 +28,6 @@ pub const REPORT_TYPES: [&str; 5] = [
     "liquidity",
     "investment_summary",
 ];
-
-/// Remember a report and answer with it.
-fn remember<G: Graph + ?Sized>(
-    graph: &G,
-    scope: &BookScope,
-    body: Value,
-) -> Result<Value, StoreError> {
-    let saved = Records::new(graph, TREASURY_REPORT).create(scope, &body)?;
-    Ok(created_record(&saved))
-}
 
 /// The entries of a report, as rows to add up.
 fn rows(payload: &Value, key: &str) -> Vec<Value> {
@@ -74,9 +64,10 @@ pub fn cash_position<G: Graph + ?Sized>(
         .collect::<serde_json::Map<String, Value>>()
         .into();
 
-    remember(
+    store_record(
         graph,
         scope,
+        TREASURY_REPORT,
         json!({
             "report_type": "cash_position",
             "period": text(payload, "period"),
@@ -118,9 +109,10 @@ pub fn fx_exposure<G: Graph + ?Sized>(
             .round(6)
     };
 
-    remember(
+    store_record(
         graph,
         scope,
+        TREASURY_REPORT,
         json!({
             "report_type": "fx_exposure",
             "period": text(payload, "period"),
@@ -148,9 +140,10 @@ pub fn debt_portfolio<G: Graph + ?Sized>(
     let total_usd = money_or_nothing(payload, "total_debt_usd")?;
     let rate = money_or_nothing(payload, "weighted_avg_rate")?;
 
-    remember(
+    store_record(
         graph,
         scope,
+        TREASURY_REPORT,
         json!({
             "report_type": "debt_portfolio",
             "period": text(payload, "period"),

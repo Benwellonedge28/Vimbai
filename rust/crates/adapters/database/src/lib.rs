@@ -150,6 +150,9 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// debt-management-service's records: the loans a company carries.
+pub const DEBT_LOAN: RecordKind = RecordKind::new("DebtLoan", "OWNS_DEBT_LOAN");
+
 /// treasury-compliance-service's records: the regulatory checks a treasury runs, and their verdicts.
 ///
 /// Deliberately NOT merged with `COMPLIANCE_CHECK`, which shares the `ComplianceCheck` name: that one records

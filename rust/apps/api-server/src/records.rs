@@ -32,7 +32,7 @@ use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
 use treasury::{
-    cash_management, cash_optimization, sovereign_treasury, treasury_analytics,
+    cash_management, cash_optimization, debt_management, sovereign_treasury, treasury_analytics,
     treasury_compliance, treasury_management, treasury_policy, treasury_reporting, treasury_risk,
 };
 
@@ -995,6 +995,99 @@ async fn risk_dashboard(State(graph): GraphState, headers: HeaderMap) -> Respons
         Err(response) => return *response,
     };
     answer(treasury_risk::dashboard(graph.as_ref(), &scope))
+}
+
+async fn open_debt_loan(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(debt_management::create_loan(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn company_debt_loans(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let Some(company_id) = query_param(query.as_deref(), "company_id") else {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error": "company_id is required"})),
+        )
+            .into_response();
+    };
+    answer(debt_management::list_loans(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn debt_loan_schedule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(loan_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let mut body = crate::merge_request(query.as_deref(), None);
+    if let Some(object) = body.as_object_mut() {
+        object.insert("loan_id".into(), json!(loan_id));
+    }
+    answer(debt_management::schedule(graph.as_ref(), &scope, &body))
+}
+
+async fn company_debt_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    let company_id = body
+        .get("company_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    // equity narrows the ratio only; a book with none has no ratio rather than a division by nothing
+    let equity = match body.get("equity") {
+        Some(value) => match store::amounts::amount(&json!({ "amount": value }), "amount") {
+            Ok(money) => money,
+            Err(refusal) => {
+                return (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(json!({"error": refusal.to_string()})),
+                )
+                    .into_response()
+            }
+        },
+        None => Money::zero(),
+    };
+    answer(debt_management::summary(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        &equity,
+    ))
 }
 
 async fn company_compliance_checks(
@@ -5661,6 +5754,23 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/records/treasury-policy/compliance",
             get(policy_compliance_checks),
+        )
+        .route("/debt-management/loans", post(open_debt_loan))
+        .route("/debt-management/loans", get(company_debt_loans))
+        .route(
+            "/debt-management/loans/:loan_id/schedule",
+            post(debt_loan_schedule),
+        )
+        .route("/debt-management/summary", get(company_debt_summary))
+        .route("/records/debt-management/loans", post(open_debt_loan))
+        .route("/records/debt-management/loans", get(company_debt_loans))
+        .route(
+            "/records/debt-management/loans/:loan_id/schedule",
+            post(debt_loan_schedule),
+        )
+        .route(
+            "/records/debt-management/summary",
+            get(company_debt_summary),
         )
         .route(
             "/treasury-compliance/checks/:company_id",

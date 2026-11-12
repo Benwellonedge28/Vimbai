@@ -2489,3 +2489,37 @@ async fn a_compliance_verdict_answers_over_http_for_a_check_the_caller_holds() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["status"], json!("compliant"));
 }
+
+#[tokio::test]
+async fn a_debt_summary_answers_over_http_without_a_division_by_nothing() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/debt-management/summary?company_id=c-1",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_debt"], json!("0.000000"));
+    assert_eq!(body["debt_to_equity"], json!("0.000000"));
+}
+
+#[tokio::test]
+async fn a_loan_schedule_answers_over_http_for_a_loan_the_caller_holds() {
+    let graph = Scripted::returning(vec![json!({
+        "id": "l-1", "company_id": "c-1", "loan_name": "plant",
+        "principal": "1200.00", "interest_rate": "0", "term_months": 12,
+        "remaining_balance": "1200.00", "created_at": "2026-03-01"
+    })]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/debt-management/loans/l-1/schedule?company_id=c-1",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body.as_array().expect("rows").len(), 12);
+    assert_eq!(body[11]["balance"], json!("0.000000"));
+}
