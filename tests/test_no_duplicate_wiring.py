@@ -108,6 +108,44 @@ def test_no_two_source_files_are_identical():
     )
 
 
+# Modules with the same file name in two crates that share a public function name. Each of these
+# has been looked at and is a different calculation behind a familiar word, not a copy:
+#   job_costing  the seam's f64 adapter over domains/costing's exact `settle`, which is the one rule
+#   consolidation  a group's consolidation statements versus a business combination's own
+#   xbrl  two live generators with different shapes, both reachable through their own service
+PINNED_SAME_MODULE_CLASHES = {"job_costing", "consolidation", "xbrl"}
+
+
+def test_no_new_module_name_clash_between_crates():
+    """Three of these survived, and each cost CVP, apportionment and job costing. A fourth is news."""
+    import collections as _collections
+
+    modules = _collections.defaultdict(list)
+    for path in glob.glob(os.path.join(ROOT, "rust", "crates", "**", "src", "*.rs"), recursive=True):
+        if "/target/" in path:
+            continue
+        stem = os.path.basename(path)[:-3]
+        if stem in ("lib", "mod"):
+            continue
+        with open(path, encoding="utf-8") as handle:
+            source = handle.read()
+        modules[stem].append((path, set(re.findall(r"^pub fn ([a-z0-9_]+)", source, re.M))))
+
+    clashes = set()
+    for stem, entries in modules.items():
+        for index, (path_a, fns_a) in enumerate(entries):
+            for path_b, fns_b in entries[index + 1 :]:
+                if fns_a & fns_b and os.path.dirname(os.path.dirname(path_a)) != os.path.dirname(
+                    os.path.dirname(path_b)
+                ):
+                    clashes.add(stem)
+    unexpected = sorted(clashes - PINNED_SAME_MODULE_CLASHES)
+    assert not unexpected, (
+        "a module name now exists in two crates with the same public function names, which is how "
+        f"the CVP, apportionment and process-costing duplicates started: {unexpected}"
+    )
+
+
 def test_no_new_shared_function_name_across_crates():
     signatures = collections.defaultdict(list)
     for path in glob.glob(os.path.join(ROOT, "rust", "crates", "**", "*.rs"), recursive=True):
