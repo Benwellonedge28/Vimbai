@@ -33,6 +33,7 @@ use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
 use treasury::{
     cash_management, cash_optimization, treasury_analytics, treasury_management, treasury_policy,
+    treasury_risk,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -864,6 +865,136 @@ async fn policy_compliance_checks(
         &scope,
         &query_object(query.as_deref()),
     ))
+}
+
+async fn open_risk_exposure(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_risk::create_exposure(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn risk_exposures(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_risk::list_exposures(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn calculate_risk_var(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_risk::calculate_var(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn risk_var_results(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_risk::list_var_results(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn open_stress_scenario(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_risk::create_scenario(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn stress_scenarios(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_risk::list_scenarios(graph.as_ref(), &scope))
+}
+
+async fn run_stress(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(scenario_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_risk::run_stress_test(
+        graph.as_ref(),
+        &scope,
+        &scenario_id,
+        &payload,
+    ))
+}
+
+async fn stress_results(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_risk::list_stress_results(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn risk_dashboard(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_risk::dashboard(graph.as_ref(), &scope))
 }
 
 async fn record_treasury_flow(
@@ -5237,6 +5368,42 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/equity-changes/statements/:company_id",
             get(company_equity_statements),
         )
+        .route(
+            "/treasury-risk/exposures",
+            post(open_risk_exposure).get(risk_exposures),
+        )
+        .route(
+            "/treasury-risk/var",
+            post(calculate_risk_var).get(risk_var_results),
+        )
+        .route(
+            "/treasury-risk/scenarios",
+            post(open_stress_scenario).get(stress_scenarios),
+        )
+        .route(
+            "/treasury-risk/scenarios/:scenario_id/run",
+            post(run_stress),
+        )
+        .route("/treasury-risk/stress-results", get(stress_results))
+        .route("/treasury-risk/dashboard", get(risk_dashboard))
+        .route(
+            "/records/treasury-risk/exposures",
+            post(open_risk_exposure).get(risk_exposures),
+        )
+        .route(
+            "/records/treasury-risk/var",
+            post(calculate_risk_var).get(risk_var_results),
+        )
+        .route(
+            "/records/treasury-risk/scenarios",
+            post(open_stress_scenario).get(stress_scenarios),
+        )
+        .route(
+            "/records/treasury-risk/scenarios/:scenario_id/run",
+            post(run_stress),
+        )
+        .route("/records/treasury-risk/stress-results", get(stress_results))
+        .route("/records/treasury-risk/dashboard", get(risk_dashboard))
         .route(
             "/treasury-policy/policies",
             post(open_treasury_policy).get(treasury_policies),

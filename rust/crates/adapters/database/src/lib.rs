@@ -150,6 +150,13 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// treasury-risk-service's records: the exposures a Book carries, the risk it measures on them, and the
+/// stress scenarios it runs.
+pub const RISK_EXPOSURE: RecordKind = RecordKind::new("RiskExposure", "OWNS_RISK_EXPOSURE");
+pub const VAR_RESULT: RecordKind = RecordKind::new("VaRResult", "OWNS_VAR_RESULT");
+pub const STRESS_SCENARIO: RecordKind = RecordKind::new("StressScenario", "OWNS_STRESS_SCENARIO");
+pub const STRESS_RESULT: RecordKind = RecordKind::new("StressResult", "OWNS_STRESS_RESULT");
+
 /// treasury-policy-service's records: the policies themselves, the limits each sets, and the checks made
 /// against those limits.
 pub const TREASURY_POLICY: RecordKind = RecordKind::new("TreasuryPolicy", "OWNS_TREASURY_POLICY");

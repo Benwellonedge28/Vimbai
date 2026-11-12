@@ -193,7 +193,7 @@ services:
   port: 8259
   gateway_path: /treasury-risk
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

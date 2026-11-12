@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 52 are proven on a Rust engine. 85 are still Python-only.
+The gateway routes 137 services. 53 are proven on a Rust engine. 84 are still Python-only.
 
-Of the backlog, 22 own no records and can be ported as pure functions; 63 own records and
+Of the backlog, 22 own no records and can be ported as pure functions; 62 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-52 services.
+53 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -68,6 +68,7 @@ trading-account-service                        8000  routes=5   records=yes rust
 treasury-analytics-service                     8134  routes=4   records=yes rust http
 treasury-management-service                    8136  routes=7   records=yes rust http
 treasury-policy-service                        8263  routes=8   records=yes rust http
+treasury-risk-service                          8259  routes=11  records=yes rust http
 ```
 
 ### Backlog: no records owned (port the maths only)
@@ -101,7 +102,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-63 services.
+62 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -147,7 +148,6 @@ sox-compliance-service                         8286  routes=10  records=yes none
 absorption-costing-statement-service           8011  routes=7   records=yes none
 family-community-group-service                 8005  routes=11  records=yes none
 sales-ledger-control-service                   8120  routes=7   records=yes none
-treasury-risk-service                          8259  routes=11  records=yes none
 invoicing-service                              8070  routes=1   records=yes none
 petty-cash-service                             8097  routes=20  records=yes none
 multimodal-pipeline-service                    8002  routes=1   records=yes none

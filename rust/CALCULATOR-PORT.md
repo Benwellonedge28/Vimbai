@@ -319,6 +319,18 @@ xbrl-reporting-service
   the compliance listing filters by policy and hands back the most recent `limit` checks in the order they were
   made.
 
+- treasury-risk-service -> treasury crate, records on the store: the exposures a Book carries, the value at
+  risk calculated over a portfolio, the stress scenarios and the results of running them. Shapes kept: an
+  exposure type outside the five the service knows is refused with the list; a scenario shock type outside its
+  six is likewise; value at risk is the portfolio times its daily volatility times a z-score the service carried
+  per confidence (1.282, 1.645, 2.326) times the square root of the holding period, rounded to the cent with the
+  percentage to four places, and a portfolio of nothing reports no percentage rather than dividing; a scenario
+  the caller cannot see is a miss rather than a refusal; a market crash or an fx devaluation takes its
+  percentage off the portfolio, a rate shock moves basis points against an assumed five-year duration, and any
+  other shock type costs nothing and says so; the dashboard adds the notionals by type and counts what is
+  stored. The one approximation left is the square root of the holding period, which has no exact decimal form;
+  everything else on the path is exact.
+
 ## Crate already has the maths, service not yet wired
 
 These are the cheapest ports left: the crate already holds the arithmetic, so the work is a

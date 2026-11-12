@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 52
-still Python             86
+already on a Rust engine 53
+still Python             85
 owner domains            28
 ```
 
@@ -475,7 +475,7 @@ treasury-compliance-service                     8135       5      yes  python
 treasury-management-service                     8136       7      yes  rust
 treasury-policy-service                         8263       8      yes  rust
 treasury-reporting-service                      8262       7      yes  python
-treasury-risk-service                           8259      11      yes  python
+treasury-risk-service                           8259      11      yes  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

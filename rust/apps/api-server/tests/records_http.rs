@@ -2367,3 +2367,35 @@ async fn a_limit_breach_answers_over_http_and_marks_itself_not_compliant() {
     assert_eq!(body["compliant"], json!(false));
     assert_eq!(body["utilization_pct"], json!("150.000000"));
 }
+
+#[tokio::test]
+async fn a_stress_run_answers_over_http_with_the_impact_it_derives() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "s-1", "shock_type": "fx_devaluation", "shock_magnitude": "15.00"})],
+        vec![json!({"id": "r-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/treasury-risk/scenarios/s-1/run",
+        Some(json!({"portfolio_value": "1000.00"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["impact"], json!("-150.00"));
+    assert_eq!(body["portfolio_value_after"], json!("850.00"));
+}
+
+#[tokio::test]
+async fn the_risk_dashboard_answers_over_http_with_its_totals() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "x-1", "exposure_type": "fx", "notional_amount": "500.000000"})],
+        vec![],
+        vec![],
+        vec![],
+    ]);
+    let (status, body) = call_with(graph, "GET", "/records/treasury-risk/dashboard", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_notional"], json!("500.000000"));
+    assert_eq!(body["latest_var"], json!("0"));
+}
