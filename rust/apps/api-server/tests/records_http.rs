@@ -492,3 +492,100 @@ async fn the_absorption_routes_answer_under_the_records_prefix_too() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["rates"].as_array().unwrap().len(), 0);
 }
+
+#[tokio::test]
+async fn rent_is_apportioned_by_floor_area_on_the_published_path() {
+    let stored = json!({"x": {
+        "id": "ap-1",
+        "cost_type": "rent",
+        "total_cost": "1200.000000",
+        "basis": "floor_area",
+        "cost_centres": [
+            {"cost_centre_id": "cc-a", "cost_centre_name": "machining", "floor_area": "200.000000",
+             "proportion": "0.200000", "apportioned_cost": "240.000000"}
+        ],
+        "total_apportioned": "1200.000000",
+        "unapportioned": "0.000000"
+    }});
+    let graph = Scripted::returning(vec![stored]);
+    let (status, body) = call(
+        graph,
+        "/apportionment/apportion/floor-area",
+        Some(json!({
+            "cost_type": "rent",
+            "total_cost": 1200,
+            "cost_centre_data": [
+                {"cost_centre_id": "cc-a", "cost_centre_name": "machining", "floor_area": 200}
+            ]
+        })),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["basis"], json!("floor_area"));
+    assert_eq!(body["unapportioned"], json!(0.0));
+}
+
+#[tokio::test]
+async fn every_apportionment_basis_answers_on_its_own_path() {
+    let stored = json!({"x": {"id": "ap-2", "cost_type": "costs", "basis": "volume"}});
+    let cases = [
+        ("floor-area", "floor_area"),
+        ("volume", "volume"),
+        ("cost", "asset_cost"),
+        ("net-book-value", "net_book_value"),
+        ("replacement-value", "replacement_value"),
+        ("personnel", "number_of_personnel"),
+        ("requisitions", "number_of_requisitions"),
+    ];
+    for (path, key) in cases {
+        let graph = Scripted::returning(vec![stored.clone()]);
+        let payload = json!({
+            "cost_type": "costs",
+            "total_cost": 500,
+            "cost_centre_data": [
+                {"cost_centre_id": "cc-a", "cost_centre_name": "a", key: 2},
+                {"cost_centre_id": "cc-b", "cost_centre_name": "b", key: 3}
+            ]
+        });
+        let (status, body) = call(
+            graph,
+            &format!("/apportionment/apportion/{path}"),
+            Some(payload),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{path}");
+        // the answer is the record the store returned; the breakdown itself is covered by the
+        // store tests, so this only proves each path reaches its own basis
+        assert_eq!(body["id"], json!("ap-2"), "{path}");
+    }
+}
+
+#[tokio::test]
+async fn an_apportionment_rule_and_the_results_both_answer() {
+    let graph = Scripted::returning(vec![json!({"x": {"id": "rule-1"}})]);
+    let (status, _) = call(
+        graph,
+        "/apportionment/rules/create",
+        Some(json!({
+            "cost_type": "rent",
+            "basis": "floor_area",
+            "description": "Rent follows floor area"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call(graph, "/apportionment/results", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["results"].as_array().unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn the_apportionment_routes_answer_under_the_records_prefix_too() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call(graph, "/records/apportionment/rules", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["rules"].as_array().unwrap().len(), 0);
+}

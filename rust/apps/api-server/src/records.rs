@@ -21,9 +21,9 @@ use axum::{
 };
 use serde_json::{json, Value};
 use store::{
-    absorption, appropriation_control, cash_flow, cash_optimization, cost_calculations, cvp,
-    equity_changes, insurance_claims, job_costing, overhead_absorption, price_reduction,
-    trading_account, treasury_analytics, BookScope, Graph, StoreError,
+    absorption, appropriation_control, basis_apportionment, cash_flow, cash_optimization,
+    cost_calculations, cvp, equity_changes, insurance_claims, job_costing, overhead_absorption,
+    price_reduction, trading_account, treasury_analytics, BookScope, Graph, StoreError,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -471,6 +471,65 @@ async fn overhead_analyses(State(graph): GraphState, headers: HeaderMap) -> Resp
         Err(response) => return *response,
     };
     answer(overhead_absorption::analyses(graph.as_ref(), &scope))
+}
+
+async fn apportionment_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(basis_apportionment::create_rule(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn apportionment_rules(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(basis_apportionment::rules(graph.as_ref(), &scope))
+}
+
+async fn apportionment_by_basis(
+    state: (GraphState, usize),
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let (State(graph), index) = state;
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(basis_apportionment::apportion(
+        graph.as_ref(),
+        &scope,
+        index,
+        &payload,
+    ))
+}
+
+async fn apportionment_results(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let cost_type = query_param(query.as_deref(), "cost_type");
+    answer(basis_apportionment::results(
+        graph.as_ref(),
+        &scope,
+        cost_type.as_deref(),
+    ))
 }
 
 /// The same routes on the paths the two services publish, so the gateway can point at this
@@ -1050,6 +1109,68 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/overhead-absorption/analyses",
             get(overhead_analyses),
         )
+        .route(
+            "/records/apportionment/rules/create",
+            post(apportionment_rule),
+        )
+        .route("/records/apportionment/rules", get(apportionment_rules))
+        .route(
+            "/records/apportionment/apportion/floor-area",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 0), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/records/apportionment/apportion/volume",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 1), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/records/apportionment/apportion/cost",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 2), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/records/apportionment/apportion/net-book-value",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 3), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/records/apportionment/apportion/replacement-value",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 4), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/records/apportionment/apportion/personnel",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 5), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/records/apportionment/apportion/requisitions",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 6), headers, body)
+                },
+            ),
+        )
+        .route("/records/apportionment/results", get(apportionment_results))
         .route("/records/process-costing/calculate", post(cost_calculation))
         .route(
             "/records/process-costing/calculations/:company_id",
@@ -1241,6 +1362,65 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         )
         .route("/overhead-absorption/rates", get(overhead_rates))
         .route("/overhead-absorption/analyses", get(overhead_analyses))
+        .route("/apportionment/rules/create", post(apportionment_rule))
+        .route("/apportionment/rules", get(apportionment_rules))
+        .route(
+            "/apportionment/apportion/floor-area",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 0), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/apportionment/apportion/volume",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 1), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/apportionment/apportion/cost",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 2), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/apportionment/apportion/net-book-value",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 3), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/apportionment/apportion/replacement-value",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 4), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/apportionment/apportion/personnel",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 5), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/apportionment/apportion/requisitions",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    apportionment_by_basis((state, 6), headers, body)
+                },
+            ),
+        )
+        .route("/apportionment/results", get(apportionment_results))
         .route("/process-costing/calculate", post(cost_calculation))
         .route(
             "/process-costing/calculations/:company_id",

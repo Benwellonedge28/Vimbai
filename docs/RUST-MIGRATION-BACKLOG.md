@@ -6,20 +6,21 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 41 are proven on a Rust engine. 96 are still Python-only.
+The gateway routes 137 services. 42 are proven on a Rust engine. 95 are still Python-only.
 
-Of the backlog, 1 own no records and can be ported as pure functions; 95 own records and
+Of the backlog, 1 own no records and can be ported as pure functions; 94 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-41 services.
+42 services.
 
 ```
 accounting-service                             8000  routes=1   records=yes rust http
 appropriation-control-service                  8015  routes=5   records=yes rust http
 audit-sampling-service                         8196  routes=2   records=no  rust http
 banking-integration-service                    8386  routes=8   records=no  rust http
+basis-apportionment-service                    8022  routes=12  records=yes rust http
 biological-assets-service                      8146  routes=7   records=no  rust http
 cash-flow-statement-service                    8029  routes=4   records=yes rust http
 cash-optimization-service                      8030  routes=5   records=yes rust http
@@ -69,7 +70,7 @@ cache-service                                  8000  routes=7   records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-95 services.
+94 services.
 
 ```
 job-costing-service                            8073  routes=5   records=yes none
@@ -127,7 +128,6 @@ zero-trust-data-service                        8002  routes=9   records=yes none
 partnership-revaluation-service                8097  routes=5   records=yes none
 provision-doubtful-debts-service               8109  routes=8   records=yes none
 authorized-share-capital-service               8017  routes=8   records=yes none
-basis-apportionment-service                    8022  routes=12  records=yes none
 partnership-changes-service                    8095  routes=7   records=yes none
 sox-compliance-service                         8286  routes=10  records=yes none
 absorption-costing-statement-service           8011  routes=7   records=yes none

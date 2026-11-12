@@ -26,6 +26,7 @@ use serde_json::{json, Map, Value};
 pub mod absorption;
 mod amounts;
 pub mod appropriation_control;
+pub mod basis_apportionment;
 pub mod cash_flow;
 pub mod cash_optimization;
 pub mod cost_calculations;
@@ -118,6 +119,14 @@ pub const TREASURY_SNAPSHOT: RecordKind =
 /// query that filters by company only, so each one already answers with the other's records. One
 /// constant serves both, because splitting the label would invent a distinction the data never made.
 pub const COST_CALCULATION: RecordKind = RecordKind::new("CostCalculation", "OWNS_CALCULATION");
+
+/// The apportionment rules basis-apportionment-service owns.
+pub const APPORTIONMENT_RULE: RecordKind =
+    RecordKind::new("ApportionmentRule", "OWNS_APPORTIONMENT_RULE");
+
+/// The apportionments that service has made.
+pub const APPORTIONMENT_RESULT: RecordKind =
+    RecordKind::new("ApportionmentResult", "OWNS_APPORTIONMENT_RESULT");
 
 /// The absorption rates overhead-absorption-rate-service owns.
 pub const ABSORPTION_RATE: RecordKind =

@@ -44,7 +44,7 @@ services:
   port: 8022
   gateway_path: /basis-apportionment
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health

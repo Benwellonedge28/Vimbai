@@ -56,6 +56,7 @@ routes; they are listed here too, because the Python service is no longer the en
 - product-costing-service
 - r-and-d-tax-service
 - regulatory-ratio-service
+- basis-apportionment-service
 - cvp-analysis-service
 - overhead-absorption-rate-service
 - selling-price-reduction-service
@@ -224,3 +225,9 @@ what a bad target-profit call gets now.
 float text ("8000.0 / 1000.0 = 8.0"). Those sentences are gone rather than reworded differently: the
 fields beside them carry the same two figures the caller supplied, exactly, and a sentence built from
 them would be a third copy to keep in step.
+
+`basis-apportionment-service` multiplied the total by each proportion as a float and summed the
+results, so the parts did not always add back to the cost being apportioned. The port splits with
+largest-remainder allocation instead: the parts are the total, to six places, and `unapportioned` is
+zero whenever there is a basis to spread over. A basis made entirely of zeros still leaves the whole
+cost unapportioned, as before.

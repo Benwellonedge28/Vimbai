@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 41
-still Python             97
+already on a Rust engine 42
+still Python             96
 owner domains            28
 ```
 
@@ -186,7 +186,7 @@ Lands in `rust/crates/domains/costing`.
 service                                         port  routes  records  engine
 absorption-costing-service                      8010       8      yes  python
 absorption-costing-statement-service            8011       7      yes  python
-basis-apportionment-service                     8022      12      yes  python
+basis-apportionment-service                     8022      12      yes  rust
 cvp-analysis-service                            8039       9      yes  rust
 job-costing-service                             8073       5      yes  python
 overhead-absorption-rate-service                8092      13      yes  rust
