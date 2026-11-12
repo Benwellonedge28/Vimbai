@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 41 are proven on a Rust engine. 96 are still Python-only.
+The gateway routes 137 services. 42 are proven on a Rust engine. 95 are still Python-only.
 
-Of the backlog, 22 own no records and can be ported as pure functions; 74 own records and
+Of the backlog, 22 own no records and can be ported as pure functions; 73 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-41 services.
+42 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -25,6 +25,7 @@ biological-assets-service                      8146  routes=7   records=no  rust
 bonus-shares-service                           8023  routes=4   records=yes rust http
 capital-reconstruction-service                 8026  routes=9   records=yes rust http
 capital-redemption-reserve-service             8027  routes=9   records=yes rust http
+cash-flow-service                              8028  routes=9   records=yes rust http
 cash-flow-statement-service                    8029  routes=4   records=yes rust http
 cash-optimization-service                      8030  routes=5   records=yes rust http
 cvp-analysis-service                           8039  routes=9   records=yes rust http
@@ -90,7 +91,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-74 services.
+73 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -102,7 +103,6 @@ trade-finance-service                          8191  routes=6   records=yes none
 treasury-compliance-service                    8135  routes=5   records=yes none
 expense-tracking-service                       8051  routes=6   records=yes none
 bank-relationship-service                      8021  routes=7   records=yes none
-cash-flow-service                              8028  routes=9   records=yes none
 financial-state-machine-service                8055  routes=7   records=yes none
 sovereign-treasury-service                     8127  routes=7   records=yes none
 sensitivity-analysis-service                   8124  routes=3   records=yes none

@@ -1752,6 +1752,77 @@ async fn crr_requirements(
         status.as_deref(),
     ))
 }
+async fn create_cash_flow(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_cash_flow_schedule(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn cash_flow_inflows(payload: Option<Json<Value>>) -> Response {
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::cash_flow_total(&body, "inflows"))
+}
+
+async fn cash_flow_outflows(payload: Option<Json<Value>>) -> Response {
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::cash_flow_total(&body, "outflows"))
+}
+
+async fn cash_flow_net(payload: Option<Json<Value>>) -> Response {
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::net_flows(&body))
+}
+
+async fn cash_flow_cumulative(payload: Option<Json<Value>>) -> Response {
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::cumulative_flows(&body))
+}
+
+async fn list_cash_flows(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::list_cash_flow_schedules(graph.as_ref(), &scope))
+}
+
+async fn get_cash_flow(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(cash_flow_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::get_cash_flow_schedule(
+        graph.as_ref(),
+        &scope,
+        &cash_flow_id,
+    ))
+}
+
 async fn generate_balance_sheet(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -3875,6 +3946,13 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route("/cash-flow/create", post(create_cash_flow))
+        .route("/cash-flow/inflows", post(cash_flow_inflows))
+        .route("/cash-flow/outflows", post(cash_flow_outflows))
+        .route("/cash-flow/net-flows", post(cash_flow_net))
+        .route("/cash-flow/cumulative-flows", post(cash_flow_cumulative))
+        .route("/cash-flow/list", get(list_cash_flows))
+        .route("/cash-flow/get/:cash_flow_id", get(get_cash_flow))
         .route("/balance-sheet/generate", post(generate_balance_sheet))
         .route("/balance-sheet/latest/:company_id", get(latest_balance_sheet))
         .route(
@@ -4002,6 +4080,13 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(share_redemption_detail),
         )
         .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route("/records/cash-flow/create", post(create_cash_flow))
+        .route("/records/cash-flow/inflows", post(cash_flow_inflows))
+        .route("/records/cash-flow/outflows", post(cash_flow_outflows))
+        .route("/records/cash-flow/net-flows", post(cash_flow_net))
+        .route("/records/cash-flow/cumulative-flows", post(cash_flow_cumulative))
+        .route("/records/cash-flow/list", get(list_cash_flows))
+        .route("/records/cash-flow/get/:cash_flow_id", get(get_cash_flow))
         .route("/records/balance-sheet/generate", post(generate_balance_sheet))
         .route("/records/balance-sheet/latest/:company_id", get(latest_balance_sheet))
         .route(

@@ -1498,3 +1498,48 @@ async fn balance_sheet_ratios_come_off_the_latest_sheet() {
     assert_eq!(body["current_ratio"], json!("1.500000"));
     assert_eq!(body["debt_to_equity"], json!("0.666667"));
 }
+
+#[tokio::test]
+async fn a_cash_flow_schedule_records_its_entries_on_the_path() {
+    let graph = Scripted::returning(vec![json!({"id": "cf-1"})]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/cash-flow/create",
+        Some(
+            json!({"project_name": "Mill", "initial_investment": "1000000",
+                    "yearly_inflows": ["100"], "yearly_outflows": ["40"]}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, params) = seen.last();
+    assert_eq!(params["props"]["total_net_flow"], json!("60.000000"));
+    assert_eq!(
+        params["props"]["initial_investment"],
+        json!("1000000.000000")
+    );
+}
+
+#[tokio::test]
+async fn net_flows_answer_for_mismatched_lengths() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/cash-flow/net-flows",
+        Some(json!({"inflows": ["100"], "outflows": ["40", "10"]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["net_flows"], json!(["60.000000", "-10.000000"]));
+}
+
+#[tokio::test]
+async fn a_missing_cash_flow_answers_200_with_the_error_body() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, body) = call_with(graph, "GET", "/cash-flow/get/nope", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["error"], json!("Cash flow not found"));
+}

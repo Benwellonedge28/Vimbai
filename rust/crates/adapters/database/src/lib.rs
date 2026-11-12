@@ -149,6 +149,9 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records cash-flow-service owns.
+pub const CASH_FLOW_SUMMARY: RecordKind = RecordKind::new("CashFlowSummary", "OWNS_CASH_FLOW");
+
 /// The records balance-sheet-service owns.
 pub const BALANCE_SHEET: RecordKind = RecordKind::new("BalanceSheet", "OWNS_SHEET");
 

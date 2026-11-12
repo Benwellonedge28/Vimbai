@@ -12,6 +12,11 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- cash-flow-service -> accounting crate, records on the store: a project's yearly inflows and outflows as
+  entries, the totals, the kept schedules, and the three standalone flow calculators (totals, net flows
+  with the shorter side padded, cumulative running total). Two shapes kept as shipped: the initial
+  investment is recorded and never subtracted, so a project's net flow ignores what it cost to start;
+  and reading a schedule that does not exist answers 200 with an error body rather than 404.
 - balance-sheet-service -> accounting crate, records on the store: the sheet with its three totals computed
   server side, the history, the latest, and the ratios read off it. Balances to within a cent; every ratio
   denominator floored at 1, and no sheet at all is a 404 rather than an empty sheet. The float copy in

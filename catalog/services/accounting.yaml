@@ -64,7 +64,7 @@ services:
   port: 8028
   gateway_path: /cash-flow
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health

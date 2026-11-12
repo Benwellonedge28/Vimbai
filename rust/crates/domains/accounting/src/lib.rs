@@ -2,6 +2,7 @@
 //!
 //! Services here:
 //! * `cash-flow-statement-service`
+//! * `cash-flow-service` (a project's yearly flows, kept, with the standalone flow calculators)
 //! * `balance-sheet-service` (the sheet, its three totals, and the ratios read off the latest)
 //! * `fund-accounting-service` (funds with their derived net assets, and the transactions that
 //!   re-derive them)
@@ -18,6 +19,7 @@
 
 pub mod balance_sheet;
 pub mod cash_flow;
+pub mod cash_flow_schedule;
 pub mod fund_accounting;
 pub mod revenue_recognition;
 pub mod suspense;
@@ -25,6 +27,11 @@ pub mod trading_account;
 pub use balance_sheet::{
     generate as generate_balance_sheet, history as balance_sheet_history, latest_sheet,
     ratios as balance_sheet_ratios, totals as balance_sheet_totals,
+};
+pub use cash_flow_schedule::{
+    build_entries as build_cash_flow_entries, create as create_cash_flow_schedule,
+    cumulative_flows, get as get_cash_flow_schedule, list as list_cash_flow_schedules, net_flows,
+    pair as pair_flows, total_of as cash_flow_total,
 };
 pub use fund_accounting::{
     create_fund, list_funds, list_transactions as list_fund_transactions,
