@@ -12,6 +12,11 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- capital-reconstruction-service -> equity crate, records on the store: the scheme with its reduction,
+  its adjustments, its reserve conversions, and the approval entry that writes losses off against the
+  reduction and balances to retained earnings. Only write-offs are posted; a transfer's new balance is
+  stored but does not enter the entry, and approval is not guarded against running twice - both pinned
+  rather than repaired.
 - debentures-service -> equity crate, records on the store: classes (nominal, issue price, coupon,
   redemption price), issues booking the discount or premium, per-period interest with a flat twenty
   percent withheld, payment of it, and redemptions booking the premium. Accrual takes the outstanding

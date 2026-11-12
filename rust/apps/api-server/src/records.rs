@@ -1751,6 +1751,143 @@ async fn crr_requirements(
         status.as_deref(),
     ))
 }
+async fn create_reconstruction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::create_reconstruction(graph.as_ref(), &scope, &body))
+}
+
+async fn add_reconstruction_adjustment(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(reconstruction_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::add_adjustment(
+        graph.as_ref(),
+        &scope,
+        &reconstruction_id,
+        &body,
+    ))
+}
+
+async fn add_reconstruction_conversion(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(reconstruction_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::add_reserve_conversion(
+        graph.as_ref(),
+        &scope,
+        &reconstruction_id,
+        &body,
+    ))
+}
+
+async fn approve_reconstruction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(reconstruction_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::approve_reconstruction(
+        graph.as_ref(),
+        &scope,
+        &reconstruction_id,
+        &body,
+    ))
+}
+
+async fn capital_reconstructions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    let status = query_param(query.as_deref(), "status");
+    answer(equity::list_capital_reconstructions(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+        status.as_deref(),
+    ))
+}
+
+async fn reconstruction_scheme(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(reconstruction_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::reconstruction_detail(
+        graph.as_ref(),
+        &scope,
+        &reconstruction_id,
+    ))
+}
+
+async fn reconstruction_company_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::reconstruction_summary(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
 async fn create_debenture_class(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -3529,6 +3666,34 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route(
+            "/capital-reconstruction/reconstructions/create",
+            post(create_reconstruction),
+        )
+        .route(
+            "/capital-reconstruction/reconstructions/:reconstruction_id/adjustments/add",
+            post(add_reconstruction_adjustment),
+        )
+        .route(
+            "/capital-reconstruction/reconstructions/:reconstruction_id/reserve-conversions/add",
+            post(add_reconstruction_conversion),
+        )
+        .route(
+            "/capital-reconstruction/reconstructions/:reconstruction_id/approve",
+            post(approve_reconstruction),
+        )
+        .route(
+            "/capital-reconstruction/reconstructions",
+            get(capital_reconstructions),
+        )
+        .route(
+            "/capital-reconstruction/reconstructions/:reconstruction_id",
+            get(reconstruction_scheme),
+        )
+        .route(
+            "/capital-reconstruction/summary/:company_id",
+            get(reconstruction_company_summary),
+        )
         .route("/debentures/classes/create", post(create_debenture_class))
         .route(
             "/debentures/classes/:class_id/issue",
@@ -3595,6 +3760,34 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(share_redemption_detail),
         )
         .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route(
+            "/records/capital-reconstruction/reconstructions/create",
+            post(create_reconstruction),
+        )
+        .route(
+            "/records/capital-reconstruction/reconstructions/:reconstruction_id/adjustments/add",
+            post(add_reconstruction_adjustment),
+        )
+        .route(
+            "/records/capital-reconstruction/reconstructions/:reconstruction_id/reserve-conversions/add",
+            post(add_reconstruction_conversion),
+        )
+        .route(
+            "/records/capital-reconstruction/reconstructions/:reconstruction_id/approve",
+            post(approve_reconstruction),
+        )
+        .route(
+            "/records/capital-reconstruction/reconstructions",
+            get(capital_reconstructions),
+        )
+        .route(
+            "/records/capital-reconstruction/reconstructions/:reconstruction_id",
+            get(reconstruction_scheme),
+        )
+        .route(
+            "/records/capital-reconstruction/summary/:company_id",
+            get(reconstruction_company_summary),
+        )
         .route(
             "/records/debentures/classes/create",
             post(create_debenture_class),

@@ -4,6 +4,8 @@
 //! * `equity-changes-service`
 //! * `authorized-share-capital-service` (records on the store: share classes, their issuances,
 //!   buybacks and the used-capacity summary)
+//! * `capital-reconstruction-service` (records on the store: the scheme, its adjustments and reserve
+//!   conversions, and the approval entry that writes off losses against the reduction)
 //! * `debentures-service` (records on the store: classes, issues, per-period interest with a flat
 //!   twenty percent withheld, and redemptions with their premium)
 //! * `issued-share-capital-service` (records on the store: issues at the hard-coded one-unit nominal,
@@ -31,6 +33,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod capital_reconstruction;
 pub mod debentures;
 pub mod equity_changes;
 pub mod initial_investment;
@@ -49,6 +52,12 @@ pub use share_classes::{
     list_issuances as list_share_issuances, summary as share_capital_summary,
 };
 
+pub use capital_reconstruction::{
+    add_adjustment, add_reserve_conversion, approval_lines, approve_reconstruction,
+    company_summary as reconstruction_summary, create_reconstruction,
+    list_reconstructions as list_capital_reconstructions, reconstruction_detail,
+    reduction as capital_reduction,
+};
 pub use debentures::{
     accrue_interest, create_class as create_debenture_class, issue as issue_debentures,
     list_classes as list_debenture_classes, list_interest as list_debenture_interest,

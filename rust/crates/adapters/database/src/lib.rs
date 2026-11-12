@@ -149,6 +149,13 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records capital-reconstruction-service owns.
+pub const CAPITAL_RECONSTRUCTION: RecordKind =
+    RecordKind::new("CapitalReconstruction", "OWNS_RECONSTRUCTION");
+pub const RECONSTRUCTION_ADJUSTMENT: RecordKind =
+    RecordKind::new("ReconstructionAdjustment", "OWNS_ADJUSTMENT");
+pub const RESERVE_CONVERSION: RecordKind = RecordKind::new("ReserveConversion", "OWNS_CONVERSION");
+
 /// The records debentures-service owns.
 pub const DEBENTURE_CLASS: RecordKind = RecordKind::new("DebentureClass", "OWNS_DEBENTURE_CLASS");
 pub const DEBENTURE_ISSUE: RecordKind = RecordKind::new("DebentureIssue", "OWNS_ISSUE");

@@ -1247,3 +1247,68 @@ async fn a_missing_debenture_class_is_refused_on_the_redeem_path() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn a_reconstruction_scheme_answers_on_its_published_path() {
+    let graph = Scripted::returning(vec![json!({"id": "rec-1"})]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/capital-reconstruction/reconstructions/create?company_id=co-1&reconstruction_type=internal&description=Loss%20write-off&scheme_date=2026-03-01&previous_share_capital=1000&new_share_capital=400",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, params) = seen.last();
+    assert_eq!(
+        params["props"]["capital_reduction_amount"],
+        json!("600.000000")
+    );
+}
+
+#[tokio::test]
+async fn approving_a_reconstruction_balances_the_entry() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "rec-1", "capital_reduction_amount": "600",
+                    "scheme_date": "2026-03-01", "description": "Loss write-off"})],
+        vec![
+            json!({"id": "adj-1", "reconstruction_id": "rec-1", "adjustment_type": "write_off",
+                    "account_code": "3000", "account_name": "Accumulated loss",
+                    "adjustment_amount": "250"}),
+        ],
+        vec![],
+        vec![json!({"id": "rec-1", "status": "completed"})],
+    ]);
+    let seen = Arc::clone(&graph);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/capital-reconstruction/reconstructions/rec-1/approve",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["reconstruction"]["status"], json!("completed"));
+    let (_, params) = seen.statement(3);
+    let lines = params["patch"]["journal_entry"]["entries"]
+        .as_array()
+        .expect("lines");
+    assert_eq!(lines[2]["credit"], json!("850.000000"));
+}
+
+#[tokio::test]
+async fn a_reconstruction_summary_answers_under_records_too() {
+    let graph = Scripted::returning(vec![json!({
+        "company_id": "co-1", "capital_reduction_amount": "600", "status": "completed"
+    })]);
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/records/capital-reconstruction/summary/co-1",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_capital_reduced"], json!("600.000000"));
+}

@@ -534,7 +534,7 @@ services:
   port: 8026
   gateway_path: /capital-reconstruction
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
