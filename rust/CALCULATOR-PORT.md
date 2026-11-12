@@ -12,24 +12,44 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
-- accounting-service -> accounting crate, in part. On the Rust engine so far: the chart of accounts (create,
-  read by number, list, update, delete, period activity) and the journal (create with double-entry
-  validation and a hash-chain stamp, read, list, update, delete, integrity), plus the ledger, trial
-  balance, income statement and balance sheet computed from those entries. Amounts exact end to end, so a
-  trial balance over 123456789012345678901.55 keeps every digit. Shapes pinned: only `posted` entries move
-  anything; an account is debit-normal only when its normal balance says `debit` and credit-normal
-  otherwise; a trial balance moves a negative balance to the other column and calls itself balanced only on
-  exact equality; the income statement reads period activity and drops an account whose movement runs
-  against its natural side; the balance sheet lists every account of its three types and carries no
-  profit for the period, so it can fail to balance; deleting an account is refused while a line touches it;
-  and a reference number is unique per source module only for the six modules the service checks. One
-  deliberate change: a posted entry cannot be edited or deleted, because the old update path silently
-  broke its own stamp and every stamp after it, and corrections belong in reversing entries. New stamps
-  hash amounts as exact decimals; verification falls back to the older floating-point rendering so
-  entries written before the port still verify, reported as legacy-stamped. Still to port here: vendor
-  bills, the eight subsidiary journals, the four subsidiary ledgers, petty cash, bank reconciliation,
-  statements of affairs, capital calculations, control accounts, receipts and payments, single-entry
-  conversions and profit estimations.
+- accounting-service -> accounting crate, whole. Every route the service publishes is answered by the
+  Rust engine, twenty of them as the core book: the chart of accounts (create, read by number, list,
+  update, delete, period activity) and the journal (create with double-entry validation and a hash-chain
+  stamp, read, list, delete, integrity), plus the ledger, trial balance, income statement and balance
+  sheet computed from those entries. Amounts exact end to end, so a trial balance over
+  123456789012345678901.55 keeps every digit.
+
+  The rest are the books of original entry and the working papers beside the ledger. `subsidiary_journals`
+  holds the six journals and the vendor bill, each recording its document and posting the double entry it
+  implies in one act, so the record carries the id of the entry it generated; `bookkeeping` holds petty
+  cash, bank reconciliation, statements of affairs, capital calculations, control accounts, receipts and
+  payments, and the single-entry conversions.
+
+  Shapes pinned rather than repaired: only `posted` entries move anything; an account is debit-normal only
+  when its normal balance says `debit`; a trial balance moves a negative balance to the other column and
+  calls itself balanced only on exact equality; the income statement reads period activity and drops an
+  account whose movement runs against its natural side; the balance sheet lists every account of its three
+  types and carries no profit for the period, so it can fail to balance; deleting an account is refused
+  while a line touches it; a reference number is unique per source module only for the six modules the
+  service checks. The journals post to the service's own fixed chart (`1100`/`4000` for a sale,
+  `1200`/`2000` for a purchase, and so on), so a book whose chart lacks those numbers refuses the document
+  instead of guessing where it belongs; tax is recorded on a document but never posted; a purchase return
+  debits its expense account, raising it; a cash receipt books every source that is not a cash sale to
+  `4100`; and both ageing ledgers owe the whole document with nothing paid against it, calling it overdue
+  past thirty days whatever it was recorded as. The fixed-assets and inventory subsidiary ledgers answer
+  with nothing at all, because they were placeholders and no figures are invented for them. A capital
+  calculation given neither a profit nor a loss reports its opening capital as the closing one; a control
+  account totals only the entry types it knows and reports each entry's balance one step behind itself; a
+  receipts and payments account moves the bank balance only, leaving cash where it started; and petty cash
+  vouchers never move the fund's imprest. A single-entry conversion and a profit estimation ask the same
+  question and now call one calculation instead of two copies of it.
+
+  Two deliberate changes: a posted entry cannot be edited or deleted, because the old update path silently
+  broke its own stamp and every stamp after it, and corrections belong in reversing entries; and a
+  reconciliation's per-line running balance is the running book balance, where the service reported the
+  account's debit total less its credit total before each line, which is not a running balance at all. The
+  shipped receivable and payable ledgers filtered on a date belonging to a node their query never matched,
+  so the filter did nothing; the port filters on the document's own date.
 - accounting-standards-service -> accounting crate. The catalogue is data, not records: fourteen
   standards and their requirements lifted from the service's own definitions into
   `crates/domains/accounting/assets/accounting-standards.json`, so nothing in it was retyped by hand.

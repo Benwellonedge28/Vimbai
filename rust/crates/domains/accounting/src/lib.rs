@@ -25,6 +25,7 @@
 #![forbid(unsafe_code)]
 
 pub mod balance_sheet;
+pub mod bookkeeping;
 pub mod cash_flow;
 pub mod cash_flow_schedule;
 pub mod cashbook;
@@ -36,6 +37,7 @@ pub mod intercompany;
 pub mod ledger_book;
 pub mod revenue_recognition;
 pub mod standards;
+pub mod subsidiary_journals;
 pub mod suspense;
 pub mod trading_account;
 pub use balance_sheet::{

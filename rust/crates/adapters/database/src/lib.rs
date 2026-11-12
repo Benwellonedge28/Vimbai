@@ -149,6 +149,38 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// accounting-service's supporting records: petty cash, reconciliation, and the single-entry statements.
+pub const PETTY_CASH_FUND: RecordKind = RecordKind::new("PettyCashFund", "OWNS_PETTY_CASH_FUND");
+pub const PETTY_CASH_ENTRY: RecordKind = RecordKind::new("PettyCashEntry", "OWNS_PETTY_CASH_ENTRY");
+pub const BANK_RECONCILIATION: RecordKind =
+    RecordKind::new("BankReconciliation", "OWNS_BANK_RECONCILIATION");
+pub const STATEMENT_OF_AFFAIRS: RecordKind =
+    RecordKind::new("StatementOfAffairs", "OWNS_STATEMENT_OF_AFFAIRS");
+pub const CAPITAL_CALCULATION: RecordKind =
+    RecordKind::new("CapitalCalculation", "OWNS_CAPITAL_CALCULATION");
+pub const CONTROL_ACCOUNT: RecordKind = RecordKind::new("ControlAccount", "OWNS_CONTROL_ACCOUNT");
+pub const RECEIPTS_PAYMENTS: RecordKind =
+    RecordKind::new("ReceiptsPaymentsAccount", "OWNS_RECEIPTS_PAYMENTS");
+pub const SINGLE_ENTRY_CONVERSION: RecordKind =
+    RecordKind::new("SingleEntryConversion", "OWNS_SINGLE_ENTRY_CONVERSION");
+pub const PROFIT_ESTIMATION: RecordKind =
+    RecordKind::new("ProfitEstimation", "OWNS_PROFIT_ESTIMATION");
+
+/// The subsidiary journals accounting-service owns, and the vendor bill beside them.
+pub const SALES_JOURNAL: RecordKind =
+    RecordKind::new("SalesJournalEntry", "OWNS_SALES_JOURNAL_ENTRY");
+pub const PURCHASES_JOURNAL: RecordKind =
+    RecordKind::new("PurchasesJournalEntry", "OWNS_PURCHASES_JOURNAL_ENTRY");
+pub const CASH_RECEIPTS_JOURNAL: RecordKind =
+    RecordKind::new("CashReceiptsJournalEntry", "OWNS_CASH_RECEIPT");
+pub const CASH_DISBURSEMENTS_JOURNAL: RecordKind =
+    RecordKind::new("CashDisbursementsJournalEntry", "OWNS_CASH_DISBURSEMENT");
+pub const SALES_RETURNS_JOURNAL: RecordKind =
+    RecordKind::new("SalesReturnsJournalEntry", "OWNS_SALES_RETURN");
+pub const PURCHASES_RETURNS_JOURNAL: RecordKind =
+    RecordKind::new("PurchasesReturnsJournalEntry", "OWNS_PURCHASES_RETURN");
+pub const VENDOR_BILL: RecordKind = RecordKind::new("VendorBill", "OWNS_VENDOR_BILL");
+
 /// The records accounting-service owns: the chart of accounts and the journal written against it.
 pub const LEDGER_ACCOUNT: RecordKind = RecordKind::new("Account", "OWNS_LEDGER_ACCOUNT");
 pub const JOURNAL_ENTRY: RecordKind = RecordKind::new("JournalEntry", "OWNS_JOURNAL_ENTRY");

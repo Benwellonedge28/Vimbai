@@ -2147,3 +2147,100 @@ async fn the_trial_balance_answers_under_both_prefixes() {
     assert_eq!(body["total_debits"], json!("500.000000"));
     assert_eq!(body["is_balanced"], json!(false));
 }
+
+#[tokio::test]
+async fn a_sales_invoice_is_posted_and_answered_over_http() {
+    let chart: Vec<serde_json::Value> = ["1000", "1100", "4000"]
+        .into_iter()
+        .map(|number| {
+            json!({"id": format!("a-{number}"), "account_number": number, "name": number,
+                   "account_type": "asset", "normal_balance": "debit"})
+        })
+        .collect();
+    let graph = Scripted::queue(vec![
+        chart.clone(),
+        chart,
+        vec![],
+        vec![json!({"id": "je-1"})],
+        vec![json!({"id": "doc-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/accounting/sales-journal",
+        Some(json!({"invoice_number": "INV-1", "customer_id": "c-1",
+                    "entry_date": "2026-03-15", "total_amount": "1000.00",
+                    "discount_amount": "50.00", "tax_amount": "140.00"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["invoice_number"], json!("INV-1"));
+    assert_eq!(body["journal_entry_id"], json!("je-1"));
+    assert_eq!(body["total_amount"], json!("1000.000000"));
+}
+
+#[tokio::test]
+async fn the_placeholder_ledgers_answer_with_nothing_over_http() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/records/accounting/subsidiary-ledgers/inventory",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["item_count"], json!(0));
+}
+
+#[tokio::test]
+async fn a_receivable_ledger_over_http_ages_the_documents_it_was_given() {
+    let graph = Scripted::returning(vec![json!({
+        "id": "s-1", "invoice_number": "INV-1", "customer_id": "cust-1",
+        "invoice_date": "2026-01-01", "total_amount": "500.000000", "status": "invoiced"})]);
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/accounting/subsidiary-ledgers/accounts-receivable?today=2026-03-15",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["overdue_count"], json!(1));
+    assert_eq!(body["total_balance_due"], json!("500.000000"));
+}
+
+#[tokio::test]
+async fn a_profit_estimation_answers_over_http_with_the_profit_it_derives() {
+    let graph = Scripted::queue(vec![vec![json!({"id": "pe-1"})]]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/accounting/profit-estimations",
+        Some(
+            json!({"as_of_date": "2026-03-31", "period_start": "2026-01-01",
+                    "period_end": "2026-03-31", "opening_capital": "1000.00",
+                    "closing_capital": "1800.00", "additional_capital": "200.00",
+                    "drawings": "150.00"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["net_profit"], json!("750.000000"));
+}
+
+#[tokio::test]
+async fn a_statement_of_affairs_answers_with_its_capital_over_http() {
+    let graph = Scripted::queue(vec![vec![json!({"id": "soa-1"})]]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/accounting/statements-of-affairs",
+        Some(json!({"as_of_date": "2026-03-31", "assets": [
+                    {"asset_name": "Cash", "asset_value": "500.00"}],
+                    "liabilities": [{"liability_name": "Loan", "liability_value": "200.00"}]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["capital"], json!("300.000000"));
+}
