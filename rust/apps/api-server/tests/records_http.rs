@@ -2399,3 +2399,32 @@ async fn the_risk_dashboard_answers_over_http_with_its_totals() {
     assert_eq!(body["total_notional"], json!("500.000000"));
     assert_eq!(body["latest_var"], json!("0"));
 }
+
+#[tokio::test]
+async fn a_cash_position_report_answers_over_http_with_its_stored_summary() {
+    let graph = Scripted::returning(vec![json!({"id": "r-1"})]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/treasury-reporting/reports/cash-position",
+        Some(json!({"period": "2026-03", "entries": [
+            {"account_id": "a", "account_name": "Main", "currency": "USD",
+             "balance": "10.00", "balance_usd": "10.00"}]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["id"], json!("r-1"));
+}
+
+#[tokio::test]
+async fn a_report_another_book_holds_answers_not_found_over_http() {
+    let graph = Scripted::returning(vec![]);
+    let (status, _) = call_with(
+        graph,
+        "GET",
+        "/records/treasury-reporting/reports/r-9",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

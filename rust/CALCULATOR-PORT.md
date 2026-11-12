@@ -331,6 +331,16 @@ xbrl-reporting-service
   stored. The one approximation left is the square root of the holding period, which has no exact decimal form;
   everything else on the path is exact.
 
+- treasury-reporting-service -> treasury crate, records on the store: the reports it generated and the figures
+  they carry. Three generators and a listing. Shapes kept: a cash position totals the usd balances and groups
+  the native balances by currency, so the two figures answer different questions and neither is a conversion of
+  the other; an fx report totals the exposure and the unhedged amount and averages the hedge ratio over the pairs
+  it was given, with no pairs reporting no average rather than dividing by nothing; the debt report publishes the
+  totals and rate it was handed and counts the instruments; the listing narrows by report type and hands back the
+  most recent reports in the order they were generated. A report in another Book is a miss, not a refusal that
+  admits it exists. The summary figures are decimal strings throughout, so a report of a twenty-digit balance
+  keeps every digit.
+
 ## Crate already has the maths, service not yet wired
 
 These are the cheapest ports left: the crate already holds the arithmetic, so the work is a

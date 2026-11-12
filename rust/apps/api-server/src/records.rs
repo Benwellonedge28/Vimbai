@@ -33,7 +33,7 @@ use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
 use treasury::{
     cash_management, cash_optimization, treasury_analytics, treasury_management, treasury_policy,
-    treasury_risk,
+    treasury_reporting, treasury_risk,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -995,6 +995,86 @@ async fn risk_dashboard(State(graph): GraphState, headers: HeaderMap) -> Respons
         Err(response) => return *response,
     };
     answer(treasury_risk::dashboard(graph.as_ref(), &scope))
+}
+
+async fn generate_cash_position_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_reporting::cash_position(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn generate_fx_exposure_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_reporting::fx_exposure(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn generate_debt_portfolio_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_reporting::debt_portfolio(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn treasury_reports(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_reporting::list_reports(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn one_treasury_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(report_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_reporting::get_report(
+        graph.as_ref(),
+        &scope,
+        &report_id,
+    ))
 }
 
 async fn record_treasury_flow(
@@ -5432,6 +5512,40 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/records/treasury-policy/compliance",
             get(policy_compliance_checks),
+        )
+        .route(
+            "/treasury-reporting/reports/cash-position",
+            post(generate_cash_position_report),
+        )
+        .route(
+            "/treasury-reporting/reports/fx-exposure",
+            post(generate_fx_exposure_report),
+        )
+        .route(
+            "/treasury-reporting/reports/debt-portfolio",
+            post(generate_debt_portfolio_report),
+        )
+        .route("/treasury-reporting/reports", get(treasury_reports))
+        .route(
+            "/treasury-reporting/reports/:report_id",
+            get(one_treasury_report),
+        )
+        .route(
+            "/records/treasury-reporting/reports/cash-position",
+            post(generate_cash_position_report),
+        )
+        .route(
+            "/records/treasury-reporting/reports/fx-exposure",
+            post(generate_fx_exposure_report),
+        )
+        .route(
+            "/records/treasury-reporting/reports/debt-portfolio",
+            post(generate_debt_portfolio_report),
+        )
+        .route("/records/treasury-reporting/reports", get(treasury_reports))
+        .route(
+            "/records/treasury-reporting/reports/:report_id",
+            get(one_treasury_report),
         )
         .route("/treasury-management/cashflows", post(record_treasury_flow))
         .route(

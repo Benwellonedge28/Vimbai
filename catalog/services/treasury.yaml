@@ -177,7 +177,7 @@ services:
   port: 8262
   gateway_path: /treasury-reporting
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

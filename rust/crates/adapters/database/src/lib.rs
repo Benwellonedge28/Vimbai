@@ -150,6 +150,9 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// treasury-reporting-service's records: the reports it generated and the figures they carry.
+pub const TREASURY_REPORT: RecordKind = RecordKind::new("TreasuryReport", "OWNS_TREASURY_REPORT");
+
 /// treasury-risk-service's records: the exposures a Book carries, the risk it measures on them, and the
 /// stress scenarios it runs.
 pub const RISK_EXPOSURE: RecordKind = RecordKind::new("RiskExposure", "OWNS_RISK_EXPOSURE");

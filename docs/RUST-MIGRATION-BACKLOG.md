@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 53 are proven on a Rust engine. 84 are still Python-only.
+The gateway routes 137 services. 54 are proven on a Rust engine. 83 are still Python-only.
 
-Of the backlog, 22 own no records and can be ported as pure functions; 62 own records and
+Of the backlog, 22 own no records and can be ported as pure functions; 61 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-53 services.
+54 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -68,6 +68,7 @@ trading-account-service                        8000  routes=5   records=yes rust
 treasury-analytics-service                     8134  routes=4   records=yes rust http
 treasury-management-service                    8136  routes=7   records=yes rust http
 treasury-policy-service                        8263  routes=8   records=yes rust http
+treasury-reporting-service                     8262  routes=7   records=yes rust http
 treasury-risk-service                          8259  routes=11  records=yes rust http
 ```
 
@@ -102,7 +103,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-62 services.
+61 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -133,7 +134,6 @@ partnership-agreement-service                  8094  routes=8   records=yes none
 data-warehouse-service                         8362  routes=9   records=yes none
 investment-monitoring-service                  8290  routes=9   records=yes none
 activity-based-budget-service                  8177  routes=8   records=yes none
-treasury-reporting-service                     8262  routes=7   records=yes none
 continue-shutdown-decision-service             8032  routes=6   records=yes none
 workflow-service                               8142  routes=1   records=yes none
 bad-debts-recovery-service                     8018  routes=7   records=yes none
