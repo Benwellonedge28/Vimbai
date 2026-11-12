@@ -4,11 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "library/**"
+      - "rust/**"
       - ".github/workflows/library-ci.yml"
   pull_request:
     paths:
-      - "library/**"
+      - "rust/**"
       - ".github/workflows/library-ci.yml"
 
 jobs:
@@ -27,19 +27,19 @@ jobs:
         run: |
           # native/ is the one deliberate exception: PyO3 needs unsafe to cross
           # the interpreter boundary, and it holds no financial logic.
-          ! grep -rnE 'unsafe(\s*\{|\s+(fn|impl|trait|extern))' library --include="*.rs" --exclude-dir=native
+          ! grep -rnE 'unsafe(\s*\{|\s+(fn|impl|trait|extern))' rust --include="*.rs" --exclude-dir=native
 
       - name: Formatting
         run: cargo fmt --all -- --check
-        working-directory: library
+        working-directory: rust
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
-        working-directory: library
+        working-directory: rust
 
       - name: Tests
         run: cargo test --workspace
-        working-directory: library
+        working-directory: rust
 
   seam:
     name: Python seam (maturin build, parity tests)
@@ -59,11 +59,11 @@ jobs:
           python -m pip install --upgrade pip maturin pytest fastapi httpx pydantic structlog neo4j
           maturin build --release -o dist
           pip install dist/*.whl
-        working-directory: library/native
+        working-directory: rust/native
 
       - name: Seam unit tests
         run: cargo test
-        working-directory: library/native
+        working-directory: rust/native
 
       - name: Parity with the Python services
         run: python -m pytest tests/test_native_seam.py -q
@@ -83,22 +83,22 @@ jobs:
       # is tagged for the glibc the runtime images carry, not the runner's
       - name: Build the wheel
         run: |
-          docker run --rm -v "$PWD:/work" -w /work/library/native ghcr.io/pyo3/maturin:v1.7.4 \
+          docker run --rm -v "$PWD:/work" -w /work/rust/native ghcr.io/pyo3/maturin:v1.7.4 \
             build --release -o dist
 
       - name: Attach it to the rolling release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="native-$(sed -n 's/^version = "\(.*\)"/\1/p' library/native/Cargo.toml | head -1)"
+          TAG="native-$(sed -n 's/^version = "\(.*\)"/\1/p' rust/native/Cargo.toml | head -1)"
           gh release view "$TAG" >/dev/null 2>&1 || \
             gh release create "$TAG" --title "Calculation wheel $TAG" \
-              --notes "vimbai_native, built from library/native. Services install it with VIMBAI_NATIVE_WHEEL_URL."
+              --notes "vimbai_native, built from rust/native. Services install it with VIMBAI_NATIVE_WHEEL_URL."
           # The tag carries one wheel and every push replaces it, so the old asset is
           # deleted first. `--clobber` did that too, but when its delete raced the
           # upload it failed the job with a 404 on a wheel that had built fine, so the
           # steps are explicit here and a transient 404 is retried rather than fatal.
-          for wheel in library/native/dist/*.whl; do
+          for wheel in rust/native/dist/*.whl; do
             name=$(basename "$wheel")
             gh release delete-asset "$TAG" "$name" --yes >/dev/null 2>&1 || true
             for attempt in 1 2 3; do

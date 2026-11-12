@@ -2,7 +2,7 @@
 
 The point is that the backlog cannot be guessed at or remembered wrong: it is derived from
 api-gateway/config/services.json, and a service counts as ported only when
-library/CALCULATOR-PORT.md names it (the ported crates) or its main.py loads the native
+rust/CALCULATOR-PORT.md names it (the ported crates) or its main.py loads the native
 wheel. Everything else is Python-only work, split by whether it owns records, because that
 decides whether the port can be a pure function or needs vimbai_store.
 
@@ -17,7 +17,7 @@ import re
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "api-gateway" / "config" / "services.json"
-PORT_MAP = ROOT / "library" / "CALCULATOR-PORT.md"
+PORT_MAP = ROOT / "rust" / "CALCULATOR-PORT.md"
 OUT = ROOT / "docs" / "RUST-MIGRATION-BACKLOG.md"
 PERSISTENCE = re.compile(r"neo4j|AsyncSession|crud\.|sqlite3")
 

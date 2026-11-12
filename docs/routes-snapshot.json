@@ -1,0 +1,2208 @@
+{
+ "count": 138,
+ "services": [
+  {
+   "name": "absorption-costing-service",
+   "port": 8010,
+   "path": "/absorption-costing",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /product-costs/calculate",
+    "POST /overhead/absorption",
+    "POST /cost-plus",
+    "GET /product-costs",
+    "GET /product-costs/{product_id}/latest",
+    "GET /stock-valuation"
+   ]
+  },
+  {
+   "name": "absorption-costing-statement-service",
+   "port": 8011,
+   "path": "/absorption-costing-statement",
+   "endpoints": [
+    "POST /trading-account/generate",
+    "POST /trading-account/{statement_id}/add-expenses",
+    "POST /production-cost/generate",
+    "GET /",
+    "GET /trading-account",
+    "GET /production-cost",
+    "GET /trading-account/{statement_id}"
+   ]
+  },
+  {
+   "name": "accounting-service",
+   "port": 8000,
+   "path": "/accounting",
+   "endpoints": [
+    "GET /"
+   ]
+  },
+  {
+   "name": "accounting-standards-service",
+   "port": 8095,
+   "path": "/accounting-standards",
+   "endpoints": [
+    "GET /",
+    "GET /standards",
+    "GET /standards/comparison",
+    "GET /standards/categories",
+    "GET /standards/{standard_type}",
+    "GET /standards/{standard_type}/requirements",
+    "POST /organizations/{organization_id}/configuration",
+    "GET /organizations/{organization_id}/configuration",
+    "PUT /organizations/{organization_id}/configuration",
+    "POST /organizations/{organization_id}/standards/{standard_type}/activate",
+    "POST /organizations/{organization_id}/standards/{standard_type}/deactivate",
+    "GET /standards/{standard_type}/account-mapping",
+    "POST /standards/{standard_type}/account-mapping",
+    "POST /organizations/{organization_id}/policies",
+    "GET /organizations/{organization_id}/policies",
+    "GET /organizations/{organization_id}/policies/{policy_area}",
+    "POST /organizations/{organization_id}/compliance/check",
+    "GET /organizations/{organization_id}/compliance/history",
+    "GET /standards/{standard_type}/disclosure-requirements",
+    "GET /standards/{standard_type}/measurement-guide"
+   ]
+  },
+  {
+   "name": "activity-based-budget-service",
+   "port": 8177,
+   "path": "/activity-based-budget",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /activities",
+    "GET /activities",
+    "POST /budgets",
+    "GET /budgets",
+    "GET /budgets/{budget_id}",
+    "PUT /budgets/{budget_id}/approve"
+   ]
+  },
+  {
+   "name": "admin-service",
+   "port": 8099,
+   "path": "/admin",
+   "endpoints": [
+    "GET /",
+    "GET /features",
+    "GET /features/{feature_id}",
+    "PUT /features/{feature_id}",
+    "POST /features/{feature_id}/enable",
+    "POST /features/{feature_id}/disable",
+    "GET /features/categories",
+    "GET /organizations/{organization_id}/features",
+    "PUT /organizations/{organization_id}/features/{feature_id}",
+    "POST /organizations/{organization_id}/features/{feature_id}/enable",
+    "POST /organizations/{organization_id}/features/{feature_id}/disable",
+    "GET /features/{feature_id}/dependencies",
+    "GET /rollout-schedules",
+    "POST /rollout-schedules",
+    "DELETE /rollout-schedules/{schedule_id}",
+    "POST /feature-requests",
+    "GET /feature-requests",
+    "GET /feature-requests/{request_id}",
+    "PUT /feature-requests/{request_id}/review",
+    "DELETE /feature-requests/{request_id}",
+    "GET /config",
+    "GET /config/{key}",
+    "PUT /config/{key}",
+    "GET /audit-logs",
+    "POST /audit-logs",
+    "GET /services/health",
+    "GET /dashboard/stats"
+   ]
+  },
+  {
+   "name": "alerts-service",
+   "port": 8090,
+   "path": "/alerts",
+   "endpoints": [
+    "GET /",
+    "POST /rules",
+    "GET /rules",
+    "GET /rules/{rule_id}",
+    "PUT /rules/{rule_id}",
+    "DELETE /rules/{rule_id}",
+    "POST /alerts",
+    "GET /alerts",
+    "GET /alerts/{alert_id}",
+    "PUT /alerts/{alert_id}/acknowledge",
+    "PUT /alerts/{alert_id}/resolve",
+    "PUT /alerts/{alert_id}/dismiss",
+    "POST /evaluate",
+    "GET /stats",
+    "POST /trigger/{rule_id}"
+   ]
+  },
+  {
+   "name": "appropriation-control-service",
+   "port": 8015,
+   "path": "/appropriation-control",
+   "endpoints": [
+    "GET /",
+    "POST /appropriations",
+    "GET /appropriations/{company_id}",
+    "POST /transactions",
+    "GET /check/{appropriation_id}"
+   ]
+  },
+  {
+   "name": "audit-compliance-service",
+   "port": 8016,
+   "path": "/audit-compliance",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /events",
+    "GET /events",
+    "GET /events/{event_id}",
+    "POST /versions/{resource_type}/{resource_id}",
+    "GET /versions/{resource_type}/{resource_id}",
+    "GET /lineage/{resource_id}",
+    "GET /integrity/verify",
+    "GET /integrity/verify-event/{event_id}",
+    "POST /planning/plan",
+    "POST /reports/generate",
+    "POST /trails/analyze",
+    "POST /compliance/monitor",
+    "POST /compliance/sox",
+    "POST /compliance/gdpr",
+    "POST /compliance/report",
+    "GET /analytics/summary",
+    "GET /search"
+   ]
+  },
+  {
+   "name": "audit-sampling-service",
+   "port": 8196,
+   "path": "/audit-sampling",
+   "endpoints": [
+    "GET /",
+    "POST /sample"
+   ]
+  },
+  {
+   "name": "authorized-share-capital-service",
+   "port": 8017,
+   "path": "/authorized-share-capital",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /share-classes",
+    "GET /share-classes",
+    "POST /share-classes/{class_id}/issue",
+    "GET /share-classes/{class_id}/issuances",
+    "POST /share-classes/{class_id}/buyback",
+    "GET /summary"
+   ]
+  },
+  {
+   "name": "automation-engine-service",
+   "port": 8000,
+   "path": "/automation",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /rules",
+    "GET /rules",
+    "GET /rules/{rule_id}",
+    "DELETE /rules/{rule_id}",
+    "POST /rules/{rule_id}/toggle",
+    "POST /execute/{rule_id}",
+    "GET /executions",
+    "GET /executions/{execution_id}"
+   ]
+  },
+  {
+   "name": "bad-debts-recovery-service",
+   "port": 8018,
+   "path": "/bad-debts-recovery",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /bad-debts/register",
+    "POST /bad-debts/{debt_id}/recover",
+    "GET /bad-debts",
+    "GET /bad-debts/{debt_id}",
+    "GET /recovery-summary"
+   ]
+  },
+  {
+   "name": "balance-sheet-service",
+   "port": 8019,
+   "path": "/balance-sheet",
+   "endpoints": [
+    "GET /",
+    "POST /generate",
+    "GET /latest/{company_id}",
+    "GET /history/{company_id}",
+    "GET /ratios/{company_id}"
+   ]
+  },
+  {
+   "name": "bank-feed-service",
+   "port": 8097,
+   "path": "/bank-feed",
+   "endpoints": [
+    "GET /",
+    "POST /connections",
+    "GET /connections",
+    "GET /connections/{connection_id}",
+    "DELETE /connections/{connection_id}",
+    "POST /transactions/import",
+    "POST /transactions/import-batch",
+    "POST /transactions/import-mt940",
+    "GET /transactions",
+    "GET /transactions/{transaction_id}",
+    "PUT /transactions/{transaction_id}/status",
+    "POST /transactions/{transaction_id}/link",
+    "POST /sync/start",
+    "GET /sync/history",
+    "GET /sync/{sync_id}",
+    "GET /connections/{connection_id}/balance",
+    "POST /rules",
+    "GET /rules",
+    "PUT /rules/{rule_id}",
+    "DELETE /rules/{rule_id}",
+    "POST /rules/apply",
+    "POST /webhooks/{provider}",
+    "GET /statistics"
+   ]
+  },
+  {
+   "name": "bank-reconciliation-service",
+   "port": 8020,
+   "path": "/bank-reconciliation",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /statements",
+    "GET /statements",
+    "GET /statements/{statement_id}",
+    "POST /cash-book",
+    "GET /cash-book",
+    "POST /reconcile",
+    "POST /reconcile/{reconciliation_id}/auto-match",
+    "POST /reconcile/{reconciliation_id}/post-adjustments",
+    "GET /reconciliations",
+    "GET /reconciliations/{reconciliation_id}",
+    "GET /outstanding-items"
+   ]
+  },
+  {
+   "name": "bank-relationship-service",
+   "port": 8021,
+   "path": "/bank-relationship",
+   "endpoints": [
+    "GET /",
+    "POST /relationships",
+    "GET /relationships/{company_id}",
+    "PUT /relationships/{rel_id}",
+    "POST /quality-metrics",
+    "GET /quality-metrics/{relationship_id}",
+    "GET /summary/{company_id}"
+   ]
+  },
+  {
+   "name": "banking-integration-service",
+   "port": 8386,
+   "path": "/banking-integration",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /connect",
+    "GET /connections",
+    "POST /sync/{connection_id}",
+    "GET /transactions/{connection_id}",
+    "POST /transactions/{connection_id}/reconcile",
+    "DELETE /connections/{connection_id}"
+   ]
+  },
+  {
+   "name": "basis-apportionment-service",
+   "port": 8022,
+   "path": "/basis-apportionment",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /rules/create",
+    "GET /rules",
+    "POST /apportion/floor-area",
+    "POST /apportion/volume",
+    "POST /apportion/cost",
+    "POST /apportion/net-book-value",
+    "POST /apportion/replacement-value",
+    "POST /apportion/personnel",
+    "POST /apportion/requisitions",
+    "GET /results"
+   ]
+  },
+  {
+   "name": "benefits-admin-service",
+   "port": 8360,
+   "path": "/benefits-admin",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /plans",
+    "GET /plans",
+    "POST /enroll",
+    "GET /employee/{employee_id}/enrollments",
+    "POST /leave/accrue",
+    "GET /employee/{employee_id}/leave"
+   ]
+  },
+  {
+   "name": "biological-assets-service",
+   "port": 8146,
+   "path": "/biological-assets",
+   "endpoints": [
+    "GET /",
+    "POST /measure",
+    "POST /fair-value-level1",
+    "POST /fair-value-level2",
+    "POST /fair-value-level3",
+    "POST /consumable-bearer-distinction",
+    "POST /disclosure-template"
+   ]
+  },
+  {
+   "name": "bonus-shares-service",
+   "port": 8023,
+   "path": "/bonus-shares",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /issue",
+    "GET /issues"
+   ]
+  },
+  {
+   "name": "cache-service",
+   "port": 8000,
+   "path": "/cache",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "GET /cache/{key}",
+    "POST /cache",
+    "DELETE /cache/{key}",
+    "DELETE /cache",
+    "GET /stats"
+   ]
+  },
+  {
+   "name": "capital-reconstruction-service",
+   "port": 8026,
+   "path": "/capital-reconstruction",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /reconstructions/create",
+    "POST /reconstructions/{reconstruction_id}/adjustments/add",
+    "POST /reconstructions/{reconstruction_id}/reserve-conversions/add",
+    "POST /reconstructions/{reconstruction_id}/approve",
+    "GET /reconstructions",
+    "GET /reconstructions/{reconstruction_id}",
+    "GET /summary/{company_id}"
+   ]
+  },
+  {
+   "name": "capital-redemption-reserve-service",
+   "port": 8027,
+   "path": "/capital-redemption-reserve",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /redemptions/record",
+    "POST /creations/create",
+    "POST /utilizations/record",
+    "GET /redemptions",
+    "GET /creations",
+    "GET /utilizations",
+    "GET /summary/{company_id}"
+   ]
+  },
+  {
+   "name": "cash-flow-service",
+   "port": 8028,
+   "path": "/cash-flow",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /create",
+    "POST /inflows",
+    "POST /outflows",
+    "POST /net-flows",
+    "POST /cumulative-flows",
+    "GET /list",
+    "GET /get/{cash_flow_id}"
+   ]
+  },
+  {
+   "name": "cash-flow-statement-service",
+   "port": 8029,
+   "path": "/cash-flow-statement",
+   "endpoints": [
+    "GET /",
+    "POST /generate",
+    "GET /latest/{company_id}",
+    "GET /history/{company_id}"
+   ]
+  },
+  {
+   "name": "cash-management-service",
+   "port": 8264,
+   "path": "/cash-management",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /accounts",
+    "GET /accounts",
+    "POST /transfers",
+    "GET /transfers",
+    "POST /liquidity",
+    "GET /liquidity"
+   ]
+  },
+  {
+   "name": "cash-optimization-service",
+   "port": 8030,
+   "path": "/cash-optimization",
+   "endpoints": [
+    "GET /",
+    "POST /accounts",
+    "GET /accounts/{company_id}",
+    "POST /optimize/{company_id}",
+    "GET /suggestions/{company_id}"
+   ]
+  },
+  {
+   "name": "cashbook-service",
+   "port": 8098,
+   "path": "/cashbook",
+   "endpoints": [
+    "GET /",
+    "POST /accounts",
+    "GET /accounts",
+    "GET /accounts/{account_id}",
+    "PUT /accounts/{account_id}",
+    "POST /entries",
+    "GET /entries",
+    "GET /entries/{entry_id}",
+    "PUT /entries/{entry_id}/post",
+    "PUT /entries/{entry_id}/void",
+    "GET /summary/{account_code}",
+    "POST /reconciliations",
+    "GET /reconciliations",
+    "GET /reconciliations/{reconciliation_id}",
+    "PUT /reconciliations/{reconciliation_id}/complete",
+    "GET /reconciliations/{reconciliation_id}/outstanding",
+    "POST /cash-flow",
+    "GET /cash-flow",
+    "GET /cash-flow/summary",
+    "GET /cash-position",
+    "GET /cash-position/history"
+   ]
+  },
+  {
+   "name": "company-accounting-service",
+   "port": 8101,
+   "path": "/company-accounting",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /companies",
+    "GET /companies",
+    "GET /companies/{company_id}",
+    "PUT /companies/{company_id}",
+    "POST /shareholders",
+    "GET /shareholders",
+    "POST /share-capital",
+    "GET /share-capital",
+    "POST /capital-transactions",
+    "GET /capital-transactions",
+    "POST /dividends",
+    "GET /dividends",
+    "POST /dividends/{dividend_id}/pay",
+    "GET /dividends/{dividend_id}/payments",
+    "POST /retained-earnings",
+    "GET /retained-earnings",
+    "POST /reserves",
+    "GET /reserves",
+    "GET /reports/equity-statement/{company_id}",
+    "GET /reports/shareholder-register/{company_id}",
+    "GET /reports/dividend-history/{company_id}"
+   ]
+  },
+  {
+   "name": "continue-shutdown-decision-service",
+   "port": 8032,
+   "path": "/continue-shutdown-decision",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /analyze",
+    "POST /quick-analysis",
+    "GET /decisions",
+    "GET /decisions/{decision_id}"
+   ]
+  },
+  {
+   "name": "control-account-reconciliation-service",
+   "port": 8033,
+   "path": "/control-account-reconciliation",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /errors/report",
+    "GET /errors",
+    "POST /errors/{error_id}/resolve",
+    "POST /reconcile/{account_type}",
+    "GET /reports",
+    "GET /summary"
+   ]
+  },
+  {
+   "name": "currency-service",
+   "port": 8092,
+   "path": "/currency",
+   "endpoints": [
+    "GET /",
+    "GET /currencies",
+    "GET /currencies/{code}",
+    "POST /currencies",
+    "PUT /currencies/{code}",
+    "DELETE /currencies/{code}",
+    "GET /rates",
+    "GET /rates/latest",
+    "GET /rates/{from_currency}/{to_currency}",
+    "POST /rates",
+    "PUT /rates/{from_currency}/{to_currency}",
+    "POST /convert",
+    "POST /convert/batch",
+    "POST /triangulate",
+    "GET /rates/history/{from_currency}/{to_currency}",
+    "GET /format/{currency_code}/{amount}",
+    "POST /validate-transaction",
+    "POST /alerts/rate",
+    "GET /stats"
+   ]
+  },
+  {
+   "name": "cvp-analysis-service",
+   "port": 8039,
+   "path": "/cvp-analysis",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /analyze",
+    "POST /quick-analysis",
+    "POST /contribution",
+    "POST /target-profit",
+    "POST /multi-product",
+    "GET /analyses",
+    "GET /analyses/{analysis_id}"
+   ]
+  },
+  {
+   "name": "dashboard-service",
+   "port": 8365,
+   "path": "/dashboard",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /load",
+    "POST /custom"
+   ]
+  },
+  {
+   "name": "data-warehouse-service",
+   "port": 8362,
+   "path": "/data-warehouse",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /dimensions",
+    "GET /dimensions",
+    "POST /facts",
+    "GET /facts",
+    "POST /query",
+    "POST /etl",
+    "GET /etl"
+   ]
+  },
+  {
+   "name": "debentures-service",
+   "port": 8041,
+   "path": "/debentures",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /classes/create",
+    "POST /classes/{debenture_class_id}/issue",
+    "POST /classes/{debenture_class_id}/interest/accrue",
+    "POST /interest/{interest_id}/pay",
+    "POST /classes/{debenture_class_id}/redeem",
+    "GET /classes",
+    "GET /issues",
+    "GET /interest"
+   ]
+  },
+  {
+   "name": "debt-management-service",
+   "port": 8194,
+   "path": "/debt-management",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /loans",
+    "GET /loans",
+    "POST /loans/{loan_id}/schedule",
+    "GET /summary"
+   ]
+  },
+  {
+   "name": "departmental-accounting-service",
+   "port": 8100,
+   "path": "/departmental-accounting",
+   "endpoints": [
+    "GET /",
+    "POST /departments",
+    "GET /departments",
+    "GET /departments/{department_id}",
+    "PUT /departments/{department_id}",
+    "GET /departments/{department_id}/hierarchy",
+    "POST /allocation-rules",
+    "GET /allocation-rules",
+    "DELETE /allocation-rules/{rule_id}",
+    "POST /cost-pools",
+    "GET /cost-pools",
+    "GET /cost-pools/{pool_id}",
+    "POST /allocate",
+    "GET /allocations/{pool_id}",
+    "POST /inter-department-bills",
+    "GET /inter-department-bills",
+    "POST /inter-department-bills/{bill_id}/approve",
+    "GET /departments/{department_id}/financials",
+    "GET /departments/{department_id}/performance-report",
+    "GET /reports/department-comparison",
+    "POST /reports/department-comparison",
+    "GET /reports/cost-distribution"
+   ]
+  },
+  {
+   "name": "disposal-account-service",
+   "port": 8045,
+   "path": "/disposal-account",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /disposal/calculate",
+    "POST /disposal/post",
+    "GET /disposals",
+    "GET /summary"
+   ]
+  },
+  {
+   "name": "disposal-group-service",
+   "port": 8226,
+   "path": "/disposal-group",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /groups",
+    "GET /groups",
+    "POST /groups/{group_id}/assets",
+    "GET /groups/{group_id}/assets",
+    "POST /groups/{group_id}/impairment-test",
+    "PUT /groups/{group_id}/status"
+   ]
+  },
+  {
+   "name": "distributed-workflow-orchestration-service",
+   "port": 8046,
+   "path": "/distributed-workflow-orchestration",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /workflows",
+    "GET /workflows",
+    "GET /workflows/{workflow_id}",
+    "POST /workflows/{workflow_id}/execute",
+    "POST /workflows/{workflow_id}/compensate",
+    "DELETE /workflows/{workflow_id}"
+   ]
+  },
+  {
+   "name": "document-service",
+   "port": 8096,
+   "path": "/document",
+   "endpoints": [
+    "GET /",
+    "POST /documents",
+    "POST /documents/batch",
+    "GET /documents/{document_id}",
+    "GET /documents/{document_id}/download",
+    "GET /documents/{document_id}/preview",
+    "PUT /documents/{document_id}",
+    "DELETE /documents/{document_id}",
+    "POST /documents/search",
+    "POST /documents/{document_id}/ocr",
+    "GET /documents",
+    "GET /statistics",
+    "POST /documents/batch/link",
+    "POST /documents/{document_id}/link"
+   ]
+  },
+  {
+   "name": "double-entry-principles-service",
+   "port": 8047,
+   "path": "/double-entry-principles",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /validate-journal-entry",
+    "POST /calculate-entry",
+    "GET /account-rules/{account_type}",
+    "GET /account-types",
+    "POST /journal-entries/{entry_type}",
+    "POST /transaction-analyzer",
+    "GET /accounting-equation"
+   ]
+  },
+  {
+   "name": "encrypted-backup-service",
+   "port": 8006,
+   "path": "/encrypted-backup",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /backup",
+    "GET /backups",
+    "GET /backups/{backup_id}",
+    "POST /backup/{backup_id}/restore",
+    "DELETE /backups/{backup_id}",
+    "GET /restores"
+   ]
+  },
+  {
+   "name": "equity-changes-service",
+   "port": 8049,
+   "path": "/equity-changes",
+   "endpoints": [
+    "GET /",
+    "POST /transactions",
+    "GET /transactions/{company_id}",
+    "POST /statement",
+    "GET /statements/{company_id}"
+   ]
+  },
+  {
+   "name": "etl-service",
+   "port": 8363,
+   "path": "/etl",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /pipelines",
+    "GET /pipelines",
+    "GET /pipelines/{pipeline_id}",
+    "POST /pipelines/{pipeline_id}/run",
+    "DELETE /pipelines/{pipeline_id}"
+   ]
+  },
+  {
+   "name": "expense-tracking-service",
+   "port": 8051,
+   "path": "/expense-tracking",
+   "endpoints": [
+    "GET /",
+    "POST /expenses",
+    "GET /expenses/{company_id}",
+    "PUT /expenses/{expense_id}/approve",
+    "PUT /expenses/{expense_id}/reject",
+    "GET /summary/{company_id}"
+   ]
+  },
+  {
+   "name": "family-community-group-service",
+   "port": 8005,
+   "path": "/family-community-group",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /groups",
+    "GET /groups",
+    "GET /groups/{group_id}",
+    "POST /groups/{group_id}/members",
+    "GET /groups/{group_id}/members",
+    "POST /groups/{group_id}/contribute",
+    "GET /groups/{group_id}/contributions",
+    "POST /groups/{group_id}/advance-cycle",
+    "GET /groups/{group_id}/payouts"
+   ]
+  },
+  {
+   "name": "financial-identity-service",
+   "port": 8053,
+   "path": "/financial-identity",
+   "endpoints": [
+    "GET /",
+    "POST /profiles",
+    "GET /profiles/{profile_id}",
+    "PUT /profiles/{profile_id}/verify",
+    "GET /profiles/user/{user_id}"
+   ]
+  },
+  {
+   "name": "financial-integrity-service",
+   "port": 8054,
+   "path": "/financial-integrity",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /check/balance",
+    "POST /check/hash",
+    "POST /check/completeness",
+    "GET /report/{company_id}"
+   ]
+  },
+  {
+   "name": "financial-state-machine-service",
+   "port": 8055,
+   "path": "/financial-state-machine",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /documents",
+    "GET /documents/{doc_id}",
+    "POST /documents/{doc_id}/transition",
+    "GET /documents/{doc_id}/history",
+    "GET /states"
+   ]
+  },
+  {
+   "name": "fixed-assets-register-service",
+   "port": 8355,
+   "path": "/fixed-assets-register",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /assets",
+    "GET /assets",
+    "GET /assets/{asset_id}",
+    "POST /assets/{asset_id}/depreciate",
+    "GET /assets/{asset_id}/depreciation",
+    "POST /assets/{asset_id}/dispose",
+    "GET /summary"
+   ]
+  },
+  {
+   "name": "fixed-assets-schedule-service",
+   "port": 8056,
+   "path": "/fixed-assets-schedule",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /assets",
+    "GET /assets",
+    "GET /assets/{asset_id}",
+    "PUT /assets/{asset_id}",
+    "POST /schedule/generate",
+    "GET /schedule/latest",
+    "GET /summary"
+   ]
+  },
+  {
+   "name": "foreign-exchange-service",
+   "port": 8192,
+   "path": "/foreign-exchange",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "GET /rates",
+    "GET /rates/{currency}",
+    "POST /convert",
+    "POST /hedge"
+   ]
+  },
+  {
+   "name": "fund-accounting-service",
+   "port": 8060,
+   "path": "/fund-accounting",
+   "endpoints": [
+    "GET /",
+    "POST /funds",
+    "GET /funds/{company_id}",
+    "POST /transactions",
+    "GET /transactions/{fund_id}"
+   ]
+  },
+  {
+   "name": "general-reserve-service",
+   "port": 8061,
+   "path": "/general-reserve",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /reserves/create",
+    "POST /reserves/{reserve_id}/allocate",
+    "POST /reserves/{reserve_id}/utilize",
+    "GET /reserves",
+    "GET /reserves/{reserve_id}",
+    "GET /reserves/{reserve_id}/history"
+   ]
+  },
+  {
+   "name": "graphql-service",
+   "port": 8095,
+   "path": "/graphql",
+   "endpoints": [
+    "GET /",
+    "GET /health"
+   ]
+  },
+  {
+   "name": "ifrs-reporting-service",
+   "port": 8268,
+   "path": "/ifrs-reporting",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /reports",
+    "GET /reports",
+    "GET /reports/{report_id}",
+    "POST /reports/{report_id}/notes",
+    "GET /reports/{report_id}/notes",
+    "PUT /reports/{report_id}/approve"
+   ]
+  },
+  {
+   "name": "initial-investment-service",
+   "port": 8067,
+   "path": "/initial-investment",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /create",
+    "POST /simple",
+    "POST /with-capital-allowance",
+    "GET /list",
+    "GET /get/{investment_id}"
+   ]
+  },
+  {
+   "name": "insurance-claims-service",
+   "port": 8367,
+   "path": "/insurance-claims",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /file",
+    "GET /claims",
+    "POST /claims/{claim_id}/process"
+   ]
+  },
+  {
+   "name": "intangible-assets-service",
+   "port": 8358,
+   "path": "/intangible-assets",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /assets",
+    "GET /assets",
+    "GET /assets/{asset_id}",
+    "POST /assets/{asset_id}/amortize",
+    "GET /assets/{asset_id}/amortization"
+   ]
+  },
+  {
+   "name": "intercompany-service",
+   "port": 8350,
+   "path": "/intercompany",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /entities",
+    "GET /entities",
+    "POST /transactions",
+    "GET /transactions",
+    "POST /transactions/match",
+    "GET /eliminations"
+   ]
+  },
+  {
+   "name": "internal-rate-return-service",
+   "port": 8068,
+   "path": "/internal-rate-return",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /calculate",
+    "POST /calculate-bisection",
+    "POST /compare",
+    "POST /decision"
+   ]
+  },
+  {
+   "name": "investment-monitoring-service",
+   "port": 8290,
+   "path": "/investment-monitoring",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /portfolios",
+    "GET /portfolios",
+    "POST /portfolios/{portfolio_id}/holdings",
+    "GET /portfolios/{portfolio_id}/holdings",
+    "POST /portfolios/{portfolio_id}/performance",
+    "GET /portfolios/{portfolio_id}/performance",
+    "POST /holdings/{holding_id}/update-price"
+   ]
+  },
+  {
+   "name": "investment-property-service",
+   "port": 8145,
+   "path": "/investment-property",
+   "endpoints": [
+    "GET /",
+    "POST /fair-value-model",
+    "POST /cost-model",
+    "POST /transfer",
+    "POST /fair-value-disclosure",
+    "POST /yields"
+   ]
+  },
+  {
+   "name": "invoicing-service",
+   "port": 8070,
+   "path": "/invoicing",
+   "endpoints": [
+    "GET /"
+   ]
+  },
+  {
+   "name": "issued-share-capital-service",
+   "port": 8071,
+   "path": "/issued-share-capital",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /issue",
+    "POST /shareholders/register",
+    "GET /shareholders/{company_id}",
+    "GET /issues/{company_id}",
+    "GET /summary/{company_id}"
+   ]
+  },
+  {
+   "name": "job-costing-service",
+   "port": 8073,
+   "path": "/job-costing",
+   "endpoints": [
+    "GET /",
+    "POST /jobs",
+    "GET /jobs/{company_id}",
+    "POST /jobs/{job_id}/costs",
+    "GET /jobs/{company_id}/profitability"
+   ]
+  },
+  {
+   "name": "lease-termination-service",
+   "port": 8224,
+   "path": "/lease-termination",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /terminations",
+    "GET /terminations",
+    "GET /terminations/{termination_id}",
+    "POST /terminations/{termination_id}/settlement",
+    "PUT /terminations/{termination_id}/approve",
+    "PUT /terminations/{termination_id}/complete"
+   ]
+  },
+  {
+   "name": "message-bus-service",
+   "port": 8097,
+   "path": "/message-bus",
+   "endpoints": [
+    "GET /",
+    "POST /events/publish",
+    "POST /events/{event_type}/publish",
+    "POST /subscriptions",
+    "GET /subscriptions",
+    "GET /subscriptions/{subscription_id}",
+    "DELETE /subscriptions/{subscription_id}",
+    "GET /events",
+    "GET /events/{event_id}/deliveries",
+    "GET /events/{event_id}",
+    "GET /event-types",
+    "GET /metrics",
+    "POST /trigger/journal-entry-created",
+    "POST /trigger/budget-variance-alert",
+    "POST /trigger/transaction-flagged",
+    "POST /trigger/approval-requested"
+   ]
+  },
+  {
+   "name": "mfa-auth-service",
+   "port": 8007,
+   "path": "/mfa-auth",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /setup",
+    "POST /verify",
+    "POST /challenge",
+    "POST /challenge/{challenge_id}/verify"
+   ]
+  },
+  {
+   "name": "multimodal-pipeline-service",
+   "port": 8002,
+   "path": "/multimodal",
+   "endpoints": [
+    "GET /"
+   ]
+  },
+  {
+   "name": "net-present-value-service",
+   "port": 8083,
+   "path": "/net-present-value",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /calculate",
+    "POST /calculate-percent",
+    "POST /compare",
+    "POST /profitability-index"
+   ]
+  },
+  {
+   "name": "notifications-service",
+   "port": 8091,
+   "path": "/notifications",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /notifications",
+    "POST /notifications/batch",
+    "GET /notifications/{user_id}",
+    "PUT /notifications/{notification_id}/read",
+    "PUT /notifications/{user_id}/read-all",
+    "DELETE /notifications/{notification_id}",
+    "PUT /preferences/{user_id}",
+    "GET /preferences/{user_id}",
+    "GET /templates",
+    "GET /templates/{template_name}",
+    "POST /templates/{template_name}/send",
+    "POST /workflow/{workflow_id}/notify",
+    "POST /approval/{approval_id}/notify",
+    "GET /stats"
+   ]
+  },
+  {
+   "name": "npo-service",
+   "port": 8085,
+   "path": "/npo",
+   "endpoints": [
+    "GET /",
+    "GET /funds/",
+    "GET /funds/{fund_id}",
+    "GET /funds/{fund_id}/transactions/",
+    "POST /net-assets/",
+    "GET /net-assets/{as_of_date}",
+    "POST /donations/",
+    "GET /donations/",
+    "POST /grants/",
+    "GET /grants/",
+    "GET /grants/{grant_id}",
+    "POST /grants/{grant_id}/drawdowns/",
+    "POST /projects/",
+    "GET /projects/",
+    "GET /projects/{project_id}",
+    "POST /programs/",
+    "GET /programs/",
+    "POST /donors/",
+    "GET /donors/",
+    "GET /donors/{donor_id}",
+    "POST /budgets/",
+    "GET /budgets/",
+    "POST /budgets/{budget_id}/lines/",
+    "POST /internal-controls/",
+    "GET /internal-controls/",
+    "POST /audit-reports/",
+    "GET /audit-reports/",
+    "POST /program-metrics/",
+    "POST /impact-measurements/",
+    "POST /sroi-analyses/",
+    "POST /volunteer-records/",
+    "GET /volunteer-records/",
+    "GET /statements/activities/",
+    "POST /assets/",
+    "GET /health"
+   ]
+  },
+  {
+   "name": "ordinary-shares-service",
+   "port": 8090,
+   "path": "/ordinary-shares",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /dividends/declare",
+    "POST /dividends/{dividend_id}/pay",
+    "GET /dividends"
+   ]
+  },
+  {
+   "name": "overhead-absorption-rate-service",
+   "port": 8092,
+   "path": "/overhead-absorption-rate",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /calculate",
+    "POST /machine-hours-rate",
+    "POST /labour-hours-rate",
+    "POST /labour-cost-rate",
+    "POST /material-cost-rate",
+    "POST /prime-cost-rate",
+    "POST /unit-rate",
+    "POST /blanket-rate",
+    "POST /absorbed-overhead",
+    "GET /rates",
+    "GET /analyses"
+   ]
+  },
+  {
+   "name": "partnership-agreement-service",
+   "port": 8094,
+   "path": "/partnership-agreement",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /agreements",
+    "GET /agreements/{agreement_id}",
+    "GET /agreements",
+    "PUT /agreements/{agreement_id}",
+    "POST /agreements/{agreement_id}/partners/add",
+    "GET /agreements/{agreement_id}/summary"
+   ]
+  },
+  {
+   "name": "partnership-changes-service",
+   "port": 8095,
+   "path": "/partnership-changes",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /changes/retirement",
+    "POST /changes/admission",
+    "POST /changes/death",
+    "GET /changes",
+    "POST /changes/{change_id}/settle"
+   ]
+  },
+  {
+   "name": "partnership-dissolution-service",
+   "port": 8096,
+   "path": "/partnership-dissolution",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /dissolve",
+    "GET /dissolutions",
+    "GET /dissolutions/{dissolution_id}"
+   ]
+  },
+  {
+   "name": "partnership-revaluation-service",
+   "port": 8097,
+   "path": "/partnership-revaluation",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /revalue",
+    "GET /revaluations",
+    "GET /revaluations/{revaluation_id}"
+   ]
+  },
+  {
+   "name": "payback-period-service",
+   "port": 8098,
+   "path": "/payback-period",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /calculate",
+    "POST /compare",
+    "POST /average-cash-flow"
+   ]
+  },
+  {
+   "name": "payment-gateway-service",
+   "port": 8098,
+   "path": "/payment-gateway",
+   "endpoints": [
+    "GET /",
+    "POST /customers",
+    "GET /customers/{customer_id}",
+    "GET /customers",
+    "POST /customers/{customer_id}/payment-methods",
+    "GET /customers/{customer_id}/payment-methods",
+    "DELETE /payment-methods/{method_id}",
+    "POST /payments",
+    "GET /payments/{payment_id}",
+    "GET /payments",
+    "POST /payments/{payment_id}/capture",
+    "POST /payments/{payment_id}/cancel",
+    "POST /refunds",
+    "GET /refunds/{refund_id}",
+    "GET /payments/{payment_id}/refunds",
+    "POST /disputes",
+    "GET /disputes/{dispute_id}",
+    "GET /disputes",
+    "POST /disputes/{dispute_id}/evidence",
+    "GET /statistics"
+   ]
+  },
+  {
+   "name": "performance-benchmarking-service",
+   "port": 8280,
+   "path": "/performance-benchmarking",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /metrics",
+    "GET /metrics",
+    "POST /benchmark",
+    "GET /results",
+    "POST /peer-comparisons",
+    "GET /peer-comparisons/{metric_id}"
+   ]
+  },
+  {
+   "name": "personal-finance-service",
+   "port": 8099,
+   "path": "/personal-finance",
+   "endpoints": [
+    "POST /recurring",
+    "GET /recurring",
+    "PATCH /recurring/{rec_id}",
+    "DELETE /recurring/{rec_id}",
+    "POST /recurring/{rec_id}/run",
+    "POST /debts",
+    "GET /debts",
+    "GET /debts/{key}",
+    "POST /debts/{debt_id}/payments",
+    "GET /debts/{debt_id}/schedule",
+    "POST /investments",
+    "GET /investments",
+    "POST /investments/{inv_id}/trades",
+    "POST /investments/{inv_id}/price",
+    "GET /tax/brackets",
+    "PUT /tax/brackets",
+    "POST /tax/estimate",
+    "POST /goals",
+    "GET /goals/{user_id}",
+    "POST /income",
+    "GET /income/{user_id}",
+    "GET /overview/{user_id}",
+    "GET /health",
+    "GET /"
+   ]
+  },
+  {
+   "name": "petty-cash-service",
+   "port": 8097,
+   "path": "/petty-cash",
+   "endpoints": [
+    "GET /",
+    "POST /funds",
+    "GET /funds",
+    "GET /funds/{fund_id}",
+    "PUT /funds/{fund_id}",
+    "POST /funds/{fund_id}/close",
+    "POST /transactions",
+    "GET /transactions",
+    "GET /transactions/{transaction_id}",
+    "GET /funds/{fund_id}/balance",
+    "GET /funds/{fund_id}/summary",
+    "POST /vouchers",
+    "GET /vouchers",
+    "PUT /vouchers/{voucher_id}/approve",
+    "POST /replenishments",
+    "GET /replenishments",
+    "PUT /replenishments/{replenishment_id}/approve",
+    "GET /reports/fund-report/{fund_id}",
+    "GET /reports/cash-position",
+    "GET /reports/category-summary"
+   ]
+  },
+  {
+   "name": "pos-integration-service",
+   "port": 8095,
+   "path": "/pos-integration",
+   "endpoints": [
+    "GET /",
+    "POST /devices",
+    "GET /devices",
+    "GET /devices/{device_id}",
+    "PUT /devices/{device_id}/status",
+    "POST /transactions",
+    "POST /transactions/batch",
+    "GET /transactions",
+    "GET /transactions/{transaction_id}",
+    "POST /inventory/sync",
+    "POST /inventory/reconcile",
+    "POST /reports/sales-summary",
+    "POST /integrations/{pos_type}/webhook",
+    "GET /metrics"
+   ]
+  },
+  {
+   "name": "preference-shares-service",
+   "port": 8102,
+   "path": "/preference-shares",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /classes/create",
+    "POST /classes/{share_class_id}/issue",
+    "POST /classes/{share_class_id}/dividends/declare",
+    "POST /classes/{share_class_id}/dividends/{dividend_id}/pay",
+    "POST /classes/{share_class_id}/redeem",
+    "GET /classes",
+    "GET /dividends"
+   ]
+  },
+  {
+   "name": "privacy-admin-dashboard-service",
+   "port": 8003,
+   "path": "/privacy-admin-dashboard",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /requests",
+    "GET /requests",
+    "PUT /requests/{request_id}",
+    "DELETE /requests/{request_id}",
+    "POST /consent",
+    "DELETE /consent/{consent_id}",
+    "GET /consent/{email}",
+    "GET /dashboard"
+   ]
+  },
+  {
+   "name": "process-costing-service",
+   "port": 8105,
+   "path": "/process-costing",
+   "endpoints": [
+    "GET /",
+    "POST /calculate",
+    "GET /calculations/{company_id}",
+    "GET /breakdown/{company_id}/{calc_id}",
+    "GET /summary/{company_id}"
+   ]
+  },
+  {
+   "name": "product-costing-service",
+   "port": 8106,
+   "path": "/product-costing",
+   "endpoints": [
+    "GET /",
+    "POST /calculate",
+    "GET /calculations/{company_id}",
+    "GET /breakdown/{company_id}/{calc_id}",
+    "GET /summary/{company_id}"
+   ]
+  },
+  {
+   "name": "provision-bad-debts-service",
+   "port": 8108,
+   "path": "/provision-bad-debts",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /policies",
+    "GET /policies",
+    "POST /debtors/add",
+    "POST /calculate-provision",
+    "POST /journal/create",
+    "GET /provision-history"
+   ]
+  },
+  {
+   "name": "provision-doubtful-debts-service",
+   "port": 8109,
+   "path": "/provision-doubtful-debts",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /debtors/add",
+    "POST /debtors/{debtor_id}/assess",
+    "POST /calculate-provision",
+    "POST /provision/create",
+    "GET /provisions",
+    "GET /debtors"
+   ]
+  },
+  {
+   "name": "purchases-ledger-control-service",
+   "port": 8110,
+   "path": "/purchases-ledger-control",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /transactions",
+    "GET /control-account/summary",
+    "GET /creditors",
+    "POST /reconcile"
+   ]
+  },
+  {
+   "name": "realtime-calculation-engine",
+   "port": 8112,
+   "path": "/realtime-calculation",
+   "endpoints": [
+    "GET /",
+    "POST /npv",
+    "POST /irr",
+    "POST /depreciation",
+    "POST /amortize"
+   ]
+  },
+  {
+   "name": "regulatory-compliance-service",
+   "port": 8285,
+   "path": "/regulatory-compliance",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /regulations",
+    "GET /regulations",
+    "POST /regulations/{reg_id}/update",
+    "GET /dashboard"
+   ]
+  },
+  {
+   "name": "report-automation-service",
+   "port": 8272,
+   "path": "/report-automation",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /templates",
+    "GET /templates",
+    "POST /schedules",
+    "GET /schedules",
+    "POST /schedules/{schedule_id}/run",
+    "GET /reports",
+    "PUT /schedules/{schedule_id}/pause",
+    "PUT /schedules/{schedule_id}/resume"
+   ]
+  },
+  {
+   "name": "report-distribution-service",
+   "port": 8273,
+   "path": "/report-distribution",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /lists",
+    "GET /lists",
+    "POST /subscriptions",
+    "GET /subscriptions",
+    "POST /subscriptions/{sub_id}/distribute",
+    "GET /logs"
+   ]
+  },
+  {
+   "name": "reporting-service",
+   "port": 8361,
+   "path": "/reporting",
+   "endpoints": [
+    "GET /",
+    "POST /generate",
+    "POST /schedule"
+   ]
+  },
+  {
+   "name": "retained-profits-service",
+   "port": 8113,
+   "path": "/retained-profits",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /appropriations/create",
+    "POST /interim-dividends/declare",
+    "POST /interim-dividends/{dividend_id}/pay",
+    "POST /adjustments/create",
+    "GET /appropriations",
+    "GET /interim-dividends",
+    "GET /adjustments",
+    "GET /summary/{company_id}"
+   ]
+  },
+  {
+   "name": "revaluation-model-service",
+   "port": 8144,
+   "path": "/revaluation-model",
+   "endpoints": [
+    "GET /",
+    "POST /revalue",
+    "POST /revaluation-surplus",
+    "POST /depreciation-after-revaluation",
+    "POST /impairment-after-revaluation",
+    "POST /indexation-allowance"
+   ]
+  },
+  {
+   "name": "revaluation-reserve-service",
+   "port": 8114,
+   "path": "/revaluation-reserve",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /revaluations/record",
+    "POST /utilizations/record",
+    "GET /revaluations",
+    "GET /cumulative/{asset_id}",
+    "GET /summary/{company_id}"
+   ]
+  },
+  {
+   "name": "revenue-recognition-service",
+   "port": 8115,
+   "path": "/revenue-recognition",
+   "endpoints": [
+    "GET /",
+    "POST /contracts",
+    "POST /contracts/{contract_id}/recognize",
+    "GET /contracts/{company_id}",
+    "GET /summary/{company_id}"
+   ]
+  },
+  {
+   "name": "right-issues-service",
+   "port": 8116,
+   "path": "/right-issues",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /offer",
+    "POST /{right_issue_id}/accept",
+    "POST /{right_issue_id}/renounce",
+    "GET /right-issues",
+    "GET /{right_issue_id}"
+   ]
+  },
+  {
+   "name": "risk-assessment-service",
+   "port": 8117,
+   "path": "/risk-assessment",
+   "endpoints": [
+    "GET /",
+    "POST /risks",
+    "GET /risks/{company_id}",
+    "PUT /risks/{risk_id}",
+    "GET /dashboard/{company_id}",
+    "DELETE /risks/{risk_id}"
+   ]
+  },
+  {
+   "name": "rolling-forecast-service",
+   "port": 8173,
+   "path": "/rolling-forecast",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /forecasts",
+    "GET /forecasts",
+    "GET /forecasts/{forecast_id}",
+    "POST /forecasts/{forecast_id}/update-actual",
+    "POST /forecasts/{forecast_id}/roll"
+   ]
+  },
+  {
+   "name": "sales-ledger-control-service",
+   "port": 8120,
+   "path": "/sales-ledger-control",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /transactions",
+    "GET /control-account/summary",
+    "GET /debtors/{debtor_id}/balance",
+    "GET /debtors",
+    "POST /reconcile"
+   ]
+  },
+  {
+   "name": "scenario-analysis-service",
+   "port": 8121,
+   "path": "/scenario-analysis",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /analyze",
+    "POST /scenarios",
+    "GET /scenarios/{company_id}",
+    "GET /compare/{company_id}"
+   ]
+  },
+  {
+   "name": "scenario-modeling-service",
+   "port": 8122,
+   "path": "/scenario-modeling",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /scenarios/",
+    "GET /scenarios/",
+    "GET /scenarios/{scenario_id}",
+    "PUT /scenarios/{scenario_id}",
+    "DELETE /scenarios/{scenario_id}",
+    "POST /rules/",
+    "GET /rules/",
+    "GET /rules/{rule_id}",
+    "PUT /rules/{rule_id}",
+    "DELETE /rules/{rule_id}",
+    "POST /what-if/",
+    "GET /what-if/{analysis_id}",
+    "GET /what-if/scenario/{scenario_id}",
+    "POST /sensitivity/",
+    "POST /compare/"
+   ]
+  },
+  {
+   "name": "selling-price-reduction-service",
+   "port": 8123,
+   "path": "/selling-price-reduction",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /analyze",
+    "POST /discount-analysis",
+    "GET /analyses"
+   ]
+  },
+  {
+   "name": "sensitivity-analysis-service",
+   "port": 8124,
+   "path": "/sensitivity-analysis",
+   "endpoints": [
+    "GET /",
+    "POST /analyze",
+    "GET /analyses/{company_id}"
+   ]
+  },
+  {
+   "name": "share-premium-service",
+   "port": 8125,
+   "path": "/share-premium",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /entries/record",
+    "POST /utilizations/record",
+    "POST /adjustments/create",
+    "GET /entries",
+    "GET /utilizations",
+    "GET /summary/{company_id}"
+   ]
+  },
+  {
+   "name": "share-redemption-service",
+   "port": 8126,
+   "path": "/share-redemption",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /redemptions/initiate",
+    "POST /redemptions/{redemption_id}/fresh-issue",
+    "POST /redemptions/{redemption_id}/complete",
+    "GET /redemptions",
+    "GET /redemptions/{redemption_id}",
+    "GET /crr-requirements"
+   ]
+  },
+  {
+   "name": "sovereign-treasury-service",
+   "port": 8127,
+   "path": "/sovereign-treasury",
+   "endpoints": [
+    "GET /",
+    "POST /accounts",
+    "GET /accounts/{country}",
+    "POST /debt",
+    "GET /debt/{country}",
+    "POST /fiscal-position",
+    "GET /fiscal-position/{country}"
+   ]
+  },
+  {
+   "name": "sox-compliance-service",
+   "port": 8286,
+   "path": "/sox-compliance",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /controls",
+    "GET /controls",
+    "POST /controls/{control_id}/test",
+    "GET /controls/{control_id}/tests",
+    "POST /deficiencies",
+    "GET /deficiencies",
+    "PUT /deficiencies/{deficiency_id}",
+    "GET /dashboard"
+   ]
+  },
+  {
+   "name": "subscription-plans-service",
+   "port": 8001,
+   "path": "/subscription-plans",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /plans",
+    "GET /plans",
+    "POST /subscribe",
+    "GET /subscriptions/{company_id}",
+    "POST /upgrade"
+   ]
+  },
+  {
+   "name": "tax-accounting-service",
+   "port": 8129,
+   "path": "/tax-accounting",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /tax-rates",
+    "GET /tax-rates",
+    "GET /tax-rates/{rate_id}",
+    "PUT /tax-rates/{rate_id}",
+    "POST /tax-registrations",
+    "GET /tax-registrations",
+    "POST /calculate",
+    "POST /calculate-batch",
+    "POST /tax-returns",
+    "GET /tax-returns",
+    "POST /tax-returns/{return_id}/file",
+    "POST /tax-returns/{return_id}/pay",
+    "POST /withholding-tax",
+    "GET /withholding-tax",
+    "POST /reports/tax-summary",
+    "GET /reports/vat-by-jurisdiction",
+    "POST /deferred-tax",
+    "GET /liability-schedule"
+   ]
+  },
+  {
+   "name": "tax-compliance-service",
+   "port": 8293,
+   "path": "/tax-compliance",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /obligations",
+    "GET /obligations",
+    "POST /obligations/{obligation_id}/file",
+    "GET /summary"
+   ]
+  },
+  {
+   "name": "tax-planning-service",
+   "port": 8292,
+   "path": "/tax-planning",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /strategies",
+    "GET /strategies",
+    "POST /plan"
+   ]
+  },
+  {
+   "name": "trade-finance-service",
+   "port": 8191,
+   "path": "/trade-finance",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /instruments",
+    "GET /instruments",
+    "POST /instruments/{instrument_id}/present",
+    "POST /instruments/{instrument_id}/settle"
+   ]
+  },
+  {
+   "name": "trading-account-service",
+   "port": 8000,
+   "path": "/trading-account",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /generate",
+    "GET /accounts",
+    "GET /accounts/{account_id}"
+   ]
+  },
+  {
+   "name": "treasury-analytics-service",
+   "port": 8134,
+   "path": "/treasury-analytics",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /analyze",
+    "GET /kpi/{company_id}"
+   ]
+  },
+  {
+   "name": "treasury-compliance-service",
+   "port": 8135,
+   "path": "/treasury-compliance",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "GET /checks/{company_id}",
+    "PUT /checks/{check_id}/status",
+    "GET /report/{company_id}"
+   ]
+  },
+  {
+   "name": "treasury-management-service",
+   "port": 8136,
+   "path": "/treasury-management",
+   "endpoints": [
+    "GET /",
+    "POST /cashflows",
+    "GET /cashflows/{company_id}",
+    "GET /position/{company_id}",
+    "PUT /position/{company_id}",
+    "POST /forecast/{company_id}",
+    "GET /investment-options"
+   ]
+  },
+  {
+   "name": "treasury-policy-service",
+   "port": 8263,
+   "path": "/treasury-policy",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /policies",
+    "GET /policies",
+    "POST /policies/{policy_id}/limits",
+    "GET /policies/{policy_id}/limits",
+    "POST /limits/{limit_id}/check",
+    "GET /compliance"
+   ]
+  },
+  {
+   "name": "treasury-reporting-service",
+   "port": 8262,
+   "path": "/treasury-reporting",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /reports/cash-position",
+    "POST /reports/fx-exposure",
+    "POST /reports/debt-portfolio",
+    "GET /reports",
+    "GET /reports/{report_id}"
+   ]
+  },
+  {
+   "name": "treasury-risk-service",
+   "port": 8259,
+   "path": "/treasury-risk",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /exposures",
+    "GET /exposures",
+    "POST /var",
+    "GET /var",
+    "POST /scenarios",
+    "GET /scenarios",
+    "POST /scenarios/{scenario_id}/run",
+    "GET /stress-results",
+    "GET /dashboard"
+   ]
+  },
+  {
+   "name": "webhook-service",
+   "port": 8140,
+   "path": "/webhook",
+   "endpoints": [
+    "GET /",
+    "POST /endpoints",
+    "GET /endpoints/{company_id}",
+    "POST /dispatch/{company_id}",
+    "GET /deliveries/{endpoint_id}"
+   ]
+  },
+  {
+   "name": "websocket-service",
+   "port": 8141,
+   "path": "/websocket",
+   "endpoints": [
+    "GET /",
+    "GET /stats",
+    "POST /events/ingest",
+    "POST /broadcast/{channel}"
+   ]
+  },
+  {
+   "name": "workflow-service",
+   "port": 8142,
+   "path": "/workflow",
+   "endpoints": [
+    "GET /"
+   ]
+  },
+  {
+   "name": "zero-based-budgeting-service",
+   "port": 8143,
+   "path": "/zero-based-budgeting",
+   "endpoints": [
+    "GET /",
+    "POST /packages",
+    "GET /packages/{company_id}",
+    "POST /packages/{package_id}/items",
+    "PUT /packages/{package_id}/status",
+    "PUT /items/{item_id}/priority",
+    "GET /summary/{company_id}"
+   ]
+  },
+  {
+   "name": "zero-trust-data-service",
+   "port": 8002,
+   "path": "/zero-trust-data",
+   "endpoints": [
+    "GET /",
+    "GET /health",
+    "POST /policies",
+    "GET /policies",
+    "PUT /policies/{policy_id}",
+    "DELETE /policies/{policy_id}",
+    "POST /evaluate",
+    "GET /attempts",
+    "GET /attempts/user/{user_id}"
+   ]
+  },
+  {
+   "name": "book-sync-service",
+   "port": 9020,
+   "path": "/book-sync",
+   "endpoints": [
+    "POST /books",
+    "GET /books",
+    "GET /books/{book_id}",
+    "PUT /books/{book_id}",
+    "POST /books/{book_id}/members",
+    "GET /books/{book_id}/members",
+    "PUT /books/{book_id}/members/{member_user_id}",
+    "POST /books/{book_id}/members/accept",
+    "POST /books/{book_id}/devices",
+    "POST /books/{book_id}/entries/push",
+    "GET /books/{book_id}/entries",
+    "POST /books/{book_id}/metadata",
+    "GET /books/{book_id}/metadata",
+    "GET /books/{book_id}/audit",
+    "GET /books/{book_id}/membership",
+    "POST /books/default",
+    "GET /health",
+    "GET /"
+   ]
+  },
+  {
+   "name": "npo-scale-service",
+   "port": 9021,
+   "path": "/npo-scale",
+   "endpoints": [
+    "GET /health",
+    "GET /",
+    "POST /orgs",
+    "GET /orgs",
+    "GET /orgs/{org_id}",
+    "PATCH /orgs/{org_id}",
+    "GET /orgs/{org_id}/features",
+    "POST /orgs/{org_id}/branches",
+    "GET /orgs/{org_id}/branches",
+    "POST /orgs/{org_id}/revenues",
+    "GET /orgs/{org_id}/revenues",
+    "GET /orgs/{org_id}/book",
+    "POST /orgs/{org_id}/members",
+    "GET /orgs/{org_id}/members",
+    "POST /orgs/{org_id}/book/link",
+    "POST /orgs/{org_id}/vendors",
+    "GET /orgs/{org_id}/vendors",
+    "POST /orgs/{org_id}/purchases",
+    "POST /orgs/{org_id}/purchases/{purchase_id}/pay",
+    "GET /orgs/{org_id}/reports/creditors",
+    "POST /orgs/{org_id}/shareholders",
+    "POST /orgs/{org_id}/directors",
+    "GET /orgs/{org_id}/directors",
+    "GET /orgs/{org_id}/shareholders",
+    "POST /orgs/{org_id}/dividends",
+    "GET /orgs/{org_id}/reports/equity",
+    "POST /orgs/{org_id}/partners",
+    "GET /orgs/{org_id}/partners",
+    "POST /orgs/{org_id}/partners/{partner_id}/draws",
+    "GET /orgs/{org_id}/reports/capital-accounts",
+    "POST /orgs/{org_id}/donors",
+    "GET /orgs/{org_id}/donors",
+    "POST /orgs/{org_id}/donations",
+    "GET /orgs/{org_id}/donations",
+    "POST /orgs/{org_id}/pledges",
+    "POST /orgs/{org_id}/pledges/run",
+    "GET /orgs/{org_id}/receipts",
+    "GET /receipts/verify/{token}",
+    "GET /orgs/{org_id}/receipts/{receipt_id}/pdf",
+    "GET /public/holdings/{verify_code}",
+    "POST /orgs/{org_id}/expenses",
+    "GET /orgs/{org_id}/expenses",
+    "PUT /orgs/{org_id}/budgets",
+    "POST /orgs/{org_id}/compliance",
+    "GET /orgs/{org_id}/compliance",
+    "POST /orgs/{org_id}/balance-items",
+    "GET /orgs/{org_id}/reports/activities",
+    "GET /orgs/{org_id}/reports/functional-expenses",
+    "GET /orgs/{org_id}/reports/position",
+    "GET /orgs/{org_id}/reports/budget-vs-actual",
+    "GET /orgs/{org_id}/reports/consolidated"
+   ]
+  },
+  {
+   "name": "audit-engagement-service",
+   "port": 8371,
+   "path": "/audit-engagement",
+   "endpoints": [
+    "GET /",
+    "POST /engagements",
+    "GET /audit-types",
+    "GET /engagements/{company_id}",
+    "PUT /engagements/{engagement_id}/status",
+    "POST /engagements/{engagement_id}/findings",
+    "PUT /findings/{finding_id}/remediate",
+    "GET /report/{engagement_id}"
+   ]
+  },
+  {
+   "name": "calculation-api",
+   "port": 8099,
+   "path": "/calcs",
+   "endpoints": []
+  }
+ ]
+}

@@ -1,0 +1,48 @@
+[workspace]
+resolver = "2"
+# native/ is its own workspace: it links against libpython and must not be
+# pulled into `cargo test --workspace` for the calculation crates.
+exclude = ["native"]
+members = [
+    "crates/common",
+    "crates/api",
+    "crates/store",
+    "crates/bridge",
+    "crates/automation",
+    "crates/sso",
+    "crates/rbac",
+    "crates/abac",
+    "crates/kernel/ledger-core",
+    "crates/calculations/advisory",
+    "crates/calculations/assets",
+    "crates/calculations/assurance",
+    "crates/calculations/budgeting",
+    "crates/calculations/capital_valuation",
+    "crates/calculations/cost_accounting",
+    "crates/calculations/equity_payroll",
+    "crates/calculations/group_accounting",
+    "crates/calculations/ifrs",
+    "crates/calculations/market_risk",
+    "crates/calculations/performance_measures",
+    "crates/calculations/ratios_statements",
+    "crates/calculations/reporting",
+    "crates/calculations/tax",
+    "crates/calculations/tax_reporting",
+    "crates/calculations/treasury_fx",
+    "crates/calculations/variance",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Proprietary"
+authors = ["Samuel Mukandara"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+bigdecimal = { version = "0.4", features = ["serde"] }
+
+[profile.release]
+lto = true
+codegen-units = 1

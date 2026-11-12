@@ -4,7 +4,7 @@ on:
   push:
     branches: ["main"]
     paths:
-      - 'library/**'
+      - 'rust/**'
       - '.github/workflows/calculation-api.yml'
   workflow_dispatch:
 
@@ -35,8 +35,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           # the workspace root, because every crate in it is a path dependency
-          context: ./library
-          file: ./library/api/Dockerfile
+          context: ./rust
+          file: ./rust/crates/api/Dockerfile
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

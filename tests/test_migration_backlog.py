@@ -18,7 +18,7 @@ def test_every_routed_service_is_classified_once():
 
 
 def test_a_port_needs_named_evidence():
-    port_map = (ROOT / "library" / "CALCULATOR-PORT.md").read_text()
+    port_map = (ROOT / "rust" / "CALCULATOR-PORT.md").read_text()
     for row in migration_backlog.survey():
         if row["rust_engine"] == "none":
             assert not re.search(r"\b" + re.escape(row["name"]) + r"\b", port_map), (

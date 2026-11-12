@@ -1,0 +1,43 @@
+[package]
+name = "vimbai_native"
+version = "0.1.0"
+edition = "2021"
+license = "Proprietary"
+description = "Python seam for the Vimbai calculation libraries (PyO3)"
+
+[workspace]
+
+[lib]
+name = "vimbai_native"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["abi3-py39"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bigdecimal = { version = "0.4", features = ["serde"] }
+vimbai_advisory = { path = "../crates/calculations/advisory" }
+vimbai_bridge = { path = "../crates/bridge" }
+vimbai_common = { path = "../crates/common" }
+vimbai_budgeting = { path = "../crates/calculations/budgeting" }
+vimbai_cost_accounting = { path = "../crates/calculations/cost_accounting" }
+vimbai_assets = { path = "../crates/calculations/assets" }
+vimbai_capital_valuation = { path = "../crates/calculations/capital_valuation" }
+vimbai_ifrs = { path = "../crates/calculations/ifrs" }
+vimbai_reporting = { path = "../crates/calculations/reporting" }
+vimbai_ratios_statements = { path = "../crates/calculations/ratios_statements" }
+vimbai_tax = { path = "../crates/calculations/tax" }
+vimbai_treasury_fx = { path = "../crates/calculations/treasury_fx" }
+vimbai_group_accounting = { path = "../crates/calculations/group_accounting" }
+vimbai_tax_reporting = { path = "../crates/calculations/tax_reporting" }
+vimbai_performance_measures = { path = "../crates/calculations/performance_measures" }
+vimbai_market_risk = { path = "../crates/calculations/market_risk" }
+
+[features]
+# Off by default so `cargo test` can link libpython and exercise the seam
+# arms directly; maturin turns it on for the real extension build.
+extension-module = ["pyo3/extension-module"]
+
+[profile.release]
+lto = true
+codegen-units = 1

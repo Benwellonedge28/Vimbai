@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from tests.conftest import load_service
 
-native = pytest.importorskip("vimbai_native", reason="build library/native with maturin to test the seam")
+native = pytest.importorskip("vimbai_native", reason="build rust/native with maturin to test the seam")
 
 
 def _seam(name, payload):

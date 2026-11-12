@@ -1,0 +1,12 @@
+[package]
+name = "vimbai_group_accounting"
+version = "0.1.0"
+edition = "2021"
+description = "Vimbai group accounting: partnerships, buyouts, business combinations, goodwill, pensions, consolidation. Safe Rust only."
+license = "Proprietary"
+
+[dependencies]
+indexmap = { version = "2.7.1", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+vimbai_common = { path = "../../common" }

@@ -34,23 +34,23 @@ fi
 
 if [ "$want_rust" = 1 ]; then
   step "rustfmt"
-  (cd library && cargo fmt --all -- --check) || fail "cargo fmt"
+  (cd rust && cargo fmt --all -- --check) || fail "cargo fmt"
   step "clippy"
-  (cd library && cargo clippy --workspace --all-targets -- -D warnings) || fail "clippy"
+  (cd rust && cargo clippy --workspace --all-targets -- -D warnings) || fail "clippy"
   step "workspace tests"
-  (cd library && cargo test --workspace) || fail "cargo test --workspace"
+  (cd rust && cargo test --workspace) || fail "cargo test --workspace"
 fi
 
 if [ "$want_seam" = 1 ]; then
   step "the Python extension (outside the workspace, so checked separately)"
-  (cd library/native && cargo check) || fail "cargo check in native/"
+  (cd rust/native && cargo check) || fail "cargo check in native/"
   # The parity tests import the compiled extension, and a stale build in site-packages will
   # happily answer with last week's arithmetic. Rebuild it so the seam tests mean something.
   if command -v maturin >/dev/null 2>&1; then
     step "rebuilding the extension so the seam tests are not testing an old build"
     # maturin develop insists on a virtualenv; build a wheel and install it instead, which
     # works the same way in a bare interpreter as CI does.
-    (cd library/native && maturin build --quiet --out /tmp/preflight_wheels \
+    (cd rust/native && maturin build --quiet --out /tmp/preflight_wheels \
       && python3 -m pip install --quiet --force-reinstall --no-deps /tmp/preflight_wheels/*.whl) \
       || fail "rebuilding and installing the extension"
   else

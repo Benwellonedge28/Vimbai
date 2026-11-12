@@ -6,7 +6,7 @@ maintains. This does the four edits together and reports what it touched, so a b
 retired the same way every time.
 
 Files are kept unless --delete-files is given, because a retired service's Python is still evidence:
-the parity captures under library/api/tests/parity were taken from it. Deleting the directory is a
+the parity captures under rust/crates/api/tests/parity were taken from it. Deleting the directory is a
 separate, deliberate act.
 
 Usage: python3 scripts/retire_service.py NAME [NAME ...] [--delete-files] [--dry-run]

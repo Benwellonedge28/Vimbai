@@ -6,6 +6,7 @@ someone registers a service, retires one, or deduplicates one without rerunning
 scripts/service_status.py, this suite fails and says so.
 """
 
+import glob
 import importlib.util
 import os
 import subprocess
@@ -110,14 +111,25 @@ def test_live_services_do_not_carry_a_stale_marker(status):
         assert not os.path.isfile(os.path.join(_ROOT, service, "STATUS.md"))
 
 
+def _crate_dir(name):
+    """Crates are grouped under rust/crates now, so find one by its manifest."""
+    for manifest in glob.glob(os.path.join(_ROOT, "rust", "crates", "**", "Cargo.toml"), recursive=True):
+        directory = os.path.dirname(manifest)
+        if os.path.basename(directory) == name:
+            return directory
+    return os.path.join(_ROOT, "rust", "crates", name)
+
+
 def test_ported_calculators_name_their_crate(status):
     _, retained, _ = status.classify()
     for service, info in retained.items():
         if info["family"].endswith("DUPLICATES"):
             continue
         assert info["crate"], f"{service} should name the Rust crate that owns its figures"
-        crate_dir = os.path.join(_ROOT, "library", info["crate"])
-        # ledger-core predates the library workspace and sits at the root.
+        # Crates are grouped by purpose now (crates/calculations/..., crates/kernel/...),
+        # so find the crate by its manifest rather than by a fixed depth.
+        crate_dir = _crate_dir(info["crate"])
+        # ledger-core predates the library workspace and sits under kernel/.
         assert os.path.isdir(crate_dir) or os.path.isdir(
             os.path.join(_ROOT, info["crate"])
         ), f"{info['crate']} is not a Rust crate"

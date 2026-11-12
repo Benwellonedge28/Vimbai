@@ -31,8 +31,8 @@ SEAM_TESTS = tuple(
         "test_unwired_views_seam.py",
     )
 )
-TRACKER = ROOT / "library" / "CALCULATOR-PORT.md"
-API_REGISTRY = ROOT / "library" / "api" / "src" / "lib.rs"
+TRACKER = ROOT / "rust" / "CALCULATOR-PORT.md"
+API_REGISTRY = ROOT / "rust" / "crates" / "api" / "src" / "lib.rs"
 
 
 def extension_functions():

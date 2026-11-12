@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 
 from tests.conftest import load_service
 
-native = pytest.importorskip("vimbai_native", reason="build library/native with maturin to test the seam")
+native = pytest.importorskip("vimbai_native", reason="build rust/native with maturin to test the seam")
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _H = {"X-User-Id": "seam-cost-user", "X-Book-ID": "seam-cost-book"}

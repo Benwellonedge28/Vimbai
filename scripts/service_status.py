@@ -107,10 +107,13 @@ def _gateway_routes():
 
 def _crate_corpus():
     corpus = {}
-    for crate in sorted(os.listdir(os.path.join(ROOT, "library"))):
-        base = os.path.join(ROOT, "library", crate)
+    # Crates are grouped (crates/calculations/..., crates/kernel/...), so walk for manifests
+    # rather than assuming one level of directories.
+    for manifest in sorted(glob.glob(os.path.join(ROOT, "rust", "crates", "**", "Cargo.toml"), recursive=True)):
+        base = os.path.dirname(manifest)
+        crate = os.path.basename(base)
         src = os.path.join(base, "src")
-        if not os.path.isdir(src) or not os.path.isfile(os.path.join(base, "Cargo.toml")):
+        if not os.path.isdir(src):
             continue
         text = ""
         for path in glob.glob(os.path.join(src, "**", "*.rs"), recursive=True):
@@ -211,7 +214,7 @@ def render(live, retained, unclassified):
         "script after registering, retiring or deduplicating a service.",
         "",
         "Retired services are deleted from the repository. Their maths lives in the Rust crate",
-        "named beside each group, and the recorded parity captures in library/api/tests/parity are",
+        "named beside each group, and the recorded parity captures in rust/api/tests/parity are",
         "what the ports are tested against.",
         "",
         "## Summary",

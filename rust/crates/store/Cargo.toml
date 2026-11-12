@@ -1,0 +1,14 @@
+[package]
+name = "vimbai_store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Neo4j-backed record store for the services that still own graph records, Book-scoped like the Python layer it replaces"
+
+[dependencies]
+neo4j = "0.2"
+vimbai_common = { path = "../common" }
+treasury_fx = { package = "vimbai_treasury_fx", path = "../calculations/treasury_fx" }
+serde = { workspace = true }
+serde_json = { workspace = true }

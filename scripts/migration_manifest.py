@@ -16,7 +16,7 @@ import re
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SERVICES = os.path.join(REPO, "api-gateway", "config", "services.json")
-PORT_MAP = os.path.join(REPO, "library", "CALCULATOR-PORT.md")
+PORT_MAP = os.path.join(REPO, "rust", "CALCULATOR-PORT.md")
 OUT = os.path.join(REPO, "docs", "MIGRATION-MANIFEST.md")
 
 # Domain -> what it is responsible for, and where its code lands.

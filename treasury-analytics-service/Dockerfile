@@ -6,7 +6,7 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# The calculation wheel, built from library/native. The build context is this
+# The calculation wheel, built from rust/native. The build context is this
 # service directory, so the image cannot compile it: pass the published wheel
 # (release asset or registry URL) and the service answers from the Rust
 # library. Left empty, the image runs the Python reference engine, which

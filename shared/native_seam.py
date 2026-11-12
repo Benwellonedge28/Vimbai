@@ -6,7 +6,7 @@ absent. It is deliberately loud: a missing extension raises instead of falling
 back to float maths, because a quiet fallback is how a treasury report ends up
 computed two different ways in two environments.
 
-The extension is built from library/native (`maturin build`). Every amount
+The extension is built from rust/native (`maturin build`). Every amount
 crosses the boundary as a decimal string.
 """
 
@@ -25,7 +25,7 @@ def _extension():
     except ImportError as exc:  # pragma: no cover - exercised by the guard test
         raise NativeUnavailable(
             "the vimbai_native extension is not installed; build it with "
-            "`maturin build --release` in library/native and install the wheel"
+            "`maturin build --release` in rust/native and install the wheel"
         ) from exc
     return vimbai_native
 

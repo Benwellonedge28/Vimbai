@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from tests.conftest import load_service
 from tests.test_treasury_services import analytics_client  # noqa: F401 - fixture
 
-native = pytest.importorskip("vimbai_native", reason="build library/native with maturin to test the seam")
+native = pytest.importorskip("vimbai_native", reason="build rust/native with maturin to test the seam")
 
 
 def _amounts(response_payload, keys):

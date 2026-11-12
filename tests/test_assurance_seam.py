@@ -15,7 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-native = pytest.importorskip("vimbai_native", reason="build library/native to test the seam")
+native = pytest.importorskip("vimbai_native", reason="build rust/native to test the seam")
 if not all(
     hasattr(native, name)
     for name in (
