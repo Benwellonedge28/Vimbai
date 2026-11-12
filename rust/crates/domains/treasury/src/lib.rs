@@ -7,6 +7,7 @@
 //! * `cash-optimization-service`
 //! * `treasury-analytics-service`
 //! * `treasury-management-service`
+//! * `treasury-policy-service`
 //!
 //! One crate per business domain, not one per service: these services were separate Python
 //! containers that each carried a copy of the same models, the same database access and the same
@@ -18,3 +19,4 @@ pub mod cash_management;
 pub mod cash_optimization;
 pub mod treasury_analytics;
 pub mod treasury_management;
+pub mod treasury_policy;

@@ -2328,3 +2328,42 @@ async fn investment_options_answer_over_http_without_touching_the_store() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["options"].as_array().expect("options").len(), 4);
 }
+
+#[tokio::test]
+async fn a_policy_limit_answers_over_http_with_its_created_policy() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "p-1", "name": "Liquidity", "policy_category": "liquidity",
+                    "status": "active"}),
+        ],
+        vec![json!({"id": "l-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/treasury-policy/policies/p-1/limits",
+        Some(json!({"limit_type": "exposure", "limit_value": "250000.00"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["limit_value"], json!("250000.000000"));
+}
+
+#[tokio::test]
+async fn a_limit_breach_answers_over_http_and_marks_itself_not_compliant() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "l-1", "policy_id": "p-1", "limit_value": "100.000000"})],
+        vec![json!({"id": "c-1"})],
+        vec![json!({"id": "l-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/treasury-policy/limits/l-1/check",
+        Some(json!({"checked_value": "150.00", "notes": "over"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["compliant"], json!(false));
+    assert_eq!(body["utilization_pct"], json!("150.000000"));
+}

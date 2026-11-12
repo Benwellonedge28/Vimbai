@@ -308,6 +308,17 @@ xbrl-reporting-service
   set of query readers in `vimbai_store::query` now reads numbers and flags from text or numbers, and cashbook,
   cash management and treasury management all use it instead of their own copies.
 
+- treasury-policy-service -> treasury crate, records on the store: the policies a Book sets, the limits each
+  one places, and the checks made against them. Shapes kept: a category outside the six the service knows is
+  refused with the list of valid ones; a limit can only be set on a policy the caller can see, and a check only
+  against such a limit, so a policy in another Book is a miss rather than a refusal that admits it exists;
+  utilization is the checked value over the limit as a percentage, with a limit of zero reporting nothing rather
+  than dividing; a check is compliant when the value is at most the limit, so landing exactly on the limit
+  passes; the limit's own `current_utilization` is set to the checked VALUE rather than the percentage the check
+  reports, which is what the service did, and both figures are kept because older callers read that field; and
+  the compliance listing filters by policy and hands back the most recent `limit` checks in the order they were
+  made.
+
 ## Crate already has the maths, service not yet wired
 
 These are the cheapest ports left: the crate already holds the arithmetic, so the work is a

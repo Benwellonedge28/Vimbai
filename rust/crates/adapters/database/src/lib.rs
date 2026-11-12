@@ -150,6 +150,12 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// treasury-policy-service's records: the policies themselves, the limits each sets, and the checks made
+/// against those limits.
+pub const TREASURY_POLICY: RecordKind = RecordKind::new("TreasuryPolicy", "OWNS_TREASURY_POLICY");
+pub const POLICY_LIMIT: RecordKind = RecordKind::new("PolicyLimit", "OWNS_POLICY_LIMIT");
+pub const POLICY_CHECK: RecordKind = RecordKind::new("PolicyCheck", "OWNS_POLICY_CHECK");
+
 /// treasury-management-service's records: a company's daily cash movements, and the position it reports.
 ///
 /// Deliberately NOT merged with `CASH_FLOW_ENTRY`, which shares the `CashFlowEntry` name: that record is a

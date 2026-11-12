@@ -31,7 +31,9 @@ use finance::insurance_claims;
 use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
-use treasury::{cash_management, cash_optimization, treasury_analytics, treasury_management};
+use treasury::{
+    cash_management, cash_optimization, treasury_analytics, treasury_management, treasury_policy,
+};
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
 /// connections, so one handle serves every request.
@@ -761,6 +763,106 @@ async fn company_equity_statements(
         graph.as_ref(),
         &scope,
         &company_id,
+    ))
+}
+
+async fn open_treasury_policy(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_policy::create_policy(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn treasury_policies(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_policy::list_policies(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn set_policy_limit(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(policy_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_policy::set_limit(
+        graph.as_ref(),
+        &scope,
+        &policy_id,
+        &payload,
+    ))
+}
+
+async fn policy_limits(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(policy_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_policy::list_limits(
+        graph.as_ref(),
+        &scope,
+        &policy_id,
+    ))
+}
+
+async fn check_policy_limit(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(limit_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_policy::check_compliance(
+        graph.as_ref(),
+        &scope,
+        &limit_id,
+        &payload,
+    ))
+}
+
+async fn policy_compliance_checks(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_policy::list_compliance_checks(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
     ))
 }
 
@@ -5134,6 +5236,35 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/records/equity-changes/statements/:company_id",
             get(company_equity_statements),
+        )
+        .route(
+            "/treasury-policy/policies",
+            post(open_treasury_policy).get(treasury_policies),
+        )
+        .route(
+            "/treasury-policy/policies/:policy_id/limits",
+            post(set_policy_limit).get(policy_limits),
+        )
+        .route(
+            "/treasury-policy/limits/:limit_id/check",
+            post(check_policy_limit),
+        )
+        .route("/treasury-policy/compliance", get(policy_compliance_checks))
+        .route(
+            "/records/treasury-policy/policies",
+            post(open_treasury_policy).get(treasury_policies),
+        )
+        .route(
+            "/records/treasury-policy/policies/:policy_id/limits",
+            post(set_policy_limit).get(policy_limits),
+        )
+        .route(
+            "/records/treasury-policy/limits/:limit_id/check",
+            post(check_policy_limit),
+        )
+        .route(
+            "/records/treasury-policy/compliance",
+            get(policy_compliance_checks),
         )
         .route("/treasury-management/cashflows", post(record_treasury_flow))
         .route(
