@@ -10,3 +10,4 @@ description = "Asset and depreciation math: straight-line/reducing-balance/units
 vimbai_common = { path = "../../common" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+vimbai_store = { path = "../../adapters/database" }

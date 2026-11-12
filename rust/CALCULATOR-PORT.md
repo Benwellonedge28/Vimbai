@@ -12,6 +12,8 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- fixed-assets-register-service (assets crate, records on the store: register, list, get,
+  depreciate, entries, dispose, summary)
 - biological-assets-service (assets crate, six routes from `biological-assets-measure` to
   `biological-assets-disclosure-template`)
 - disposal-account-service (assets crate, `disposal-account-calculate` and `disposal-account-post`)

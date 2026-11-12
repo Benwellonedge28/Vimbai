@@ -18,6 +18,7 @@ pub mod biological_assets;
 pub mod depreciation;
 pub mod disposal_account;
 pub mod fixed_assets;
+pub mod fixed_assets_register;
 pub mod goodwill;
 pub mod inventory;
 pub mod investment_property;
@@ -49,6 +50,10 @@ pub use fixed_assets::{
     analyze_fixed_assets, analyze_fixed_assets_from_json, AssetSummary, CapitalExpenditurePlan,
     CategoryAnalysis, FixedAsset, FixedAssetsAnalysis, FixedAssetsError, FixedAssetsRequest,
     ScheduleRow,
+};
+pub use fixed_assets_register::{
+    create_asset, depreciate, dispose as dispose_registered_asset, get_asset, list_assets,
+    list_entries, summary as asset_register_summary, CATEGORIES,
 };
 pub use goodwill::{impairment_test, impairment_test_from_json, Cgu, ImpairmentResult, TestMethod};
 pub use inventory::{inventory_valuation, InventoryOutput, Purchase, Sale, ValuationMethod};

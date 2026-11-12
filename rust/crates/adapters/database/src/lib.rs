@@ -127,6 +127,12 @@ pub const OAR_ANALYSIS: RecordKind = RecordKind::new("OARAnalysis", "OWNS_OAR_AN
 /// The cost-volume-profit analyses cvp-analysis-service owns.
 pub const CVP_ANALYSIS: RecordKind = RecordKind::new("CVPAnalysis", "OWNS_CVP_ANALYSIS");
 
+/// The fixed asset register fixed-assets-register-service owns.
+pub const FIXED_ASSET: RecordKind = RecordKind::new("FixedAsset", "OWNS_FIXED_ASSET");
+pub const DEPRECIATION_ENTRY: RecordKind =
+    RecordKind::new("DepreciationEntry", "OWNS_DEPRECIATION_ENTRY");
+pub const ASSET_DISPOSAL: RecordKind = RecordKind::new("AssetDisposal", "OWNS_ASSET_DISPOSAL");
+
 /// The price reduction decisions selling-price-reduction-service owns.
 pub const SELLING_PRICE_ANALYSIS: RecordKind =
     RecordKind::new("PriceReductionAnalysis", "OWNS_PRICE_ANALYSIS");

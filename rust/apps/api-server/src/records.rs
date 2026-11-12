@@ -923,6 +923,122 @@ async fn appropriation_check(
     ))
 }
 
+async fn register_asset(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::create_asset(graph.as_ref(), &scope, &payload))
+}
+
+async fn fixed_assets(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let category = query_param(query.as_deref(), "category");
+    let status = query_param(query.as_deref(), "status");
+    let department = query_param(query.as_deref(), "department");
+    answer(assets::list_assets(
+        graph.as_ref(),
+        &scope,
+        category.as_deref(),
+        status.as_deref(),
+        department.as_deref(),
+    ))
+}
+
+async fn one_fixed_asset(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(asset_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::get_asset(graph.as_ref(), &scope, &asset_id))
+}
+
+async fn depreciate_asset(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(asset_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    // `period` arrives as a query parameter, as the service declared it.
+    let period = query_param(query.as_deref(), "period").unwrap_or_default();
+    answer(assets::depreciate(
+        graph.as_ref(),
+        &scope,
+        &asset_id,
+        &period,
+    ))
+}
+
+async fn asset_depreciation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(asset_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::list_entries(graph.as_ref(), &scope, &asset_id))
+}
+
+async fn dispose_fixed_asset(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(asset_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    // the service took the disposal as query parameters
+    let mut payload = serde_json::Map::new();
+    for key in [
+        "disposal_date",
+        "disposal_value",
+        "disposal_method",
+        "notes",
+    ] {
+        if let Some(value) = query_param(query.as_deref(), key) {
+            let parsed = serde_json::from_str::<Value>(&value).unwrap_or(Value::String(value));
+            payload.insert(key.to_string(), parsed);
+        }
+    }
+    answer(assets::dispose_registered_asset(
+        graph.as_ref(),
+        &scope,
+        &asset_id,
+        &Value::Object(payload),
+    ))
+}
+
+async fn fixed_asset_summary(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::asset_register_summary(graph.as_ref(), &scope))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone()).merge(service_root_router(graph))
 }
@@ -948,6 +1064,30 @@ fn records_router(graph: GraphHandle) -> Router {
             get(company_profitability),
         )
         .route("/records/job-costing/jobs/:job_id/costs", post(charge_cost))
+        .route(
+            "/records/fixed-assets-register/assets",
+            get(fixed_assets).post(register_asset),
+        )
+        .route(
+            "/records/fixed-assets-register/assets/:asset_id",
+            get(one_fixed_asset),
+        )
+        .route(
+            "/records/fixed-assets-register/assets/:asset_id/depreciate",
+            post(depreciate_asset),
+        )
+        .route(
+            "/records/fixed-assets-register/assets/:asset_id/depreciation",
+            get(asset_depreciation),
+        )
+        .route(
+            "/records/fixed-assets-register/assets/:asset_id/dispose",
+            post(dispose_fixed_asset),
+        )
+        .route(
+            "/records/fixed-assets-register/summary",
+            get(fixed_asset_summary),
+        )
         .route("/records/insurance-claims/file", post(file_claim))
         .route("/records/insurance-claims/claims", get(insurance_claims))
         .route(
@@ -1240,6 +1380,27 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(company_profitability),
         )
         .route("/job-costing/jobs/:job_id/costs", post(charge_cost))
+        .route(
+            "/fixed-assets-register/assets",
+            get(fixed_assets).post(register_asset),
+        )
+        .route(
+            "/fixed-assets-register/assets/:asset_id",
+            get(one_fixed_asset),
+        )
+        .route(
+            "/fixed-assets-register/assets/:asset_id/depreciate",
+            post(depreciate_asset),
+        )
+        .route(
+            "/fixed-assets-register/assets/:asset_id/depreciation",
+            get(asset_depreciation),
+        )
+        .route(
+            "/fixed-assets-register/assets/:asset_id/dispose",
+            post(dispose_fixed_asset),
+        )
+        .route("/fixed-assets-register/summary", get(fixed_asset_summary))
         .route("/insurance-claims/file", post(file_claim))
         .route("/insurance-claims/claims", get(insurance_claims))
         .route(
