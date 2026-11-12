@@ -2,6 +2,7 @@
 //!
 //! Services here:
 //! * `cash-flow-statement-service`
+//! * `intercompany-service` (group entities, the transactions between them, and their eliminations)
 //! * `cash-flow-service` (a project's yearly flows, kept, with the standalone flow calculators)
 //! * `balance-sheet-service` (the sheet, its three totals, and the ratios read off the latest)
 //! * `fund-accounting-service` (funds with their derived net assets, and the transactions that
@@ -21,6 +22,7 @@ pub mod balance_sheet;
 pub mod cash_flow;
 pub mod cash_flow_schedule;
 pub mod fund_accounting;
+pub mod intercompany;
 pub mod revenue_recognition;
 pub mod suspense;
 pub mod trading_account;
@@ -37,6 +39,13 @@ pub use fund_accounting::{
     create_fund, list_funds, list_transactions as list_fund_transactions,
     net_assets as fund_net_assets, record_transaction as record_fund_transaction,
     totals as fund_totals,
+};
+pub use intercompany::{
+    create_entity as create_intercompany_entity,
+    create_transaction as create_intercompany_transaction, list_eliminations,
+    list_entities as list_intercompany_entities,
+    list_transactions as list_intercompany_transactions,
+    match_transactions as match_intercompany_transactions,
 };
 pub use revenue_recognition::{
     allocate_price, create_contract as create_revenue_contract,

@@ -149,6 +149,13 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records intercompany-service owns.
+pub const INTERCOMPANY_ENTITY: RecordKind = RecordKind::new("IntercompanyEntity", "OWNS_ENTITY");
+pub const INTERCOMPANY_TRANSACTION: RecordKind =
+    RecordKind::new("IntercompanyTransaction", "OWNS_TRANSACTION");
+pub const INTERCOMPANY_ELIMINATION: RecordKind =
+    RecordKind::new("EliminationEntry", "OWNS_ELIMINATION");
+
 /// The records cash-flow-service owns.
 pub const CASH_FLOW_SUMMARY: RecordKind = RecordKind::new("CashFlowSummary", "OWNS_CASH_FLOW");
 

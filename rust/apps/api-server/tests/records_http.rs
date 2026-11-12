@@ -1543,3 +1543,81 @@ async fn a_missing_cash_flow_answers_200_with_the_error_body() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["error"], json!("Cash flow not found"));
 }
+
+#[tokio::test]
+async fn an_intercompany_transaction_is_recorded_exactly_on_its_path() {
+    let graph = Scripted::returning(vec![json!({"id": "tx-1"})]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/intercompany/transactions",
+        Some(json!({"from_entity_id": "a", "to_entity_id": "b",
+                    "transaction_type": "royalty", "amount": "123456789012345678901.55"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, params) = seen.last();
+    assert_eq!(
+        params["props"]["amount"],
+        json!("123456789012345678901.550000")
+    );
+}
+
+#[tokio::test]
+async fn an_unknown_intercompany_type_is_refused() {
+    let graph = Scripted::returning(vec![json!({"id": "tx-1"})]);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/intercompany/transactions",
+        Some(json!({"from_entity_id": "a", "to_entity_id": "b",
+                    "transaction_type": "gift", "amount": "1"})),
+    )
+    .await;
+    // the record routes answer refused input with 422, the same as everywhere else here
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn matching_two_legs_answers_the_elimination_it_wrote() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "tx-1", "from_entity_id": "a", "to_entity_id": "b",
+                    "amount": "500", "description": "Fee"}),
+        ],
+        vec![
+            json!({"id": "tx-2", "from_entity_id": "b", "to_entity_id": "a",
+                    "amount": "500", "description": "Fee"}),
+        ],
+        vec![json!({"id": "tx-1"})],
+        vec![json!({"id": "tx-2"})],
+        vec![json!({"id": "el-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/intercompany/transactions/match",
+        Some(json!({"txn1_id": "tx-1", "txn2_id": "tx-2"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["matched"], json!(true));
+    assert_eq!(body["elimination_id"], json!("el-1"));
+}
+
+#[tokio::test]
+async fn legs_that_do_not_agree_on_the_amount_are_refused() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "tx-1", "from_entity_id": "a", "to_entity_id": "b", "amount": "500"})],
+        vec![json!({"id": "tx-2", "from_entity_id": "b", "to_entity_id": "a", "amount": "500.01"})],
+    ]);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/intercompany/transactions/match",
+        Some(json!({"txn1_id": "tx-1", "txn2_id": "tx-2"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}

@@ -1241,7 +1241,7 @@ services:
   port: 8350
   gateway_path: /intercompany
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

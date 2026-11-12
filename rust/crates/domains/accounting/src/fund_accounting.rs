@@ -155,7 +155,7 @@ pub fn record_transaction<G: Graph + ?Sized>(
     )?;
 
     Ok(json!({
-        "id": recorded.get("id").cloned().unwrap_or(Value::Null),
+        "id": crate::intercompany::id_of(&recorded),
         "status": "recorded",
     }))
 }

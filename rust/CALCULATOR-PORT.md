@@ -12,6 +12,13 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- intercompany-service -> accounting crate, records on the store: group entities, the transactions between
+  them limited to the five known types, the filtered listing, matching a pair, and the eliminations.
+  Four shapes kept as shipped and pinned: a match is exact equality with no tolerance and no currency
+  check, so 100 USD matches 100 EUR; matching never checks the legs face each other, so two
+  same-direction transactions match and eliminate with both sides reading from the same entity; and a
+  refused transaction type or mismatched amount answers 422, the record routes' own status for refused
+  input, rather than the original 400.
 - cash-flow-service -> accounting crate, records on the store: a project's yearly inflows and outflows as
   entries, the totals, the kept schedules, and the three standalone flow calculators (totals, net flows
   with the shorter side padded, cumulative running total). Two shapes kept as shipped: the initial

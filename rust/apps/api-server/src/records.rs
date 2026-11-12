@@ -1752,6 +1752,103 @@ async fn crr_requirements(
         status.as_deref(),
     ))
 }
+async fn create_intercompany_entity(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_intercompany_entity(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_intercompany_entities(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::list_intercompany_entities(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn create_intercompany_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_intercompany_transaction(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_intercompany_transactions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = json!({
+        "from_entity": query_param(query.as_deref(), "from_entity"),
+        "to_entity": query_param(query.as_deref(), "to_entity"),
+        "status": query_param(query.as_deref(), "status"),
+    });
+    answer(accounting::list_intercompany_transactions(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn match_intercompany(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::match_intercompany_transactions(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_eliminations(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::list_eliminations(graph.as_ref(), &scope))
+}
+
 async fn create_cash_flow(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -3946,6 +4043,21 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route("/intercompany/entities", post(create_intercompany_entity))
+        .route("/intercompany/entities", get(list_intercompany_entities))
+        .route(
+            "/intercompany/transactions",
+            post(create_intercompany_transaction),
+        )
+        .route(
+            "/intercompany/transactions",
+            get(list_intercompany_transactions),
+        )
+        .route(
+            "/intercompany/transactions/match",
+            post(match_intercompany),
+        )
+        .route("/intercompany/eliminations", get(list_eliminations))
         .route("/cash-flow/create", post(create_cash_flow))
         .route("/cash-flow/inflows", post(cash_flow_inflows))
         .route("/cash-flow/outflows", post(cash_flow_outflows))
@@ -4080,6 +4192,21 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(share_redemption_detail),
         )
         .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route("/records/intercompany/entities", post(create_intercompany_entity))
+        .route("/records/intercompany/entities", get(list_intercompany_entities))
+        .route(
+            "/records/intercompany/transactions",
+            post(create_intercompany_transaction),
+        )
+        .route(
+            "/records/intercompany/transactions",
+            get(list_intercompany_transactions),
+        )
+        .route(
+            "/records/intercompany/transactions/match",
+            post(match_intercompany),
+        )
+        .route("/records/intercompany/eliminations", get(list_eliminations))
         .route("/records/cash-flow/create", post(create_cash_flow))
         .route("/records/cash-flow/inflows", post(cash_flow_inflows))
         .route("/records/cash-flow/outflows", post(cash_flow_outflows))
