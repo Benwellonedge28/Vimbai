@@ -17,18 +17,15 @@ routes; they are listed here too, because the Python service is no longer the en
 - activity-based-costing-service
 - actual-cost-service
 - amortization-service
-- annual-report-service
 - appropriation-control-service
 - asset-turnover-service
 - balanced-scorecard-service
 - budgeted-cost-service
-- capital-budgeting-service
 - capital-expenditure-budget-service
 - cash-flow-statement-service
 - cash-optimization-service
 - consolidation-service
 - corporate-tax-service
-- credit-risk-analysis-service
 - croic-service
 - depreciation-service
 - divestiture-service
@@ -43,11 +40,7 @@ routes; they are listed here too, because the Python service is no longer the en
 - government-grants-service
 - group-tax-service
 - internal-control-evaluation-service
-- internal-controls-testing-service
 - inventory-valuation-service
-- liquidity-forecast-service
-- liquidity-risk-service
-- market-risk-service
 - net-realizable-value-service
 - options-pricing-service
 - partnership-accounting-service
@@ -56,7 +49,6 @@ routes; they are listed here too, because the Python service is no longer the en
 - pension-accounting-service
 - process-costing-service
 - product-costing-service
-- r-and-d-tax-service
 - regulatory-ratio-service
 - basis-apportionment-service
 - cvp-analysis-service
@@ -72,138 +64,215 @@ routes; they are listed here too, because the Python service is no longer the en
 - treasury-analytics-service
 - vat-reporting-service
 - insurance-claims-service
+acquisition-financing-service
+asset-allocation-service
+audit-evidence-service
+business-combination-service
+business-documents-service
+capital-allocation-service
+commodity-hedging-service
+corporate-governance-service
+cost-accounting-service
+currency-hedging-service
+due-diligence-service
+esg-reporting-service
+financial-planning-service
+foreign-currency-translation-service
+futures-hedging-service
+going-concern-service
+investment-appraisal-service
+lease-management-service
+management-dashboard-service
+mva-service
+operational-risk-service
+portfolio-optimization-service
+project-accounting-service
+provisions-contingencies-service
+ratio-analysis-service
+segment-reporting-service
+statutory-filing-service
+trial-balance-service
+xbrl-reporting-service
 
 ## Crate already has the maths, service not yet wired
 
-- accounting-rate-return-service -> capital_valuation::accounting_rate_of_return
-- bank-fee-analysis-service -> ratios_statements::analyze_bank_fees, reporting::analyze_bank_fees
-- budget-service -> budgeting::prepare_budget, budgeting::monitor_budget
-- cash-budget-service -> budgeting::prepare_cash_budget
-- cash-flow-forecasting-service -> capital_valuation::present_value_of_cash_flows, performance_measures::from_cash_flow
-- cost-of-capital-service -> capital_valuation::cost_of_capital, capital_valuation::cost_of_capital_percent
-- credit-derivatives-service -> treasury_fx::analyze_credit_derivatives
-- cross-currency-swap-service -> treasury_fx::value_cross_currency_swaps
-- discount-factor-service -> capital_valuation::discount_factor, capital_valuation::discount_factor_percent
-- discounted-payback-period-service -> capital_valuation::discounted_payback
-- equivalent-units-service -> cost_accounting::equivalent_units
-- flexible-budget-service -> cost_accounting::flexible_budget
-- forward-contracts-service -> treasury_fx::analyze_forward_contracts
-- ifrs-16-lease-accounting-service -> ifrs::calculate_ifrs16
-- income-statement-service -> cost_accounting::marginal_income_statement, ratios_statements::prepare_income_statement
-- interest-rate-hedging-service -> advisory::analyze_interest_rate_risk, treasury_fx::analyze_interest_rate_hedge
-- labour-cost-variance-service -> cost_accounting::actual_labour_cost, cost_accounting::labour_cost_rate
-- labour-rate-variance-service -> cost_accounting::labour_hours_rate, cost_accounting::labour_cost_rate
-- make-or-buy-decision-service -> cost_accounting::analyze_make_or_buy
-- management-accounts-service -> ratios_statements::prepare_management_accounts
-- master-budget-service -> budgeting::prepare_master_budget
-- material-cost-variance-service -> cost_accounting::actual_material_cost, cost_accounting::material_cost_variance
-- material-price-variance-service -> variance::material_price_variance
-- material-usage-variance-service -> variance::material_usage_variance
-- multi-currency-service -> treasury_fx::validate_multi_currency_transaction
-- payback-period-service -> capital_valuation::payback_period
-- payroll-service -> equity_payroll::payroll_run, equity_payroll::payroll_taxes
-- present-value-service -> capital_valuation::present_value, capital_valuation::present_value_percent
-- profit-service -> native::profit_json, advisory::analyze_profitability_index
-- project-appraisal-service -> capital_valuation::project_appraisal
-- reporting-service -> advisory::analyze_events_after_reporting
-- risk-return-analysis-service -> capital_valuation::analyze_risk_return
-- rolling-forecast-service -> budgeting::rolling_forecast
-- sales-price-variance-service -> variance::sales_price_volume_analysis
-- sales-volume-variance-service -> variance::sales_price_volume_analysis, variance::sales_volume_cm_analysis
-- sustainable-growth-service -> capital_valuation::sustainable_growth
-- tax-return-preparation-service -> tax::prepare_tax_return
-- tax-service -> native::group_tax_json, native::tax_provision_json
-- times-interest-earned-service -> ratios_statements::analyze_times_interest_earned
-- treasury-operations-service -> treasury_fx::analyze_treasury_operations
-- variance-service -> budgeting::analyze_budget_variance, budgeting::detailed_variance_analysis
-- working-capital-finance-service -> ratios_statements::analyze_working_capital, ratios_statements::optimize_working_capital
-- working-capital-optimization-service -> ratios_statements::analyze_working_capital, ratios_statements::optimize_working_capital
-- working-capital-service -> ratios_statements::analyze_working_capital, ratios_statements::optimize_working_capital
-- zero-based-budget-service -> budgeting::prepare_zero_based_budget
+These are the cheapest ports left: the crate already holds the arithmetic, so the work is a
+module that shapes the request and answer and a route in front of it. There are five, not the
+forty-five this section used to list - the other forty named services whose directories were
+deleted when their maths moved, and a list of services that no longer exist is not a backlog, it
+is a list of things to go and check. `tests/test_port_tracker.py` now reads this file and fails if
+an entry names a service that is not on disk.
 
+- budget-service -> budgeting::prepare_budget, budgeting::monitor_budget
+- payback-period-service -> capital_valuation::payback_period
+- present-value-service -> capital_valuation::present_value, capital_valuation::present_value_percent
+- reporting-service -> advisory::analyze_events_after_reporting
+- rolling-forecast-service -> budgeting::rolling_forecast
 ## Needs the maths written in Rust
 
-- acquisition-financing-service
-- asset-allocation-service
-- audit-evidence-service
+Services whose arithmetic has not been written in Rust. Each one still has a directory, which is
+what keeps it in this list: the forty-five that used to sit here without one were services that had
+already been deleted, and a to-do list of deleted code is not a plan.
+
 - audit-sampling-service
 - banking-integration-service
 - biological-assets-service
-- business-combination-service
-- business-documents-service
-- business-valuation-service
-- capital-allocation-service
-- commodity-hedging-service
-- comparative-financial-statements-service
-- corporate-governance-service
-- cost-accounting-service
-- currency-hedging-service
 - dashboard-service
-- deal-structuring-service
 - disposal-account-service
 - distributed-workflow-orchestration-service
 - double-entry-principles-service
-- due-diligence-service
 - encrypted-backup-service
-- esg-reporting-service
 - etl-service
-- exotic-derivatives-service
-- financial-forecasting-service
-- financial-planning-service
-- financial-reporting-service
-- financial-statements-service
-- foreign-currency-translation-service
 - foreign-exchange-service
-- futures-hedging-service
-- going-concern-service
 - graphql-service
 - identity-service
+- internal-rate-return-service
+- investment-property-service
+- net-present-value-service
+- payment-gateway-service
+- performance-benchmarking-service
+- privacy-admin-dashboard-service
+- report-automation-service
+- report-distribution-service
+- revaluation-model-service
+- websocket-service
+
+### Deleted with the maths still unwritten
+
+These were listed as needing their maths ported, and their services were deleted anyway, so nothing
+serves them and nothing can. They are not a backlog; they are questions. Either the capability was a
+duplicate of one that survives - in which case say so and this list shrinks - or the platform lost an
+endpoint it meant to keep, in which case the maths has to be written and routed. Pinned in
+`tests/test_port_tracker.py` so the set cannot change without the tracker changing with it.
+
+- business-valuation-service
+- comparative-financial-statements-service
+- deal-structuring-service
+- exotic-derivatives-service
+- financial-forecasting-service
+- financial-reporting-service
+- financial-statements-service
 - ifrs-15-revenue-recognition-service
 - ifrs-2-share-based-payment-service
 - ifrs-9-financial-instruments-service
 - interim-financial-reporting-service
-- internal-rate-return-service
-- investment-appraisal-service
-- investment-property-service
 - kpi-tracking-service
 - labour-efficiency-variance-service
-- lease-management-service
 - liquidity-management-service
-- management-dashboard-service
 - management-reporting-service
 - merger-valuation-service
-- mva-service
-- net-present-value-service
-- operational-risk-service
-- payment-gateway-service
 - payroll-accounting-service
-- performance-benchmarking-service
-- portfolio-optimization-service
 - post-merger-service
-- privacy-admin-dashboard-service
 - profit-loss-account-service
-- project-accounting-service
-- provisions-contingencies-service
-- ratio-analysis-service
-- realtime-calculation-engine
 - regulatory-reporting-service
-- report-automation-service
-- report-distribution-service
-- revaluation-model-service
 - scenario-budget-service
-- segment-reporting-service
-- statutory-filing-service
 - suspense-error-service
 - swap-valuation-service
 - synergy-analysis-service
 - tax-calculation-service
 - time-value-of-money-service
 - treasury-cash-service
-- trial-balance-service
-- websocket-service
-- xbrl-reporting-service
 
+## Retired, and what stands in for them
 
+Samuel asked for the retired Python sources to be deleted, so a service can no longer be its own
+evidence. What replaces it is either a recorded request/response capture in
+`rust/apps/api-server/tests/parity`, or a calculator registration that answers the same question, or -
+for the ones below with neither - a decision recorded here and pinned in `tests/test_port_tracker.py`,
+because maths sitting in a crate that nothing can reach is not a port, it is an orphan.
+
+Answered by a capture or a registered calculator:
+
+- accounting-rate-return-service -> capital_valuation::accounting_rate_of_return
+- activity-based-costing-service -> calculator
+- actual-cost-service -> calculator
+- amortization-service -> calculator
+- asset-turnover-service -> calculator
+- balanced-scorecard-service -> calculator
+- budgeted-cost-service -> calculator
+- capital-expenditure-budget-service -> calculator
+- cash-budget-service -> budgeting::prepare_cash_budget
+- consolidation-service -> calculator
+- corporate-tax-service -> calculator
+- cost-of-capital-service -> capital_valuation::cost_of_capital, capital_valuation::cost_of_capital_percent
+- croic-service -> calculator
+- cross-currency-swap-service -> treasury_fx::value_cross_currency_swaps
+- depreciation-service -> calculator
+- discount-factor-service -> capital_valuation::discount_factor, capital_valuation::discount_factor_percent
+- divestiture-service -> calculator
+- du-pont-service -> calculator
+- eps-service -> calculator
+- eva-service -> calculator
+- financial-distress-prediction-service -> calculator
+- fixed-assets-service -> calculator
+- flexible-budget-service -> cost_accounting::flexible_budget
+- fraud-risk-assessment-service -> calculator
+- goodwill-service -> calculator
+- government-grants-service -> calculator
+- group-tax-service -> calculator
+- interest-rate-hedging-service -> advisory::analyze_interest_rate_risk, treasury_fx::analyze_interest_rate_hedge
+- internal-control-evaluation-service -> calculator
+- inventory-valuation-service -> calculator
+- management-accounts-service -> ratios_statements::prepare_management_accounts
+- master-budget-service -> budgeting::prepare_master_budget
+- multi-currency-service -> treasury_fx::validate_multi_currency_transaction
+- net-realizable-value-service -> calculator
+- options-pricing-service -> calculator
+- partnership-accounting-service -> calculator
+- partnership-sale-service -> calculator
+- payment-optimization-service -> calculator
+- pension-accounting-service -> calculator
+- profit-service -> native::profit_json, advisory::analyze_profitability_index
+- project-appraisal-service -> capital_valuation::project_appraisal
+- regulatory-ratio-service -> calculator
+- standard-cost-service -> calculator
+- substantive-testing-service -> calculator
+- sustainable-growth-service -> capital_valuation::sustainable_growth
+- target-costing-service -> calculator
+- tax-provision-service -> calculator
+- tax-return-preparation-service -> tax::prepare_tax_return
+- tax-risk-service -> calculator
+- tax-service -> native::group_tax_json, native::tax_provision_json
+- throughput-accounting-service -> calculator
+- vat-reporting-service -> calculator
+- zero-based-budget-service -> budgeting::prepare_zero_based_budget
+
+Maths in a crate with nothing to reach it, kept as a recorded debt:
+
+| service | where the maths is |
+| --- | --- |
+| annual-report-service | a calculator is not registered |
+| bank-fee-analysis-service | ratios_statements::analyze_bank_fees, reporting::analyze_bank_fees |
+| capital-budgeting-service | a calculator is not registered |
+| cash-flow-forecasting-service | capital_valuation::present_value_of_cash_flows, performance_measures::from_cash_flow |
+| credit-derivatives-service | treasury_fx::analyze_credit_derivatives |
+| credit-risk-analysis-service | a calculator is not registered |
+| discounted-payback-period-service | capital_valuation::discounted_payback |
+| equivalent-units-service | cost_accounting::equivalent_units |
+| forward-contracts-service | treasury_fx::analyze_forward_contracts |
+| ifrs-16-lease-accounting-service | ifrs::calculate_ifrs16 |
+| income-statement-service | cost_accounting::marginal_income_statement, ratios_statements::prepare_income_statement |
+| internal-controls-testing-service | a calculator is not registered |
+| labour-cost-variance-service | cost_accounting::actual_labour_cost, cost_accounting::labour_cost_rate |
+| labour-rate-variance-service | cost_accounting::labour_hours_rate, cost_accounting::labour_cost_rate |
+| liquidity-forecast-service | a calculator is not registered |
+| liquidity-risk-service | a calculator is not registered |
+| make-or-buy-decision-service | cost_accounting::analyze_make_or_buy |
+| market-risk-service | a calculator is not registered |
+| material-cost-variance-service | cost_accounting::actual_material_cost, cost_accounting::material_cost_variance |
+| material-price-variance-service | variance::material_price_variance |
+| material-usage-variance-service | variance::material_usage_variance |
+| payroll-service | equity_payroll::payroll_run, equity_payroll::payroll_taxes |
+| r-and-d-tax-service | a calculator is not registered |
+| risk-return-analysis-service | capital_valuation::analyze_risk_return |
+| sales-price-variance-service | variance::sales_price_volume_analysis |
+| sales-volume-variance-service | variance::sales_price_volume_analysis, variance::sales_volume_cm_analysis |
+| times-interest-earned-service | ratios_statements::analyze_times_interest_earned |
+| treasury-operations-service | treasury_fx::analyze_treasury_operations |
+| variance-service | budgeting::analyze_budget_variance, budgeting::detailed_variance_analysis |
+| working-capital-finance-service | ratios_statements::analyze_working_capital, ratios_statements::optimize_working_capital |
+| working-capital-optimization-service | ratios_statements::analyze_working_capital, ratios_statements::optimize_working_capital |
+| working-capital-service | ratios_statements::analyze_working_capital, ratios_statements::optimize_working_capital |
 ## Divergences worth knowing
 
 `depreciation-service` published a `/calculate` schedule that was synthetic: it was never wired
