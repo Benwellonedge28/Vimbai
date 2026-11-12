@@ -7,7 +7,6 @@
 //! family. Queued: consolidation.
 
 pub mod balance_sheet;
-pub mod basis_apportionment;
 pub mod comparative;
 pub mod consolidation;
 pub mod income_statement;
@@ -28,9 +27,6 @@ pub mod working_capital;
 pub use balance_sheet::{
     balance_sheet_ratios, generate_totals, BalanceSheetInput, BalanceSheetRatios,
     BalanceSheetTotals,
-};
-pub use basis_apportionment::{
-    apportion, ApportionedCentre, ApportionmentBasis, ApportionmentResult, CostCentreBasis,
 };
 pub use comparative::{
     analyze, generate_periods, horizontal_analysis, horizontal_items, trend_analysis, trend_series,

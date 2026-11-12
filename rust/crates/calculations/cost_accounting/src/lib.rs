@@ -27,7 +27,6 @@ pub mod order_acceptance;
 pub mod overhead_apportionment;
 pub mod overhead_variance;
 pub mod prime_cost;
-pub mod process_product_costing;
 pub mod standard_cost;
 pub mod target_cost;
 pub mod target_costing;

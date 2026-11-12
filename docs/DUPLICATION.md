@@ -11,8 +11,6 @@ The same calculations exist twice, in two crates, with two arithmetics:
 
 | calculation | exact, reachable over HTTP | float, reachable over the Python seam |
 | --- | --- | --- |
-| basis apportionment | `domains/costing/src/basis_apportionment.rs` (377) | `calculations/ratios_statements/src/basis_apportionment.rs` (239) |
-| process and product costing | `domains/costing/src/cost_calculations.rs` | `calculations/cost_accounting/src/process_product_costing.rs` |
 
 Both sides are live, which is the problem. `/calc/<name>` calculators and the record-backed
 endpoints run on exact `Money`; the PyO3 seam that Python services and the parity tests call
@@ -20,7 +18,14 @@ runs on `f64`. A rounding fix in one is not a fix in the other, and the two disa
 at large amounts - the ledger-core `py_round` bug in commit 3b6b419c was the same disagreement
 in miniature.
 
-## Done: CVP
+## Done as well: basis apportionment and process/product costing
+
+Both were unreachable in the same way as CVP - nothing outside their own crate named them, and the
+re-exports in two `lib.rs` files made them look used. `domains/costing` answers both: exact
+largest-remainder apportionment across the seven bases, and one process/product costing used by both
+services that used to answer each other's records.
+
+## A dead public function is not a small problem
 
 The float CVP was not a live second opinion, it was unreachable: nothing in the workspace called
 `cost_accounting::cvp`. No seam function wrapped it and the API records module had always used the
@@ -28,6 +33,11 @@ exact crate. It was kept alive by its own re-exports in `lib.rs`, which is how a
 a search - it looks imported, so it looks used. Deleted, re-exports and all; every one of the five
 operations (contribution, quick analysis, target profit, multi-product mix, stored analyses) is
 served by `domains/costing/src/cvp.rs`, with its own tests and the recorded parity capture.
+
+The lesson from all three: a duplicate survives a search because it is *exported*. `pub use cvp::{...}`
+made 426 lines of float arithmetic look like part of the crate's surface. The guard tests now fail on
+the wiring shapes, but nothing yet fails on a module that is exported and unreachable - that is worth
+adding.
 
 ## Done: job costing
 
