@@ -46,7 +46,6 @@ RETIRED_WITHOUT_ENDPOINT = {
     "exotic-derivatives-service",
     "financial-forecasting-service",
     "forward-contracts-service",
-    "ifrs-15-revenue-recognition-service",
     "ifrs-16-lease-accounting-service",
     "ifrs-2-share-based-payment-service",
     "ifrs-9-financial-instruments-service",

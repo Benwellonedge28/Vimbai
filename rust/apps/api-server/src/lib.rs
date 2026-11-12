@@ -70,6 +70,21 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "financial-statements-prepare",
         ratios_statements::prepare_statements_from_json,
     );
+    map.insert("ifrs-15-recognize", ifrs::recognize_revenue_from_json);
+    map.insert(
+        "ifrs-15-variable-consideration",
+        ifrs::variable_consideration_from_json,
+    );
+    map.insert(
+        "ifrs-15-standalone-selling-price",
+        ifrs::ssp_allocation_from_json,
+    );
+    map.insert(
+        "ifrs-15-progress-measurement",
+        ifrs::progress_measurement_from_json,
+    );
+    map.insert("ifrs-15-customer-options", ifrs::customer_options_from_json);
+    map.insert("ifrs-15-modification", ifrs::modification_from_json);
     map.insert(
         "lease-management-calculate",
         ifrs::lease_calculate_from_json,
@@ -1140,6 +1155,75 @@ mod typed_adapters {
             json!("123456789012345678901.55")
         );
         assert_eq!(huge["key_ratios"]["current_ratio"], json!(1.0));
+    }
+
+    #[test]
+    fn ifrs_15_answers_all_six_endpoints() {
+        let recognized = calculate(
+            "ifrs-15-recognize",
+            json!({
+                "company_id": "c-1",
+                "reporting_date": "2026-12-31",
+                "contracts": [{
+                    "contract_id": "K1", "customer_id": "cust-1",
+                    "performance_obligation_ids": ["po1", "po2"],
+                    "transaction_price": "100000"
+                }],
+                "performance_obligations": [
+                    {"obligation_id": "po1", "description": "Licence",
+                     "obligation_type": "point_in_time", "standalone_selling_price": "60000"},
+                    {"obligation_id": "po2", "description": "Installation",
+                     "obligation_type": "over_time", "standalone_selling_price": "40000"}
+                ],
+                "actual_progress": [["po1", 1.0], ["po2", 0.4]]
+            }),
+        );
+        assert_eq!(recognized["total_revenue_recognized"], json!("76000.00"));
+        assert_eq!(
+            recognized["step3_allocations"][0]["allocations"][1][1],
+            json!("40000.00")
+        );
+
+        let variable = calculate(
+            "ifrs-15-variable-consideration",
+            json!({"contract_id": "K1", "variable_type": "royalty",
+                   "expected_value": "50000", "most_likely_amount": "10",
+                   "constraint_applied": 1.5}),
+        );
+        assert_eq!(variable["constrained_estimate"], json!("50000"));
+
+        let ssp = calculate(
+            "ifrs-15-standalone-selling-price",
+            json!({"obligation_id": "po1", "observable_price": "55000",
+                   "adjusted_market_assessment": "60000", "expected_cost_plus_margin": "48000",
+                   "allocation_percentage": 60.0, "transaction_price": "100000"}),
+        );
+        assert_eq!(ssp["allocated_transaction_price"], json!("60000.00"));
+
+        let progress = calculate(
+            "ifrs-15-progress-measurement",
+            json!({"obligation_id": "units_delivered", "method": "output_methods",
+                   "units_delivered": 30.0, "total_units": 120.0, "costs_incurred": "0",
+                   "total_estimated_costs": "0", "resources_consumed": 0.0,
+                   "total_resources": 0.0}),
+        );
+        assert_eq!(progress["progress_percentage"], json!(25.0));
+
+        let option = calculate(
+            "ifrs-15-customer-options",
+            json!({"option_type": "future_purchase", "has_material_right": true,
+                   "standalone_selling_price": "1000", "discount_rate": 0.2,
+                   "expected_exercise": 60.0}),
+        );
+        assert_eq!(option["present_value"], json!("800.00"));
+
+        let modification = calculate(
+            "ifrs-15-modification",
+            json!({"original_contract_id": "K1", "modification_type": "price_change",
+                   "original_price": "100000", "new_price": "120000",
+                   "original_progress": 0.4, "modification_date": "2026-05-01"}),
+        );
+        assert_eq!(modification["additional_revenue"], json!("12000.00"));
     }
 
     #[test]

@@ -25,10 +25,13 @@ pub use lease_accounting::{
 
 pub use revenue::{
     account_for_modification, assess_customer_options, calculate_ssp_allocation,
-    estimate_variable_consideration, measure_progress, recognize_revenue, ContractAssetLiability,
-    ContractDetails, ContractModification, CustomerOption, Ifrs15Response, PerformanceObligation,
-    ProgressMeasurement, RevenueRecognitionRequest, SspAllocation, Step1Identification,
-    Step2Obligations, Step3PriceAllocation, Step4Satisfaction, VariableConsideration,
+    customer_options_from_json, estimate_variable_consideration, measure_progress,
+    modification_from_json, progress_measurement_from_json, recognize_revenue,
+    recognize_revenue_from_json, ssp_allocation_from_json, variable_consideration_from_json,
+    ContractAssetLiability, ContractDetails, ContractModification, CustomerOption, Ifrs15Response,
+    PerformanceObligation, ProgressMeasurement, RevenueRecognitionRequest, SspAllocation,
+    Step1Identification, Step2Obligations, Step3PriceAllocation, Step4Satisfaction,
+    VariableConsideration,
 };
 
 pub use share_based::{
