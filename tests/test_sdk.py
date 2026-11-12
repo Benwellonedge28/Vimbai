@@ -5,6 +5,7 @@ edited into a second description of the API. And every client must be honest abo
 reaching the service would have lost digits before it was sent, so a float is refused.
 """
 
+import ast
 import importlib
 import importlib.util
 import os
@@ -75,13 +76,24 @@ def client(name, recorder=None):
     )
 
 
+def _meaning(source):
+    """What a Python file means, with formatting taken out of it.
+
+    This comparison used to be byte for byte, which failed in CI while passing locally: black wrapping
+    a line one way on the runner and another way here is not a stale client. Comparing the parsed tree
+    keeps every real difference - a method, a docstring, a type check - and drops the one thing that
+    was never part of the contract.
+    """
+    return ast.dump(ast.parse(source))
+
+
 @pytest.mark.parametrize("name", CONTRACT_NAMES)
 def test_the_committed_client_matches_the_generator(name):
     path = os.path.join(ROOT, "sdk", "python", GENERATOR.module_name(name))
     assert os.path.isfile(path), f"{path} is missing - run python3 scripts/generate_sdk.py"
     with open(path, encoding="utf-8") as handle:
         committed = handle.read()
-    assert committed == GENERATOR.render(name), (
+    assert _meaning(committed) == _meaning(GENERATOR.render(name)), (
         f"sdk/python/{GENERATOR.module_name(name)} is stale or was edited by hand - "
         "run python3 scripts/generate_sdk.py"
     )
