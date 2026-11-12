@@ -29,7 +29,7 @@ reporting = { package = "vimbai_reporting", path = "../../crates/calculations/re
 market_risk = { package = "vimbai_market_risk", path = "../../crates/calculations/market_risk" }
 budgeting = { package = "vimbai_budgeting", path = "../../crates/calculations/budgeting" }
 ratios_statements = { package = "vimbai_ratios_statements", path = "../../crates/calculations/ratios_statements" }
-assets = { package = "vimbai_assets", path = "../../crates/calculations/assets" }
+assets = { package = "vimbai_assets", path = "../../crates/domains/assets" }
 capital_valuation = { package = "vimbai_capital_valuation", path = "../../crates/calculations/capital_valuation" }
 variance = { package = "vimbai_variance", path = "../../crates/calculations/variance" }
 serde = { workspace = true }

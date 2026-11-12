@@ -21,7 +21,7 @@ vimbai_bridge = { path = "../crates/adapters/python-bridge" }
 vimbai_common = { path = "../crates/common" }
 vimbai_budgeting = { path = "../crates/calculations/budgeting" }
 vimbai_cost_accounting = { path = "../crates/calculations/cost_accounting" }
-vimbai_assets = { path = "../crates/calculations/assets" }
+vimbai_assets = { path = "../crates/domains/assets" }
 vimbai_capital_valuation = { path = "../crates/calculations/capital_valuation" }
 vimbai_ifrs = { path = "../crates/calculations/ifrs" }
 vimbai_reporting = { path = "../crates/calculations/reporting" }

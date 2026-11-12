@@ -185,6 +185,46 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
     map.insert("fixed-assets", assets::analyze_fixed_assets_from_json);
     map.insert("goodwill", assets::impairment_test_from_json);
     map.insert(
+        "investment-property-fair-value-model",
+        assets::fair_value_model_from_json,
+    );
+    map.insert(
+        "investment-property-cost-model",
+        assets::cost_model_from_json,
+    );
+    map.insert("investment-property-transfer", assets::transfer_from_json);
+    map.insert(
+        "investment-property-fair-value-disclosure",
+        assets::disclosure_from_json,
+    );
+    map.insert("investment-property-yields", assets::yields_from_json);
+    map.insert("biological-assets-measure", assets::measure_from_json);
+    map.insert(
+        "biological-assets-fair-value-level1",
+        assets::level1_from_json,
+    );
+    map.insert(
+        "biological-assets-fair-value-level2",
+        assets::level2_from_json,
+    );
+    map.insert(
+        "biological-assets-fair-value-level3",
+        assets::level3_from_json,
+    );
+    map.insert(
+        "biological-assets-consumable-bearer-distinction",
+        assets::biological_classify_from_json,
+    );
+    map.insert(
+        "biological-assets-disclosure-template",
+        assets::biological_disclosure_from_json,
+    );
+    map.insert(
+        "disposal-account-calculate",
+        assets::disposal_calculate_from_json,
+    );
+    map.insert("disposal-account-post", assets::disposal_post_from_json);
+    map.insert(
         "inventory-valuation",
         performance_measures::inventory_from_json,
     );
@@ -2290,5 +2330,162 @@ mod currency_adapters {
             out["exchange_differences"]
         );
         assert_eq!(out["cumulative_translation_adjustment"], json!(2000.0));
+    }
+}
+
+#[cfg(test)]
+mod asset_domain_doors {
+    use super::*;
+    use serde_json::json;
+
+    fn calculate(name: &str, payload: Value) -> Value {
+        let registry = calculators();
+        let entry = registry
+            .get(name)
+            .unwrap_or_else(|| panic!("{name} is not registered"));
+        entry(&payload).unwrap_or_else(|error| panic!("{name} failed: {error}"))
+    }
+
+    #[test]
+    fn investment_property_answers_on_the_five_routes_the_service_published() {
+        let fair_value = calculate(
+            "investment-property-fair-value-model",
+            json!({
+                "company_id": "c-1",
+                "reporting_date": "2026-10-31",
+                "properties": [{"property_id": "P1", "property_name": "Block A",
+                                "acquisition_cost": "800", "fair_value_last_reporting": "1000"}],
+                "current_fair_values": {"P1": "1200"},
+                "rental_income": "800",
+                "direct_operating_expenses": "300"
+            }),
+        );
+        assert_eq!(fair_value["accounting_model"], json!("fair_value"));
+        assert_eq!(
+            fair_value["total_fair_value_or_carrying_amount"],
+            json!("1200.00")
+        );
+        assert_eq!(fair_value["fair_value_gain_loss_in_oci"], json!("200.00"));
+
+        let cost = calculate(
+            "investment-property-cost-model",
+            json!({
+                "company_id": "c-1",
+                "reporting_date": "2026-10-31",
+                "properties": [{"property_id": "P1", "property_name": "Block A",
+                                "acquisition_cost": "100000", "fair_value_last_reporting": "1000"}],
+                "depreciation_rate": 0.02
+            }),
+        );
+        assert_eq!(
+            cost["cost_model_depreciations"][0]["depreciation_for_period"],
+            json!("2000.00")
+        );
+
+        let transfer = calculate(
+            "investment-property-transfer",
+            json!({
+                "property_id": "P1", "reason_for_transfer": "let",
+                "carrying_amount": "1000", "fair_value": "1500",
+                "model_from": "owner_occupied", "model_to": "investment",
+                "transfer_date": "2026-10-31"
+            }),
+        );
+        assert_eq!(transfer["treatment"], json!("recognized in OCI"));
+
+        let disclosure = calculate(
+            "investment-property-fair-value-disclosure",
+            json!({
+                "properties": [{"property_id": "P1", "acquisition_cost": "900000",
+                                "fair_value_last_reporting": "20000000"}],
+                "current_fair_values": {}
+            }),
+        );
+        assert_eq!(disclosure["level_3_count"], json!(1));
+        assert_eq!(
+            disclosure["valuation_technique"],
+            json!("Discounted cash flows")
+        );
+
+        let yields = calculate(
+            "investment-property-yields",
+            json!({"rental_income_annual": "120000", "current_fair_value": "2000000",
+                   "capitalization_rate": 6.0}),
+        );
+        assert_eq!(yields["gross_yield"], json!(6.0));
+        assert_eq!(yields["net_yield"], json!(4.2));
+    }
+
+    #[test]
+    fn biological_assets_answer_on_the_six_routes() {
+        let measured = calculate(
+            "biological-assets-measure",
+            json!({
+                "company_id": "c-1",
+                "reporting_date": "2026-10-31",
+                "assets": [{"asset_id": "A1", "asset_name": "Herd", "asset_category": "bearer_biological",
+                            "quantity": "10", "unit": "head", "maturity_status": "mature"}],
+                "transformations": [],
+                "harvests": [{"quantity_harvested": "500", "selling_price_per_unit": "12.50",
+                              "costs_to_sell": "300"}]
+            }),
+        );
+        assert_eq!(measured["total_biological_assets"], json!("47500.00"));
+        assert_eq!(measured["harvested_amount"], json!("6250.00"));
+
+        let level1 = calculate(
+            "biological-assets-fair-value-level1",
+            json!({"asset_quantity": "100", "quoted_price_per_unit": "12.50",
+                   "costs_to_sell_percentage": 0.05}),
+        );
+        assert_eq!(level1["fair_value"], json!("1187.50"));
+
+        let level2 = calculate(
+            "biological-assets-fair-value-level2",
+            json!({"asset_quantity": "10", "market_price_similar": "1000",
+                   "adjustment_factor": 0.9, "costs_to_sell_percentage": 0.1}),
+        );
+        assert_eq!(level2["fair_value"], json!("8100.00"));
+
+        let level3 = calculate(
+            "biological-assets-fair-value-level3",
+            json!({"present_value_fcfe": "90000", "terminal_value": "15000",
+                   "costs_to_sell": "500", "discount_rate": 0.12}),
+        );
+        assert_eq!(level3["fair_value"], json!("104500.00"));
+
+        let classified = calculate(
+            "biological-assets-consumable-bearer-distinction",
+            json!({"purpose": "sale"}),
+        );
+        assert_eq!(classified["classification"], json!("consumable"));
+
+        let disclosure = calculate(
+            "biological-assets-disclosure-template",
+            json!({"assets": [{"asset_id": "A1", "asset_category": "bearer_biological",
+                               "location": "Farm A", "quantity": "1"}],
+                   "reporting_date": "2026-10-31"}),
+        );
+        assert_eq!(disclosure["level_3_assets"], json!(1));
+    }
+
+    #[test]
+    fn disposal_account_answers_on_calculate_and_post() {
+        let entry = calculate(
+            "disposal-account-calculate",
+            json!({
+                "asset_id": "8f3c1d2e-1", "asset_name": "Van", "asset_code": "MV-1",
+                "disposal_date": "2026-10-31", "reason": "sold",
+                "original_cost": "50000", "accumulated_depreciation": "30000",
+                "disposal_proceeds": "25000"
+            }),
+        );
+        assert_eq!(entry["profit_on_disposal"], json!("5000.00"));
+        assert_eq!(entry["net_book_value"], json!("20000.00"));
+
+        let journal = calculate("disposal-account-post", entry);
+        assert_eq!(journal["reference"], json!("DISP-8f3c1d2e"));
+        assert_eq!(journal["entries"].as_array().unwrap().len(), 4);
+        assert_eq!(journal["entries"][3]["account_code"], json!("7100"));
     }
 }

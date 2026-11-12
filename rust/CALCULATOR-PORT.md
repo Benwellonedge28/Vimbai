@@ -12,6 +12,11 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- biological-assets-service (assets crate, six routes from `biological-assets-measure` to
+  `biological-assets-disclosure-template`)
+- disposal-account-service (assets crate, `disposal-account-calculate` and `disposal-account-post`)
+- investment-property-service (assets crate, five routes from `investment-property-fair-value-model` to
+  `investment-property-yields`)
 - absorption-costing-service
 - job-costing-service
 - activity-based-costing-service

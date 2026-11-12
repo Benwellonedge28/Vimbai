@@ -20,7 +20,7 @@ members = [
     "crates/platform/access-control/abac",
     "crates/kernel/ledger-core",
     "crates/calculations/advisory",
-    "crates/calculations/assets",
+    "crates/domains/assets",
     "crates/calculations/assurance",
     "crates/calculations/budgeting",
     "crates/calculations/capital_valuation",
