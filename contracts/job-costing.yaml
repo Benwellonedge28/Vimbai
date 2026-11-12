@@ -1,0 +1,316 @@
+openapi: 3.1.0
+info:
+  title: Vimbai job costing
+  version: "1.0.0"
+  summary: A job, the costs charged to it, and what is left of the contract value.
+  description: |
+    The second contract, written to prove the first was not a one-off: a different service shape,
+    with path parameters, a query filter, a running total that moves when a cost is charged, and an
+    aggregate that sums several jobs.
+
+    Two rules show up here that the absorption contract did not have to state.
+
+    A job and its costs move together. Charging a cost writes the entry and moves the job's running
+    total in the same operation, and the answer carries both, so a client never has to add the
+    entries up itself and never sees a total that disagrees with the entries behind it.
+
+    A margin is a ratio, not money. `gross_margin` and `avg_margin` are percentages as JSON numbers,
+    deliberately, because they are for reading and ranking. The figures a ledger would keep -
+    `contract_value`, `total_cost`, `gross_profit`, `amount` - are exact decimal strings, as
+    everywhere else. The contract test allows a number for the ratio and refuses one for the money.
+servers:
+  - url: https://api.vimbai.example
+security:
+  - BookScope: []
+paths:
+  /job-costing/jobs:
+    post:
+      operationId: openJob
+      summary: Open a job with its contract value.
+      description: |
+        A new job starts with no cost charged to it, so its profit is its whole contract value and
+        its margin is 100 per cent. The job's Book is the caller's; a job cannot be opened into
+        someone else's.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobRequest"
+      responses:
+        "200":
+          description: The job as recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /job-costing/jobs/{company_id}:
+    get:
+      operationId: listJobs
+      summary: The caller's jobs for one company, optionally by status.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: company_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Narrow to one status, for example `open` or `completed`.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The jobs, with an exact count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /job-costing/jobs/{job_id}/costs:
+    post:
+      operationId: chargeCost
+      summary: Charge a cost to a job and move its running total.
+      description: |
+        One operation writes the entry and moves the job, because a total that lags its entries is
+        wrong in a way nobody notices until month end. A job that is not the caller's is a miss, so
+        a cost cannot be charged to someone else's job by guessing its id.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CostEntryRequest"
+      responses:
+        "200":
+          description: The moved job, the entry, and the three figures after the charge.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChargeAnswer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: No such job in this Book.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /job-costing/jobs/{company_id}/profitability:
+    get:
+      operationId: jobProfitability
+      summary: The company's jobs, summed exactly.
+      description: |
+        The totals are summed in exact arithmetic, not by adding doubles, so a company with a long
+        contract value does not get a total that wanders in the last digits. The margin average is a
+        ratio for reading.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: company_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The company's totals.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profitability"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+components:
+  securitySchemes:
+    BookScope:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: |
+        The caller. `X-Book-Id` is required alongside it and is a parameter on every operation,
+        because the platform cannot express two required api key headers as one scheme.
+  parameters:
+    BookId:
+      name: X-Book-Id
+      in: header
+      required: true
+      schema:
+        type: string
+  schemas:
+    Money:
+      type: string
+      pattern: "^-?[0-9]+(\\.[0-9]+)?$"
+      description: |
+        An exact decimal amount, as a string, at the six decimal places the store keeps.
+      examples:
+        - "1000000.000000"
+    Ratio:
+      type: [number, "null"]
+      description: |
+        A percentage, as a JSON number, for reading and ranking. Never money: a balance is an exact
+        string, and a percentage that has been through a double is still useful for deciding what to
+        look at. It is null when there is nothing to take a percentage of.
+      examples:
+        - 100.0
+        - 12.345678
+    JobRequest:
+      type: object
+      required:
+        - company_id
+        - contract_value
+      properties:
+        company_id:
+          type: string
+        contract_value:
+          $ref: "#/components/schemas/Money"
+        status:
+          type: string
+          default: open
+        job_name:
+          type: string
+        customer_name:
+          type: string
+        description:
+          type: string
+    Job:
+      type: object
+      required:
+        - company_id
+        - contract_value
+        - total_cost
+        - gross_profit
+        - gross_margin
+      description: |
+        The job as the store holds it. A job carries the fields it was opened with, so this schema
+        names the figures the service guarantees and allows the rest through unchanged.
+      properties:
+        id:
+          type: [string, "null"]
+        user_id:
+          type: [string, "null"]
+        book_id:
+          type: [string, "null"]
+        company_id:
+          type: string
+        status:
+          type: string
+        job_name:
+          type: string
+        contract_value:
+          $ref: "#/components/schemas/Money"
+        total_cost:
+          $ref: "#/components/schemas/Money"
+        gross_profit:
+          $ref: "#/components/schemas/Money"
+        gross_margin:
+          $ref: "#/components/schemas/Ratio"
+        created_at:
+          type: [string, "null"]
+      additionalProperties: true
+    JobList:
+      type: object
+      required:
+        - company_id
+        - total
+        - jobs
+      properties:
+        company_id:
+          type: string
+        total:
+          type: integer
+          description: How many jobs are in this answer, after the status filter.
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+    CostEntryRequest:
+      type: object
+      required:
+        - amount
+      properties:
+        amount:
+          $ref: "#/components/schemas/Money"
+        cost_type:
+          type: string
+          default: other
+          description: What kind of cost this is, for example labour, material or overhead.
+        description:
+          type: string
+        reference:
+          type: string
+    ChargeAnswer:
+      type: object
+      required:
+        - job
+        - entry
+        - total_cost
+        - gross_profit
+        - gross_margin
+      properties:
+        job:
+          $ref: "#/components/schemas/Job"
+        entry:
+          type: object
+          additionalProperties: true
+        total_cost:
+          $ref: "#/components/schemas/Money"
+        gross_profit:
+          $ref: "#/components/schemas/Money"
+        gross_margin:
+          $ref: "#/components/schemas/Ratio"
+    Profitability:
+      type: object
+      required:
+        - company_id
+        - total_jobs
+        - completed
+        - total_contract_value
+        - total_cost
+        - total_profit
+        - avg_margin
+      properties:
+        company_id:
+          type: string
+        total_jobs:
+          type: integer
+        completed:
+          type: integer
+          description: Jobs whose status is `completed` or `closed`.
+        total_contract_value:
+          $ref: "#/components/schemas/Money"
+        total_cost:
+          $ref: "#/components/schemas/Money"
+        total_profit:
+          $ref: "#/components/schemas/Money"
+        avg_margin:
+          $ref: "#/components/schemas/Ratio"
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+  responses:
+    BadRequest:
+      description: |
+        The payload or the Book scope was refused. A missing `contract_value`, a missing `amount`, or
+        a missing header answers this way rather than being treated as zero.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

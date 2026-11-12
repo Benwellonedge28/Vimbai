@@ -9,15 +9,22 @@ authoritative while being wrong. So the loop is proven on one service first.
 
 ## What exists
 
-`costing.yaml` covers the overhead absorption service: ten operations, the money rules, and the Book
-scope. It was written from
-`rust/crates/domains/costing/src/overhead_absorption.rs`, not generated from the route table.
+`costing.yaml` covers the overhead absorption service: ten operations, the money rules, the Book
+scope. `job-costing.yaml` covers a different shape - path parameters, a query filter, a running total
+that moves when a cost is charged, and an aggregate that sums several jobs. Both were written from
+their Rust handlers, not from the route table.
+
+The second one settled a rule the first did not have to. A margin is a ratio, not money: `gross_margin`
+and `avg_margin` are JSON numbers because they are for reading and ranking, while every balance -
+`contract_value`, `total_cost`, `gross_profit`, `amount` - is an exact decimal string. The money check
+allows the first and refuses the second.
 
 `tests/test_contracts.py` holds it to the handlers in both directions:
 
 * every path in the contract is a route the API serves, and its method matches;
 * every route of that service is in the contract, so adding a route means writing it down;
-* every money field is a decimal string, never a JSON number;
+* every money field is a decimal string, never a JSON number, and every contract states the rule the
+  same way, so a client generated from one cannot refuse an amount another accepts;
 * the keys a response promises are the keys the handler writes.
 
 That last check is the one that matters. The first three say the contract points at something real;
@@ -47,9 +54,9 @@ rate = client.calculate_absorption_rate(
 
 ## What comes next
 
-1. One more contract in the same shape, for a domain that already runs on Rust: `treasury` or
-   `job costing`.
-2. Then the pricing calculator routes, which are the largest group still without a written shape.
+1. A third contract from a different domain: `treasury` (cash optimisation) or `equity`.
+2. Then the absorption and job costing siblings that share their shapes, which is where generating
+   from an existing contract starts to pay off.
 3. Events in `contracts/events/`, once something publishes them.
 
 A domain that has not been read into a contract has no contract. That is the rule that keeps this
