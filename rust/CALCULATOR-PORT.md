@@ -158,6 +158,10 @@ deleted service was one of several front doors to the same arithmetic:
 - financial-reporting-service and financial-statements-service are `ratios_statements::statements`,
   routed as `financial-statements-prepare` (one body shape, two services that always shared it)
 - merger-valuation-service is `capital_valuation::merger`, routed as `merger-valuation-value`
+- profit-loss-account-service is `profit_loss` in the budgeting crate, routed as `profit-loss-prepare` and
+  `profit-loss-compare`
+- scenario-budget-service is `scenario_budget` in the budgeting crate, routed as `scenario-budget-analyze`
+- suspense-error-service is `suspense` in the accounting crate, routed as `suspense-error-analyze`
 - deal-structuring-service, post-merger-service and synergy-analysis-service share
   `capital_valuation::corporate_events`, routed as `deal-structuring-structure`,
   `post-merger-track` and `synergy-analysis-analyze`
@@ -182,11 +186,7 @@ deleted service was one of several front doors to the same arithmetic:
 **Arithmetic that exists and nothing can reach.** Not lost maths - written maths with no door. Each of
 these is a route or a seam function away, not a calculation away:
 
-- deal-structuring-service - `capital_valuation::acquisition_financing`, `corporate_events`
 - kpi-tracking-service - `reporting::analysis`
-- profit-loss-account-service - `ratios_statements::profit_loss`
-- scenario-budget-service - `budgeting::scenario`
-- suspense-error-service - `ratios_statements::ledger_controls`
 
 Pinned in `tests/test_port_tracker.py` so the set cannot change without the tracker changing with it,
 and in `tests/test_unrouted_maths.py` so a module cannot be routed without the tracker losing the

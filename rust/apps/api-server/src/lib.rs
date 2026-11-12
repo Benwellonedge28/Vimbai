@@ -49,6 +49,22 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "merger-valuation-value",
         capital_valuation::merger_from_json,
     );
+    map.insert(
+        "scenario-budget-analyze",
+        budgeting_services::scenario_budget::scenario_budget_from_json,
+    );
+    map.insert(
+        "profit-loss-prepare",
+        budgeting_services::profit_loss::profit_loss_prepare_from_json,
+    );
+    map.insert(
+        "profit-loss-compare",
+        budgeting_services::profit_loss::profit_loss_compare_from_json,
+    );
+    map.insert(
+        "suspense-error-analyze",
+        accounting::suspense::suspense_error_from_json,
+    );
     map.insert("eps", ratios_statements::eps_from_json);
     map.insert(
         "payroll-accounting-process",
@@ -1453,6 +1469,49 @@ mod typed_adapters {
         let error = entry(&json!({"acquirer_id": "ACQ", "target_equity": "not money"}))
             .expect_err("refused");
         assert!(error.contains("invalid request"), "{error}");
+    }
+
+    #[test]
+    fn budgeting_and_suspense_capabilities_are_reachable() {
+        let scenarios = calculate(
+            "scenario-budget-analyze",
+            json!({"company_id": "acme", "base_revenue": "1000000",
+                   "base_expenses": "800000", "worst_case_multiplier": 0.75,
+                   "best_case_multiplier": 1.25}),
+        );
+        assert_eq!(scenarios["worst_case"]["profit"], json!("30000.00"));
+        assert_eq!(
+            scenarios["risk_assessment"],
+            json!("Medium risk - wide range between scenarios")
+        );
+
+        let pnl = calculate(
+            "profit-loss-prepare",
+            json!({"company_id": "c1", "revenue": "900000", "other_income": "50000",
+                   "cost_of_goods_sold": "540000", "operating_expenses": "120000",
+                   "depreciation": "30000", "interest_expense": "20000",
+                   "other_expenses": "5000", "tax_rate": 0.25}),
+        );
+        assert_eq!(pnl["net_income"], json!("138750.00"));
+        assert_eq!(pnl["ebit"], json!("210000.00"));
+
+        let compared = calculate(
+            "profit-loss-compare",
+            json!({"company_id": "c1", "revenue": "900000",
+                   "cost_of_goods_sold": "540000", "operating_expenses": "120000",
+                   "depreciation": "30000", "interest_expense": "20000",
+                   "other_expenses": "5000", "tax_rate": 0.25,
+                   "previous_revenue": "800000", "previous_net_income": "100000"}),
+        );
+        assert_eq!(compared["revenue_change_pct"], json!(12.5));
+
+        let suspense = calculate(
+            "suspense-error-analyze",
+            json!({"company_id": "c1", "period": "2026-11", "suspense_balance": "1000",
+                   "errors": [{"error_type": "omission", "description": "d",
+                               "amount": "150", "account_affected": "Sales"}]}),
+        );
+        assert_eq!(suspense["corrected_suspense_balance"], json!("850.00"));
     }
 
     #[test]

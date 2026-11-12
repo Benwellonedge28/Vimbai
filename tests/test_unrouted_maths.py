@@ -21,9 +21,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # service -> the module holding its maths, which the tracker says no door reaches.
 UNROUTED = {
     "kpi-tracking-service": "reporting::analysis",
-    "profit-loss-account-service": "ratios_statements::profit_loss",
-    "scenario-budget-service": "budgeting::scenario",
-    "suspense-error-service": "ratios_statements::ledger_controls",
 }
 
 

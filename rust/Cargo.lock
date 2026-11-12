@@ -2141,6 +2141,7 @@ dependencies = [
 name = "vimbai_service_accounting"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde_json",
  "vimbai_common",
  "vimbai_store",
@@ -2150,6 +2151,7 @@ dependencies = [
 name = "vimbai_service_budgeting"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde_json",
  "vimbai_common",
  "vimbai_store",

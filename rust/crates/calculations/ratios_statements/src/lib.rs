@@ -15,7 +15,6 @@ pub mod investor_metrics;
 pub mod ledger_controls;
 pub mod management_accounts;
 pub mod management_pack;
-pub mod profit_loss;
 pub mod ratio_analysis;
 pub mod ratios;
 pub mod segment_reporting;
@@ -49,7 +48,6 @@ pub use investor_metrics::{
 };
 pub use ledger_controls::{analyze_times_interest_earned, TieAnalysis, TieInput};
 pub use management_accounts::{prepare_management_accounts, ManagementAccounts};
-pub use profit_loss::{compare_pnl, prepare_pnl, PnLComparison, PnLInput, PnLStatement};
 pub use ratios::{calculate_ratios, BalanceSheet, IncomeStatement, RatioInput, RatioOutput};
 pub use statements::{
     prepare_statements, prepare_statements_from_json, StatementsInput, StatementsOutput,
