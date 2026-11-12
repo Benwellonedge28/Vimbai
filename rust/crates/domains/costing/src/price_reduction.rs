@@ -349,19 +349,19 @@ mod tests {
         assert_eq!(rows.len(), 3);
 
         // No discount: list price, plan volume, nothing gained or lost.
-        assert_eq!(rows[0]["selling_price"], json!(100.0));
-        assert_eq!(rows[0]["contribution_vs_original"], json!(0.0));
+        assert_eq!(rows[0]["selling_price"], json!("100.000000"));
+        assert_eq!(rows[0]["contribution_vs_original"], json!("0.000000"));
         assert_eq!(rows[0]["recommended"], json!(false));
 
         // Ten percent off keeps 90 of price but adds a fifth more volume: 50 x 1200 beats 60 x 1000.
-        assert_eq!(rows[1]["selling_price"], json!(90.0));
-        assert_eq!(rows[1]["estimated_sales_volume"], json!(1200.0));
-        assert_eq!(rows[1]["contribution_vs_original"], json!(0.0));
+        assert_eq!(rows[1]["selling_price"], json!("90.000000"));
+        assert_eq!(rows[1]["estimated_sales_volume"], json!("1200.000000"));
+        assert_eq!(rows[1]["contribution_vs_original"], json!("0.000000"));
 
         // Half price puts the contribution at 10 a unit, and the volume response cannot rescue it.
-        assert_eq!(rows[2]["selling_price"], json!(50.0));
+        assert_eq!(rows[2]["selling_price"], json!("50.000000"));
         assert_eq!(rows[2]["recommended"], json!(false));
-        assert_eq!(rows[2]["contribution_vs_original"], json!(-40000.0));
+        assert_eq!(rows[2]["contribution_vs_original"], json!("-40000.000000"));
     }
 
     #[test]

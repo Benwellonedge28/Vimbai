@@ -166,7 +166,7 @@ mod tests {
     }
 
     #[test]
-    fn an_analysis_is_stored_exactly_and_answered_as_numbers() {
+    fn an_analysis_is_stored_exactly_and_answered_as_exact_strings() {
         // list: nothing stored yet; create: the snapshot
         let graph = FakeGraph::returning(vec![json!({"x": {"id": "snap-1"}})]);
         let out = analyze(
@@ -185,11 +185,12 @@ mod tests {
         )
         .unwrap();
 
-        // the response is what the client already parses
+        // every figure on the wire is an exact decimal string, as MONEY.md requires: a JSON number
+        // would be a double in the client and would drop the digits the store kept
         assert_eq!(out["company_id"], json!("c-1"));
         assert!(out["kpis"].is_array());
-        assert!(out["cash_adequacy_days"].is_number());
-        assert!(out["debt_service_ratio"].is_number());
+        assert!(out["cash_adequacy_days"].is_string());
+        assert!(out["debt_service_ratio"].is_string());
 
         // the record keeps the money as strings, so nothing rounded on the way in
         let (cypher, params) = graph.last();
@@ -220,8 +221,8 @@ mod tests {
             "fx_risk_score": "2.000000",
         }})]);
         let out = kpi(&graph, &scope(), "c-1").unwrap();
-        assert_eq!(out["cash_adequacy_days"], json!(45.5));
-        assert_eq!(out["debt_service_ratio"], json!(1.75));
+        assert_eq!(out["cash_adequacy_days"], json!("45.500000"));
+        assert_eq!(out["debt_service_ratio"], json!("1.750000"));
         assert_eq!(out["kpis"][0]["name"], json!("Cash adequacy"));
     }
 }

@@ -255,10 +255,10 @@ mod tests {
         .unwrap();
 
         let rows = apportioned(&graph);
-        assert_eq!(rows[0]["apportioned_cost"], json!(240.0));
-        assert_eq!(rows[1]["apportioned_cost"], json!(360.0));
-        assert_eq!(rows[2]["apportioned_cost"], json!(600.0));
-        assert_eq!(rows[0]["proportion"], json!(0.2));
+        assert_eq!(rows[0]["apportioned_cost"], json!("240.000000"));
+        assert_eq!(rows[1]["apportioned_cost"], json!("360.000000"));
+        assert_eq!(rows[2]["apportioned_cost"], json!("600.000000"));
+        assert_eq!(rows[0]["proportion"], json!("0.200000"));
         assert_eq!(props(&graph)["basis"], json!("floor_area"));
 
         // the parts are the whole cost, to the last place
@@ -335,9 +335,9 @@ mod tests {
 
         let rows = apportioned(&graph);
         assert_eq!(rows.as_array().unwrap().len(), 2);
-        assert_eq!(rows[0]["apportioned_cost"], json!(750.0));
+        assert_eq!(rows[0]["apportioned_cost"], json!("750.000000"));
         assert_eq!(rows[1]["cost_centre_name"], json!("b"));
-        assert_eq!(rows[1]["apportioned_cost"], json!(0.0));
+        assert_eq!(rows[1]["apportioned_cost"], json!("0.000000"));
         assert_eq!(props(&graph)["unapportioned"], json!("0.000000"));
     }
 

@@ -185,7 +185,7 @@ mod tests {
         }})]);
         let out = process_claim(&graph, &scope(), "c-1", "claim-1").unwrap();
         // 8000 cap, less the 300 deductible: 7700, and 0.77 of the claim
-        assert_eq!(out["covered_amount"], json!(7700.0));
+        assert_eq!(out["covered_amount"], json!("7700.000000"));
         assert_eq!(out["status"], json!("approved"));
         assert_eq!(out["coverage_ratio"], json!(0.77));
     }
@@ -200,7 +200,7 @@ mod tests {
             "coverage_limit": "0",
         }})]);
         let out = process_claim(&graph, &scope(), "c-1", "claim-2").unwrap();
-        assert_eq!(out["covered_amount"], json!(0.0));
+        assert_eq!(out["covered_amount"], json!("0.000000"));
         assert_eq!(out["status"], json!("denied"));
         assert_eq!(out["coverage_ratio"], json!(0.0));
     }

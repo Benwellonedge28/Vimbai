@@ -502,7 +502,7 @@ mod tests {
         .unwrap();
         assert_eq!(quick["break_even_units"], Value::Null);
         assert_eq!(quick["break_even_revenue"], Value::Null);
-        assert_eq!(quick["contribution_per_unit"], json!(-10.0));
+        assert_eq!(quick["contribution_per_unit"], json!("-10.000000"));
     }
 
     #[test]
@@ -550,10 +550,10 @@ mod tests {
             "desired_return_on_sales": 10,
         }))
         .unwrap();
-        assert_eq!(answer["required_units"], json!(50.0));
-        assert_eq!(answer["required_revenue"], json!(5000.0));
+        assert_eq!(answer["required_units"], json!("50.000000"));
+        assert_eq!(answer["required_revenue"], json!("5000.000000"));
         // a 10 percent return on sales turns 500 of profit into 5000 of revenue
-        assert_eq!(answer["required_revenue_for_ros"], json!(5000.0));
+        assert_eq!(answer["required_revenue_for_ros"], json!("5000.000000"));
     }
 
     #[test]
@@ -571,12 +571,15 @@ mod tests {
         }))
         .unwrap();
 
-        assert_eq!(answer["weighted_contribution_margin_ratio"], json!(0.35));
+        assert_eq!(
+            answer["weighted_contribution_margin_ratio"],
+            json!("0.350000")
+        );
         // 7000 / 0.35 is 20000 of revenue, split evenly
-        assert_eq!(answer["break_even_revenue"], json!(20000.0));
+        assert_eq!(answer["break_even_revenue"], json!("20000.000000"));
         let rows = answer["product_breakdown"].as_array().unwrap();
-        assert_eq!(rows[0]["break_even_revenue_share"], json!(10000.0));
-        assert_eq!(rows[1]["contribution_margin_ratio"], json!(0.2));
+        assert_eq!(rows[0]["break_even_revenue_share"], json!("10000.000000"));
+        assert_eq!(rows[1]["contribution_margin_ratio"], json!("0.200000"));
     }
 
     #[test]
@@ -590,7 +593,10 @@ mod tests {
             ]
         }))
         .unwrap();
-        assert_eq!(answer["weighted_contribution_margin_ratio"], json!(0.0));
+        assert_eq!(
+            answer["weighted_contribution_margin_ratio"],
+            json!("0.000000")
+        );
         assert_eq!(answer["break_even_revenue"], Value::Null);
         assert_eq!(
             answer["product_breakdown"][0]["break_even_revenue_share"],
@@ -617,9 +623,9 @@ mod tests {
             "units_sold": "10000000",
         }))
         .unwrap();
-        assert_eq!(answer["contribution_per_unit"], json!(0.1));
-        assert_eq!(answer["total_contribution"], json!(1000000.0));
-        assert_eq!(answer["contribution_margin_percentage"], json!(33.33));
+        assert_eq!(answer["contribution_per_unit"], json!("0.100000"));
+        assert_eq!(answer["total_contribution"], json!("1000000.000000"));
+        assert_eq!(answer["contribution_margin_percentage"], json!("33.330000"));
     }
 
     #[test]

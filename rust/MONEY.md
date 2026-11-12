@@ -67,6 +67,30 @@ converting the Python side first, so that parity is proven on the new type
 rather than assumed. The seam contract is: **Python `Decimal` / string in,
 Rust `Money`, string out.**
 
+## What the endpoint publishes
+
+`crates/adapters/database/src/amounts.rs` has one function that decides how an
+amount leaves the process, and every domain crate publishes through it. Until
+2026-11-12 it answered a JSON number - "what the front end already parses" - so
+a figure that was exact in the graph arrived rounded. Every contract in
+`contracts/` promised a string and every contract test compared the contract
+only to itself, so the pretence survived three contracts before anyone read the
+function.
+
+`wire` now answers `to_fixed(6)`. Two consequences worth knowing:
+
+* A client must parse an amount as a **string**, not a number. The Flutter app
+  does not read these endpoints yet; when it does, its models must not assume
+  `num`.
+* Ratios are not money and stay numbers: `gross_margin`, `avg_margin`, and the
+  insurance coverage ratio are computed with `ratio_pct(...).to_f64_lossy()` on
+  purpose, because they are for reading and ranking. The test for which is
+  which is whether arithmetic depends on the figure, not what it is called.
+
+The Python services still declare amounts as `float`, so a ported service and
+its Python oracle disagree on the shape of the same field. That is the seam gap
+described below, and it closes by moving the Python models to `Decimal`.
+
 ## Why the seam matters
 
 A Rust library that accepts exact decimals is not enough on its own. The

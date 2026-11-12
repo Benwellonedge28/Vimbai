@@ -277,7 +277,7 @@ mod tests {
             }),
         )
         .unwrap();
-        assert_eq!(out["amount"], json!(5000.0));
+        assert_eq!(out["amount"], json!("5000.000000"));
         let (_, params) = graph.last();
         assert_eq!(params["props"]["amount"], json!("5000.000000"));
     }
@@ -302,13 +302,13 @@ mod tests {
             }),
         )
         .unwrap();
-        assert_eq!(out["share_issuances"], json!(10000.0));
-        assert_eq!(out["share_buybacks"], json!(5000.0));
-        assert_eq!(out["dividends_paid"], json!(2000.0));
-        assert_eq!(out["retained_earnings_change"], json!(750.0));
-        assert_eq!(out["other_changes"], json!(250.0));
+        assert_eq!(out["share_issuances"], json!("10000.000000"));
+        assert_eq!(out["share_buybacks"], json!("5000.000000"));
+        assert_eq!(out["dividends_paid"], json!("2000.000000"));
+        assert_eq!(out["retained_earnings_change"], json!("750.000000"));
+        assert_eq!(out["other_changes"], json!("250.000000"));
         // 100000 + 10000 - 5000 - 2000 + 750 + 250
-        assert_eq!(out["ending_equity"], json!(104000.0));
+        assert_eq!(out["ending_equity"], json!("104000.000000"));
     }
 
     #[test]
@@ -327,7 +327,7 @@ mod tests {
             }),
         )
         .unwrap();
-        assert_eq!(out["ending_equity"], json!(12345678901234.57));
+        assert_eq!(out["ending_equity"], json!("12345678901234.570000"));
     }
 
     #[test]

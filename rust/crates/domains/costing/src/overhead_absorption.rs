@@ -392,7 +392,7 @@ mod tests {
             }),
         )
         .unwrap();
-        assert_eq!(answer["oar_per_machine_hour"], json!(6.25));
+        assert_eq!(answer["oar_per_machine_hour"], json!("6.250000"));
         assert_eq!(answer["absorption_base"], json!("machine_hours"));
         assert_eq!(props(&graph)["rate_type"], json!("departmental"));
 
@@ -409,7 +409,7 @@ mod tests {
             }),
         )
         .unwrap();
-        assert_eq!(answer["oar_percentage"], json!(25.0));
+        assert_eq!(answer["oar_percentage"], json!("25.000000"));
         assert_eq!(
             props(&graph)["absorption_base"],
             json!("direct_labour_cost")
@@ -428,7 +428,7 @@ mod tests {
             }),
         )
         .unwrap();
-        assert_eq!(answer["oar_per_unit"], json!(5.0));
+        assert_eq!(answer["oar_per_unit"], json!("5.000000"));
     }
 
     #[test]
@@ -459,7 +459,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(answer["blanket_oar"], json!(22.5));
+        assert_eq!(answer["blanket_oar"], json!("22.500000"));
         assert_eq!(answer["rate_type"], json!("blanket"));
         let props = props(&graph);
         assert_eq!(props["cost_centre_name"], json!("entire_factory"));
@@ -475,7 +475,7 @@ mod tests {
             "absorption_rate": "6.25",
         }))
         .unwrap();
-        assert_eq!(answer["overhead_absorbed"], json!(13125.0));
+        assert_eq!(answer["overhead_absorbed"], json!("13125.000000"));
         // 2100 hours at 6.25 over-absorbs the 12500 budgeted by 625
         assert_eq!(graph.statements(), 0);
     }

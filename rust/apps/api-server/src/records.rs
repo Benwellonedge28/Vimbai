@@ -1627,6 +1627,6 @@ mod tests {
             .unwrap();
         let value: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(value["valuation_method"], json!("weighted_average"));
-        assert_eq!(value["closing_stock_value"], json!(50.0));
+        assert_eq!(value["closing_stock_value"], json!("50.000000"));
     }
 }

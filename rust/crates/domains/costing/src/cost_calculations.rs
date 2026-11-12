@@ -387,9 +387,9 @@ mod tests {
             ]
         }})]);
         let out = breakdown(&graph, &scope(), "c-1", "calc-1").unwrap();
-        assert_eq!(out["breakdown"]["direct_materials"], json!(250.0));
-        assert_eq!(out["breakdown"]["direct_labor"], json!(350.0));
-        assert_eq!(out["total"], json!(600.0));
+        assert_eq!(out["breakdown"]["direct_materials"], json!("250.000000"));
+        assert_eq!(out["breakdown"]["direct_labor"], json!("350.000000"));
+        assert_eq!(out["total"], json!("600.000000"));
     }
 
     #[test]
@@ -419,7 +419,7 @@ mod tests {
         ]);
         let out = summary(&graph, &scope(), "c-1").unwrap();
         assert_eq!(out["total_calculations"], json!(2));
-        assert_eq!(out["total_cost"], json!(1000.0));
-        assert_eq!(out["avg_unit_cost"], json!(150.0));
+        assert_eq!(out["total_cost"], json!("1000.000000"));
+        assert_eq!(out["avg_unit_cost"], json!("150.000000"));
     }
 }

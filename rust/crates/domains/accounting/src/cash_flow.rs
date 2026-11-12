@@ -299,11 +299,11 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(out["net_operating"], json!(3000.0));
-        assert_eq!(out["net_investing"], json!(-1500.0));
-        assert_eq!(out["net_financing"], json!(400.0));
-        assert_eq!(out["net_change"], json!(1900.0));
-        assert_eq!(out["ending_cash"], json!(2900.0));
+        assert_eq!(out["net_operating"], json!("3000.000000"));
+        assert_eq!(out["net_investing"], json!("-1500.000000"));
+        assert_eq!(out["net_financing"], json!("400.000000"));
+        assert_eq!(out["net_change"], json!("1900.000000"));
+        assert_eq!(out["ending_cash"], json!("2900.000000"));
 
         let (_, params) = graph.last();
         assert_eq!(params["props"]["ending_cash"], json!("2900.000000"));
@@ -324,7 +324,7 @@ mod tests {
             }),
         )
         .unwrap();
-        assert_eq!(out["ending_cash"], json!(12345678901234.57));
+        assert_eq!(out["ending_cash"], json!("12345678901234.570000"));
     }
 
     #[test]
@@ -354,10 +354,10 @@ mod tests {
         }})]);
         let out = history(&graph, &scope(), "c-1").unwrap();
         assert_eq!(out["total"], json!(1));
-        assert_eq!(out["statements"][0]["net_operating"], json!(5000.0));
+        assert_eq!(out["statements"][0]["net_operating"], json!("5000.000000"));
         assert_eq!(
             out["statements"][0]["operating_activities"][0]["amount"],
-            json!(5000.0)
+            json!("5000.000000")
         );
     }
 }

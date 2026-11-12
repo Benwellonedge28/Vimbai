@@ -259,7 +259,7 @@ mod tests {
             }),
         )
         .unwrap();
-        assert_eq!(out["available_amount"], json!(65000.0));
+        assert_eq!(out["available_amount"], json!("65000.000000"));
         assert_eq!(out["status"], json!("active"));
     }
 
@@ -275,7 +275,7 @@ mod tests {
         )
         .unwrap();
         // committed 30000 -> 0, spent 0 -> 30000, available 100000 - 0 - 30000
-        assert_eq!(out["available"], json!(70000.0));
+        assert_eq!(out["available"], json!("70000.000000"));
         assert_eq!(out["status"], json!("active"));
     }
 
@@ -290,7 +290,7 @@ mod tests {
             &json!({"appropriation_id": "a-1", "type": "spend", "amount": 100000}),
         )
         .unwrap();
-        assert_eq!(out["available"], json!(0.0));
+        assert_eq!(out["available"], json!("0.000000"));
         assert_eq!(out["status"], json!("exhausted"));
     }
 
@@ -324,6 +324,6 @@ mod tests {
             &json!({"appropriation_id": "a-1", "type": "commit", "amount": "0.01"}),
         )
         .unwrap();
-        assert_eq!(out["available"], json!(12345678901234.54));
+        assert_eq!(out["available"], json!("12345678901234.540000"));
     }
 }

@@ -3,8 +3,8 @@
 //! A caller may send an amount as a number or as a decimal string, the two shapes the Python
 //! models accepted. Inside the store the figure becomes a `Money`, which is exact to any number
 //! of digits, so a large contract value or a long cost breakdown cannot drift while it is being
-//! summed. It leaves again as a number because that is what the front end already parses; the
-//! exact figure is what the graph keeps.
+//! summed. It leaves again as the same decimal string, because a JSON number is a double in every
+//! mainstream client and would throw away the digits the store went to the trouble of keeping.
 //!
 //! Every service crate in `crates/domains` reads its amounts through these, so an amount is
 //! interpreted in exactly one place.
@@ -53,9 +53,15 @@ pub fn stored_amount(record: &Value, key: &str) -> Result<Money, StoreError> {
     }
 }
 
-/// The wire shape: a number, as the endpoints have always answered.
+/// The wire shape: the exact decimal string, as MONEY.md requires.
+///
+/// This used to answer a JSON number, "as the endpoints have always answered". That was wrong and
+/// quietly lossy: a number is a double by the time a client has parsed it, so a contract value of
+/// 123456789012345678901.55 arrived as 123456789012345680000. The figure in the graph was exact and
+/// the figure on the wire was not, which is the worst version of this mistake because the store looks
+/// right. `tests/test_contracts.py` reads this function, so the contracts and the wire change together.
 pub fn wire(money: &Money) -> Value {
-    json!(money.to_f64_lossy())
+    json!(money.to_fixed(6))
 }
 
 #[cfg(test)]

@@ -91,8 +91,8 @@ async fn a_calculation_answers_on_the_path_the_python_service_published() {
     .await;
 
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["total_cost"], json!(600.0));
-    assert_eq!(body["unit_cost"], json!(200.0));
+    assert_eq!(body["total_cost"], json!("600.000000"));
+    assert_eq!(body["unit_cost"], json!("200.000000"));
     assert_eq!(graph.statements(), 1);
 }
 
@@ -180,7 +180,7 @@ async fn both_costing_services_are_answered_by_the_one_implementation() {
     assert_eq!(process_status, StatusCode::OK);
     assert_eq!(product_status, StatusCode::OK);
     assert_eq!(process_body, product_body);
-    assert_eq!(process_body["unit_cost"], json!(0.075));
+    assert_eq!(process_body["unit_cost"], json!("0.075000"));
 }
 
 #[tokio::test]
@@ -224,8 +224,8 @@ async fn a_price_reduction_is_judged_and_stored_against_the_callers_book() {
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["recommendation"], json!("APPROVE"));
-    assert_eq!(body["contribution_difference"], json!(5000.0));
-    assert_eq!(body["price_reduction_percentage"], json!(10.0));
+    assert_eq!(body["contribution_difference"], json!("5000.000000"));
+    assert_eq!(body["price_reduction_percentage"], json!("10.000000"));
 }
 
 #[tokio::test]
@@ -272,8 +272,8 @@ async fn the_discount_analysis_needs_no_store_at_all() {
 
     assert_eq!(status, StatusCode::OK);
     let rows = body["discount_analysis"].as_array().unwrap();
-    assert_eq!(rows[0]["selling_price"], json!(90.0));
-    assert_eq!(rows[0]["estimated_sales_volume"], json!(1200.0));
+    assert_eq!(rows[0]["selling_price"], json!("90.000000"));
+    assert_eq!(rows[0]["estimated_sales_volume"], json!("1200.000000"));
 }
 
 #[tokio::test]
@@ -319,8 +319,8 @@ async fn a_cvp_analysis_is_stored_and_reported_on_the_published_path() {
     .await;
 
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["break_even_units"], json!(200.0));
-    assert_eq!(body["degree_of_operating_leverage"], json!(3.0));
+    assert_eq!(body["break_even_units"], json!("200.000000"));
+    assert_eq!(body["degree_of_operating_leverage"], json!("3.000000"));
 }
 
 #[tokio::test]
@@ -398,7 +398,7 @@ async fn an_absorption_rate_is_stored_and_reported_on_the_published_path() {
     .await;
 
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["absorption_rate"], json!(6.25));
+    assert_eq!(body["absorption_rate"], json!("6.250000"));
     assert_eq!(body["absorption_base"], json!("machine_hours"));
 }
 
@@ -468,7 +468,7 @@ async fn a_blanket_rate_and_an_absorbed_figure_both_answer() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["blanket_oar"], json!(22.5));
+    assert_eq!(body["blanket_oar"], json!("22.500000"));
 
     let graph = Scripted::returning(vec![]);
     let (status, body) = call(
@@ -482,7 +482,7 @@ async fn a_blanket_rate_and_an_absorbed_figure_both_answer() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["overhead_absorbed"], json!(13125.0));
+    assert_eq!(body["overhead_absorbed"], json!("13125.000000"));
 }
 
 #[tokio::test]
@@ -523,7 +523,7 @@ async fn rent_is_apportioned_by_floor_area_on_the_published_path() {
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["basis"], json!("floor_area"));
-    assert_eq!(body["unapportioned"], json!(0.0));
+    assert_eq!(body["unapportioned"], json!("0.000000"));
 }
 
 #[tokio::test]

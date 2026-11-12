@@ -139,7 +139,7 @@ mod tests {
             "closing_stock": "3000"
         }})]);
         let out = stock_valuation(&graph, &scope(), "p-1", "fifo").unwrap();
-        assert_eq!(out["closing_stock_value"], json!(3_703_703.4));
+        assert_eq!(out["closing_stock_value"], json!("3703703.400000"));
         assert_eq!(out["valuation_method"], json!("fifo"));
     }
 

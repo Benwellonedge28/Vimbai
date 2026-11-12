@@ -191,6 +191,29 @@ def test_money_is_always_a_decimal_string(name):
     assert offenders == [], f"{name}: these money-like fields are JSON numbers: {offenders}"
 
 
+WIRE = os.path.join(ROOT, "rust", "crates", "adapters", "database", "src", "amounts.rs")
+
+
+def test_the_wire_answers_the_exact_string_the_contracts_promise():
+    """The contracts say an amount arrives as a decimal string. This reads the function that decides.
+
+    Worth a test of its own because it was wrong for a while and nothing noticed: `wire` published a
+    JSON number ("what the front end already parses"), so a contract value of 123456789012345678901.55
+    arrived rounded, while the graph held it exactly. Every contract asserted a string and every
+    contract test compared the contract only to itself, so the pretence survived three contracts.
+    """
+    with open(WIRE, encoding="utf-8") as handle:
+        text = handle.read()
+    start = text.index("pub fn wire")
+    body = text[start : start + 600]
+    assert "to_fixed(6)" in body, (
+        "wire no longer answers the exact string the contracts and MONEY.md promise"
+    )
+    assert "to_f64_lossy" not in body, (
+        "wire converts to a double on the way out, which loses the digits the store kept"
+    )
+
+
 def test_every_contract_states_the_same_money_rule():
     """Copied schemas drift. Every contract has to describe an amount the same way."""
     declared = {name: load(name)["components"]["schemas"]["Money"] for name in CONTRACT_NAMES}

@@ -214,8 +214,8 @@ mod tests {
             &json!({"cost_type": "material", "amount": 50000}),
         )
         .unwrap();
-        assert_eq!(out["total_cost"], json!(300000.0));
-        assert_eq!(out["gross_profit"], json!(700000.0));
+        assert_eq!(out["total_cost"], json!("300000.000000"));
+        assert_eq!(out["gross_profit"], json!("700000.000000"));
         assert_eq!(out["gross_margin"], json!(70.0));
     }
 
@@ -237,9 +237,9 @@ mod tests {
         let out = profitability(&graph, &scope(), "c-1").unwrap();
         assert_eq!(out["total_jobs"], json!(2));
         assert_eq!(out["completed"], json!(1));
-        assert_eq!(out["total_contract_value"], json!(750000.0));
-        assert_eq!(out["total_cost"], json!(510000.0));
-        assert_eq!(out["total_profit"], json!(240000.0));
+        assert_eq!(out["total_contract_value"], json!("750000.000000"));
+        assert_eq!(out["total_cost"], json!("510000.000000"));
+        assert_eq!(out["total_profit"], json!("240000.000000"));
         assert_eq!(out["avg_margin"], json!(40.0));
     }
 }

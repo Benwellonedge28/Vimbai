@@ -416,8 +416,8 @@ mod tests {
         assert_eq!(out.len(), 1);
         assert_eq!(out[0]["from_account"], json!("Ops"));
         assert_eq!(out[0]["to_account"], json!("Inv"));
-        assert_eq!(out[0]["amount"], json!(50000.0));
-        assert_eq!(out[0]["expected_benefit"], json!(2500.0));
+        assert_eq!(out[0]["amount"], json!("50000.000000"));
+        assert_eq!(out[0]["expected_benefit"], json!("2500.000000"));
         assert_eq!(
             out[0]["reason"],
             json!("Move excess operating cash to higher-yield investment account (5.0% APR)")
@@ -444,12 +444,12 @@ mod tests {
         let out = compute_suggestions("c-1", &accounts);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0]["from_account"], json!("Ops2"));
-        assert_eq!(out[0]["amount"], json!(4000.0));
+        assert_eq!(out[0]["amount"], json!("4000.000000"));
         assert_eq!(
             out[0]["reason"],
             json!("Top up tax account to meet minimum requirement")
         );
-        assert_eq!(out[0]["expected_benefit"], json!(0.0));
+        assert_eq!(out[0]["expected_benefit"], json!("0.000000"));
     }
 
     #[test]
@@ -461,9 +461,9 @@ mod tests {
         let out = compute_suggestions("c-1", &accounts);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0]["priority"], json!("medium"));
-        assert_eq!(out[0]["amount"], json!(80000.0));
+        assert_eq!(out[0]["amount"], json!("80000.000000"));
         // 80000 x (0.05 - 0.03)
-        assert_eq!(out[0]["expected_benefit"], json!(1600.0));
+        assert_eq!(out[0]["expected_benefit"], json!("1600.000000"));
         assert_eq!(
             out[0]["reason"],
             json!("Transfer to higher-yield account for 2.0% rate improvement")
