@@ -99,6 +99,15 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "ifrs-2-group-transaction",
         ifrs::group_transaction_from_json,
     );
+    map.insert("ifrs-9-classify", ifrs::classify_from_json);
+    map.insert("ifrs-9-sppi-test", ifrs::sppi_test_from_json);
+    map.insert("ifrs-9-business-model", ifrs::business_model_from_json);
+    map.insert("ifrs-9-ecl-general", ifrs::ecl_general_from_json);
+    map.insert("ifrs-9-ecl-simplified", ifrs::ecl_simplified_from_json);
+    map.insert(
+        "ifrs-9-hedge-effectiveness",
+        ifrs::hedge_effectiveness_from_json,
+    );
     map.insert(
         "lease-management-calculate",
         ifrs::lease_calculate_from_json,
@@ -1298,6 +1307,67 @@ mod typed_adapters {
         );
         assert_eq!(group["nci_impact"], json!("5000.00"));
         assert_eq!(group["financial_statement_impact"], json!("liability"));
+    }
+
+    #[test]
+    fn ifrs_9_answers_all_six_endpoints() {
+        let out = calculate(
+            "ifrs-9-classify",
+            json!({
+                "company_id": "c-1",
+                "reporting_date": "2026-12-31",
+                "financial_assets": [{
+                    "asset_id": "A1", "asset_name": "Loan", "asset_type": "debt",
+                    "category": "amortized_cost", "carrying_amount": "1000000",
+                    "effective_interest_rate": 0.05, "expected_credit_loss_stage": 1
+                }],
+                "base_pdg": 0.01, "base_lgd": 0.45
+            }),
+        );
+        assert_eq!(out["total_ecl"], json!("4500.00"));
+        assert_eq!(out["total_amortized_cost"], json!("995500.00"));
+
+        let sppi = calculate(
+            "ifrs-9-sppi-test",
+            json!({"instrument_type": "structured", "principal_amount": "1000000",
+                   "interest_type": "contingent", "contingency_feature": "credit_sensitive",
+                   "notional_linked": true}),
+        );
+        assert_eq!(sppi["sppi_test_passed"], json!(false));
+        assert_eq!(sppi["failed_criteria"].as_array().map(Vec::len), Some(3));
+
+        let model = calculate(
+            "ifrs-9-business-model",
+            json!({"holding_purpose": "collect_and_sell", "sales_frequency": "occasional",
+                   "sales_proceeds": "200000", "total_income": "1000000"}),
+        );
+        assert_eq!(model["measurement_basis"], json!("FVOCI"));
+        assert_eq!(model["sales_proceeds_ratio"], json!(0.2));
+
+        let general = calculate(
+            "ifrs-9-ecl-general",
+            json!({"exposure_at_default": "1000000", "probability_of_default": 0.02,
+                   "loss_given_default": 0.45, "discount_rate": 0.05,
+                   "time_to_default_years": 3.0}),
+        );
+        assert_eq!(general["undiscounted_ecl"], json!("9000.00"));
+
+        let simplified = calculate(
+            "ifrs-9-ecl-simplified",
+            json!({"trade_receivables_ageing": [["current", "500000"], ["90_days", "100000"]],
+                   "historical_loss_rates": [["current", 0.005]],
+                   "forward_looking_adjustment": 0.2}),
+        );
+        assert_eq!(simplified["total_ecl"], json!("4200.00"));
+        assert_eq!(simplified["age_breakdown"][1]["loss_rate"], json!(0.01));
+
+        let hedge = calculate(
+            "ifrs-9-hedge-effectiveness",
+            json!({"hedge_type": "cash_flow", "hypothetical_derivative": "1000000",
+                   "actual_hedge_instrument": "900000", "regression_correlation": 0.85}),
+        );
+        assert_eq!(hedge["hedge_ratio"], json!(0.9));
+        assert_eq!(hedge["rebalancing_required"], json!(true));
     }
 
     #[test]

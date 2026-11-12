@@ -47,7 +47,6 @@ RETIRED_WITHOUT_ENDPOINT = {
     "financial-forecasting-service",
     "forward-contracts-service",
     "ifrs-16-lease-accounting-service",
-    "ifrs-9-financial-instruments-service",
     "income-statement-service",
     "interim-financial-reporting-service",
     "internal-controls-testing-service",

@@ -44,10 +44,12 @@ pub use share_based::{
 };
 
 pub use instruments::{
-    assess_business_model, assess_hedge_effectiveness, calculate_ecl_general,
-    calculate_ecl_simplified, classify_and_measure, perform_sppi_test, AgeBucketEcl,
-    BusinessModelAssessment, ClassificationResult, EclCalculation, FinancialAsset, GeneralEcl,
-    HedgeEffectiveness, Ifrs9Request, Ifrs9Response, MeasurementResult, SimplifiedEcl, SppiResult,
+    assess_business_model, assess_hedge_effectiveness, business_model_from_json,
+    calculate_ecl_general, calculate_ecl_simplified, classify_and_measure, classify_from_json,
+    ecl_general_from_json, ecl_simplified_from_json, hedge_effectiveness_from_json,
+    perform_sppi_test, sppi_test_from_json, AgeBucketEcl, BusinessModelAssessment,
+    ClassificationResult, EclCalculation, FinancialAsset, GeneralEcl, HedgeEffectiveness,
+    Ifrs9Request, Ifrs9Response, MeasurementResult, SimplifiedEcl, SppiResult,
 };
 
 /// `lease-management-service /calculate`.
