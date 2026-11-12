@@ -33,7 +33,7 @@ use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
 use treasury::{
     cash_management, cash_optimization, sovereign_treasury, treasury_analytics,
-    treasury_management, treasury_policy, treasury_reporting, treasury_risk,
+    treasury_compliance, treasury_management, treasury_policy, treasury_reporting, treasury_risk,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -995,6 +995,59 @@ async fn risk_dashboard(State(graph): GraphState, headers: HeaderMap) -> Respons
         Err(response) => return *response,
     };
     answer(treasury_risk::dashboard(graph.as_ref(), &scope))
+}
+
+async fn company_compliance_checks(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_compliance::list_checks(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn set_compliance_verdict(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(check_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let mut body = payload;
+    if let Some(object) = body.as_object_mut() {
+        object.insert("check_id".into(), json!(check_id));
+    }
+    answer(treasury_compliance::update_status(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn company_compliance_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_compliance::report(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
 }
 
 async fn open_sovereign_account(
@@ -5608,6 +5661,30 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/records/treasury-policy/compliance",
             get(policy_compliance_checks),
+        )
+        .route(
+            "/treasury-compliance/checks/:company_id",
+            get(company_compliance_checks),
+        )
+        .route(
+            "/treasury-compliance/checks/:check_id/status",
+            put(set_compliance_verdict),
+        )
+        .route(
+            "/treasury-compliance/report/:company_id",
+            get(company_compliance_report),
+        )
+        .route(
+            "/records/treasury-compliance/checks/:company_id",
+            get(company_compliance_checks),
+        )
+        .route(
+            "/records/treasury-compliance/checks/:check_id/status",
+            put(set_compliance_verdict),
+        )
+        .route(
+            "/records/treasury-compliance/report/:company_id",
+            get(company_compliance_report),
         )
         .route("/sovereign-treasury/accounts", post(open_sovereign_account))
         .route(

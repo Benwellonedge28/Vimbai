@@ -2309,7 +2309,7 @@ services:
   port: 8135
   gateway_path: /treasury-compliance
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

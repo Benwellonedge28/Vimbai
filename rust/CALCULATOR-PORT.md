@@ -349,6 +349,17 @@ xbrl-reporting-service
   surplus comes out negative without a special case, and a ratio nobody supplied stays zero rather than being
   invented; a position the caller does not hold is a miss, not a refusal that admits it exists.
 
+- treasury-compliance-service -> treasury crate, records on the store: the regulation checks a treasury runs and
+  the verdict recorded against each. Shapes kept: the first read of a company's checks seeds the six defaults and
+  keeps them, so the second read finds them rather than seeding again, and a seeded check starts awaiting review;
+  the report never seeds, because a report with no checks should say `Run compliance checks first` rather than
+  quietly creating them, and it reports a rate of one with nothing to fail; a rate is compliant over every check,
+  including ones nobody has reviewed yet; a finding is a warning or a not-compliant verdict, and the
+  recommendations are the remediation notes of those findings, so an un-noted finding contributes nothing; a check
+  in another Book is a miss rather than a refusal that admits it exists. Deliberately its own label rather than
+  the `ComplianceCheck` the accounting standards service uses: that records whether the books follow a standard,
+  and one label would let a standards verdict land in a treasury compliance rate.
+
 ## Crate already has the maths, service not yet wired
 
 These are the cheapest ports left: the crate already holds the arithmetic, so the work is a

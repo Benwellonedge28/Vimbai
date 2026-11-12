@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 55 are proven on a Rust engine. 82 are still Python-only.
+The gateway routes 137 services. 56 are proven on a Rust engine. 81 are still Python-only.
 
-Of the backlog, 22 own no records and can be ported as pure functions; 60 own records and
+Of the backlog, 22 own no records and can be ported as pure functions; 59 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-55 services.
+56 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -67,6 +67,7 @@ share-redemption-service                       8126  routes=8   records=yes rust
 sovereign-treasury-service                     8127  routes=7   records=yes rust http
 trading-account-service                        8000  routes=5   records=yes rust http
 treasury-analytics-service                     8134  routes=4   records=yes rust http
+treasury-compliance-service                    8135  routes=5   records=yes rust http
 treasury-management-service                    8136  routes=7   records=yes rust http
 treasury-policy-service                        8263  routes=8   records=yes rust http
 treasury-reporting-service                     8262  routes=7   records=yes rust http
@@ -104,7 +105,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-60 services.
+59 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -113,7 +114,6 @@ debt-management-service                        8194  routes=6   records=yes none
 financial-identity-service                     8053  routes=5   records=yes none
 tax-planning-service                           8292  routes=5   records=yes none
 trade-finance-service                          8191  routes=6   records=yes none
-treasury-compliance-service                    8135  routes=5   records=yes none
 expense-tracking-service                       8051  routes=6   records=yes none
 bank-relationship-service                      8021  routes=7   records=yes none
 financial-state-machine-service                8055  routes=7   records=yes none

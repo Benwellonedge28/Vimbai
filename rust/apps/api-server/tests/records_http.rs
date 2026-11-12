@@ -2460,3 +2460,32 @@ async fn a_missing_fiscal_position_answers_not_found_over_http() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn a_compliance_report_answers_over_http_and_says_when_checks_have_not_run() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call_with(graph, "GET", "/treasury-compliance/report/c-1", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["recommendations"],
+        json!(["Run compliance checks first"])
+    );
+    assert_eq!(body["compliance_rate"], json!(1.0));
+}
+
+#[tokio::test]
+async fn a_compliance_verdict_answers_over_http_for_a_check_the_caller_holds() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "k-1", "company_id": "c-1", "status": "pending_review"})],
+        vec![json!({"id": "k-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "PUT",
+        "/records/treasury-compliance/checks/k-1/status",
+        Some(json!({"company_id": "c-1", "status": "compliant"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["status"], json!("compliant"));
+}

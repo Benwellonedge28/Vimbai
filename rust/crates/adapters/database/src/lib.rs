@@ -150,6 +150,14 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// treasury-compliance-service's records: the regulatory checks a treasury runs, and their verdicts.
+///
+/// Deliberately NOT merged with `COMPLIANCE_CHECK`, which shares the `ComplianceCheck` name: that one records
+/// whether a Book's accounting follows its chosen standard, this one records treasury regulation checks. One
+/// label would let a standards verdict land in a treasury compliance rate.
+pub const TREASURY_COMPLIANCE_CHECK: RecordKind =
+    RecordKind::new("TreasuryComplianceCheck", "OWNS_TREASURY_COMPLIANCE_CHECK");
+
 /// sovereign-treasury-service's records: a country's accounts, its debt, and one fiscal position a year.
 pub const SOVEREIGN_ACCOUNT: RecordKind =
     RecordKind::new("SovereignAccount", "OWNS_SOVEREIGN_ACCOUNT");
