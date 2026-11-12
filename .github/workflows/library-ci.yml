@@ -80,11 +80,18 @@ jobs:
       - uses: actions/checkout@v4
 
       # built inside the maturin image rather than on the runner, so the wheel
-      # is tagged for the glibc the runtime images carry, not the runner's
+      # is tagged for the glibc the runtime images carry, not the runner's.
+      #
+      # The image version is a Rust version: v1.7.4 carries Cargo 1.81, which
+      # cannot even parse a manifest written for edition 2024 - it failed on
+      # getrandom 0.4.3 with "feature `edition2024` is required" while every
+      # other job, on the runner's stable toolchain, built the same lock fine.
+      # v1.16.0 carries a current stable. The compatibility floor is passed
+      # explicitly so a future image bump cannot quietly raise it.
       - name: Build the wheel
         run: |
-          docker run --rm -v "$PWD:/work" -w /work/rust/native ghcr.io/pyo3/maturin:v1.7.4 \
-            build --release -o dist
+          docker run --rm -v "$PWD:/work" -w /work/rust/native ghcr.io/pyo3/maturin:v1.16.0 \
+            build --release --compatibility manylinux_2_28 -o dist
 
       - name: Attach it to the rolling release
         env:
