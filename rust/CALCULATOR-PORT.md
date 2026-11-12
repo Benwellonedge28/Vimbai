@@ -157,6 +157,9 @@ deleted service was one of several front doors to the same arithmetic:
 - financial-forecasting-service is `budgeting::forecasting`
 - financial-reporting-service and financial-statements-service are `ratios_statements::statements`,
   routed as `financial-statements-prepare` (one body shape, two services that always shared it)
+- ifrs-2-share-based-payment-service is `ifrs::share_based`, routed as `ifrs-2-calculate`,
+  `-fair-value-equity-instruments`, `-performance-condition`, `-modification` and
+  `-group-transaction`
 - ifrs-15-revenue-recognition-service is `ifrs::revenue`, routed as `ifrs-15-recognize`,
   `-variable-consideration`, `-standalone-selling-price`, `-progress-measurement`,
   `-customer-options` and `-modification`
@@ -174,7 +177,6 @@ deleted service was one of several front doors to the same arithmetic:
 these is a route or a seam function away, not a calculation away:
 
 - deal-structuring-service - `capital_valuation::acquisition_financing`, `corporate_events`
-- ifrs-2-share-based-payment-service - `ifrs::share_based`
 - ifrs-9-financial-instruments-service - `ifrs::instruments`
 - kpi-tracking-service - `reporting::analysis`
 - merger-valuation-service - `capital_valuation::merger`

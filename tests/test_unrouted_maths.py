@@ -21,7 +21,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # service -> the module holding its maths, which the tracker says no door reaches.
 UNROUTED = {
     "deal-structuring-service": "capital_valuation::corporate_events",
-    "ifrs-2-share-based-payment-service": "ifrs::share_based",
     "ifrs-9-financial-instruments-service": "ifrs::instruments",
     "kpi-tracking-service": "reporting::analysis",
     "merger-valuation-service": "capital_valuation::merger",
@@ -64,5 +63,6 @@ def test_the_checker_still_recognises_wired_maths():
         "capital_valuation::valuation",
         "ratios_statements::statements",
         "ifrs::revenue",
+        "ifrs::share_based",
     ):
         assert module not in dead, f"{module} is routed, so the checker is not reading it"

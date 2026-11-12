@@ -85,6 +85,20 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
     );
     map.insert("ifrs-15-customer-options", ifrs::customer_options_from_json);
     map.insert("ifrs-15-modification", ifrs::modification_from_json);
+    map.insert("ifrs-2-calculate", ifrs::share_based_calculate_from_json);
+    map.insert(
+        "ifrs-2-fair-value-equity-instruments",
+        ifrs::instrument_fair_value_from_json,
+    );
+    map.insert(
+        "ifrs-2-performance-condition",
+        ifrs::performance_condition_from_json,
+    );
+    map.insert("ifrs-2-modification", ifrs::grant_modification_from_json);
+    map.insert(
+        "ifrs-2-group-transaction",
+        ifrs::group_transaction_from_json,
+    );
     map.insert(
         "lease-management-calculate",
         ifrs::lease_calculate_from_json,
@@ -1224,6 +1238,66 @@ mod typed_adapters {
                    "original_progress": 0.4, "modification_date": "2026-05-01"}),
         );
         assert_eq!(modification["additional_revenue"], json!("12000.00"));
+    }
+
+    #[test]
+    fn ifrs_2_answers_all_five_endpoints() {
+        let out = calculate(
+            "ifrs-2-calculate",
+            json!({
+                "company_id": "c-1",
+                "reporting_date": "2026-12-31",
+                "equity_settled_grants": [{
+                    "option_id": "E1", "grant_date": "2024-01-01",
+                    "number_of_options": 10000, "exercise_price": "5.00",
+                    "fair_value_per_option": "2.00", "vesting_period_years": 4,
+                    "vesting_conditions": [{
+                        "condition_id": "vc", "condition_type": "service",
+                        "description": "service", "target_value": 1.0,
+                        "probability_assessment": 0.9, "probability_weight": 0.9
+                    }]
+                }],
+                "share_price_at_reporting": "10.00"
+            }),
+        );
+        assert_eq!(out["equity_settled_expense"], json!("3825.00"));
+        assert_eq!(
+            out["equity_settled_vesting"][0]["options_expected_to_vest"],
+            json!(7650)
+        );
+
+        let fair = calculate(
+            "ifrs-2-fair-value-equity-instruments",
+            json!({"option_type": "lookback", "spot_price": "100", "exercise_price": "90",
+                   "time_to_expiry": 2.0, "risk_free_rate": 0.05, "volatility": 0.25,
+                   "dividend_yield": 0.0}),
+        );
+        assert_eq!(fair["adjustment_applied"], json!(1.2));
+        assert!(fair["calculated_fair_value"].is_string());
+
+        let perf = calculate(
+            "ifrs-2-performance-condition",
+            json!({"condition_type": "EPS_growth", "target_metric": 100.0,
+                   "current_metric": 60.0, "measurement_period": 1.0}),
+        );
+        assert_eq!(perf["expected_achievement_probability"], json!(0.64));
+
+        let modification = calculate(
+            "ifrs-2-modification",
+            json!({"original_grant_date": "2024-01-01", "original_fair_value": "5.00",
+                   "original_options": 10000, "modification_date": "2026-01-01",
+                   "new_fair_value": "6.00", "new_options": 10000, "new_vesting_period": 2,
+                   "years_elapsed": 5, "cumulative_expense_original": "1.00"}),
+        );
+        assert_eq!(modification["catch_up_expense"], json!("14.00"));
+
+        let group = calculate(
+            "ifrs-2-group-transaction",
+            json!({"parent_equity_settled": "0", "parent_cash_settled": "100000",
+                   "non_controlling_interests": "50000", "transaction_type": "cash_for_equity"}),
+        );
+        assert_eq!(group["nci_impact"], json!("5000.00"));
+        assert_eq!(group["financial_statement_impact"], json!("liability"));
     }
 
     #[test]

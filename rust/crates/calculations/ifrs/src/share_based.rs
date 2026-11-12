@@ -1,7 +1,24 @@
 //! IFRS 2 share-based payment: grant expense, cash-settled liability,
 //! dilutive effect, instrument fair value, performance conditions,
 //! modifications and group transactions.
+//!
+//! Amounts are `Money`: exercise prices, fair values, share prices, expenses, reserves and
+//! liabilities. Term, volatility, rate, dividend yield, probabilities and achievement metrics stay
+//! ratios or counts, which is what they are.
+//!
+//! The instrument pricing is the one place where exactness stops at the input: the formula raises `e`
+//! to `d1` and takes logarithms, so the published fair value is the floating-point figure rounded once
+//! to the cent. The inputs are still carried through as exact amounts.
 use serde::{Deserialize, Serialize};
+use vimbai_common::Money;
+
+fn rate(value: f64) -> Money {
+    Money::from_f64_shortest(value).unwrap_or_else(|_| Money::zero())
+}
+
+fn years(value: i64) -> Money {
+    Money::from_i64(value)
+}
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct VestingCondition {
@@ -18,24 +35,33 @@ pub struct VestingCondition {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ShareOption {
     pub option_id: String,
+    #[serde(default)]
     pub grant_date: String,
     pub number_of_options: i64,
-    pub exercise_price: f64,
-    pub fair_value_per_option: f64,
+    pub exercise_price: Money,
+    pub fair_value_per_option: Money,
     pub vesting_period_years: i64,
+    #[serde(default)]
     pub expiry_date: String,
+    #[serde(default)]
     pub vesting_conditions: Vec<VestingCondition>,
+    #[serde(default)]
     pub employee_category: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ShareBasedPaymentRequest {
+    #[serde(default)]
     pub company_id: String,
+    #[serde(default)]
     pub reporting_date: String,
+    #[serde(default)]
     pub equity_settled_grants: Vec<ShareOption>,
+    #[serde(default)]
     pub cash_settled_grants: Vec<ShareOption>,
+    #[serde(default)]
     pub shares_issued: i64,
-    pub share_price_at_reporting: f64,
+    pub share_price_at_reporting: Money,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -45,21 +71,21 @@ pub struct VestingCalculation {
     pub options_granted: i64,
     pub options_expected_to_vest: i64,
     pub forfeiture_rate: f64,
-    pub cumulative_expense: f64,
-    pub period_expense: f64,
+    pub cumulative_expense: Money,
+    pub period_expense: Money,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Ifrs2Response {
     pub company_id: String,
     pub reporting_date: String,
-    pub equity_settled_expense: f64,
-    pub cash_settled_expense: f64,
-    pub total_expense: f64,
+    pub equity_settled_expense: Money,
+    pub cash_settled_expense: Money,
+    pub total_expense: Money,
     pub equity_settled_vesting: Vec<VestingCalculation>,
     pub cash_settled_vesting: Vec<VestingCalculation>,
-    pub liability_for_cash_settled: f64,
-    pub equity_reserve: f64,
+    pub liability_for_cash_settled: Money,
+    pub equity_reserve: Money,
     pub dilutive_effect: i64,
 }
 
@@ -114,8 +140,8 @@ pub fn calculate_share_based_payment(
 ) -> Result<Ifrs2Response, ShareBasedError> {
     let mut equity_vesting = Vec::new();
     let mut cash_vesting = Vec::new();
-    let mut total_equity_expense = 0.0;
-    let mut total_cash_expense = 0.0;
+    let mut total_equity_expense = Money::zero();
+    let mut total_cash_expense = Money::zero();
 
     for option in &req.equity_settled_grants {
         if option.vesting_period_years <= 0 {
@@ -133,9 +159,12 @@ pub fn calculate_share_based_payment(
         }
         let options_to_expense =
             (expected_vesting * (1.0 - forfeiture_rate.min(0.3))).trunc() as i64;
-        let per_year_expense = options_to_expense as f64 * option.fair_value_per_option
-            / option.vesting_period_years as f64;
-        let cumulative_expense = per_year_expense * 2.0;
+        let per_year_expense = option
+            .fair_value_per_option
+            .times(&rate(options_to_expense as f64))
+            .over(&years(option.vesting_period_years))
+            .round(2);
+        let cumulative_expense = per_year_expense.times(&rate(2.0)).round(2);
 
         equity_vesting.push(VestingCalculation {
             option_id: option.option_id.clone(),
@@ -144,9 +173,9 @@ pub fn calculate_share_based_payment(
             options_expected_to_vest: options_to_expense,
             forfeiture_rate,
             cumulative_expense,
-            period_expense: per_year_expense,
+            period_expense: per_year_expense.clone(),
         });
-        total_equity_expense += per_year_expense;
+        total_equity_expense = total_equity_expense.plus(&per_year_expense);
     }
 
     for option in &req.cash_settled_grants {
@@ -162,10 +191,21 @@ pub fn calculate_share_based_payment(
             }
         }
         let options_to_expense = expected_vesting.trunc() as i64;
-        let current_intrinsic = (req.share_price_at_reporting - option.exercise_price).max(0.0);
-        let liability = current_intrinsic * options_to_expense as f64 * 0.5;
-        let per_year_expense = options_to_expense as f64 * option.fair_value_per_option
-            / option.vesting_period_years as f64;
+        let intrinsic = req.share_price_at_reporting.minus(&option.exercise_price);
+        let current_intrinsic = if intrinsic.is_negative() {
+            Money::zero()
+        } else {
+            intrinsic
+        };
+        let liability = current_intrinsic
+            .times(&rate(options_to_expense as f64))
+            .times(&rate(0.5))
+            .round(2);
+        let per_year_expense = option
+            .fair_value_per_option
+            .times(&rate(options_to_expense as f64))
+            .over(&years(option.vesting_period_years))
+            .round(2);
 
         cash_vesting.push(VestingCalculation {
             option_id: option.option_id.clone(),
@@ -174,9 +214,9 @@ pub fn calculate_share_based_payment(
             options_expected_to_vest: options_to_expense,
             forfeiture_rate: 0.0,
             cumulative_expense: liability,
-            period_expense: per_year_expense,
+            period_expense: per_year_expense.clone(),
         });
-        total_cash_expense += per_year_expense;
+        total_cash_expense = total_cash_expense.plus(&per_year_expense);
     }
 
     let total_options: i64 = req
@@ -185,31 +225,32 @@ pub fn calculate_share_based_payment(
         .chain(req.cash_settled_grants.iter())
         .map(|o| o.number_of_options)
         .sum();
-    let avg_price = req.share_price_at_reporting;
+    let avg_price = req.share_price_at_reporting.clone();
     let exercise_price = if total_options > 0 {
-        let weighted: f64 = req
+        let weighted_parts: Vec<Money> = req
             .equity_settled_grants
             .iter()
-            .map(|o| o.exercise_price * o.number_of_options as f64)
-            .sum();
-        weighted / total_options as f64
+            .map(|o| o.exercise_price.times(&rate(o.number_of_options as f64)))
+            .collect();
+        let weighted = Money::sum(weighted_parts.iter());
+        weighted.over(&rate(total_options as f64))
     } else {
-        0.0
+        Money::zero()
     };
-    let dilutive = if avg_price > exercise_price {
-        total_options as f64 * (1.0 - exercise_price / avg_price)
-    } else {
+    let dilutive = if avg_price.is_zero() || exercise_price >= avg_price {
         0.0
+    } else {
+        total_options as f64 * (1.0 - exercise_price.over(&avg_price).to_f64_lossy())
     };
 
     Ok(Ifrs2Response {
         company_id: req.company_id.clone(),
         reporting_date: req.reporting_date.clone(),
-        equity_settled_expense: total_equity_expense,
-        cash_settled_expense: total_cash_expense,
-        total_expense: total_equity_expense + total_cash_expense,
-        liability_for_cash_settled: cash_vesting.iter().map(|v| v.cumulative_expense).sum(),
-        equity_reserve: equity_vesting.iter().map(|v| v.cumulative_expense).sum(),
+        equity_settled_expense: total_equity_expense.clone(),
+        cash_settled_expense: total_cash_expense.clone(),
+        total_expense: total_equity_expense.plus(&total_cash_expense),
+        liability_for_cash_settled: Money::sum(cash_vesting.iter().map(|v| &v.cumulative_expense)),
+        equity_reserve: Money::sum(equity_vesting.iter().map(|v| &v.cumulative_expense)),
         dilutive_effect: dilutive.trunc() as i64,
         equity_settled_vesting: equity_vesting,
         cash_settled_vesting: cash_vesting,
@@ -219,15 +260,15 @@ pub fn calculate_share_based_payment(
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct InstrumentFairValue {
     pub option_type: String,
-    pub spot_price: f64,
-    pub exercise_price: f64,
+    pub spot_price: Money,
+    pub exercise_price: Money,
     pub time_to_expiry: f64,
     pub risk_free_rate: f64,
     pub volatility: f64,
     pub dividend_yield: f64,
     pub d1: f64,
     pub d2: f64,
-    pub calculated_fair_value: f64,
+    pub calculated_fair_value: Money,
     pub adjustment_applied: f64,
 }
 
@@ -246,19 +287,19 @@ pub struct InstrumentFairValue {
 /// this returns `ShareBasedError::InvalidPricingInput`.
 pub fn calculate_instrument_fair_value(
     option_type: &str,
-    spot_price: f64,
-    exercise_price: f64,
+    spot_price: Money,
+    exercise_price: Money,
     time_to_expiry: f64,
     risk_free_rate: f64,
     volatility: f64,
     dividend_yield: f64,
 ) -> Result<InstrumentFairValue, ShareBasedError> {
-    if spot_price <= 0.0 {
+    if spot_price.is_zero() || spot_price.is_negative() {
         return Err(ShareBasedError::InvalidPricingInput {
             field: "spot_price",
         });
     }
-    if exercise_price <= 0.0 {
+    if exercise_price.is_zero() || exercise_price.is_negative() {
         return Err(ShareBasedError::InvalidPricingInput {
             field: "exercise_price",
         });
@@ -274,16 +315,16 @@ pub fn calculate_instrument_fair_value(
         });
     }
 
+    let spot = spot_price.to_f64_lossy();
+    let strike = exercise_price.to_f64_lossy();
     let root_t = time_to_expiry.sqrt();
-    let d1 = ((spot_price / exercise_price).ln()
+    let d1 = ((spot / strike).ln()
         + (risk_free_rate + volatility * volatility / 2.0) * time_to_expiry)
         / (volatility * root_t);
     let d2 = d1 - volatility * root_t;
 
-    let call_value = spot_price
-        * (-dividend_yield * time_to_expiry).exp()
-        * 0.5
-        * (1.0 + d1.exp() + (-d1).exp());
+    let call_value =
+        spot * (-dividend_yield * time_to_expiry).exp() * 0.5 * (1.0 + d1.exp() + (-d1).exp());
 
     let adjustment_factor = match option_type {
         "lookback" => 1.2,
@@ -301,7 +342,7 @@ pub fn calculate_instrument_fair_value(
         dividend_yield,
         d1,
         d2,
-        calculated_fair_value: call_value * adjustment_factor,
+        calculated_fair_value: rate(call_value * adjustment_factor).round(2),
         adjustment_applied: adjustment_factor,
     })
 }
@@ -361,16 +402,16 @@ pub fn assess_performance_condition(
 pub struct GrantModification {
     pub original_grant_date: String,
     pub modification_date: String,
-    pub original_fair_value: f64,
-    pub new_fair_value: f64,
-    pub incremental_fair_value: f64,
+    pub original_fair_value: Money,
+    pub new_fair_value: Money,
+    pub incremental_fair_value: Money,
     pub original_options: i64,
     pub new_options: i64,
     pub years_elapsed: i64,
     pub remaining_vesting_period: i64,
-    pub catch_up_expense: f64,
-    pub prospective_expense: f64,
-    pub total_modification_impact: f64,
+    pub catch_up_expense: Money,
+    pub prospective_expense: Money,
+    pub total_modification_impact: Money,
 }
 
 /// `/modification` (named `account_for_grant_modification` to avoid
@@ -390,49 +431,56 @@ pub struct GrantModification {
 #[allow(clippy::too_many_arguments)] // mirrors the FastAPI signature 1:1
 pub fn account_for_grant_modification(
     original_grant_date: &str,
-    original_fair_value: f64,
+    original_fair_value: Money,
     original_options: i64,
     modification_date: &str,
-    new_fair_value: f64,
+    new_fair_value: Money,
     new_options: i64,
     new_vesting_period: i64,
     years_elapsed: i64,
-    cumulative_expense_original: f64,
+    cumulative_expense_original: Money,
 ) -> GrantModification {
-    let mut incremental_value = new_fair_value - original_fair_value;
-    if incremental_value < 0.0 {
-        incremental_value = 0.0;
-    }
+    let raw_incremental = new_fair_value.minus(&original_fair_value);
+    let incremental_value = if raw_incremental.is_negative() {
+        Money::zero()
+    } else {
+        raw_incremental
+    };
     let remaining_period = (new_vesting_period - years_elapsed).max(1);
-    let total_value = original_fair_value + incremental_value;
-    let per_period_new = total_value / new_vesting_period as f64;
-    let per_period_incremental = incremental_value / remaining_period as f64;
-    let modified_cumulative = per_period_new * years_elapsed as f64;
-    let catch_up_expense = (modified_cumulative - cumulative_expense_original).max(0.0);
+    let total_value = original_fair_value.plus(&incremental_value);
+    let per_period_new = total_value.over(&years(new_vesting_period)).round(2);
+    let per_period_incremental = incremental_value.over(&years(remaining_period)).round(2);
+    let modified_cumulative = per_period_new.times(&rate(years_elapsed as f64)).round(2);
+    let raw_catch_up = modified_cumulative.minus(&cumulative_expense_original);
+    let catch_up_expense = if raw_catch_up.is_negative() {
+        Money::zero()
+    } else {
+        raw_catch_up
+    };
 
     GrantModification {
         original_grant_date: original_grant_date.to_string(),
         modification_date: modification_date.to_string(),
-        original_fair_value,
-        new_fair_value,
         incremental_fair_value: incremental_value,
         original_options,
         new_options,
         years_elapsed,
         remaining_vesting_period: remaining_period,
+        total_modification_impact: catch_up_expense.plus(&per_period_incremental),
+        original_fair_value,
+        new_fair_value,
         catch_up_expense,
         prospective_expense: per_period_incremental,
-        total_modification_impact: catch_up_expense + per_period_incremental,
     }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct GroupTransaction {
     pub transaction_type: String,
-    pub parent_equity_settled: f64,
-    pub parent_cash_settled: f64,
-    pub non_controlling_interests: f64,
-    pub nci_impact: f64,
+    pub parent_equity_settled: Money,
+    pub parent_cash_settled: Money,
+    pub non_controlling_interests: Money,
+    pub nci_impact: Money,
     pub treatment: String,
     pub financial_statement_impact: String,
 }
@@ -440,21 +488,18 @@ pub struct GroupTransaction {
 /// `/group-transaction`. Anything other than "equity_for_equity" is treated
 /// as cash-settled and assigns a flat 10% of the NCI figure.
 pub fn account_for_group_transaction(
-    parent_equity_settled: f64,
-    parent_cash_settled: f64,
-    non_controlling_interests: f64,
+    parent_equity_settled: Money,
+    parent_cash_settled: Money,
+    non_controlling_interests: Money,
     transaction_type: &str,
 ) -> GroupTransaction {
     let equity = transaction_type == "equity_for_equity";
     GroupTransaction {
         transaction_type: transaction_type.to_string(),
-        parent_equity_settled,
-        parent_cash_settled,
-        non_controlling_interests,
         nci_impact: if equity {
-            0.0
+            Money::zero()
         } else {
-            non_controlling_interests * 0.1
+            non_controlling_interests.times(&rate(0.1)).round(2)
         },
         treatment: if equity {
             "equity-settled - no change in accounting".to_string()
@@ -466,12 +511,144 @@ pub fn account_for_group_transaction(
         } else {
             "liability".to_string()
         },
+        parent_equity_settled,
+        parent_cash_settled,
+        non_controlling_interests,
     }
+}
+
+// ------------------------------------------------------------- doors
+
+fn parse<T: for<'de> Deserialize<'de>>(payload: &serde_json::Value) -> Result<T, String> {
+    serde_json::from_value(payload.clone()).map_err(|error| format!("invalid request: {error}"))
+}
+
+fn to_value<T: Serialize>(value: &T) -> Result<serde_json::Value, String> {
+    serde_json::to_value(value).map_err(|error| error.to_string())
+}
+
+/// `/calculate`.
+pub fn share_based_calculate_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let request: ShareBasedPaymentRequest = parse(payload)?;
+    let response = calculate_share_based_payment(&request).map_err(|error| error.to_string())?;
+    to_value(&response)
+}
+
+/// `/fair-value-equity-instruments`.
+pub fn instrument_fair_value_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    #[derive(Deserialize)]
+    struct Request {
+        option_type: String,
+        spot_price: Money,
+        exercise_price: Money,
+        time_to_expiry: f64,
+        risk_free_rate: f64,
+        volatility: f64,
+        #[serde(default)]
+        dividend_yield: f64,
+    }
+    let request: Request = parse(payload)?;
+    let value = calculate_instrument_fair_value(
+        &request.option_type,
+        request.spot_price,
+        request.exercise_price,
+        request.time_to_expiry,
+        request.risk_free_rate,
+        request.volatility,
+        request.dividend_yield,
+    )
+    .map_err(|error| error.to_string())?;
+    to_value(&value)
+}
+
+/// `/performance-condition`.
+pub fn performance_condition_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    #[derive(Deserialize)]
+    struct Request {
+        condition_type: String,
+        target_metric: f64,
+        current_metric: f64,
+        measurement_period: f64,
+        #[serde(default)]
+        probability_based_on_regression: f64,
+    }
+    let request: Request = parse(payload)?;
+    to_value(&assess_performance_condition(
+        &request.condition_type,
+        request.target_metric,
+        request.current_metric,
+        request.measurement_period,
+        request.probability_based_on_regression,
+    ))
+}
+
+/// `/modification`.
+pub fn grant_modification_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    #[derive(Deserialize)]
+    struct Request {
+        original_grant_date: String,
+        original_fair_value: Money,
+        original_options: i64,
+        modification_date: String,
+        new_fair_value: Money,
+        new_options: i64,
+        new_vesting_period: i64,
+        years_elapsed: i64,
+        cumulative_expense_original: Money,
+    }
+    let request: Request = parse(payload)?;
+    to_value(&account_for_grant_modification(
+        &request.original_grant_date,
+        request.original_fair_value,
+        request.original_options,
+        &request.modification_date,
+        request.new_fair_value,
+        request.new_options,
+        request.new_vesting_period,
+        request.years_elapsed,
+        request.cumulative_expense_original,
+    ))
+}
+
+/// `/group-transaction`.
+pub fn group_transaction_from_json(
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    #[derive(Deserialize)]
+    struct Request {
+        parent_equity_settled: Money,
+        parent_cash_settled: Money,
+        non_controlling_interests: Money,
+        transaction_type: String,
+    }
+    let request: Request = parse(payload)?;
+    to_value(&account_for_group_transaction(
+        request.parent_equity_settled,
+        request.parent_cash_settled,
+        request.non_controlling_interests,
+        &request.transaction_type,
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn m(text: &str) -> Money {
+        Money::parse(text).expect("amount")
+    }
+
+    fn fixed(amount: &Money) -> String {
+        amount.to_fixed(2)
+    }
 
     fn condition(kind: &str, prob: f64, weight: f64) -> VestingCondition {
         VestingCondition {
@@ -484,14 +661,14 @@ mod tests {
         }
     }
 
-    fn option(id: &str, options: i64, strike: f64, fv: f64, years: i64) -> ShareOption {
+    fn option(id: &str, options: i64, strike: &str, fv: &str, term: i64) -> ShareOption {
         ShareOption {
             option_id: id.into(),
             grant_date: "2024-01-01".into(),
             number_of_options: options,
-            exercise_price: strike,
-            fair_value_per_option: fv,
-            vesting_period_years: years,
+            exercise_price: m(strike),
+            fair_value_per_option: m(fv),
+            vesting_period_years: term,
             expiry_date: "2034-01-01".into(),
             vesting_conditions: Vec::new(),
             employee_category: "executive".into(),
@@ -504,14 +681,14 @@ mod tests {
             reporting_date: "2026-12-31".into(),
             equity_settled_grants: vec![ShareOption {
                 vesting_conditions: vec![condition("service", 0.9, 0.9)],
-                ..option("E1", 10_000, 5.0, 2.0, 4)
+                ..option("E1", 10_000, "5.00", "2.00", 4)
             }],
             cash_settled_grants: vec![ShareOption {
                 vesting_conditions: vec![condition("performance", 0.8, 0.8)],
-                ..option("C1", 5_000, 4.0, 1.5, 3)
+                ..option("C1", 5_000, "4.00", "1.50", 3)
             }],
             shares_issued: 1_000_000,
-            share_price_at_reporting: 10.0,
+            share_price_at_reporting: m("10.00"),
         }
     }
 
@@ -522,9 +699,9 @@ mod tests {
         // 10,000 * 0.9 = 9,000 expected; forfeiture 0.05 + (1 - 0.9) = 0.15
         assert!((e.forfeiture_rate - 0.15).abs() < 1e-12);
         assert_eq!(e.options_expected_to_vest, 7_650); // 9,000 * 0.85
-        assert_eq!(e.period_expense, 7_650.0 * 2.0 / 4.0);
+        assert_eq!(fixed(&e.period_expense), "3825.00");
         // cumulative is always two periods, whatever the vesting term
-        assert_eq!(e.cumulative_expense, e.period_expense * 2.0);
+        assert_eq!(fixed(&e.cumulative_expense), "7650.00");
     }
 
     #[test]
@@ -535,10 +712,10 @@ mod tests {
                     condition("service", 1.0, 0.0),
                     condition("service", 1.0, 0.0),
                 ],
-                ..option("E1", 1_000, 5.0, 2.0, 2)
+                ..option("E1", 1_000, "5.00", "2.00", 2)
             }],
             cash_settled_grants: vec![],
-            share_price_at_reporting: 10.0,
+            share_price_at_reporting: m("10.00"),
             ..Default::default()
         })
         .unwrap();
@@ -556,10 +733,10 @@ mod tests {
                     condition("service", 0.9, 0.9),
                     condition("market", 0.1, 0.1),
                 ],
-                ..option("E1", 10_000, 5.0, 2.0, 4)
+                ..option("E1", 10_000, "5.00", "2.00", 4)
             }],
             cash_settled_grants: vec![],
-            share_price_at_reporting: 10.0,
+            share_price_at_reporting: m("10.00"),
             ..Default::default()
         })
         .unwrap();
@@ -576,22 +753,19 @@ mod tests {
         assert_eq!(c.options_expected_to_vest, 4_000);
         assert_eq!(c.forfeiture_rate, 0.0);
         // intrinsic (10 - 4) * 4,000 * 50% vested = 12,000
-        assert_eq!(c.cumulative_expense, 12_000.0);
+        assert_eq!(fixed(&c.cumulative_expense), "12000.00");
         // but the period charge uses the FAIR VALUE, not the intrinsic
-        assert_eq!(c.period_expense, 4_000.0 * 1.5 / 3.0);
-        assert_eq!(r.liability_for_cash_settled, 12_000.0);
+        assert_eq!(fixed(&c.period_expense), "2000.00");
+        assert_eq!(fixed(&r.liability_for_cash_settled), "12000.00");
     }
 
     #[test]
     fn totals_and_equity_reserve() {
         let r = calculate_share_based_payment(&request()).unwrap();
-        assert_eq!(r.equity_settled_expense, 7_650.0 * 2.0 / 4.0);
-        assert_eq!(r.cash_settled_expense, 2_000.0);
-        assert_eq!(
-            r.total_expense,
-            r.equity_settled_expense + r.cash_settled_expense
-        );
-        assert_eq!(r.equity_reserve, 7_650.0);
+        assert_eq!(fixed(&r.equity_settled_expense), "3825.00");
+        assert_eq!(fixed(&r.cash_settled_expense), "2000.00");
+        assert_eq!(fixed(&r.total_expense), "5825.00");
+        assert_eq!(fixed(&r.equity_reserve), "7650.00");
     }
 
     #[test]
@@ -608,9 +782,9 @@ mod tests {
     #[test]
     fn no_dilution_when_strike_exceeds_market() {
         let r = calculate_share_based_payment(&ShareBasedPaymentRequest {
-            equity_settled_grants: vec![option("E1", 1_000, 20.0, 2.0, 3)],
+            equity_settled_grants: vec![option("E1", 1_000, "20.00", "2.00", 3)],
             cash_settled_grants: vec![],
-            share_price_at_reporting: 10.0,
+            share_price_at_reporting: m("10.00"),
             ..Default::default()
         })
         .unwrap();
@@ -618,9 +792,24 @@ mod tests {
     }
 
     #[test]
+    fn a_grant_larger_than_a_double_can_hold_keeps_every_cent() {
+        let r = calculate_share_based_payment(&ShareBasedPaymentRequest {
+            equity_settled_grants: vec![option("E1", 2, "5.00", "1234567890123456789010.55", 4)],
+            cash_settled_grants: vec![],
+            share_price_at_reporting: m("10.00"),
+            ..Default::default()
+        })
+        .unwrap();
+        let e = &r.equity_settled_vesting[0];
+        // 2 options at the full fair value, over four years; forfeiture is the 5% base only
+        assert_eq!(e.options_expected_to_vest, 1);
+        assert_eq!(fixed(&e.period_expense), "308641972530864197252.64");
+    }
+
+    #[test]
     fn zero_vesting_period_is_a_typed_error() {
         let err = calculate_share_based_payment(&ShareBasedPaymentRequest {
-            equity_settled_grants: vec![option("E1", 1_000, 5.0, 2.0, 0)],
+            equity_settled_grants: vec![option("E1", 1_000, "5.00", "2.00", 0)],
             ..Default::default()
         })
         .unwrap_err();
@@ -634,12 +823,21 @@ mod tests {
 
     #[test]
     fn instrument_value_is_not_a_black_scholes_call() {
-        let v = calculate_instrument_fair_value("plain_vanilla", 100.0, 90.0, 2.0, 0.05, 0.25, 0.0)
-            .unwrap();
+        let v = calculate_instrument_fair_value(
+            "plain_vanilla",
+            m("100"),
+            m("90"),
+            2.0,
+            0.05,
+            0.25,
+            0.0,
+        )
+        .unwrap();
         let expected = 100.0 * 0.5 * (1.0 + v.d1.exp() + (-v.d1).exp());
-        assert!((v.calculated_fair_value - expected).abs() < 1e-9);
+        // the published figure is rounded to the cent, so the comparison is to half a cent
+        assert!((v.calculated_fair_value.to_f64_lossy() - expected).abs() <= 0.005);
         // far above any sane option value, because strike and rate are ignored
-        assert!(v.calculated_fair_value > 100.0);
+        assert!(v.calculated_fair_value > m("100"));
         assert_eq!(v.adjustment_applied, 1.0);
         let check = (100.0f64 / 90.0).ln() + (0.05 + 0.25f64.powi(2) / 2.0) * 2.0;
         assert!((v.d1 - check / (0.25 * 2.0f64.sqrt())).abs() < 1e-12);
@@ -649,29 +847,42 @@ mod tests {
     #[test]
     fn instrument_type_factors() {
         let base =
-            calculate_instrument_fair_value("ESOP", 100.0, 100.0, 1.0, 0.04, 0.2, 0.01).unwrap();
-        let look = calculate_instrument_fair_value("lookback", 100.0, 100.0, 1.0, 0.04, 0.2, 0.01)
-            .unwrap();
+            calculate_instrument_fair_value("ESOP", m("100"), m("100"), 1.0, 0.04, 0.2, 0.01)
+                .unwrap();
+        let look =
+            calculate_instrument_fair_value("lookback", m("100"), m("100"), 1.0, 0.04, 0.2, 0.01)
+                .unwrap();
         let barrier =
-            calculate_instrument_fair_value("barrier", 100.0, 100.0, 1.0, 0.04, 0.2, 0.01).unwrap();
+            calculate_instrument_fair_value("barrier", m("100"), m("100"), 1.0, 0.04, 0.2, 0.01)
+                .unwrap();
         assert_eq!(look.adjustment_applied, 1.2);
         assert_eq!(barrier.adjustment_applied, 0.8);
-        assert!((look.calculated_fair_value - base.calculated_fair_value * 1.2).abs() < 1e-9);
-        assert!((barrier.calculated_fair_value - base.calculated_fair_value * 0.8).abs() < 1e-9);
+        assert!(
+            (look.calculated_fair_value.to_f64_lossy()
+                - base.calculated_fair_value.to_f64_lossy() * 1.2)
+                .abs()
+                <= 0.01
+        );
+        assert!(
+            (barrier.calculated_fair_value.to_f64_lossy()
+                - base.calculated_fair_value.to_f64_lossy() * 0.8)
+                .abs()
+                <= 0.01
+        );
     }
 
     #[test]
     fn instrument_inputs_are_guarded() {
         for (spot, strike, term, vol) in [
-            (0.0, 90.0, 1.0, 0.2),
-            (100.0, 0.0, 1.0, 0.2),
-            (100.0, 90.0, 0.0, 0.2),
-            (100.0, 90.0, 1.0, 0.0),
+            ("0", "90", 1.0, 0.2),
+            ("100", "0", 1.0, 0.2),
+            ("100", "90", 0.0, 0.2),
+            ("100", "90", 1.0, 0.0),
         ] {
             assert!(calculate_instrument_fair_value(
                 "plain_vanilla",
-                spot,
-                strike,
+                m(spot),
+                m(strike),
                 term,
                 0.05,
                 vol,
@@ -705,96 +916,131 @@ mod tests {
 
     #[test]
     fn modification_never_reduces_expense() {
-        let m = account_for_grant_modification(
+        let m2 = account_for_grant_modification(
             "2024-01-01",
-            5.0,
+            m("5.00"),
             10_000,
             "2025-06-30",
-            3.0,
+            m("3.00"),
             10_000,
             4,
             2,
-            20_000.0,
+            m("20000.00"),
         );
-        assert_eq!(m.incremental_fair_value, 0.0);
-        assert_eq!(m.prospective_expense, 0.0);
-        // per-period 5.0/4 = 1.25, two years = 2.5, already 20,000 expensed
-        assert_eq!(m.catch_up_expense, 0.0);
-        assert_eq!(m.total_modification_impact, 0.0);
+        assert_eq!(fixed(&m2.incremental_fair_value), "0.00");
+        assert_eq!(fixed(&m2.prospective_expense), "0.00");
+        // per-period 5/4 = 1.25, two years = 2.5, already 20,000 expensed
+        assert_eq!(fixed(&m2.catch_up_expense), "0.00");
+        assert_eq!(fixed(&m2.total_modification_impact), "0.00");
     }
 
     #[test]
     fn modification_ignores_the_new_option_count() {
         let a = account_for_grant_modification(
             "2024-01-01",
-            5.0,
+            m("5.00"),
             10_000,
             "2025-06-30",
-            8.0,
-            10_000,
+            m("8.00"),
+            20_000,
             4,
-            1,
-            5_000.0,
+            2,
+            m("0"),
         );
         let b = account_for_grant_modification(
             "2024-01-01",
-            5.0,
+            m("5.00"),
             10_000,
             "2025-06-30",
-            8.0,
-            50_000,
+            m("8.00"),
+            5_000,
             4,
-            1,
-            5_000.0,
+            2,
+            m("0"),
         );
         assert_eq!(a.total_modification_impact, b.total_modification_impact);
-        assert_eq!(b.new_options, 50_000);
-        // incremental 3.0 over the full 4-year term, and over 3 remaining years
-        assert_eq!(a.prospective_expense, 1.0);
-        assert_eq!(a.remaining_vesting_period, 3);
+        assert_eq!(fixed(&a.prospective_expense), "1.50");
     }
 
     #[test]
-    fn modification_remaining_period_floors_at_one() {
-        let m = account_for_grant_modification(
+    fn catch_up_is_floored_and_remaining_period_floored_at_one() {
+        let m2 = account_for_grant_modification(
             "2024-01-01",
-            5.0,
+            m("5.00"),
             10_000,
             "2026-01-01",
-            6.0,
+            m("6.00"),
             10_000,
             2,
             5,
-            1.0,
+            m("1.00"),
         );
-        assert_eq!(m.remaining_vesting_period, 1);
-        // combined 6.0 / 2 = 3.0 per period, five years elapsed = 15.0
-        assert_eq!(m.catch_up_expense, 14.0);
+        assert_eq!(m2.remaining_vesting_period, 1);
+        // combined 6 / 2 = 3 per period, five years elapsed = 15
+        assert_eq!(fixed(&m2.catch_up_expense), "14.00");
 
         // a grant already expensed beyond the recalculated figure is not credited back
         let ahead = account_for_grant_modification(
             "2024-01-01",
-            5.0,
+            m("5.00"),
             10_000,
             "2026-01-01",
-            6.0,
+            m("6.00"),
             10_000,
             2,
             5,
-            1_000.0,
+            m("1000.00"),
         );
-        assert_eq!(ahead.catch_up_expense, 0.0);
+        assert_eq!(fixed(&ahead.catch_up_expense), "0.00");
     }
 
     #[test]
     fn group_transactions() {
-        let equity = account_for_group_transaction(100_000.0, 0.0, 50_000.0, "equity_for_equity");
-        assert_eq!(equity.nci_impact, 0.0);
+        let equity =
+            account_for_group_transaction(m("100000"), m("0"), m("50000"), "equity_for_equity");
+        assert_eq!(fixed(&equity.nci_impact), "0.00");
         assert_eq!(equity.financial_statement_impact, "equity reserve");
 
-        let cash = account_for_group_transaction(0.0, 100_000.0, 50_000.0, "cash_for_equity");
-        assert_eq!(cash.nci_impact, 5_000.0);
+        let cash =
+            account_for_group_transaction(m("0"), m("100000"), m("50000"), "cash_for_equity");
+        assert_eq!(fixed(&cash.nci_impact), "5000.00");
         assert_eq!(cash.financial_statement_impact, "liability");
         assert_eq!(cash.treatment, "cash-settled - remeasurement required");
+    }
+
+    #[test]
+    fn the_calculate_door_reads_the_published_shape() {
+        let payload = serde_json::json!({
+            "company_id": "c1",
+            "reporting_date": "2026-12-31",
+            "equity_settled_grants": [{
+                "option_id": "E1", "grant_date": "2024-01-01", "number_of_options": 10000,
+                "exercise_price": "5.00", "fair_value_per_option": "2.00",
+                "vesting_period_years": 4,
+                "vesting_conditions": [{
+                    "condition_id": "vc", "condition_type": "service", "description": "service",
+                    "target_value": 1.0, "probability_assessment": 0.9,
+                    "probability_weight": 0.9
+                }]
+            }],
+            "share_price_at_reporting": "10.00"
+        });
+        let out = share_based_calculate_from_json(&payload).expect("door");
+        assert_eq!(out["equity_settled_expense"], "3825.00");
+        assert_eq!(out["equity_reserve"], "7650.00");
+        assert_eq!(out["dilutive_effect"], serde_json::json!(5000));
+    }
+
+    #[test]
+    fn a_zero_vesting_period_is_refused_by_the_door() {
+        let payload = serde_json::json!({
+            "equity_settled_grants": [{
+                "option_id": "E1", "number_of_options": 10, "exercise_price": "5",
+                "fair_value_per_option": "2", "vesting_period_years": 0
+            }],
+            "share_price_at_reporting": "10"
+        });
+        let error = share_based_calculate_from_json(&payload).expect_err("refused");
+        assert!(error.contains("vesting_period_years"), "{error}");
     }
 }

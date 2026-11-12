@@ -36,9 +36,11 @@ pub use revenue::{
 
 pub use share_based::{
     account_for_grant_modification, account_for_group_transaction, assess_performance_condition,
-    calculate_instrument_fair_value, calculate_share_based_payment, GrantModification,
-    GroupTransaction, Ifrs2Response, InstrumentFairValue, PerformanceCondition, ShareBasedError,
-    ShareBasedPaymentRequest, ShareOption, VestingCalculation, VestingCondition,
+    calculate_instrument_fair_value, calculate_share_based_payment, grant_modification_from_json,
+    group_transaction_from_json, instrument_fair_value_from_json, performance_condition_from_json,
+    share_based_calculate_from_json, GrantModification, GroupTransaction, Ifrs2Response,
+    InstrumentFairValue, PerformanceCondition, ShareBasedError, ShareBasedPaymentRequest,
+    ShareOption, VestingCalculation, VestingCondition,
 };
 
 pub use instruments::{
