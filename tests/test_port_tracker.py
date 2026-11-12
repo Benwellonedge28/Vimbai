@@ -35,7 +35,6 @@ API = os.path.join(ROOT, "rust", "apps", "api-server", "src", "lib.rs")
 RETIRED_WITHOUT_ENDPOINT = {
     "annual-report-service",
     "bank-fee-analysis-service",
-    "business-valuation-service",
     "capital-budgeting-service",
     "cash-flow-forecasting-service",
     "comparative-financial-statements-service",

@@ -39,6 +39,34 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         equity_payroll::process_payroll_from_json,
     );
     map.insert(
+        "business-valuation",
+        (|payload| {
+            let mut owned = payload.clone();
+            if owned.get("valuation_date").is_none() {
+                // The service stamped today's date; the calculator stays clockless, so the surface
+                // supplies it. A stored valuation passes its own date and keeps it.
+                let today = chrono::Utc::now()
+                    .date_naive()
+                    .format("%Y-%m-%d")
+                    .to_string();
+                if let Some(object) = owned.as_object_mut() {
+                    object.insert("valuation_date".into(), Value::String(today));
+                }
+            }
+            capital_valuation::value_business_from_json(&owned)
+        }) as Calculator,
+    );
+    map.insert("business-valuation-wacc", capital_valuation::wacc_from_json);
+    map.insert("business-valuation-capm", capital_valuation::capm_from_json);
+    map.insert(
+        "business-valuation-precedent-transaction",
+        capital_valuation::precedent_transaction_from_json,
+    );
+    map.insert(
+        "business-valuation-book-value",
+        capital_valuation::book_value_from_json,
+    );
+    map.insert(
         "lease-management-calculate",
         ifrs::lease_calculate_from_json,
     );
@@ -1006,6 +1034,64 @@ mod typed_adapters {
         }))
         .expect_err("an unreadable amount is refused");
         assert!(error.contains("invalid request"), "{error}");
+    }
+
+    #[test]
+    fn business_valuation_answers_all_five_endpoints() {
+        let company = json!({
+            "company_id": "c-1", "company_name": "Vimbai", "fiscal_year_end": "2026-12-31",
+            "revenue": "5000000", "ebitda": "1000000", "ebit": "800000", "net_income": "500000",
+            "total_assets": "9000000", "total_equity": "4000000", "total_debt": "2000000",
+            "cash": "500000", "shares_outstanding": "1000000", "share_price": "12.50",
+            "dividend_per_share": "0.80"
+        });
+        let out = calculate(
+            "business-valuation",
+            json!({
+                "company": company,
+                "dcf_inputs": {
+                    "projection_years": 5, "base_revenue": "5000000", "revenue_cagr": 0.1,
+                    "ebitda_margin": 0.2, "depreciation_rate": 0.03, "capex_rate": 0.04,
+                    "tax_rate": 0.25, "discount_rate": 0.1, "terminal_growth_rate": 0.03,
+                    "net_debt": "1500000"
+                }
+            }),
+        );
+        assert!(out["dcf_valuation"]["equity_value"].is_string());
+        assert!(out["dividend_discount_valuation"]["value_per_share"].is_string());
+        // the surface stamps the date a stored valuation would have supplied itself
+        assert!(out["valuation_date"]
+            .as_str()
+            .map(|date| date.len() == 10)
+            .unwrap_or(false));
+
+        let wacc = calculate(
+            "business-valuation-wacc",
+            json!({"market_cap": "6000000", "total_debt": "2000000",
+                   "cost_of_equity": 0.12, "cost_of_debt": 0.08, "tax_rate": 0.25}),
+        );
+        assert_eq!(wacc["equity_weight"], json!(0.75));
+
+        let capm = calculate(
+            "business-valuation-capm",
+            json!({"risk_free_rate": 0.05, "market_return": 0.12, "beta": 1.2}),
+        );
+        assert!(capm["cost_of_equity"].is_number());
+
+        let precedent = calculate(
+            "business-valuation-precedent-transaction",
+            json!({"transaction_price": "45000000", "target_ebitda": "5000000",
+                   "target_revenue": "30000000", "premium_paid": 0.25}),
+        );
+        assert_eq!(precedent["implied_ev_ebitda"], json!(9.0));
+
+        let book = calculate(
+            "business-valuation-book-value",
+            json!({"total_assets": "9000000", "intangible_assets": "1000000",
+                   "total_liabilities": "5000000", "preferred_equity": "500000",
+                   "minority_interests": "250000"}),
+        );
+        assert_eq!(book["tangible_book_value"], json!("3000000"));
     }
 
     #[test]

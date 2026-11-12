@@ -72,11 +72,12 @@ pub use time_value::{
     pv_annuity, simple_interest,
 };
 pub use valuation::{
-    book_value, calculate_capm, calculate_wacc, comparable_valuation, dcf_valuation,
-    dividend_discount, precedent_transaction, value_business, BookValueInput, BookValueOutput,
-    CapmInput, CapmOutput, CompanyFinancials, ComparableCompany, ComparableMultiples,
-    ComparableResult, DcfInputs, DcfResult, DdmResult, PrecedentInput, PrecedentOutput,
-    ValuationOutput, ValuationRequest, WaccInput, WaccOutput,
+    book_value, book_value_from_json, calculate_capm, calculate_wacc, capm_from_json,
+    comparable_valuation, dcf_valuation, dividend_discount, precedent_transaction,
+    precedent_transaction_from_json, value_business, value_business_from_json, wacc_from_json,
+    BookValueInput, BookValueOutput, CapmInput, CapmOutput, CompanyFinancials, ComparableCompany,
+    ComparableMultiples, ComparableResult, DcfInputs, DcfResult, DdmResult, PrecedentInput,
+    PrecedentOutput, ValuationOutput, ValuationRequest, WaccInput, WaccOutput,
 };
 
 /// `acquisition-financing-service /structure`.

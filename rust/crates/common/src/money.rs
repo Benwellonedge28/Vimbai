@@ -176,6 +176,27 @@ impl Money {
         Money((&self.0 / &other.0).with_scale_round(34, RoundingMode::HalfEven))
     }
 
+    /// Raise to a whole power, exactly.
+    ///
+    /// Used for compounding and discounting: `(1 + 0.1)` raised to the fifth year is the decimal
+    /// 1.61051, not a float's approximation of it, so a projected revenue keeps its cents however
+    /// many years the projection runs.
+    pub fn pow(&self, exponent: u32) -> Self {
+        let mut result = Money::from_i64(1);
+        let mut base = self.clone();
+        let mut power = exponent;
+        while power > 0 {
+            if power & 1 == 1 {
+                result = result.times(&base);
+            }
+            power >>= 1;
+            if power > 0 {
+                base = base.times(&base);
+            }
+        }
+        result
+    }
+
     /// Sum a collection exactly, without the accumulation error a float fold
     /// introduces on long ledgers.
     pub fn sum<'a, I: IntoIterator<Item = &'a Money>>(items: I) -> Self {

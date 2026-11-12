@@ -21,6 +21,7 @@ routes; they are listed here too, because the Python service is no longer the en
 - asset-turnover-service
 - balanced-scorecard-service
 - budgeted-cost-service
+- business-valuation-service
 - capital-expenditure-budget-service
 - cash-flow-statement-service
 - cash-optimization-service
@@ -167,7 +168,6 @@ deleted service was one of several front doors to the same arithmetic:
 **Arithmetic that exists and nothing can reach.** Not lost maths - written maths with no door. Each of
 these is a route or a seam function away, not a calculation away:
 
-- business-valuation-service - `capital_valuation::valuation`
 - deal-structuring-service - `capital_valuation::acquisition_financing`, `corporate_events`
 - financial-reporting-service - `ratios_statements::statements`
 - financial-statements-service - `ratios_statements::statements`
