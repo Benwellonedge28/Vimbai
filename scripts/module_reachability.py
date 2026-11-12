@@ -77,7 +77,7 @@ def _renames(directory: str, packages: dict[str, str]) -> dict[str, str]:
                 in_deps = section in ("dependencies", "dev-dependencies", "build-dependencies")
                 in_deps = in_deps or section.startswith("dependencies.")
                 continue
-            match = re.match(r'^([A-Za-z_][A-Za-z0-9_\-]*)\s*=', stripped)
+            match = re.match(r"^([A-Za-z_][A-Za-z0-9_\-]*)\s*=", stripped)
             if not (in_deps and match):
                 continue
             key = match.group(1)
@@ -87,9 +87,7 @@ def _renames(directory: str, packages: dict[str, str]) -> dict[str, str]:
                 continue
             target = re.search(r'path\s*=\s*"([^"]+)"', stripped)
             if target:
-                resolved = packages.get(
-                    os.path.normpath(os.path.join(directory, target.group(1))).replace(os.sep, "/")
-                )
+                resolved = packages.get(os.path.normpath(os.path.join(directory, target.group(1))).replace(os.sep, "/"))
                 if resolved:
                     aliases[key.replace("-", "_")] = resolved
                     continue
@@ -114,18 +112,14 @@ def build(root: str = "rust"):
 
     packages = {}
     for manifest in glob.glob(os.path.join(root, "**", "Cargo.toml"), recursive=True):
-        packages[os.path.dirname(manifest).replace(os.sep, "/")] = _package_at(
-            os.path.dirname(manifest)
-        )
+        packages[os.path.dirname(manifest).replace(os.sep, "/")] = _package_at(os.path.dirname(manifest))
     aliases = {path: _renames(_crate_dir(path), packages) for path in files}
     edges: dict[tuple[str, tuple[str, ...]], set] = collections.defaultdict(set)
     for path, node in nodes.items():
         with open(path, encoding="utf-8") as handle:
             source = handle.read()
         for alias, package in aliases[path].items():
-            for match in re.finditer(
-                rf"\b{re.escape(alias)}::([a-z_0-9]+(?:::[a-z_0-9]+)*)", source
-            ):
+            for match in re.finditer(rf"\b{re.escape(alias)}::([a-z_0-9]+(?:::[a-z_0-9]+)*)", source):
                 edges[node].add((package, tuple(match.group(1).split("::"))))
             # `use treasury::{cash_optimization, treasury_analytics};` - a brace group hides every
             # module behind it, and that is how the routed treasury maths is imported.

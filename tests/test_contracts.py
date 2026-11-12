@@ -423,6 +423,7 @@ def test_the_equity_filter_is_called_what_the_service_answers_to():
     assert 'query_param(query.as_deref(), "tx_type")' in routes, "the router no longer reads a tx_type query parameter"
     assert "fn transactions" in handler
 
+
 def test_the_asset_summary_promises_the_keys_the_handler_writes():
     """The register's summary is built inline, so the contract is read against that function."""
     document = load("assets.yaml")
@@ -430,8 +431,7 @@ def test_the_asset_summary_promises_the_keys_the_handler_writes():
     written = body_keys(SERVICES["assets.yaml"]["handler"], "fn summary")
     # the per-category buckets are written inside the summary, one level down from its own keys
     assert promised <= written, (
-        f"only in the contract: {sorted(promised - written)}; "
-        f"only in the handler: {sorted(written - promised)}"
+        f"only in the contract: {sorted(promised - written)}; " f"only in the handler: {sorted(written - promised)}"
     )
 
 

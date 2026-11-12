@@ -156,9 +156,7 @@ def _calculator_belongs_to(name: str, service: str) -> bool:
 def test_a_retired_capability_has_not_quietly_returned(service):
     """If one of these is routed or registered again, the list and this set both need updating."""
     routed = routed_services()
-    reached = service in routed or any(
-        _calculator_belongs_to(name, service) for name in calculator_names()
-    )
+    reached = service in routed or any(_calculator_belongs_to(name, service) for name in calculator_names())
     assert not reached, f"{service} is reachable again; move it out of RETIRED_WITHOUT_ENDPOINT"
 
 
