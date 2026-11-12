@@ -17,7 +17,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 bigdecimal = { version = "0.4", features = ["serde"] }
 vimbai_advisory = { path = "../crates/calculations/advisory" }
-vimbai_bridge = { path = "../crates/bridge" }
+vimbai_bridge = { path = "../crates/adapters/python-bridge" }
 vimbai_common = { path = "../crates/common" }
 vimbai_budgeting = { path = "../crates/calculations/budgeting" }
 vimbai_cost_accounting = { path = "../crates/calculations/cost_accounting" }

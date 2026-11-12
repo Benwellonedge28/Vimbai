@@ -330,7 +330,7 @@ class TestFamilyCommunityGroupService:
         assert contrib_resp.json()["amount"] == 50.0
 
 
-# TestOrgAuthorizationEngine moved to rust/crates/rbac: the service is now the
+# TestOrgAuthorizationEngine moved to rust/crates/platform/access-control/rbac: the service is now the
 # vimbai_rbac crate and its check contract is pinned in Rust parity tests.
 
 

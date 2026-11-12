@@ -36,7 +36,7 @@ jobs:
         with:
           # the workspace root, because every crate in it is a path dependency
           context: ./rust
-          file: ./rust/crates/api/Dockerfile
+          file: ./rust/apps/api-server/Dockerfile
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

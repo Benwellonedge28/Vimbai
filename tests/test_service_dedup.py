@@ -545,7 +545,7 @@ def test_ported_calculator_keeps_its_evidence(ported):
     # reference implementation is no longer the evidence. The recorded request/response captures
     # in rust/api/tests/parity are, and they are what the Rust port is tested against.
     assert not os.path.exists(os.path.join(_ROOT, ported)), f"{ported} was deleted on instruction"
-    captures = os.path.join(_ROOT, "rust", "crates", "api", "tests", "parity")
+    captures = os.path.join(_ROOT, "rust", "apps", "api-server", "tests", "parity")
     stem = ported[: -len("-service")]
     has_capture = any(f.startswith(stem) for f in os.listdir(captures))
     port_map = open(os.path.join(_ROOT, "rust", "CALCULATOR-PORT.md")).read()
@@ -600,7 +600,7 @@ def _gateway_routes():
 def test_profit_service_paths_are_answered_by_rust():
     """De-registered, so every path it used to answer has to exist in the registry."""
     assert "profit-service" not in _gateway_routes()
-    registry = open(os.path.join(_ROOT, "rust", "crates", "api", "src", "lib.rs")).read()
+    registry = open(os.path.join(_ROOT, "rust", "apps", "api-server", "src", "lib.rs")).read()
     for path in (
         "calculate",
         "from-cash-flow",

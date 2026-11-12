@@ -225,7 +225,7 @@ class TestDashboardService:
         assert any(w["title"] == "Current Ratio" for w in data["widgets"])
 
 
-# TestEnterpriseSSOService moved to rust/crates/sso: the service is now the
+# TestEnterpriseSSOService moved to rust/crates/platform/identity: the service is now the
 # vimbai_sso crate and its 401/400 contract is pinned in Rust parity tests.
 
 

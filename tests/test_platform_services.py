@@ -119,7 +119,7 @@ def zbb_client():
     return client
 
 
-# TestPolicyEngine moved to rust/crates/abac: the service is now the vimbai_abac
+# TestPolicyEngine moved to rust/crates/platform/access-control/abac: the service is now the vimbai_abac
 # crate, with the decision shape and deny-overrides pinned in Rust tests.
 
 

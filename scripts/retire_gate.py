@@ -32,7 +32,7 @@ SEAM_TESTS = tuple(
     )
 )
 TRACKER = ROOT / "rust" / "CALCULATOR-PORT.md"
-API_REGISTRY = ROOT / "rust" / "crates" / "api" / "src" / "lib.rs"
+API_REGISTRY = ROOT / "rust" / "apps" / "api-server" / "src" / "lib.rs"
 
 
 def extension_functions():
