@@ -28,7 +28,7 @@ services:
   port: 8023
   gateway_path: /bonus-shares
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -159,7 +159,7 @@ services:
   port: 8090
   gateway_path: /ordinary-shares
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -173,7 +173,7 @@ services:
   port: 8102
   gateway_path: /preference-shares
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -210,7 +210,7 @@ services:
   port: 8116
   gateway_path: /right-issues
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -243,7 +243,7 @@ services:
   port: 8126
   gateway_path: /share-redemption
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health

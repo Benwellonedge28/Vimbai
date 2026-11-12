@@ -1636,6 +1636,120 @@ async fn crr_summary(
     };
     answer(equity::crr_summary(graph.as_ref(), &scope, &company_id))
 }
+async fn initiate_redemption(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::initiate_redemption(graph.as_ref(), &scope, &body))
+}
+
+async fn record_fresh_issue(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(redemption_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::record_fresh_issue(
+        graph.as_ref(),
+        &scope,
+        &redemption_id,
+        &body,
+    ))
+}
+
+async fn complete_redemption(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(redemption_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::complete_redemption(
+        graph.as_ref(),
+        &scope,
+        &redemption_id,
+        &body,
+    ))
+}
+
+async fn list_share_redemptions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = company_filter(query.as_deref());
+    let status = query_param(query.as_deref(), "status");
+    answer(equity::list_share_redemptions(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+        status.as_deref(),
+    ))
+}
+
+async fn share_redemption_detail(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(redemption_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::redemption_detail(
+        graph.as_ref(),
+        &scope,
+        &redemption_id,
+    ))
+}
+
+async fn crr_requirements(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let status = query_param(query.as_deref(), "status");
+    answer(equity::list_crr_requirements(
+        graph.as_ref(),
+        &scope,
+        status.as_deref(),
+    ))
+}
 
 async fn create_reserve(
     State(graph): GraphState,
@@ -3064,6 +3178,48 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route(
+            "/share-redemption/redemptions/initiate",
+            post(initiate_redemption),
+        )
+        .route(
+            "/share-redemption/redemptions/:redemption_id/fresh-issue",
+            post(record_fresh_issue),
+        )
+        .route(
+            "/share-redemption/redemptions/:redemption_id/complete",
+            post(complete_redemption),
+        )
+        .route("/share-redemption/redemptions", get(list_share_redemptions))
+        .route(
+            "/share-redemption/redemptions/:redemption_id",
+            get(share_redemption_detail),
+        )
+        .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route(
+            "/records/share-redemption/redemptions/initiate",
+            post(initiate_redemption),
+        )
+        .route(
+            "/records/share-redemption/redemptions/:redemption_id/fresh-issue",
+            post(record_fresh_issue),
+        )
+        .route(
+            "/records/share-redemption/redemptions/:redemption_id/complete",
+            post(complete_redemption),
+        )
+        .route(
+            "/records/share-redemption/redemptions",
+            get(list_share_redemptions),
+        )
+        .route(
+            "/records/share-redemption/redemptions/:redemption_id",
+            get(share_redemption_detail),
+        )
+        .route(
+            "/records/share-redemption/crr-requirements",
+            get(crr_requirements),
+        )
         .route("/share-premium/entries/record", post(record_share_premium))
         .route("/share-premium/entries", get(share_premium_entries))
         .route(

@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 29
-still Python             109
+already on a Rust engine 34
+still Python             104
 owner domains            28
 ```
 
@@ -217,7 +217,7 @@ Lands in `rust/crates/domains/equity`.
 ```
 service                                         port  routes  records  engine
 authorized-share-capital-service                8017       8      yes  rust
-bonus-shares-service                            8023       4      yes  python
+bonus-shares-service                            8023       4      yes  rust
 capital-reconstruction-service                  8026       9      yes  python
 capital-redemption-reserve-service              8027       9      yes  rust
 debentures-service                              8041      10      yes  python
@@ -225,12 +225,12 @@ equity-changes-service                          8049       5      yes  rust
 general-reserve-service                         8061       8      yes  rust
 initial-investment-service                      8067       7      yes  python
 issued-share-capital-service                    8071       7      yes  python
-ordinary-shares-service                         8090       5      yes  python
-preference-shares-service                       8102       9      yes  python
+ordinary-shares-service                         8090       5      yes  rust
+preference-shares-service                       8102       9      yes  rust
 retained-profits-service                        8113      10      yes  rust
-right-issues-service                            8116       7      yes  python
+right-issues-service                            8116       7      yes  rust
 share-premium-service                           8125       8      yes  rust
-share-redemption-service                        8126       8      yes  python
+share-redemption-service                        8126       8      yes  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

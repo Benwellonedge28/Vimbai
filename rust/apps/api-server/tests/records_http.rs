@@ -33,6 +33,15 @@ impl Scripted {
         })
     }
 
+    fn statement(&self, index: usize) -> (String, Value) {
+        self.seen
+            .lock()
+            .unwrap()
+            .get(index)
+            .cloned()
+            .unwrap_or_else(|| (String::new(), Value::Null))
+    }
+
     fn last(&self) -> (String, Value) {
         self.seen
             .lock()
@@ -1067,4 +1076,61 @@ async fn the_premium_and_reserve_routes_mirror_under_records() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn a_redemption_out_of_proceeds_answers_on_its_published_path() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "red-1", "status": "awaiting_crr"})],
+        vec![json!({"id": "req-1"})],
+    ]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/share-redemption/redemptions/initiate?company_id=co-1&share_class=ordinary&shares_redeemed=500&nominal_value=1&redemption_price=1.40&redemption_method=proceeds&redemption_date=2026-03-01&authority_date=2026-02-01",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, requirement) = seen.statement(1);
+    assert_eq!(
+        requirement["props"]["minimum_crr_required"],
+        json!("500.000000")
+    );
+}
+
+#[tokio::test]
+async fn completing_a_redemption_reports_the_reserve_it_created() {
+    let graph = Scripted::queue(vec![
+        vec![json!({
+            "id": "red-1", "shares_redeemed": 500, "nominal_value": "1",
+            "total_redemption_value": "700", "redemption_method": "proceeds",
+            "share_class": "ordinary", "redemption_date": "2026-03-01"
+        })],
+        vec![json!({"id": "red-1", "status": "completed"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/share-redemption/redemptions/red-1/complete",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["crr_created"], json!("500.000000"));
+}
+
+#[tokio::test]
+async fn the_share_redemption_routes_mirror_under_records() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/records/share-redemption/redemptions?status=awaiting_crr",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["redemptions"], json!([]));
 }

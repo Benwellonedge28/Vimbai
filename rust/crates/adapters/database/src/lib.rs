@@ -149,6 +149,13 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records share-redemption-service owns.
+pub const SHARE_REDEMPTION: RecordKind =
+    RecordKind::new("ShareRedemptionNode", "OWNS_SHARE_REDEMPTION");
+pub const FRESH_ISSUE: RecordKind = RecordKind::new("FreshIssueNode", "OWNS_FRESH_ISSUE");
+pub const CRR_REQUIREMENT: RecordKind =
+    RecordKind::new("CRRRequirementNode", "OWNS_CRR_REQUIREMENT");
+
 /// The records capital-redemption-reserve-service owns.
 pub const REDEMPTION_TRANSACTION: RecordKind =
     RecordKind::new("RedemptionTransaction", "OWNS_REDEMPTION");

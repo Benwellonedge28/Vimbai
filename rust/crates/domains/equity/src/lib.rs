@@ -4,6 +4,8 @@
 //! * `equity-changes-service`
 //! * `authorized-share-capital-service` (records on the store: share classes, their issuances,
 //!   buybacks and the used-capacity summary)
+//! * `share-redemption-service` (records on the store: redemptions through initiation, a fresh issue
+//!   that funds one, and completion, with the reserve requirement between them)
 //! * `share-premium-service` (records on the store: premium entries, utilizations and signed
 //!   adjustments, with the balance the three of them share)
 //! * `capital-redemption-reserve-service` (records on the store: redemptions that create the reserve,
@@ -30,6 +32,7 @@ pub mod retained_profits;
 pub mod share_classes;
 pub mod share_events;
 pub mod share_premium;
+pub mod share_redemption;
 pub mod shares;
 pub use share_classes::{
     buyback as buyback_shares, create_class as create_share_class, get_class as get_share_class,
@@ -61,6 +64,11 @@ pub use share_premium::{
     list_entries as list_premium_entries, list_utilizations as list_premium_utilizations,
     premium_on_issue, premium_summary, record_share_premium, utilization_destination,
     utilize_premium,
+};
+pub use share_redemption::{
+    capital_account as redemption_capital_account, complete_redemption, initiate_redemption,
+    list_crr_requirements, list_redemptions as list_share_redemptions, record_fresh_issue,
+    redemption_detail, reserve_created, total_value as redemption_total_value,
 };
 pub use shares::{
     create_preference_class, declare_ordinary_dividend, declare_preference_dividend,

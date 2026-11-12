@@ -12,6 +12,10 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- share-redemption-service -> equity crate, records on the store: a redemption initiated, funded by a
+  fresh issue, then completed, with the reserve requirement in between. Redeeming out of proceeds sets
+  up a requirement for the nominal value and starts `awaiting_crr`; a fresh issue funds it and creates
+  no reserve; every other method creates the nominal value. Exact throughout.
 - share-premium-service -> equity crate, records on the store: premium entries computing (price less
   nominal) times shares, utilizations on four kinds, signed adjustments, and a balance of received less
   used plus adjusted. An issue below nominal records a negative premium rather than refusing.
@@ -25,13 +29,16 @@ routes; they are listed here too, because the Python service is no longer the en
 - retained-profits-service -> equity crate, records on the store: appropriations with their
   carry-forward chain (total appropriated, carried forward, closing), interim dividends and prior-year
   adjustments; the summary adds carried forward to the adjustments for one company only.
-- bonus-shares-service and right-issues-service -> equity crate, records on the store: bonus issues
-  and the reserve each capitalises, rights offers with their acceptances and renunciations. An issue
-  completes when every entitlement is covered, counting one unit per renunciation as the service did.
-- ordinary-shares-service and preference-shares-service -> equity crate, records on the store:
-  dividends declared and paid, preference classes, their issuances and redemptions. The declared
-  total is per-share over the shares in issue, plus arrears for preference stock; journal entries are
-  built and returned, not posted.
+- bonus-shares-service -> equity crate, records on the store: bonus issues and the reserve each
+  capitalises, with the released amount kept as the total capitalised.
+- right-issues-service -> equity crate, records on the store: rights offers with their acceptances and
+  renunciations. An issue completes when every entitlement is covered, counting one unit per
+  renunciation as the service did.
+- ordinary-shares-service -> equity crate, records on the store: dividends declared and paid against
+  the shares in issue, as one implementation shared with the preference path.
+- preference-shares-service -> equity crate, records on the store: preference classes, their issuances
+  and redemptions, dividends with arrears accumulated on the declared total. Journal entries are built
+  and returned, not posted.
 - authorized-share-capital-service -> equity crate, records on the store: share classes, their
   issuances and buybacks, and the used-capacity summary. The ceiling is enforced on issue and the
   issued count on buyback.
