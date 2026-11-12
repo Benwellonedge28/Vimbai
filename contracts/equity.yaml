@@ -1,0 +1,319 @@
+openapi: 3.1.0
+info:
+  title: Vimbai equity changes
+  version: "1.0.0"
+  summary: What moved shareholders' equity, and the eight figures that reconcile it.
+  description: |
+    The fifth contract, from the equity crate. It is the first one where a stored record and a computed
+    document are the same shape: a statement is built from transactions the caller sends, stored, and
+    read back, and the transactions inside it are published exactly as they were recorded.
+
+    Two things a client would otherwise get wrong, both now stated here.
+
+    An amount can be derived. A transaction may carry `amount`, or it may carry `shares` and
+    `price_per_share`, in which case the service multiplies them and stores the result. Sending an
+    amount of zero with shares and a price is treated as "derive it", not as "a transaction worth
+    nothing".
+
+    The filter is called `tx_type`. Not `transaction_type`, which is the name of the field it filters
+    on. The service has always answered to `tx_type` and the contract keeps it rather than quietly
+    renaming a parameter callers already use.
+servers:
+  - url: https://api.vimbai.example
+security:
+  - BookScope: []
+paths:
+  /equity-changes/transactions:
+    post:
+      operationId: recordEquityTransaction
+      summary: Record one equity transaction.
+      description: |
+        `company_id` and `transaction_type` are required. The amount is either stated or derived from
+        `shares` and `price_per_share`.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionRequest"
+      responses:
+        "200":
+          description: The transaction as recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EquityTransaction"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /equity-changes/transactions/{company_id}:
+    get:
+      operationId: listEquityTransactions
+      summary: The caller's transactions for one company, optionally filtered by type.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: company_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tx_type
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Only transactions of this type. The parameter is `tx_type`; `transaction_type` filters
+            nothing.
+      responses:
+        "200":
+          description: The transactions and their count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /equity-changes/statement:
+    post:
+      operationId: generateEquityStatement
+      summary: Roll transactions up by type, derive the ending equity, and store the statement.
+      description: |
+        `company_id` and `period` are required. Each transaction is counted once, under its type:
+        issuances and retained earnings add, buybacks and dividends subtract, and a split or transfer
+        falls under `other_changes`. The ending equity is beginning equity plus those five movements.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatementRequest"
+      responses:
+        "200":
+          description: The statement as computed and stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EquityStatement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /equity-changes/statements/{company_id}:
+    get:
+      operationId: listEquityStatements
+      summary: Every statement for the company, with the count.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: company_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The statements.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatementList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+components:
+  securitySchemes:
+    BookScope:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: |
+        The caller. `X-Book-Id` is required alongside it and is a parameter on every operation,
+        because the platform cannot express two required api key headers as one scheme.
+  parameters:
+    BookId:
+      name: X-Book-Id
+      in: header
+      required: true
+      schema:
+        type: string
+  schemas:
+    Money:
+      type: string
+      pattern: "^-?[0-9]+(\\.[0-9]+)?$"
+      description: |
+        An exact decimal amount, as a string, at the six decimal places the store keeps.
+    TransactionRequest:
+      type: object
+      required:
+        - company_id
+        - transaction_type
+      properties:
+        company_id:
+          type: string
+        transaction_type:
+          type: string
+          description: |
+            One of `issuance`, `buyback`, `dividend`, `retained_earnings`, `split` or `transfer`. A type
+            outside that list is recorded but does not move any total on a statement, so a typo is a
+            silent zero rather than an error.
+        shareholder:
+          type: string
+        shares:
+          type: integer
+        price_per_share:
+          $ref: "#/components/schemas/Money"
+        amount:
+          $ref: "#/components/schemas/Money"
+          description: |
+            What the transaction is worth. When it is absent or zero and `shares` is positive, the
+            service computes shares times price instead.
+        description:
+          type: string
+        date:
+          type: string
+        created_at:
+          type: string
+    EquityTransaction:
+      type: object
+      required:
+        - id
+        - company_id
+        - transaction_type
+        - shareholder
+        - shares
+        - price_per_share
+        - amount
+        - description
+        - date
+        - created_at
+      properties:
+        id:
+          type: [string, "null"]
+        company_id:
+          type: [string, "null"]
+        transaction_type:
+          type: [string, "null"]
+        shareholder:
+          type: string
+        shares:
+          type: integer
+        price_per_share:
+          $ref: "#/components/schemas/Money"
+        amount:
+          $ref: "#/components/schemas/Money"
+        description:
+          type: string
+        date:
+          type: [string, "null"]
+        created_at:
+          type: [string, "null"]
+    TransactionList:
+      type: object
+      required:
+        - company_id
+        - transactions
+        - total
+      properties:
+        company_id:
+          type: string
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/EquityTransaction"
+        total:
+          type: integer
+    StatementRequest:
+      type: object
+      required:
+        - company_id
+        - period
+      properties:
+        company_id:
+          type: string
+        period:
+          type: string
+        beginning_equity:
+          $ref: "#/components/schemas/Money"
+          description: Defaults to zero.
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransactionRequest"
+        created_at:
+          type: string
+    EquityStatement:
+      type: object
+      required:
+        - id
+        - company_id
+        - period
+        - beginning_equity
+        - share_issuances
+        - share_buybacks
+        - dividends_paid
+        - retained_earnings_change
+        - other_changes
+        - ending_equity
+        - transactions
+        - created_at
+      properties:
+        id:
+          type: [string, "null"]
+        company_id:
+          type: string
+        period:
+          type: string
+        beginning_equity:
+          $ref: "#/components/schemas/Money"
+        share_issuances:
+          $ref: "#/components/schemas/Money"
+        share_buybacks:
+          $ref: "#/components/schemas/Money"
+        dividends_paid:
+          $ref: "#/components/schemas/Money"
+        retained_earnings_change:
+          $ref: "#/components/schemas/Money"
+        other_changes:
+          $ref: "#/components/schemas/Money"
+        ending_equity:
+          $ref: "#/components/schemas/Money"
+          description: |
+            Beginning equity, plus issuances and retained earnings and other changes, less buybacks
+            and dividends. Derived, never accepted from the caller.
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/EquityTransaction"
+        created_at:
+          type: [string, "null"]
+    StatementList:
+      type: object
+      required:
+        - company_id
+        - statements
+        - total
+      properties:
+        company_id:
+          type: string
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/EquityStatement"
+        total:
+          type: integer
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+  responses:
+    BadRequest:
+      description: |
+        Refused: a missing `company_id`, `transaction_type` or `period`, an amount that is not a
+        decimal, or a missing header.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

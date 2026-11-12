@@ -39,6 +39,10 @@ SERVICES = {
         "prefix": "/cash-flow-statement",
         "handler": os.path.join(ROOT, "rust", "crates", "domains", "accounting", "src", "cash_flow.rs"),
     },
+    "equity.yaml": {
+        "prefix": "/equity-changes",
+        "handler": os.path.join(ROOT, "rust", "crates", "domains", "equity", "src", "equity_changes.rs"),
+    },
     "treasury.yaml": {
         "prefix": "/cash-optimization",
         "handler": os.path.join(ROOT, "rust", "crates", "domains", "treasury", "src", "cash_optimization.rs"),
@@ -378,3 +382,39 @@ def test_a_statement_states_its_totals_and_promises_them_all():
     assert derived <= required(
         document, statement
     ), f"the Statement schema stopped requiring: {sorted(derived - required(document, statement))}"
+
+
+@pytest.mark.parametrize(
+    "schema_name,function",
+    [
+        ("EquityTransaction", "fn transaction_of"),
+        ("TransactionList", "fn transactions"),
+        ("EquityStatement", "fn generate_statement"),
+        ("StatementList", "fn statements"),
+    ],
+)
+def test_each_equity_answer_matches_its_written_keys(schema_name, function):
+    document = load("equity.yaml")
+    promised = set(properties(document, document["components"]["schemas"][schema_name]))
+    written = body_keys(SERVICES["equity.yaml"]["handler"], function)
+    assert (
+        promised <= written
+    ), f"{schema_name} promises fields {sorted(promised - written)} that {function} never writes"
+
+
+def test_the_equity_filter_is_called_what_the_service_answers_to():
+    """The query parameter is `tx_type`, not `transaction_type`; a contract that renamed it would be a
+    client sending a filter that silently filters nothing."""
+    document = load("equity.yaml")
+    parameters = document["paths"]["/equity-changes/transactions/{company_id}"]["get"]["parameters"]
+    names = {parameter.get("name") for parameter in parameters}
+    assert "tx_type" in names
+    assert "transaction_type" not in names
+
+    with open(SERVICES["equity.yaml"]["handler"], encoding="utf-8") as handle:
+        handler = handle.read()
+    router = os.path.join(ROOT, "rust", "apps", "api-server", "src", "records.rs")
+    with open(router, encoding="utf-8") as handle:
+        routes = handle.read()
+    assert 'query_param(query.as_deref(), "tx_type")' in routes, "the router no longer reads a tx_type query parameter"
+    assert "fn transactions" in handler

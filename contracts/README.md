@@ -14,8 +14,10 @@ scope. `job-costing.yaml` covers a different shape - path parameters, a query fi
 that moves when a cost is charged, and an aggregate that sums several jobs. `treasury.yaml` covers cash
 optimisation, the first contract from a second crate, where an operation replaces a stored set rather
 than adding to it. `accounting.yaml` covers the cash flow statement: a ledger record, created and read
-but never edited, whose totals the service derives rather than accepts. All four were written from
-their Rust handlers, not from the route table.
+but never edited, whose totals the service derives rather than accepts. `equity.yaml` covers equity
+changes, where a transaction may state its amount or leave it to be derived from shares and price,
+and where the filter parameter is called `tx_type`. All five were written from their Rust handlers,
+not from the route table.
 
 The cash flow contract caught the wire being lossy. Reading how an amount reaches a client showed
 `wire()` publishing a JSON number where `rust/MONEY.md` promised a string, so every figure was
@@ -68,8 +70,9 @@ rate = client.calculate_absorption_rate(
 
 ## What comes next
 
-1. A fifth contract from a fifth crate: `equity` (equity changes) or `budgeting` (appropriation
-   control).
+1. Every routed service backed by the accounting, costing, equity and treasury crates now has a
+   contract. The next five services to gain one will be the ones ported next, so the contract and the
+   port ship together rather than the contract trailing the code.
 2. Then the sibling services that share a shape with a contract already written, which is where
    starting from an existing contract begins to pay off.
 3. Events in `contracts/events/`, once something publishes them.
