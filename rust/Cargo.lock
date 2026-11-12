@@ -1953,6 +1953,7 @@ dependencies = [
  "vimbai_capital_valuation",
  "vimbai_common",
  "vimbai_cost_accounting",
+ "vimbai_equity_payroll",
  "vimbai_group_accounting",
  "vimbai_ifrs",
  "vimbai_market_risk",

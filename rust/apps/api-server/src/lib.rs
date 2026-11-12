@@ -35,6 +35,10 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
     map.insert("divestiture", group_accounting::divestiture::evaluate);
     map.insert("eps", ratios_statements::eps_from_json);
     map.insert(
+        "payroll-accounting-process",
+        equity_payroll::process_payroll_from_json,
+    );
+    map.insert(
         "lease-management-calculate",
         ifrs::lease_calculate_from_json,
     );
@@ -963,6 +967,45 @@ mod typed_adapters {
         );
         assert!(out.is_object());
         assert_eq!(out["margin_of_safety_units"], json!(200.0));
+    }
+
+    #[test]
+    fn payroll_accounting_processes_a_payslip_run_exactly() {
+        let out = calculate(
+            "payroll-accounting-process",
+            json!({
+                "company_id": "c-1",
+                "period": "2026-11",
+                "employees": [
+                    {"employee_id": "e-1", "employee_name": "Sam", "gross_salary": "10000.00",
+                     "medical_aid": "300.00", "other_deductions": "200.00"},
+                    {"employee_id": "e-2", "employee_name": "Ada", "gross_salary": "6000.00",
+                     "paye_rate": 0.2, "nassa_rate": 0.0, "pension_rate": 0.0}
+                ]
+            }),
+        );
+        assert_eq!(out["employee_count"], json!(2));
+        assert_eq!(out["total_gross"], json!("16000.00"));
+        assert_eq!(out["total_paye"], json!("3700.00"));
+        // a rate of zero is a rate, not a missing field
+        assert_eq!(out["total_nassa"], json!("300.00"));
+        assert_eq!(out["total_cost_to_company"], json!("17600.00"));
+        assert_eq!(out["journal_entries"].as_array().map(Vec::len), Some(8));
+    }
+
+    #[test]
+    fn payroll_accounting_refuses_an_amount_it_cannot_read() {
+        let registry = calculators();
+        let entry = registry
+            .get("payroll-accounting-process")
+            .expect("registered");
+        let error = entry(&json!({
+            "company_id": "c-1",
+            "period": "2026-11",
+            "employees": [{"gross_salary": "not a number"}]
+        }))
+        .expect_err("an unreadable amount is refused");
+        assert!(error.contains("invalid request"), "{error}");
     }
 
     #[test]

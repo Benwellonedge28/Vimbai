@@ -176,7 +176,6 @@ these is a route or a seam function away, not a calculation away:
 - ifrs-9-financial-instruments-service - `ifrs::instruments`
 - kpi-tracking-service - `reporting::analysis`
 - merger-valuation-service - `capital_valuation::merger`
-- payroll-accounting-service - `equity_payroll::payroll_accounting`
 - post-merger-service - `capital_valuation::corporate_events`
 - profit-loss-account-service - `ratios_statements::profit_loss`
 - scenario-budget-service - `budgeting::scenario`

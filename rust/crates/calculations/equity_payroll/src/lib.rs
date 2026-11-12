@@ -29,7 +29,8 @@ pub use payroll::{
     payroll_run, payroll_taxes, EmployeeInput, EmployeePay, PayrollRunOutput, PayrollTaxOutput,
 };
 pub use payroll_accounting::{
-    process_payroll, EmployeeSalary, JournalLine, PayrollAccountingOutput,
+    process_payroll, process_payroll_from_json, EmployeeSalary, JournalLine,
+    PayrollAccountingOutput,
 };
 pub use share_registry::{
     buyback_shares, capital_summary, issue_shares, issue_with_journal, new_share_class,

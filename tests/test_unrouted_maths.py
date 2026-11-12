@@ -29,7 +29,6 @@ UNROUTED = {
     "ifrs-9-financial-instruments-service": "ifrs::instruments",
     "kpi-tracking-service": "reporting::analysis",
     "merger-valuation-service": "capital_valuation::merger",
-    "payroll-accounting-service": "equity_payroll::payroll_accounting",
     "post-merger-service": "capital_valuation::corporate_events",
     "profit-loss-account-service": "ratios_statements::profit_loss",
     "scenario-budget-service": "budgeting::scenario",
@@ -63,6 +62,7 @@ def test_the_checker_still_recognises_wired_maths():
         "tax::corporate",
         "treasury_fx::derivatives",
         "cost_accounting::labour_variance",
+        "equity_payroll::payroll_accounting",
         "ratios_statements::comparative",
         "service_treasury::cash_optimization",
     ):

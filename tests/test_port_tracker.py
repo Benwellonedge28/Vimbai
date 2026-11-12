@@ -70,7 +70,6 @@ RETIRED_WITHOUT_ENDPOINT = {
     "material-price-variance-service",
     "material-usage-variance-service",
     "merger-valuation-service",
-    "payroll-accounting-service",
     "payroll-service",
     "post-merger-service",
     "profit-loss-account-service",
@@ -153,12 +152,27 @@ def test_the_tracker_names_services_that_exist_somewhere():
     )
 
 
+def _calculator_belongs_to(name: str, service: str) -> bool:
+    """Whether a calculator name answers a particular service.
+
+    A prefix is not enough. `payroll-accounting-process` starts with `payroll`, but it answers
+    payroll-accounting-service; payroll-service is `payroll-run` and `payroll-taxes`. Matching the
+    longest service stem that the calculator name begins with is what tells the two apart.
+    """
+    stems = [other[: -len("-service")] for other in tracked_services() if other.endswith("-service")]
+    matching = [stem for stem in stems if name == stem or name.startswith(stem + "-")]
+    if not matching:
+        return False
+    return max(matching, key=len) == service[: -len("-service")]
+
+
 @pytest.mark.parametrize("service", sorted(RETIRED_WITHOUT_ENDPOINT))
 def test_a_retired_capability_has_not_quietly_returned(service):
     """If one of these is routed or registered again, the list and this set both need updating."""
     routed = routed_services()
-    stem = service[: -len("-service")]
-    reached = service in routed or any(name.startswith(stem) for name in calculator_names())
+    reached = service in routed or any(
+        _calculator_belongs_to(name, service) for name in calculator_names()
+    )
     assert not reached, f"{service} is reachable again; move it out of RETIRED_WITHOUT_ENDPOINT"
 
 
