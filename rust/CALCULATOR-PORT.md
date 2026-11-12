@@ -12,6 +12,8 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- absorption-costing-service
+- job-costing-service
 - activity-based-costing-service
 - actual-cost-service
 - amortization-service

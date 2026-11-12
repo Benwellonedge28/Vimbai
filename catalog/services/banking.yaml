@@ -81,7 +81,7 @@ services:
   port: 8386
   gateway_path: /banking-integration
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -98,7 +98,7 @@ services:
   port: 8092
   gateway_path: /currency
   auth_required: true
-  engine: rust
+  engine: python
   records: true
   endpoints:
   - GET /

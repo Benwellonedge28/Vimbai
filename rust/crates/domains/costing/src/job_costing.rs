@@ -11,8 +11,8 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 
-use crate::amounts::{amount, stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, JOB, JOB_COST_ENTRY};
+use vimbai_store::amounts::{amount, stored_amount, wire};
+use vimbai_store::{BookScope, Graph, Records, StoreError, JOB, JOB_COST_ENTRY};
 
 fn company_jobs<G: Graph + ?Sized>(
     graph: &G,
@@ -176,7 +176,7 @@ pub fn profitability<G: Graph + ?Sized>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fake::FakeGraph;
+    use vimbai_store::fake::FakeGraph;
 
     fn scope() -> BookScope {
         BookScope::new("user-1", "book-1")

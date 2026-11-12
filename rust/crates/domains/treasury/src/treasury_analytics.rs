@@ -1,6 +1,6 @@
 //! treasury-analytics-service's snapshots, on the store.
 //!
-//! The KPI maths is not here: it already lives in `treasury_fx::analytics`, held to the Python
+//! The KPI maths is not here: it already lives in `vimbai_treasury_fx::analytics`, held to the Python
 //! answers by the seam tests. What this module adds is the record the Python service kept around
 //! a run, so `/kpi/{company_id}` can answer without recalculating: the analysis is stored per
 //! company, latest wins, and only the caller's Book can read it back.
@@ -13,17 +13,17 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 
-use crate::amounts::{amount_or_zero, stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, TREASURY_SNAPSHOT};
+use vimbai_store::amounts::{amount_or_zero, stored_amount, wire};
+use vimbai_store::{BookScope, Graph, Records, StoreError, TREASURY_SNAPSHOT};
 
 fn request_of(
     payload: &Value,
-) -> Result<treasury_fx::analytics::TreasuryAnalyticsRequest, StoreError> {
+) -> Result<vimbai_treasury_fx::analytics::TreasuryAnalyticsRequest, StoreError> {
     let company_id = payload
         .get("company_id")
         .and_then(Value::as_str)
         .ok_or_else(|| StoreError::Invalid("company_id is required".into()))?;
-    Ok(treasury_fx::analytics::TreasuryAnalyticsRequest {
+    Ok(vimbai_treasury_fx::analytics::TreasuryAnalyticsRequest {
         company_id: company_id.to_owned(),
         total_cash: amount_or_zero(payload, "total_cash")?,
         monthly_inflow: amount_or_zero(payload, "monthly_inflow")?,
@@ -38,7 +38,7 @@ fn request_of(
 /// The shape the service answered with: ratios and KPI values as numbers.
 fn response_of(
     company_id: &str,
-    kpis: &[treasury_fx::analytics::TreasuryKpi],
+    kpis: &[vimbai_treasury_fx::analytics::TreasuryKpi],
     cash_adequacy_days: &Money,
     debt_service_ratio: &Money,
     investment_yield: &Money,
@@ -74,7 +74,7 @@ pub fn analyze<G: Graph + ?Sized>(
     payload: &Value,
 ) -> Result<Value, StoreError> {
     let request = request_of(payload)?;
-    let result = treasury_fx::analytics::analyze_treasury(&request);
+    let result = vimbai_treasury_fx::analytics::analyze_treasury(&request);
     let records = Records::new(graph, TREASURY_SNAPSHOT);
 
     // latest wins, matching the dict the Python service overwrote: clear this company's
@@ -159,7 +159,7 @@ pub fn kpi<G: Graph + ?Sized>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fake::FakeGraph;
+    use vimbai_store::fake::FakeGraph;
 
     fn scope() -> BookScope {
         BookScope::new("user-1", "book-1")

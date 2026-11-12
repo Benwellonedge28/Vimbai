@@ -42,7 +42,7 @@ services:
   port: 8173
   gateway_path: /rolling-forecast
   auth_required: true
-  engine: rust
+  engine: python
   records: true
   endpoints:
   - GET /

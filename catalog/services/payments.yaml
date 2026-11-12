@@ -11,7 +11,7 @@ services:
   port: 8098
   gateway_path: /payment-gateway
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /

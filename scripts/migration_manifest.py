@@ -205,9 +205,29 @@ def routed():
 
 
 def ported_names():
+    """The services the port tracker lists as wired to the Rust library.
+
+    Only the bullets under "Wired to the Rust library" count. The tracker also lists the services
+    whose maths the library already has but which are not served from it yet, and the ones still
+    waiting for maths. Searching the whole file for the name counted those as ported - and it
+    counted `currency-service` because `multi-currency-service` contains it, and
+    `risk-assessment-service` because `fraud-risk-assessment-service` does. The estate was being
+    reported as far more Rust than it is, which is the one thing this file exists to prevent.
+    """
+    listed = set()
+    section = ""
     with open(PORT_MAP, encoding="utf-8") as handle:
-        text = handle.read()
-    return {name for name in OWNERS if re.search(r"\b" + re.escape(name) + r"\b", text)}
+        for line in handle:
+            stripped = line.strip()
+            if stripped.startswith("## "):
+                section = stripped
+                continue
+            if "Wired to the Rust library" not in section:
+                continue
+            match = re.match(r"^-\s+([a-z0-9][a-z0-9._-]*)\s*(?:->.*)?$", stripped)
+            if match:
+                listed.add(match.group(1))
+    return {name for name in OWNERS if name in listed}
 
 
 def shape(name):

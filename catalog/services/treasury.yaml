@@ -57,7 +57,7 @@ services:
   port: 8192
   gateway_path: /foreign-exchange
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /

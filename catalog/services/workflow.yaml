@@ -11,7 +11,7 @@ services:
   port: 8046
   gateway_path: /distributed-workflow-orchestration
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /

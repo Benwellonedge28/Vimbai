@@ -11,7 +11,7 @@ services:
   port: 8146
   gateway_path: /biological-assets
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -27,7 +27,7 @@ services:
   port: 8045
   gateway_path: /disposal-account
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /health
@@ -111,7 +111,7 @@ services:
   port: 8145
   gateway_path: /investment-property
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -143,7 +143,7 @@ services:
   port: 8144
   gateway_path: /revaluation-model
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /

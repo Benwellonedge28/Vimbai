@@ -14,8 +14,8 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 
-use crate::amounts::{stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, CASH_ACCOUNT, CASH_SUGGESTION};
+use vimbai_store::amounts::{stored_amount, wire};
+use vimbai_store::{BookScope, Graph, Records, StoreError, CASH_ACCOUNT, CASH_SUGGESTION};
 
 /// One account, read from the graph.
 struct Account {

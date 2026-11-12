@@ -20,8 +20,8 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 
-use crate::amounts::{stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, APPROPRIATION, APPROPRIATION_TX};
+use vimbai_store::amounts::{stored_amount, wire};
+use vimbai_store::{BookScope, Graph, Records, StoreError, APPROPRIATION, APPROPRIATION_TX};
 
 /// The control transaction types the service accepts.
 const TX_TYPES: [&str; 4] = ["commit", "spend", "uncommit", "refund"];
@@ -245,7 +245,7 @@ mod tests {
         // The fake echoes back what the store wrote, so the row carries the derived figure.
         let mut stored = appropriation("a-1", "100000", "25000", "10000");
         stored["x"]["available_amount"] = json!("65000.000000");
-        let graph = crate::fake::FakeGraph::returning(vec![stored]);
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![stored]);
         let out = create(
             &graph,
             &scope(),
@@ -265,8 +265,9 @@ mod tests {
 
     #[test]
     fn spending_converts_a_commitment_into_actual_spend() {
-        let graph =
-            crate::fake::FakeGraph::returning(vec![appropriation("a-1", "100000", "0", "30000")]);
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![appropriation(
+            "a-1", "100000", "0", "30000",
+        )]);
         let out = transact(
             &graph,
             &scope(),
@@ -280,8 +281,9 @@ mod tests {
 
     #[test]
     fn exhausting_the_budget_marks_it_and_it_stays_marked() {
-        let graph =
-            crate::fake::FakeGraph::returning(vec![appropriation("a-1", "100000", "0", "100000")]);
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![appropriation(
+            "a-1", "100000", "0", "100000",
+        )]);
         let out = transact(
             &graph,
             &scope(),
@@ -294,8 +296,9 @@ mod tests {
 
     #[test]
     fn an_unknown_transaction_type_is_not_found() {
-        let graph =
-            crate::fake::FakeGraph::returning(vec![appropriation("a-1", "100000", "0", "0")]);
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![appropriation(
+            "a-1", "100000", "0", "0",
+        )]);
         assert_eq!(
             transact(
                 &graph,
@@ -309,7 +312,7 @@ mod tests {
 
     #[test]
     fn a_large_appropriation_stays_exact() {
-        let graph = crate::fake::FakeGraph::returning(vec![appropriation(
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![appropriation(
             "a-1",
             "12345678901234.56",
             "0.01",

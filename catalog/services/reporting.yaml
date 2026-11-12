@@ -11,7 +11,7 @@ services:
   port: 8365
   gateway_path: /dashboard
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -24,7 +24,7 @@ services:
   port: 8272
   gateway_path: /report-automation
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -43,7 +43,7 @@ services:
   port: 8273
   gateway_path: /report-distribution
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -60,7 +60,7 @@ services:
   port: 8361
   gateway_path: /reporting
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /

@@ -17,13 +17,39 @@ def test_every_routed_service_is_classified_once():
     assert rows, "no services surveyed - did the gateway registry move?"
 
 
+def _wired_section():
+    """The bullets the tracker lists as actually served from Rust, and nothing else."""
+    section = ""
+    wired = set()
+    for line in (ROOT / "rust" / "CALCULATOR-PORT.md").read_text().splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            section = stripped
+            continue
+        if "Wired to the Rust library" not in section:
+            continue
+        match = re.match(r"^-\s+([a-z0-9][a-z0-9._-]*)\s*(?:->.*)?$", stripped)
+        if match:
+            wired.add(match.group(1))
+    return wired
+
+
 def test_a_port_needs_named_evidence():
-    port_map = (ROOT / "rust" / "CALCULATOR-PORT.md").read_text()
+    """Both directions: wired means ported, and unwired means not ported.
+
+    The second half is the one that was missing. The tracker names roughly a hundred services it is
+    still waiting on - "the crate has the maths, the service is not wired", "needs the maths written
+    in Rust" - and matching a name anywhere in the file counted all of them as ported, along with
+    `currency-service` (inside `multi-currency-service`) and `risk-assessment-service` (inside
+    `fraud-risk-assessment-service`). The estate was reported as far more Rust than it is.
+    """
+    wired = _wired_section()
     for row in migration_backlog.survey():
-        if row["rust_engine"] == "none":
-            assert not re.search(r"\b" + re.escape(row["name"]) + r"\b", port_map), (
-                "%s is described as ported in CALCULATOR-PORT.md but is not counted as ported" % row["name"]
-            )
+        name = row["name"]
+        if row["rust_engine"] == "rust http":
+            assert name in wired, "%s is served from Rust but not listed as wired" % name
+        elif row["rust_engine"] == "none":
+            assert name not in wired, "%s is wired to the Rust library but counted as unported" % name
 
 
 def test_the_document_is_regenerated():

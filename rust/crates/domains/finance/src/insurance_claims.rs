@@ -12,8 +12,8 @@ use serde_json::{json, Value};
 
 use vimbai_common::Money;
 
-use crate::amounts::{amount, amount_or_zero, stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, INSURANCE_CLAIM};
+use vimbai_store::amounts::{amount, amount_or_zero, stored_amount, wire};
+use vimbai_store::{BookScope, Graph, Records, StoreError, INSURANCE_CLAIM};
 
 /// The claim as the caller sees it, whether it just arrived or came back from a list.
 fn claim_of(record: Value) -> Value {
@@ -137,7 +137,7 @@ pub fn process_claim<G: Graph + ?Sized>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fake::FakeGraph;
+    use vimbai_store::fake::FakeGraph;
 
     fn scope() -> BookScope {
         BookScope::new("user-1", "book-1")

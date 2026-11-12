@@ -11,7 +11,7 @@ services:
   port: 8010
   gateway_path: /absorption-costing
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -83,7 +83,7 @@ services:
   port: 8073
   gateway_path: /job-costing
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

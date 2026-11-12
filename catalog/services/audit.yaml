@@ -39,7 +39,7 @@ services:
   port: 8196
   gateway_path: /audit-sampling
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /

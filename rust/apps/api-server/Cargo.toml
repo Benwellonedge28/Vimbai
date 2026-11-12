@@ -11,6 +11,12 @@ advisory = { package = "vimbai_advisory", path = "../../crates/calculations/advi
 common = { package = "vimbai_common", path = "../../crates/common" }
 cost_accounting = { package = "vimbai_cost_accounting", path = "../../crates/calculations/cost_accounting" }
 store = { package = "vimbai_store", path = "../../crates/adapters/database" }
+accounting = { package = "vimbai_service_accounting", path = "../../crates/domains/accounting" }
+budgeting_services = { package = "vimbai_service_budgeting", path = "../../crates/domains/budgeting" }
+costing = { package = "vimbai_service_costing", path = "../../crates/domains/costing" }
+equity = { package = "vimbai_service_equity", path = "../../crates/domains/equity" }
+finance = { package = "vimbai_service_finance", path = "../../crates/domains/finance" }
+treasury = { package = "vimbai_service_treasury", path = "../../crates/domains/treasury" }
 performance_measures = { package = "vimbai_performance_measures", path = "../../crates/calculations/performance_measures" }
 treasury_fx = { package = "vimbai_treasury_fx", path = "../../crates/calculations/treasury_fx" }
 group_accounting = { package = "vimbai_group_accounting", path = "../../crates/calculations/group_accounting" }

@@ -87,7 +87,7 @@ services:
   port: 8006
   gateway_path: /encrypted-backup
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -183,7 +183,7 @@ services:
   port: 8003
   gateway_path: /privacy-admin-dashboard
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -202,7 +202,7 @@ services:
   port: 8141
   gateway_path: /websocket
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /

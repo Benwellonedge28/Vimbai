@@ -13,18 +13,29 @@ Rerun after registering, porting or deleting a service:
 
 import json
 import pathlib
+import importlib.util
 import re
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "gateway" / "go" / "config" / "services.json"
 PORT_MAP = ROOT / "rust" / "CALCULATOR-PORT.md"
+
+# The port tracker is read one way, in one place. The manifest's reader takes only the bullets under
+# "Wired to the Rust library", which is the list of services actually served from Rust; the other
+# sections list services that are not. Matching the name anywhere in the file counted both, and even
+# matched `currency-service` inside `multi-currency-service`.
+_spec = importlib.util.spec_from_file_location(
+    "migration_manifest", ROOT / "scripts" / "migration_manifest.py"
+)
+MANIFEST = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(MANIFEST)
 OUT = ROOT / "docs" / "RUST-MIGRATION-BACKLOG.md"
 PERSISTENCE = re.compile(r"neo4j|AsyncSession|crud\.|sqlite3")
 
 
 def survey():
     services = json.loads(REGISTRY.read_text())["services"]
-    port_map = PORT_MAP.read_text()
+    manifest_ported = MANIFEST.ported_names()
     rows = []
     for service in services:
         name = service["name"]
@@ -33,7 +44,7 @@ def survey():
             continue
         main = (directory / "main.py").read_text()
         endpoints = re.findall(r'@app\.(?:get|post|put|delete|patch)\("([^"]+)"', main)
-        ported = bool(re.search(r"\b" + re.escape(name) + r"\b", port_map))
+        ported = name in manifest_ported
         engine = "native seam" if "vimbai_native" in main else ("rust http" if ported else "none")
         rows.append(
             {

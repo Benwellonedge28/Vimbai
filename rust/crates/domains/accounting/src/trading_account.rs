@@ -14,8 +14,8 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 
-use crate::amounts::{stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, TRADING_ACCOUNT};
+use vimbai_store::amounts::{stored_amount, wire};
+use vimbai_store::{BookScope, Graph, Records, StoreError, TRADING_ACCOUNT};
 
 fn field(payload: &Value, key: &str) -> Result<Money, StoreError> {
     match payload.get(key) {
@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn an_unknown_account_is_not_found() {
-        let graph = crate::fake::FakeGraph::returning(vec![]);
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![]);
         assert_eq!(
             get(&graph, &BookScope::new("user-1", "book-1"), "missing").unwrap_err(),
             StoreError::NotFound

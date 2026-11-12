@@ -6,20 +6,20 @@ use serde_json::Value;
 
 use crate::{Graph, StoreError};
 
-pub(crate) struct FakeGraph {
+pub struct FakeGraph {
     rows: RefCell<Vec<Value>>,
     seen: RefCell<Vec<(String, Value)>>,
 }
 
 impl FakeGraph {
-    pub(crate) fn returning(rows: Vec<Value>) -> Self {
+    pub fn returning(rows: Vec<Value>) -> Self {
         Self {
             rows: RefCell::new(rows),
             seen: RefCell::new(Vec::new()),
         }
     }
 
-    pub(crate) fn last(&self) -> (String, Value) {
+    pub fn last(&self) -> (String, Value) {
         self.seen
             .borrow()
             .last()
@@ -27,7 +27,7 @@ impl FakeGraph {
             .expect("no statement ran")
     }
 
-    pub(crate) fn statements(&self) -> usize {
+    pub fn statements(&self) -> usize {
         self.seen.borrow().len()
     }
 }

@@ -9,8 +9,8 @@
 
 use serde_json::{json, Value};
 
-use crate::amounts::{amount, stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, PRODUCT_COST};
+use vimbai_store::amounts::{amount, stored_amount, wire};
+use vimbai_store::{BookScope, Graph, Records, StoreError, PRODUCT_COST};
 
 fn text_matches(record: &Value, key: &str, wanted: Option<&str>) -> bool {
     match wanted {
@@ -97,7 +97,7 @@ pub fn record_product_cost<G: Graph + ?Sized>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fake::FakeGraph;
+    use vimbai_store::fake::FakeGraph;
 
     fn scope() -> BookScope {
         BookScope::new("user-1", "book-1")

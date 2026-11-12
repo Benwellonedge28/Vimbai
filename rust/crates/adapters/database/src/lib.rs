@@ -1,9 +1,10 @@
-//! Record store for the services that still own graph records.
+//! The record store every service crate reads and writes through.
 //!
-//! The calculation crates compute and never touch the database. Absorption costing and job
-//! costing are different: they hold records, which is why they were the last two Python services
-//! standing. This crate gives them a Neo4j-backed home in Rust, matching the shape the Python
-//! layer already wrote so existing data stays readable:
+//! The calculation crates in `crates/calculations` compute and never touch a database. The service
+//! crates in `crates/domains` hold records, and they all do it through this one crate rather than
+//! each carrying its own copy of the connection and the scoping rules. This crate is the machinery
+//! only: the record shapes, the Book scoping and the Neo4j driver. No service's arithmetic lives
+//! here. The Python layer wrote the same shape, so existing data stays readable:
 //!
 //! ```text
 //! (u:User {id: $user_id})-[:OWNS_X]->(x:Label {..., user_id, book_id})
@@ -23,24 +24,12 @@
 
 use serde_json::{json, Map, Value};
 
-pub mod absorption;
-mod amounts;
-pub mod appropriation_control;
-pub mod basis_apportionment;
-pub mod cash_flow;
-pub mod cash_optimization;
-pub mod cost_calculations;
-pub mod cvp;
-pub mod equity_changes;
-#[cfg(test)]
-pub(crate) mod fake;
-pub mod insurance_claims;
-pub mod job_costing;
+pub mod amounts;
+/// A graph that records what it was asked and answers from a script, for the tests of the crates
+/// that sit on this one.
+#[doc(hidden)]
+pub mod fake;
 pub mod neo4j_client;
-pub mod overhead_absorption;
-pub mod price_reduction;
-pub mod trading_account;
-pub mod treasury_analytics;
 
 pub use neo4j_client::Neo4jGraph;
 

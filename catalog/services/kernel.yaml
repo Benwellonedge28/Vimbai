@@ -28,7 +28,7 @@ services:
   port: 8047
   gateway_path: /double-entry-principles
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /health

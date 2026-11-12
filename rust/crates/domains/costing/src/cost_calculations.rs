@@ -18,8 +18,8 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 
-use crate::amounts::{amount, stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, COST_CALCULATION};
+use vimbai_store::amounts::{amount, stored_amount, wire};
+use vimbai_store::{BookScope, Graph, Records, StoreError, COST_CALCULATION};
 
 /// One line of a submission: what the cost was called, what it came to, and which bucket it is in.
 struct Component {
@@ -285,7 +285,7 @@ mod tests {
     #[test]
     fn a_calculation_totals_its_components_exactly() {
         // three components whose float sum drifts: 0.1 + 0.2 is the classic case
-        let graph = crate::fake::FakeGraph::returning(vec![json!({"x": {
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![json!({"x": {
             "id": "calc-1",
             "company_id": "c-1",
             "product_or_process": "Widgets",
@@ -319,7 +319,7 @@ mod tests {
 
     #[test]
     fn a_long_component_is_not_rounded_on_its_way_through() {
-        let graph = crate::fake::FakeGraph::returning(vec![json!({"x": {
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![json!({"x": {
             "id": "calc-1",
             "total_cost": "0",
             "unit_cost": "0",
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn a_zero_quantity_still_has_a_unit_cost() {
-        let graph = crate::fake::FakeGraph::returning(vec![json!({"x": {
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![json!({"x": {
             "id": "calc-1", "total_cost": "0", "unit_cost": "0", "quantity": 1, "components": []
         }})]);
         create_calculation(
@@ -365,7 +365,7 @@ mod tests {
 
     #[test]
     fn a_calculation_needs_a_product_and_a_company() {
-        let graph = crate::fake::FakeGraph::returning(vec![]);
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![]);
         let err = create_calculation(&graph, &scope(), &json!({"company_id": "c-1"})).unwrap_err();
         assert!(err.to_string().contains("product_or_process"), "{err}");
         assert_eq!(graph.statements(), 0, "nothing should be written");
@@ -373,7 +373,7 @@ mod tests {
 
     #[test]
     fn a_breakdown_groups_the_components_by_cost_type() {
-        let graph = crate::fake::FakeGraph::returning(vec![json!({"x": {
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![json!({"x": {
             "id": "calc-1",
             "company_id": "c-1",
             "product_or_process": "Widgets",
@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn a_breakdown_of_someone_elses_calculation_is_not_found() {
-        let graph = crate::fake::FakeGraph::returning(vec![json!({"x": {
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![json!({"x": {
             "id": "calc-2", "company_id": "c-1", "components": []
         }})]);
         let err = breakdown(&graph, &scope(), "c-1", "calc-1").unwrap_err();
@@ -403,7 +403,7 @@ mod tests {
 
     #[test]
     fn a_summary_with_nothing_in_it_reports_zeros_not_an_error() {
-        let graph = crate::fake::FakeGraph::returning(vec![]);
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![]);
         let out = summary(&graph, &scope(), "c-1").unwrap();
         assert_eq!(out["total_calculations"], json!(0));
         assert_eq!(out["total_cost"], json!(0.0));
@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn a_summary_sums_the_companys_calculations_only() {
-        let graph = crate::fake::FakeGraph::returning(vec![
+        let graph = vimbai_store::fake::FakeGraph::returning(vec![
             json!({"x": {"id": "a", "company_id": "c-1", "total_cost": "600", "unit_cost": "200", "components": []}}),
             json!({"x": {"id": "b", "company_id": "c-1", "total_cost": "400", "unit_cost": "100", "components": []}}),
             json!({"x": {"id": "c", "company_id": "c-2", "total_cost": "9999", "unit_cost": "9999", "components": []}}),

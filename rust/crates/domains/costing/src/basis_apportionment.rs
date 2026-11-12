@@ -16,8 +16,10 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 
-use crate::amounts::{amount, stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, APPORTIONMENT_RESULT, APPORTIONMENT_RULE};
+use vimbai_store::amounts::{amount, stored_amount, wire};
+use vimbai_store::{
+    BookScope, Graph, Records, StoreError, APPORTIONMENT_RESULT, APPORTIONMENT_RULE,
+};
 
 /// The places an apportioned amount is held to, which is the precision the store keeps.
 const PLACES: i64 = 6;
@@ -211,7 +213,7 @@ pub fn results<G: Graph + ?Sized>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fake::FakeGraph;
+    use vimbai_store::fake::FakeGraph;
 
     fn scope() -> BookScope {
         BookScope::new("user-1", "book-1")

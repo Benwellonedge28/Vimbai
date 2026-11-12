@@ -96,7 +96,7 @@ services:
   port: 8010
   gateway_path: /absorption-costing
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -129,7 +129,7 @@ services:
   port: 8000
   gateway_path: /accounting
   auth_required: true
-  engine: rust
+  engine: python
   records: true
   endpoints:
   - GET /
@@ -287,7 +287,7 @@ services:
   port: 8196
   gateway_path: /audit-sampling
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -434,7 +434,7 @@ services:
   port: 8386
   gateway_path: /banking-integration
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -489,7 +489,7 @@ services:
   port: 8146
   gateway_path: /biological-assets
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -726,7 +726,7 @@ services:
   port: 8092
   gateway_path: /currency
   auth_required: true
-  engine: rust
+  engine: python
   records: true
   endpoints:
   - GET /
@@ -772,7 +772,7 @@ services:
   port: 8365
   gateway_path: /dashboard
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -868,7 +868,7 @@ services:
   port: 8045
   gateway_path: /disposal-account
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /health
@@ -900,7 +900,7 @@ services:
   port: 8046
   gateway_path: /distributed-workflow-orchestration
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -940,7 +940,7 @@ services:
   port: 8047
   gateway_path: /double-entry-principles
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /health
@@ -958,7 +958,7 @@ services:
   port: 8006
   gateway_path: /encrypted-backup
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -989,7 +989,7 @@ services:
   port: 8363
   gateway_path: /etl
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -1121,7 +1121,7 @@ services:
   port: 8192
   gateway_path: /foreign-exchange
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -1167,7 +1167,7 @@ services:
   port: 8095
   gateway_path: /graphql
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -1258,7 +1258,7 @@ services:
   port: 8068
   gateway_path: /internal-rate-return
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /health
@@ -1291,7 +1291,7 @@ services:
   port: 8145
   gateway_path: /investment-property
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -1332,7 +1332,7 @@ services:
   port: 8073
   gateway_path: /job-costing
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -1413,7 +1413,7 @@ services:
   port: 8083
   gateway_path: /net-present-value
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /health
@@ -1594,7 +1594,7 @@ services:
   port: 8098
   gateway_path: /payback-period
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /health
@@ -1608,7 +1608,7 @@ services:
   port: 8098
   gateway_path: /payment-gateway
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -1637,7 +1637,7 @@ services:
   port: 8280
   gateway_path: /performance-benchmarking
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -1757,7 +1757,7 @@ services:
   port: 8003
   gateway_path: /privacy-admin-dashboard
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -1853,7 +1853,7 @@ services:
   port: 8112
   gateway_path: /realtime-calculation
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -1882,7 +1882,7 @@ services:
   port: 8272
   gateway_path: /report-automation
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -1901,7 +1901,7 @@ services:
   port: 8273
   gateway_path: /report-distribution
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -1918,7 +1918,7 @@ services:
   port: 8361
   gateway_path: /reporting
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -1949,7 +1949,7 @@ services:
   port: 8144
   gateway_path: /revaluation-model
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -1980,7 +1980,7 @@ services:
   port: 8115
   gateway_path: /revenue-recognition
   auth_required: true
-  engine: rust
+  engine: python
   records: true
   endpoints:
   - GET /
@@ -2010,7 +2010,7 @@ services:
   port: 8117
   gateway_path: /risk-assessment
   auth_required: true
-  engine: rust
+  engine: python
   records: true
   endpoints:
   - GET /
@@ -2025,7 +2025,7 @@ services:
   port: 8173
   gateway_path: /rolling-forecast
   auth_required: true
-  engine: rust
+  engine: python
   records: true
   endpoints:
   - GET /
@@ -2406,7 +2406,7 @@ services:
   port: 8141
   gateway_path: /websocket
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /

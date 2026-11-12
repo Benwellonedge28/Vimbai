@@ -16,8 +16,8 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 
-use crate::amounts::{amount, amount_or_zero, stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, SELLING_PRICE_ANALYSIS};
+use vimbai_store::amounts::{amount, amount_or_zero, stored_amount, wire};
+use vimbai_store::{BookScope, Graph, Records, StoreError, SELLING_PRICE_ANALYSIS};
 
 /// `Money` states strict positivity as "not zero and not negative", the pair it already offers.
 fn positive(money: &Money) -> bool {
@@ -219,7 +219,7 @@ pub fn analyses<G: Graph + ?Sized>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fake::FakeGraph;
+    use vimbai_store::fake::FakeGraph;
 
     fn scope() -> BookScope {
         BookScope::new("user-1", "book-1")

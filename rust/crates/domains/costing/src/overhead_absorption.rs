@@ -15,8 +15,8 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 
-use crate::amounts::{amount, stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, ABSORPTION_RATE, OAR_ANALYSIS};
+use vimbai_store::amounts::{amount, stored_amount, wire};
+use vimbai_store::{BookScope, Graph, Records, StoreError, ABSORPTION_RATE, OAR_ANALYSIS};
 
 fn positive(money: &Money) -> bool {
     !money.is_zero() && !money.is_negative()
@@ -324,7 +324,7 @@ pub fn analyses<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Value
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fake::FakeGraph;
+    use vimbai_store::fake::FakeGraph;
 
     fn scope() -> BookScope {
         BookScope::new("user-1", "book-1")

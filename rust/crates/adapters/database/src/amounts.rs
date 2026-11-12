@@ -5,6 +5,9 @@
 //! of digits, so a large contract value or a long cost breakdown cannot drift while it is being
 //! summed. It leaves again as a number because that is what the front end already parses; the
 //! exact figure is what the graph keeps.
+//!
+//! Every service crate in `crates/domains` reads its amounts through these, so an amount is
+//! interpreted in exactly one place.
 
 #![forbid(unsafe_code)]
 
@@ -14,7 +17,7 @@ use vimbai_common::Money;
 use crate::StoreError;
 
 /// An amount the caller supplied, exact.
-pub(crate) fn amount(payload: &Value, key: &str) -> Result<Money, StoreError> {
+pub fn amount(payload: &Value, key: &str) -> Result<Money, StoreError> {
     match payload.get(key) {
         Some(Value::Number(number)) => Money::from_f64_shortest(number.as_f64().unwrap_or(0.0))
             .map_err(|error| StoreError::Invalid(format!("{key}: {error}"))),
@@ -30,7 +33,7 @@ pub(crate) fn amount(payload: &Value, key: &str) -> Result<Money, StoreError> {
 /// An optional amount, zero when absent. Used where a field is genuinely optional on the wire,
 /// such as a job's retention, which most jobs do not have.
 #[allow(dead_code)]
-pub(crate) fn amount_or_zero(payload: &Value, key: &str) -> Result<Money, StoreError> {
+pub fn amount_or_zero(payload: &Value, key: &str) -> Result<Money, StoreError> {
     if payload.get(key).is_none() || payload.get(key) == Some(&Value::Null) {
         return Ok(Money::zero());
     }
@@ -38,7 +41,7 @@ pub(crate) fn amount_or_zero(payload: &Value, key: &str) -> Result<Money, StoreE
 }
 
 /// An amount already stored on a record.
-pub(crate) fn stored_amount(record: &Value, key: &str) -> Result<Money, StoreError> {
+pub fn stored_amount(record: &Value, key: &str) -> Result<Money, StoreError> {
     match record.get(key) {
         Some(Value::Number(number)) => Money::from_f64_shortest(number.as_f64().unwrap_or(0.0))
             .map_err(|error| StoreError::Invalid(format!("{key}: {error}"))),
@@ -51,7 +54,7 @@ pub(crate) fn stored_amount(record: &Value, key: &str) -> Result<Money, StoreErr
 }
 
 /// The wire shape: a number, as the endpoints have always answered.
-pub(crate) fn wire(money: &Money) -> Value {
+pub fn wire(money: &Money) -> Value {
     json!(money.to_f64_lossy())
 }
 

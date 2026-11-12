@@ -29,7 +29,7 @@ services:
   port: 8363
   gateway_path: /etl
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /
@@ -45,7 +45,7 @@ services:
   port: 8280
   gateway_path: /performance-benchmarking
   auth_required: true
-  engine: rust
+  engine: python
   records: false
   endpoints:
   - GET /

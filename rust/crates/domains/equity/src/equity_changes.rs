@@ -14,8 +14,8 @@
 use serde_json::{json, Value};
 use vimbai_common::Money;
 
-use crate::amounts::{stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, EQUITY_STATEMENT, EQUITY_TRANSACTION};
+use vimbai_store::amounts::{stored_amount, wire};
+use vimbai_store::{BookScope, Graph, Records, StoreError, EQUITY_STATEMENT, EQUITY_TRANSACTION};
 
 fn money_in(value: Option<&Value>, field: &str) -> Result<Money, StoreError> {
     match value {
@@ -257,7 +257,7 @@ pub fn statements<G: Graph + ?Sized>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fake::FakeGraph;
+    use vimbai_store::fake::FakeGraph;
 
     fn scope() -> BookScope {
         BookScope::new("user-1", "book-1")

@@ -11,7 +11,7 @@ services:
   port: 8117
   gateway_path: /risk-assessment
   auth_required: true
-  engine: rust
+  engine: python
   records: true
   endpoints:
   - GET /

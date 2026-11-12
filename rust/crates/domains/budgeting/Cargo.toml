@@ -1,0 +1,12 @@
+[package]
+name = "vimbai_service_budgeting"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Budgeting services: appropriation control, which holds the appropriations and the commitments and expenditure charged against them."
+
+[dependencies]
+vimbai_common = { path = "../../common" }
+vimbai_store = { path = "../../adapters/database" }
+serde_json = { workspace = true }
