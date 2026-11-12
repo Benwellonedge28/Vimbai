@@ -107,71 +107,71 @@ class TestServiceInstrumentation:
 class TestMonitoringInfrastructure:
     def test_jaeger_in_monitoring_compose(self):
         """Verify Jaeger is in the monitoring docker-compose."""
-        content = (REPO_ROOT / "monitoring" / "docker-compose.monitoring.yml").read_text()
+        content = (REPO_ROOT / "infrastructure" / "monitoring" / "docker-compose.monitoring.yml").read_text()
         assert "jaeger" in content.lower()
 
     def test_otel_collector_in_monitoring_compose(self):
         """Verify OTEL Collector is in the monitoring docker-compose."""
-        content = (REPO_ROOT / "monitoring" / "docker-compose.monitoring.yml").read_text()
+        content = (REPO_ROOT / "infrastructure" / "monitoring" / "docker-compose.monitoring.yml").read_text()
         assert "otel-collector" in content.lower()
         assert "opentelemetry-collector" in content.lower()
 
     def test_otel_collector_config_exists(self):
         """Verify OTEL collector config file exists."""
-        assert (REPO_ROOT / "monitoring" / "otel-collector-config.yaml").exists()
+        assert (REPO_ROOT / "infrastructure" / "monitoring" / "otel-collector-config.yaml").exists()
 
     def test_otel_config_has_jaeger_exporter(self):
         """Verify OTEL config exports to Jaeger."""
-        content = (REPO_ROOT / "monitoring" / "otel-collector-config.yaml").read_text()
+        content = (REPO_ROOT / "infrastructure" / "monitoring" / "otel-collector-config.yaml").read_text()
         assert "jaeger" in content.lower()
 
     def test_prometheus_scrapes_otel(self):
         """Verify Prometheus scrapes OTEL collector."""
-        content = (REPO_ROOT / "monitoring" / "prometheus.yml").read_text()
+        content = (REPO_ROOT / "infrastructure" / "monitoring" / "prometheus.yml").read_text()
         assert "otel-collector" in content
 
 
 class TestK8sTracingInfrastructure:
     def test_tracing_yaml_exists(self):
         """Verify K8s tracing manifest exists."""
-        assert (REPO_ROOT / "k8s" / "tracing.yaml").exists()
+        assert (REPO_ROOT / "infrastructure" / "kubernetes" / "tracing.yaml").exists()
 
     def test_tracing_yaml_has_jaeger_deployment(self):
         """Verify Jaeger deployment is defined."""
-        content = (REPO_ROOT / "k8s" / "tracing.yaml").read_text()
+        content = (REPO_ROOT / "infrastructure" / "kubernetes" / "tracing.yaml").read_text()
         assert "name: jaeger" in content
         assert "kind: Deployment" in content
 
     def test_tracing_yaml_has_otel_deployment(self):
         """Verify OTEL collector deployment is defined."""
-        content = (REPO_ROOT / "k8s" / "tracing.yaml").read_text()
+        content = (REPO_ROOT / "infrastructure" / "kubernetes" / "tracing.yaml").read_text()
         assert "name: otel-collector" in content
         assert "kind: Deployment" in content
 
     def test_all_services_have_otel_env(self):
         """Verify all-services.yaml includes OTEL env vars."""
-        content = (REPO_ROOT / "k8s" / "all-services.yaml").read_text()
+        content = (REPO_ROOT / "infrastructure" / "kubernetes" / "all-services.yaml").read_text()
         assert "OTEL_EXPORTER_OTLP_ENDPOINT" in content
         assert "otel-collector" in content
 
     def test_kustomization_includes_tracing(self):
         """Verify kustomization includes tracing.yaml."""
-        content = (REPO_ROOT / "k8s" / "kustomization.yaml").read_text()
+        content = (REPO_ROOT / "infrastructure" / "kubernetes" / "kustomization.yaml").read_text()
         assert "tracing.yaml" in content
 
 
 class TestHelmChart:
     def test_helm_values_has_tracing(self):
         """Verify Helm values include tracing config."""
-        content = (REPO_ROOT / "charts" / "vimbai" / "values.yaml").read_text()
+        content = (REPO_ROOT / "infrastructure" / "kubernetes" / "helm" / "legacy-chart" / "values.yaml").read_text()
         assert "tracing" in content
         assert "jaeger" in content.lower()
 
     def test_helm_tracing_template_exists(self):
         """Verify Helm tracing template exists."""
-        assert (REPO_ROOT / "charts" / "vimbai" / "templates" / "tracing.yaml").exists()
+        assert (REPO_ROOT / "infrastructure" / "kubernetes" / "helm" / "legacy-chart" / "templates" / "tracing.yaml").exists()
 
     def test_helm_tracing_template_uses_values(self):
         """Verify Helm tracing template references values."""
-        content = (REPO_ROOT / "charts" / "vimbai" / "templates" / "tracing.yaml").read_text()
+        content = (REPO_ROOT / "infrastructure" / "kubernetes" / "helm" / "legacy-chart" / "templates" / "tracing.yaml").read_text()
         assert ".Values.tracing" in content

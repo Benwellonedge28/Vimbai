@@ -323,10 +323,10 @@ jobs:
         if: steps.check.outputs.has_kubeconfig == 'true'
         run: |
           export KUBECONFIG=$(pwd)/kubeconfig
-          helm upgrade --install vimbai ./k8s/helm \
+          helm upgrade --install vimbai ./infrastructure/kubernetes/helm \
             --namespace vimbai \
             --create-namespace \
-            --values k8s/helm/vimbai/values.yaml \
+            --values infrastructure/kubernetes/helm/vimbai/values.yaml \
             --wait --timeout 10m
 
   # ============================================================

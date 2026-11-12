@@ -10,8 +10,8 @@ external URLs stay exactly the same.
 Outputs (deterministic; safe to re-run):
   - brackets/<name>/{main.py, Dockerfile, requirements.txt, members.json}
   - gateway/go/config/services.json   (merged routes -> bracket URL, strip_prefix=false)
-  - docker-compose.yml                 (merged compose blocks -> bracket blocks)
-  - k8s/helm/vimbai/values.yaml        (newServices -> bracket deployments)
+  - infrastructure/compose/compose.yaml                 (merged compose blocks -> bracket blocks)
+  - infrastructure/kubernetes/helm/vimbai/values.yaml        (newServices -> bracket deployments)
 
 Usage: python3 scripts/generate_brackets.py [--dry-run]
 """
@@ -25,8 +25,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DRY_RUN = "--dry-run" in sys.argv
 
 SERVICES_JSON = os.path.join(REPO, "gateway", "go", "config", "services.json")
-COMPOSE = os.path.join(REPO, "docker-compose.yml")
-VALUES = os.path.join(REPO, "k8s", "helm", "vimbai", "values.yaml")
+COMPOSE = os.path.join(REPO, "infrastructure", "compose", "compose.yaml")
+VALUES = os.path.join(REPO, "infrastructure", "kubernetes", "helm", "vimbai", "values.yaml")
 BRACKETS_DIR = os.path.join(REPO, "brackets")
 
 # Services that stay standalone (real DBs / message bus / core platform):
@@ -576,7 +576,7 @@ def main():
         f.write("\n")
     print(f"services.json rewritten ({len(services)} routes)")
 
-    # --- docker-compose.yml ---
+    # --- infrastructure/compose/compose.yaml ---
     import yaml
 
     compose = yaml.safe_load(open(COMPOSE))
@@ -621,7 +621,7 @@ def main():
         f.write(header)
         yaml.safe_dump(compose, f, default_flow_style=False, sort_keys=False)
     print(
-        f"docker-compose.yml rewritten: {dropped} blocks -> {len(brackets)} brackets, "
+        f"infrastructure/compose/compose.yaml rewritten: {dropped} blocks -> {len(brackets)} brackets, "
         f"kept {len(keep) - len(brackets)} standalone"
     )
 

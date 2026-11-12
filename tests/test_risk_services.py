@@ -169,7 +169,11 @@ class TestRiskServiceDeduplication:
             assert dup not in registered, f"{dup} must stay de-registered as a duplicate of risk-assessment-service"
 
     def test_duplicate_services_are_not_deployed(self):
-        for manifest in ("k8s/all-services.yaml", "k8s/new-services.yaml", "k8s/new-services-v2.yaml"):
+        for manifest in (
+            "infrastructure/kubernetes/all-services.yaml",
+            "infrastructure/kubernetes/new-services.yaml",
+            "infrastructure/kubernetes/new-services-v2.yaml",
+        ):
             path = os.path.join(_ROOT, manifest)
             if not os.path.isfile(path):
                 continue

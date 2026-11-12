@@ -490,7 +490,11 @@ def test_gateway_has_no_duplicate_routes():
 
 @pytest.mark.parametrize("dup", sorted(ALL_DEREGISTERED))
 def test_duplicate_not_deployed(dup):
-    for manifest in ("k8s/all-services.yaml", "k8s/new-services.yaml", "k8s/new-services-v2.yaml"):
+    for manifest in (
+        "infrastructure/kubernetes/all-services.yaml",
+        "infrastructure/kubernetes/new-services.yaml",
+        "infrastructure/kubernetes/new-services-v2.yaml",
+    ):
         path = os.path.join(_ROOT, manifest)
         if not os.path.isfile(path):
             continue

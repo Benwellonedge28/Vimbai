@@ -4,13 +4,13 @@ on:
   push:
     paths:
       - 'infrastructure/**'
-      - 'charts/**'
-      - 'k8s/**'
+      - 'infrastructure/kubernetes/helm/**'
+      - 'infrastructure/kubernetes/**'
   pull_request:
     paths:
       - 'infrastructure/**'
-      - 'charts/**'
-      - 'k8s/**'
+      - 'infrastructure/kubernetes/helm/**'
+      - 'infrastructure/kubernetes/**'
 
 jobs:
   validate-terraform:
@@ -35,8 +35,8 @@ jobs:
         uses: azure/setup-helm@v4
       - name: Helm Lint
         run: |
-          if [ -d "k8s/helm" ]; then
-            helm lint k8s/helm/vimbai || helm lint k8s/helm || true
+          if [ -d "infrastructure/kubernetes/helm" ]; then
+            helm lint infrastructure/kubernetes/helm/vimbai || helm lint infrastructure/kubernetes/helm || true
           else
             echo "No Helm chart found, skipping"
           fi

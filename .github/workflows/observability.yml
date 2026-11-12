@@ -3,7 +3,7 @@ name: Observability Stack Validation
 on:
   push:
     paths:
-      - 'monitoring/**'
+      - 'infrastructure/monitoring/**'
       - 'shared/tracing.py'
       - 'shared/middleware.py'
       - 'shared/health.py'
@@ -12,7 +12,7 @@ on:
     branches: [main, develop]
   pull_request:
     paths:
-      - 'monitoring/**'
+      - 'infrastructure/monitoring/**'
       - 'shared/tracing.py'
       - 'shared/middleware.py'
       - 'shared/health.py'
@@ -48,7 +48,7 @@ jobs:
 
       - name: Validate Grafana dashboards
         run: |
-          for f in monitoring/grafana/dashboards/*.json; do
+          for f in infrastructure/monitoring/grafana/dashboards/*.json; do
             python -c "import json; json.load(open('$f'))" && echo "$f valid"
           done
 

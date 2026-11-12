@@ -21,7 +21,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "gateway" / "go" / "config" / "services.json"
 MANIFESTS = (
-    ROOT / "k8s" / "all-services.yaml",
+    ROOT / "infrastructure" / "kubernetes" / "all-services.yaml",
     ROOT / "k8s" / "vimbai-all-services.yaml",
 )
 WORKFLOWS = ROOT / ".github" / "workflows"

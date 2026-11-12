@@ -14,7 +14,7 @@ import pytest
 import yaml
 
 REPO = Path(__file__).resolve().parents[1]
-MANIFEST = REPO / "k8s" / "all-services.yaml"
+MANIFEST = REPO / "infrastructure" / "kubernetes" / "all-services.yaml"
 
 ROUTE_RE = re.compile(r'@app\.(?:get|post|put|delete|patch|api_route)\(\s*"([^"]+)"')
 

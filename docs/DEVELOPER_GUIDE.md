@@ -438,7 +438,7 @@ docker-compose up -d --scale accounting-service=3
 
 ```bash
 # Start monitoring stack
-docker-compose -f monitoring/docker-compose.monitoring.yml up -d
+docker-compose -f infrastructure/monitoring/docker-compose.monitoring.yml up -d
 
 # Access Prometheus
 http://localhost:9090
@@ -498,11 +498,11 @@ vimbai_journal_entries_total
 
 ### Grafana Dashboards
 
-Pre-configured dashboards available in `monitoring/grafana/dashboards/`.
+Pre-configured dashboards available in `infrastructure/monitoring/grafana/dashboards/`.
 
 ### Alert Rules
 
-Alert rules defined in `monitoring/alert_rules.yml`:
+Alert rules defined in `infrastructure/monitoring/alert_rules.yml`:
 
 - High error rate (>5%)
 - High latency (>2s p95)

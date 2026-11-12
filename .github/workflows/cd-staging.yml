@@ -91,8 +91,8 @@ jobs:
       - name: Deploy to Staging Cluster
         if: steps.check.outputs.has_kubeconfig == 'true'
         run: |
-          kubectl apply -f k8s/namespace.yaml
-          kubectl apply -k k8s/
+          kubectl apply -f infrastructure/kubernetes/namespace.yaml
+          kubectl apply -k infrastructure/kubernetes/
           kubectl rollout restart deployment -n vimbai api-gateway
           kubectl rollout restart deployment -n vimbai identity-service
           kubectl rollout restart deployment -n vimbai accounting-service

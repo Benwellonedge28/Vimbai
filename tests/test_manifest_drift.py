@@ -2,7 +2,7 @@
 
 Three retirement batches found services wired into the cluster after they had left the
 gateway manifest, and nothing was checking, so a retired service could keep a live
-deployment behind it. This pins today's disagreements in k8s/manifest-drift.json: new
+deployment behind it. This pins today's disagreements in infrastructure/kubernetes/manifest-drift.json: new
 drift fails, and each entry is removed from that file as it is resolved.
 """
 
@@ -19,7 +19,7 @@ import reconcile_manifest  # noqa: E402  (path set above)
 
 
 def baseline():
-    with open(os.path.join(ROOT, "k8s", "manifest-drift.json")) as handle:
+    with open(os.path.join(ROOT, "infrastructure", "kubernetes", "manifest-drift.json")) as handle:
         return json.load(handle)
 
 
@@ -49,4 +49,4 @@ def test_baseline_only_lists_names_that_still_drift(report):
         for direction, names in report.items()
         if set(baseline().get(direction, [])) - set(names)
     }
-    assert not stale, f"resolved drift still pinned in k8s/manifest-drift.json: {stale}"
+    assert not stale, f"resolved drift still pinned in infrastructure/kubernetes/manifest-drift.json: {stale}"

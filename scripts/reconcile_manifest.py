@@ -20,7 +20,7 @@ import yaml
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST = os.path.join(ROOT, "gateway", "go", "config", "services.json")
-K8S = os.path.join(ROOT, "k8s")
+K8S = os.path.join(ROOT, "infrastructure", "kubernetes")
 
 # Services the cluster still runs that the gateway never advertised. Each one is a
 # deliberate open question rather than drift, and the status test names them too, so
