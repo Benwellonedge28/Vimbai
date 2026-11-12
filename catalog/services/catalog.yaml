@@ -1150,7 +1150,7 @@ services:
   port: 8061
   gateway_path: /general-reserve
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -1930,7 +1930,7 @@ services:
   port: 8113
   gateway_path: /retained-profits
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health

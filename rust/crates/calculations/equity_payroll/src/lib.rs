@@ -14,7 +14,6 @@ pub mod partnership_closure;
 pub mod payroll;
 pub mod payroll_accounting;
 pub mod pension;
-pub mod retained_profits;
 pub mod share_capital;
 pub mod share_registry;
 

@@ -1422,6 +1422,261 @@ fn overlay(query: Value, body: Option<Value>) -> Value {
     Value::Object(merged)
 }
 
+async fn create_reserve(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::create_reserve(graph.as_ref(), &scope, &body))
+}
+
+async fn reserves(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    answer(equity::list_reserves(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn one_reserve(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(reserve_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::get_reserve(graph.as_ref(), &scope, &reserve_id))
+}
+
+async fn allocate_reserve(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(reserve_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::allocate_to_reserve(
+        graph.as_ref(),
+        &scope,
+        &reserve_id,
+        &body,
+    ))
+}
+
+async fn utilize_reserve(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(reserve_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::utilize_reserve(
+        graph.as_ref(),
+        &scope,
+        &reserve_id,
+        &body,
+    ))
+}
+
+async fn reserve_history(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(reserve_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::reserve_history(graph.as_ref(), &scope, &reserve_id))
+}
+
+async fn create_profit_appropriation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::create_appropriation(graph.as_ref(), &scope, &body))
+}
+
+async fn profit_appropriations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    let year = query_param(query.as_deref(), "financial_year");
+    answer(equity::list_appropriations(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+        year.as_deref(),
+    ))
+}
+
+async fn declare_interim_dividend(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::declare_interim_dividend(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn pay_interim_dividend(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(dividend_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::pay_interim_dividend(
+        graph.as_ref(),
+        &scope,
+        &dividend_id,
+        &body,
+    ))
+}
+
+async fn interim_dividends(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    answer(equity::list_interim_dividends(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn create_prior_year_adjustment(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::create_prior_year_adjustment(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn prior_year_adjustments(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    answer(equity::list_adjustments(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn retained_earnings_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::retained_earnings_summary(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
 async fn issue_bonus_shares(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -2025,6 +2280,46 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/fixed-assets-schedule/summary",
             get(schedule_summary),
         )
+        .route(
+            "/records/general-reserve/reserves",
+            get(reserves).post(create_reserve),
+        )
+        .route(
+            "/records/general-reserve/reserves/:reserve_id",
+            get(one_reserve),
+        )
+        .route(
+            "/records/general-reserve/reserves/:reserve_id/allocate",
+            post(allocate_reserve),
+        )
+        .route(
+            "/records/general-reserve/reserves/:reserve_id/utilize",
+            post(utilize_reserve),
+        )
+        .route(
+            "/records/general-reserve/reserves/:reserve_id/history",
+            get(reserve_history),
+        )
+        .route(
+            "/records/retained-profits/appropriations",
+            get(profit_appropriations).post(create_profit_appropriation),
+        )
+        .route(
+            "/records/retained-profits/interim-dividends",
+            get(interim_dividends).post(declare_interim_dividend),
+        )
+        .route(
+            "/records/retained-profits/interim-dividends/:dividend_id/pay",
+            post(pay_interim_dividend),
+        )
+        .route(
+            "/records/retained-profits/adjustments",
+            get(prior_year_adjustments).post(create_prior_year_adjustment),
+        )
+        .route(
+            "/records/retained-profits/summary/:company_id",
+            get(retained_earnings_summary),
+        )
         .route("/records/bonus-shares/issue", post(issue_bonus_shares))
         .route("/records/bonus-shares/issues", get(bonus_issues))
         .route(
@@ -2505,6 +2800,43 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route(
+            "/general-reserve/reserves",
+            get(reserves).post(create_reserve),
+        )
+        .route("/general-reserve/reserves/:reserve_id", get(one_reserve))
+        .route(
+            "/general-reserve/reserves/:reserve_id/allocate",
+            post(allocate_reserve),
+        )
+        .route(
+            "/general-reserve/reserves/:reserve_id/utilize",
+            post(utilize_reserve),
+        )
+        .route(
+            "/general-reserve/reserves/:reserve_id/history",
+            get(reserve_history),
+        )
+        .route(
+            "/retained-profits/appropriations",
+            get(profit_appropriations).post(create_profit_appropriation),
+        )
+        .route(
+            "/retained-profits/interim-dividends",
+            get(interim_dividends).post(declare_interim_dividend),
+        )
+        .route(
+            "/retained-profits/interim-dividends/:dividend_id/pay",
+            post(pay_interim_dividend),
+        )
+        .route(
+            "/retained-profits/adjustments",
+            get(prior_year_adjustments).post(create_prior_year_adjustment),
+        )
+        .route(
+            "/retained-profits/summary/:company_id",
+            get(retained_earnings_summary),
+        )
         .route("/bonus-shares/issue", post(issue_bonus_shares))
         .route("/bonus-shares/issues", get(bonus_issues))
         .route("/right-issues/offer", post(offer_rights))

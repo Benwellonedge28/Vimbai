@@ -12,6 +12,12 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- general-reserve-service -> equity crate, records on the store: reserves with their allocations and
+  utilizations, the balance the single figure they share. A utilization past the balance is refused;
+  a minimum or target balance is recorded and never enforced, as the service did.
+- retained-profits-service -> equity crate, records on the store: appropriations with their
+  carry-forward chain (total appropriated, carried forward, closing), interim dividends and prior-year
+  adjustments; the summary adds carried forward to the adjustments for one company only.
 - bonus-shares-service and right-issues-service -> equity crate, records on the store: bonus issues
   and the reserve each capitalises, rights offers with their acceptances and renunciations. An issue
   completes when every entitlement is covered, counting one unit per renunciation as the service did.

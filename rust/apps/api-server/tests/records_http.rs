@@ -11,6 +11,8 @@ use tower::ServiceExt;
 /// A graph that answers with the rows a test handed it and remembers what it was asked.
 struct Scripted {
     rows: Vec<Value>,
+    /// Answers for successive queries, when one path reads more than one collection.
+    queue: Mutex<Vec<Vec<Value>>>,
     seen: Mutex<Vec<(String, Value)>>,
 }
 
@@ -18,6 +20,15 @@ impl Scripted {
     fn returning(rows: Vec<Value>) -> Arc<Self> {
         Arc::new(Self {
             rows,
+            queue: Mutex::new(Vec::new()),
+            seen: Mutex::new(Vec::new()),
+        })
+    }
+
+    fn queue(scripts: Vec<Vec<Value>>) -> Arc<Self> {
+        Arc::new(Self {
+            rows: Vec::new(),
+            queue: Mutex::new(scripts),
             seen: Mutex::new(Vec::new()),
         })
     }
@@ -30,7 +41,11 @@ impl Scripted {
 impl Graph for Scripted {
     fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
         self.seen.lock().unwrap().push((cypher.to_owned(), params));
-        Ok(self.rows.clone())
+        let mut queue = self.queue.lock().unwrap();
+        if queue.is_empty() {
+            return Ok(self.rows.clone());
+        }
+        Ok(queue.remove(0))
     }
 }
 
@@ -871,4 +886,95 @@ async fn a_rights_renunciation_is_refused_when_the_issue_forbids_it() {
         body["error"],
         json!("Renouncement not allowed for this issue")
     );
+}
+
+#[tokio::test]
+async fn a_reserve_is_opened_allocated_and_utilized_on_its_published_paths() {
+    let creating = Scripted::returning(vec![json!({"id": "res-1"})]);
+    let (status, _) = call_with(
+        creating,
+        "POST",
+        "/general-reserve/reserves?company_id=co-1&reserve_name=Plant&initial_balance=5000",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let allocating = Scripted::returning(vec![json!({
+        "id": "res-1", "reserve_name": "Plant", "current_balance": "5000"
+    })]);
+    let (status, body) = call_with(
+        allocating,
+        "POST",
+        "/general-reserve/reserves/res-1/allocate?amount=250.75&source=retained_earnings&description=top%20up",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["reserve"]["current_balance"], json!("5250.750000"));
+
+    let history = Scripted::returning(Vec::new());
+    let (status, body) = call_with(
+        history,
+        "GET",
+        "/general-reserve/reserves/res-1/history",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["allocations"], json!([]));
+}
+
+#[tokio::test]
+async fn utilizing_more_than_a_reserve_holds_is_refused_at_the_api() {
+    let graph = Scripted::returning(vec![json!({
+        "id": "res-1", "current_balance": "100"
+    })]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/general-reserve/reserves/res-1/utilize?amount=101&purpose=working_capital",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["error"], json!("Insufficient reserve balance"));
+}
+
+#[tokio::test]
+async fn an_appropriation_and_a_summary_answer_on_their_published_paths() {
+    let creating = Scripted::returning(vec![json!({"id": "a-1"})]);
+    let (status, _) = call_with(
+        creating,
+        "POST",
+        "/retained-profits/appropriations?company_id=co-1&financial_year=2026&net_profit=1000&opening_retained_earnings=5000&appropriations=reserve:300",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let summary = Scripted::queue(vec![
+        vec![json!({"id": "a-1", "company_id": "co-1", "balance_carried_forward": "500"})],
+        Vec::new(),
+    ]);
+    let (status, body) = call_with(summary, "GET", "/retained-profits/summary/co-1", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["net_retained_earnings"], json!("500.000000"));
+}
+
+#[tokio::test]
+async fn the_reserve_and_retained_profit_routes_answer_under_records_too() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, _) = call_with(graph, "GET", "/records/general-reserve/reserves", None).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let listing = Scripted::returning(Vec::new());
+    let (status, _) = call_with(
+        listing,
+        "GET",
+        "/records/retained-profits/appropriations?company_id=co-1&financial_year=2026",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
 }

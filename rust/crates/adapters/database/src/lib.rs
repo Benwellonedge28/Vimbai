@@ -149,6 +149,20 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records retained-profits-service owns.
+pub const PROFIT_APPROPRIATION: RecordKind =
+    RecordKind::new("ProfitAppropriation", "OWNS_APPROPRIATION");
+pub const INTERIM_DIVIDEND: RecordKind =
+    RecordKind::new("InterimDividend", "OWNS_INTERIM_DIVIDEND");
+pub const PRIOR_YEAR_ADJUSTMENT: RecordKind =
+    RecordKind::new("PriorYearAdjustment", "OWNS_PRIOR_ADJUSTMENT");
+
+/// The records general-reserve-service owns.
+pub const GENERAL_RESERVE: RecordKind = RecordKind::new("GeneralReserve", "OWNS_RESERVE");
+pub const RESERVE_ALLOCATION: RecordKind = RecordKind::new("ReserveAllocation", "OWNS_ALLOCATION");
+pub const RESERVE_UTILIZATION: RecordKind =
+    RecordKind::new("ReserveUtilization", "OWNS_UTILIZATION");
+
 /// The records bonus-shares-service and right-issues-service own.
 pub const BONUS_ISSUE: RecordKind = RecordKind::new("BonusIssueNode", "OWNS_BONUS_ISSUE");
 pub const RIGHT_ISSUE: RecordKind = RecordKind::new("RightIssue", "OWNS_RIGHT_ISSUE");

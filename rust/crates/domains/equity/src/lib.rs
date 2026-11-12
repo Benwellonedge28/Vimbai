@@ -4,6 +4,10 @@
 //! * `equity-changes-service`
 //! * `authorized-share-capital-service` (records on the store: share classes, their issuances,
 //!   buybacks and the used-capacity summary)
+//! * `general-reserve-service` (records on the store: reserves with their allocations and
+//!   utilizations, the balance the only figure they share)
+//! * `retained-profits-service` (records on the store: appropriations with their carry-forward chain,
+//!   interim dividends and prior-year adjustments)
 //! * `bonus-shares-service` and `right-issues-service` (records on the store: bonus issues and the
 //!   reserve they capitalise, rights offers with their acceptances and renunciations)
 //! * `ordinary-shares-service` and `preference-shares-service` (records on the store: dividends,
@@ -16,6 +20,8 @@
 #![forbid(unsafe_code)]
 
 pub mod equity_changes;
+pub mod reserves;
+pub mod retained_profits;
 pub mod share_classes;
 pub mod share_events;
 pub mod shares;
@@ -25,6 +31,15 @@ pub use share_classes::{
     list_issuances as list_share_issuances, summary as share_capital_summary,
 };
 
+pub use reserves::{
+    allocate_to_reserve, allocation_source_account, create_reserve, get_reserve, list_reserves,
+    reserve_history, utilization_destination_account, utilize_reserve,
+};
+pub use retained_profits::{
+    appropriation_totals, create_appropriation, create_prior_year_adjustment,
+    declare_interim_dividend, list_adjustments, list_appropriations, list_interim_dividends,
+    pay_interim_dividend, retained_earnings_summary,
+};
 pub use share_events::{
     accept_rights, bonus_reserve_account, get_right_issue, issue_bonus_shares, list_bonus_issues,
     list_right_issues, offer_rights, renounce_rights,
