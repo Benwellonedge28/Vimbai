@@ -2428,3 +2428,35 @@ async fn a_report_another_book_holds_answers_not_found_over_http() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn a_sovereign_account_answers_over_http_with_the_three_figures_a_desk_reads() {
+    let graph = Scripted::returning(vec![json!({"id": "a-1"})]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/sovereign-treasury/accounts",
+        Some(json!({"country": "ZW", "account_type": "stabilization_fund", "balance": "1000.00"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["id"], json!("a-1"));
+    assert_eq!(body["balance"], json!("1000.000000"));
+    assert!(
+        body.get("country").is_none(),
+        "the desk asked for three figures"
+    );
+}
+
+#[tokio::test]
+async fn a_missing_fiscal_position_answers_not_found_over_http() {
+    let graph = Scripted::returning(vec![]);
+    let (status, _) = call_with(
+        graph,
+        "GET",
+        "/records/sovereign-treasury/fiscal-position/ZW",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

@@ -341,6 +341,14 @@ xbrl-reporting-service
   admits it exists. The summary figures are decimal strings throughout, so a report of a twenty-digit balance
   keeps every digit.
 
+- sovereign-treasury-service -> treasury crate, records on the store: a country's accounts, the debt it carries,
+  and one fiscal position a year. Shapes kept: an account type outside the four the service knows is refused with
+  the list, and a created account answers with only the id, the type and the balance a desk reads, not the whole
+  record; debt answers with the instrument and the outstanding figure; the fiscal position is one per country, a
+  second one replaces the first rather than piling up, the deficit is derived as expenditure less revenue so a
+  surplus comes out negative without a special case, and a ratio nobody supplied stays zero rather than being
+  invented; a position the caller does not hold is a miss, not a refusal that admits it exists.
+
 ## Crate already has the maths, service not yet wired
 
 These are the cheapest ports left: the crate already holds the arithmetic, so the work is a

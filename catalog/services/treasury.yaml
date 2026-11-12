@@ -101,7 +101,7 @@ services:
   port: 8127
   gateway_path: /sovereign-treasury
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

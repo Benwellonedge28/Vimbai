@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 54 are proven on a Rust engine. 83 are still Python-only.
+The gateway routes 137 services. 55 are proven on a Rust engine. 82 are still Python-only.
 
-Of the backlog, 22 own no records and can be ported as pure functions; 61 own records and
+Of the backlog, 22 own no records and can be ported as pure functions; 60 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-54 services.
+55 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -64,6 +64,7 @@ right-issues-service                           8116  routes=7   records=yes rust
 selling-price-reduction-service                8123  routes=5   records=yes rust http
 share-premium-service                          8125  routes=8   records=yes rust http
 share-redemption-service                       8126  routes=8   records=yes rust http
+sovereign-treasury-service                     8127  routes=7   records=yes rust http
 trading-account-service                        8000  routes=5   records=yes rust http
 treasury-analytics-service                     8134  routes=4   records=yes rust http
 treasury-management-service                    8136  routes=7   records=yes rust http
@@ -103,7 +104,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-61 services.
+60 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -116,7 +117,6 @@ treasury-compliance-service                    8135  routes=5   records=yes none
 expense-tracking-service                       8051  routes=6   records=yes none
 bank-relationship-service                      8021  routes=7   records=yes none
 financial-state-machine-service                8055  routes=7   records=yes none
-sovereign-treasury-service                     8127  routes=7   records=yes none
 sensitivity-analysis-service                   8124  routes=3   records=yes none
 webhook-service                                8140  routes=5   records=yes none
 zero-based-budgeting-service                   8143  routes=7   records=yes none

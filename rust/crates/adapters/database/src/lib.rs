@@ -150,6 +150,12 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// sovereign-treasury-service's records: a country's accounts, its debt, and one fiscal position a year.
+pub const SOVEREIGN_ACCOUNT: RecordKind =
+    RecordKind::new("SovereignAccount", "OWNS_SOVEREIGN_ACCOUNT");
+pub const SOVEREIGN_DEBT: RecordKind = RecordKind::new("SovereignDebt", "OWNS_SOVEREIGN_DEBT");
+pub const FISCAL_POSITION: RecordKind = RecordKind::new("FiscalPosition", "OWNS_FISCAL_POSITION");
+
 /// treasury-reporting-service's records: the reports it generated and the figures they carry.
 pub const TREASURY_REPORT: RecordKind = RecordKind::new("TreasuryReport", "OWNS_TREASURY_REPORT");
 

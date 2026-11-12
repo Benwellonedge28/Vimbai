@@ -32,8 +32,8 @@ use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
 use treasury::{
-    cash_management, cash_optimization, treasury_analytics, treasury_management, treasury_policy,
-    treasury_reporting, treasury_risk,
+    cash_management, cash_optimization, sovereign_treasury, treasury_analytics,
+    treasury_management, treasury_policy, treasury_reporting, treasury_risk,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -995,6 +995,102 @@ async fn risk_dashboard(State(graph): GraphState, headers: HeaderMap) -> Respons
         Err(response) => return *response,
     };
     answer(treasury_risk::dashboard(graph.as_ref(), &scope))
+}
+
+async fn open_sovereign_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(sovereign_treasury::create_account(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn sovereign_accounts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(country): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(sovereign_treasury::list_accounts(
+        graph.as_ref(),
+        &scope,
+        &country,
+    ))
+}
+
+async fn register_sovereign_debt(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(sovereign_treasury::register_debt(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn sovereign_debts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(country): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(sovereign_treasury::list_debts(
+        graph.as_ref(),
+        &scope,
+        &country,
+    ))
+}
+
+async fn set_sovereign_fiscal_position(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(sovereign_treasury::set_fiscal_position(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn sovereign_fiscal_position(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(country): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(sovereign_treasury::get_fiscal_position(
+        graph.as_ref(),
+        &scope,
+        &country,
+    ))
 }
 
 async fn generate_cash_position_report(
@@ -5512,6 +5608,45 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/records/treasury-policy/compliance",
             get(policy_compliance_checks),
+        )
+        .route("/sovereign-treasury/accounts", post(open_sovereign_account))
+        .route(
+            "/sovereign-treasury/accounts/:country",
+            get(sovereign_accounts),
+        )
+        .route("/sovereign-treasury/debt", post(register_sovereign_debt))
+        .route("/sovereign-treasury/debt/:country", get(sovereign_debts))
+        .route(
+            "/sovereign-treasury/fiscal-position",
+            post(set_sovereign_fiscal_position),
+        )
+        .route(
+            "/sovereign-treasury/fiscal-position/:country",
+            get(sovereign_fiscal_position),
+        )
+        .route(
+            "/records/sovereign-treasury/accounts",
+            post(open_sovereign_account),
+        )
+        .route(
+            "/records/sovereign-treasury/accounts/:country",
+            get(sovereign_accounts),
+        )
+        .route(
+            "/records/sovereign-treasury/debt",
+            post(register_sovereign_debt),
+        )
+        .route(
+            "/records/sovereign-treasury/debt/:country",
+            get(sovereign_debts),
+        )
+        .route(
+            "/records/sovereign-treasury/fiscal-position",
+            post(set_sovereign_fiscal_position),
+        )
+        .route(
+            "/records/sovereign-treasury/fiscal-position/:country",
+            get(sovereign_fiscal_position),
         )
         .route(
             "/treasury-reporting/reports/cash-position",
