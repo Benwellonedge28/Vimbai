@@ -49,7 +49,6 @@ RETIRED_WITHOUT_ENDPOINT = {
     "income-statement-service",
     "interim-financial-reporting-service",
     "internal-controls-testing-service",
-    "kpi-tracking-service",
     "labour-cost-variance-service",
     "labour-efficiency-variance-service",
     "labour-rate-variance-service",

@@ -14,9 +14,10 @@ pub mod regulatory;
 pub mod xbrl;
 
 pub use analysis::{
-    analyze_bank_fees, analyze_coverage, track_kpis, BankCharge, CovenantCompliance,
-    CoverageMetrics, FeeAnalysisRequest, FeeAnalysisResult, FeeCharge, Kpi, KpiAnalysis,
-    KpiSummary, KpiTrackingRequest, KpiTrackingResult, KpiTrend, TieRequest, TieResult,
+    analyze_bank_fees, analyze_coverage, kpi_tracking_from_json, track_kpis, BankCharge,
+    CovenantCompliance, CoverageMetrics, FeeAnalysisRequest, FeeAnalysisResult, FeeCharge, Kpi,
+    KpiAnalysis, KpiSummary, KpiTrackingRequest, KpiTrackingResult, KpiTrend, TieRequest,
+    TieResult,
 };
 pub use annual::{
     prepare_annual_report, AnnualReport, AnnualReportRequest, ReportSection, SectionInput,

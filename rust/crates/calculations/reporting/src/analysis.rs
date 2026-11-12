@@ -23,7 +23,13 @@
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use vimbai_common::py_round;
+use vimbai_common::{py_round, Money};
+
+/// `#[serde(default)]` on a measure needs a `Money: Default`, which the shared type
+/// does not have; a named zero keeps the published shapes lenient the same way.
+fn zero_amount() -> Money {
+    Money::zero()
+}
 
 fn r2(v: f64) -> f64 {
     py_round(v, 2)
@@ -183,10 +189,10 @@ pub struct Kpi {
     pub kpi_id: String,
     #[serde(default)]
     pub kpi_name: String,
-    pub current_value: f64,
-    pub target: f64,
-    #[serde(default)]
-    pub previous_value: f64,
+    pub current_value: Money,
+    pub target: Money,
+    #[serde(default = "zero_amount")]
+    pub previous_value: Money,
     #[serde(default)]
     pub unit: String,
 }
@@ -204,8 +210,8 @@ pub struct KpiTrackingRequest {
 pub struct KpiAnalysis {
     pub kpi_id: String,
     pub kpi_name: String,
-    pub current: f64,
-    pub target: f64,
+    pub current: Money,
+    pub target: Money,
     pub achievement: f64,
     pub unit: String,
     pub status: String,
@@ -214,9 +220,9 @@ pub struct KpiAnalysis {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct KpiTrend {
     pub kpi_name: String,
-    pub current: f64,
-    pub previous: f64,
-    pub change: f64,
+    pub current: Money,
+    pub previous: Money,
+    pub change: Money,
     pub change_pct: f64,
     pub trend: String,
 }
@@ -246,9 +252,17 @@ pub fn track_kpis(req: &KpiTrackingRequest) -> KpiTrackingResult {
     let mut alerts = Vec::new();
 
     for kpi in &req.kpis {
-        let achievement = safe_div(kpi.current_value, kpi.target) * 100.0;
-        let change = kpi.current_value - kpi.previous_value;
-        let change_pct = safe_div(change, kpi.previous_value) * 100.0;
+        let achievement = if kpi.target.is_zero() {
+            0.0
+        } else {
+            kpi.current_value.over(&kpi.target).to_f64_lossy() * 100.0
+        };
+        let change = kpi.current_value.minus(&kpi.previous_value);
+        let change_pct = if kpi.previous_value.is_zero() {
+            0.0
+        } else {
+            change.over(&kpi.previous_value).to_f64_lossy() * 100.0
+        };
 
         if achievement < 90.0 {
             alerts.push(format!(
@@ -261,8 +275,8 @@ pub fn track_kpis(req: &KpiTrackingRequest) -> KpiTrackingResult {
         kpi_analysis.push(KpiAnalysis {
             kpi_id: kpi.kpi_id.clone(),
             kpi_name: kpi.kpi_name.clone(),
-            current: r2(kpi.current_value),
-            target: r2(kpi.target),
+            current: kpi.current_value.round(2),
+            target: kpi.target.round(2),
             achievement: r2(achievement),
             unit: kpi.unit.clone(),
             status: if achievement >= 100.0 {
@@ -277,11 +291,11 @@ pub fn track_kpis(req: &KpiTrackingRequest) -> KpiTrackingResult {
 
         trend_analysis.push(KpiTrend {
             kpi_name: kpi.kpi_name.clone(),
-            current: r2(kpi.current_value),
-            previous: r2(kpi.previous_value),
-            change: r2(change),
+            current: kpi.current_value.round(2),
+            previous: kpi.previous_value.round(2),
+            change: change.round(2),
             change_pct: r2(change_pct),
-            trend: if change > 0.0 {
+            trend: if change > Money::zero() {
                 "Improving"
             } else {
                 "Declining"
@@ -311,6 +325,13 @@ pub fn track_kpis(req: &KpiTrackingRequest) -> KpiTrackingResult {
         trend_analysis,
         alerts,
     }
+}
+
+/// `kpi-tracking-service /track`.
+pub fn kpi_tracking_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    let request: KpiTrackingRequest = serde_json::from_value(payload.clone())
+        .map_err(|error| format!("invalid request: {error}"))?;
+    serde_json::to_value(track_kpis(&request)).map_err(|error| error.to_string())
 }
 
 // --------------------------------------------------- debt service coverage
@@ -506,13 +527,21 @@ mod tests {
         assert_eq!(out.fee_per_transaction, 0.1);
     }
 
-    fn kpi(id: &str, name: &str, current: f64, target: f64, previous: f64) -> Kpi {
+    fn m(text: &str) -> Money {
+        Money::parse(text).expect("amount")
+    }
+
+    fn fixed(amount: &Money) -> String {
+        amount.to_fixed(2)
+    }
+
+    fn kpi(id: &str, name: &str, current: &str, target: &str, previous: &str) -> Kpi {
         Kpi {
             kpi_id: id.to_string(),
             kpi_name: name.to_string(),
-            current_value: current,
-            target,
-            previous_value: previous,
+            current_value: m(current),
+            target: m(target),
+            previous_value: m(previous),
             unit: "%".to_string(),
         }
     }
@@ -523,14 +552,17 @@ mod tests {
             company_id: "C1".to_string(),
             reporting_period: "2026-10".to_string(),
             kpis: vec![
-                kpi("K1", "Margin", 32.0, 30.0, 28.0),
-                kpi("K2", "Growth", 94.0, 100.0, 96.0),
-                kpi("K3", "Churn", 70.0, 100.0, 0.0),
+                kpi("K1", "Margin", "32", "30", "28"),
+                kpi("K2", "Growth", "94", "100", "96"),
+                kpi("K3", "Churn", "70", "100", "0"),
             ],
         };
         let out = track_kpis(&req);
         assert_eq!(out.kpi_analysis[0].status, "On Track");
         assert_eq!(out.kpi_analysis[0].achievement, 106.67);
+        assert_eq!(fixed(&out.kpi_analysis[0].current), "32.00");
+        assert_eq!(fixed(&out.kpi_analysis[0].target), "30.00");
+        assert_eq!(fixed(&out.trend_analysis[0].change), "4.00");
         assert_eq!(out.kpi_analysis[1].status, "At Risk");
         assert_eq!(out.kpi_analysis[2].status, "Below Target");
         assert_eq!(out.kpi_summary.total_kpis, 3);
@@ -544,6 +576,81 @@ mod tests {
         // zero prior value means no percentage change, not infinity
         assert_eq!(out.trend_analysis[2].change_pct, 0.0);
         assert_eq!(out.alerts, vec!["Churn below target by 30.0%".to_string()]);
+    }
+
+    #[test]
+    fn a_measure_past_double_precision_keeps_its_digits() {
+        let req = KpiTrackingRequest {
+            company_id: "C1".to_string(),
+            reporting_period: "2026-11".to_string(),
+            kpis: vec![kpi(
+                "K1",
+                "Revenue",
+                "123456789012345678901.55",
+                "123456789012345678901.55",
+                "123456789012345678900.05",
+            )],
+        };
+        let out = track_kpis(&req);
+        assert_eq!(
+            fixed(&out.kpi_analysis[0].current),
+            "123456789012345678901.55"
+        );
+        // the change is exact, not the nearest double
+        assert_eq!(fixed(&out.trend_analysis[0].change), "1.50");
+        assert_eq!(out.kpi_analysis[0].achievement, 100.0);
+        assert_eq!(out.trend_analysis[0].trend, "Improving");
+    }
+
+    #[test]
+    fn a_zero_target_or_prior_reports_zero_rather_than_dividing() {
+        let req = KpiTrackingRequest {
+            company_id: "C1".to_string(),
+            reporting_period: "2026-11".to_string(),
+            kpis: vec![kpi("K1", "New line", "50", "0", "0")],
+        };
+        let out = track_kpis(&req);
+        assert_eq!(out.kpi_analysis[0].achievement, 0.0);
+        assert_eq!(out.trend_analysis[0].change_pct, 0.0);
+        assert_eq!(out.kpi_analysis[0].status, "Below Target");
+    }
+
+    #[test]
+    fn the_door_reads_the_published_shape() {
+        let payload = serde_json::json!({
+            "company_id": "C1", "reporting_period": "2026-10",
+            "kpis": [
+                {"kpi_id": "K1", "kpi_name": "Margin", "current_value": "32",
+                 "target": "30", "previous_value": "28", "unit": "%"},
+                {"kpi_id": "K2", "kpi_name": "Growth", "current_value": "94",
+                 "target": "100", "unit": "%"}
+            ]
+        });
+        let out = kpi_tracking_from_json(&payload).expect("door");
+        assert_eq!(out["kpi_summary"]["total_kpis"], 2);
+        assert_eq!(out["kpi_analysis"][0]["current"], "32.00");
+        assert_eq!(out["kpi_analysis"][0]["status"], "On Track");
+        // an omitted prior value reads as zero, never as a missing key
+        assert_eq!(out["trend_analysis"][1]["previous"], "0");
+        assert_eq!(
+            fixed(
+                &track_kpis(&KpiTrackingRequest {
+                    company_id: "C1".to_string(),
+                    reporting_period: "2026-10".to_string(),
+                    kpis: vec![kpi("K2", "Growth", "94", "100", "0")],
+                })
+                .trend_analysis[0]
+                    .previous
+            ),
+            "0.00"
+        );
+
+        let bad = kpi_tracking_from_json(&serde_json::json!({
+            "company_id": "C1",
+            "kpis": [{"kpi_id": "K1", "current_value": "lots", "target": "30"}]
+        }))
+        .expect_err("refused");
+        assert!(bad.contains("invalid request"), "{bad}");
     }
 
     #[test]

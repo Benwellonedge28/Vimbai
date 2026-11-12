@@ -19,9 +19,10 @@ import module_reachability  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # service -> the module holding its maths, which the tracker says no door reaches.
-UNROUTED = {
-    "kpi-tracking-service": "reporting::analysis",
-}
+# Empty: every module the reachability script found unreachable now has a door.
+# A name here means the tracker still calls that maths unreachable, so the
+# reachability script must agree - the test fails if the module gains a door.
+UNROUTED = {}
 
 
 def _unreachable():

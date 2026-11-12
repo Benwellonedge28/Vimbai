@@ -162,6 +162,7 @@ deleted service was one of several front doors to the same arithmetic:
   `profit-loss-compare`
 - scenario-budget-service is `scenario_budget` in the budgeting crate, routed as `scenario-budget-analyze`
 - suspense-error-service is `suspense` in the accounting crate, routed as `suspense-error-analyze`
+- kpi-tracking-service is `reporting::analysis`, routed as `kpi-tracking-track`
 - deal-structuring-service, post-merger-service and synergy-analysis-service share
   `capital_valuation::corporate_events`, routed as `deal-structuring-structure`,
   `post-merger-track` and `synergy-analysis-analyze`
@@ -183,14 +184,11 @@ deleted service was one of several front doors to the same arithmetic:
 - time-value-of-money-service is `capital_valuation::capital_returns`
 - treasury-cash-service is `service_treasury::cash_optimization`
 
-**Arithmetic that exists and nothing can reach.** Not lost maths - written maths with no door. Each of
-these is a route or a seam function away, not a calculation away:
-
-- kpi-tracking-service - `reporting::analysis`
-
-Pinned in `tests/test_port_tracker.py` so the set cannot change without the tracker changing with it,
-and in `tests/test_unrouted_maths.py` so a module cannot be routed without the tracker losing the
-claim that it is unreachable.
+**Arithmetic that exists and nothing can reach.** Empty. Every module the reachability script found with
+no door has been wired: the last four were business valuation, merger valuation, and the three grouped
+into their domain crates. `tests/test_unrouted_maths.py` still fails if a module loses its door while the
+tracker says otherwise, and `tests/test_port_tracker.py` fails if a service is claimed wired without being
+reachable.
 
 ## Retired, and what stands in for them
 

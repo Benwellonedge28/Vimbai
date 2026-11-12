@@ -65,6 +65,7 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "suspense-error-analyze",
         accounting::suspense::suspense_error_from_json,
     );
+    map.insert("kpi-tracking-track", reporting::kpi_tracking_from_json);
     map.insert("eps", ratios_statements::eps_from_json);
     map.insert(
         "payroll-accounting-process",
@@ -1512,6 +1513,16 @@ mod typed_adapters {
                                "amount": "150", "account_affected": "Sales"}]}),
         );
         assert_eq!(suspense["corrected_suspense_balance"], json!("850.00"));
+
+        let kpis = calculate(
+            "kpi-tracking-track",
+            json!({"company_id": "C1", "reporting_period": "2026-10", "kpis": [
+                {"kpi_id": "K1", "kpi_name": "Margin", "current_value": "32",
+                 "target": "30", "previous_value": "28", "unit": "%"}
+            ]}),
+        );
+        assert_eq!(kpis["kpi_summary"]["on_track"], json!(1));
+        assert_eq!(kpis["kpi_analysis"][0]["achievement"], json!(106.67));
     }
 
     #[test]
