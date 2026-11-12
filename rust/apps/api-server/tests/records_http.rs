@@ -1188,3 +1188,62 @@ async fn a_missing_investment_answers_not_found_rather_than_an_error_body() {
     let (status, _) = call_with(graph, "GET", "/initial-investment/get/nope", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn a_debenture_issue_answers_on_its_published_path() {
+    let graph = Scripted::queue(vec![
+        vec![json!({
+            "id": "cls-1", "name": "2026 loan stock", "nominal_value": "100",
+            "issue_price": "95", "coupon_rate": "8", "redemption_price": "104",
+            "interest_payment_frequency": "semi_annual",
+            "debentures_issued": 1000, "debentures_outstanding": 1000
+        })],
+        vec![json!({"id": "cls-1"})],
+        vec![json!({"id": "iss-1"})],
+    ]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/debentures/classes/cls-1/issue?company_id=co-1&debentures_issued=200&issue_date=2026-03-01",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, params) = seen.statement(2);
+    assert_eq!(params["props"]["discount_on_issue"], json!("1000.000000"));
+}
+
+#[tokio::test]
+async fn accrueing_debenture_interest_withholds_the_tax_on_its_path() {
+    let graph = Scripted::returning(vec![json!({
+        "id": "cls-1", "name": "loan stock", "nominal_value": "100",
+        "coupon_rate": "8", "interest_payment_frequency": "quarterly",
+        "debentures_issued": 1000, "debentures_outstanding": 1000
+    })]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/debentures/classes/cls-1/interest/accrue?company_id=co-1&period_start=2026-01-01&period_end=2026-03-31&debentures_outstanding=800",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, params) = seen.last();
+    assert_eq!(params["props"]["interest_amount"], json!("1600.000000"));
+    assert_eq!(params["props"]["net_payment"], json!("1280.000000"));
+}
+
+#[tokio::test]
+async fn a_missing_debenture_class_is_refused_on_the_redeem_path() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/debentures/classes/nope/redeem?debentures_redeemed=10&redemption_date=2027-01-01",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

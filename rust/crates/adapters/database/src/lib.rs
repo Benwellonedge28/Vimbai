@@ -149,6 +149,12 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records debentures-service owns.
+pub const DEBENTURE_CLASS: RecordKind = RecordKind::new("DebentureClass", "OWNS_DEBENTURE_CLASS");
+pub const DEBENTURE_ISSUE: RecordKind = RecordKind::new("DebentureIssue", "OWNS_ISSUE");
+pub const DEBENTURE_INTEREST: RecordKind = RecordKind::new("InterestPayment", "OWNS_INTEREST");
+pub const DEBENTURE_REDEMPTION: RecordKind = RecordKind::new("RedemptionEntry", "OWNS_REDEMPTION");
+
 /// The records issued-share-capital-service owns.
 pub const SHARE_ISSUE: RecordKind = RecordKind::new("ShareIssueNode", "OWNS_SHARE_ISSUE");
 pub const SHAREHOLDER: RecordKind = RecordKind::new("ShareholderNode", "OWNS_SHAREHOLDER");

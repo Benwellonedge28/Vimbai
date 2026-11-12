@@ -12,6 +12,11 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- debentures-service -> equity crate, records on the store: classes (nominal, issue price, coupon,
+  redemption price), issues booking the discount or premium, per-period interest with a flat twenty
+  percent withheld, payment of it, and redemptions booking the premium. Accrual takes the outstanding
+  count from the caller rather than the class, as the service did; an unrecognised payment frequency is
+  treated as monthly.
 - issued-share-capital-service -> equity crate, records on the store: issues, the shareholder register,
   and the capital summary. The issue entry credits share capital at one unit a share because the service
   hard-coded that nominal regardless of class, so preference and ordinary issues post the same capital

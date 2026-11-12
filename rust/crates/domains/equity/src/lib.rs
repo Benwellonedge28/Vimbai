@@ -4,6 +4,8 @@
 //! * `equity-changes-service`
 //! * `authorized-share-capital-service` (records on the store: share classes, their issuances,
 //!   buybacks and the used-capacity summary)
+//! * `debentures-service` (records on the store: classes, issues, per-period interest with a flat
+//!   twenty percent withheld, and redemptions with their premium)
 //! * `issued-share-capital-service` (records on the store: issues at the hard-coded one-unit nominal,
 //!   the shareholder register, and the capital summary)
 //! * `initial-investment-service` (records on the store, plus the simple outlay and capital allowance
@@ -29,6 +31,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod debentures;
 pub mod equity_changes;
 pub mod initial_investment;
 pub mod issued_share_capital;
@@ -46,6 +49,12 @@ pub use share_classes::{
     list_issuances as list_share_issuances, summary as share_capital_summary,
 };
 
+pub use debentures::{
+    accrue_interest, create_class as create_debenture_class, issue as issue_debentures,
+    list_classes as list_debenture_classes, list_interest as list_debenture_interest,
+    list_issues as list_debenture_issues, pay_interest, period_interest, periods_per_year, redeem,
+    split_tax,
+};
 pub use initial_investment::{
     capital_allowance_saving, create_investment, get_investment, list_investments, simple_outlay,
 };

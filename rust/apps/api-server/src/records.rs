@@ -1751,6 +1751,165 @@ async fn crr_requirements(
         status.as_deref(),
     ))
 }
+async fn create_debenture_class(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::create_debenture_class(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn issue_debentures(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(class_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::issue_debentures(
+        graph.as_ref(),
+        &scope,
+        &class_id,
+        &body,
+    ))
+}
+
+async fn accrue_debenture_interest(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(class_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::accrue_interest(
+        graph.as_ref(),
+        &scope,
+        &class_id,
+        &body,
+    ))
+}
+
+async fn pay_debenture_interest(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(interest_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::pay_interest(
+        graph.as_ref(),
+        &scope,
+        &interest_id,
+        &body,
+    ))
+}
+
+async fn redeem_debentures(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(class_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::redeem(graph.as_ref(), &scope, &class_id, &body))
+}
+
+async fn debenture_classes(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    answer(equity::list_debenture_classes(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn debenture_issues(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    answer(equity::list_debenture_issues(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn debenture_interest(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = query_param(query.as_deref(), "company_id");
+    answer(equity::list_debenture_interest(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
 async fn issue_share_capital(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -3370,6 +3529,26 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route("/debentures/classes/create", post(create_debenture_class))
+        .route(
+            "/debentures/classes/:class_id/issue",
+            post(issue_debentures),
+        )
+        .route(
+            "/debentures/classes/:class_id/interest/accrue",
+            post(accrue_debenture_interest),
+        )
+        .route(
+            "/debentures/interest/:interest_id/pay",
+            post(pay_debenture_interest),
+        )
+        .route(
+            "/debentures/classes/:class_id/redeem",
+            post(redeem_debentures),
+        )
+        .route("/debentures/classes", get(debenture_classes))
+        .route("/debentures/issues", get(debenture_issues))
+        .route("/debentures/interest", get(debenture_interest))
         .route("/issued-share-capital/issue", post(issue_share_capital))
         .route(
             "/issued-share-capital/shareholders/register",
@@ -3416,6 +3595,29 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(share_redemption_detail),
         )
         .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route(
+            "/records/debentures/classes/create",
+            post(create_debenture_class),
+        )
+        .route(
+            "/records/debentures/classes/:class_id/issue",
+            post(issue_debentures),
+        )
+        .route(
+            "/records/debentures/classes/:class_id/interest/accrue",
+            post(accrue_debenture_interest),
+        )
+        .route(
+            "/records/debentures/interest/:interest_id/pay",
+            post(pay_debenture_interest),
+        )
+        .route(
+            "/records/debentures/classes/:class_id/redeem",
+            post(redeem_debentures),
+        )
+        .route("/records/debentures/classes", get(debenture_classes))
+        .route("/records/debentures/issues", get(debenture_issues))
+        .route("/records/debentures/interest", get(debenture_interest))
         .route(
             "/records/issued-share-capital/issue",
             post(issue_share_capital),
