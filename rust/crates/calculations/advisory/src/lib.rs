@@ -55,12 +55,7 @@ pub fn py_float2(value: f64) -> String {
 }
 
 /// The services stamped a uuid on their answers; the caller supplies its own.
-pub fn with_id(mut answer: Value, id: &str) -> Value {
-    if let Value::Object(ref mut map) = answer {
-        map.insert("id".to_string(), Value::String(id.to_string()));
-    }
-    answer
-}
+pub use vimbai_common::with_id;
 
 pub use audit::{analyze_analytical_procedures, analyze_transfer_pricing, evaluate_controls};
 pub use contracts::analyze_construction_contracts;

@@ -465,10 +465,6 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         (|p| via_seam(bridge::assurance::scrap_json, p)) as Calculator,
     );
     map.insert(
-        "tax-provision",
-        (|p| via_seam(bridge::assurance::tax_provision_json, p)) as Calculator,
-    );
-    map.insert(
         "tax-risk",
         (|p| via_seam(bridge::assurance::tax_risk_json, p)) as Calculator,
     );

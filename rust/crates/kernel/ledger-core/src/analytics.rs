@@ -28,20 +28,14 @@ use serde_json::{json, Map, Value};
 
 /// Python's `round()`: half to even, at `scale` decimal places.
 pub fn py_round(value: f64, scale: i32) -> f64 {
-    let factor = 10f64.powi(scale);
-    let scaled = value * factor;
-    let floor = scaled.floor();
-    let diff = scaled - floor;
-    let rounded = if (diff - 0.5).abs() < 1e-9 {
-        if (floor as i64) % 2 == 0 {
-            floor
-        } else {
-            floor + 1.0
-        }
-    } else {
-        scaled.round()
-    };
-    rounded / factor
+    // One rounding rule for the whole workspace: vimbai_common's, which matches
+    // Python's round() by letting the float formatter round the exact binary
+    // value. This crate used to carry its own hand-rolled banker's rounding with
+    // a 1e-9 tolerance, which disagreed with the other one at odd scales.
+    if scale < 0 {
+        return vimbai_common::py_round(value, 0);
+    }
+    vimbai_common::py_round(value, scale as usize)
 }
 
 fn r2(value: f64) -> f64 {
@@ -613,11 +607,9 @@ pub fn analyze_financials(request: &Value) -> Value {
 
 /// The Python services stamped a uuid on their answers. Kept out of the maths so
 /// the caller can supply its own, but provided here for wire compatibility.
-pub fn with_id(mut answer: Value, id: &str) -> Value {
-    if let Value::Object(ref mut map) = answer {
-        map.insert("id".to_string(), Value::String(id.to_string()));
-    }
-    answer
+pub fn with_id(answer: Value, id: &str) -> Value {
+    // Defined once, in vimbai_common; stamped ids belong in one place.
+    vimbai_common::with_id(answer, id)
 }
 
 #[cfg(test)]

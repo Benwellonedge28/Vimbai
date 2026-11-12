@@ -41,6 +41,15 @@ pub fn py_float_repr(value: f64) -> String {
     }
 }
 
+/// Stamp an id onto a JSON answer. One definition for the whole workspace: the
+/// advisory crate and the ledger kernel each carried a byte-identical copy.
+pub fn with_id(mut answer: serde_json::Value, id: &str) -> serde_json::Value {
+    if let serde_json::Value::Object(ref mut map) = answer {
+        map.insert("id".to_string(), serde_json::Value::String(id.to_string()));
+    }
+    answer
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
