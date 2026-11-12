@@ -112,7 +112,7 @@ def test_no_two_source_files_are_identical():
 # has been looked at and is a different calculation behind a familiar word, not a copy:
 #   job_costing  the seam's f64 adapter over domains/costing's exact `settle`, which is the one rule
 #   consolidation  a group's consolidation statements versus a business combination's own
-#   xbrl  two live generators with different shapes, both reachable through their own service
+#   xbrl  two envelopes over one shared fact builder, each serving its own filing
 PINNED_SAME_MODULE_CLASHES = {"job_costing", "consolidation", "xbrl"}
 
 

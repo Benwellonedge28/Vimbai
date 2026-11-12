@@ -3,15 +3,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use vimbai_common::numbers::money;
-
-pub const REQUIRED_CONCEPTS: [&str; 5] = [
-    "RevenueFromContracts",
-    "ProfitLoss",
-    "Assets",
-    "Liabilities",
-    "Equity",
-];
+/// The concept list, the fact shape and the validation sentence are shared with the statement
+/// filing in `vimbai_reporting::xbrl`; only this envelope is tax-specific.
+pub use vimbai_reporting::xbrl::REQUIRED_CONCEPTS;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FinancialConcept {
@@ -106,21 +100,22 @@ pub fn generate(request: &XbrlRequest, generated_at: &str) -> XbrlResult {
     let mut facts = Vec::with_capacity(request.concepts.len());
 
     for concept in &request.concepts {
-        facts.push(json!({
-            "concept": concept.concept,
-            "taxonomy_ref": format!("{}:{}", request.taxonomy, concept.concept),
-            "value": money(concept.value),
-            "context": concept.context_ref,
-            "unit": concept.unit_ref,
-            "decimals": concept.decimals,
-        }));
+        facts.push(vimbai_reporting::xbrl::fact(
+            &request.taxonomy,
+            &concept.concept,
+            concept.value,
+            json!(concept.context_ref),
+            json!(concept.unit_ref),
+            json!(concept.decimals),
+        ));
     }
 
-    for required in REQUIRED_CONCEPTS {
-        if !request.concepts.iter().any(|c| c.concept == required) {
-            errors.push(format!("Missing required concept: {required}"));
-        }
-    }
+    errors.extend(vimbai_reporting::xbrl::missing_concepts(
+        request
+            .concepts
+            .iter()
+            .map(|concept| concept.concept.as_str()),
+    ));
 
     XbrlResult {
         company_id: request.company_id.clone(),

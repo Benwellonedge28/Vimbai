@@ -10,7 +10,7 @@
 
 use serde_json::{Map, Value};
 
-const REQUIRED_CONCEPTS: [&str; 5] = [
+pub const REQUIRED_CONCEPTS: [&str; 5] = [
     "RevenueFromContracts",
     "ProfitLoss",
     "Assets",
@@ -20,6 +20,40 @@ const REQUIRED_CONCEPTS: [&str; 5] = [
 
 fn round2(value: f64) -> f64 {
     vimbai_common::numbers::round_dp(value, 2)
+}
+
+/// One XBRL fact. Both filings this workspace produces - the statement filing and the tax filing -
+/// emit exactly these six keys, so they are built here and nowhere else. `value` is money and is
+/// rounded to two decimals; a fact list that carries a different rounding is a different fact set.
+pub fn fact(
+    taxonomy: &str,
+    concept: &str,
+    value: f64,
+    context: Value,
+    unit: Value,
+    decimals: Value,
+) -> Value {
+    serde_json::json!({
+        "concept": concept,
+        "taxonomy_ref": format!("{taxonomy}:{concept}"),
+        "value": round2(value),
+        "context": context,
+        "unit": unit,
+        "decimals": decimals,
+    })
+}
+
+/// The concepts a filing is rejected without, that `names` does not contain.
+///
+/// A fact list missing any of the five is `invalid` and the error names the concept - the same
+/// sentence whichever filing asked.
+pub fn missing_concepts<'a>(names: impl Iterator<Item = &'a str>) -> Vec<String> {
+    let seen: Vec<&str> = names.collect();
+    REQUIRED_CONCEPTS
+        .iter()
+        .filter(|required| !seen.contains(*required))
+        .map(|required| format!("Missing required concept: {required}"))
+        .collect()
 }
 
 /// `POST /generate`.
@@ -35,31 +69,28 @@ pub fn generate(payload: &Value) -> Result<Value, String> {
         .cloned()
         .unwrap_or_default();
 
-    let mut facts = Vec::with_capacity(concepts.len());
-    let mut seen: Vec<String> = Vec::new();
-    for concept in &concepts {
-        let name = concept
-            .get("concept")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string();
-        if !seen.contains(&name) {
-            seen.push(name.clone());
-        }
-        facts.push(serde_json::json!({
-            "concept": name,
-            "taxonomy_ref": format!("{taxonomy}:{}", concept.get("concept").and_then(Value::as_str).unwrap_or("")),
-            "value": round2(concept.get("value").and_then(Value::as_f64).unwrap_or(0.0)),
-            "context": concept.get("context_ref").cloned().unwrap_or(Value::Null),
-            "unit": concept.get("unit_ref").cloned().unwrap_or(Value::Null),
-            "decimals": concept.get("decimals").cloned().unwrap_or(Value::from(0)),
-        }));
-    }
-
-    let errors: Vec<Value> = REQUIRED_CONCEPTS
+    let names: Vec<&str> = concepts
         .iter()
-        .filter(|required| !seen.iter().any(|name| name == *required))
-        .map(|required| Value::String(format!("Missing required concept: {required}")))
+        .map(|concept| concept.get("concept").and_then(Value::as_str).unwrap_or(""))
+        .collect();
+    let facts: Vec<Value> = concepts
+        .iter()
+        .zip(&names)
+        .map(|(concept, name)| {
+            fact(
+                &taxonomy,
+                name,
+                concept.get("value").and_then(Value::as_f64).unwrap_or(0.0),
+                concept.get("context_ref").cloned().unwrap_or(Value::Null),
+                concept.get("unit_ref").cloned().unwrap_or(Value::Null),
+                concept.get("decimals").cloned().unwrap_or(Value::from(0)),
+            )
+        })
+        .collect();
+
+    let errors: Vec<Value> = missing_concepts(names.into_iter())
+        .into_iter()
+        .map(Value::String)
         .collect();
 
     let mut metadata = Map::new();
