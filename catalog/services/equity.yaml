@@ -3,7 +3,7 @@ domain:
   name: equity
   responsibility: share capital, reserves and equity movements
   target: rust/crates/domains/equity
-  services: 16
+  services: 15
 services:
 - name: authorized-share-capital-service
   domain: equity
@@ -203,22 +203,6 @@ services:
   - GET /appropriations
   - GET /interim-dividends
   - GET /adjustments
-  - GET /summary/{company_id}
-- name: revaluation-reserve-service
-  domain: equity
-  target: rust/crates/domains/equity
-  port: 8114
-  gateway_path: /revaluation-reserve
-  auth_required: true
-  engine: python
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /revaluations/record
-  - POST /utilizations/record
-  - GET /revaluations
-  - GET /cumulative/{asset_id}
   - GET /summary/{company_id}
 - name: right-issues-service
   domain: equity

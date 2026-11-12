@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 15
-still Python             123
+already on a Rust engine 24
+still Python             114
 owner domains            28
 ```
 
@@ -65,17 +65,19 @@ Lands in `rust/crates/domains/assets`.
 
 ```
 service                                         port  routes  records  engine
-biological-assets-service                       8146       7       no  python
-disposal-account-service                        8045       6       no  python
-disposal-group-service                          8226       8      yes  python
-fixed-assets-register-service                   8355       9      yes  python
-fixed-assets-schedule-service                   8056       9      yes  python
-intangible-assets-service                       8358       7      yes  python
-investment-property-service                     8145       6       no  python
-lease-termination-service                       8224       8      yes  python
+biological-assets-service                       8146       7       no  rust
+disposal-account-service                        8045       6       no  rust
+disposal-group-service                          8226       8      yes  rust
+fixed-assets-register-service                   8355       9      yes  rust
+fixed-assets-schedule-service                   8056       9      yes  rust
+intangible-assets-service                       8358       7      yes  rust
+investment-property-service                     8145       6       no  rust
+lease-termination-service                       8224       8      yes  rust
 revaluation-model-service                       8144       6       no  python
+revaluation-reserve-service                     8114       7      yes  rust
 ```
 
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
 Retirement gate: port the maths and its records into this domain, capture parity against the Python, then de-register. Nothing is deleted before that.
 
 ## audit
@@ -226,7 +228,6 @@ issued-share-capital-service                    8071       7      yes  python
 ordinary-shares-service                         8090       5      yes  python
 preference-shares-service                       8102       9      yes  python
 retained-profits-service                        8113      10      yes  python
-revaluation-reserve-service                     8114       7      yes  python
 right-issues-service                            8116       7      yes  python
 share-premium-service                           8125       8      yes  python
 share-redemption-service                        8126       8      yes  python

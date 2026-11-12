@@ -6,28 +6,37 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 15 are proven on a Rust engine. 122 are still Python-only.
+The gateway routes 137 services. 24 are proven on a Rust engine. 113 are still Python-only.
 
-Of the backlog, 25 own no records and can be ported as pure functions; 97 own records and
+Of the backlog, 22 own no records and can be ported as pure functions; 91 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-15 services.
+24 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
 appropriation-control-service                  8015  routes=5   records=yes rust http
 basis-apportionment-service                    8022  routes=12  records=yes rust http
+biological-assets-service                      8146  routes=7   records=no  rust http
 cash-flow-statement-service                    8029  routes=4   records=yes rust http
 cash-optimization-service                      8030  routes=5   records=yes rust http
 cvp-analysis-service                           8039  routes=9   records=yes rust http
+disposal-account-service                       8045  routes=6   records=no  rust http
+disposal-group-service                         8226  routes=8   records=yes rust http
 equity-changes-service                         8049  routes=5   records=yes rust http
+fixed-assets-register-service                  8355  routes=9   records=yes rust http
+fixed-assets-schedule-service                  8056  routes=9   records=yes rust http
 insurance-claims-service                       8367  routes=5   records=yes rust http
+intangible-assets-service                      8358  routes=7   records=yes rust http
+investment-property-service                    8145  routes=6   records=no  rust http
 job-costing-service                            8073  routes=5   records=yes rust http
+lease-termination-service                      8224  routes=8   records=yes rust http
 overhead-absorption-rate-service               8092  routes=13  records=yes rust http
 process-costing-service                        8105  routes=5   records=yes rust http
 product-costing-service                        8106  routes=5   records=yes rust http
+revaluation-reserve-service                    8114  routes=7   records=yes rust http
 selling-price-reduction-service                8123  routes=5   records=yes rust http
 trading-account-service                        8000  routes=5   records=yes rust http
 treasury-analytics-service                     8134  routes=4   records=yes rust http
@@ -35,7 +44,7 @@ treasury-analytics-service                     8134  routes=4   records=yes rust
 
 ### Backlog: no records owned (port the maths only)
 
-25 services.
+22 services.
 
 ```
 reporting-service                              8361  routes=3   records=no  none
@@ -49,7 +58,6 @@ websocket-service                              8141  routes=4   records=no  none
 net-present-value-service                      8083  routes=6   records=no  none
 internal-rate-return-service                   8068  routes=6   records=no  none
 etl-service                                    8363  routes=7   records=no  none
-disposal-account-service                       8045  routes=6   records=no  none
 encrypted-backup-service                       8006  routes=8   records=no  none
 privacy-admin-dashboard-service                8003  routes=10  records=no  none
 banking-integration-service                    8386  routes=8   records=no  none
@@ -58,8 +66,6 @@ distributed-workflow-orchestration-service     8046  routes=8   records=no  none
 performance-benchmarking-service               8280  routes=8   records=no  none
 revaluation-model-service                      8144  routes=6   records=no  none
 report-automation-service                      8272  routes=10  records=no  none
-investment-property-service                    8145  routes=6   records=no  none
-biological-assets-service                      8146  routes=7   records=no  none
 graphql-service                                8095  routes=2   records=no  none
 double-entry-principles-service                8047  routes=9   records=no  none
 payment-gateway-service                        8098  routes=20  records=no  none
@@ -67,7 +73,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-97 services.
+91 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -94,16 +100,12 @@ risk-assessment-service                        8117  routes=6   records=yes none
 audit-engagement-service                       8371  routes=8   records=yes none
 financial-integrity-service                    8054  routes=6   records=yes none
 initial-investment-service                     8067  routes=7   records=yes none
-intangible-assets-service                      8358  routes=7   records=yes none
 treasury-management-service                    8136  routes=7   records=yes none
 benefits-admin-service                         8360  routes=8   records=yes none
 partnership-dissolution-service                8096  routes=5   records=yes none
 rolling-forecast-service                       8173  routes=7   records=yes none
 bonus-shares-service                           8023  routes=4   records=yes none
-fixed-assets-schedule-service                  8056  routes=9   records=yes none
-disposal-group-service                         8226  routes=8   records=yes none
 control-account-reconciliation-service         8033  routes=8   records=yes none
-lease-termination-service                      8224  routes=8   records=yes none
 mfa-auth-service                               8007  routes=6   records=yes none
 ifrs-reporting-service                         8268  routes=8   records=yes none
 partnership-agreement-service                  8094  routes=8   records=yes none
@@ -136,8 +138,6 @@ treasury-risk-service                          8259  routes=11  records=yes none
 invoicing-service                              8070  routes=1   records=yes none
 general-reserve-service                        8061  routes=8   records=yes none
 retained-profits-service                       8113  routes=10  records=yes none
-fixed-assets-register-service                  8355  routes=9   records=yes none
-revaluation-reserve-service                    8114  routes=7   records=yes none
 share-redemption-service                       8126  routes=8   records=yes none
 petty-cash-service                             8097  routes=20  records=yes none
 capital-redemption-reserve-service             8027  routes=9   records=yes none

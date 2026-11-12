@@ -489,7 +489,7 @@ services:
   port: 8146
   gateway_path: /biological-assets
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /
@@ -868,7 +868,7 @@ services:
   port: 8045
   gateway_path: /disposal-account
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /health
@@ -883,7 +883,7 @@ services:
   port: 8226
   gateway_path: /disposal-group
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -1085,7 +1085,7 @@ services:
   port: 8355
   gateway_path: /fixed-assets-register
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -1103,7 +1103,7 @@ services:
   port: 8056
   gateway_path: /fixed-assets-schedule
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -1225,7 +1225,7 @@ services:
   port: 8358
   gateway_path: /intangible-assets
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -1291,7 +1291,7 @@ services:
   port: 8145
   gateway_path: /investment-property
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /
@@ -1346,7 +1346,7 @@ services:
   port: 8224
   gateway_path: /lease-termination
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -1959,12 +1959,12 @@ services:
   - POST /impairment-after-revaluation
   - POST /indexation-allowance
 - name: revaluation-reserve-service
-  domain: equity
-  target: rust/crates/domains/equity
+  domain: assets
+  target: rust/crates/domains/assets
   port: 8114
   gateway_path: /revaluation-reserve
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health

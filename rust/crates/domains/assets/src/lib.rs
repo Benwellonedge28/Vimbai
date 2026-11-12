@@ -10,20 +10,31 @@
 //! disposals live here too, so every asset question the platform answers is in
 //! one crate.
 //!
-//! Remaining services queued for this crate: fixed-assets-register,
-//! fixed-assets-schedule, intangible-assets, revaluation-reserve.
+//! Record-owning services whose records are on the store, answered from here:
+//!
+//! * `fixed-assets-register-service` and `fixed-assets-schedule-service` - the one `:FixedAsset`
+//!   register, its depreciation entries, disposals and scheduled summaries.
+//! * `intangible-assets-service` - intangibles and their amortisation entries.
+//! * `revaluation-reserve-service` - revaluations, their utilisation and the running reserve.
+//! * `disposal-group-service` - IFRS 5 disposal groups, their assets and impairment tests.
+//! * `lease-termination-service` - lease exits, their settlements, approval and completion.
+//!
+//! Also answered from here: `investment-property-service`, `biological-assets-service` and
+//! `disposal-account-service`.
 
 pub mod amortization;
 pub mod asset_schedule;
 pub mod biological_assets;
 pub mod depreciation;
 pub mod disposal_account;
+pub mod disposal_groups;
 pub mod fixed_assets;
 pub mod fixed_assets_register;
 pub mod goodwill;
 pub mod intangible_assets;
 pub mod inventory;
 pub mod investment_property;
+pub mod lease_termination;
 pub mod revaluation;
 pub mod revaluation_reserve;
 
@@ -53,6 +64,12 @@ pub use disposal_account::{
     post_from_json as disposal_post_from_json, DisposalEntry, DisposalJournal, DisposalRequest,
     JournalLine,
 };
+pub use disposal_groups::{
+    add_asset as add_disposal_asset, create_group as create_disposal_group,
+    get_group as get_disposal_group, impairment_test as disposal_impairment_test,
+    list_assets as list_disposal_assets, list_groups as list_disposal_groups,
+    update_status as update_disposal_status,
+};
 pub use fixed_assets::{
     analyze_fixed_assets, analyze_fixed_assets_from_json, AssetSummary, CapitalExpenditurePlan,
     CategoryAnalysis, FixedAsset, FixedAssetsAnalysis, FixedAssetsError, FixedAssetsRequest,
@@ -75,6 +92,10 @@ pub use investment_property::{
     process_transfer, transfer_from_json, yields_from_json, CostModelDepreciation,
     CostModelRequest, FairValueMeasurement, FairValueModelRequest, InvestmentProperty,
     InvestmentPropertyResponse,
+};
+pub use lease_termination::{
+    approve as approve_termination, calculate_settlement, complete as complete_termination,
+    create_termination, get_termination, list_terminations,
 };
 pub use revaluation::{revalue, AssetBook, RevaluationAsset, RevaluationOutput, RevaluationRow};
 pub use revaluation_reserve::{

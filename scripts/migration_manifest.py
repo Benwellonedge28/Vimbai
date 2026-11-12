@@ -140,7 +140,8 @@ OWNERS = {
     "ordinary-shares-service": "equity",
     "preference-shares-service": "equity",
     "retained-profits-service": "equity",
-    "revaluation-reserve-service": "equity",
+    # an asset revaluation reserve is an asset question, and its records live in the assets crate
+    "revaluation-reserve-service": "assets",
     "right-issues-service": "equity",
     "share-premium-service": "equity",
     "share-redemption-service": "equity",
@@ -224,7 +225,11 @@ def ported_names():
                 continue
             if "Wired to the Rust library" not in section:
                 continue
-            match = re.match(r"^-\s+([a-z0-9][a-z0-9._-]*)\s*(?:->.*)?$", stripped)
+            # a bullet names the service, then says where it lives - either "-> crate" or
+            # "(crate, what it covers)". Reading only the arrow form silently dropped every service
+            # annotated with a parenthetical, which is how two dozen Rust services were reported as
+            # Python in the catalogue while answering from Rust.
+            match = re.match(r"^-\s+([a-z0-9][a-z0-9._-]*)\s*(?:[(-].*)?$", stripped)
             if match:
                 listed.add(match.group(1))
     return {name for name in OWNERS if name in listed}

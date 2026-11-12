@@ -17,7 +17,7 @@ use axum::{
     extract::{Path, RawQuery, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, put},
     Json, Router,
 };
 use budgeting_services::appropriation_control;
@@ -1178,6 +1178,250 @@ async fn intangible_amortization(
     ))
 }
 
+async fn create_disposal_group(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::create_disposal_group(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn disposal_groups(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let status = query_param(query.as_deref(), "status");
+    answer(assets::list_disposal_groups(
+        graph.as_ref(),
+        &scope,
+        status.as_deref(),
+    ))
+}
+
+async fn one_disposal_group(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(group_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::get_disposal_group(
+        graph.as_ref(),
+        &scope,
+        &group_id,
+    ))
+}
+
+async fn add_disposal_asset(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(group_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = body_or_query(query.as_deref());
+    let body = overlay(body, payload.map(|Json(value)| value));
+    answer(assets::add_disposal_asset(
+        graph.as_ref(),
+        &scope,
+        &group_id,
+        &body,
+    ))
+}
+
+async fn disposal_assets(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(group_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::list_disposal_assets(
+        graph.as_ref(),
+        &scope,
+        &group_id,
+    ))
+}
+
+async fn disposal_impairment_test(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(group_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = body_or_query(query.as_deref());
+    let body = overlay(body, payload.map(|Json(value)| value));
+    answer(assets::disposal_impairment_test(
+        graph.as_ref(),
+        &scope,
+        &group_id,
+        &body,
+    ))
+}
+
+async fn disposal_group_status(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(group_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let status = query_param(query.as_deref(), "status").unwrap_or_default();
+    answer(assets::update_disposal_status(
+        graph.as_ref(),
+        &scope,
+        &group_id,
+        &status,
+    ))
+}
+
+async fn create_lease_termination(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = body_or_query(query.as_deref());
+    let body = overlay(body, payload.map(|Json(value)| value));
+    answer(assets::create_termination(graph.as_ref(), &scope, &body))
+}
+
+async fn lease_terminations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let status = query_param(query.as_deref(), "status");
+    answer(assets::list_terminations(
+        graph.as_ref(),
+        &scope,
+        status.as_deref(),
+    ))
+}
+
+async fn one_lease_termination(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(termination_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::get_termination(
+        graph.as_ref(),
+        &scope,
+        &termination_id,
+    ))
+}
+
+async fn lease_settlement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(termination_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = body_or_query(query.as_deref());
+    let body = overlay(body, payload.map(|Json(value)| value));
+    answer(assets::calculate_settlement(
+        graph.as_ref(),
+        &scope,
+        &termination_id,
+        &body,
+    ))
+}
+
+async fn approve_lease_termination(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(termination_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = body_or_query(query.as_deref());
+    answer(assets::approve_termination(
+        graph.as_ref(),
+        &scope,
+        &termination_id,
+        &body,
+    ))
+}
+
+async fn complete_lease_termination(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(termination_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::complete_termination(
+        graph.as_ref(),
+        &scope,
+        &termination_id,
+    ))
+}
+
+/// The query string as a payload, with a JSON body laid over it.
+///
+/// These services took their arguments as query parameters, so a caller migrating to a body must not
+/// lose the query it already sends, and a body must win where both name the same field.
+fn overlay(query: Value, body: Option<Value>) -> Value {
+    let mut merged = query.as_object().cloned().unwrap_or_default();
+    if let Some(Value::Object(fields)) = body {
+        for (key, value) in fields {
+            merged.insert(key, value);
+        }
+    }
+    Value::Object(merged)
+}
+
 fn body_or_query(query: Option<&str>) -> Value {
     let mut payload = serde_json::Map::new();
     for (key, value) in url::form_urlencoded::parse(query.unwrap_or("").as_bytes()) {
@@ -1339,6 +1583,46 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/records/fixed-assets-schedule/summary",
             get(schedule_summary),
+        )
+        .route(
+            "/records/disposal-group/groups",
+            get(disposal_groups).post(create_disposal_group),
+        )
+        .route(
+            "/records/disposal-group/groups/:group_id",
+            get(one_disposal_group),
+        )
+        .route(
+            "/records/disposal-group/groups/:group_id/assets",
+            get(disposal_assets).post(add_disposal_asset),
+        )
+        .route(
+            "/records/disposal-group/groups/:group_id/impairment-test",
+            post(disposal_impairment_test),
+        )
+        .route(
+            "/records/disposal-group/groups/:group_id/status",
+            put(disposal_group_status),
+        )
+        .route(
+            "/records/lease-termination/terminations",
+            get(lease_terminations).post(create_lease_termination),
+        )
+        .route(
+            "/records/lease-termination/terminations/:termination_id",
+            get(one_lease_termination),
+        )
+        .route(
+            "/records/lease-termination/terminations/:termination_id/settlement",
+            post(lease_settlement),
+        )
+        .route(
+            "/records/lease-termination/terminations/:termination_id/approve",
+            put(approve_lease_termination),
+        )
+        .route(
+            "/records/lease-termination/terminations/:termination_id/complete",
+            put(complete_lease_termination),
         )
         .route(
             "/records/intangible-assets/assets",
@@ -1706,6 +1990,43 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route(
+            "/disposal-group/groups",
+            get(disposal_groups).post(create_disposal_group),
+        )
+        .route("/disposal-group/groups/:group_id", get(one_disposal_group))
+        .route(
+            "/disposal-group/groups/:group_id/assets",
+            get(disposal_assets).post(add_disposal_asset),
+        )
+        .route(
+            "/disposal-group/groups/:group_id/impairment-test",
+            post(disposal_impairment_test),
+        )
+        .route(
+            "/disposal-group/groups/:group_id/status",
+            put(disposal_group_status),
+        )
+        .route(
+            "/lease-termination/terminations",
+            get(lease_terminations).post(create_lease_termination),
+        )
+        .route(
+            "/lease-termination/terminations/:termination_id",
+            get(one_lease_termination),
+        )
+        .route(
+            "/lease-termination/terminations/:termination_id/settlement",
+            post(lease_settlement),
+        )
+        .route(
+            "/lease-termination/terminations/:termination_id/approve",
+            put(approve_lease_termination),
+        )
+        .route(
+            "/lease-termination/terminations/:termination_id/complete",
+            put(complete_lease_termination),
+        )
         .route(
             "/intangible-assets/assets",
             get(intangibles).post(create_intangible),

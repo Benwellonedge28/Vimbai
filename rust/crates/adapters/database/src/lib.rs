@@ -138,6 +138,17 @@ pub const INTANGIBLE_ASSET: RecordKind =
 pub const AMORTIZATION_ENTRY: RecordKind =
     RecordKind::new("AmortizationEntry", "OWNS_AMORTIZATION_ENTRY");
 
+/// The records disposal-group-service owns.
+pub const DISPOSAL_GROUP: RecordKind = RecordKind::new("DisposalGroup", "OWNS_DISPOSAL_GROUP");
+pub const DISPOSAL_ASSET: RecordKind = RecordKind::new("DisposalAsset", "OWNS_DISPOSAL_ASSET");
+pub const IMPAIRMENT_TEST: RecordKind = RecordKind::new("ImpairmentTest", "OWNS_IMPAIRMENT_TEST");
+
+/// The records lease-termination-service owns.
+pub const LEASE_TERMINATION: RecordKind =
+    RecordKind::new("LeaseTermination", "OWNS_LEASE_TERMINATION");
+pub const TERMINATION_SETTLEMENT: RecordKind =
+    RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
+
 /// The records revaluation-reserve-service owns.
 pub const REVALUATION_ENTRY: RecordKind =
     RecordKind::new("RevaluationEntry", "OWNS_REVALUATION_ENTRY");

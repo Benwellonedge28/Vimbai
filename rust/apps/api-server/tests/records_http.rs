@@ -589,3 +589,113 @@ async fn the_apportionment_routes_answer_under_the_records_prefix_too() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["rules"].as_array().unwrap().len(), 0);
 }
+
+/// A request with the method the service publishes, since not every route here is a POST.
+async fn call_with(
+    graph: Arc<Scripted>,
+    method: &str,
+    uri: &str,
+    body: Option<Value>,
+) -> (StatusCode, Value) {
+    let router = vimbai_api::records::router(graph);
+    let request = Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("content-type", "application/json");
+    let request = match body {
+        Some(payload) => request.body(Body::from(payload.to_string())).unwrap(),
+        None => request.body(Body::empty()).unwrap(),
+    };
+    let mut request = request;
+    request
+        .headers_mut()
+        .insert("x-user-id", "user-1".parse().expect("a valid header value"));
+    request
+        .headers_mut()
+        .insert("x-book-id", "book-1".parse().expect("a valid header value"));
+    let response = router.oneshot(request).await.unwrap();
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), 1_000_000)
+        .await
+        .unwrap();
+    let value: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    (status, value)
+}
+
+#[tokio::test]
+async fn a_disposal_group_is_opened_and_answered_on_the_path_the_service_published() {
+    let graph = Scripted::returning(vec![json!({"id": "g-1", "name": "Retail arm"})]);
+    let (status, body) = call(
+        graph,
+        "/disposal-group/groups",
+        Some(json!({"name": "Retail arm", "disposal_method": "spin_off"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["name"], json!("Retail arm"));
+}
+
+#[tokio::test]
+async fn a_disposal_group_impairment_is_answered_on_the_published_path() {
+    // the group carries 50,000 and would fetch 42,000, so the write-down is 8,000
+    let graph = Scripted::returning(vec![json!({"id": "g-1", "total_carrying_amount": "50000"})]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/disposal-group/groups/g-1/impairment-test?fair_value_less_costs=42000",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["impairment_amount"], json!("8000.000000"));
+}
+
+#[tokio::test]
+async fn a_lease_settlement_is_answered_on_the_published_path() {
+    let graph = Scripted::returning(vec![json!({
+        "id": "t-1",
+        "remaining_payments": 4,
+        "remaining_payment_amount": "3000",
+        "early_termination_penalty": "500",
+        "status": "pending"
+    })]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/lease-termination/terminations/t-1/settlement?asset_return_value=250.25",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    // 4 x 3000, plus 500, less 250.25
+    assert_eq!(body["net_settlement"], json!("12249.750000"));
+}
+
+#[tokio::test]
+async fn the_asset_group_and_lease_routes_answer_under_the_records_prefix_too() {
+    let group = Scripted::returning(vec![json!({"id": "g-1"})]);
+    let (status, _) = call_with(
+        group,
+        "POST",
+        "/records/disposal-group/groups",
+        Some(json!({"name": "Retail arm"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let lease = Scripted::returning(vec![json!({"id": "t-1"})]);
+    let (status, _) = call_with(
+        lease,
+        "POST",
+        "/records/lease-termination/terminations",
+        Some(json!({
+            "lease_id": "L-1",
+            "termination_date": "2026-12-31",
+            "original_end_date": "2027-06-30",
+            "remaining_payments": 6,
+            "remaining_payment_amount": "2500"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}
