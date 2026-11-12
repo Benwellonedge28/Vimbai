@@ -21,8 +21,8 @@ use axum::{
 };
 use serde_json::{json, Value};
 use store::{
-    absorption, appropriation_control, cash_flow, cash_optimization, equity_changes,
-    insurance_claims, job_costing, process_costing, trading_account, treasury_analytics, BookScope,
+    absorption, appropriation_control, cash_flow, cash_optimization, cost_calculations,
+    equity_changes, insurance_claims, job_costing, trading_account, treasury_analytics, BookScope,
     Graph, StoreError,
 };
 
@@ -245,14 +245,14 @@ async fn cost_calculation(
         Ok(scope) => scope,
         Err(response) => return *response,
     };
-    answer(process_costing::create_calculation(
+    answer(cost_calculations::create_calculation(
         graph.as_ref(),
         &scope,
         &payload,
     ))
 }
 
-async fn cost_calculations(
+async fn company_cost_calculations(
     State(graph): GraphState,
     headers: HeaderMap,
     Path(company_id): Path<String>,
@@ -263,7 +263,7 @@ async fn cost_calculations(
         Err(response) => return *response,
     };
     let product = query_param(query.as_deref(), "product");
-    answer(process_costing::calculations(
+    answer(cost_calculations::calculations(
         graph.as_ref(),
         &scope,
         &company_id,
@@ -280,7 +280,7 @@ async fn cost_breakdown(
         Ok(scope) => scope,
         Err(response) => return *response,
     };
-    answer(process_costing::breakdown(
+    answer(cost_calculations::breakdown(
         graph.as_ref(),
         &scope,
         &company_id,
@@ -297,7 +297,7 @@ async fn cost_summary(
         Ok(scope) => scope,
         Err(response) => return *response,
     };
-    answer(process_costing::summary(
+    answer(cost_calculations::summary(
         graph.as_ref(),
         &scope,
         &company_id,
@@ -788,7 +788,7 @@ fn records_router(graph: GraphHandle) -> Router {
         .route("/records/process-costing/calculate", post(cost_calculation))
         .route(
             "/records/process-costing/calculations/:company_id",
-            get(cost_calculations),
+            get(company_cost_calculations),
         )
         .route(
             "/records/process-costing/breakdown/:company_id/:calc_id",
@@ -796,6 +796,19 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/records/process-costing/summary/:company_id",
+            get(cost_summary),
+        )
+        .route("/records/product-costing/calculate", post(cost_calculation))
+        .route(
+            "/records/product-costing/calculations/:company_id",
+            get(company_cost_calculations),
+        )
+        .route(
+            "/records/product-costing/breakdown/:company_id/:calc_id",
+            get(cost_breakdown),
+        )
+        .route(
+            "/records/product-costing/summary/:company_id",
             get(cost_summary),
         )
         .route(
@@ -891,13 +904,23 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/process-costing/calculate", post(cost_calculation))
         .route(
             "/process-costing/calculations/:company_id",
-            get(cost_calculations),
+            get(company_cost_calculations),
         )
         .route(
             "/process-costing/breakdown/:company_id/:calc_id",
             get(cost_breakdown),
         )
         .route("/process-costing/summary/:company_id", get(cost_summary))
+        .route("/product-costing/calculate", post(cost_calculation))
+        .route(
+            "/product-costing/calculations/:company_id",
+            get(company_cost_calculations),
+        )
+        .route(
+            "/product-costing/breakdown/:company_id/:calc_id",
+            get(cost_breakdown),
+        )
+        .route("/product-costing/summary/:company_id", get(cost_summary))
         .route(
             "/appropriation-control/appropriations",
             post(create_appropriation),

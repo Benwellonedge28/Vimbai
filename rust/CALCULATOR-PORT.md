@@ -53,6 +53,7 @@ routes; they are listed here too, because the Python service is no longer the en
 - payment-optimization-service
 - pension-accounting-service
 - process-costing-service
+- product-costing-service
 - r-and-d-tax-service
 - regulatory-ratio-service
 - standard-cost-service
@@ -126,7 +127,6 @@ routes; they are listed here too, because the Python service is no longer the en
 - business-documents-service
 - business-valuation-service
 - capital-allocation-service
-- capital-expenditure-budget-service
 - commodity-hedging-service
 - comparative-financial-statements-service
 - corporate-governance-service
@@ -136,7 +136,6 @@ routes; they are listed here too, because the Python service is no longer the en
 - deal-structuring-service
 - disposal-account-service
 - distributed-workflow-orchestration-service
-- divestiture-service
 - double-entry-principles-service
 - due-diligence-service
 - encrypted-backup-service
@@ -171,7 +170,6 @@ routes; they are listed here too, because the Python service is no longer the en
 - net-present-value-service
 - operational-risk-service
 - payment-gateway-service
-- payment-optimization-service
 - payroll-accounting-service
 - performance-benchmarking-service
 - portfolio-optimization-service
@@ -189,11 +187,9 @@ routes; they are listed here too, because the Python service is no longer the en
 - scenario-budget-service
 - segment-reporting-service
 - statutory-filing-service
-- substantive-testing-service
 - suspense-error-service
 - swap-valuation-service
 - synergy-analysis-service
-- target-costing-service
 - tax-calculation-service
 - time-value-of-money-service
 - treasury-cash-service

@@ -133,7 +133,7 @@ services:
   port: 8106
   gateway_path: /product-costing
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

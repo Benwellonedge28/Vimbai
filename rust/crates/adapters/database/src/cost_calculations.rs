@@ -1,4 +1,4 @@
-//! process-costing-service's calculations, on the store.
+//! The cost calculations behind process-costing-service and product-costing-service, on the store.
 //!
 //! A calculation is a set of cost components attributed to one product or process in one period.
 //! Its totals are pure arithmetic over those components, and the arithmetic is done in `Money`
@@ -7,6 +7,11 @@
 //!
 //! The totals are stored with the record because every other endpoint reports them, but the
 //! components are what the record means: the breakdown is recomputed from them, not from the total.
+//!
+//! There is one implementation because there is one record. The two Python services were generated
+//! from the same template: identical models, identical endpoints, identical `CostCalculation` label,
+//! and both list by company alone, so each already returned the other's records. Porting them
+//! separately in Rust would have made that accident permanent.
 
 #![forbid(unsafe_code)]
 
@@ -14,7 +19,7 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use crate::amounts::{amount, stored_amount, wire};
-use crate::{BookScope, Graph, Records, StoreError, PROCESS_COSTING_CALCULATION};
+use crate::{BookScope, Graph, Records, StoreError, COST_CALCULATION};
 
 /// One line of a submission: what the cost was called, what it came to, and which bucket it is in.
 struct Component {
@@ -112,7 +117,7 @@ fn company_calculations<G: Graph + ?Sized>(
     scope: &BookScope,
     company_id: &str,
 ) -> Result<Vec<Value>, StoreError> {
-    let rows = Records::new(graph, PROCESS_COSTING_CALCULATION).list(scope, 500)?;
+    let rows = Records::new(graph, COST_CALCULATION).list(scope, 500)?;
     Ok(rows
         .into_iter()
         .filter(|row| row.get("company_id").and_then(Value::as_str) == Some(company_id))
@@ -165,7 +170,7 @@ pub fn create_calculation<G: Graph + ?Sized>(
         "quantity": quantity,
         "notes": notes,
     });
-    let saved = Records::new(graph, PROCESS_COSTING_CALCULATION).create(scope, &record)?;
+    let saved = Records::new(graph, COST_CALCULATION).create(scope, &record)?;
     calculation_json(&saved)
 }
 

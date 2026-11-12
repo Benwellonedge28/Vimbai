@@ -139,3 +139,46 @@ async fn the_scope_headers_become_the_parameters_the_store_queries_with() {
     assert_eq!(params["book_id"], json!("book-1"), "{cypher}");
     let _ = BookScope::new("user-1", "book-1");
 }
+
+#[tokio::test]
+async fn both_costing_services_are_answered_by_the_one_implementation() {
+    // process-costing and product-costing were generated from the same template: same models, same
+    // endpoints, same CostCalculation label. One implementation answers both, so the pair cannot
+    // drift apart as they are maintained.
+    let payload = json!({
+        "company_id": "c-1",
+        "product_or_process": "Widgets",
+        "quantity": 4,
+        "components": [
+            {"name": "resin", "amount": 0.1, "cost_type": "direct_materials"},
+            {"name": "labour", "amount": "0.2", "cost_type": "direct_labor"}
+        ]
+    });
+    let row = json!({"x": {
+        "id": "calc-1",
+        "company_id": "c-1",
+        "product_or_process": "Widgets",
+        "total_cost": "0.300000",
+        "unit_cost": "0.075000",
+        "quantity": 4,
+        "components": []
+    }});
+
+    let (process_status, process_body) = call(
+        Scripted::returning(vec![row.clone()]),
+        "/process-costing/calculate",
+        Some(payload.clone()),
+    )
+    .await;
+    let (product_status, product_body) = call(
+        Scripted::returning(vec![row]),
+        "/product-costing/calculate",
+        Some(payload),
+    )
+    .await;
+
+    assert_eq!(process_status, StatusCode::OK);
+    assert_eq!(product_status, StatusCode::OK);
+    assert_eq!(process_body, product_body);
+    assert_eq!(process_body["unit_cost"], json!(0.075));
+}

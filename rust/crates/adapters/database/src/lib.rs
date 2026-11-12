@@ -28,13 +28,13 @@ mod amounts;
 pub mod appropriation_control;
 pub mod cash_flow;
 pub mod cash_optimization;
+pub mod cost_calculations;
 pub mod equity_changes;
 #[cfg(test)]
 pub(crate) mod fake;
 pub mod insurance_claims;
 pub mod job_costing;
 pub mod neo4j_client;
-pub mod process_costing;
 pub mod trading_account;
 pub mod treasury_analytics;
 
@@ -109,9 +109,12 @@ pub const CASH_FLOW_STATEMENT: RecordKind = RecordKind::new("CashFlowStatement",
 pub const TREASURY_SNAPSHOT: RecordKind =
     RecordKind::new("TreasuryAnalyticsSnapshot", "OWNS_SNAPSHOT");
 
-/// The records process-costing-service used to own.
-pub const PROCESS_COSTING_CALCULATION: RecordKind =
-    RecordKind::new("CostCalculation", "OWNS_CALCULATION");
+/// The records process-costing-service and product-costing-service both own.
+///
+/// The two services are the same thing twice: same models, same endpoints, same label, and a list
+/// query that filters by company only, so each one already answers with the other's records. One
+/// constant serves both, because splitting the label would invent a distinction the data never made.
+pub const COST_CALCULATION: RecordKind = RecordKind::new("CostCalculation", "OWNS_CALCULATION");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StoreError {
