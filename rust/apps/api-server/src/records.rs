@@ -28,6 +28,7 @@ use costing::{
 use equity::equity_changes;
 use finance::insurance_claims;
 use serde_json::{json, Value};
+use store::amounts::{amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
 use treasury::{cash_optimization, treasury_analytics};
 
@@ -1750,6 +1751,197 @@ async fn crr_requirements(
         status.as_deref(),
     ))
 }
+async fn issue_share_capital(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::record_issue(graph.as_ref(), &scope, &body))
+}
+
+async fn register_shareholder(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::register_shareholder(graph.as_ref(), &scope, &body))
+}
+
+async fn company_shareholders(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::list_shareholders(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn company_share_issues(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::list_issues(graph.as_ref(), &scope, &company_id))
+}
+
+async fn issued_capital_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::capital_summary(graph.as_ref(), &scope, &company_id))
+}
+
+async fn create_investment(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::create_investment(graph.as_ref(), &scope, &body))
+}
+
+async fn simple_investment(
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    // pure arithmetic, but still a Book's caller: the scope is checked and then unused
+    if let Err(response) = scope_of(&headers) {
+        return *response;
+    }
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    let amount = |key: &str| amount_or_zero(&body, key);
+    let (asset, scrap, sold, tax) = (
+        amount("asset_cost"),
+        amount("scrap_value"),
+        amount("selling_of_old_asset"),
+        amount("tax_on_sale"),
+    );
+    match (asset, scrap, sold, tax) {
+        (Ok(asset), Ok(scrap), Ok(sold), Ok(tax)) => {
+            let (net, outlay) = equity::simple_outlay(&asset, &sold, &tax);
+            answer(Ok(json!({
+                "asset_cost": wire(&asset),
+                "scrap_value": wire(&scrap),
+                "selling_of_old_asset": wire(&sold),
+                "tax_on_sale": wire(&tax),
+                "net_proceeds_from_sale": wire(&net),
+                "initial_cash_outlay": wire(&outlay),
+            })))
+        }
+        (Err(error), _, _, _)
+        | (_, Err(error), _, _)
+        | (_, _, Err(error), _)
+        | (_, _, _, Err(error)) => answer(Err(error)),
+    }
+}
+
+async fn investment_with_capital_allowance(
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    // pure arithmetic, but still a Book's caller: the scope is checked and then unused
+    if let Err(response) = scope_of(&headers) {
+        return *response;
+    }
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    let amount = |key: &str| amount_or_zero(&body, key);
+    match (
+        amount("asset_cost"),
+        amount("scrap_value"),
+        amount("capital_allowance"),
+        amount("tax_rate"),
+    ) {
+        (Ok(asset), Ok(scrap), Ok(allowance), Ok(rate)) => {
+            let saving = equity::capital_allowance_saving(&allowance, &rate);
+            answer(Ok(json!({
+                "asset_cost": wire(&asset),
+                "scrap_value": wire(&scrap),
+                "capital_allowance": wire(&allowance),
+                "tax_rate": wire(&rate),
+                "tax_saving": wire(&saving),
+                "adjusted_investment_cost": wire(&asset.minus(&saving)),
+            })))
+        }
+        (Err(error), _, _, _)
+        | (_, Err(error), _, _)
+        | (_, _, Err(error), _)
+        | (_, _, _, Err(error)) => answer(Err(error)),
+    }
+}
+
+async fn list_investments(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::list_investments(graph.as_ref(), &scope))
+}
+
+async fn get_investment(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(investment_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::get_investment(
+        graph.as_ref(),
+        &scope,
+        &investment_id,
+    ))
+}
 
 async fn create_reserve(
     State(graph): GraphState,
@@ -3178,6 +3370,34 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route("/issued-share-capital/issue", post(issue_share_capital))
+        .route(
+            "/issued-share-capital/shareholders/register",
+            post(register_shareholder),
+        )
+        .route(
+            "/issued-share-capital/shareholders/:company_id",
+            get(company_shareholders),
+        )
+        .route(
+            "/issued-share-capital/issues/:company_id",
+            get(company_share_issues),
+        )
+        .route(
+            "/issued-share-capital/summary/:company_id",
+            get(issued_capital_summary),
+        )
+        .route("/initial-investment/create", post(create_investment))
+        .route("/initial-investment/simple", post(simple_investment))
+        .route(
+            "/initial-investment/with-capital-allowance",
+            post(investment_with_capital_allowance),
+        )
+        .route("/initial-investment/list", get(list_investments))
+        .route(
+            "/initial-investment/get/:investment_id",
+            get(get_investment),
+        )
         .route(
             "/share-redemption/redemptions/initiate",
             post(initiate_redemption),
@@ -3196,6 +3416,43 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(share_redemption_detail),
         )
         .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route(
+            "/records/issued-share-capital/issue",
+            post(issue_share_capital),
+        )
+        .route(
+            "/records/issued-share-capital/shareholders/register",
+            post(register_shareholder),
+        )
+        .route(
+            "/records/issued-share-capital/shareholders/:company_id",
+            get(company_shareholders),
+        )
+        .route(
+            "/records/issued-share-capital/issues/:company_id",
+            get(company_share_issues),
+        )
+        .route(
+            "/records/issued-share-capital/summary/:company_id",
+            get(issued_capital_summary),
+        )
+        .route(
+            "/records/initial-investment/create",
+            post(create_investment),
+        )
+        .route(
+            "/records/initial-investment/simple",
+            post(simple_investment),
+        )
+        .route(
+            "/records/initial-investment/with-capital-allowance",
+            post(investment_with_capital_allowance),
+        )
+        .route("/records/initial-investment/list", get(list_investments))
+        .route(
+            "/records/initial-investment/get/:investment_id",
+            get(get_investment),
+        )
         .route(
             "/records/share-redemption/redemptions/initiate",
             post(initiate_redemption),

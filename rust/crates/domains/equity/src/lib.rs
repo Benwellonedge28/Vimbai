@@ -4,6 +4,10 @@
 //! * `equity-changes-service`
 //! * `authorized-share-capital-service` (records on the store: share classes, their issuances,
 //!   buybacks and the used-capacity summary)
+//! * `issued-share-capital-service` (records on the store: issues at the hard-coded one-unit nominal,
+//!   the shareholder register, and the capital summary)
+//! * `initial-investment-service` (records on the store, plus the simple outlay and capital allowance
+//!   arithmetic that stores nothing)
 //! * `share-redemption-service` (records on the store: redemptions through initiation, a fresh issue
 //!   that funds one, and completion, with the reserve requirement between them)
 //! * `share-premium-service` (records on the store: premium entries, utilizations and signed
@@ -26,6 +30,8 @@
 #![forbid(unsafe_code)]
 
 pub mod equity_changes;
+pub mod initial_investment;
+pub mod issued_share_capital;
 pub mod redemption_reserve;
 pub mod reserves;
 pub mod retained_profits;
@@ -40,6 +46,13 @@ pub use share_classes::{
     list_issuances as list_share_issuances, summary as share_capital_summary,
 };
 
+pub use initial_investment::{
+    capital_allowance_saving, create_investment, get_investment, list_investments, simple_outlay,
+};
+pub use issued_share_capital::{
+    capital_summary, issue_capital, issue_proceeds, list_issues, list_shareholders, record_issue,
+    register_shareholder,
+};
 pub use redemption_reserve::{
     capital_account, create_crr, crr_summary, list_creations as list_crr_creations,
     list_redemptions as list_crr_redemptions, list_utilizations as list_crr_utilizations,

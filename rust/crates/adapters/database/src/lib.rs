@@ -149,6 +149,14 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records issued-share-capital-service owns.
+pub const SHARE_ISSUE: RecordKind = RecordKind::new("ShareIssueNode", "OWNS_SHARE_ISSUE");
+pub const SHAREHOLDER: RecordKind = RecordKind::new("ShareholderNode", "OWNS_SHAREHOLDER");
+
+/// The records initial-investment-service owns.
+pub const INITIAL_INVESTMENT: RecordKind =
+    RecordKind::new("InitialInvestment", "OWNS_INITIAL_INVESTMENT");
+
 /// The records share-redemption-service owns.
 pub const SHARE_REDEMPTION: RecordKind =
     RecordKind::new("ShareRedemptionNode", "OWNS_SHARE_REDEMPTION");

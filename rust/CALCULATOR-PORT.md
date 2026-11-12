@@ -12,6 +12,13 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- issued-share-capital-service -> equity crate, records on the store: issues, the shareholder register,
+  and the capital summary. The issue entry credits share capital at one unit a share because the service
+  hard-coded that nominal regardless of class, so preference and ordinary issues post the same capital
+  and an issue below one unit posts negative premium; pinned by a test rather than repaired.
+- initial-investment-service -> equity crate, records on the store for `/create` (the breakdown, total and
+  net of scrap), with `/simple` and `/with-capital-allowance` as pure arithmetic that stores nothing.
+  Zero lines are left out of the breakdown but still counted; scrap value never enters the simple outlay.
 - share-redemption-service -> equity crate, records on the store: a redemption initiated, funded by a
   fresh issue, then completed, with the reserve requirement in between. Redeeming out of proceeds sets
   up a requirement for the nominal value and starts `awaiting_crr`; a fresh issue funds it and creates

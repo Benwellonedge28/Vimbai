@@ -1134,3 +1134,57 @@ async fn the_share_redemption_routes_mirror_under_records() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["redemptions"], json!([]));
 }
+
+#[tokio::test]
+async fn an_issue_answers_on_the_issued_share_capital_path() {
+    let graph = Scripted::returning(vec![json!({"id": "iss-1"})]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/issued-share-capital/issue?company_id=co-1&shares_issued=1000&issue_price=2.25&share_class=ordinary&issue_date=2026-03-01",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, params) = seen.last();
+    assert_eq!(params["props"]["total_proceeds"], json!("2250.000000"));
+}
+
+#[tokio::test]
+async fn the_simple_investment_answers_without_touching_the_store() {
+    let graph = Scripted::returning(Vec::new());
+    let seen = Arc::clone(&graph);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/initial-investment/simple?asset_cost=10000&selling_of_old_asset=2500&tax_on_sale=500",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["initial_cash_outlay"], json!("8000.000000"));
+    assert_eq!(seen.statements(), 0);
+}
+
+#[tokio::test]
+async fn the_capital_allowance_saving_answers_on_its_path() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/initial-investment/with-capital-allowance?asset_cost=10000&scrap_value=0&capital_allowance=8000&tax_rate=25",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["tax_saving"], json!("2000.000000"));
+    assert_eq!(body["adjusted_investment_cost"], json!("8000.000000"));
+}
+
+#[tokio::test]
+async fn a_missing_investment_answers_not_found_rather_than_an_error_body() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, _) = call_with(graph, "GET", "/initial-investment/get/nope", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

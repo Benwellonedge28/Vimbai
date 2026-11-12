@@ -1195,7 +1195,7 @@ services:
   port: 8067
   gateway_path: /initial-investment
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -1316,7 +1316,7 @@ services:
   port: 8071
   gateway_path: /issued-share-capital
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
