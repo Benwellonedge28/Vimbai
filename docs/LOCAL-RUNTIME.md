@@ -1,4 +1,7 @@
-# Vimbai Local — on-device, offline runtime
+# Vimbai local runtime
+
+_On-device, offline runtime._  This was `vimbai-local/README.md`; there were two directories for one
+runtime, so the documentation moved here and the requirement file joined the package it belongs to.
 
 Run the entire Vimbai platform in **one Python process** on any machine —
 Windows, macOS or Linux — with **no internet, no Docker, no Kubernetes, no
@@ -7,7 +10,7 @@ Neo4j server**. Data lives in a local folder and survives restarts.
 ## Quick start
 
 ```bash
-pip install -r vimbai-local/requirements-local.txt
+pip install -r vimbai_local/requirements-local.txt
 
 python3 -m vimbai_local                      # core bookkeeping profile, http://127.0.0.1:8000
 python3 -m vimbai_local --profile full       # every registered service (318)
@@ -24,7 +27,7 @@ On Windows, `py -m vimbai_local` from the repo root works the same.
    double-entry journal), departmental-accounting, audit-compliance.
    Boots in ~2s, tens of MB of memory — fine for a small laptop or
    single-board computer.
-2. *full* — every service registered in `api-gateway/config/services.json`
+2. *full* — every service registered in `gateway/go/config/services.json`
    plus identity. Boots in ~25s cold, ~210MB memory. Services that fail to
    import are skipped with a warning instead of sinking the boot; the
    `/health` endpoint lists them.
@@ -32,7 +35,7 @@ On Windows, `py -m vimbai_local` from the repo root works the same.
 ## How it works
 
 1. *One process:* every service's FastAPI app is imported and mounted at its
-   gateway path, exactly like the bracket containers do it.
+   gateway path, each at its own gateway path.
 2. *Gateway contract in-process:* `vimbai_local/gateway.py` reproduces the
    production gateway — `/identity` is open (register/login), everything else
    needs a Bearer token; the verified user id is injected as `X-User-ID`
@@ -63,7 +66,7 @@ platform:
 ```bash
 scripts/make_offline_bundle.sh out/          # wheels for THIS machine's OS/arch
 # on the target machine, no internet needed:
-pip install --no-index --find-links out/wheels -r vimbai-local/requirements-local.txt
+pip install --no-index --find-links out/wheels -r vimbai_local/requirements-local.txt
 ```
 
 Copy the repo (or `git clone` it once) plus the wheelhouse to the target

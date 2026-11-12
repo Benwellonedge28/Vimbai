@@ -21,10 +21,10 @@ from fastapi import FastAPI
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.normpath(os.path.join(_HERE, ".."))
-SERVICES_JSON = os.path.join(REPO_ROOT, "api-gateway", "config", "services.json")
+SERVICES_JSON = os.path.join(REPO_ROOT, "gateway", "go", "config", "services.json")
 
 # identity-service is registered as the gateway's open /identity route
-# (api-gateway/config/config.go), not in services.json.
+# (gateway/go/config/config.go), not in services.json.
 IDENTITY = ("identity", "identity-service")
 
 # Core bookkeeping loop: chart of accounts + double-entry journal

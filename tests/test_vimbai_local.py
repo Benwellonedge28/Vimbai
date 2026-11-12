@@ -164,3 +164,22 @@ def _book_list(payload):
             if isinstance(payload.get(key), list):
                 return payload[key]
     return []
+
+
+def test_the_full_profile_finds_the_gateway_manifest():
+    """The full profile mounts whatever the gateway routes, so it must read the real manifest.
+
+    This broke once, silently: the gateway moved to gateway/go and the launcher kept pointing at
+    api-gateway/, which no test noticed because the core profile names its members explicitly.
+    """
+    from vimbai_local.launcher import SERVICES_JSON, _load_services_json
+
+    assert os.path.isfile(SERVICES_JSON), SERVICES_JSON
+    members = _load_services_json()
+    assert len(members) > 100, "the full profile should see every routed service"
+    assert all(member["name"] and member["path"] for member in members)
+
+
+def test_the_runtime_is_one_directory():
+    """There used to be two: vimbai-local/ held the docs and this package held the code."""
+    assert not os.path.exists(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vimbai-local"))

@@ -10,7 +10,7 @@
 #       --python-version 3.12 --only-binary=:all:
 #
 # On the target machine:
-#   pip install --no-index --find-links out/wheels -r vimbai-local/requirements-local.txt
+#   pip install --no-index --find-links out/wheels -r vimbai_local/requirements-local.txt
 #   python3 -m vimbai_local
 
 set -euo pipefail
@@ -26,10 +26,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 mkdir -p "$OUT/wheels"
 python3 -m pip download \
-  -r "$REPO_ROOT/vimbai-local/requirements-local.txt" \
+  -r "$REPO_ROOT/vimbai_local/requirements-local.txt" \
   -d "$OUT/wheels" "$@"
 
-cp "$REPO_ROOT/vimbai-local/requirements-local.txt" "$OUT/"
+cp "$REPO_ROOT/vimbai_local/requirements-local.txt" "$OUT/"
 echo ""
 echo "Offline bundle ready in: $OUT"
 echo "Target machine install:"
