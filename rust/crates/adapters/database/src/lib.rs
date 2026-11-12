@@ -149,6 +149,13 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records cash-management-service owns: money moving between its own accounts, and the liquidity it
+/// measures. Its cash accounts are `CASH_ACCOUNT` above, which cash-optimization-service also uses: both
+/// wrote the same `:CashAccount` label under different edges, so each could only ever see its own.
+pub const CASH_TRANSFER: RecordKind = RecordKind::new("CashTransfer", "OWNS_CASH_TRANSFER");
+pub const LIQUIDITY_POSITION: RecordKind =
+    RecordKind::new("LiquidityPosition", "OWNS_LIQUIDITY_POSITION");
+
 /// accounting-service's supporting records: petty cash, reconciliation, and the single-entry statements.
 pub const PETTY_CASH_FUND: RecordKind = RecordKind::new("PettyCashFund", "OWNS_PETTY_CASH_FUND");
 pub const PETTY_CASH_ENTRY: RecordKind = RecordKind::new("PettyCashEntry", "OWNS_PETTY_CASH_ENTRY");

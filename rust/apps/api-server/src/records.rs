@@ -31,7 +31,7 @@ use finance::insurance_claims;
 use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
-use treasury::{cash_optimization, treasury_analytics};
+use treasury::{cash_management, cash_optimization, treasury_analytics};
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
 /// connections, so one handle serves every request.
@@ -761,6 +761,102 @@ async fn company_equity_statements(
         graph.as_ref(),
         &scope,
         &company_id,
+    ))
+}
+
+async fn open_cash_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_management::create_account(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn cash_accounts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_management::list_accounts(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn move_cash(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_management::create_transfer(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn cash_transfers(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_management::list_transfers(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn measure_liquidity(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_management::calculate_liquidity(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn liquidity_history(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cash_management::list_liquidity_positions(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
     ))
 }
 
@@ -4948,6 +5044,30 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/records/equity-changes/statements/:company_id",
             get(company_equity_statements),
+        )
+        .route(
+            "/cash-management/accounts",
+            post(open_cash_account).get(cash_accounts),
+        )
+        .route(
+            "/cash-management/transfers",
+            post(move_cash).get(cash_transfers),
+        )
+        .route(
+            "/cash-management/liquidity",
+            post(measure_liquidity).get(liquidity_history),
+        )
+        .route(
+            "/records/cash-management/accounts",
+            post(open_cash_account).get(cash_accounts),
+        )
+        .route(
+            "/records/cash-management/transfers",
+            post(move_cash).get(cash_transfers),
+        )
+        .route(
+            "/records/cash-management/liquidity",
+            post(measure_liquidity).get(liquidity_history),
         )
         .route(
             "/records/cash-optimization/accounts",

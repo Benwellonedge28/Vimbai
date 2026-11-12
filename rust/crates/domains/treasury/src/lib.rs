@@ -1,6 +1,9 @@
-//! Treasury services: treasury analytics and cash optimisation. Snapshots and the recommendations drawn from them, both Book-scoped.
+//! Treasury services: treasury analytics, cash optimisation, and cash management. Snapshots and the
+//! recommendations drawn from them, the accounts money sits in, the transfers between them and the liquidity
+//! they add up to, all Book-scoped.
 //!
 //! Services here:
+//! * `cash-management-service`
 //! * `cash-optimization-service`
 //! * `treasury-analytics-service`
 //!
@@ -10,5 +13,6 @@
 
 #![forbid(unsafe_code)]
 
+pub mod cash_management;
 pub mod cash_optimization;
 pub mod treasury_analytics;

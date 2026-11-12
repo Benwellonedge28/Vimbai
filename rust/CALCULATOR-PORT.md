@@ -275,6 +275,18 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- cash-management-service -> treasury crate, records on the store: the cash accounts money sits in, the
+  transfers between them, and the liquidity those balances add up to. A transfer can only move money between
+  the caller's own Book-visible accounts, and only if the source keeps its stated minimum; it is recorded as
+  completed, both balances move together, and a transfer from an account to itself nets to nothing. Liquidity
+  is the operating, reserve and investment balances added together, with the ratio over short-term
+  obligations rounded to two places and published as a plain figure rather than a string, because a ratio is
+  not an amount of money; with nothing owed it reports no ratio instead of dividing. One record shared
+  deliberately: this service and cash-optimization-service both wrote `:CashAccount`, each under its own
+  edge, so neither could see the accounts the other made. The port keeps one `:CashAccount` under one edge,
+  so the accounts the two services describe are one set, and liquidity counts an account whichever of the two
+  shapes it carries.
+
 ## Crate already has the maths, service not yet wired
 
 These are the cheapest ports left: the crate already holds the arithmetic, so the work is a

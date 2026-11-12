@@ -2244,3 +2244,50 @@ async fn a_statement_of_affairs_answers_with_its_capital_over_http() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["capital"], json!("300.000000"));
 }
+
+#[tokio::test]
+async fn a_cash_transfer_answers_over_http_and_moves_the_balance() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "a-1", "account_name": "Main", "type": "operating",
+                   "balance": "1000.000000", "min_balance": "0.000000"}),
+            json!({"id": "a-2", "account_name": "Reserve", "type": "reserve",
+                   "balance": "0.000000", "min_balance": "0.000000"}),
+        ],
+        vec![json!({"id": "a-1"})],
+        vec![json!({"id": "a-2"})],
+        vec![json!({"id": "t-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/cash-management/transfers",
+        Some(json!({"from_account_id": "a-1", "to_account_id": "a-2",
+                    "amount": "250.00", "transfer_date": "2026-03-15"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["status"], json!("completed"));
+    assert_eq!(body["amount"], json!("250.000000"));
+}
+
+#[tokio::test]
+async fn a_liquidity_position_answers_over_http_with_its_ratio() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "a-1", "type": "operating", "balance": "600.000000"}),
+            json!({"id": "a-2", "type": "reserve", "balance": "400.000000"}),
+        ],
+        vec![json!({"id": "p-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/cash-management/liquidity",
+        Some(json!({"short_term_obligations": "500.00", "position_date": "2026-03-15"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_cash"], json!("1000.000000"));
+    assert_eq!(body["liquidity_ratio"], json!("2.00"));
+}

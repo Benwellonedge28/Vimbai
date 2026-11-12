@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 49 are proven on a Rust engine. 88 are still Python-only.
+The gateway routes 137 services. 50 are proven on a Rust engine. 87 are still Python-only.
 
-Of the backlog, 22 own no records and can be ported as pure functions; 66 own records and
+Of the backlog, 22 own no records and can be ported as pure functions; 65 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-49 services.
+50 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -29,6 +29,7 @@ capital-reconstruction-service                 8026  routes=9   records=yes rust
 capital-redemption-reserve-service             8027  routes=9   records=yes rust http
 cash-flow-service                              8028  routes=9   records=yes rust http
 cash-flow-statement-service                    8029  routes=4   records=yes rust http
+cash-management-service                        8264  routes=8   records=yes rust http
 cash-optimization-service                      8030  routes=5   records=yes rust http
 cashbook-service                               8098  routes=21  records=yes rust http
 company-accounting-service                     8101  routes=23  records=yes rust http
@@ -98,7 +99,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-66 services.
+65 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -134,7 +135,6 @@ treasury-reporting-service                     8262  routes=7   records=yes none
 continue-shutdown-decision-service             8032  routes=6   records=yes none
 treasury-policy-service                        8263  routes=8   records=yes none
 workflow-service                               8142  routes=1   records=yes none
-cash-management-service                        8264  routes=8   records=yes none
 bad-debts-recovery-service                     8018  routes=7   records=yes none
 provision-bad-debts-service                    8108  routes=8   records=yes none
 automation-engine-service                      8000  routes=10  records=yes none

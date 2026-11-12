@@ -11,7 +11,7 @@ services:
   port: 8264
   gateway_path: /cash-management
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
