@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 40 are proven on a Rust engine. 97 are still Python-only.
+The gateway routes 137 services. 41 are proven on a Rust engine. 96 are still Python-only.
 
-Of the backlog, 1 own no records and can be ported as pure functions; 96 own records and
+Of the backlog, 1 own no records and can be ported as pure functions; 95 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-40 services.
+41 services.
 
 ```
 accounting-service                             8000  routes=1   records=yes rust http
@@ -38,6 +38,7 @@ insurance-claims-service                       8367  routes=5   records=yes rust
 internal-rate-return-service                   8068  routes=6   records=no  rust http
 investment-property-service                    8145  routes=6   records=no  rust http
 net-present-value-service                      8083  routes=6   records=no  rust http
+overhead-absorption-rate-service               8092  routes=13  records=yes rust http
 payback-period-service                         8098  routes=5   records=no  rust http
 payment-gateway-service                        8098  routes=20  records=no  rust http
 performance-benchmarking-service               8280  routes=8   records=no  rust http
@@ -68,7 +69,7 @@ cache-service                                  8000  routes=7   records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-96 services.
+95 services.
 
 ```
 job-costing-service                            8073  routes=5   records=yes none
@@ -146,7 +147,6 @@ multimodal-pipeline-service                    8002  routes=1   records=yes none
 share-premium-service                          8125  routes=8   records=yes none
 preference-shares-service                      8102  routes=9   records=yes none
 capital-reconstruction-service                 8026  routes=9   records=yes none
-overhead-absorption-rate-service               8092  routes=13  records=yes none
 debentures-service                             8041  routes=10  records=yes none
 bank-reconciliation-service                    8020  routes=13  records=yes none
 notifications-service                          8091  routes=16  records=yes none

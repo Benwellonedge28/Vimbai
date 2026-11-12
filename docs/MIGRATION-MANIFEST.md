@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 40
-still Python             98
+already on a Rust engine 41
+still Python             97
 owner domains            28
 ```
 
@@ -189,7 +189,7 @@ absorption-costing-statement-service            8011       7      yes  python
 basis-apportionment-service                     8022      12      yes  python
 cvp-analysis-service                            8039       9      yes  rust
 job-costing-service                             8073       5      yes  python
-overhead-absorption-rate-service                8092      13      yes  python
+overhead-absorption-rate-service                8092      13      yes  rust
 process-costing-service                         8105       5      yes  rust
 product-costing-service                         8106       5      yes  rust
 selling-price-reduction-service                 8123       5      yes  rust

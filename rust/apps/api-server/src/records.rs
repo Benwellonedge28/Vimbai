@@ -22,8 +22,8 @@ use axum::{
 use serde_json::{json, Value};
 use store::{
     absorption, appropriation_control, cash_flow, cash_optimization, cost_calculations, cvp,
-    equity_changes, insurance_claims, job_costing, price_reduction, trading_account,
-    treasury_analytics, BookScope, Graph, StoreError,
+    equity_changes, insurance_claims, job_costing, overhead_absorption, price_reduction,
+    trading_account, treasury_analytics, BookScope, Graph, StoreError,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -392,6 +392,85 @@ async fn cvp_analysis_by_id(
         Err(response) => return *response,
     };
     answer(cvp::analysis(graph.as_ref(), &scope, &analysis_id))
+}
+
+async fn overhead_rate(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(overhead_absorption::create_rate(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn overhead_base_rate(
+    state: (GraphState, usize),
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let (State(graph), index) = state;
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(overhead_absorption::base_rate(
+        graph.as_ref(),
+        &scope,
+        index,
+        &payload,
+    ))
+}
+
+async fn overhead_blanket_rate(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(overhead_absorption::blanket_rate(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn overhead_absorbed(Json(payload): Json<Value>) -> Response {
+    answer(overhead_absorption::absorbed_overhead(&payload))
+}
+
+async fn overhead_rates(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let centre = query_param(query.as_deref(), "cost_centre_id");
+    answer(overhead_absorption::rates(
+        graph.as_ref(),
+        &scope,
+        centre.as_deref(),
+    ))
+}
+
+async fn overhead_analyses(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(overhead_absorption::analyses(graph.as_ref(), &scope))
 }
 
 /// The same routes on the paths the two services publish, so the gateway can point at this
@@ -906,6 +985,71 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/cvp-analysis/analyses/:analysis_id",
             get(cvp_analysis_by_id),
         )
+        .route(
+            "/records/overhead-absorption/calculate",
+            post(overhead_rate),
+        )
+        .route(
+            "/records/overhead-absorption/machine-hours-rate",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    overhead_base_rate((state, 0), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/records/overhead-absorption/labour-hours-rate",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    overhead_base_rate((state, 1), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/records/overhead-absorption/labour-cost-rate",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    overhead_base_rate((state, 2), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/records/overhead-absorption/material-cost-rate",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    overhead_base_rate((state, 3), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/records/overhead-absorption/prime-cost-rate",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    overhead_base_rate((state, 4), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/records/overhead-absorption/unit-rate",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    overhead_base_rate((state, 5), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/records/overhead-absorption/blanket-rate",
+            post(overhead_blanket_rate),
+        )
+        .route(
+            "/records/overhead-absorption/absorbed-overhead",
+            post(overhead_absorbed),
+        )
+        .route("/records/overhead-absorption/rates", get(overhead_rates))
+        .route(
+            "/records/overhead-absorption/analyses",
+            get(overhead_analyses),
+        )
         .route("/records/process-costing/calculate", post(cost_calculation))
         .route(
             "/records/process-costing/calculations/:company_id",
@@ -1038,6 +1182,65 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/cvp-analysis/analyses/:analysis_id",
             get(cvp_analysis_by_id),
         )
+        .route("/overhead-absorption/calculate", post(overhead_rate))
+        .route(
+            "/overhead-absorption/machine-hours-rate",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    overhead_base_rate((state, 0), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/overhead-absorption/labour-hours-rate",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    overhead_base_rate((state, 1), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/overhead-absorption/labour-cost-rate",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    overhead_base_rate((state, 2), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/overhead-absorption/material-cost-rate",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    overhead_base_rate((state, 3), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/overhead-absorption/prime-cost-rate",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    overhead_base_rate((state, 4), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/overhead-absorption/unit-rate",
+            post(
+                move |state: GraphState, headers: HeaderMap, body: Json<Value>| {
+                    overhead_base_rate((state, 5), headers, body)
+                },
+            ),
+        )
+        .route(
+            "/overhead-absorption/blanket-rate",
+            post(overhead_blanket_rate),
+        )
+        .route(
+            "/overhead-absorption/absorbed-overhead",
+            post(overhead_absorbed),
+        )
+        .route("/overhead-absorption/rates", get(overhead_rates))
+        .route("/overhead-absorption/analyses", get(overhead_analyses))
         .route("/process-costing/calculate", post(cost_calculation))
         .route(
             "/process-costing/calculations/:company_id",

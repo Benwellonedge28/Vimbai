@@ -57,6 +57,7 @@ routes; they are listed here too, because the Python service is no longer the en
 - r-and-d-tax-service
 - regulatory-ratio-service
 - cvp-analysis-service
+- overhead-absorption-rate-service
 - selling-price-reduction-service
 - standard-cost-service
 - substantive-testing-service
@@ -218,3 +219,8 @@ is not positive (break-even volume and revenue, and - in a product mix - break-e
 revenue). Those are `null` in the port. It also refused a non-positive contribution on
 `/target-profit` with 400; the record ports answer 422 for every rejected submission, so that is
 what a bad target-profit call gets now.
+
+`overhead-absorption-rate-service` put a `formula` sentence in two of its answers built from Python's
+float text ("8000.0 / 1000.0 = 8.0"). Those sentences are gone rather than reworded differently: the
+fields beside them carry the same two figures the caller supplied, exactly, and a sentence built from
+them would be a third copy to keep in step.

@@ -370,3 +370,125 @@ async fn the_cvp_routes_answer_under_the_records_prefix_too() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["total"], json!(0));
 }
+
+#[tokio::test]
+async fn an_absorption_rate_is_stored_and_reported_on_the_published_path() {
+    let stored = json!({"x": {
+        "id": "r-1",
+        "cost_centre_name": "Machining",
+        "cost_centre_id": "cc-1",
+        "overhead_type": "production",
+        "absorption_base": "machine_hours",
+        "budgeted_overhead": "12500.000000",
+        "budgeted_base_units": "2000.000000",
+        "absorption_rate": "6.250000",
+        "rate_per_unit": "6.250000"
+    }});
+    let graph = Scripted::returning(vec![stored]);
+    let (status, body) = call(
+        graph,
+        "/overhead-absorption/calculate",
+        Some(json!({
+            "cost_centre_name": "Machining",
+            "cost_centre_id": "cc-1",
+            "budgeted_overhead": 12500,
+            "budgeted_base_units": 2000
+        })),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["absorption_rate"], json!(6.25));
+    assert_eq!(body["absorption_base"], json!("machine_hours"));
+}
+
+#[tokio::test]
+async fn every_absorption_base_keeps_its_own_answer_name() {
+    let stored = json!({"x": {"id": "an-1"}});
+    let cases = [
+        (
+            "machine-hours-rate",
+            "budgeted_machine_hours",
+            2000,
+            "oar_per_machine_hour",
+        ),
+        (
+            "labour-hours-rate",
+            "budgeted_direct_labour_hours",
+            5000,
+            "oar_per_direct_labour_hour",
+        ),
+        (
+            "labour-cost-rate",
+            "budgeted_direct_labour_cost",
+            50000,
+            "oar_percentage",
+        ),
+        (
+            "material-cost-rate",
+            "budgeted_material_cost",
+            25000,
+            "oar_percentage",
+        ),
+        (
+            "prime-cost-rate",
+            "budgeted_prime_cost",
+            100000,
+            "oar_percentage",
+        ),
+        ("unit-rate", "budgeted_units", 2500, "oar_per_unit"),
+    ];
+    for (path, key, figure, answer_key) in cases {
+        let graph = Scripted::returning(vec![stored.clone()]);
+        let mut payload = json!({"cost_centre_name": "Centre", "budgeted_overhead": 12500});
+        payload[key] = json!(figure);
+        let (status, body) = call(
+            graph,
+            &format!("/overhead-absorption/{path}"),
+            Some(payload),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{path}");
+        assert!(body.get(answer_key).is_some(), "{path} lost {answer_key}");
+    }
+}
+
+#[tokio::test]
+async fn a_blanket_rate_and_an_absorbed_figure_both_answer() {
+    let graph = Scripted::returning(vec![json!({"x": {"id": "an-4"}})]);
+    let (status, body) = call(
+        graph,
+        "/overhead-absorption/blanket-rate",
+        Some(json!({
+            "entity_name": "Works",
+            "absorption_base": "direct_labour_hours",
+            "total_budgeted_overhead": 900000,
+            "total_base_units": 40000
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["blanket_oar"], json!(22.5));
+
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call(
+        graph,
+        "/overhead-absorption/absorbed-overhead",
+        Some(json!({
+            "cost_centre_name": "Machining",
+            "actual_base_units": 2100,
+            "absorption_rate": 6.25
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["overhead_absorbed"], json!(13125.0));
+}
+
+#[tokio::test]
+async fn the_absorption_routes_answer_under_the_records_prefix_too() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call(graph, "/records/overhead-absorption/rates", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["rates"].as_array().unwrap().len(), 0);
+}

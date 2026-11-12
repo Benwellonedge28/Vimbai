@@ -1511,7 +1511,7 @@ services:
   port: 8092
   gateway_path: /overhead-absorption-rate
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health

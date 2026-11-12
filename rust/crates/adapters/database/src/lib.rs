@@ -36,6 +36,7 @@ pub(crate) mod fake;
 pub mod insurance_claims;
 pub mod job_costing;
 pub mod neo4j_client;
+pub mod overhead_absorption;
 pub mod price_reduction;
 pub mod trading_account;
 pub mod treasury_analytics;
@@ -117,6 +118,13 @@ pub const TREASURY_SNAPSHOT: RecordKind =
 /// query that filters by company only, so each one already answers with the other's records. One
 /// constant serves both, because splitting the label would invent a distinction the data never made.
 pub const COST_CALCULATION: RecordKind = RecordKind::new("CostCalculation", "OWNS_CALCULATION");
+
+/// The absorption rates overhead-absorption-rate-service owns.
+pub const ABSORPTION_RATE: RecordKind =
+    RecordKind::new("OverheadAbsorptionRate", "OWNS_ABSORPTION_RATE");
+
+/// The rate calculations that same service records beside them.
+pub const OAR_ANALYSIS: RecordKind = RecordKind::new("OARAnalysis", "OWNS_OAR_ANALYSIS");
 
 /// The cost-volume-profit analyses cvp-analysis-service owns.
 pub const CVP_ANALYSIS: RecordKind = RecordKind::new("CVPAnalysis", "OWNS_CVP_ANALYSIS");
