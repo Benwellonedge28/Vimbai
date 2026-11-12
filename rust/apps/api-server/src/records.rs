@@ -1752,6 +1752,68 @@ async fn crr_requirements(
         status.as_deref(),
     ))
 }
+async fn create_fund(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_fund(graph.as_ref(), &scope, &body))
+}
+
+async fn company_funds(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::list_funds(graph.as_ref(), &scope, &company_id))
+}
+
+async fn record_fund_movement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::record_fund_transaction(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn fund_movements(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(fund_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::list_fund_transactions(
+        graph.as_ref(),
+        &scope,
+        &fund_id,
+    ))
+}
+
 async fn create_revenue_contract(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -3746,6 +3808,13 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route("/fund-accounting/funds", post(create_fund))
+        .route("/fund-accounting/funds/:company_id", get(company_funds))
+        .route("/fund-accounting/transactions", post(record_fund_movement))
+        .route(
+            "/fund-accounting/transactions/:fund_id",
+            get(fund_movements),
+        )
         .route(
             "/revenue-recognition/contracts",
             post(create_revenue_contract),
@@ -3856,6 +3925,13 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(share_redemption_detail),
         )
         .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route("/records/fund-accounting/funds", post(create_fund))
+        .route("/records/fund-accounting/funds/:company_id", get(company_funds))
+        .route("/records/fund-accounting/transactions", post(record_fund_movement))
+        .route(
+            "/records/fund-accounting/transactions/:fund_id",
+            get(fund_movements),
+        )
         .route(
             "/records/revenue-recognition/contracts",
             post(create_revenue_contract),

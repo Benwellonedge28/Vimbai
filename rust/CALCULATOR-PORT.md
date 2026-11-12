@@ -12,6 +12,11 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- fund-accounting-service -> accounting crate, records on the store: funds with their derived net assets,
+  the transactions recorded against them, and the company total. A transaction recomputes income and
+  expenses from every transaction the fund has rather than adding itself on, and never moves the
+  fund's balance - so a fund that receives a thousand shows more net assets and the same balance.
+  Pinned as shipped rather than repaired, because a fund already on record would otherwise change.
 - revenue-recognition-service -> accounting crate, records on the store: contracts with their obligations,
   the allocation of the transaction price by relative standalone selling price, recognition against one
   obligation at a time capped at what it is worth, and the company summary. Two shapes kept as shipped:

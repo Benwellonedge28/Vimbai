@@ -1399,3 +1399,61 @@ async fn an_unreadable_amount_is_refused_rather_than_read_as_zero() {
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
+
+#[tokio::test]
+async fn a_fund_is_created_with_its_net_assets_on_the_fund_path() {
+    let graph = Scripted::returning(vec![json!({"id": "fund-1"})]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/fund-accounting/funds",
+        Some(json!({"company_id": "co-1", "fund_name": "Building fund",
+                    "balance": "1000", "income": "250", "expenses": "100"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, params) = seen.last();
+    assert_eq!(params["props"]["net_assets"], json!("1150.000000"));
+}
+
+#[tokio::test]
+async fn a_fund_movement_rederives_the_fund_and_answers_it_is_recorded() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "fund-1", "balance": "1000"})],
+        vec![json!({"id": "tx-1"})],
+        vec![
+            json!({"id": "tx-1", "fund_id": "fund-1", "amount": "500", "is_income": true}),
+            json!({"id": "tx-2", "fund_id": "fund-1", "amount": "200", "is_income": false}),
+        ],
+        vec![json!({"id": "fund-1"})],
+    ]);
+    let seen = Arc::clone(&graph);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/fund-accounting/transactions",
+        Some(
+            json!({"fund_id": "fund-1", "description": "Grant", "amount": "500",
+                    "is_income": true}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["status"], json!("recorded"));
+    let (_, params) = seen.statement(3);
+    assert_eq!(params["patch"]["net_assets"], json!("1300.000000"));
+}
+
+#[tokio::test]
+async fn a_movement_against_an_unknown_fund_is_refused() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/fund-accounting/transactions",
+        Some(json!({"fund_id": "nope", "amount": "1", "is_income": true})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

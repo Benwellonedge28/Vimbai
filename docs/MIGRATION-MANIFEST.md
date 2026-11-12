@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 39
-still Python             99
+already on a Rust engine 40
+still Python             98
 owner domains            28
 ```
 
@@ -32,7 +32,7 @@ cash-flow-statement-service                     8029       4      yes  rust
 cashbook-service                                8098      21      yes  python
 company-accounting-service                      8101      23      yes  python
 departmental-accounting-service                 8100      22      yes  python
-fund-accounting-service                         8060       5      yes  python
+fund-accounting-service                         8060       5      yes  rust
 ifrs-reporting-service                          8268       8      yes  python
 intercompany-service                            8350       8      yes  python
 revenue-recognition-service                     8115       5      yes  rust

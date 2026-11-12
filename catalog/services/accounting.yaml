@@ -188,7 +188,7 @@ services:
   port: 8060
   gateway_path: /fund-accounting
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

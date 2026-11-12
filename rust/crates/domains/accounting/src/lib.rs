@@ -2,6 +2,8 @@
 //!
 //! Services here:
 //! * `cash-flow-statement-service`
+//! * `fund-accounting-service` (funds with their derived net assets, and the transactions that
+//!   re-derive them)
 //! * `revenue-recognition-service` (contracts with their obligations, the allocation by standalone selling
 //!   price, and recognition against one obligation at a time)
 //! * `suspense-error-service`
@@ -14,9 +16,15 @@
 #![forbid(unsafe_code)]
 
 pub mod cash_flow;
+pub mod fund_accounting;
 pub mod revenue_recognition;
 pub mod suspense;
 pub mod trading_account;
+pub use fund_accounting::{
+    create_fund, list_funds, list_transactions as list_fund_transactions,
+    net_assets as fund_net_assets, record_transaction as record_fund_transaction,
+    totals as fund_totals,
+};
 pub use revenue_recognition::{
     allocate_price, create_contract as create_revenue_contract,
     list_contracts as list_revenue_contracts, recognise, recognise_revenue, revenue_summary,

@@ -149,6 +149,10 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records fund-accounting-service owns.
+pub const FUND: RecordKind = RecordKind::new("Fund", "OWNS_FUND");
+pub const FUND_TRANSACTION: RecordKind = RecordKind::new("FundTransaction", "OWNS_TRANSACTION");
+
 /// The records revenue-recognition-service owns.
 pub const REVENUE_CONTRACT: RecordKind = RecordKind::new("RevenueContract", "OWNS_CONTRACT");
 
