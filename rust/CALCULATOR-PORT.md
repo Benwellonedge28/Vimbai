@@ -139,39 +139,53 @@ already been deleted, and a to-do list of deleted code is not a plan.
 
 ### Deleted with the maths still unwritten
 
-These were listed as needing their maths ported, and their services were deleted anyway, so nothing
-serves them and nothing can. They are not a backlog; they are questions. Either the capability was a
-duplicate of one that survives - in which case say so and this list shrinks - or the platform lost an
-endpoint it meant to keep, in which case the maths has to be written and routed. Pinned in
-`tests/test_port_tracker.py` so the set cannot change without the tracker changing with it.
+These were listed as needing their maths ported, and their services were deleted anyway. They are
+not one backlog; they are two different situations, and telling them apart changes the work.
 
-- business-valuation-service
-- comparative-financial-statements-service
-- deal-structuring-service
-- exotic-derivatives-service
-- financial-forecasting-service
-- financial-reporting-service
-- financial-statements-service
-- ifrs-15-revenue-recognition-service
-- ifrs-2-share-based-payment-service
-- ifrs-9-financial-instruments-service
-- interim-financial-reporting-service
-- kpi-tracking-service
-- labour-efficiency-variance-service
-- liquidity-management-service
-- management-reporting-service
-- merger-valuation-service
-- payroll-accounting-service
-- post-merger-service
-- profit-loss-account-service
-- regulatory-reporting-service
-- scenario-budget-service
-- suspense-error-service
-- swap-valuation-service
-- synergy-analysis-service
-- tax-calculation-service
-- time-value-of-money-service
-- treasury-cash-service
+`scripts/module_reachability.py` answers which Rust modules any door can reach. A door is the API
+server, the native extension, or the bridge they share - nothing else can call into the library. The
+script follows imports through crates, dependency renames (`use treasury::{...}` for
+`vimbai_service_treasury`) and re-exported functions (`assets::depreciation_batch_from_json`), because
+each of those looks unwired to a naive search.
+
+**Answered by maths that is reachable today.** The capability exists, some service calls it, and the
+deleted service was one of several front doors to the same arithmetic:
+
+- comparative-financial-statements-service is `ratios_statements::comparative`
+- exotic-derivatives-service is `treasury_fx::exotics`
+- financial-forecasting-service is `budgeting::forecasting`
+- interim-financial-reporting-service is `ratios_statements::interim_reporting`
+- labour-efficiency-variance-service is `cost_accounting::labour_variance`
+- liquidity-management-service is `treasury_fx::liquidity`
+- management-reporting-service is `reporting::management`
+- regulatory-reporting-service is `reporting::regulatory`
+- swap-valuation-service is `treasury_fx::derivatives`
+- tax-calculation-service is `tax::corporate` behind the `tax-calculate` calculator
+- time-value-of-money-service is `capital_valuation::capital_returns`
+- treasury-cash-service is `service_treasury::cash_optimization`
+
+**Arithmetic that exists and nothing can reach.** Not lost maths - written maths with no door. Each of
+these is a route or a seam function away, not a calculation away:
+
+- business-valuation-service - `capital_valuation::valuation`
+- deal-structuring-service - `capital_valuation::acquisition_financing`, `corporate_events`
+- financial-reporting-service - `ratios_statements::statements`
+- financial-statements-service - `ratios_statements::statements`
+- ifrs-15-revenue-recognition-service - `ifrs::revenue`
+- ifrs-2-share-based-payment-service - `ifrs::share_based`
+- ifrs-9-financial-instruments-service - `ifrs::instruments`
+- kpi-tracking-service - `reporting::analysis`
+- merger-valuation-service - `capital_valuation::merger`
+- payroll-accounting-service - `equity_payroll::payroll_accounting`
+- post-merger-service - `capital_valuation::corporate_events`
+- profit-loss-account-service - `ratios_statements::profit_loss`
+- scenario-budget-service - `budgeting::scenario`
+- suspense-error-service - `ratios_statements::ledger_controls`
+- synergy-analysis-service - `capital_valuation::corporate_events`
+
+Pinned in `tests/test_port_tracker.py` so the set cannot change without the tracker changing with it,
+and in `tests/test_unrouted_maths.py` so a module cannot be routed without the tracker losing the
+claim that it is unreachable.
 
 ## Retired, and what stands in for them
 
