@@ -1,32 +1,65 @@
 # Contracts
 
-Where the agreed, versioned API shape will live. It is deliberately empty of specs: writing an
-OpenAPI document by hand for 138 services would produce 1,238 paths of fiction that nobody validates.
+The agreed API shape, written by hand for one service at a time and checked against the Rust that
+answers it.
 
-## What exists today
+This directory used to be empty on purpose. An OpenAPI document written for all 138 services would
+be 1,238 paths nobody had read, and a contract nobody has read is worse than no contract: it looks
+authoritative while being wrong. So the loop is proven on one service first.
 
-Each Python service declares its own routes, and `catalog/services/*.yaml` records them as they are,
-with the port, gateway path and auth requirement. That is a description of the current estate, not a
-contract: it says what answers today, not what is promised to a client.
+## What exists
+
+`costing.yaml` covers the overhead absorption service: ten operations, the money rules, and the Book
+scope. It was written from
+`rust/crates/domains/costing/src/overhead_absorption.rs`, not generated from the route table.
+
+`tests/test_contracts.py` holds it to the handlers in both directions:
+
+* every path in the contract is a route the API serves, and its method matches;
+* every route of that service is in the contract, so adding a route means writing it down;
+* every money field is a decimal string, never a JSON number;
+* the keys a response promises are the keys the handler writes.
+
+That last check is the one that matters. The first three say the contract points at something real;
+the last says the answer it describes is the answer that comes back.
+
+## The SDK is generated from the contract
+
+`scripts/generate_sdk.py` reads every contract and writes `sdk/python/<domain>_client.py`, so a
+client cannot promise a method the contract does not describe or miss one it does.
+`tests/test_sdk.py` fails if the committed client stops matching the generator, and holds two
+promises the money rule depends on: the client refuses a float amount before it reaches the wire,
+and it refuses to be built without both `X-User-Id` and `X-Book-Id`.
+
+```python
+from sdk.python.costing_client import VimbaiOverheadAbsorptionClient
+
+client = VimbaiOverheadAbsorptionClient(
+    "https://api.vimbai.example", user_id="u-1", book_id="book-1"
+)
+rate = client.calculate_absorption_rate(
+    cost_centre_name="Assembly",
+    cost_centre_id="cc-1",
+    budgeted_overhead="125000.00",
+    budgeted_base_units="4000",
+)
+```
 
 ## What comes next
 
-1. Pick one domain that already runs on Rust - `costing` or `treasury` are the furthest along.
-2. Write `contracts/openapi/v1/<domain>.yaml` by hand, for the endpoints that domain will keep.
-3. Add a test that compares the contract against the Rust routes, so the document cannot drift from
-   the handler it describes.
-4. Extend to the next domain only after that loop is proven.
+1. One more contract in the same shape, for a domain that already runs on Rust: `treasury` or
+   `job costing`.
+2. Then the pricing calculator routes, which are the largest group still without a written shape.
+3. Events in `contracts/events/`, once something publishes them.
 
-A contract that is not tested against an implementation is a second opinion about the API, and this
-repository has already learned what a second opinion costs.
+A domain that has not been read into a contract has no contract. That is the rule that keeps this
+directory honest, and it is why the remaining 120-odd services are not here yet.
 
 ## Layout
 
 ```
-contracts/openapi/v1/<domain>.yaml   agreed HTTP shape, per domain
-contracts/events/                    event schemas, once events are published
-contracts/compatibility/             versioning and deprecation rules
+contracts/costing.yaml       overhead absorption: the worked example
+contracts/events/            event schemas, once events are published
+contracts/compatibility/     versioning and deprecation rules
+sdk/python/                  generated from the contracts above
 ```
-
-Nothing in this directory is generated yet. When it is, the generator will read the catalogue for
-identity and the handlers for shape, and a test will fail on any disagreement between the three.

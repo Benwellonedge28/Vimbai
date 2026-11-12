@@ -51,13 +51,8 @@ def test_the_two_services_publish_the_same_endpoints():
 def test_the_two_services_carry_the_same_models():
     """The model files differ only in the sentence naming the service."""
     first, second = PAIR
-    shared = [
-        re.sub(r"\b(Process|Product) Costing\b", "Costing", source(service, "models.py"))
-        for service in PAIR
-    ]
-    assert shared[0] == shared[1], (
-        f"{first} and {second} no longer share a model; the shared Rust port needs splitting"
-    )
+    shared = [re.sub(r"\b(Process|Product) Costing\b", "Costing", source(service, "models.py")) for service in PAIR]
+    assert shared[0] == shared[1], f"{first} and {second} no longer share a model; the shared Rust port needs splitting"
 
 
 def test_the_two_services_use_the_same_graph_label():
@@ -74,7 +69,7 @@ def test_the_two_services_compute_their_totals_the_same_way():
     first, second = PAIR
     for service in PAIR:
         crud = source(service, "crud.py")
-        assert "sum(c.amount for c in calc.components)" in crud, (
-            f"{service} no longer totals its components by plain addition"
-        )
+        assert (
+            "sum(c.amount for c in calc.components)" in crud
+        ), f"{service} no longer totals its components by plain addition"
         assert "max(1, calc.quantity)" in crud, f"{service} no longer floors the quantity"

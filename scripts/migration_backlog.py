@@ -11,9 +11,9 @@ Rerun after registering, porting or deleting a service:
     python3 scripts/migration_backlog.py
 """
 
+import importlib.util
 import json
 import pathlib
-import importlib.util
 import re
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -24,9 +24,7 @@ PORT_MAP = ROOT / "rust" / "CALCULATOR-PORT.md"
 # "Wired to the Rust library", which is the list of services actually served from Rust; the other
 # sections list services that are not. Matching the name anywhere in the file counted both, and even
 # matched `currency-service` inside `multi-currency-service`.
-_spec = importlib.util.spec_from_file_location(
-    "migration_manifest", ROOT / "scripts" / "migration_manifest.py"
-)
+_spec = importlib.util.spec_from_file_location("migration_manifest", ROOT / "scripts" / "migration_manifest.py")
 MANIFEST = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(MANIFEST)
 OUT = ROOT / "docs" / "RUST-MIGRATION-BACKLOG.md"

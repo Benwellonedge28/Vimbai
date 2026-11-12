@@ -1,0 +1,557 @@
+openapi: 3.1.0
+info:
+  title: Vimbai overhead absorption
+  version: "1.0.0"
+  summary: Absorption rates for a cost centre, and the overhead a rate recovers.
+  description: |
+    The first contract in `contracts/`, and the pattern the rest will follow.
+
+    Written by hand against the Rust handlers in
+    `rust/crates/domains/costing/src/overhead_absorption.rs`, not generated from the route table.
+    Generating a spec from 1,238 paths would have produced a document nobody had checked; a contract
+    is worth having only where someone has read the shapes. `tests/test_contracts.py` compares this
+    file to the handlers, so it cannot drift quietly.
+
+    Money is always a decimal string, exactly as it left Rust. A JSON number would lose the digits
+    that make a large contract value survive rounding, so no money field is ever a number here. The
+    values carry six decimal places because that is the scale the store keeps.
+
+    Every operation is per Book. `X-User-Id` and `X-Book-Id` are required on all of them: a request
+    without both is refused, because a rate that cannot say whose Book it belongs to has no meaning.
+servers:
+  - url: https://api.vimbai.example
+    description: Through the gateway. The gateway routes and authenticates; the shapes are the API's.
+security:
+  - BookScope: []
+paths:
+  /overhead-absorption/calculate:
+    post:
+      operationId: calculateAbsorptionRate
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      summary: Work out the absorption rate for one cost centre and record it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AbsorptionRateRequest"
+      responses:
+        "200":
+          description: The rate, as recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AbsorptionRate"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /overhead-absorption/machine-hours-rate:
+    post:
+      operationId: machineHoursRate
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      summary: Absorption rate per machine hour.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BaseRateRequest"
+      responses:
+        "200":
+          description: The rate and the analysis it was recorded as.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseRateAnswerMachineHours"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /overhead-absorption/labour-hours-rate:
+    post:
+      operationId: directLabourHoursRate
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      summary: Absorption rate per direct labour hour.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BaseRateRequest"
+      responses:
+        "200":
+          description: The rate and the analysis it was recorded as.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseRateAnswerLabourHours"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /overhead-absorption/labour-cost-rate:
+    post:
+      operationId: directLabourCostRate
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      summary: Absorption rate as a percentage of direct labour cost.
+      description: A cost-based base answers as a percentage, not as an amount per unit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BaseRateRequest"
+      responses:
+        "200":
+          description: The percentage and the analysis it was recorded as.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseRateAnswerPercentage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /overhead-absorption/material-cost-rate:
+    post:
+      operationId: materialCostRate
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      summary: Absorption rate as a percentage of material cost.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BaseRateRequest"
+      responses:
+        "200":
+          description: The percentage and the analysis it was recorded as.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseRateAnswerPercentage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /overhead-absorption/prime-cost-rate:
+    post:
+      operationId: primeCostRate
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      summary: Absorption rate as a percentage of prime cost.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BaseRateRequest"
+      responses:
+        "200":
+          description: The percentage and the analysis it was recorded as.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseRateAnswerPercentage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /overhead-absorption/unit-rate:
+    post:
+      operationId: unitRate
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      summary: Absorption rate per unit produced.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BaseRateRequest"
+      responses:
+        "200":
+          description: The rate and the analysis it was recorded as.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseRateAnswerUnits"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /overhead-absorption/blanket-rate:
+    post:
+      operationId: blanketRate
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      summary: One rate for the whole factory, from totals rather than a cost centre.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BlanketRateRequest"
+      responses:
+        "200":
+          description: The blanket rate and the analysis it was recorded as.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlanketRateAnswer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /overhead-absorption/absorbed-overhead:
+    post:
+      operationId: absorbedOverhead
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      summary: What a rate recovers from the activity that actually happened.
+      description: |
+        Arithmetic and no record: the caller already has the rate and the actual units, so there is
+        nothing new to store.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AbsorbedOverheadRequest"
+      responses:
+        "200":
+          description: The overhead recovered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AbsorbedOverheadAnswer"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /overhead-absorption/rates:
+    get:
+      operationId: listAbsorptionRates
+      summary: The rates recorded against this Book, newest the store's order.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: cost_centre_id
+          in: query
+          required: false
+          description: Narrow to one cost centre.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The rates.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /overhead-absorption/analyses:
+    get:
+      operationId: listAbsorptionAnalyses
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      summary: Every rate calculation recorded against this Book.
+      responses:
+        "200":
+          description: The analyses.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+components:
+  securitySchemes:
+    BookScope:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: |
+        The caller. `X-Book-Id` is required alongside it: the platform cannot express two required
+        api key headers as one scheme, so both are listed here and asserted for every operation by
+        the contract test.
+  parameters:
+    BookId:
+      name: X-Book-Id
+      in: header
+      required: true
+      schema:
+        type: string
+  schemas:
+    Money:
+      type: string
+      pattern: "^-?[0-9]+(\\.[0-9]+)?$"
+      description: |
+        An exact decimal amount, as a string. Not a JSON number: a number is a double once a client
+        parses it, and a figure large enough to matter would lose digits there. Six decimal places
+        is the scale the store keeps.
+      examples:
+        - "125000.000000"
+        - "0.125"
+    AbsorptionBase:
+      type: string
+      enum:
+        - machine_hours
+        - direct_labour_hours
+        - direct_labour_cost
+        - material_cost
+        - prime_cost
+        - units
+    AbsorptionRateRequest:
+      type: object
+      required:
+        - cost_centre_name
+        - cost_centre_id
+        - budgeted_overhead
+        - budgeted_base_units
+      properties:
+        cost_centre_name:
+          type: string
+        cost_centre_id:
+          type: string
+        budgeted_overhead:
+          $ref: "#/components/schemas/Money"
+        budgeted_base_units:
+          $ref: "#/components/schemas/Money"
+        overhead_type:
+          type: string
+          default: production
+        absorption_base:
+          $ref: "#/components/schemas/AbsorptionBase"
+    AbsorptionRate:
+      type: object
+      required:
+        - cost_centre_name
+        - cost_centre_id
+        - absorption_base
+        - budgeted_overhead
+        - budgeted_base_units
+        - absorption_rate
+        - rate_per_unit
+      properties:
+        id:
+          type: [string, "null"]
+        user_id:
+          type: [string, "null"]
+        book_id:
+          type: [string, "null"]
+        cost_centre_name:
+          type: string
+        cost_centre_id:
+          type: string
+        overhead_type:
+          type: string
+        absorption_base:
+          $ref: "#/components/schemas/AbsorptionBase"
+        budgeted_overhead:
+          $ref: "#/components/schemas/Money"
+        budgeted_base_units:
+          $ref: "#/components/schemas/Money"
+        absorption_rate:
+          $ref: "#/components/schemas/Money"
+        rate_per_unit:
+          $ref: "#/components/schemas/Money"
+        created_at:
+          type: [string, "null"]
+    BaseRateRequest:
+      type: object
+      required:
+        - cost_centre_name
+        - budgeted_overhead
+      properties:
+        cost_centre_name:
+          type: string
+        budgeted_overhead:
+          $ref: "#/components/schemas/Money"
+        budgeted_machine_hours:
+          $ref: "#/components/schemas/Money"
+        budgeted_direct_labour_hours:
+          $ref: "#/components/schemas/Money"
+        budgeted_direct_labour_cost:
+          $ref: "#/components/schemas/Money"
+        budgeted_material_cost:
+          $ref: "#/components/schemas/Money"
+        budgeted_prime_cost:
+          $ref: "#/components/schemas/Money"
+        budgeted_units:
+          $ref: "#/components/schemas/Money"
+    BaseRateAnswerMachineHours:
+      allOf:
+        - $ref: "#/components/schemas/BaseRateAnswer"
+        - type: object
+          properties:
+            budgeted_machine_hours:
+              $ref: "#/components/schemas/Money"
+            oar_per_machine_hour:
+              $ref: "#/components/schemas/Money"
+    BaseRateAnswerLabourHours:
+      allOf:
+        - $ref: "#/components/schemas/BaseRateAnswer"
+        - type: object
+          properties:
+            budgeted_direct_labour_hours:
+              $ref: "#/components/schemas/Money"
+            oar_per_direct_labour_hour:
+              $ref: "#/components/schemas/Money"
+    BaseRateAnswerPercentage:
+      allOf:
+        - $ref: "#/components/schemas/BaseRateAnswer"
+        - type: object
+          properties:
+            oar_percentage:
+              $ref: "#/components/schemas/Money"
+    BaseRateAnswerUnits:
+      allOf:
+        - $ref: "#/components/schemas/BaseRateAnswer"
+        - type: object
+          properties:
+            budgeted_units:
+              $ref: "#/components/schemas/Money"
+            oar_per_unit:
+              $ref: "#/components/schemas/Money"
+    BaseRateAnswer:
+      type: object
+      required:
+        - cost_centre_name
+        - absorption_base
+        - budgeted_overhead
+        - analysis_id
+      properties:
+        cost_centre_name:
+          type: string
+        absorption_base:
+          $ref: "#/components/schemas/AbsorptionBase"
+        budgeted_overhead:
+          $ref: "#/components/schemas/Money"
+        analysis_id:
+          type: [string, "null"]
+    BlanketRateRequest:
+      type: object
+      required:
+        - entity_name
+        - absorption_base
+        - total_budgeted_overhead
+        - total_base_units
+      properties:
+        entity_name:
+          type: string
+        absorption_base:
+          $ref: "#/components/schemas/AbsorptionBase"
+        total_budgeted_overhead:
+          $ref: "#/components/schemas/Money"
+        total_base_units:
+          $ref: "#/components/schemas/Money"
+    BlanketRateAnswer:
+      type: object
+      required:
+        - entity_name
+        - absorption_base
+        - total_budgeted_overhead
+        - total_base_units
+        - blanket_oar
+        - analysis_id
+      properties:
+        entity_name:
+          type: string
+        rate_type:
+          type: string
+          const: blanket
+        absorption_base:
+          $ref: "#/components/schemas/AbsorptionBase"
+        total_budgeted_overhead:
+          $ref: "#/components/schemas/Money"
+        total_base_units:
+          $ref: "#/components/schemas/Money"
+        blanket_oar:
+          $ref: "#/components/schemas/Money"
+        analysis_id:
+          type: [string, "null"]
+    AbsorbedOverheadRequest:
+      type: object
+      required:
+        - cost_centre_name
+        - actual_base_units
+        - absorption_rate
+      properties:
+        cost_centre_name:
+          type: string
+        actual_base_units:
+          $ref: "#/components/schemas/Money"
+        absorption_rate:
+          $ref: "#/components/schemas/Money"
+    AbsorbedOverheadAnswer:
+      type: object
+      required:
+        - cost_centre_name
+        - actual_base_units
+        - absorption_rate
+        - overhead_absorbed
+      properties:
+        cost_centre_name:
+          type: string
+        actual_base_units:
+          $ref: "#/components/schemas/Money"
+        absorption_rate:
+          $ref: "#/components/schemas/Money"
+        overhead_absorbed:
+          $ref: "#/components/schemas/Money"
+    Analysis:
+      type: object
+      required:
+        - cost_centre_name
+        - rate_type
+        - absorption_base
+        - calculated_rate
+        - base_units_used
+        - overhead_absorbed
+      properties:
+        id:
+          type: [string, "null"]
+        user_id:
+          type: [string, "null"]
+        book_id:
+          type: [string, "null"]
+        entity_name:
+          type: string
+        cost_centre_name:
+          type: string
+        rate_type:
+          type: string
+        absorption_base:
+          $ref: "#/components/schemas/AbsorptionBase"
+        calculated_rate:
+          $ref: "#/components/schemas/Money"
+        base_units_used:
+          $ref: "#/components/schemas/Money"
+        overhead_absorbed:
+          $ref: "#/components/schemas/Money"
+        created_at:
+          type: [string, "null"]
+    RateList:
+      type: object
+      required:
+        - rates
+      properties:
+        rates:
+          type: array
+          items:
+            $ref: "#/components/schemas/AbsorptionRate"
+    AnalysisList:
+      type: object
+      required:
+        - analyses
+      properties:
+        analyses:
+          type: array
+          items:
+            $ref: "#/components/schemas/Analysis"
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+  responses:
+    BadRequest:
+      description: |
+        The payload or the Book scope was refused. A missing amount, a missing `X-User-Id` or
+        `X-Book-Id`, or an amount that is not a decimal all answer this way rather than being
+        treated as zero, because a rate computed from a guessed figure is worse than no rate.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

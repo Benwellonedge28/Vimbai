@@ -52,9 +52,11 @@ def test_the_store_declares_no_service_module():
     with open(os.path.join(STORE, "lib.rs"), encoding="utf-8") as handle:
         text = handle.read()
     declared = set(re.findall(r"^pub mod (\w+);", text, re.MULTILINE))
-    assert declared <= {"amounts", "fake", "neo4j_client"}, (
-        f"the store still re-exports a domain module: {sorted(declared - {'amounts', 'fake', 'neo4j_client'})}"
-    )
+    assert declared <= {
+        "amounts",
+        "fake",
+        "neo4j_client",
+    }, f"the store still re-exports a domain module: {sorted(declared - {'amounts', 'fake', 'neo4j_client'})}"
 
 
 def test_every_rust_service_has_a_crate_to_live_in():
@@ -104,10 +106,7 @@ def test_a_domain_crate_holds_every_service_of_that_domain_together():
 def test_the_costing_crate_carries_all_of_the_costing_services():
     """The cost accounting services are the ones this consolidation was done for."""
     costing = "rust/crates/domains/costing"
-    expected = {
-        name
-        for name in (row["name"] for row in rust_services() if row["domain"] == "costing")
-    }
+    expected = {name for name in (row["name"] for row in rust_services() if row["domain"] == "costing")}
     with open(os.path.join(target_dir(costing), "src", "lib.rs"), encoding="utf-8") as handle:
         text = handle.read()
     for name in expected:
