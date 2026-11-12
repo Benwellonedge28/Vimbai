@@ -132,6 +132,8 @@ pub const FIXED_ASSET: RecordKind = RecordKind::new("FixedAsset", "OWNS_FIXED_AS
 pub const DEPRECIATION_ENTRY: RecordKind =
     RecordKind::new("DepreciationEntry", "OWNS_DEPRECIATION_ENTRY");
 pub const ASSET_DISPOSAL: RecordKind = RecordKind::new("AssetDisposal", "OWNS_ASSET_DISPOSAL");
+/// The schedules fixed-assets-schedule-service generated from that register.
+pub const ASSET_SCHEDULE: RecordKind = RecordKind::new("AssetSchedule", "OWNS_ASSET_SCHEDULE");
 
 /// The price reduction decisions selling-price-reduction-service owns.
 pub const SELLING_PRICE_ANALYSIS: RecordKind =

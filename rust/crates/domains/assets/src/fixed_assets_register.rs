@@ -36,7 +36,7 @@ use vimbai_store::{
     BookScope, Graph, Records, StoreError, ASSET_DISPOSAL, DEPRECIATION_ENTRY, FIXED_ASSET,
 };
 
-/// The seven categories the service accepted. `IT` is upper case on the wire.
+/// The categories the register service accepted. `IT` is upper case on the wire.
 pub const CATEGORIES: [&str; 7] = [
     "land",
     "buildings",
@@ -46,6 +46,50 @@ pub const CATEGORIES: [&str; 7] = [
     "equipment",
     "IT",
 ];
+
+/// The categories the schedule service accepted.
+///
+/// The two services named the same shelves differently (`machinery` and `plant_machinery`,
+/// `furniture` and `furniture_fixtures`, `vehicles` and `motor_vehicles`), and both wrote into the
+/// same register, so a category is valid if either service knew it. Refusing one vocabulary would
+/// refuse records the platform already holds.
+pub const SCHEDULE_CATEGORIES: [&str; 9] = [
+    "land",
+    "buildings",
+    "plant_machinery",
+    "furniture_fixtures",
+    "motor_vehicles",
+    "office_equipment",
+    "computer_equipment",
+    "leasehold_improvements",
+    "intangible_assets",
+];
+
+fn known_category(category: &str) -> bool {
+    CATEGORIES.contains(&category) || SCHEDULE_CATEGORIES.contains(&category)
+}
+
+/// The same record under the schedule service's field names.
+///
+/// The two services spelled the same figures differently. A record is stored once, under the
+/// register's names, and this projects the second spelling at the edge, so neither service's
+/// clients have to change and no figure is stored twice.
+pub fn schedule_view(record: &Value) -> Value {
+    let mut view = record.clone();
+    let mirrors = [
+        ("acquisition_cost", "purchase_cost"),
+        ("acquisition_date", "purchase_date"),
+        ("salvage_value", "residual_value"),
+    ];
+    if let Some(object) = view.as_object_mut() {
+        for (canonical, alias) in mirrors {
+            if let Some(value) = object.get(canonical).cloned() {
+                object.entry(alias.to_string()).or_insert(value);
+            }
+        }
+    }
+    view
+}
 
 fn text(payload: &Value, key: &str) -> String {
     payload
@@ -61,6 +105,14 @@ fn required_text(payload: &Value, key: &str) -> Result<String, StoreError> {
         return Err(StoreError::Invalid(format!("{key} is required")));
     }
     Ok(value)
+}
+
+/// The first of `names` the payload actually carries.
+fn present<'a>(payload: &'a Value, names: &[&'a str]) -> Option<&'a str> {
+    names
+        .iter()
+        .find(|name| payload.get(**name).map(|v| !v.is_null()).unwrap_or(false))
+        .copied()
 }
 
 fn whole(payload: &Value, key: &str) -> Result<i64, StoreError> {
@@ -83,16 +135,21 @@ pub fn create_asset<G: Graph + ?Sized>(
     payload: &Value,
 ) -> Result<Value, StoreError> {
     let category = required_text(payload, "category")?;
-    if !CATEGORIES.contains(&category.as_str()) {
+    if !known_category(&category) {
         return Err(StoreError::Invalid(format!(
             "Invalid category. Must be one of {CATEGORIES:?}"
         )));
     }
 
-    let cost = amount(payload, "acquisition_cost")?;
-    let salvage = match payload.get("salvage_value") {
-        Some(Value::Null) | None => Money::zero(),
-        Some(_) => amount(payload, "salvage_value")?,
+    // an amount under either spelling the two services used
+    let cost = amount(
+        payload,
+        present(payload, &["acquisition_cost", "purchase_cost"])
+            .ok_or_else(|| StoreError::Invalid("acquisition_cost is required".to_string()))?,
+    )?;
+    let salvage = match present(payload, &["salvage_value", "residual_value"]) {
+        None => Money::zero(),
+        Some(key) => amount(payload, key)?,
     };
     let method = {
         let value = text(payload, "depreciation_method");
@@ -109,7 +166,11 @@ pub fn create_asset<G: Graph + ?Sized>(
         "category": category,
         "location": text(payload, "location"),
         "department": text(payload, "department"),
-        "acquisition_date": required_text(payload, "acquisition_date")?,
+        "acquisition_date": required_text(
+            payload,
+            present(payload, &["acquisition_date", "purchase_date"])
+                .ok_or_else(|| StoreError::Invalid("acquisition_date is required".to_string()))?,
+        )?,
         "acquisition_cost": wire(&cost),
         "useful_life_years": whole(payload, "useful_life_years")?,
         "salvage_value": wire(&salvage),

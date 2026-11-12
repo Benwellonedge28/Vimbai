@@ -1039,6 +1039,72 @@ async fn fixed_asset_summary(State(graph): GraphState, headers: HeaderMap) -> Re
     answer(assets::asset_register_summary(graph.as_ref(), &scope))
 }
 
+async fn schedule_asset_list(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let category = query_param(query.as_deref(), "category");
+    let status = query_param(query.as_deref(), "status");
+    answer(assets::list_register_with_count(
+        graph.as_ref(),
+        &scope,
+        category.as_deref(),
+        status.as_deref(),
+    ))
+}
+
+async fn patch_fixed_asset(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(asset_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::update_registered_asset(
+        graph.as_ref(),
+        &scope,
+        &asset_id,
+        &payload,
+    ))
+}
+
+async fn asset_schedule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    // `as_of_date` arrives as a query parameter, as the service declared it. `/schedule/latest`
+    // answers for today, and regenerates rather than reading the last stored schedule, which is
+    // what the service did.
+    let as_of_date = query_param(query.as_deref(), "as_of_date")
+        .unwrap_or_else(|| chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string());
+    answer(assets::generate_schedule(
+        graph.as_ref(),
+        &scope,
+        &as_of_date,
+    ))
+}
+
+async fn schedule_summary(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::schedule_summary(graph.as_ref(), &scope))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone()).merge(service_root_router(graph))
 }
@@ -1087,6 +1153,26 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/records/fixed-assets-register/summary",
             get(fixed_asset_summary),
+        )
+        .route(
+            "/records/fixed-assets-schedule/assets",
+            get(schedule_asset_list).post(register_asset),
+        )
+        .route(
+            "/records/fixed-assets-schedule/assets/:asset_id",
+            get(one_fixed_asset).put(patch_fixed_asset),
+        )
+        .route(
+            "/records/fixed-assets-schedule/schedule/generate",
+            post(asset_schedule),
+        )
+        .route(
+            "/records/fixed-assets-schedule/schedule/latest",
+            get(asset_schedule),
+        )
+        .route(
+            "/records/fixed-assets-schedule/summary",
+            get(schedule_summary),
         )
         .route("/records/insurance-claims/file", post(file_claim))
         .route("/records/insurance-claims/claims", get(insurance_claims))
@@ -1401,6 +1487,23 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             post(dispose_fixed_asset),
         )
         .route("/fixed-assets-register/summary", get(fixed_asset_summary))
+        .route(
+            "/fixed-assets-schedule/assets",
+            get(schedule_asset_list).post(register_asset),
+        )
+        .route(
+            "/fixed-assets-schedule/assets/:asset_id",
+            get(one_fixed_asset).put(patch_fixed_asset),
+        )
+        .route(
+            "/fixed-assets-schedule/schedule/generate",
+            post(asset_schedule),
+        )
+        .route(
+            "/fixed-assets-schedule/schedule/latest",
+            get(asset_schedule),
+        )
+        .route("/fixed-assets-schedule/summary", get(schedule_summary))
         .route("/insurance-claims/file", post(file_claim))
         .route("/insurance-claims/claims", get(insurance_claims))
         .route(

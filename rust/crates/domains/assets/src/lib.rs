@@ -14,6 +14,7 @@
 //! fixed-assets-schedule, intangible-assets, revaluation-reserve.
 
 pub mod amortization;
+pub mod asset_schedule;
 pub mod biological_assets;
 pub mod depreciation;
 pub mod disposal_account;
@@ -26,6 +27,10 @@ pub mod revaluation;
 
 pub use amortization::{
     amortization, amortization_from_json, AmortizationAsset, AmortizationOutput, AmortizationRow,
+};
+pub use asset_schedule::{
+    generate_schedule, list_with_count as list_register_with_count, summary as schedule_summary,
+    update_asset as update_registered_asset,
 };
 pub use biological_assets::{
     biological_classify_from_json, classify_biological_asset,

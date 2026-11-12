@@ -14,6 +14,8 @@ routes; they are listed here too, because the Python service is no longer the en
 
 - fixed-assets-register-service (assets crate, records on the store: register, list, get,
   depreciate, entries, dispose, summary)
+- fixed-assets-schedule-service (assets crate, the same register plus its schedule doors: partial
+  update, schedule generate/latest, the scheduled summary)
 - biological-assets-service (assets crate, six routes from `biological-assets-measure` to
   `biological-assets-disclosure-template`)
 - disposal-account-service (assets crate, `disposal-account-calculate` and `disposal-account-post`)
