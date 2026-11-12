@@ -34,7 +34,6 @@ pub mod target_costing;
 pub mod throughput;
 pub mod total_production_cost;
 
-pub mod cvp;
 pub mod equivalent_units;
 pub mod margin_safety;
 pub mod marginal;
@@ -43,11 +42,6 @@ pub mod overhead;
 pub use absorption::{
     cost_plus_pricing, overhead_absorption, product_cost, CostPlusOutput, OverheadAbsorptionOutput,
     ProductCostOutput,
-};
-pub use cvp::{
-    contribution, multi_product_cvp, perform_cvp, quick_cvp, target_profit, ContributionOutput,
-    CvpAnalysis, MultiProductItem, MultiProductOutput, ProductBreakdown, QuickCvpOutput,
-    TargetProfitOutput,
 };
 pub use equivalent_units::{
     equivalent_units, EquivalentUnitsMethod, EquivalentUnitsOutput, EquivalentUnitsRequest,

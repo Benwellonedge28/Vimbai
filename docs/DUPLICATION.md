@@ -11,7 +11,6 @@ The same calculations exist twice, in two crates, with two arithmetics:
 
 | calculation | exact, reachable over HTTP | float, reachable over the Python seam |
 | --- | --- | --- |
-| CVP, break-even, margin of safety, operating leverage | `domains/costing/src/cvp.rs` (657 lines) | `calculations/cost_accounting/src/cvp.rs` (426 lines) |
 | basis apportionment | `domains/costing/src/basis_apportionment.rs` (377) | `calculations/ratios_statements/src/basis_apportionment.rs` (239) |
 | process and product costing | `domains/costing/src/cost_calculations.rs` | `calculations/cost_accounting/src/process_product_costing.rs` |
 
@@ -20,6 +19,15 @@ endpoints run on exact `Money`; the PyO3 seam that Python services and the parit
 runs on `f64`. A rounding fix in one is not a fix in the other, and the two disagree on cents
 at large amounts - the ledger-core `py_round` bug in commit 3b6b419c was the same disagreement
 in miniature.
+
+## Done: CVP
+
+The float CVP was not a live second opinion, it was unreachable: nothing in the workspace called
+`cost_accounting::cvp`. No seam function wrapped it and the API records module had always used the
+exact crate. It was kept alive by its own re-exports in `lib.rs`, which is how a duplicate survives
+a search - it looks imported, so it looks used. Deleted, re-exports and all; every one of the five
+operations (contribution, quick analysis, target profit, multi-product mix, stored analyses) is
+served by `domains/costing/src/cvp.rs`, with its own tests and the recorded parity capture.
 
 ## Done: job costing
 
