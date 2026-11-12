@@ -32,8 +32,6 @@ updates:
     directory: "/identity-service"
     schedule:
       interval: "weekly"
-  
-  - package-ecosystem: "docker"
-    directory: "/web-frontend"
-    schedule:
-      interval: "weekly"
+
+  # The React frontend is retired (Flutter is the only UI), so its Dockerfile is no longer tracked
+  # for updates. Its files stay in the tree as legacy until the screens are migrated.

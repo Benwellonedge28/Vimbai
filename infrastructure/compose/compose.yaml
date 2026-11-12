@@ -503,17 +503,6 @@ services:
     restart: unless-stopped
     networks:
     - vimbai-net
-  web_frontend:
-    build:
-      context: ./web-frontend
-      dockerfile: Dockerfile
-    ports:
-    - 3000:3000
-    environment:
-    - REACT_APP_API_URL=http://localhost:8081
-    restart: unless-stopped
-    networks:
-    - vimbai-net
   workflow_service:
     build:
       context: ./workflow-service

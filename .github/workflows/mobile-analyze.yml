@@ -1,14 +1,14 @@
-name: Mobile Analyze
+name: Flutter Analyze
 
 on:
   push:
     branches: [main]
     paths:
-      - "mobile-client/**"
+      - "apps/flutter/**"
       - ".github/workflows/mobile-analyze.yml"
   pull_request:
     paths:
-      - "mobile-client/**"
+      - "apps/flutter/**"
 
 concurrency:
   group: mobile-analyze-${{ github.ref }}
@@ -32,8 +32,8 @@ jobs:
 
       - name: Pub get
         run: flutter pub get
-        working-directory: mobile-client
+        working-directory: apps/flutter
 
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
-        working-directory: mobile-client
+        working-directory: apps/flutter
