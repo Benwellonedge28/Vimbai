@@ -149,6 +149,10 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records accounting-service owns: the chart of accounts and the journal written against it.
+pub const LEDGER_ACCOUNT: RecordKind = RecordKind::new("Account", "OWNS_LEDGER_ACCOUNT");
+pub const JOURNAL_ENTRY: RecordKind = RecordKind::new("JournalEntry", "OWNS_JOURNAL_ENTRY");
+
 /// The records accounting-standards-service owns.
 pub const STANDARDS_CONFIG: RecordKind =
     RecordKind::new("StandardsConfig", "OWNS_STANDARDS_CONFIG");

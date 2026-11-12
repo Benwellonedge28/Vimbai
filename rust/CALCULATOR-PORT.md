@@ -12,6 +12,24 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- accounting-service -> accounting crate, in part. On the Rust engine so far: the chart of accounts (create,
+  read by number, list, update, delete, period activity) and the journal (create with double-entry
+  validation and a hash-chain stamp, read, list, update, delete, integrity), plus the ledger, trial
+  balance, income statement and balance sheet computed from those entries. Amounts exact end to end, so a
+  trial balance over 123456789012345678901.55 keeps every digit. Shapes pinned: only `posted` entries move
+  anything; an account is debit-normal only when its normal balance says `debit` and credit-normal
+  otherwise; a trial balance moves a negative balance to the other column and calls itself balanced only on
+  exact equality; the income statement reads period activity and drops an account whose movement runs
+  against its natural side; the balance sheet lists every account of its three types and carries no
+  profit for the period, so it can fail to balance; deleting an account is refused while a line touches it;
+  and a reference number is unique per source module only for the six modules the service checks. One
+  deliberate change: a posted entry cannot be edited or deleted, because the old update path silently
+  broke its own stamp and every stamp after it, and corrections belong in reversing entries. New stamps
+  hash amounts as exact decimals; verification falls back to the older floating-point rendering so
+  entries written before the port still verify, reported as legacy-stamped. Still to port here: vendor
+  bills, the eight subsidiary journals, the four subsidiary ledgers, petty cash, bank reconciliation,
+  statements of affairs, capital calculations, control accounts, receipts and payments, single-entry
+  conversions and profit estimations.
 - accounting-standards-service -> accounting crate. The catalogue is data, not records: fourteen
   standards and their requirements lifted from the service's own definitions into
   `crates/domains/accounting/assets/accounting-standards.json`, so nothing in it was retyped by hand.

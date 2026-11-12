@@ -2043,3 +2043,107 @@ async fn the_record_prefix_answers_the_same_catalogue() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["International"].as_array().expect("region").len(), 1);
 }
+
+#[tokio::test]
+async fn an_account_is_created_and_read_back() {
+    let graph = Scripted::returning(vec![json!({"id": "a-1"})]);
+    let seen = Arc::clone(&graph);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/accounting/accounts",
+        Some(json!({"account_number": "1000", "name": "Cash",
+                    "account_type": "asset", "normal_balance": "debit"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["account_number"], json!("1000"));
+    assert_eq!(body["account_type"], json!("asset"));
+    // the first statement was the duplicate check; the write is the one that carries the props
+    let (_, params) = seen.statement(1);
+    assert_eq!(params["props"]["account_type"], json!("asset"));
+}
+
+#[tokio::test]
+async fn an_unbalanced_entry_is_refused_over_http() {
+    let graph = Scripted::returning(vec![json!({"id": "a-1", "account_number": "1000"})]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/accounting/journal-entries",
+        Some(json!({"entry_date": "2026-03-15",
+        "lines": [
+            {"account_number": "1000", "debit": "10.00"},
+            {"account_number": "4000", "credit": "9.99"}
+        ]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(format!("{body}").contains("differ"), "{body}");
+}
+
+#[tokio::test]
+async fn a_balanced_entry_over_ordinary_amounts_is_stored_stamped() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "a-1", "account_number": "1000", "account_type": "asset",
+                   "normal_balance": "debit"}),
+            json!({"id": "a-2", "account_number": "4000", "account_type": "revenue",
+                   "normal_balance": "credit"}),
+        ],
+        vec![
+            json!({"id": "a-1", "account_number": "1000", "account_type": "asset",
+                   "normal_balance": "debit"}),
+            json!({"id": "a-2", "account_number": "4000", "account_type": "revenue",
+                   "normal_balance": "credit"}),
+        ],
+        vec![],
+        vec![json!({"id": "e-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/accounting/journal-entries",
+        Some(json!({"entry_date": "2026-03-15", "status": "posted",
+        "lines": [
+            {"account_number": "1000", "debit": "120.00"},
+            {"account_number": "4000", "credit": "120.00"}
+        ]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["prev_hash"].as_str().expect("prev").len(), 64);
+    assert_eq!(body["entry_hash"].as_str().expect("stamp").len(), 64);
+}
+
+#[tokio::test]
+async fn a_posted_entry_refuses_edits_over_http() {
+    let graph = Scripted::returning(vec![json!({"id": "e-1", "status": "posted"})]);
+    let (status, _) = call_with(
+        graph,
+        "PUT",
+        "/accounting/journal-entries/e-1",
+        Some(json!({"description": "changed"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn the_trial_balance_answers_under_both_prefixes() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "e-1", "entry_date": "2026-03-15", "status": "posted",
+                    "lines": [{"account_number": "1000", "debit": "500.000000",
+                               "credit": "0.000000"}]}),
+        ],
+        vec![
+            json!({"id": "a-1", "account_number": "1000", "name": "Cash",
+                    "account_type": "asset", "normal_balance": "debit"}),
+        ],
+    ]);
+    let (status, body) = call_with(graph, "GET", "/records/accounting/trial-balance", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_debits"], json!("500.000000"));
+    assert_eq!(body["is_balanced"], json!(false));
+}

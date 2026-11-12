@@ -2,6 +2,7 @@
 //!
 //! Services here:
 //! * `cash-flow-statement-service`
+//! * `accounting-service` (chart of accounts, journal, ledger, trial balance, statements)
 //! * `accounting-standards-service` (the standards catalogue, configurations, policies, compliance)
 //! * `departmental-accounting-service` (departments, cost pools, allocation, inter-department bills)
 //! * `company-accounting-service` (companies, their register, capital, dividends, reserves, reports)
@@ -32,6 +33,7 @@ pub mod departments;
 pub mod fund_accounting;
 pub mod ifrs_reports;
 pub mod intercompany;
+pub mod ledger_book;
 pub mod revenue_recognition;
 pub mod standards;
 pub mod suspense;
@@ -88,6 +90,11 @@ pub use intercompany::{
     list_entities as list_intercompany_entities,
     list_transactions as list_intercompany_transactions,
     match_transactions as match_intercompany_transactions,
+};
+pub use ledger_book::{
+    account_balance, account_period_activity, balance_sheet, create_account, create_entry,
+    delete_account, delete_entry, get_account, get_entry, income_statement, ledger_report,
+    list_accounts, list_entries, trial_balance, update_account, update_entry, verify_chain,
 };
 pub use revenue_recognition::{
     allocate_price, create_contract as create_revenue_contract,

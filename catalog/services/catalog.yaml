@@ -129,7 +129,7 @@ services:
   port: 8000
   gateway_path: /accounting
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

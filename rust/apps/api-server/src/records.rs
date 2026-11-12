@@ -4599,7 +4599,8 @@ async fn revaluation_summary(
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone())
         .merge(service_root_router(graph.clone()))
-        .merge(crate::accounting_standards::router(graph))
+        .merge(crate::accounting_standards::router(graph.clone()))
+        .merge(crate::accounting_book::router(graph))
 }
 
 fn records_router(graph: GraphHandle) -> Router {
