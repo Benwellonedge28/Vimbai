@@ -20,8 +20,10 @@ on:
       - '.github/workflows/**'
       - 'requirements-test.txt'
 
-# One job per bracket + one for the standalone containers (was 43 per-service
-# jobs; services grouped by the domain brackets that already host them).
+# One job per shard + one for the standalone containers (was 43 per-service
+# jobs). The shards were originally the bracket groupings; the bracket
+# containers themselves were retired on 2026-11-12, the grouping is still a
+# cheap way to spread the suite across runners.
 # Test failures FAIL the job - no `|| true` masking. pytest exit code 5
 # (no tests collected) is tolerated as a skip.
 jobs:
@@ -35,29 +37,29 @@ jobs:
         include:
           - group: standalone-containers
             services: "identity-service accounting-service finance-service multimodal-pipeline-service banking-integration-service scenario-modeling-service workflow-service budget-service
-          - group: advanced-accounting-bracket
+          - group: advanced-accounting
             services: "financial-identity-service financial-integrity-service revenue-recognition-service currency-service fixed-assets-register-service general-reserve-service revaluation-reserve-service data-warehouse-service subscription-plans-service intercompany-service      "
-          - group: ap-ar-expenses-bracket
+          - group: ap-ar-expenses
             services: "expense-tracking-service petty-cash-service purchases-ledger-control-service sales-ledger-control-service "
-          - group: corporate-finance-bracket
+          - group: corporate-finance
             services: "capital-reconstruction-service capital-redemption-reserve-service cash-optimization-service scenario-analysis-service sensitivity-analysis-service debentures-service "
-          - group: costing-budgeting-bracket
+          - group: costing-budgeting
             services: "appropriation-control-service job-costing-service process-costing-service product-costing-service zero-based-budgeting-service treasury-policy-service treasury-reporting-service treasury-risk-service "
-          - group: platform-automation-bracket
+          - group: platform-automation
             services: "automation-engine-service notifications-service webhook-service admin-service "
-          - group: platform-infrastructure-bracket
+          - group: platform-infrastructure
             services: "financial-state-machine-service realtime-calculation-engine message-bus-service pos-integration-service "
-          - group: risk-governance-bracket
+          - group: risk-governance
             services: "risk-assessment-service "
-          - group: statements-reporting-bracket
+          - group: statements-reporting
             services: "balance-sheet-service cash-flow-statement-service reporting-service "
-          - group: partnership-bracket
+          - group: partnership
             services: "partnership-agreement-service partnership-changes-service partnership-dissolution-service partnership-revaluation-service "
-          - group: tax-audit-investigation-bracket
+          - group: tax-audit-investigation
             services: "audit-engagement-service sox-compliance-service "
-          - group: general-services-bracket
+          - group: general-services
             services:
-          - group: treasury-banking-bracket
+          - group: treasury-banking
             services: "sovereign-treasury-service treasury-analytics-service treasury-compliance-service treasury-management-service bank-feed-service cash-management-service "
 
     steps:

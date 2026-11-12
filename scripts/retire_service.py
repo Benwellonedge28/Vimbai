@@ -71,14 +71,9 @@ def drop_from_workflows(names):
 
 
 def regrow_brackets():
-    """Brackets are generated from the manifest, so they have to follow it."""
-    generator = ROOT / "scripts" / "generate_brackets.py"
-    if not generator.exists():
-        return "no bracket generator"
-    result = subprocess.run([sys.executable, str(generator)], cwd=ROOT, capture_output=True, text=True)
-    subprocess.run([sys.executable, "-m", "isort", "brackets", "--quiet"], cwd=ROOT)
-    subprocess.run([sys.executable, "-m", "black", "brackets", "--quiet"], cwd=ROOT)
-    return "brackets regenerated" if result.returncode == 0 else f"bracket generator failed: {result.stderr[-200:]}"
+    """Brackets were retired on 2026-11-12: nothing routes to them and nothing deploys them, so a
+    retirement no longer has to regenerate them. Kept as a no-op so callers stay unchanged."""
+    return "brackets retired; nothing to regenerate"
 
 
 def main(argv):

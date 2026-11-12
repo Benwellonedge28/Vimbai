@@ -1218,6 +1218,10 @@ class TestActivityBasedBudgetService:
         import importlib.util
         import os as _os
 
+        # Load the app first: importing main.py is what registers the
+        # activity_based_budget_service package alias that the import below needs.
+        app = load_service_app("activity-based-budget-service")
+
         from activity_based_budget_service.database import Neo4jConnector
 
         fake_path = _os.path.join(REPO_ROOT, "activity-based-budget-service", "fake_neo4j.py")
@@ -1226,7 +1230,7 @@ class TestActivityBasedBudgetService:
         spec.loader.exec_module(fake)
         shared = fake.FakeSession()
         Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(shared))
-        self.client = TestClient(load_service_app("activity-based-budget-service"))
+        self.client = TestClient(app)
         self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
 
     def test_health(self):

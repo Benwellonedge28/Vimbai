@@ -100,7 +100,7 @@ jobs:
             exit $rc
           else
             # At least verify every .py file in the dir parses cleanly
-            # (covers non-service dirs like scripts/ and brackets/)
+            # (covers non-service dirs like scripts/ and shared/)
             cd ${{ matrix.service }}
             python -c "import ast, pathlib, sys; [ast.parse(p.read_text(), filename=str(p)) for p in pathlib.Path('.').rglob('*.py') if '__pycache__' not in p.parts]; print('Syntax OK')"
           fi

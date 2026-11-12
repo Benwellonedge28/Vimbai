@@ -169,9 +169,13 @@ class TestHelmChart:
 
     def test_helm_tracing_template_exists(self):
         """Verify Helm tracing template exists."""
-        assert (REPO_ROOT / "infrastructure" / "kubernetes" / "helm" / "legacy-chart" / "templates" / "tracing.yaml").exists()
+        assert (
+            REPO_ROOT / "infrastructure" / "kubernetes" / "helm" / "legacy-chart" / "templates" / "tracing.yaml"
+        ).exists()
 
     def test_helm_tracing_template_uses_values(self):
         """Verify Helm tracing template references values."""
-        content = (REPO_ROOT / "infrastructure" / "kubernetes" / "helm" / "legacy-chart" / "templates" / "tracing.yaml").read_text()
+        content = (
+            REPO_ROOT / "infrastructure" / "kubernetes" / "helm" / "legacy-chart" / "templates" / "tracing.yaml"
+        ).read_text()
         assert ".Values.tracing" in content

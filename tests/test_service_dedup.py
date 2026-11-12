@@ -531,12 +531,12 @@ def test_duplicate_source_is_accounted_for(dup):
     assert os.path.isfile(os.path.join(source, "main.py"))
 
 
-def test_brackets_do_not_mount_ported_calculators():
-    for bracket in ("treasury-banking-bracket",):
-        members = json.load(open(os.path.join(_ROOT, "brackets", bracket, "members.json")))
-        names = {m["name"] for m in members} if isinstance(members, list) else set(members)
-        for ported in CALCULATOR_PORTS:
-            assert ported not in names, f"{bracket} must not mount {ported}"
+def test_brackets_are_retired():
+    """2026-11-12: the 13 bracket containers were never deployed - no services.json route, no k8s
+    block - so they were removed along with their generator. The gateway routes every member
+    service individually, which is the only thing that was ever live."""
+    assert not os.path.exists(os.path.join(_ROOT, "brackets")), "brackets/ is retired; it must not return"
+    assert not os.path.exists(os.path.join(_ROOT, "scripts", "generate_brackets.py"))
 
 
 @pytest.mark.parametrize("ported", sorted(CALCULATOR_PORTS))
@@ -565,16 +565,6 @@ def test_cost_calculator_keeps_its_ci_coverage(ported):
         assert ported not in ci, f"{ported} has no source left to test"
         return
     assert ported in ci, f"{ported} reference tests must stay wired into CI"
-
-
-def test_cost_calculators_absent_from_brackets():
-    for bracket in ("costing-budgeting-bracket",):
-        members = json.load(open(os.path.join(_ROOT, "brackets", bracket, "members.json")))
-        names = {m["name"] for m in members} if isinstance(members, list) else set(members)
-        overlap = names & (
-            COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS | ABSORPTION_MARGIN_PORTS | SCENARIO_BUDGET_PORTS
-        )
-        assert not overlap, f"{bracket} still mounts {sorted(overlap)}"
 
 
 def test_only_triaged_containers_remain():
