@@ -12,6 +12,11 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- balance-sheet-service -> accounting crate, records on the store: the sheet with its three totals computed
+  server side, the history, the latest, and the ratios read off it. Balances to within a cent; every ratio
+  denominator floored at 1, and no sheet at all is a 404 rather than an empty sheet. The float copy in
+  the ratios crate was deleted with this: nothing reached it from any door, so it was a second set of
+  balance-sheet arithmetic drifting from these figures.
 - fund-accounting-service -> accounting crate, records on the store: funds with their derived net assets,
   the transactions recorded against them, and the company total. A transaction recomputes income and
   expenses from every transaction the fund has rather than adding itself on, and never moves the

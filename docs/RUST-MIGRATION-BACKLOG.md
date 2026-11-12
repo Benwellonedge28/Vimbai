@@ -6,19 +6,20 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 40 are proven on a Rust engine. 97 are still Python-only.
+The gateway routes 137 services. 41 are proven on a Rust engine. 96 are still Python-only.
 
-Of the backlog, 22 own no records and can be ported as pure functions; 75 own records and
+Of the backlog, 22 own no records and can be ported as pure functions; 74 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-40 services.
+41 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
 appropriation-control-service                  8015  routes=5   records=yes rust http
 authorized-share-capital-service               8017  routes=8   records=yes rust http
+balance-sheet-service                          8019  routes=5   records=yes rust http
 basis-apportionment-service                    8022  routes=12  records=yes rust http
 biological-assets-service                      8146  routes=7   records=no  rust http
 bonus-shares-service                           8023  routes=4   records=yes rust http
@@ -89,7 +90,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-75 services.
+74 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -97,7 +98,6 @@ regulatory-compliance-service                  8285  routes=6   records=yes none
 debt-management-service                        8194  routes=6   records=yes none
 financial-identity-service                     8053  routes=5   records=yes none
 tax-planning-service                           8292  routes=5   records=yes none
-balance-sheet-service                          8019  routes=5   records=yes none
 trade-finance-service                          8191  routes=6   records=yes none
 treasury-compliance-service                    8135  routes=5   records=yes none
 expense-tracking-service                       8051  routes=6   records=yes none

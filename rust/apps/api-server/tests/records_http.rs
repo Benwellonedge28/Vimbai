@@ -1457,3 +1457,44 @@ async fn a_movement_against_an_unknown_fund_is_refused() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn a_balance_sheet_is_generated_with_totals_the_caller_did_not_send() {
+    let graph = Scripted::returning(vec![json!({"id": "sheet-1"})]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/balance-sheet/generate",
+        Some(json!({"company_id": "co-1",
+                    "assets": [{"name": "Cash", "amount": "600", "is_liquid": true}],
+                    "liabilities": [{"name": "Loan", "amount": "400"}],
+                    "equity": [{"name": "Capital", "amount": "200"}]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, params) = seen.last();
+    assert_eq!(params["props"]["total_assets"], json!("600.000000"));
+    assert_eq!(params["props"]["is_balanced"], json!(true));
+}
+
+#[tokio::test]
+async fn the_latest_balance_sheet_is_not_found_when_none_exists() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, _) = call_with(graph, "GET", "/balance-sheet/latest/co-1", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn balance_sheet_ratios_come_off_the_latest_sheet() {
+    let graph = Scripted::returning(vec![json!({
+        "id": "sheet-1", "company_id": "co-1", "created_at": "2026-03-01T00:00:00",
+        "assets": [{"amount": "600", "category": "current", "is_liquid": true}],
+        "liabilities": [{"amount": "400", "category": "current"}],
+        "total_assets": "1000", "total_liabilities": "400", "total_equity": "600"
+    })]);
+    let (status, body) = call_with(graph, "GET", "/balance-sheet/ratios/co-1", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["current_ratio"], json!("1.500000"));
+    assert_eq!(body["debt_to_equity"], json!("0.666667"));
+}

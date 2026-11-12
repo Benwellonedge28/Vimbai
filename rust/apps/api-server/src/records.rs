@@ -1752,6 +1752,73 @@ async fn crr_requirements(
         status.as_deref(),
     ))
 }
+async fn generate_balance_sheet(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::generate_balance_sheet(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn latest_balance_sheet(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::latest_sheet(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn balance_sheet_history(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::balance_sheet_history(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn balance_sheet_ratios(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::balance_sheet_ratios(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
 async fn create_fund(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -3808,6 +3875,16 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route("/balance-sheet/generate", post(generate_balance_sheet))
+        .route("/balance-sheet/latest/:company_id", get(latest_balance_sheet))
+        .route(
+            "/balance-sheet/history/:company_id",
+            get(balance_sheet_history),
+        )
+        .route(
+            "/balance-sheet/ratios/:company_id",
+            get(balance_sheet_ratios),
+        )
         .route("/fund-accounting/funds", post(create_fund))
         .route("/fund-accounting/funds/:company_id", get(company_funds))
         .route("/fund-accounting/transactions", post(record_fund_movement))
@@ -3925,6 +4002,16 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(share_redemption_detail),
         )
         .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route("/records/balance-sheet/generate", post(generate_balance_sheet))
+        .route("/records/balance-sheet/latest/:company_id", get(latest_balance_sheet))
+        .route(
+            "/records/balance-sheet/history/:company_id",
+            get(balance_sheet_history),
+        )
+        .route(
+            "/records/balance-sheet/ratios/:company_id",
+            get(balance_sheet_ratios),
+        )
         .route("/records/fund-accounting/funds", post(create_fund))
         .route("/records/fund-accounting/funds/:company_id", get(company_funds))
         .route("/records/fund-accounting/transactions", post(record_fund_movement))

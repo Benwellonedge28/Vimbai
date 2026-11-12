@@ -2,6 +2,7 @@
 //!
 //! Services here:
 //! * `cash-flow-statement-service`
+//! * `balance-sheet-service` (the sheet, its three totals, and the ratios read off the latest)
 //! * `fund-accounting-service` (funds with their derived net assets, and the transactions that
 //!   re-derive them)
 //! * `revenue-recognition-service` (contracts with their obligations, the allocation by standalone selling
@@ -15,11 +16,16 @@
 
 #![forbid(unsafe_code)]
 
+pub mod balance_sheet;
 pub mod cash_flow;
 pub mod fund_accounting;
 pub mod revenue_recognition;
 pub mod suspense;
 pub mod trading_account;
+pub use balance_sheet::{
+    generate as generate_balance_sheet, history as balance_sheet_history, latest_sheet,
+    ratios as balance_sheet_ratios, totals as balance_sheet_totals,
+};
 pub use fund_accounting::{
     create_fund, list_funds, list_transactions as list_fund_transactions,
     net_assets as fund_net_assets, record_transaction as record_fund_transaction,

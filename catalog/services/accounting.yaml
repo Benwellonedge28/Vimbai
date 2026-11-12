@@ -50,7 +50,7 @@ services:
   port: 8019
   gateway_path: /balance-sheet
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

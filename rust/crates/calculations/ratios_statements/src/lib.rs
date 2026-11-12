@@ -6,7 +6,6 @@
 //! profit and loss, management accounts and reporting, working capital
 //! family. Queued: consolidation.
 
-pub mod balance_sheet;
 pub mod comparative;
 pub mod consolidation;
 pub mod income_statement;
@@ -23,10 +22,6 @@ pub mod trading_account;
 pub mod trial_balance;
 pub mod working_capital;
 
-pub use balance_sheet::{
-    balance_sheet_ratios, generate_totals, BalanceSheetInput, BalanceSheetRatios,
-    BalanceSheetTotals,
-};
 pub use comparative::{
     analyze, generate_periods, horizontal_analysis, horizontal_items, trend_analysis, trend_series,
     variance_analysis, ComparativeAnalysis, ComparativeRequest, HorizontalChange, HorizontalItem,
