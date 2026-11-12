@@ -43,6 +43,10 @@ SERVICES = {
         "prefix": "/equity-changes",
         "handler": os.path.join(ROOT, "rust", "crates", "domains", "equity", "src", "equity_changes.rs"),
     },
+    "assets.yaml": {
+        "prefix": "/fixed-assets-register",
+        "handler": os.path.join(ROOT, "rust", "crates", "domains", "assets", "src", "fixed_assets_register.rs"),
+    },
     "treasury.yaml": {
         "prefix": "/cash-optimization",
         "handler": os.path.join(ROOT, "rust", "crates", "domains", "treasury", "src", "cash_optimization.rs"),
@@ -418,3 +422,36 @@ def test_the_equity_filter_is_called_what_the_service_answers_to():
         routes = handle.read()
     assert 'query_param(query.as_deref(), "tx_type")' in routes, "the router no longer reads a tx_type query parameter"
     assert "fn transactions" in handler
+
+def test_the_asset_summary_promises_the_keys_the_handler_writes():
+    """The register's summary is built inline, so the contract is read against that function."""
+    document = load("assets.yaml")
+    promised = set(properties(document, document["components"]["schemas"]["AssetSummary"]))
+    written = body_keys(SERVICES["assets.yaml"]["handler"], "fn summary")
+    # the per-category buckets are written inside the summary, one level down from its own keys
+    assert promised <= written, (
+        f"only in the contract: {sorted(promised - written)}; "
+        f"only in the handler: {sorted(written - promised)}"
+    )
+
+
+def test_a_registered_asset_carries_the_figures_the_contract_guarantees():
+    """Registration writes these through the store, so they are checked against the create call."""
+    document = load("assets.yaml")
+    asset = document["components"]["schemas"]["FixedAsset"]
+    promised = set(asset["properties"])
+    written = body_keys(SERVICES["assets.yaml"]["handler"], "fn create_asset")
+    guaranteed = {"category", "acquisition_cost", "accumulated_depreciation", "net_book_value", "status"}
+    assert guaranteed <= promised, f"the FixedAsset schema lost figures: {sorted(guaranteed - promised)}"
+    assert guaranteed <= written, f"create_asset no longer writes: {sorted(guaranteed - written)}"
+    assert required(document, asset) == {
+        "asset_code",
+        "asset_name",
+        "category",
+        "acquisition_date",
+        "acquisition_cost",
+        "useful_life_years",
+        "accumulated_depreciation",
+        "net_book_value",
+        "status",
+    }

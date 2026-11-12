@@ -1,0 +1,431 @@
+openapi: 3.1.0
+info:
+  title: Vimbai fixed assets register
+  version: "1.0.0"
+  summary: The asset register, and what a period of depreciation and a disposal do to it.
+  description: |
+    The sixth contract, and the first from the assets crate. It is also the first one that describes a
+    register two services share: `fixed-assets-schedule-service` reads and writes the same
+    `:FixedAsset` records by the same edge, so what is stated here is true of both doors.
+
+    Four things a client would otherwise get wrong, all of them stated below.
+
+    An asset is registered at cost, not at cost less salvage. The starting net book value is the
+    acquisition cost, whatever the salvage value says, which is what the service has always done.
+
+    A category is one of seven, and `IT` is upper case. That is not a typo in this document; it is the
+    value the service accepts, and the register holds records under it.
+
+    Reducing balance charges 20% of the *current* net book value a year, twelve times over. It
+    compounds, so it approaches the salvage value and never arrives at it. Straight line charges
+    `(cost - salvage) / (life * 12)` a month, and a zero life charges nothing instead of dividing.
+
+    A period of depreciation that takes an asset to its salvage value marks it `disposed`, not
+    `fully_depreciated`. The status vocabulary suggests the second; the service does the first.
+servers:
+  - url: https://api.vimbai.example
+security:
+  - BookScope: []
+paths:
+  /fixed-assets-register/assets:
+    post:
+      operationId: registerFixedAsset
+      summary: Register a fixed asset.
+      description: |
+        The categories are `land`, `buildings`, `vehicles`, `machinery`, `furniture`, `equipment` and
+        `IT`. Anything else is refused.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssetRequest"
+      responses:
+        "200":
+          description: The asset as registered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FixedAsset"
+        "422":
+          $ref: "#/components/responses/Refused"
+    get:
+      operationId: listFixedAssets
+      summary: The caller's register, optionally narrowed.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: department
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The assets that match, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FixedAsset"
+  /fixed-assets-register/assets/{asset_id}:
+    get:
+      operationId: getFixedAsset
+      summary: One asset from the caller's register.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The asset.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FixedAsset"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /fixed-assets-register/assets/{asset_id}/depreciate:
+    post:
+      operationId: depreciateFixedAsset
+      summary: Charge one period of depreciation and record the entry.
+      description: |
+        Only an `active` asset is charged. An asset that reaches its salvage value is pinned there and
+        marked `disposed`, and the entry records the charge, the new accumulated figure and the new
+        book value.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The period being charged, as the register records it (`YYYY-MM` by convention).
+      responses:
+        "200":
+          description: The depreciation entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepreciationEntry"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Refused"
+  /fixed-assets-register/assets/{asset_id}/depreciation:
+    get:
+      operationId: listDepreciation
+      summary: The entries charged against one asset.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DepreciationEntry"
+  /fixed-assets-register/assets/{asset_id}/dispose:
+    post:
+      operationId: disposeFixedAsset
+      summary: Dispose of an asset and record the gain or loss.
+      description: |
+        The gain or loss is the proceeds less the net book value, and it may be negative. Accumulated
+        depreciation is left exactly as it stands. An asset already disposed is refused.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: disposal_date
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: disposal_value
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Money"
+          description: Defaults to zero, which is a scrapped asset.
+        - name: disposal_method
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Defaults to `sale`.
+        - name: notes
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The disposal as recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetDisposal"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Refused"
+  /fixed-assets-register/summary:
+    get:
+      operationId: fixedAssetSummary
+      summary: The register totals, and the net book value held per category.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      responses:
+        "200":
+          description: The summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetSummary"
+components:
+  securitySchemes:
+    BookScope:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: |
+        The caller. `X-Book-Id` is required alongside it and is a parameter on every operation,
+        because the platform cannot express two required api key headers as one scheme.
+  parameters:
+    BookId:
+      name: X-Book-Id
+      in: header
+      required: true
+      schema:
+        type: string
+  schemas:
+    Money:
+      type: string
+      pattern: "^-?[0-9]+(\\.[0-9]+)?$"
+      description: |
+        An exact decimal amount, as a string, at the six decimal places the store keeps.
+    AssetRequest:
+      type: object
+      required:
+        - asset_code
+        - asset_name
+        - category
+        - acquisition_date
+        - acquisition_cost
+        - useful_life_years
+      properties:
+        asset_code:
+          type: string
+        asset_name:
+          type: string
+        category:
+          type: string
+          description: |
+            One of `land`, `buildings`, `vehicles`, `machinery`, `furniture`, `equipment` or `IT`. The
+            last is upper case.
+        acquisition_date:
+          type: string
+        acquisition_cost:
+          $ref: "#/components/schemas/Money"
+        useful_life_years:
+          type: integer
+          description: |
+            A zero life is allowed and charges nothing a period, which is different from one month.
+        salvage_value:
+          $ref: "#/components/schemas/Money"
+          description: Defaults to zero.
+        depreciation_method:
+          type: string
+          description: |
+            `straight_line` or `reducing_balance`. Any other value is stored and charges nothing, so a
+            typo is a silent zero rather than an error.
+        location:
+          type: string
+        department:
+          type: string
+    FixedAsset:
+      type: object
+      required:
+        - asset_code
+        - asset_name
+        - category
+        - acquisition_date
+        - acquisition_cost
+        - useful_life_years
+        - accumulated_depreciation
+        - net_book_value
+        - status
+      properties:
+        id:
+          type: [string, "null"]
+        asset_code:
+          type: string
+        asset_name:
+          type: string
+        category:
+          type: string
+        location:
+          type: string
+        department:
+          type: string
+        acquisition_date:
+          type: [string, "null"]
+        acquisition_cost:
+          $ref: "#/components/schemas/Money"
+        useful_life_years:
+          type: integer
+        salvage_value:
+          $ref: "#/components/schemas/Money"
+        depreciation_method:
+          type: string
+        accumulated_depreciation:
+          $ref: "#/components/schemas/Money"
+        net_book_value:
+          $ref: "#/components/schemas/Money"
+          description: |
+            The acquisition cost less everything charged since, pinned at the salvage value once it
+            would fall below it.
+        status:
+          type: string
+          description: |
+            `active`, `disposed`, `impaired` or `under_construction`. An asset that depreciates to its
+            salvage value becomes `disposed`.
+        created_at:
+          type: [string, "null"]
+    DepreciationEntry:
+      type: object
+      required:
+        - asset_id
+        - period
+        - depreciation_amount
+        - accumulated_depreciation
+        - net_book_value
+        - method
+      properties:
+        id:
+          type: [string, "null"]
+        asset_id:
+          type: string
+        period:
+          type: string
+        depreciation_amount:
+          $ref: "#/components/schemas/Money"
+        accumulated_depreciation:
+          $ref: "#/components/schemas/Money"
+        net_book_value:
+          $ref: "#/components/schemas/Money"
+        method:
+          type: string
+        created_at:
+          type: [string, "null"]
+    AssetDisposal:
+      type: object
+      required:
+        - asset_id
+        - disposal_date
+        - disposal_value
+        - disposal_method
+        - gain_loss
+      properties:
+        id:
+          type: [string, "null"]
+        asset_id:
+          type: string
+        disposal_date:
+          type: [string, "null"]
+        disposal_value:
+          $ref: "#/components/schemas/Money"
+        disposal_method:
+          type: string
+        gain_loss:
+          $ref: "#/components/schemas/Money"
+          description: Proceeds less net book value. Negative when the asset went for less than it carried.
+        notes:
+          type: string
+        created_at:
+          type: [string, "null"]
+    AssetSummary:
+      type: object
+      required:
+        - total_assets
+        - active_assets
+        - total_acquisition_cost
+        - total_accumulated_depreciation
+        - total_net_book_value
+        - by_category
+      properties:
+        total_assets:
+          type: integer
+        active_assets:
+          type: integer
+        total_acquisition_cost:
+          $ref: "#/components/schemas/Money"
+          description: Rounded once to the cent for reading.
+        total_accumulated_depreciation:
+          $ref: "#/components/schemas/Money"
+        total_net_book_value:
+          $ref: "#/components/schemas/Money"
+        by_category:
+          type: object
+          additionalProperties:
+            type: object
+            required:
+              - count
+              - nbv
+            properties:
+              count:
+                type: integer
+              nbv:
+                $ref: "#/components/schemas/Money"
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+  responses:
+    Refused:
+      description: |
+        Refused: a category outside the seven, a missing required field, an amount that is not a
+        decimal, an asset that is not active, or an asset already disposed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: No such asset in this Book. Another Book's asset answers the same way, deliberately.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

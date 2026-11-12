@@ -16,8 +16,9 @@ optimisation, the first contract from a second crate, where an operation replace
 than adding to it. `accounting.yaml` covers the cash flow statement: a ledger record, created and read
 but never edited, whose totals the service derives rather than accepts. `equity.yaml` covers equity
 changes, where a transaction may state its amount or leave it to be derived from shares and price,
-and where the filter parameter is called `tx_type`. All five were written from their Rust handlers,
-not from the route table.
+and where the filter parameter is called `tx_type`. `assets.yaml` covers the fixed asset register, the
+first contract from the assets crate and the first that describes records two services share. All six
+were written from their Rust handlers, not from the route table.
 
 The cash flow contract caught the wire being lossy. Reading how an amount reaches a client showed
 `wire()` publishing a JSON number where `rust/MONEY.md` promised a string, so every figure was
