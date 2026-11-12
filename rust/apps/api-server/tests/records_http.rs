@@ -1964,3 +1964,82 @@ async fn a_department_financial_summary_reports_what_it_was_given() {
     // 123456789012345678901.55 - 0.45 - 0.45, with every digit of the revenue
     assert_eq!(body["net_income"], json!("123456789012345678900.650000"));
 }
+
+#[tokio::test]
+async fn the_catalogue_answers_without_a_store() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, body) = call_with(graph, "GET", "/accounting-standards/standards", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body.as_array().expect("standards").len(), 14);
+}
+
+#[tokio::test]
+async fn a_standard_is_found_by_its_type_and_refused_by_a_wrong_one() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, body) = call_with(
+        graph.clone(),
+        "GET",
+        "/accounting-standards/standards/ifrs",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["code"], json!("IFRS"));
+
+    let (status, _) = call_with(
+        graph,
+        "GET",
+        "/accounting-standards/standards/mars_gaap",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn a_compliance_check_needs_the_standard_in_the_query() {
+    let graph = Scripted::queue(vec![
+        vec![],
+        vec![json!({"id": "k-1"})],
+        vec![json!({"id": "k-2"})],
+        vec![json!({"id": "k-3"})],
+        vec![json!({"id": "k-4"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/accounting-standards/organizations/org-1/compliance/check?standard_type=ifrs",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_checks"], json!(4));
+    assert_eq!(body["passed"], json!(4));
+}
+
+#[tokio::test]
+async fn a_configuration_that_was_never_written_is_a_miss() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, _) = call_with(
+        graph,
+        "GET",
+        "/accounting-standards/organizations/org-1/configuration",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn the_record_prefix_answers_the_same_catalogue() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/records/accounting-standards/standards/categories",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["International"].as_array().expect("region").len(), 1);
+}

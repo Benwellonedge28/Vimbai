@@ -1,0 +1,503 @@
+{
+  "requirements": {
+    "ifrs": [
+      {
+        "category": "Revenue",
+        "description": "Revenue from contracts with customers",
+        "disclosure_required": true,
+        "effective_date": "2018-01-01",
+        "is_mandatory": true,
+        "measurement_method": "5-step model",
+        "presentation_format": null,
+        "requirement_code": "IFRS_15",
+        "standard": "ifrs",
+        "validation_rules": null
+      },
+      {
+        "category": "Leases",
+        "description": "Lease accounting",
+        "disclosure_required": true,
+        "effective_date": "2019-01-01",
+        "is_mandatory": true,
+        "measurement_method": "right-of-use asset",
+        "presentation_format": null,
+        "requirement_code": "IFRS_16",
+        "standard": "ifrs",
+        "validation_rules": null
+      },
+      {
+        "category": "Financial Instruments",
+        "description": "Financial instruments classification and measurement",
+        "disclosure_required": true,
+        "effective_date": "2018-01-01",
+        "is_mandatory": true,
+        "measurement_method": "fair value through P&L or OCI",
+        "presentation_format": null,
+        "requirement_code": "IFRS_9",
+        "standard": "ifrs",
+        "validation_rules": null
+      },
+      {
+        "category": "Measurement",
+        "description": "Fair value measurement",
+        "disclosure_required": true,
+        "effective_date": "2013-01-01",
+        "is_mandatory": true,
+        "measurement_method": "market approach, income approach, cost approach",
+        "presentation_format": null,
+        "requirement_code": "IFRS_13",
+        "standard": "ifrs",
+        "validation_rules": null
+      }
+    ],
+    "us_gaap": [
+      {
+        "category": "Revenue",
+        "description": "Revenue from contracts with customers",
+        "disclosure_required": true,
+        "effective_date": "2018-01-01",
+        "is_mandatory": true,
+        "measurement_method": "5-step model",
+        "presentation_format": null,
+        "requirement_code": "ASC_606",
+        "standard": "us_gaap",
+        "validation_rules": null
+      },
+      {
+        "category": "Leases",
+        "description": "Lease accounting",
+        "disclosure_required": true,
+        "effective_date": "2019-01-01",
+        "is_mandatory": true,
+        "measurement_method": "right-of-use asset",
+        "presentation_format": null,
+        "requirement_code": "ASC_842",
+        "standard": "us_gaap",
+        "validation_rules": null
+      }
+    ]
+  },
+  "standards": [
+    {
+      "code": "IFRS",
+      "consolidation_method": "control",
+      "country": "Global",
+      "description": "Global accounting standards issued by IASB for transparent and accountable financial reporting",
+      "effective_date": "2024-01-01",
+      "id": "ifrs-2024",
+      "inflation_adjustment_required": false,
+      "issuing_body": "IFRS Foundation / IASB",
+      "key": "ifrs",
+      "key_principles": [
+        "Fair value measurement emphasis",
+        "Substance over form",
+        "Single accounting model for all entities",
+        "Principle-based approach",
+        "IFRS for SMEs separate standard"
+      ],
+      "measurement_basis": "fair_value",
+      "name": "International Financial Reporting Standards",
+      "presentation_currency": null,
+      "region": "International",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "IFRS for SMEs",
+        "IAS",
+        "SIC"
+      ],
+      "standard_type": "ifrs",
+      "version": "2024"
+    },
+    {
+      "code": "US GAAP",
+      "consolidation_method": "majority voting control",
+      "country": "United States",
+      "description": "Accounting rules and procedures for financial reporting in the United States",
+      "effective_date": "2024-01-01",
+      "id": "us_gaap_2024",
+      "inflation_adjustment_required": false,
+      "issuing_body": "FASB",
+      "key": "us_gaap",
+      "key_principles": [
+        "Historical cost emphasis",
+        "Revenue recognition (ASC 606)",
+        "Matching principle",
+        "Conservatism",
+        "Industry-specific guidance"
+      ],
+      "measurement_basis": "historical_cost",
+      "name": "US Generally Accepted Accounting Principles",
+      "presentation_currency": null,
+      "region": "North America",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "SEC",
+        "FASB ASC",
+        "EITF"
+      ],
+      "standard_type": "us_gaap",
+      "version": "2024"
+    },
+    {
+      "code": "FRS 102",
+      "consolidation_method": "control",
+      "country": "United Kingdom",
+      "description": "UK accounting standard for small and medium entities, based on IFRS principles",
+      "effective_date": "2015-01-01",
+      "id": "frs_102",
+      "inflation_adjustment_required": false,
+      "issuing_body": "FRC",
+      "key": "uk_gaap",
+      "key_principles": [
+        "IFRS principles adapted for UK",
+        "Historical cost with some fair value",
+        "Simplified revenue recognition",
+        "Straightforward presentation",
+        "Three-tier accounting model"
+      ],
+      "measurement_basis": "mixed",
+      "name": "Financial Reporting Standard 102",
+      "presentation_currency": null,
+      "region": "Europe",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "FRS 101",
+        "FRS 105",
+        "Companies Act 2006"
+      ],
+      "standard_type": "uk_gaap",
+      "version": "2024"
+    },
+    {
+      "code": "Ind AS",
+      "consolidation_method": "control",
+      "country": "India",
+      "description": "Indian accounting standards converged with IFRS for listed and large entities",
+      "effective_date": "2016-04-01",
+      "id": "ind_as",
+      "inflation_adjustment_required": false,
+      "issuing_body": "MCA / ICAI",
+      "key": "indian_gaap",
+      "key_principles": [
+        "IFRS convergence",
+        "Schedule III presentation",
+        "Indian tax law integration",
+        "Transfer pricing requirements",
+        "Foreign currency accounting"
+      ],
+      "measurement_basis": "fair_value",
+      "name": "Indian Accounting Standards",
+      "presentation_currency": null,
+      "region": "Asia",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "Companies Act 2013",
+        "SEBI",
+        "Income Tax Act"
+      ],
+      "standard_type": "indian_gaap",
+      "version": "2024"
+    },
+    {
+      "code": "J-GAAP",
+      "consolidation_method": "control",
+      "country": "Japan",
+      "description": "Japanese accounting standards with unique practices like tax effect accounting",
+      "effective_date": "2024-01-01",
+      "id": "j_gaap",
+      "inflation_adjustment_required": false,
+      "issuing_body": "ASBJ",
+      "key": "japanese_gaap",
+      "key_principles": [
+        "Tax effect accounting",
+        "Historical cost basis",
+        "Group accounting rules",
+        "Retained earnings appropriation",
+        "Un\u897f\u5c71disclosed reserves"
+      ],
+      "measurement_basis": "historical_cost",
+      "name": "Japanese Generally Accepted Accounting Principles",
+      "presentation_currency": null,
+      "region": "Asia",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "J-IFRS",
+        "J-SOX",
+        "Tax Code"
+      ],
+      "standard_type": "japanese_gaap",
+      "version": "2024"
+    },
+    {
+      "code": "CAS",
+      "consolidation_method": "control",
+      "country": "China",
+      "description": "Chinese accounting standards for business enterprises with PRC characteristics",
+      "effective_date": "2007-01-01",
+      "id": "cas",
+      "inflation_adjustment_required": false,
+      "issuing_body": "Ministry of Finance",
+      "key": "chinese_gaap",
+      "key_principles": [
+        "Historical cost with fair value option",
+        "Government subsidies treatment",
+        "Related party disclosure emphasis",
+        "Statutory reserve requirements",
+        "RMB as functional currency"
+      ],
+      "measurement_basis": "mixed",
+      "name": "Chinese Accounting Standards",
+      "presentation_currency": null,
+      "region": "Asia",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "PRC Company Law",
+        "Securities Law",
+        "Tax Law"
+      ],
+      "standard_type": "chinese_gaap",
+      "version": "2024"
+    },
+    {
+      "code": "AIFRS",
+      "consolidation_method": "control",
+      "country": "Australia",
+      "description": "Australian accounting standards aligned with IFRS",
+      "effective_date": "2005-01-01",
+      "id": "aifrs",
+      "inflation_adjustment_required": false,
+      "issuing_body": "AASB",
+      "key": "australian_gaap",
+      "key_principles": [
+        "IFRS adoption",
+        "Urgent Issues Group opinions",
+        "Tax effect accounting (prior to 2022)",
+        "Superannuation accounting",
+        "Tax consolidated groups"
+      ],
+      "measurement_basis": "fair_value",
+      "name": "Australian International Financial Reporting Standards",
+      "presentation_currency": null,
+      "region": "Oceania",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "Corporations Act 2001",
+        "ASIC",
+        "Superannuation Law"
+      ],
+      "standard_type": "australian_gaap",
+      "version": "2024"
+    },
+    {
+      "code": "ASPE",
+      "consolidation_method": "control",
+      "country": "Canada",
+      "description": "Canadian accounting standards for private enterprises, alternative to IFRS",
+      "effective_date": "2011-01-01",
+      "id": "aspe",
+      "inflation_adjustment_required": false,
+      "issuing_body": "AcSB",
+      "key": "canadian_aspe",
+      "key_principles": [
+        "Private entity focus",
+        "Cost-based measurements",
+        "Simplified presentation",
+        "Income tax allocation",
+        "Related party disclosures"
+      ],
+      "measurement_basis": "historical_cost",
+      "name": "Accounting Standards for Private Enterprises",
+      "presentation_currency": null,
+      "region": "North America",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "CPA Canada Handbook - Part II",
+        "ASPE"
+      ],
+      "standard_type": "canadian_aspe",
+      "version": "2024"
+    },
+    {
+      "code": "HGB",
+      "consolidation_method": "control",
+      "country": "Germany",
+      "description": "German accounting under Commercial Code (HGB) with tax-driven principles",
+      "effective_date": "2024-01-01",
+      "id": "hgb",
+      "inflation_adjustment_required": false,
+      "issuing_body": "Federal Ministry of Justice",
+      "key": "german_gaap",
+      "key_principles": [
+        "Imperative valuation (BiB)",
+        "Principle of prudence (Vorsichtsprinzip)",
+        "Lower of cost or market",
+        "Hidden reserves allowed",
+        "Tax balance sheet linkage"
+      ],
+      "measurement_basis": "historical_cost",
+      "name": "German Commercial Code Accounting",
+      "presentation_currency": null,
+      "region": "Europe",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "AktG",
+        "GmbHG",
+        "EstG",
+        "UStG"
+      ],
+      "standard_type": "german_gaap",
+      "version": "2024"
+    },
+    {
+      "code": "UAE GAAP",
+      "consolidation_method": "control",
+      "country": "United Arab Emirates",
+      "description": "UAE accounting standards for entities in the UAE including ADGM and DIFC frameworks",
+      "effective_date": "2022-01-01",
+      "id": "uae_gaap",
+      "inflation_adjustment_required": false,
+      "issuing_body": "ESMA / Ministry of Economy",
+      "key": "uae_gaap",
+      "key_principles": [
+        "IFRS adoption for listed entities",
+        "UAE Federal Law requirements",
+        "Sharia compliance for Islamic finance",
+        "VAT accounting requirements",
+        "Free zone special considerations"
+      ],
+      "measurement_basis": "fair_value",
+      "name": "UAE Accounting Standards",
+      "presentation_currency": null,
+      "region": "Middle East",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "Federal Law No. 2 of 2015",
+        "ADGM",
+        "DIFC"
+      ],
+      "standard_type": "uae_gaap",
+      "version": "2024"
+    },
+    {
+      "code": "SASR",
+      "consolidation_method": "control",
+      "country": "Saudi Arabia",
+      "description": "Saudi Arabian accounting standards aligned with IFRS for listed companies",
+      "effective_date": "2023-01-01",
+      "id": "sasr",
+      "inflation_adjustment_required": false,
+      "issuing_body": "SOCPA",
+      "key": "saudi_gaap",
+      "key_principles": [
+        "IFRS-based for listed entities",
+        "Zakat and tax accounting",
+        "Sharia-compliant transactions",
+        "SAMA regulations",
+        "Capital market requirements"
+      ],
+      "measurement_basis": "fair_value",
+      "name": "Saudi Arabian Accounting Standards",
+      "presentation_currency": null,
+      "region": "Middle East",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "Zakat Regulations",
+        "SAMA",
+        "Tadawul"
+      ],
+      "standard_type": "saudi_gaap",
+      "version": "2024"
+    },
+    {
+      "code": "SFRS",
+      "consolidation_method": "control",
+      "country": "Singapore",
+      "description": "Singapore accounting standards aligned with IFRS for Singapore entities",
+      "effective_date": "2003-01-01",
+      "id": "sfrs",
+      "inflation_adjustment_required": false,
+      "issuing_body": "ACRA / IASB",
+      "key": "singapore_gaap",
+      "key_principles": [
+        "IFRS adoption",
+        "Singapore-specific disclosures",
+        "Statutory reserves",
+        "Related party regulations",
+        "Tax transparency"
+      ],
+      "measurement_basis": "fair_value",
+      "name": "Singapore Financial Reporting Standards",
+      "presentation_currency": null,
+      "region": "Asia",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "Companies Act",
+        "ACRA",
+        "IRAS"
+      ],
+      "standard_type": "singapore_gaap",
+      "version": "2024"
+    },
+    {
+      "code": "HKFRS",
+      "consolidation_method": "control",
+      "country": "Hong Kong",
+      "description": "Hong Kong accounting standards aligned with IFRS",
+      "effective_date": "2005-01-01",
+      "id": "hkfrs",
+      "inflation_adjustment_required": false,
+      "issuing_body": "HKICPA",
+      "key": "hk_gaap",
+      "key_principles": [
+        "IFRS convergence",
+        "Small entity exemptions",
+        "Property valuation",
+        "Related party disclosures",
+        "HKSE listing requirements"
+      ],
+      "measurement_basis": "fair_value",
+      "name": "Hong Kong Financial Reporting Standards",
+      "presentation_currency": null,
+      "region": "Asia",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "Companies Ordinance",
+        "HKSE",
+        "HKICPA"
+      ],
+      "standard_type": "hk_gaap",
+      "version": "2024"
+    },
+    {
+      "code": "GRAP",
+      "consolidation_method": "control",
+      "country": "South Africa",
+      "description": "South African accounting standards for government and public entities",
+      "effective_date": "2014-04-01",
+      "id": "ifrs_grap",
+      "inflation_adjustment_required": false,
+      "issuing_body": "ASB",
+      "key": "south_african_gaap",
+      "key_principles": [
+        "GRAP standards for government",
+        "IFRS for listed entities",
+        "PFMA compliance",
+        "Treasury regulations",
+        "Public sector accounting"
+      ],
+      "measurement_basis": "fair_value",
+      "name": "South African Standards of GRAP",
+      "presentation_currency": null,
+      "region": "Africa",
+      "regulatory_body_url": null,
+      "related_standards": [
+        "PFMA",
+        "MFMA",
+        "Treasury",
+        "Companies Act"
+      ],
+      "standard_type": "sa_gap",
+      "version": "2024"
+    }
+  ]
+}

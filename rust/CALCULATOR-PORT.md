@@ -12,6 +12,16 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- accounting-standards-service -> accounting crate. The catalogue is data, not records: fourteen
+  standards and their requirements lifted from the service's own definitions into
+  `crates/domains/accounting/assets/accounting-standards.json`, so nothing in it was retyped by hand.
+  What a caller owns lives on the store and is Book-scoped: an organization's configuration, its account
+  mappings, its accounting policies and its compliance history. Shapes pinned: configuring an
+  organization replaces its configuration, and a policy is replaced per organization, standard and area;
+  activating a standard already active (or deactivating one absent) writes nothing and answers as if it
+  had; an unknown standard is refused but its requirements answer as an empty list; and a compliance
+  check writes one check per requirement, passing unless the caller's validation results say otherwise,
+  replacing the earlier history rather than appending to it.
 - departmental-accounting-service -> accounting crate, records on the store: departments and their
   cost centres, allocation rules, cost pools, the allocation run, inter-department bills and their
   approval, the department financial summary and performance report, and the comparison and

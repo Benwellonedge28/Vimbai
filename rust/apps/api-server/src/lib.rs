@@ -20,6 +20,7 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+pub mod accounting_standards;
 pub mod records;
 
 pub type Calculator = fn(&Value) -> Result<Value, String>;

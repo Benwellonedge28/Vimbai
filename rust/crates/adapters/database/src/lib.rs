@@ -149,6 +149,15 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records accounting-standards-service owns.
+pub const STANDARDS_CONFIG: RecordKind =
+    RecordKind::new("StandardsConfig", "OWNS_STANDARDS_CONFIG");
+pub const ACCOUNT_MAPPING: RecordKind = RecordKind::new("AccountMapping", "OWNS_ACCOUNT_MAPPING");
+pub const ACCOUNTING_POLICY: RecordKind =
+    RecordKind::new("AccountingPolicy", "OWNS_ACCOUNTING_POLICY");
+pub const COMPLIANCE_CHECK: RecordKind =
+    RecordKind::new("ComplianceCheck", "OWNS_COMPLIANCE_CHECK");
+
 /// The records departmental-accounting-service owns.
 pub const DEPARTMENT: RecordKind = RecordKind::new("Department", "OWNS_DEPARTMENT");
 pub const DEPARTMENT_ALLOCATION_RULE: RecordKind =

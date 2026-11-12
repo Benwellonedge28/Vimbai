@@ -2,6 +2,7 @@
 //!
 //! Services here:
 //! * `cash-flow-statement-service`
+//! * `accounting-standards-service` (the standards catalogue, configurations, policies, compliance)
 //! * `departmental-accounting-service` (departments, cost pools, allocation, inter-department bills)
 //! * `company-accounting-service` (companies, their register, capital, dividends, reserves, reports)
 //! * `cashbook-service` (cash accounts, their entries, bank reconciliations, cash flow and position)
@@ -32,6 +33,7 @@ pub mod fund_accounting;
 pub mod ifrs_reports;
 pub mod intercompany;
 pub mod revenue_recognition;
+pub mod standards;
 pub mod suspense;
 pub mod trading_account;
 pub use balance_sheet::{
@@ -90,4 +92,11 @@ pub use intercompany::{
 pub use revenue_recognition::{
     allocate_price, create_contract as create_revenue_contract,
     list_contracts as list_revenue_contracts, recognise, recognise_revenue, revenue_summary,
+};
+pub use standards::{
+    account_mappings, activate_standard, add_account_mapping, compare_standards,
+    compliance_history, configure_organization, create_policy, deactivate_standard,
+    disclosure_requirements, get_configuration, get_standard, list_policies, list_standards,
+    measurement_guide, policy_for_area, run_compliance_check, standard_categories,
+    standard_requirements, update_configuration,
 };

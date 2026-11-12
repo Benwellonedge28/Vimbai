@@ -21,7 +21,7 @@ services:
   port: 8095
   gateway_path: /accounting-standards
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

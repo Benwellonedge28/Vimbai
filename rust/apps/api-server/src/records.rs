@@ -42,7 +42,7 @@ pub type GraphHandle = Arc<dyn Graph + Send + Sync>;
 /// Both headers are required. A Book-less caller is not handled yet: the Python layer stored a
 /// null book, and answering that case means a second statement shape in the store rather than
 /// quietly treating "no Book" as a Book named nothing.
-fn scope_of(headers: &HeaderMap) -> Result<BookScope, Box<Response>> {
+pub(crate) fn scope_of(headers: &HeaderMap) -> Result<BookScope, Box<Response>> {
     let header = |name: &str| {
         headers
             .get(name)
@@ -72,7 +72,7 @@ fn fail(error: StoreError) -> Response {
     (status, Json(json!({ "error": error.to_string() }))).into_response()
 }
 
-fn answer(result: Result<Value, StoreError>) -> Response {
+pub(crate) fn answer(result: Result<Value, StoreError>) -> Response {
     match result {
         Ok(value) => (StatusCode::OK, Json(value)).into_response(),
         Err(error) => fail(error),
@@ -89,7 +89,7 @@ fn refused(message: &str) -> Response {
 }
 
 /// Every query parameter as an object of strings, for the services whose listings take several.
-fn query_object(query: Option<&str>) -> Value {
+pub(crate) fn query_object(query: Option<&str>) -> Value {
     let mut object = serde_json::Map::new();
     for (key, value) in url::form_urlencoded::parse(query.unwrap_or("").as_bytes()) {
         object.insert(key.into_owned(), json!(value.into_owned()));
@@ -97,7 +97,7 @@ fn query_object(query: Option<&str>) -> Value {
     Value::Object(object)
 }
 
-fn query_param(query: Option<&str>, name: &str) -> Option<String> {
+pub(crate) fn query_param(query: Option<&str>, name: &str) -> Option<String> {
     url::form_urlencoded::parse(query.unwrap_or("").as_bytes())
         .find(|(key, _)| key == name)
         .map(|(_, value)| value.into_owned())
@@ -118,7 +118,7 @@ pub fn from_env() -> Option<GraphHandle> {
     }
 }
 
-type GraphState = State<GraphHandle>;
+pub(crate) type GraphState = State<GraphHandle>;
 
 async fn product_costs(
     State(graph): GraphState,
@@ -1432,7 +1432,7 @@ async fn complete_lease_termination(
 ///
 /// These services took their arguments as query parameters, so a caller migrating to a body must not
 /// lose the query it already sends, and a body must win where both name the same field.
-fn overlay(query: Value, body: Option<Value>) -> Value {
+pub(crate) fn overlay(query: Value, body: Option<Value>) -> Value {
     let mut merged = query.as_object().cloned().unwrap_or_default();
     if let Some(Value::Object(fields)) = body {
         for (key, value) in fields {
@@ -4503,7 +4503,7 @@ async fn share_capital_summary(State(graph): GraphState, headers: HeaderMap) -> 
     answer(equity::share_capital_summary(graph.as_ref(), &scope))
 }
 
-fn body_or_query(query: Option<&str>) -> Value {
+pub(crate) fn body_or_query(query: Option<&str>) -> Value {
     let mut payload = serde_json::Map::new();
     for (key, value) in url::form_urlencoded::parse(query.unwrap_or("").as_bytes()) {
         let parsed =
@@ -4597,7 +4597,9 @@ async fn revaluation_summary(
 }
 
 pub fn router(graph: GraphHandle) -> Router {
-    records_router(graph.clone()).merge(service_root_router(graph))
+    records_router(graph.clone())
+        .merge(service_root_router(graph.clone()))
+        .merge(crate::accounting_standards::router(graph))
 }
 
 fn records_router(graph: GraphHandle) -> Router {
