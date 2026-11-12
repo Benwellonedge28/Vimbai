@@ -14,6 +14,10 @@ routes; they are listed here too, because the Python service is no longer the en
 
 - fixed-assets-register-service (assets crate, records on the store: register, list, get,
   depreciate, entries, dispose, summary)
+- intangible-assets-service (assets crate, records on the store: register, list, get, amortize,
+  amortisation entries)
+- revaluation-reserve-service (assets crate, records on the store: revaluations, utilizations, the
+  cumulative reserve; journal entries are built and returned, not posted)
 - fixed-assets-schedule-service (assets crate, the same register plus its schedule doors: partial
   update, schedule generate/latest, the scheduled summary)
 - biological-assets-service (assets crate, six routes from `biological-assets-measure` to

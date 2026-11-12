@@ -132,6 +132,20 @@ pub const FIXED_ASSET: RecordKind = RecordKind::new("FixedAsset", "OWNS_FIXED_AS
 pub const DEPRECIATION_ENTRY: RecordKind =
     RecordKind::new("DepreciationEntry", "OWNS_DEPRECIATION_ENTRY");
 pub const ASSET_DISPOSAL: RecordKind = RecordKind::new("AssetDisposal", "OWNS_ASSET_DISPOSAL");
+/// The intangibles intangible-assets-service owns.
+pub const INTANGIBLE_ASSET: RecordKind =
+    RecordKind::new("IntangibleAsset", "OWNS_INTANGIBLE_ASSET");
+pub const AMORTIZATION_ENTRY: RecordKind =
+    RecordKind::new("AmortizationEntry", "OWNS_AMORTIZATION_ENTRY");
+
+/// The records revaluation-reserve-service owns.
+pub const REVALUATION_ENTRY: RecordKind =
+    RecordKind::new("RevaluationEntry", "OWNS_REVALUATION_ENTRY");
+pub const REVALUATION_UTILIZATION: RecordKind =
+    RecordKind::new("RevaluationUtilization", "OWNS_REVALUATION_UTILIZATION");
+pub const CUMULATIVE_REVALUATION: RecordKind =
+    RecordKind::new("CumulativeRevaluation", "OWNS_CUMULATIVE_REVALUATION");
+
 /// The schedules fixed-assets-schedule-service generated from that register.
 pub const ASSET_SCHEDULE: RecordKind = RecordKind::new("AssetSchedule", "OWNS_ASSET_SCHEDULE");
 

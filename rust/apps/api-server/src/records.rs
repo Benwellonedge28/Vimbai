@@ -1105,6 +1105,172 @@ async fn schedule_summary(State(graph): GraphState, headers: HeaderMap) -> Respo
     answer(assets::schedule_summary(graph.as_ref(), &scope))
 }
 
+async fn create_intangible(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::create_intangible(graph.as_ref(), &scope, &payload))
+}
+
+async fn intangibles(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asset_type = query_param(query.as_deref(), "asset_type");
+    let status = query_param(query.as_deref(), "status");
+    answer(assets::list_intangibles(
+        graph.as_ref(),
+        &scope,
+        asset_type.as_deref(),
+        status.as_deref(),
+    ))
+}
+
+async fn one_intangible(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(asset_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::get_intangible(graph.as_ref(), &scope, &asset_id))
+}
+
+async fn amortize_intangible(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(asset_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let period = query_param(query.as_deref(), "period").unwrap_or_default();
+    answer(assets::amortize(graph.as_ref(), &scope, &asset_id, &period))
+}
+
+async fn intangible_amortization(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(asset_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::list_amortization_entries(
+        graph.as_ref(),
+        &scope,
+        &asset_id,
+    ))
+}
+
+fn body_or_query(query: Option<&str>) -> Value {
+    let mut payload = serde_json::Map::new();
+    for (key, value) in url::form_urlencoded::parse(query.unwrap_or("").as_bytes()) {
+        let parsed =
+            serde_json::from_str::<Value>(&value).unwrap_or(Value::String(value.to_string()));
+        payload.insert(key.to_string(), parsed);
+    }
+    Value::Object(payload)
+}
+
+async fn record_asset_revaluation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::record_revaluation(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn record_reserve_utilization(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::record_revaluation_utilization(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn revaluations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company_id = query_param(query.as_deref(), "company_id");
+    let asset_id = query_param(query.as_deref(), "asset_id");
+    answer(assets::list_revaluations(
+        graph.as_ref(),
+        &scope,
+        company_id.as_deref(),
+        asset_id.as_deref(),
+    ))
+}
+
+async fn cumulative_revaluation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(asset_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::cumulative_revaluation(
+        graph.as_ref(),
+        &scope,
+        &asset_id,
+    ))
+}
+
+async fn revaluation_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::revaluation_summary(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone()).merge(service_root_router(graph))
 }
@@ -1173,6 +1339,42 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/records/fixed-assets-schedule/summary",
             get(schedule_summary),
+        )
+        .route(
+            "/records/intangible-assets/assets",
+            get(intangibles).post(create_intangible),
+        )
+        .route(
+            "/records/intangible-assets/assets/:asset_id",
+            get(one_intangible),
+        )
+        .route(
+            "/records/intangible-assets/assets/:asset_id/amortize",
+            post(amortize_intangible),
+        )
+        .route(
+            "/records/intangible-assets/assets/:asset_id/amortization",
+            get(intangible_amortization),
+        )
+        .route(
+            "/records/revaluation-reserve/revaluations/record",
+            post(record_asset_revaluation),
+        )
+        .route(
+            "/records/revaluation-reserve/utilizations/record",
+            post(record_reserve_utilization),
+        )
+        .route(
+            "/records/revaluation-reserve/revaluations",
+            get(revaluations),
+        )
+        .route(
+            "/records/revaluation-reserve/cumulative/:asset_id",
+            get(cumulative_revaluation),
+        )
+        .route(
+            "/records/revaluation-reserve/summary/:company_id",
+            get(revaluation_summary),
         )
         .route("/records/insurance-claims/file", post(file_claim))
         .route("/records/insurance-claims/claims", get(insurance_claims))
@@ -1504,6 +1706,36 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route(
+            "/intangible-assets/assets",
+            get(intangibles).post(create_intangible),
+        )
+        .route("/intangible-assets/assets/:asset_id", get(one_intangible))
+        .route(
+            "/intangible-assets/assets/:asset_id/amortize",
+            post(amortize_intangible),
+        )
+        .route(
+            "/intangible-assets/assets/:asset_id/amortization",
+            get(intangible_amortization),
+        )
+        .route(
+            "/revaluation-reserve/revaluations/record",
+            post(record_asset_revaluation),
+        )
+        .route(
+            "/revaluation-reserve/utilizations/record",
+            post(record_reserve_utilization),
+        )
+        .route("/revaluation-reserve/revaluations", get(revaluations))
+        .route(
+            "/revaluation-reserve/cumulative/:asset_id",
+            get(cumulative_revaluation),
+        )
+        .route(
+            "/revaluation-reserve/summary/:company_id",
+            get(revaluation_summary),
+        )
         .route("/insurance-claims/file", post(file_claim))
         .route("/insurance-claims/claims", get(insurance_claims))
         .route(

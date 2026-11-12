@@ -21,9 +21,11 @@ pub mod disposal_account;
 pub mod fixed_assets;
 pub mod fixed_assets_register;
 pub mod goodwill;
+pub mod intangible_assets;
 pub mod inventory;
 pub mod investment_property;
 pub mod revaluation;
+pub mod revaluation_reserve;
 
 pub use amortization::{
     amortization, amortization_from_json, AmortizationAsset, AmortizationOutput, AmortizationRow,
@@ -61,6 +63,11 @@ pub use fixed_assets_register::{
     list_entries, summary as asset_register_summary, CATEGORIES,
 };
 pub use goodwill::{impairment_test, impairment_test_from_json, Cgu, ImpairmentResult, TestMethod};
+pub use intangible_assets::{
+    amortize, create_asset as create_intangible, get_asset as get_intangible,
+    list_assets as list_intangibles, list_entries as list_amortization_entries,
+    TYPES as INTANGIBLE_TYPES,
+};
 pub use inventory::{inventory_valuation, InventoryOutput, Purchase, Sale, ValuationMethod};
 pub use investment_property::{
     apply_cost_model, apply_fair_value_model, calculate_property_yields, cost_model_from_json,
@@ -70,3 +77,7 @@ pub use investment_property::{
     InvestmentPropertyResponse,
 };
 pub use revaluation::{revalue, AssetBook, RevaluationAsset, RevaluationOutput, RevaluationRow};
+pub use revaluation_reserve::{
+    cumulative as cumulative_revaluation, list_revaluations, record_revaluation,
+    record_utilization as record_revaluation_utilization, summary as revaluation_summary,
+};
