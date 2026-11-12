@@ -13,7 +13,7 @@ updates:
 
   # Go modules are in specific directories
   - package-ecosystem: "gomod"
-    directory: "/api-gateway"
+    directory: "/gateway/go"
     schedule:
       interval: "weekly"
   
@@ -24,7 +24,7 @@ updates:
 
   # Dockerfiles are in specific directories
   - package-ecosystem: "docker"
-    directory: "/api-gateway"
+    directory: "/gateway/go"
     schedule:
       interval: "weekly"
   

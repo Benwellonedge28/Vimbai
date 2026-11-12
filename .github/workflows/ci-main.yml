@@ -10,7 +10,7 @@ on:
       - '**/go.mod'
       - '**/go.sum'
       - '**/Dockerfile'
-      - 'api-gateway/**'
+      - 'gateway/go/**'
       - 'shared/**'
   pull_request:
     branches: ["main", "develop"]
@@ -21,7 +21,7 @@ on:
       - '**/go.mod'
       - '**/go.sum'
       - '**/Dockerfile'
-      - 'api-gateway/**'
+      - 'gateway/go/**'
       - 'shared/**'
 
 jobs:

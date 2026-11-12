@@ -43,14 +43,17 @@ jobs:
             "workflow-service"
             "reporting-service"
           )
+          # gateway/go holds the source; the image and deployment stay api-gateway.
           for SERVICE in "${SERVICES[@]}"; do
-            if [ -f "${SERVICE}/Dockerfile" ]; then
-              echo "Building ${SERVICE}..."
+            DIR="${SERVICE}"
+            if [ "${SERVICE}" = "api-gateway" ]; then DIR="gateway/go"; fi
+            if [ -f "${DIR}/Dockerfile" ]; then
+              echo "Building ${SERVICE} from ${DIR}..."
               docker buildx build \
                 --platform linux/amd64 \
                 -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${SERVICE}:staging \
                 --push \
-                "./${SERVICE}"
+                "./${DIR}"
             fi
           done
 

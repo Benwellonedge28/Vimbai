@@ -115,7 +115,7 @@ def still_routed():
     Only these can be retired. A service already gone from the manifest is done, and
     listing it as failing a check it no longer needs makes the report unreadable.
     """
-    manifest = ROOT / "api-gateway" / "config" / "services.json"
+    manifest = ROOT / "gateway" / "go" / "config" / "services.json"
     if not manifest.exists():
         return None
     payload = json.loads(manifest.read_text())

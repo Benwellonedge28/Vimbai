@@ -46,15 +46,20 @@ jobs:
             "alerts-service"
             "notifications-service"
           )
+          # The gateway's source lives at gateway/go, but its image and deployment are
+          # still named api-gateway: renaming those is a production change, not a
+          # repository tidy-up.
           for SERVICE in "${SERVICES[@]}"; do
-            if [ -f "${SERVICE}/Dockerfile" ]; then
-              echo "Building ${SERVICE}..."
+            DIR="${SERVICE}"
+            if [ "${SERVICE}" = "api-gateway" ]; then DIR="gateway/go"; fi
+            if [ -f "${DIR}/Dockerfile" ]; then
+              echo "Building ${SERVICE} from ${DIR}..."
               docker buildx build \
                 --platform linux/amd64 \
                 -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${SERVICE}:${{ github.ref_name }} \
                 -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${SERVICE}:latest \
                 --push \
-                "./${SERVICE}"
+                "./${DIR}"
             fi
           done
 

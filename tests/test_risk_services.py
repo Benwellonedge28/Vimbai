@@ -162,7 +162,7 @@ class TestRiskAssessment:
 
 class TestRiskServiceDeduplication:
     def test_duplicate_services_are_not_routed(self):
-        routes = json.load(open(os.path.join(_ROOT, "api-gateway", "config", "services.json")))["services"]
+        routes = json.load(open(os.path.join(_ROOT, "gateway", "go", "config", "services.json")))["services"]
         registered = {r["name"] for r in routes}
         assert "risk-assessment-service" in registered
         for dup in DEREGISTERED_DUPLICATES:

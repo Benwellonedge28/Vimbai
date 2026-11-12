@@ -1,6 +1,6 @@
 """Writes docs/MIGRATION-MANIFEST.md: every routed service and the domain that will own it.
 
-The manifest is derived, not typed by hand. api-gateway/config/services.json is the only list of
+The manifest is derived, not typed by hand. gateway/go/config/services.json is the only list of
 what the product actually serves, so it is the one that gets a row per service; the domain each row
 is assigned to comes from OWNERS below. A routed service with no owner is reported as an error
 rather than silently left out, because an unowned service is exactly what grows into a duplicate
@@ -15,7 +15,7 @@ import os
 import re
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SERVICES = os.path.join(REPO, "api-gateway", "config", "services.json")
+SERVICES = os.path.join(REPO, "gateway", "go", "config", "services.json")
 PORT_MAP = os.path.join(REPO, "rust", "CALCULATOR-PORT.md")
 OUT = os.path.join(REPO, "docs", "MIGRATION-MANIFEST.md")
 

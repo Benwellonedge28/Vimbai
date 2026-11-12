@@ -1,7 +1,7 @@
 """Writes docs/RUST-MIGRATION-BACKLOG.md from the gateway's own route table.
 
 The point is that the backlog cannot be guessed at or remembered wrong: it is derived from
-api-gateway/config/services.json, and a service counts as ported only when
+gateway/go/config/services.json, and a service counts as ported only when
 rust/CALCULATOR-PORT.md names it (the ported crates) or its main.py loads the native
 wheel. Everything else is Python-only work, split by whether it owns records, because that
 decides whether the port can be a pure function or needs vimbai_store.
@@ -16,7 +16,7 @@ import pathlib
 import re
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-REGISTRY = ROOT / "api-gateway" / "config" / "services.json"
+REGISTRY = ROOT / "gateway" / "go" / "config" / "services.json"
 PORT_MAP = ROOT / "rust" / "CALCULATOR-PORT.md"
 OUT = ROOT / "docs" / "RUST-MIGRATION-BACKLOG.md"
 PERSISTENCE = re.compile(r"neo4j|AsyncSession|crud\.|sqlite3")

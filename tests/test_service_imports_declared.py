@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-GATEWAY_CONFIG = REPO / "api-gateway" / "config" / "services.json"
+GATEWAY_CONFIG = REPO / "gateway" / "go" / "config" / "services.json"
 
 # import name -> distribution name, where the two differ
 DIST_NAME = {

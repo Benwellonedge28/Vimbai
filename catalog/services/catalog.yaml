@@ -2,7 +2,7 @@
 catalog:
   version: 1
   generated_by: scripts/generate_catalog.py
-  authority: api-gateway/config/services.json for routes, scripts/migration_manifest.py for ownership
+  authority: gateway/go/config/services.json for routes, scripts/migration_manifest.py for ownership
   services: 138
 domains:
 - name: kernel

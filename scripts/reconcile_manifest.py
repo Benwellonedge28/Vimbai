@@ -19,7 +19,7 @@ import sys
 import yaml
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MANIFEST = os.path.join(ROOT, "api-gateway", "config", "services.json")
+MANIFEST = os.path.join(ROOT, "gateway", "go", "config", "services.json")
 K8S = os.path.join(ROOT, "k8s")
 
 # Services the cluster still runs that the gateway never advertised. Each one is a

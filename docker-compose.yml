@@ -56,7 +56,7 @@ services:
     - vimbai-net
   api_gateway:
     build:
-      context: ./api-gateway
+      context: ./gateway/go
       dockerfile: Dockerfile
     ports:
     - 8081:8081

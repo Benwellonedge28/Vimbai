@@ -9,7 +9,7 @@ external URLs stay exactly the same.
 
 Outputs (deterministic; safe to re-run):
   - brackets/<name>/{main.py, Dockerfile, requirements.txt, members.json}
-  - api-gateway/config/services.json   (merged routes -> bracket URL, strip_prefix=false)
+  - gateway/go/config/services.json   (merged routes -> bracket URL, strip_prefix=false)
   - docker-compose.yml                 (merged compose blocks -> bracket blocks)
   - k8s/helm/vimbai/values.yaml        (newServices -> bracket deployments)
 
@@ -24,7 +24,7 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DRY_RUN = "--dry-run" in sys.argv
 
-SERVICES_JSON = os.path.join(REPO, "api-gateway", "config", "services.json")
+SERVICES_JSON = os.path.join(REPO, "gateway", "go", "config", "services.json")
 COMPOSE = os.path.join(REPO, "docker-compose.yml")
 VALUES = os.path.join(REPO, "k8s", "helm", "vimbai", "values.yaml")
 BRACKETS_DIR = os.path.join(REPO, "brackets")

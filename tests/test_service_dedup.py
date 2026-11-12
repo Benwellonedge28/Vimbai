@@ -478,7 +478,7 @@ UNTESTED_AFTER_DEREGISTRATION = RISK_DUPLICATES | PLATFORM_TEMPLATE_DUPLICATES |
 
 
 def test_gateway_has_no_duplicate_routes():
-    routes = json.load(open(os.path.join(_ROOT, "api-gateway", "config", "services.json")))["services"]
+    routes = json.load(open(os.path.join(_ROOT, "gateway", "go", "config", "services.json")))["services"]
     registered = {r["name"] for r in routes}
     for dup in ALL_DEREGISTERED:
         assert dup not in registered, f"{dup} must stay de-registered from the gateway"
@@ -599,7 +599,7 @@ def test_only_triaged_containers_remain():
 
 
 def _gateway_routes():
-    routes = json.load(open(os.path.join(_ROOT, "api-gateway", "config", "services.json")))["services"]
+    routes = json.load(open(os.path.join(_ROOT, "gateway", "go", "config", "services.json")))["services"]
     return {r["name"] for r in routes}
 
 

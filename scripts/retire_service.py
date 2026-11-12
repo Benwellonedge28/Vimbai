@@ -19,7 +19,7 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / "api-gateway" / "config" / "services.json"
+MANIFEST = ROOT / "gateway" / "go" / "config" / "services.json"
 MANIFESTS = (
     ROOT / "k8s" / "all-services.yaml",
     ROOT / "k8s" / "vimbai-all-services.yaml",

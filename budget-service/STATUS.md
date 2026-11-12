@@ -1,7 +1,7 @@
 # Status: retired from the gateway, source retained
 
 This service is de-registered: it has no route in
-`api-gateway/config/services.json` and is not deployed. Its figures now come from the Rust library crate `variance` (`library/variance/`).
+`gateway/go/config/services.json` and is not deployed. Its figures now come from the Rust library crate `variance` (`library/variance/`).
 
 Why the Python stays: it is the reference implementation the Rust port is
 parity-tested against, and its own regression tests remain wired into CI
