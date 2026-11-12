@@ -2057,6 +2057,7 @@ dependencies = [
  "serde_json",
  "vimbai_capital_valuation",
  "vimbai_common",
+ "vimbai_service_costing",
 ]
 
 [[package]]

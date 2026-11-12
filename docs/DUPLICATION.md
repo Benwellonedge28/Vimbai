@@ -12,7 +12,6 @@ The same calculations exist twice, in two crates, with two arithmetics:
 | calculation | exact, reachable over HTTP | float, reachable over the Python seam |
 | --- | --- | --- |
 | CVP, break-even, margin of safety, operating leverage | `domains/costing/src/cvp.rs` (657 lines) | `calculations/cost_accounting/src/cvp.rs` (426 lines) |
-| job costing | `domains/costing/src/job_costing.rs` (245) | `calculations/cost_accounting/src/job_costing.rs` (105) |
 | basis apportionment | `domains/costing/src/basis_apportionment.rs` (377) | `calculations/ratios_statements/src/basis_apportionment.rs` (239) |
 | process and product costing | `domains/costing/src/cost_calculations.rs` | `calculations/cost_accounting/src/process_product_costing.rs` |
 
@@ -22,7 +21,22 @@ runs on `f64`. A rounding fix in one is not a fix in the other, and the two disa
 at large amounts - the ledger-core `py_round` bug in commit 3b6b419c was the same disagreement
 in miniature.
 
-## Why it cannot just be deleted
+## Done: job costing
+
+Job costing was the smallest of the four and it is now one rule. `domains/costing/src/job_costing.rs`
+owns `settle(total, contract)` - profit and margin - and both the record-backed endpoint and the
+seam's `add_cost` call it. The seam still speaks `f64` because its request and response shapes do;
+it converts, sums in `Money`, and converts back.
+
+That found a third copy: the seam's unknown-cost-type branch added four `f64`s and applied its own
+`max(1, contract_value)` margin. Same fix.
+
+It also found a rule that was wrong and had been asserted by a test. Python divided by
+`max(1, contract_value)`, so a contract of zero reported a margin of -5000% and a contract of 0.50
+was measured against 1. A zero contract now reports no margin, and any real contract divides by
+itself. No parity capture depended on the old figure.
+
+## Why the rest cannot just be deleted
 
 The float side is what the Python parity captures were recorded against. Deleting it without
 moving the seam would leave the Python tests asserting figures nothing produces any more, and

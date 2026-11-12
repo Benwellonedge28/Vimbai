@@ -629,20 +629,28 @@ pub fn job_add_cost_from_json(payload: &Value) -> Result<Value, String> {
         }
         None => (job.clone(), None),
     };
+    // An unknown cost type is recorded without being aggregated, so the totals come back as they
+    // went in. Cash amounts are summed exactly here too: this branch used to add four `f64`s and
+    // apply its own `max(1, contract_value)` margin, a third copy of a rule that already existed
+    // twice.
+    let exact_total = exact_sum(&job);
     let total_cost = match &totals {
         Some(t) => t.total_cost,
-        None => b.total_cost.unwrap_or(
-            job.materials_cost + job.labor_cost + job.overhead_cost + job.subcontractor_cost,
-        ),
+        None => b.total_cost.unwrap_or_else(|| exact_total.to_f64_lossy()),
     };
     let (gross_profit, gross_margin) = match &totals {
         Some(t) => (t.gross_profit, t.gross_margin),
         None => {
-            let profit = b.gross_profit.unwrap_or(b.contract_value - total_cost);
-            let margin = b
-                .gross_margin
-                .unwrap_or((profit / b.contract_value.max(1.0)) * 100.0);
-            (profit, margin)
+            let contract = exact_of(b.contract_value);
+            let profit = match b.gross_profit {
+                Some(stated) => exact_of(stated),
+                None => contract.minus(&exact_total),
+            };
+            let margin = match b.gross_margin {
+                Some(stated) => stated,
+                None => vimbai_service_costing::job_costing::settle(&exact_total, &contract).margin,
+            };
+            (profit.to_f64_lossy(), margin)
         }
     };
     serde_json::to_value(serde_json::json!({
@@ -914,4 +922,21 @@ pub fn cost_accounting_standards_from_json(payload: &Value) -> Result<Value, Str
         "total_variance": vimbai_common::py_round2(answer.total_variance),
         "favorable": answer.total_variance <= 0.0,
     }))
+}
+
+fn exact_of(value: f64) -> vimbai_common::Money {
+    vimbai_common::Money::from_f64_shortest(value).unwrap_or_else(|_| vimbai_common::Money::zero())
+}
+
+fn exact_sum(job: &JobCosts) -> vimbai_common::Money {
+    [
+        exact_of(job.materials_cost),
+        exact_of(job.labor_cost),
+        exact_of(job.overhead_cost),
+        exact_of(job.subcontractor_cost),
+    ]
+    .iter()
+    .fold(vimbai_common::Money::zero(), |running, cost| {
+        running.plus(cost)
+    })
 }
