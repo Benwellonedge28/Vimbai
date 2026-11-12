@@ -1312,3 +1312,90 @@ async fn a_reconstruction_summary_answers_under_records_too() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["total_capital_reduced"], json!("600.000000"));
 }
+
+#[tokio::test]
+async fn a_contract_is_created_on_the_revenue_recognition_path() {
+    let graph = Scripted::returning(vec![json!({"id": "con-1"})]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/revenue-recognition/contracts",
+        Some(json!({
+            "company_id": "co-1", "customer_name": "Acme",
+            "obligations": [
+                {"description": "Install", "transaction_price": "1000", "standalone_selling_price": "1200"},
+                {"description": "Support", "transaction_price": "1000", "standalone_selling_price": "800"}
+            ]
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, params) = seen.last();
+    assert_eq!(
+        params["props"]["total_transaction_price"],
+        json!("2000.000000")
+    );
+}
+
+#[tokio::test]
+async fn recognising_on_the_path_writes_the_contract_back() {
+    let graph = Scripted::queue(vec![
+        vec![json!({
+            "id": "con-1", "total_transaction_price": "2000",
+            "obligations": [
+                {"description": "Install", "transaction_price": "1200", "standalone_selling_price": "1200"}
+            ]
+        })],
+        vec![json!({"id": "con-1"})],
+    ]);
+    let seen = Arc::clone(&graph);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/revenue-recognition/contracts/con-1/recognize?obligation_id=0&amount=500",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["deferred"], json!("1500.000000"));
+    let (_, params) = seen.statement(1);
+    assert_eq!(
+        params["patch"]["total_revenue_recognized"],
+        json!("500.000000")
+    );
+}
+
+#[tokio::test]
+async fn an_empty_amount_recognises_the_obligation_in_full() {
+    let graph = Scripted::queue(vec![
+        vec![json!({
+            "id": "con-1", "total_transaction_price": "40",
+            "obligations": [{"description": "One", "transaction_price": "40", "standalone_selling_price": "0"}]
+        })],
+        vec![json!({"id": "con-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/revenue-recognition/contracts/con-1/recognize?obligation_id=0",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["recognized"], json!("40.000000"));
+    assert_eq!(body["is_satisfied"], json!(true));
+}
+
+#[tokio::test]
+async fn an_unreadable_amount_is_refused_rather_than_read_as_zero() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/revenue-recognition/contracts/con-1/recognize?obligation_id=0&amount=lots",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}

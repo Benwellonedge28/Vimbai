@@ -1980,7 +1980,7 @@ services:
   port: 8115
   gateway_path: /revenue-recognition
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

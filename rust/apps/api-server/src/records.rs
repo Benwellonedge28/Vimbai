@@ -21,6 +21,7 @@ use axum::{
     Json, Router,
 };
 use budgeting_services::appropriation_control;
+use common::Money;
 use costing::{
     absorption, basis_apportionment, cost_calculations, cvp, job_costing, overhead_absorption,
     price_reduction,
@@ -28,7 +29,7 @@ use costing::{
 use equity::equity_changes;
 use finance::insurance_claims;
 use serde_json::{json, Value};
-use store::amounts::{amount_or_zero, wire};
+use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
 use treasury::{cash_optimization, treasury_analytics};
 
@@ -1751,6 +1752,85 @@ async fn crr_requirements(
         status.as_deref(),
     ))
 }
+async fn create_revenue_contract(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_revenue_contract(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn recognise_revenue(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(contract_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let obligation = query_param(query.as_deref(), "obligation_id").unwrap_or_default();
+    // no amount means "recognise this obligation in full", so the zero is deliberate
+    let asked = match query_param(query.as_deref(), "amount") {
+        Some(raw) => match amount(&json!({ "amount": raw }), "amount") {
+            Ok(amount) => amount,
+            Err(error) => return fail(error),
+        },
+        None => Money::zero(),
+    };
+    answer(accounting::recognise_revenue(
+        graph.as_ref(),
+        &scope,
+        &contract_id,
+        &obligation,
+        &asked,
+    ))
+}
+
+async fn company_revenue_contracts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::list_revenue_contracts(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn company_revenue_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::revenue_summary(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
 async fn create_reconstruction(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -3667,6 +3747,22 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
         .route(
+            "/revenue-recognition/contracts",
+            post(create_revenue_contract),
+        )
+        .route(
+            "/revenue-recognition/contracts/:contract_id/recognize",
+            post(recognise_revenue),
+        )
+        .route(
+            "/revenue-recognition/contracts/:company_id",
+            get(company_revenue_contracts),
+        )
+        .route(
+            "/revenue-recognition/summary/:company_id",
+            get(company_revenue_summary),
+        )
+        .route(
             "/capital-reconstruction/reconstructions/create",
             post(create_reconstruction),
         )
@@ -3760,6 +3856,22 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(share_redemption_detail),
         )
         .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route(
+            "/records/revenue-recognition/contracts",
+            post(create_revenue_contract),
+        )
+        .route(
+            "/records/revenue-recognition/contracts/:contract_id/recognize",
+            post(recognise_revenue),
+        )
+        .route(
+            "/records/revenue-recognition/contracts/:company_id",
+            get(company_revenue_contracts),
+        )
+        .route(
+            "/records/revenue-recognition/summary/:company_id",
+            get(company_revenue_summary),
+        )
         .route(
             "/records/capital-reconstruction/reconstructions/create",
             post(create_reconstruction),
