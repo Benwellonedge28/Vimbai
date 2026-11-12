@@ -6,18 +6,19 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 24 are proven on a Rust engine. 113 are still Python-only.
+The gateway routes 137 services. 25 are proven on a Rust engine. 112 are still Python-only.
 
-Of the backlog, 22 own no records and can be ported as pure functions; 91 own records and
+Of the backlog, 22 own no records and can be ported as pure functions; 90 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-24 services.
+25 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
 appropriation-control-service                  8015  routes=5   records=yes rust http
+authorized-share-capital-service               8017  routes=8   records=yes rust http
 basis-apportionment-service                    8022  routes=12  records=yes rust http
 biological-assets-service                      8146  routes=7   records=no  rust http
 cash-flow-statement-service                    8029  routes=4   records=yes rust http
@@ -73,7 +74,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-91 services.
+90 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -128,7 +129,6 @@ purchases-ledger-control-service               8110  routes=6   records=yes none
 zero-trust-data-service                        8002  routes=9   records=yes none
 partnership-revaluation-service                8097  routes=5   records=yes none
 provision-doubtful-debts-service               8109  routes=8   records=yes none
-authorized-share-capital-service               8017  routes=8   records=yes none
 partnership-changes-service                    8095  routes=7   records=yes none
 sox-compliance-service                         8286  routes=10  records=yes none
 absorption-costing-statement-service           8011  routes=7   records=yes none

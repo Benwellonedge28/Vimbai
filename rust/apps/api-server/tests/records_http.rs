@@ -699,3 +699,60 @@ async fn the_asset_group_and_lease_routes_answer_under_the_records_prefix_too() 
     .await;
     assert_eq!(status, StatusCode::OK);
 }
+
+#[tokio::test]
+async fn a_share_class_is_opened_and_summarised_on_the_path_the_service_published() {
+    let graph = Scripted::returning(vec![json!({"id": "c-1", "name": "Ordinary"})]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/authorized-share-capital/share-classes?name=Ordinary&authorized_shares=1000",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["name"], json!("Ordinary"));
+
+    // the summary reads classes, issuances and buybacks in turn
+    let summary_graph = Scripted::returning(Vec::new());
+    let (status, body) = call_with(
+        summary_graph,
+        "GET",
+        "/authorized-share-capital/summary",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_classes"], json!(0));
+    assert_eq!(body["total_proceeds"], json!("0.000000"));
+}
+
+#[tokio::test]
+async fn issuing_beyond_the_ceiling_is_a_refusal_not_a_share_issue() {
+    let graph = Scripted::returning(vec![json!({
+        "id": "c-1", "authorized_shares": 100, "issued_shares": 90
+    })]);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/authorized-share-capital/share-classes/c-1/issue?number_of_shares=20&issue_price=2",
+        None,
+    )
+    .await;
+    // the records API answers a refused payload with 422 throughout, so a caller migrates one rule,
+    // not one rule per service
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn the_share_class_routes_answer_under_the_records_prefix_too() {
+    let graph = Scripted::returning(vec![json!({"id": "c-1"})]);
+    let (status, _) = call_with(
+        graph,
+        "GET",
+        "/records/authorized-share-capital/share-classes",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}

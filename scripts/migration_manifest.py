@@ -142,6 +142,7 @@ OWNERS = {
     "retained-profits-service": "equity",
     # an asset revaluation reserve is an asset question, and its records live in the assets crate
     "revaluation-reserve-service": "assets",
+    "authorized-share-capital-service": "equity",
     "right-issues-service": "equity",
     "share-premium-service": "equity",
     "share-redemption-service": "equity",

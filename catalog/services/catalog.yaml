@@ -298,7 +298,7 @@ services:
   port: 8017
   gateway_path: /authorized-share-capital
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

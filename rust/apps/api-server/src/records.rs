@@ -1422,6 +1422,113 @@ fn overlay(query: Value, body: Option<Value>) -> Value {
     Value::Object(merged)
 }
 
+async fn create_share_class(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::create_share_class(graph.as_ref(), &scope, &body))
+}
+
+async fn share_classes(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::list_share_classes(graph.as_ref(), &scope))
+}
+
+async fn one_share_class(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(class_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::get_share_class(graph.as_ref(), &scope, &class_id))
+}
+
+async fn issue_class_shares(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(class_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::issue_shares(
+        graph.as_ref(),
+        &scope,
+        &class_id,
+        &body,
+    ))
+}
+
+async fn class_issuances(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(class_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::list_share_issuances(
+        graph.as_ref(),
+        &scope,
+        &class_id,
+    ))
+}
+
+async fn buyback_class_shares(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(class_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::buyback_shares(
+        graph.as_ref(),
+        &scope,
+        &class_id,
+        &body,
+    ))
+}
+
+async fn share_capital_summary(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::share_capital_summary(graph.as_ref(), &scope))
+}
+
 fn body_or_query(query: Option<&str>) -> Value {
     let mut payload = serde_json::Map::new();
     for (key, value) in url::form_urlencoded::parse(query.unwrap_or("").as_bytes()) {
@@ -1583,6 +1690,30 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/records/fixed-assets-schedule/summary",
             get(schedule_summary),
+        )
+        .route(
+            "/records/authorized-share-capital/share-classes",
+            get(share_classes).post(create_share_class),
+        )
+        .route(
+            "/records/authorized-share-capital/share-classes/:class_id",
+            get(one_share_class),
+        )
+        .route(
+            "/records/authorized-share-capital/share-classes/:class_id/issue",
+            post(issue_class_shares),
+        )
+        .route(
+            "/records/authorized-share-capital/share-classes/:class_id/issuances",
+            get(class_issuances),
+        )
+        .route(
+            "/records/authorized-share-capital/share-classes/:class_id/buyback",
+            post(buyback_class_shares),
+        )
+        .route(
+            "/records/authorized-share-capital/summary",
+            get(share_capital_summary),
         )
         .route(
             "/records/disposal-group/groups",
@@ -1990,6 +2121,30 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route(
+            "/authorized-share-capital/share-classes",
+            get(share_classes).post(create_share_class),
+        )
+        .route(
+            "/authorized-share-capital/share-classes/:class_id",
+            get(one_share_class),
+        )
+        .route(
+            "/authorized-share-capital/share-classes/:class_id/issue",
+            post(issue_class_shares),
+        )
+        .route(
+            "/authorized-share-capital/share-classes/:class_id/issuances",
+            get(class_issuances),
+        )
+        .route(
+            "/authorized-share-capital/share-classes/:class_id/buyback",
+            post(buyback_class_shares),
+        )
+        .route(
+            "/authorized-share-capital/summary",
+            get(share_capital_summary),
+        )
         .route(
             "/disposal-group/groups",
             get(disposal_groups).post(create_disposal_group),

@@ -8,6 +8,9 @@ use crate::{Graph, StoreError};
 
 pub struct FakeGraph {
     rows: RefCell<Vec<Value>>,
+    /// When set, each statement takes its own script instead of the shared rows, so a path that runs
+    /// several queries (a summary that reads three collections) can be tested as a whole.
+    scripts: RefCell<Vec<Vec<Value>>>,
     seen: RefCell<Vec<(String, Value)>>,
 }
 
@@ -15,6 +18,17 @@ impl FakeGraph {
     pub fn returning(rows: Vec<Value>) -> Self {
         Self {
             rows: RefCell::new(rows),
+            scripts: RefCell::new(Vec::new()),
+            seen: RefCell::new(Vec::new()),
+        }
+    }
+
+    /// One script per statement, in order. The last script answers every later statement, so a test
+    /// only has to spell out as many answers as it cares about.
+    pub fn queue(scripts: Vec<Vec<Value>>) -> Self {
+        Self {
+            rows: RefCell::new(Vec::new()),
+            scripts: RefCell::new(scripts),
             seen: RefCell::new(Vec::new()),
         }
     }
@@ -34,7 +48,13 @@ impl FakeGraph {
 
 impl Graph for FakeGraph {
     fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
+        let index = self.seen.borrow().len();
         self.seen.borrow_mut().push((cypher.to_owned(), params));
-        Ok(self.rows.borrow().clone())
+        let scripts = self.scripts.borrow();
+        if scripts.is_empty() {
+            return Ok(self.rows.borrow().clone());
+        }
+        let last = scripts.len() - 1;
+        Ok(scripts[index.min(last)].clone())
     }
 }

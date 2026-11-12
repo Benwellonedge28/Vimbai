@@ -12,6 +12,9 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- authorized-share-capital-service -> equity crate, records on the store: share classes, their
+  issuances and buybacks, and the used-capacity summary. The ceiling is enforced on issue and the
+  issued count on buyback.
 - disposal-group-service -> assets crate, records on the store: groups, their assets, impairment
   tests and status changes. Adding an asset twice updates it instead of counting it twice.
 - lease-termination-service -> assets crate, records on the store: terminations, settlements,
