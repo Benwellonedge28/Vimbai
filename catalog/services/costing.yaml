@@ -119,7 +119,7 @@ services:
   port: 8105
   gateway_path: /process-costing
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

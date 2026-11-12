@@ -34,6 +34,7 @@ pub(crate) mod fake;
 pub mod insurance_claims;
 pub mod job_costing;
 pub mod neo4j_client;
+pub mod process_costing;
 pub mod trading_account;
 pub mod treasury_analytics;
 
@@ -107,6 +108,10 @@ pub const CASH_FLOW_STATEMENT: RecordKind = RecordKind::new("CashFlowStatement",
 
 pub const TREASURY_SNAPSHOT: RecordKind =
     RecordKind::new("TreasuryAnalyticsSnapshot", "OWNS_SNAPSHOT");
+
+/// The records process-costing-service used to own.
+pub const PROCESS_COSTING_CALCULATION: RecordKind =
+    RecordKind::new("CostCalculation", "OWNS_CALCULATION");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StoreError {

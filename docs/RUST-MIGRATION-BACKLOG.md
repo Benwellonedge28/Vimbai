@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 36 are proven on a Rust engine. 101 are still Python-only.
+The gateway routes 137 services. 37 are proven on a Rust engine. 100 are still Python-only.
 
-Of the backlog, 1 own no records and can be ported as pure functions; 100 own records and
+Of the backlog, 1 own no records and can be ported as pure functions; 99 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-36 services.
+37 services.
 
 ```
 accounting-service                             8000  routes=1   records=yes rust http
@@ -41,6 +41,7 @@ payback-period-service                         8098  routes=5   records=no  rust
 payment-gateway-service                        8098  routes=20  records=no  rust http
 performance-benchmarking-service               8280  routes=8   records=no  rust http
 privacy-admin-dashboard-service                8003  routes=10  records=no  rust http
+process-costing-service                        8105  routes=5   records=yes rust http
 realtime-calculation-engine                    8112  routes=5   records=no  rust http
 report-automation-service                      8272  routes=10  records=no  rust http
 report-distribution-service                    8273  routes=8   records=no  rust http
@@ -64,7 +65,7 @@ cache-service                                  8000  routes=7   records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-100 services.
+99 services.
 
 ```
 job-costing-service                            8073  routes=5   records=yes none
@@ -72,7 +73,6 @@ tax-compliance-service                         8293  routes=6   records=yes none
 regulatory-compliance-service                  8285  routes=6   records=yes none
 debt-management-service                        8194  routes=6   records=yes none
 financial-identity-service                     8053  routes=5   records=yes none
-process-costing-service                        8105  routes=5   records=yes none
 product-costing-service                        8106  routes=5   records=yes none
 fund-accounting-service                        8060  routes=5   records=yes none
 tax-planning-service                           8292  routes=5   records=yes none

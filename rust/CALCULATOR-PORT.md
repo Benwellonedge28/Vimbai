@@ -7,6 +7,9 @@ Rules for every port in this file: safe Rust only, money carried as `vimbai_comm
 `library/HTTP.md` describes the surface that makes deletion possible; `scripts/retire_gate.py`
 says which services have passed every check. 169 stateless calculators; 45 answer through the Rust library today, 17 of them served at /calc/.
 
+Services that own records are ported into the Rust store and served from the API's record
+routes; they are listed here too, because the Python service is no longer the engine behind them.
+
 ## Wired to the Rust library
 
 - activity-based-costing-service
@@ -49,6 +52,7 @@ says which services have passed every check. 169 stateless calculators; 45 answe
 - partnership-sale-service
 - payment-optimization-service
 - pension-accounting-service
+- process-costing-service
 - r-and-d-tax-service
 - regulatory-ratio-service
 - standard-cost-service

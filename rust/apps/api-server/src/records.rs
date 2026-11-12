@@ -22,8 +22,8 @@ use axum::{
 use serde_json::{json, Value};
 use store::{
     absorption, appropriation_control, cash_flow, cash_optimization, equity_changes,
-    insurance_claims, job_costing, trading_account, treasury_analytics, BookScope, Graph,
-    StoreError,
+    insurance_claims, job_costing, process_costing, trading_account, treasury_analytics, BookScope,
+    Graph, StoreError,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -230,6 +230,74 @@ async fn company_profitability(
         Err(response) => return *response,
     };
     answer(job_costing::profitability(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn cost_calculation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(process_costing::create_calculation(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn cost_calculations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let product = query_param(query.as_deref(), "product");
+    answer(process_costing::calculations(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        product.as_deref(),
+    ))
+}
+
+async fn cost_breakdown(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((company_id, calc_id)): Path<(String, String)>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(process_costing::breakdown(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        &calc_id,
+    ))
+}
+
+async fn cost_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(process_costing::summary(
         graph.as_ref(),
         &scope,
         &company_id,
@@ -717,6 +785,19 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/trading-account/accounts/:account_id",
             get(get_trading_account),
         )
+        .route("/records/process-costing/calculate", post(cost_calculation))
+        .route(
+            "/records/process-costing/calculations/:company_id",
+            get(cost_calculations),
+        )
+        .route(
+            "/records/process-costing/breakdown/:company_id/:calc_id",
+            get(cost_breakdown),
+        )
+        .route(
+            "/records/process-costing/summary/:company_id",
+            get(cost_summary),
+        )
         .route(
             "/records/appropriation-control/appropriations",
             post(create_appropriation),
@@ -807,6 +888,16 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/trading-account/accounts/:account_id",
             get(get_trading_account),
         )
+        .route("/process-costing/calculate", post(cost_calculation))
+        .route(
+            "/process-costing/calculations/:company_id",
+            get(cost_calculations),
+        )
+        .route(
+            "/process-costing/breakdown/:company_id/:calc_id",
+            get(cost_breakdown),
+        )
+        .route("/process-costing/summary/:company_id", get(cost_summary))
         .route(
             "/appropriation-control/appropriations",
             post(create_appropriation),
