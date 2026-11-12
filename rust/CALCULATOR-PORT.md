@@ -157,6 +157,7 @@ deleted service was one of several front doors to the same arithmetic:
 - financial-forecasting-service is `budgeting::forecasting`
 - financial-reporting-service and financial-statements-service are `ratios_statements::statements`,
   routed as `financial-statements-prepare` (one body shape, two services that always shared it)
+- merger-valuation-service is `capital_valuation::merger`, routed as `merger-valuation-value`
 - deal-structuring-service, post-merger-service and synergy-analysis-service share
   `capital_valuation::corporate_events`, routed as `deal-structuring-structure`,
   `post-merger-track` and `synergy-analysis-analyze`
@@ -183,7 +184,6 @@ these is a route or a seam function away, not a calculation away:
 
 - deal-structuring-service - `capital_valuation::acquisition_financing`, `corporate_events`
 - kpi-tracking-service - `reporting::analysis`
-- merger-valuation-service - `capital_valuation::merger`
 - profit-loss-account-service - `ratios_statements::profit_loss`
 - scenario-budget-service - `budgeting::scenario`
 - suspense-error-service - `ratios_statements::ledger_controls`

@@ -45,6 +45,10 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         "synergy-analysis-analyze",
         capital_valuation::synergy_analysis_from_json,
     );
+    map.insert(
+        "merger-valuation-value",
+        capital_valuation::merger_from_json,
+    );
     map.insert("eps", ratios_statements::eps_from_json);
     map.insert(
         "payroll-accounting-process",
@@ -1423,6 +1427,32 @@ mod typed_adapters {
             json!("160.00")
         );
         assert_eq!(synergy["pv_integration_costs"], json!("165.00"));
+    }
+
+    #[test]
+    fn merger_valuation_is_reachable_and_exact() {
+        let out = calculate(
+            "merger-valuation-value",
+            json!({
+                "acquirer_id": "ACQ", "target_id": "TGT",
+                "acquirer_equity": "1000", "target_equity": "400",
+                "acquirer_ebitda": "150", "target_ebitda": "50",
+                "acquirer_revenue": "900", "target_revenue": "300",
+                "synergies_ebitda": "20", "acquirer_pe": 18.0, "target_pe": 12.0,
+                "deal_premium": 0.25, "transaction_costs": "15", "integration_costs": "30"
+            }),
+        );
+        assert_eq!(out["recommended_offer_price"], json!("500.00"));
+        assert_eq!(out["total_deal_value"], json!("515.00"));
+        assert_eq!(out["synergy_value"], json!("200.00"));
+        assert_eq!(out["accretive_dilutive"], json!("Accretive"));
+
+        // a figure that is not money is refused rather than read as zero
+        let registry = calculators();
+        let entry = registry.get("merger-valuation-value").expect("registered");
+        let error = entry(&json!({"acquirer_id": "ACQ", "target_equity": "not money"}))
+            .expect_err("refused");
+        assert!(error.contains("invalid request"), "{error}");
     }
 
     #[test]

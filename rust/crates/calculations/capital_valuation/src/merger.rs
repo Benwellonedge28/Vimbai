@@ -20,45 +20,41 @@
 //! denominator rather than crashing the endpoint.
 
 use serde::{Deserialize, Serialize};
-use vimbai_common::py_round;
+use vimbai_common::{py_round, Money};
 
 fn r2(value: f64) -> f64 {
     py_round(value, 2)
+}
+
+fn rate(value: f64) -> Money {
+    Money::from_f64_shortest(value).unwrap_or_else(|_| Money::zero())
 }
 
 fn r4(value: f64) -> f64 {
     py_round(value, 4)
 }
 
-fn safe_div(numerator: f64, denominator: f64) -> f64 {
-    if denominator == 0.0 {
-        0.0
-    } else {
-        numerator / denominator
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct MergerRequest {
     pub acquirer_id: String,
     pub target_id: String,
-    pub acquirer_equity: f64,
-    pub target_equity: f64,
-    pub acquirer_ebitda: f64,
-    pub target_ebitda: f64,
-    pub acquirer_revenue: f64,
-    pub target_revenue: f64,
-    pub synergies_ebitda: f64,
+    pub acquirer_equity: Money,
+    pub target_equity: Money,
+    pub acquirer_ebitda: Money,
+    pub target_ebitda: Money,
+    pub acquirer_revenue: Money,
+    pub target_revenue: Money,
+    pub synergies_ebitda: Money,
     pub acquirer_pe: f64,
     pub target_pe: f64,
     pub deal_premium: f64,
-    pub transaction_costs: f64,
-    pub integration_costs: f64,
+    pub transaction_costs: Money,
+    pub integration_costs: Money,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ValuationMethod {
-    pub value: f64,
+    pub value: Money,
     pub weight: f64,
 }
 
@@ -84,10 +80,10 @@ pub struct MergerOutput {
     pub acquirer_id: String,
     pub target_id: String,
     pub valuation_methods: ValuationMethods,
-    pub recommended_offer_price: f64,
+    pub recommended_offer_price: Money,
     pub offer_premium: f64,
-    pub total_deal_value: f64,
-    pub synergy_value: f64,
+    pub total_deal_value: Money,
+    pub synergy_value: Money,
     pub eps_impact: f64,
     pub accretive_dilutive: String,
     pub irr_projections: IrrProjections,
@@ -95,22 +91,39 @@ pub struct MergerOutput {
 }
 
 pub fn value_merger(request: &MergerRequest) -> MergerOutput {
-    let target_dcf = request.target_equity * 1.1;
-    let target_comps = request.target_equity * (1.0 + request.deal_premium);
-    let target_asset = request.target_equity * 0.9;
+    let target_dcf = request.target_equity.times(&rate(1.1)).round(2);
+    let target_comps = request
+        .target_equity
+        .times(&rate(1.0 + request.deal_premium))
+        .round(2);
+    let target_asset = request.target_equity.times(&rate(0.9)).round(2);
 
-    let combined_equity = request.acquirer_equity + request.target_equity;
+    let combined_equity = request.acquirer_equity.plus(&request.target_equity);
+    let combined_revenue = request.acquirer_revenue.plus(&request.target_revenue);
 
-    let offer_price = request.target_equity * (1.0 + request.deal_premium);
-    let total_deal = offer_price + request.transaction_costs;
+    let offer_price = target_comps.clone();
+    let total_deal = offer_price.plus(&request.transaction_costs);
 
-    let pe_implied = safe_div(offer_price, request.target_ebitda);
+    // A P/E is money over money, so it is a ratio, not an amount.
+    let pe_implied = if request.target_ebitda.is_zero() {
+        0.0
+    } else {
+        offer_price.over(&request.target_ebitda).to_f64_lossy()
+    };
 
-    let combined_eps = safe_div(
-        combined_equity,
-        request.acquirer_revenue + request.target_revenue,
-    );
-    let current_eps = safe_div(request.acquirer_equity, request.acquirer_revenue);
+    let combined_eps = if combined_revenue.is_zero() {
+        0.0
+    } else {
+        combined_equity.over(&combined_revenue).to_f64_lossy()
+    };
+    let current_eps = if request.acquirer_revenue.is_zero() {
+        0.0
+    } else {
+        request
+            .acquirer_equity
+            .over(&request.acquirer_revenue)
+            .to_f64_lossy()
+    };
     let eps_impact = combined_eps - current_eps;
     let accretive = if eps_impact > 0.0 {
         "Accretive"
@@ -118,12 +131,24 @@ pub fn value_merger(request: &MergerRequest) -> MergerOutput {
         "Dilutive"
     };
 
-    let ratio = safe_div(target_comps, offer_price) - 1.0;
+    let ratio = if offer_price.is_zero() {
+        0.0
+    } else {
+        target_comps.over(&offer_price).to_f64_lossy() - 1.0
+    };
     let irr_1yr = ratio * 100.0;
     let irr_2yr = ratio * 50.0;
     let irr_3yr = ratio * 33.33;
 
-    let synergy_value = request.synergies_ebitda * safe_div(target_comps, request.target_ebitda);
+    let comps_multiple = if request.target_ebitda.is_zero() {
+        0.0
+    } else {
+        target_comps.over(&request.target_ebitda).to_f64_lossy()
+    };
+    let synergy_value = request
+        .synergies_ebitda
+        .times(&rate(comps_multiple))
+        .round(2);
 
     let mut recommendations = Vec::new();
     if pe_implied < request.acquirer_pe * 1.2 {
@@ -136,7 +161,7 @@ pub fn value_merger(request: &MergerRequest) -> MergerOutput {
     if irr_1yr < 15.0 {
         recommendations.push("Consider negotiating lower price to improve returns".to_string());
     }
-    if request.integration_costs > total_deal * 0.1 {
+    if request.integration_costs > total_deal.times(&rate(0.1)) {
         recommendations
             .push("Integration costs are significant - model full cost impact".to_string());
     }
@@ -146,22 +171,22 @@ pub fn value_merger(request: &MergerRequest) -> MergerOutput {
         target_id: request.target_id.clone(),
         valuation_methods: ValuationMethods {
             dcf: ValuationMethod {
-                value: r2(target_dcf),
+                value: target_dcf,
                 weight: 0.4,
             },
             comparables: ValuationMethod {
-                value: r2(target_comps),
+                value: target_comps,
                 weight: 0.4,
             },
             asset: ValuationMethod {
-                value: r2(target_asset),
+                value: target_asset,
                 weight: 0.2,
             },
         },
-        recommended_offer_price: r2(offer_price),
+        recommended_offer_price: offer_price,
         offer_premium: r2(request.deal_premium * 100.0),
-        total_deal_value: r2(total_deal),
-        synergy_value: r2(synergy_value),
+        total_deal_value: total_deal,
+        synergy_value,
         eps_impact: r4(eps_impact),
         accretive_dilutive: accretive.to_string(),
         irr_projections: IrrProjections {
@@ -173,39 +198,54 @@ pub fn value_merger(request: &MergerRequest) -> MergerOutput {
     }
 }
 
+/// `merger-valuation-service /value`.
+pub fn merger_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, String> {
+    let request: MergerRequest = serde_json::from_value(payload.clone())
+        .map_err(|error| format!("invalid request: {error}"))?;
+    serde_json::to_value(value_merger(&request)).map_err(|error| error.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn m(text: &str) -> Money {
+        Money::parse(text).expect("amount")
+    }
+
+    fn fixed(amount: &Money) -> String {
+        amount.to_fixed(2)
+    }
 
     fn request() -> MergerRequest {
         MergerRequest {
             acquirer_id: "ACQ".to_string(),
             target_id: "TGT".to_string(),
-            acquirer_equity: 1000.0,
-            target_equity: 400.0,
-            acquirer_ebitda: 150.0,
-            target_ebitda: 50.0,
-            acquirer_revenue: 900.0,
-            target_revenue: 300.0,
-            synergies_ebitda: 20.0,
+            acquirer_equity: m("1000"),
+            target_equity: m("400"),
+            acquirer_ebitda: m("150"),
+            target_ebitda: m("50"),
+            acquirer_revenue: m("900"),
+            target_revenue: m("300"),
+            synergies_ebitda: m("20"),
             acquirer_pe: 18.0,
             target_pe: 12.0,
             deal_premium: 0.25,
-            transaction_costs: 15.0,
-            integration_costs: 30.0,
+            transaction_costs: m("15"),
+            integration_costs: m("30"),
         }
     }
 
     #[test]
     fn matches_the_service_valuation() {
         let out = value_merger(&request());
-        assert_eq!(out.valuation_methods.dcf.value, 440.0);
-        assert_eq!(out.valuation_methods.comparables.value, 500.0);
-        assert_eq!(out.valuation_methods.asset.value, 360.0);
-        assert_eq!(out.recommended_offer_price, 500.0);
+        assert_eq!(fixed(&out.valuation_methods.dcf.value), "440.00");
+        assert_eq!(fixed(&out.valuation_methods.comparables.value), "500.00");
+        assert_eq!(fixed(&out.valuation_methods.asset.value), "360.00");
+        assert_eq!(fixed(&out.recommended_offer_price), "500.00");
         assert_eq!(out.offer_premium, 25.0);
-        assert_eq!(out.total_deal_value, 515.0);
-        assert_eq!(out.synergy_value, 200.0);
+        assert_eq!(fixed(&out.total_deal_value), "515.00");
+        assert_eq!(fixed(&out.synergy_value), "200.00");
         assert_eq!(out.eps_impact, 0.0556);
         assert_eq!(out.accretive_dilutive, "Accretive");
         assert_eq!(out.irr_projections.one_year, 0.0);
@@ -226,7 +266,7 @@ mod tests {
 
         let mut high = request();
         high.deal_premium = 0.5;
-        high.integration_costs = 500.0;
+        high.integration_costs = m("500");
         let out = value_merger(&high);
         assert!(out
             .recommendations
@@ -246,8 +286,49 @@ mod tests {
     #[test]
     fn zero_target_ebitda_reports_zero_instead_of_dividing() {
         let mut req = request();
-        req.target_ebitda = 0.0;
+        req.target_ebitda = m("0");
         let out = value_merger(&req);
-        assert_eq!(out.synergy_value, 0.0);
+        assert_eq!(fixed(&out.synergy_value), "0.00");
+    }
+
+    #[test]
+    fn an_equity_past_double_precision_multiplies_exactly() {
+        let mut req = request();
+        req.target_equity = m("123456789012345678901.55");
+        req.deal_premium = 0.1;
+        req.transaction_costs = m("0.45");
+        let out = value_merger(&req);
+        // 1.1x of a figure no double can hold, digit for digit
+        assert_eq!(
+            fixed(&out.valuation_methods.dcf.value),
+            "135802467913580246791.70"
+        );
+        // 1.1x again for comparables, then the 0.45 of costs on top
+        assert_eq!(
+            fixed(&out.recommended_offer_price),
+            "135802467913580246791.70"
+        );
+        assert_eq!(fixed(&out.total_deal_value), "135802467913580246792.15");
+    }
+
+    #[test]
+    fn the_door_reads_the_published_shape() {
+        let payload = serde_json::json!({
+            "acquirer_id": "ACQ", "target_id": "TGT",
+            "acquirer_equity": "1000", "target_equity": "400",
+            "acquirer_ebitda": "150", "target_ebitda": "50",
+            "acquirer_revenue": "900", "target_revenue": "300",
+            "synergies_ebitda": "20", "acquirer_pe": 18.0, "target_pe": 12.0,
+            "deal_premium": 0.25, "transaction_costs": "15",
+            "integration_costs": "30"
+        });
+        let out = merger_from_json(&payload).expect("door");
+        assert_eq!(out["recommended_offer_price"], "500.00");
+        assert_eq!(out["synergy_value"], "200.00");
+        assert_eq!(out["accretive_dilutive"], "Accretive");
+
+        let bad = serde_json::json!({"acquirer_id": "ACQ", "target_equity": "not money"});
+        let error = merger_from_json(&bad).expect_err("refused");
+        assert!(error.contains("invalid request"), "{error}");
     }
 }

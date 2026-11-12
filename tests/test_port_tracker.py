@@ -62,7 +62,6 @@ RETIRED_WITHOUT_ENDPOINT = {
     "material-cost-variance-service",
     "material-price-variance-service",
     "material-usage-variance-service",
-    "merger-valuation-service",
     "payroll-service",
     "profit-loss-account-service",
     "r-and-d-tax-service",

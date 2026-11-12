@@ -59,7 +59,8 @@ pub use growth::{
 };
 pub use irr::{irr, irr_bisection, npv_at_rate, IrrMethod, IrrOutput};
 pub use merger::{
-    value_merger, IrrProjections, MergerOutput, MergerRequest, ValuationMethod, ValuationMethods,
+    merger_from_json, value_merger, IrrProjections, MergerOutput, MergerRequest, ValuationMethod,
+    ValuationMethods,
 };
 pub use payback::{payback_period, PaybackOutput};
 pub use risk_return::{
