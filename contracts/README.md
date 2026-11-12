@@ -11,8 +11,13 @@ authoritative while being wrong. So the loop is proven on one service first.
 
 `costing.yaml` covers the overhead absorption service: ten operations, the money rules, the Book
 scope. `job-costing.yaml` covers a different shape - path parameters, a query filter, a running total
-that moves when a cost is charged, and an aggregate that sums several jobs. Both were written from
-their Rust handlers, not from the route table.
+that moves when a cost is charged, and an aggregate that sums several jobs. `treasury.yaml` covers cash
+optimisation, the first contract from a second crate, where an operation replaces a stored set rather
+than adding to it. All three were written from their Rust handlers, not from the route table.
+
+The treasury contract settled where a rate sits. An interest rate is money, because the service
+multiplies it into an amount, so it travels as an exact string; a margin is a ratio for reading, so it
+travels as a number. "Looks like a rate" is not the test - whether arithmetic depends on the figure is.
 
 The second one settled a rule the first did not have to. A margin is a ratio, not money: `gross_margin`
 and `avg_margin` are JSON numbers because they are for reading and ranking, while every balance -
@@ -54,9 +59,9 @@ rate = client.calculate_absorption_rate(
 
 ## What comes next
 
-1. A third contract from a different domain: `treasury` (cash optimisation) or `equity`.
-2. Then the absorption and job costing siblings that share their shapes, which is where generating
-   from an existing contract starts to pay off.
+1. A fourth contract from a fourth crate: `accounting` (cash flow statement) or `equity`.
+2. Then the sibling services that share a shape with a contract already written, which is where
+   starting from an existing contract begins to pay off.
 3. Events in `contracts/events/`, once something publishes them.
 
 A domain that has not been read into a contract has no contract. That is the rule that keeps this

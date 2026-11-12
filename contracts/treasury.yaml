@@ -1,0 +1,293 @@
+openapi: 3.1.0
+info:
+  title: Vimbai cash optimisation
+  version: "1.0.0"
+  summary: Where the cash is sitting, and what moving it would earn.
+  description: |
+    The third contract, and the first from a different crate: the treasury domain rather than costing.
+    It proves the loop is not tied to one service's shape or one crate's file layout.
+
+    Two things are new here.
+
+    Optimising replaces, rather than adds. `optimize` recomputes the suggestions for a company and
+    deletes the previous set in the same operation, so a caller that optimises twice does not end up
+    with the union of two runs. The answer is the set as stored.
+
+    An interest rate is stored as a decimal string, not a percentage number. It is applied by the
+    service as an exact amount, so it travels as one; the difference from the margins in
+    `job-costing.yaml` is which side of the line the figure sits on - a rate that arithmetic depends
+    on is money, a ratio shown for reading is not.
+servers:
+  - url: https://api.vimbai.example
+security:
+  - BookScope: []
+paths:
+  /cash-optimization/accounts:
+    post:
+      operationId: addCashAccount
+      summary: Add a cash account with its balance and the minimum it must keep.
+      description: |
+        `balance` is required. `min_required` and `interest_rate` are not, and default to zero, which
+        is a real answer here: an account with no stated floor can give up all of its balance.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CashAccountRequest"
+      responses:
+        "200":
+          description: The account as recorded, in the three fields the service has always answered with.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashAccountSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /cash-optimization/accounts/{company_id}:
+    get:
+      operationId: listCashAccounts
+      summary: The caller's accounts for one company, oldest first.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: company_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The accounts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashAccountList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /cash-optimization/optimize/{company_id}:
+    post:
+      operationId: optimizeCash
+      summary: Recompute where the cash should move and replace the stored suggestions.
+      description: |
+        The previous suggestions for this company are deleted in the same operation, so the stored set
+        is always the latest run rather than the accumulation of every run. The potential benefit is
+        summed exactly, not added as doubles.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: company_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The suggestions, and what they would earn in a year.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Optimisation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /cash-optimization/suggestions/{company_id}:
+    get:
+      operationId: listCashSuggestions
+      summary: The suggestions as last computed, oldest first.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: company_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The stored suggestions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestionList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+components:
+  securitySchemes:
+    BookScope:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: |
+        The caller. `X-Book-Id` is required alongside it and is a parameter on every operation,
+        because the platform cannot express two required api key headers as one scheme.
+  parameters:
+    BookId:
+      name: X-Book-Id
+      in: header
+      required: true
+      schema:
+        type: string
+  schemas:
+    Money:
+      type: string
+      pattern: "^-?[0-9]+(\\.[0-9]+)?$"
+      description: |
+        An exact decimal amount, as a string, at the six decimal places the store keeps. An interest
+        rate is one of these, because the service multiplies it into an amount.
+    CashAccountRequest:
+      type: object
+      required:
+        - company_id
+        - account_name
+        - account_type
+        - balance
+      properties:
+        company_id:
+          type: string
+        account_name:
+          type: string
+        account_type:
+          type: string
+          description: For example operating, savings or investment.
+        balance:
+          $ref: "#/components/schemas/Money"
+        min_required:
+          $ref: "#/components/schemas/Money"
+          description: The floor this account must keep. Defaults to zero.
+        interest_rate:
+          $ref: "#/components/schemas/Money"
+          description: The rate the balance earns, as a decimal. Defaults to zero.
+        currency:
+          type: string
+          default: USD
+    CashAccountSummary:
+      type: object
+      required:
+        - id
+        - account_name
+        - balance
+      properties:
+        id:
+          type: [string, "null"]
+        account_name:
+          type: string
+        balance:
+          $ref: "#/components/schemas/Money"
+    CashAccount:
+      type: object
+      required:
+        - id
+        - company_id
+        - account_name
+        - account_type
+        - balance
+        - min_required
+        - interest_rate
+      properties:
+        id:
+          type: [string, "null"]
+        company_id:
+          type: string
+        account_name:
+          type: string
+        account_type:
+          type: string
+        balance:
+          $ref: "#/components/schemas/Money"
+        min_required:
+          $ref: "#/components/schemas/Money"
+        interest_rate:
+          $ref: "#/components/schemas/Money"
+        currency:
+          type: [string, "null"]
+        created_at:
+          type: [string, "null"]
+    CashAccountList:
+      type: object
+      required:
+        - company_id
+        - accounts
+      properties:
+        company_id:
+          type: string
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CashAccount"
+    Suggestion:
+      type: object
+      required:
+        - id
+        - company_id
+        - from_account
+        - to_account
+        - amount
+        - reason
+        - expected_benefit
+        - priority
+      properties:
+        id:
+          type: [string, "null"]
+        company_id:
+          type: string
+        from_account:
+          type: string
+        to_account:
+          type: string
+        amount:
+          $ref: "#/components/schemas/Money"
+        reason:
+          type: string
+        expected_benefit:
+          $ref: "#/components/schemas/Money"
+          description: What moving this amount would be worth over a year, exactly.
+        priority:
+          type: string
+          description: How much the move is worth doing, for ordering the list.
+        created_at:
+          type: [string, "null"]
+    SuggestionList:
+      type: object
+      required:
+        - company_id
+        - suggestions
+      properties:
+        company_id:
+          type: string
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Suggestion"
+    Optimisation:
+      type: object
+      required:
+        - company_id
+        - suggestions
+        - total_count
+        - potential_annual_benefit
+      properties:
+        company_id:
+          type: string
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Suggestion"
+        total_count:
+          type: integer
+        potential_annual_benefit:
+          $ref: "#/components/schemas/Money"
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+  responses:
+    BadRequest:
+      description: |
+        The payload or the Book scope was refused: a missing `balance`, a balance that is not a
+        decimal, or a missing header. A refused amount is never read as zero.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

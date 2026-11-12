@@ -35,6 +35,10 @@ SERVICES = {
         "prefix": "/job-costing",
         "handler": os.path.join(COSTING, "job_costing.rs"),
     },
+    "treasury.yaml": {
+        "prefix": "/cash-optimization",
+        "handler": os.path.join(ROOT, "rust", "crates", "domains", "treasury", "src", "cash_optimization.rs"),
+    },
 }
 
 CONTRACT_NAMES = sorted(SERVICES)
@@ -112,10 +116,17 @@ def schema_of(document, node):
 
 
 def body_keys(handler, function):
-    """The JSON keys a Rust function writes with `json!({...})`."""
+    """The JSON keys a Rust function writes.
+
+    The function is found by its signature, not by its first appearance: `fn accounts` is a prefix of
+    `fn accounts_of`, and reading the wrong one is how a check passes while proving nothing.
+    """
+    name = function[3:] if function.startswith("fn ") else function
     with open(handler, encoding="utf-8") as handle:
         text = handle.read()
-    start = text.index(function)
+    found = re.search(r"fn " + re.escape(name) + r"\b[<(]", text)
+    assert found, f"{handler} has no function {name}"
+    start = found.start()
     body = text[start:]
     end = body.find("\n}\n")
     body = body if end < 0 else body[:end]
@@ -282,3 +293,37 @@ def test_a_job_records_the_figures_the_contract_guarantees():
     assert guaranteed <= promised, f"the Job schema lost figures: {sorted(guaranteed - promised)}"
     assert guaranteed <= written, f"create_job no longer writes: {sorted(guaranteed - written)}"
     assert required(document, job) == {"company_id", "contract_value", "total_cost", "gross_profit", "gross_margin"}
+
+
+@pytest.mark.parametrize(
+    "schema_name,function",
+    [
+        ("CashAccount", "fn account_json"),
+        ("CashAccountList", "fn accounts"),
+        ("Optimisation", "fn optimize"),
+        ("SuggestionList", "fn suggestions"),
+    ],
+)
+def test_each_treasury_answer_matches_its_written_keys(schema_name, function):
+    """The treasury answers are spread across three builders, so each is read where it is written."""
+    document = load("treasury.yaml")
+    promised = set(properties(document, document["components"]["schemas"][schema_name]))
+    written = body_keys(SERVICES["treasury.yaml"]["handler"], function)
+    if "suggestions" in written or "accounts" in written:
+        # The list builders wrap a builder that writes the item keys; the wrapper adds its own pair.
+        written |= {"suggestions", "accounts", "company_id"}
+    assert (
+        promised <= written
+    ), f"{schema_name} promises fields {sorted(promised - written)} that {function} never writes"
+
+
+def test_a_cash_account_summary_keeps_the_three_fields_it_always_answered_with():
+    """`add` answers with id, name and balance - not the whole record it stored.
+
+    That is not an oversight to tidy up: callers rely on the short answer, so the contract says so.
+    """
+    document = load("treasury.yaml")
+    summary = document["components"]["schemas"]["CashAccountSummary"]
+    assert set(summary["properties"]) == {"id", "account_name", "balance"}
+    written = body_keys(SERVICES["treasury.yaml"]["handler"], "fn add_account")
+    assert {"id", "account_name", "balance"} <= written
