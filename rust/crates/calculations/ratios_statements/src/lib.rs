@@ -51,7 +51,9 @@ pub use ledger_controls::{analyze_times_interest_earned, TieAnalysis, TieInput};
 pub use management_accounts::{prepare_management_accounts, ManagementAccounts};
 pub use profit_loss::{compare_pnl, prepare_pnl, PnLComparison, PnLInput, PnLStatement};
 pub use ratios::{calculate_ratios, BalanceSheet, IncomeStatement, RatioInput, RatioOutput};
-pub use statements::{prepare_statements, StatementsInput, StatementsOutput};
+pub use statements::{
+    prepare_statements, prepare_statements_from_json, StatementsInput, StatementsOutput,
+};
 pub use trading_account::{generate_trading_account, TradingAccountInput, TradingAccountResult};
 pub use working_capital::{
     analyze_wc_finance, analyze_working_capital, calculate_factoring, optimize_working_capital,

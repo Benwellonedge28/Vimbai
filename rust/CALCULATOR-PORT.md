@@ -155,6 +155,8 @@ deleted service was one of several front doors to the same arithmetic:
 - comparative-financial-statements-service is `ratios_statements::comparative`
 - exotic-derivatives-service is `treasury_fx::exotics`
 - financial-forecasting-service is `budgeting::forecasting`
+- financial-reporting-service and financial-statements-service are `ratios_statements::statements`,
+  routed as `financial-statements-prepare` (one body shape, two services that always shared it)
 - interim-financial-reporting-service is `ratios_statements::interim_reporting`
 - labour-efficiency-variance-service is `cost_accounting::labour_variance`
 - liquidity-management-service is `treasury_fx::liquidity`
@@ -169,8 +171,6 @@ deleted service was one of several front doors to the same arithmetic:
 these is a route or a seam function away, not a calculation away:
 
 - deal-structuring-service - `capital_valuation::acquisition_financing`, `corporate_events`
-- financial-reporting-service - `ratios_statements::statements`
-- financial-statements-service - `ratios_statements::statements`
 - ifrs-15-revenue-recognition-service - `ifrs::revenue`
 - ifrs-2-share-based-payment-service - `ifrs::share_based`
 - ifrs-9-financial-instruments-service - `ifrs::instruments`

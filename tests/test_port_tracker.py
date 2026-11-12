@@ -45,8 +45,6 @@ RETIRED_WITHOUT_ENDPOINT = {
     "equivalent-units-service",
     "exotic-derivatives-service",
     "financial-forecasting-service",
-    "financial-reporting-service",
-    "financial-statements-service",
     "forward-contracts-service",
     "ifrs-15-revenue-recognition-service",
     "ifrs-16-lease-accounting-service",

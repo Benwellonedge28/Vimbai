@@ -67,6 +67,10 @@ pub fn calculators() -> BTreeMap<&'static str, Calculator> {
         capital_valuation::book_value_from_json,
     );
     map.insert(
+        "financial-statements-prepare",
+        ratios_statements::prepare_statements_from_json,
+    );
+    map.insert(
         "lease-management-calculate",
         ifrs::lease_calculate_from_json,
     );
@@ -1092,6 +1096,50 @@ mod typed_adapters {
                    "minority_interests": "250000"}),
         );
         assert_eq!(book["tangible_book_value"], json!("3000000"));
+    }
+
+    #[test]
+    fn financial_statements_prepare_answers_with_nested_statements() {
+        let out = calculate(
+            "financial-statements-prepare",
+            json!({
+                "company_id": "c-1",
+                "period": "2026",
+                "balance_sheet": {
+                    "current_assets": "400000", "non_current_assets": "600000",
+                    "current_liabilities": "200000", "non_current_liabilities": "300000",
+                    "inventory": "100000"
+                },
+                "income_statement": {
+                    "revenue": "1000000", "net_income": "150000",
+                    "ebitda": "260000", "depreciation": "60000", "cogs": "600000"
+                }
+            }),
+        );
+        assert_eq!(
+            out["statements"]["income_statement"]["ebit"],
+            json!("200000")
+        );
+        assert_eq!(out["key_ratios"]["gross_margin"], json!(40.0));
+        assert_eq!(out["financial_health_score"], json!(93.5));
+        assert!(out["recommendations"].as_array().map(Vec::len) == Some(0));
+
+        let huge = calculate(
+            "financial-statements-prepare",
+            json!({
+                "company_id": "c-1",
+                "period": "2026",
+                "balance_sheet": {
+                    "current_assets": "123456789012345678901.55",
+                    "current_liabilities": "123456789012345678901.55"
+                }
+            }),
+        );
+        assert_eq!(
+            huge["statements"]["balance_sheet"]["total_assets"],
+            json!("123456789012345678901.55")
+        );
+        assert_eq!(huge["key_ratios"]["current_ratio"], json!(1.0));
     }
 
     #[test]
