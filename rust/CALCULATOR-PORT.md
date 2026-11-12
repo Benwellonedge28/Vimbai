@@ -287,6 +287,27 @@ xbrl-reporting-service
   so the accounts the two services describe are one set, and liquidity counts an account whichever of the two
   shapes it carries.
 
+- treasury-management-service -> treasury crate, records on the store: a company's dated cash movements, the
+  position it reports, the burn that position is judged against and a straight-line forecast from the history
+  it has. Shapes kept: a recorded movement answers with its id and the word `recorded` rather than the record; a
+  company's movements are listed oldest first and the total counts every one of them while the list handed back
+  is only the most recent `limit`; a stored position wins over a derived one, and with none stored the cash is
+  simply the inflows less the outflows with liquidity left at adequate; liquidity is the months of cover the
+  available cash gives over the last thirty days of outflow (nothing spent, or more than six months, is excess;
+  then adequate, tight, critical); a forecast with no history is all zeroes and says so; the average is taken
+  over the days since the first movement with a floor of one, and the projection always ends at the current
+  available cash plus the net, restricted cash included; the four investment options are the fixed list the
+  service offers, not something it prices. Two things are deliberate: the forecast and the burn are measured
+  against a `now` the caller supplies, where the service read the server clock, so the same history always
+  forecasts the same figures; and its movements are NOT merged with the `CashFlowEntry` label, which holds a
+  project appraisal year rather than a dated movement, so one label would have made each other's rows
+  meaningless.
+
+  Found while porting, and fixed for every port that reads a query: a page size or a filter sent as text -
+  which is how a query string arrives - silently kept its default, so `limit=5` answered with a hundred. One
+  set of query readers in `vimbai_store::query` now reads numbers and flags from text or numbers, and cashbook,
+  cash management and treasury management all use it instead of their own copies.
+
 ## Crate already has the maths, service not yet wired
 
 These are the cheapest ports left: the crate already holds the arithmetic, so the work is a

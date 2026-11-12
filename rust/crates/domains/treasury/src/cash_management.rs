@@ -198,11 +198,7 @@ pub fn list_transfers(
     scope: &BookScope,
     query: &Value,
 ) -> Result<Value, StoreError> {
-    let limit = query
-        .get("limit")
-        .and_then(Value::as_u64)
-        .unwrap_or(50)
-        .min(2000) as usize;
+    let limit = vimbai_store::query::query_page(query, 50, 2000);
     let mut all = Records::new(graph, CASH_TRANSFER).list(scope, 2000)?;
     all.sort_by(|one, two| field(two, "transfer_date").cmp(field(one, "transfer_date")));
     all.truncate(limit);
@@ -285,11 +281,7 @@ pub fn list_liquidity_positions(
     scope: &BookScope,
     query: &Value,
 ) -> Result<Value, StoreError> {
-    let limit = query
-        .get("limit")
-        .and_then(Value::as_u64)
-        .unwrap_or(30)
-        .min(2000) as usize;
+    let limit = vimbai_store::query::query_page(query, 30, 2000);
     let mut all = Records::new(graph, LIQUIDITY_POSITION).list(scope, 2000)?;
     all.sort_by(|one, two| field(two, "position_date").cmp(field(one, "position_date")));
     all.truncate(limit);

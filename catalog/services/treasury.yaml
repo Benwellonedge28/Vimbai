@@ -144,7 +144,7 @@ services:
   port: 8136
   gateway_path: /treasury-management
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

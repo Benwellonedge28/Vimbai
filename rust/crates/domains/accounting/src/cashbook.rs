@@ -128,7 +128,7 @@ pub fn list_accounts<G: Graph + ?Sized>(
 ) -> Result<Value, StoreError> {
     let kind = optional(query, "account_type");
     let currency = optional(query, "currency");
-    let active = query.get("is_active").and_then(Value::as_bool);
+    let active = vimbai_store::query::query_flag(query, "is_active");
     let rows = Records::new(graph, CASH_BANK_ACCOUNT).list(scope, 1000)?;
     let kept: Vec<Value> = rows
         .into_iter()
@@ -299,12 +299,8 @@ pub fn list_entries<G: Graph + ?Sized>(
     let status = optional(query, "status");
     let start = optional(query, "start_date");
     let end = optional(query, "end_date");
-    let reconciled = query.get("reconciled").and_then(Value::as_bool);
-    let limit = query
-        .get("limit")
-        .and_then(Value::as_i64)
-        .unwrap_or(100)
-        .max(0) as usize;
+    let reconciled = vimbai_store::query::query_flag(query, "reconciled");
+    let limit = vimbai_store::query::query_page(query, 100, 1000);
 
     let rows = Records::new(graph, CASH_ENTRY).list(scope, 1000)?;
     let mut kept: Vec<Value> = rows
@@ -665,11 +661,7 @@ pub fn list_cash_flow<G: Graph + ?Sized>(
     let category = optional(query, "category");
     let start = optional(query, "start_date");
     let end = optional(query, "end_date");
-    let limit = query
-        .get("limit")
-        .and_then(Value::as_i64)
-        .unwrap_or(100)
-        .max(0) as usize;
+    let limit = vimbai_store::query::query_page(query, 100, 1000);
 
     let mut kept: Vec<Value> = Records::new(graph, CASH_FLOW_ENTRY)
         .list(scope, 1000)?
@@ -1129,5 +1121,30 @@ mod tests {
         assert_eq!(history[0]["net_change"], json!("300.000000"));
         assert_eq!(history[0]["running_balance"], json!("300.000000"));
         assert_eq!(history[1]["running_balance"], json!("400.000000"));
+    }
+}
+
+#[cfg(test)]
+mod query_tests {
+    use super::*;
+    use vimbai_store::fake::FakeGraph;
+
+    /// A page size arrives as text over HTTP, and a filter does too; both used to fall back to their
+    /// defaults, so a caller asking for five entries was answered with a hundred.
+    #[test]
+    fn a_page_size_and_a_filter_read_from_a_query_string_are_honoured() {
+        let graph = FakeGraph::returning(vec![
+            json!({"id": "e-1", "reconciled": true, "amount": "10.000000"}),
+            json!({"id": "e-2", "reconciled": false, "amount": "20.000000"}),
+        ]);
+        let answered = list_entries(
+            &graph,
+            &BookScope::new("user-1", "book-1"),
+            &json!({"reconciled": "true", "limit": "1"}),
+        )
+        .expect("entries");
+        let rows = answered.as_array().expect("rows");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], json!("e-1"));
     }
 }

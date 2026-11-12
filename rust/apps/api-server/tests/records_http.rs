@@ -2291,3 +2291,40 @@ async fn a_liquidity_position_answers_over_http_with_its_ratio() {
     assert_eq!(body["total_cash"], json!("1000.000000"));
     assert_eq!(body["liquidity_ratio"], json!("2.00"));
 }
+
+#[tokio::test]
+async fn a_cash_forecast_answers_over_http_from_the_history_it_has() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "f-1", "company_id": "c-1", "flow_type": "inflow",
+                   "amount": "3000.000000", "date": "2026-03-01"}),
+            json!({"id": "f-2", "company_id": "c-1", "flow_type": "outflow",
+                   "amount": "1000.000000", "date": "2026-03-01"}),
+        ],
+        vec![json!({"id": "p-1", "company_id": "c-1", "available_cash": "500.000000"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/treasury-management/forecast/c-1?days=10&now=2026-03-11",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["projected_inflows"], json!("3000.00"));
+    assert_eq!(body["ending_position"], json!("2500.00"));
+}
+
+#[tokio::test]
+async fn investment_options_answer_over_http_without_touching_the_store() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/treasury-management/investment-options",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["options"].as_array().expect("options").len(), 4);
+}

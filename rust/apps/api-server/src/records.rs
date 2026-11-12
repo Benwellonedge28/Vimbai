@@ -31,7 +31,7 @@ use finance::insurance_claims;
 use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
-use treasury::{cash_management, cash_optimization, treasury_analytics};
+use treasury::{cash_management, cash_optimization, treasury_analytics, treasury_management};
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
 /// connections, so one handle serves every request.
@@ -762,6 +762,96 @@ async fn company_equity_statements(
         &scope,
         &company_id,
     ))
+}
+
+async fn record_treasury_flow(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_management::record_cashflow(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn company_treasury_flows(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_management::list_cashflows(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn company_cash_position(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_management::get_cash_position(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn set_company_cash_position(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_management::update_cash_position(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        &payload,
+    ))
+}
+
+async fn company_cash_forecast(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(treasury_management::cash_forecast(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn treasury_investment_options() -> Response {
+    answer(Ok(treasury_management::investment_options()))
 }
 
 async fn open_cash_account(
@@ -5044,6 +5134,43 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/records/equity-changes/statements/:company_id",
             get(company_equity_statements),
+        )
+        .route("/treasury-management/cashflows", post(record_treasury_flow))
+        .route(
+            "/treasury-management/cashflows/:company_id",
+            get(company_treasury_flows),
+        )
+        .route(
+            "/treasury-management/position/:company_id",
+            get(company_cash_position).put(set_company_cash_position),
+        )
+        .route(
+            "/treasury-management/forecast/:company_id",
+            post(company_cash_forecast),
+        )
+        .route(
+            "/treasury-management/investment-options",
+            get(treasury_investment_options),
+        )
+        .route(
+            "/records/treasury-management/cashflows",
+            post(record_treasury_flow),
+        )
+        .route(
+            "/records/treasury-management/cashflows/:company_id",
+            get(company_treasury_flows),
+        )
+        .route(
+            "/records/treasury-management/position/:company_id",
+            get(company_cash_position).put(set_company_cash_position),
+        )
+        .route(
+            "/records/treasury-management/forecast/:company_id",
+            post(company_cash_forecast),
+        )
+        .route(
+            "/records/treasury-management/investment-options",
+            get(treasury_investment_options),
         )
         .route(
             "/cash-management/accounts",

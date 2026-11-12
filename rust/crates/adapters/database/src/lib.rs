@@ -30,6 +30,7 @@ pub mod amounts;
 #[doc(hidden)]
 pub mod fake;
 pub mod neo4j_client;
+pub mod query;
 
 pub use neo4j_client::Neo4jGraph;
 
@@ -148,6 +149,16 @@ pub const LEASE_TERMINATION: RecordKind =
     RecordKind::new("LeaseTermination", "OWNS_LEASE_TERMINATION");
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
+
+/// treasury-management-service's records: a company's daily cash movements, and the position it reports.
+///
+/// Deliberately NOT merged with `CASH_FLOW_ENTRY`, which shares the `CashFlowEntry` name: that record is a
+/// project appraisal year (inflow, outflow, net) and this one is a dated movement with a direction, so one
+/// label would make each other's rows meaningless to the other's arithmetic.
+pub const TREASURY_CASH_FLOW: RecordKind =
+    RecordKind::new("TreasuryCashFlow", "OWNS_TREASURY_CASHFLOW");
+pub const TREASURY_CASH_POSITION: RecordKind =
+    RecordKind::new("TreasuryCashPosition", "OWNS_TREASURY_POSITION");
 
 /// The records cash-management-service owns: money moving between its own accounts, and the liquidity it
 /// measures. Its cash accounts are `CASH_ACCOUNT` above, which cash-optimization-service also uses: both

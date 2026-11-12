@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 50
-still Python             88
+already on a Rust engine 51
+still Python             87
 owner domains            28
 ```
 
@@ -472,7 +472,7 @@ petty-cash-service                              8097      20      yes  python
 sovereign-treasury-service                      8127       7      yes  python
 treasury-analytics-service                      8134       4      yes  rust
 treasury-compliance-service                     8135       5      yes  python
-treasury-management-service                     8136       7      yes  python
+treasury-management-service                     8136       7      yes  rust
 treasury-policy-service                         8263       8      yes  python
 treasury-reporting-service                      8262       7      yes  python
 treasury-risk-service                           8259      11      yes  python

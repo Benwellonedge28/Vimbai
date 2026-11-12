@@ -23,6 +23,9 @@ STORE_MODULES = {
     "amounts.rs",
     "fake.rs",
     "neo4j_client.rs",
+    # machinery, not a service: reading a value out of a query string, shared by every port that has
+    # to honour ?limit=5 or ?reconciled=true instead of silently keeping its default
+    "query.rs",
 }
 
 
@@ -52,11 +55,10 @@ def test_the_store_declares_no_service_module():
     with open(os.path.join(STORE, "lib.rs"), encoding="utf-8") as handle:
         text = handle.read()
     declared = set(re.findall(r"^pub mod (\w+);", text, re.MULTILINE))
-    assert declared <= {
-        "amounts",
-        "fake",
-        "neo4j_client",
-    }, f"the store still re-exports a domain module: {sorted(declared - {'amounts', 'fake', 'neo4j_client'})}"
+    machinery = {"amounts", "fake", "neo4j_client", "query"}
+    assert declared <= machinery, (
+        f"the store still re-exports a domain module: {sorted(declared - machinery)}"
+    )
 
 
 def test_every_rust_service_has_a_crate_to_live_in():

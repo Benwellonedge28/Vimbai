@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 50 are proven on a Rust engine. 87 are still Python-only.
+The gateway routes 137 services. 51 are proven on a Rust engine. 86 are still Python-only.
 
-Of the backlog, 22 own no records and can be ported as pure functions; 65 own records and
+Of the backlog, 22 own no records and can be ported as pure functions; 64 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-50 services.
+51 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -66,6 +66,7 @@ share-premium-service                          8125  routes=8   records=yes rust
 share-redemption-service                       8126  routes=8   records=yes rust http
 trading-account-service                        8000  routes=5   records=yes rust http
 treasury-analytics-service                     8134  routes=4   records=yes rust http
+treasury-management-service                    8136  routes=7   records=yes rust http
 ```
 
 ### Backlog: no records owned (port the maths only)
@@ -99,7 +100,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-65 services.
+64 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -121,7 +122,6 @@ subscription-plans-service                     8001  routes=7   records=yes none
 risk-assessment-service                        8117  routes=6   records=yes none
 audit-engagement-service                       8371  routes=8   records=yes none
 financial-integrity-service                    8054  routes=6   records=yes none
-treasury-management-service                    8136  routes=7   records=yes none
 benefits-admin-service                         8360  routes=8   records=yes none
 partnership-dissolution-service                8096  routes=5   records=yes none
 rolling-forecast-service                       8173  routes=7   records=yes none
