@@ -1842,3 +1842,125 @@ async fn a_company_report_needs_the_company_it_is_about() {
     .await;
     assert_eq!(status, StatusCode::OK);
 }
+
+#[tokio::test]
+async fn a_department_comes_with_its_cost_centre() {
+    let graph = Scripted::returning(vec![json!({"id": "d-1"})]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/departmental-accounting/departments",
+        Some(
+            json!({"department_code": "OPS", "department_name": "Operations",
+                    "department_type": "cost", "manager_id": "u-1",
+                    "manager_name": "Ana"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["department"]["department_code"], json!("OPS"));
+    assert_eq!(body["cost_centre"]["account_number"], json!("DEPT-OPS"));
+}
+
+#[tokio::test]
+async fn an_allocation_run_takes_its_pool_from_the_query() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "p-1", "pool_name": "Facilities", "total_amount": "100",
+                    "allocation_basis": "headcount", "allocation_method": "direct",
+                    "excluded_departments": []}),
+        ],
+        vec![json!({"id": "p-1"})],
+        vec![
+            json!({"id": "d-1", "department_code": "OPS", "department_name": "Ops",
+                    "status": "active"}),
+        ],
+        vec![json!({"id": "a-1"})],
+        vec![],
+        vec![json!({"id": "p-1", "status": "closed"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/departmental-accounting/allocate?cost_pool_id=p-1&period_start=2026-03-01T00:00:00Z",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["allocations"][0]["allocated_amount"],
+        json!("100.000000")
+    );
+    assert_eq!(body["total_allocated"], json!("100.000000"));
+}
+
+#[tokio::test]
+async fn a_second_allocation_run_replaces_the_first() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "p-1", "pool_name": "Facilities", "total_amount": "60",
+                    "allocation_basis": "headcount", "allocation_method": "direct",
+                    "excluded_departments": []}),
+        ],
+        vec![json!({"id": "p-1"})],
+        vec![
+            json!({"id": "d-1", "department_code": "OPS", "department_name": "Ops",
+                    "status": "active"}),
+        ],
+        vec![json!({"id": "a-2"})],
+        vec![json!({"id": "a-1", "cost_pool_id": "p-1"})],
+        vec![json!({"id": "a-1"})],
+        vec![json!({"id": "p-1", "status": "closed"})],
+    ]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/departmental-accounting/allocate?cost_pool_id=p-1",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (cypher, _) = seen.statement(5);
+    assert!(cypher.contains("DETACH DELETE"), "{cypher}");
+}
+
+#[tokio::test]
+async fn the_comparison_report_reads_the_same_on_both_shapes() {
+    let query = "period_start=2026-03-01T00:00:00Z&period_end=2026-03-31T00:00:00Z";
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "d-1", "department_name": "Ops"})],
+        vec![],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        &format!(
+            "/departmental-accounting/reports/department-comparison?{query}&department_ids=d-1"
+        ),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["departments"].as_array().expect("rows").len(), 1);
+}
+
+#[tokio::test]
+async fn a_department_financial_summary_reports_what_it_was_given() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "d-1", "department_name": "Ops"})],
+        vec![json!({"department_id": "d-1", "allocated_amount": "0.45"})],
+        vec![],
+        vec![json!({"id": "f-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/departmental-accounting/departments/d-1/financials?revenue=123456789012345678901.55&direct_expenses=0.45",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    // 123456789012345678901.55 - 0.45 - 0.45, with every digit of the revenue
+    assert_eq!(body["net_income"], json!("123456789012345678900.650000"));
+}

@@ -2,6 +2,7 @@
 //!
 //! Services here:
 //! * `cash-flow-statement-service`
+//! * `departmental-accounting-service` (departments, cost pools, allocation, inter-department bills)
 //! * `company-accounting-service` (companies, their register, capital, dividends, reserves, reports)
 //! * `cashbook-service` (cash accounts, their entries, bank reconciliations, cash flow and position)
 //! * `ifrs-reporting-service` (IFRS reports, their figures, and their disclosure notes)
@@ -26,6 +27,7 @@ pub mod cash_flow;
 pub mod cash_flow_schedule;
 pub mod cashbook;
 pub mod company_accounting;
+pub mod departments;
 pub mod fund_accounting;
 pub mod ifrs_reports;
 pub mod intercompany;
@@ -60,6 +62,13 @@ pub use company_accounting::{
     list_shareholders, pay_dividend, record_capital_transaction, record_retained_earnings,
     register_shareholder, reserves as company_reserves, retained_earnings, shareholder_register,
     update_company,
+};
+pub use departments::{
+    allocation_results, approve_inter_department_bill, compare_departments, cost_distribution,
+    create_allocation_rule, create_cost_pool, create_department, create_inter_department_bill,
+    deactivate_allocation_rule, department_financials, department_hierarchy, get_cost_pool,
+    get_department, list_allocation_rules, list_cost_pools, list_departments,
+    list_inter_department_bills, performance_report, run_allocation, update_department,
 };
 pub use fund_accounting::{
     create_fund, list_funds, list_transactions as list_fund_transactions,

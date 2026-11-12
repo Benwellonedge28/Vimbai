@@ -12,6 +12,17 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- departmental-accounting-service -> accounting crate, records on the store: departments and their
+  cost centres, allocation rules, cost pools, the allocation run, inter-department bills and their
+  approval, the department financial summary and performance report, and the comparison and
+  cost-distribution reports. Shapes kept as shipped and pinned: a pool's `included_departments` is never
+  consulted (every active department it does not exclude is a target); the headcount basis looks at no
+  figure at all and the expenses basis measures one department against a total made of that same
+  department, so both land on an equal share; the revenue basis takes its figures from what the caller
+  supplies; a second run of a pool replaces the first and closes it; the budget variance is budget less
+  revenue, not less spending; and approving a bill returns its journal entry rather than posting it.
+  Revenue, direct expenses and budget totals used to come from other services over HTTP and are now
+  supplied by the caller, absent meaning zero.
 - company-accounting-service -> accounting crate, records on the store: companies and the four equity
   accounts each one needs, the shareholder register, share capital, capital transactions, dividends and
   their per-shareholder payments, retained earnings, reserves, and the three reports (equity statement,

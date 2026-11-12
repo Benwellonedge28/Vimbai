@@ -157,7 +157,7 @@ services:
   port: 8100
   gateway_path: /departmental-accounting
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

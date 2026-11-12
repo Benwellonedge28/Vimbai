@@ -17,7 +17,7 @@ use axum::{
     extract::{Path, RawQuery, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use budgeting_services::appropriation_control;
@@ -1770,6 +1770,353 @@ async fn crr_requirements(
         status.as_deref(),
     ))
 }
+async fn create_department(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_department(graph.as_ref(), &scope, &body))
+}
+
+async fn list_departments(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_departments(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn get_department(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::get_department(graph.as_ref(), &scope, &item_id))
+}
+
+async fn update_department(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::update_department(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+        &body,
+    ))
+}
+
+async fn department_hierarchy(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::department_hierarchy(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+    ))
+}
+
+async fn create_allocation_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_allocation_rule(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_allocation_rules(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_allocation_rules(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn create_cost_pool(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_cost_pool(graph.as_ref(), &scope, &body))
+}
+
+async fn list_cost_pools(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_cost_pools(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn get_cost_pool(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::get_cost_pool(graph.as_ref(), &scope, &item_id))
+}
+
+async fn allocation_results(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::allocation_results(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+    ))
+}
+
+async fn create_inter_department_bill(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_inter_department_bill(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_inter_department_bills(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_inter_department_bills(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn deactivate_allocation_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::deactivate_allocation_rule(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+    ))
+}
+
+async fn run_allocation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    // the pool and its period arrive as query parameters, the revenues as a body
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(accounting::run_allocation(graph.as_ref(), &scope, &body))
+}
+
+async fn approve_inter_department_bill(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(accounting::approve_inter_department_bill(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+        &body,
+    ))
+}
+
+async fn department_financials(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::department_financials(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+        &filters,
+    ))
+}
+
+async fn performance_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::performance_report(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+        &filters,
+    ))
+}
+
+async fn compare_departments(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    // the GET alias takes its department list in a body as well as in the query
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(accounting::compare_departments(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn cost_distribution(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::cost_distribution(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
 async fn create_company(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -4887,6 +5234,71 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route("/departmental-accounting/departments", post(create_department))
+        .route("/departmental-accounting/departments", get(list_departments))
+        .route(
+            "/departmental-accounting/departments/:department_id",
+            get(get_department),
+        )
+        .route(
+            "/departmental-accounting/departments/:department_id",
+            put(update_department),
+        )
+        .route(
+            "/departmental-accounting/departments/:department_id/hierarchy",
+            get(department_hierarchy),
+        )
+        .route(
+            "/departmental-accounting/departments/:department_id/financials",
+            get(department_financials),
+        )
+        .route(
+            "/departmental-accounting/departments/:department_id/performance-report",
+            get(performance_report),
+        )
+        .route(
+            "/departmental-accounting/allocation-rules",
+            post(create_allocation_rule),
+        )
+        .route(
+            "/departmental-accounting/allocation-rules",
+            get(list_allocation_rules),
+        )
+        .route(
+            "/departmental-accounting/allocation-rules/:rule_id",
+            delete(deactivate_allocation_rule),
+        )
+        .route("/departmental-accounting/cost-pools", post(create_cost_pool))
+        .route("/departmental-accounting/cost-pools", get(list_cost_pools))
+        .route(
+            "/departmental-accounting/cost-pools/:pool_id",
+            get(get_cost_pool),
+        )
+        .route("/departmental-accounting/allocate", post(run_allocation))
+        .route(
+            "/departmental-accounting/allocations/:pool_id",
+            get(allocation_results),
+        )
+        .route(
+            "/departmental-accounting/inter-department-bills",
+            post(create_inter_department_bill),
+        )
+        .route(
+            "/departmental-accounting/inter-department-bills",
+            get(list_inter_department_bills),
+        )
+        .route(
+            "/departmental-accounting/inter-department-bills/:bill_id/approve",
+            post(approve_inter_department_bill),
+        )
+        .route(
+            "/departmental-accounting/reports/department-comparison",
+            get(compare_departments).post(compare_departments),
+        )
+        .route(
+            "/departmental-accounting/reports/cost-distribution",
+            get(cost_distribution),
+        )
         .route("/company-accounting/companies", post(create_company))
         .route("/company-accounting/companies", get(list_companies))
         .route("/company-accounting/companies/:company_id", get(get_company))
@@ -5140,6 +5552,71 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(share_redemption_detail),
         )
         .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route("/records/departmental-accounting/departments", post(create_department))
+        .route("/records/departmental-accounting/departments", get(list_departments))
+        .route(
+            "/records/departmental-accounting/departments/:department_id",
+            get(get_department),
+        )
+        .route(
+            "/records/departmental-accounting/departments/:department_id",
+            put(update_department),
+        )
+        .route(
+            "/records/departmental-accounting/departments/:department_id/hierarchy",
+            get(department_hierarchy),
+        )
+        .route(
+            "/records/departmental-accounting/departments/:department_id/financials",
+            get(department_financials),
+        )
+        .route(
+            "/records/departmental-accounting/departments/:department_id/performance-report",
+            get(performance_report),
+        )
+        .route(
+            "/records/departmental-accounting/allocation-rules",
+            post(create_allocation_rule),
+        )
+        .route(
+            "/records/departmental-accounting/allocation-rules",
+            get(list_allocation_rules),
+        )
+        .route(
+            "/records/departmental-accounting/allocation-rules/:rule_id",
+            delete(deactivate_allocation_rule),
+        )
+        .route("/records/departmental-accounting/cost-pools", post(create_cost_pool))
+        .route("/records/departmental-accounting/cost-pools", get(list_cost_pools))
+        .route(
+            "/records/departmental-accounting/cost-pools/:pool_id",
+            get(get_cost_pool),
+        )
+        .route("/records/departmental-accounting/allocate", post(run_allocation))
+        .route(
+            "/records/departmental-accounting/allocations/:pool_id",
+            get(allocation_results),
+        )
+        .route(
+            "/records/departmental-accounting/inter-department-bills",
+            post(create_inter_department_bill),
+        )
+        .route(
+            "/records/departmental-accounting/inter-department-bills",
+            get(list_inter_department_bills),
+        )
+        .route(
+            "/records/departmental-accounting/inter-department-bills/:bill_id/approve",
+            post(approve_inter_department_bill),
+        )
+        .route(
+            "/records/departmental-accounting/reports/department-comparison",
+            get(compare_departments).post(compare_departments),
+        )
+        .route(
+            "/records/departmental-accounting/reports/cost-distribution",
+            get(cost_distribution),
+        )
         .route("/records/company-accounting/companies", post(create_company))
         .route("/records/company-accounting/companies", get(list_companies))
         .route("/records/company-accounting/companies/:company_id", get(get_company))

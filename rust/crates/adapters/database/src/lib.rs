@@ -149,6 +149,19 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records departmental-accounting-service owns.
+pub const DEPARTMENT: RecordKind = RecordKind::new("Department", "OWNS_DEPARTMENT");
+pub const DEPARTMENT_ALLOCATION_RULE: RecordKind =
+    RecordKind::new("DepartmentAllocationRule", "OWNS_DEPT_ALLOCATION_RULE");
+pub const DEPARTMENT_COST_POOL: RecordKind =
+    RecordKind::new("DepartmentCostPool", "OWNS_DEPT_COST_POOL");
+pub const DEPARTMENT_ALLOCATION: RecordKind =
+    RecordKind::new("DepartmentAllocation", "OWNS_DEPT_ALLOCATION");
+pub const INTER_DEPARTMENT_BILL: RecordKind =
+    RecordKind::new("InterDepartmentBill", "OWNS_INTER_DEPT_BILL");
+pub const DEPARTMENT_FINANCIALS: RecordKind =
+    RecordKind::new("DepartmentFinancials", "OWNS_DEPT_FINANCIALS");
+
 /// The records company-accounting-service owns.
 pub const COMPANY: RecordKind = RecordKind::new("Company", "OWNS_COMPANY");
 pub const COMPANY_SHARE_CAPITAL: RecordKind =
