@@ -12,6 +12,16 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- cashbook-service -> accounting crate, records on the store: cash accounts (a code used once per
+  Book), entries that move the account balance as they are written, posting and voiding, the account
+  summary, bank reconciliations including the outstanding items, cash-flow entries with their summary,
+  and the cash position with its history. Shapes kept as shipped and pinned: a new account opens at its
+  opening balance and ignores any balance sent with it; an entry is always stored unreconciled; the
+  summary's totals and closing balance count posted entries only while its transaction count covers
+  every entry; posting and voiding do not check the entry's current state, so a voided entry can be
+  posted and a second void reverses the balance again; the cash-flow summary's variance is expected
+  minus actual while its net change is actual minus expected; and the position history runs from zero
+  rather than from any opening balance.
 - ifrs-reporting-service -> accounting crate, records on the store: reports limited to the five kinds,
   the filtered listing, the payload kept as given, disclosure notes, and approval. Adding a note also
   appends its number and title to the report's own disclosure index, so the report carries its notes;

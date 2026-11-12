@@ -79,6 +79,15 @@ fn answer(result: Result<Value, StoreError>) -> Response {
     }
 }
 
+/// Every query parameter as an object of strings, for the services whose listings take several.
+fn query_object(query: Option<&str>) -> Value {
+    let mut object = serde_json::Map::new();
+    for (key, value) in url::form_urlencoded::parse(query.unwrap_or("").as_bytes()) {
+        object.insert(key.into_owned(), json!(value.into_owned()));
+    }
+    Value::Object(object)
+}
+
 fn query_param(query: Option<&str>, name: &str) -> Option<String> {
     url::form_urlencoded::parse(query.unwrap_or("").as_bytes())
         .find(|(key, _)| key == name)
@@ -1752,6 +1761,352 @@ async fn crr_requirements(
         status.as_deref(),
     ))
 }
+async fn create_cash_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_cash_account(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_cash_accounts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_cash_accounts(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn get_cash_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::get_cash_account(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+    ))
+}
+
+async fn update_cash_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::update_cash_account(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+        &body,
+    ))
+}
+
+async fn create_cash_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_cash_entry(graph.as_ref(), &scope, &body))
+}
+
+async fn list_cash_entries(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_cash_entries(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn get_cash_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::get_cash_entry(graph.as_ref(), &scope, &item_id))
+}
+
+async fn post_cash_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::post_cash_entry(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+        &body,
+    ))
+}
+
+async fn void_cash_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::void_cash_entry(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+        &body,
+    ))
+}
+
+async fn cashbook_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::cashbook_summary(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+        &filters,
+    ))
+}
+
+async fn create_cash_reconciliation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_cash_reconciliation(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_cash_reconciliations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_cash_reconciliations(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn get_cash_reconciliation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::get_cash_reconciliation(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+    ))
+}
+
+async fn complete_reconciliation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::complete_reconciliation(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+        &body,
+    ))
+}
+
+async fn cash_reconciliation_outstanding(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(accounting::cash_reconciliation_outstanding(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+    ))
+}
+
+async fn create_cash_flow_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(accounting::create_cash_flow_entry(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_cash_flow(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::list_cash_flow(graph.as_ref(), &scope, &filters))
+}
+
+async fn cash_flow_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::cash_flow_summary(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
+async fn cash_position(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::cash_position(graph.as_ref(), &scope, &filters))
+}
+
+async fn cash_position_history(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let filters = query_object(query.as_deref());
+    answer(accounting::cash_position_history(
+        graph.as_ref(),
+        &scope,
+        &filters,
+    ))
+}
+
 async fn create_ifrs_report(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -4157,6 +4512,44 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route("/cashbook/accounts", post(create_cash_account))
+        .route("/cashbook/accounts", get(list_cash_accounts))
+        .route("/cashbook/accounts/:account_id", get(get_cash_account))
+        .route("/cashbook/accounts/:account_id", put(update_cash_account))
+        .route("/cashbook/entries", post(create_cash_entry))
+        .route("/cashbook/entries", get(list_cash_entries))
+        .route("/cashbook/entries/:entry_id", get(get_cash_entry))
+        .route("/cashbook/entries/:entry_id/post", put(post_cash_entry))
+        .route("/cashbook/entries/:entry_id/void", put(void_cash_entry))
+        .route(
+            "/cashbook/summary/:account_code",
+            get(cashbook_summary),
+        )
+        .route(
+            "/cashbook/reconciliations",
+            post(create_cash_reconciliation),
+        )
+        .route(
+            "/cashbook/reconciliations",
+            get(list_cash_reconciliations),
+        )
+        .route(
+            "/cashbook/reconciliations/:reconciliation_id",
+            get(get_cash_reconciliation),
+        )
+        .route(
+            "/cashbook/reconciliations/:reconciliation_id/complete",
+            put(complete_reconciliation),
+        )
+        .route(
+            "/cashbook/reconciliations/:reconciliation_id/outstanding",
+            get(cash_reconciliation_outstanding),
+        )
+        .route("/cashbook/cash-flow", post(create_cash_flow_entry))
+        .route("/cashbook/cash-flow", get(list_cash_flow))
+        .route("/cashbook/cash-flow/summary", get(cash_flow_summary))
+        .route("/cashbook/cash-position", get(cash_position))
+        .route("/cashbook/cash-position/history", get(cash_position_history))
         .route("/ifrs-reporting/reports", post(create_ifrs_report))
         .route("/ifrs-reporting/reports", get(list_ifrs_reports))
         .route("/ifrs-reporting/reports/:report_id", get(get_ifrs_report))
@@ -4321,6 +4714,44 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(share_redemption_detail),
         )
         .route("/share-redemption/crr-requirements", get(crr_requirements))
+        .route("/records/cashbook/accounts", post(create_cash_account))
+        .route("/records/cashbook/accounts", get(list_cash_accounts))
+        .route("/records/cashbook/accounts/:account_id", get(get_cash_account))
+        .route("/records/cashbook/accounts/:account_id", put(update_cash_account))
+        .route("/records/cashbook/entries", post(create_cash_entry))
+        .route("/records/cashbook/entries", get(list_cash_entries))
+        .route("/records/cashbook/entries/:entry_id", get(get_cash_entry))
+        .route("/records/cashbook/entries/:entry_id/post", put(post_cash_entry))
+        .route("/records/cashbook/entries/:entry_id/void", put(void_cash_entry))
+        .route(
+            "/records/cashbook/summary/:account_code",
+            get(cashbook_summary),
+        )
+        .route(
+            "/records/cashbook/reconciliations",
+            post(create_cash_reconciliation),
+        )
+        .route(
+            "/records/cashbook/reconciliations",
+            get(list_cash_reconciliations),
+        )
+        .route(
+            "/records/cashbook/reconciliations/:reconciliation_id",
+            get(get_cash_reconciliation),
+        )
+        .route(
+            "/records/cashbook/reconciliations/:reconciliation_id/complete",
+            put(complete_reconciliation),
+        )
+        .route(
+            "/records/cashbook/reconciliations/:reconciliation_id/outstanding",
+            get(cash_reconciliation_outstanding),
+        )
+        .route("/records/cashbook/cash-flow", post(create_cash_flow_entry))
+        .route("/records/cashbook/cash-flow", get(list_cash_flow))
+        .route("/records/cashbook/cash-flow/summary", get(cash_flow_summary))
+        .route("/records/cashbook/cash-position", get(cash_position))
+        .route("/records/cashbook/cash-position/history", get(cash_position_history))
         .route("/records/ifrs-reporting/reports", post(create_ifrs_report))
         .route("/records/ifrs-reporting/reports", get(list_ifrs_reports))
         .route("/records/ifrs-reporting/reports/:report_id", get(get_ifrs_report))

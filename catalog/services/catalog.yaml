@@ -632,7 +632,7 @@ services:
   port: 8098
   gateway_path: /cashbook
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

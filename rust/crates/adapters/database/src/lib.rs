@@ -149,6 +149,13 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records cashbook-service owns.
+pub const CASH_BANK_ACCOUNT: RecordKind = RecordKind::new("CashBankAccount", "OWNS_CASH_ACCOUNT");
+pub const CASH_ENTRY: RecordKind = RecordKind::new("CashBookEntry", "OWNS_CASH_ENTRY");
+pub const CASH_RECONCILIATION: RecordKind =
+    RecordKind::new("CashBookReconciliation", "OWNS_CASH_RECON");
+pub const CASH_FLOW_ENTRY: RecordKind = RecordKind::new("CashFlowEntry", "OWNS_CASH_FLOW");
+
 /// The records ifrs-reporting-service owns.
 pub const IFRS_REPORT: RecordKind = RecordKind::new("IfrsReport", "OWNS_IFRS_REPORT");
 pub const DISCLOSURE_NOTE: RecordKind = RecordKind::new("DisclosureNote", "OWNS_DISCLOSURE_NOTE");

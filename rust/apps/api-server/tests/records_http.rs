@@ -1678,3 +1678,78 @@ async fn a_published_ifrs_report_cannot_be_approved_again() {
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
+
+#[tokio::test]
+async fn a_cash_entry_moves_the_account_it_is_written_against() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "acc-1", "account_code": "1000", "account_type": "bank",
+                    "currency": "USD", "opening_balance": "500", "current_balance": "500",
+                    "is_active": true}),
+        ],
+        vec![json!({"id": "acc-1"})],
+        vec![json!({"id": "e-1"})],
+    ]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/cashbook/entries",
+        Some(
+            json!({"book_type": "receipts", "entry_date": "2026-03-01T10:00:00Z",
+                    "voucher_number": "R1", "description": "Sale", "account_code": "4000",
+                    "amount": "123456789012345678901.55", "is_debit": true,
+                    "bank_account": "1000", "posted_by": "clerk"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, patch) = seen.statement(1);
+    assert_eq!(
+        patch["patch"]["current_balance"],
+        json!("123456789012345679401.550000")
+    );
+}
+
+#[tokio::test]
+async fn the_cashbook_summary_is_reachable_on_the_published_path() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "acc-1", "account_code": "1000", "account_name": "Current",
+                    "account_type": "bank", "currency": "USD", "opening_balance": "100",
+                    "current_balance": "100", "is_active": true}),
+        ],
+        vec![
+            json!({"bank_account": "1000", "base_amount": "500", "is_debit": true,
+                    "status": "posted", "entry_date": "2026-03-01T09:00:00Z",
+                    "reconciled": false}),
+        ],
+    ]);
+    let (status, body) = call_with(graph, "GET", "/cashbook/summary/1000", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["closing_balance"], json!("600.000000"));
+    assert_eq!(body["transaction_count"], json!(1));
+}
+
+#[tokio::test]
+async fn an_unknown_cashbook_account_has_no_summary() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, _) = call_with(graph, "GET", "/cashbook/summary/9999", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn the_cash_position_adds_up_every_account() {
+    let graph = Scripted::returning(vec![
+        json!({"id": "acc-1", "account_code": "1000", "account_name": "Current",
+               "account_type": "bank", "currency": "USD", "opening_balance": "0",
+               "current_balance": "1000.55", "is_active": true}),
+        json!({"id": "acc-2", "account_code": "1010", "account_name": "Petty",
+               "account_type": "cash", "currency": "USD", "opening_balance": "0",
+               "current_balance": "20", "is_active": true}),
+    ]);
+    let (status, body) = call_with(graph, "GET", "/cashbook/cash-position", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_bank"], json!("1000.550000"));
+    assert_eq!(body["by_currency"]["USD"], json!("1020.550000"));
+}

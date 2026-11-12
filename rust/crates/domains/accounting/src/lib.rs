@@ -2,6 +2,7 @@
 //!
 //! Services here:
 //! * `cash-flow-statement-service`
+//! * `cashbook-service` (cash accounts, their entries, bank reconciliations, cash flow and position)
 //! * `ifrs-reporting-service` (IFRS reports, their figures, and their disclosure notes)
 //! * `intercompany-service` (group entities, the transactions between them, and their eliminations)
 //! * `cash-flow-service` (a project's yearly flows, kept, with the standalone flow calculators)
@@ -22,6 +23,7 @@
 pub mod balance_sheet;
 pub mod cash_flow;
 pub mod cash_flow_schedule;
+pub mod cashbook;
 pub mod fund_accounting;
 pub mod ifrs_reports;
 pub mod intercompany;
@@ -36,6 +38,18 @@ pub use cash_flow_schedule::{
     build_entries as build_cash_flow_entries, create as create_cash_flow_schedule,
     cumulative_flows, get as get_cash_flow_schedule, list as list_cash_flow_schedules, net_flows,
     pair as pair_flows, total_of as cash_flow_total,
+};
+pub use cashbook::{
+    cash_flow_summary, cash_position, cash_position_history, complete_reconciliation,
+    create_account as create_cash_account, create_cash_flow_entry,
+    create_entry as create_cash_entry, create_reconciliation as create_cash_reconciliation,
+    get_account as get_cash_account, get_entry as get_cash_entry,
+    get_reconciliation as get_cash_reconciliation, list_accounts as list_cash_accounts,
+    list_cash_flow, list_entries as list_cash_entries,
+    list_reconciliations as list_cash_reconciliations,
+    outstanding_items as cash_reconciliation_outstanding, post_entry as post_cash_entry,
+    summary as cashbook_summary, update_account as update_cash_account,
+    void_entry as void_cash_entry,
 };
 pub use fund_accounting::{
     create_fund, list_funds, list_transactions as list_fund_transactions,
