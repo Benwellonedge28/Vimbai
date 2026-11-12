@@ -1,0 +1,250 @@
+openapi: 3.1.0
+info:
+  title: Vimbai cash flow statement
+  version: "1.0.0"
+  summary: A statement of the cash that moved, and the five figures that have to tie out.
+  description: |
+    The fourth contract, from the accounting crate. It is the first one that describes a ledger record
+    rather than a calculation: a statement is created and read, never edited, so there is no update
+    path to describe and no way for a client to post one that disagrees with itself.
+
+    The totals are not the caller's to state. `net_operating`, `net_investing`, `net_financing`,
+    `net_change` and `ending_cash` are derived from the lines the caller sent, inside the service, in
+    exact arithmetic. A client that sends lines summing to something other than it expected gets the
+    sum of its lines back, not its own figure.
+
+    The two read operations differ in a way that matters to a caller: `latest` is a miss when there
+    are no statements, while `history` answers an empty list with a count of zero.
+servers:
+  - url: https://api.vimbai.example
+security:
+  - BookScope: []
+paths:
+  /cash-flow-statement/generate:
+    post:
+      operationId: generateCashFlowStatement
+      summary: Compute the totals from the lines and store the statement.
+      description: |
+        `company_id` is required; a statement with no company belongs to nobody. A line without an
+        amount is refused rather than read as zero, because a zero line in a cash flow statement is a
+        claim about the period.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatementRequest"
+      responses:
+        "200":
+          description: The statement as computed and stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Statement"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /cash-flow-statement/latest/{company_id}:
+    get:
+      operationId: latestCashFlowStatement
+      summary: The most recent statement, or a miss when there is none.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: company_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The most recent statement.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Statement"
+        "404":
+          description: No statement for this company in this Book.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /cash-flow-statement/history/{company_id}:
+    get:
+      operationId: cashFlowHistory
+      summary: Every statement for the company, oldest first.
+      parameters:
+        - $ref: "#/components/parameters/BookId"
+        - name: company_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The statements and their count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatementHistory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+components:
+  securitySchemes:
+    BookScope:
+      type: apiKey
+      in: header
+      name: X-User-Id
+      description: |
+        The caller. `X-Book-Id` is required alongside it and is a parameter on every operation,
+        because the platform cannot express two required api key headers as one scheme.
+  parameters:
+    BookId:
+      name: X-Book-Id
+      in: header
+      required: true
+      schema:
+        type: string
+  schemas:
+    Money:
+      type: string
+      pattern: "^-?[0-9]+(\\.[0-9]+)?$"
+      description: |
+        An exact decimal amount, as a string, at the six decimal places the store keeps.
+    ActivityLine:
+      type: object
+      required:
+        - description
+        - amount
+        - is_inflow
+      properties:
+        description:
+          type: string
+        amount:
+          $ref: "#/components/schemas/Money"
+          description: The size of the movement. Its direction is `is_inflow`, not its sign.
+        is_inflow:
+          type: boolean
+          description: |
+            True when cash came in. The amount is the size of the movement, so an outflow of 500 is
+            `amount: "500"` with `is_inflow: false`, not a negative amount. A missing value reads as
+            an inflow.
+    StatementRequest:
+      type: object
+      required:
+        - company_id
+      properties:
+        company_id:
+          type: string
+        method:
+          type: string
+          default: direct
+          description: Which presentation the statement is in, for example `direct` or `indirect`.
+        period_start:
+          type: string
+        period_end:
+          type: string
+        beginning_cash:
+          $ref: "#/components/schemas/Money"
+          description: What the period opened with. Defaults to zero.
+        operating_activities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLine"
+        investing_activities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLine"
+        financing_activities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLine"
+        created_at:
+          type: string
+    Statement:
+      type: object
+      required:
+        - id
+        - company_id
+        - method
+        - period_start
+        - period_end
+        - operating_activities
+        - investing_activities
+        - financing_activities
+        - net_operating
+        - net_investing
+        - net_financing
+        - net_change
+        - beginning_cash
+        - ending_cash
+        - created_at
+      properties:
+        id:
+          type: string
+        company_id:
+          type: string
+        method:
+          type: string
+        period_start:
+          type: string
+        period_end:
+          type: string
+        operating_activities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLine"
+        investing_activities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLine"
+        financing_activities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityLine"
+        net_operating:
+          $ref: "#/components/schemas/Money"
+        net_investing:
+          $ref: "#/components/schemas/Money"
+        net_financing:
+          $ref: "#/components/schemas/Money"
+        net_change:
+          $ref: "#/components/schemas/Money"
+          description: The three nets added, exactly.
+        beginning_cash:
+          $ref: "#/components/schemas/Money"
+        ending_cash:
+          $ref: "#/components/schemas/Money"
+          description: Beginning cash plus the change, so a client never has to add it up itself.
+        created_at:
+          type: string
+    StatementHistory:
+      type: object
+      required:
+        - company_id
+        - statements
+        - total
+      properties:
+        company_id:
+          type: string
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/Statement"
+        total:
+          type: integer
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+  responses:
+    BadRequest:
+      description: |
+        Refused: a missing `company_id`/`amount`, an amount that is not a decimal, or a missing header.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

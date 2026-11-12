@@ -35,6 +35,10 @@ SERVICES = {
         "prefix": "/job-costing",
         "handler": os.path.join(COSTING, "job_costing.rs"),
     },
+    "accounting.yaml": {
+        "prefix": "/cash-flow-statement",
+        "handler": os.path.join(ROOT, "rust", "crates", "domains", "accounting", "src", "cash_flow.rs"),
+    },
     "treasury.yaml": {
         "prefix": "/cash-optimization",
         "handler": os.path.join(ROOT, "rust", "crates", "domains", "treasury", "src", "cash_optimization.rs"),
@@ -206,12 +210,8 @@ def test_the_wire_answers_the_exact_string_the_contracts_promise():
         text = handle.read()
     start = text.index("pub fn wire")
     body = text[start : start + 600]
-    assert "to_fixed(6)" in body, (
-        "wire no longer answers the exact string the contracts and MONEY.md promise"
-    )
-    assert "to_f64_lossy" not in body, (
-        "wire converts to a double on the way out, which loses the digits the store kept"
-    )
+    assert "to_fixed(6)" in body, "wire no longer answers the exact string the contracts and MONEY.md promise"
+    assert "to_f64_lossy" not in body, "wire converts to a double on the way out, which loses the digits the store kept"
 
 
 def test_every_contract_states_the_same_money_rule():
@@ -350,3 +350,31 @@ def test_a_cash_account_summary_keeps_the_three_fields_it_always_answered_with()
     assert set(summary["properties"]) == {"id", "account_name", "balance"}
     written = body_keys(SERVICES["treasury.yaml"]["handler"], "fn add_account")
     assert {"id", "account_name", "balance"} <= written
+
+
+@pytest.mark.parametrize(
+    "schema_name,function",
+    [
+        ("Statement", "fn statement_of"),
+        ("StatementHistory", "fn history"),
+        ("ActivityLine", "fn normalise_line"),
+    ],
+)
+def test_each_cash_flow_answer_matches_its_written_keys(schema_name, function):
+    """A statement is built in one place and read back through it, so the keys are read there."""
+    document = load("accounting.yaml")
+    promised = set(properties(document, document["components"]["schemas"][schema_name]))
+    written = body_keys(SERVICES["accounting.yaml"]["handler"], function)
+    assert (
+        promised <= written
+    ), f"{schema_name} promises fields {sorted(promised - written)} that {function} never writes"
+
+
+def test_a_statement_states_its_totals_and_promises_them_all():
+    """The five derived figures are what a reader checks first, so the contract requires each one."""
+    document = load("accounting.yaml")
+    statement = document["components"]["schemas"]["Statement"]
+    derived = {"net_operating", "net_investing", "net_financing", "net_change", "ending_cash"}
+    assert derived <= required(
+        document, statement
+    ), f"the Statement schema stopped requiring: {sorted(derived - required(document, statement))}"

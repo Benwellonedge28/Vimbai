@@ -13,7 +13,16 @@ authoritative while being wrong. So the loop is proven on one service first.
 scope. `job-costing.yaml` covers a different shape - path parameters, a query filter, a running total
 that moves when a cost is charged, and an aggregate that sums several jobs. `treasury.yaml` covers cash
 optimisation, the first contract from a second crate, where an operation replaces a stored set rather
-than adding to it. All three were written from their Rust handlers, not from the route table.
+than adding to it. `accounting.yaml` covers the cash flow statement: a ledger record, created and read
+but never edited, whose totals the service derives rather than accepts. All four were written from
+their Rust handlers, not from the route table.
+
+The cash flow contract caught the wire being lossy. Reading how an amount reaches a client showed
+`wire()` publishing a JSON number where `rust/MONEY.md` promised a string, so every figure was
+rounded on the way out while the graph held it exactly - and all three earlier contracts had promised
+the string, because each contract test compared the contract only to itself. `wire` now publishes
+`to_fixed(6)`, and `test_the_wire_answers_the_exact_string_the_contracts_promise` reads that function
+so the contracts and the wire have to agree.
 
 The treasury contract settled where a rate sits. An interest rate is money, because the service
 multiplies it into an amount, so it travels as an exact string; a margin is a ratio for reading, so it
@@ -59,7 +68,8 @@ rate = client.calculate_absorption_rate(
 
 ## What comes next
 
-1. A fourth contract from a fourth crate: `accounting` (cash flow statement) or `equity`.
+1. A fifth contract from a fifth crate: `equity` (equity changes) or `budgeting` (appropriation
+   control).
 2. Then the sibling services that share a shape with a contract already written, which is where
    starting from an existing contract begins to pay off.
 3. Events in `contracts/events/`, once something publishes them.
