@@ -12,6 +12,13 @@ routes; they are listed here too, because the Python service is no longer the en
 
 ## Wired to the Rust library
 
+- share-premium-service -> equity crate, records on the store: premium entries computing (price less
+  nominal) times shares, utilizations on four kinds, signed adjustments, and a balance of received less
+  used plus adjusted. An issue below nominal records a negative premium rather than refusing.
+- capital-redemption-reserve-service -> equity crate, records on the store: redemptions creating the
+  reserve as proceeds less nominal (preference debits 3205, everything else 3200), manually created
+  reserves from a capital reduction, utilizations, and a summary counting creations and redemptions as
+  one figure.
 - general-reserve-service -> equity crate, records on the store: reserves with their allocations and
   utilizations, the balance the single figure they share. A utilization past the balance is refused;
   a minimum or target balance is recorded and never enforced, as the service did.

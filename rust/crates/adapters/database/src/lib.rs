@@ -149,6 +149,20 @@ pub const LEASE_TERMINATION: RecordKind =
 pub const TERMINATION_SETTLEMENT: RecordKind =
     RecordKind::new("TerminationSettlement", "OWNS_TERMINATION_SETTLEMENT");
 
+/// The records capital-redemption-reserve-service owns.
+pub const REDEMPTION_TRANSACTION: RecordKind =
+    RecordKind::new("RedemptionTransaction", "OWNS_REDEMPTION");
+pub const CRR_CREATION: RecordKind = RecordKind::new("CRRCreation", "OWNS_CRR_CREATION");
+pub const CRR_UTILIZATION: RecordKind = RecordKind::new("CRRUtilization", "OWNS_CRR_UTILIZATION");
+
+/// The records share-premium-service owns.
+pub const SHARE_PREMIUM_ENTRY: RecordKind =
+    RecordKind::new("SharePremiumEntryNode", "OWNS_SHARE_PREMIUM_ENTRY");
+pub const PREMIUM_UTILIZATION: RecordKind =
+    RecordKind::new("PremiumUtilizationNode", "OWNS_PREMIUM_UTILIZATION");
+pub const PREMIUM_ADJUSTMENT: RecordKind =
+    RecordKind::new("PremiumAdjustmentNode", "OWNS_PREMIUM_ADJUSTMENT");
+
 /// The records retained-profits-service owns.
 pub const PROFIT_APPROPRIATION: RecordKind =
     RecordKind::new("ProfitAppropriation", "OWNS_APPROPRIATION");

@@ -552,7 +552,7 @@ services:
   port: 8027
   gateway_path: /capital-redemption-reserve
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -2124,7 +2124,7 @@ services:
   port: 8125
   gateway_path: /share-premium
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health

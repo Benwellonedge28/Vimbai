@@ -1422,6 +1422,221 @@ fn overlay(query: Value, body: Option<Value>) -> Value {
     Value::Object(merged)
 }
 
+async fn record_share_premium(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::record_share_premium(graph.as_ref(), &scope, &body))
+}
+
+async fn utilize_share_premium(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::utilize_premium(graph.as_ref(), &scope, &body))
+}
+
+async fn adjust_share_premium(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::adjust_premium(graph.as_ref(), &scope, &body))
+}
+
+fn company_filter(query: Option<&str>) -> Option<String> {
+    query_param(query, "company_id")
+}
+
+async fn share_premium_entries(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = company_filter(query.as_deref());
+    answer(equity::list_premium_entries(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn share_premium_utilizations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = company_filter(query.as_deref());
+    answer(equity::list_premium_utilizations(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn share_premium_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::premium_summary(graph.as_ref(), &scope, &company_id))
+}
+
+async fn record_redemption(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::record_redemption(graph.as_ref(), &scope, &body))
+}
+
+async fn create_crr(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::create_crr(graph.as_ref(), &scope, &body))
+}
+
+async fn utilize_crr(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = overlay(
+        body_or_query(query.as_deref()),
+        payload.map(|Json(value)| value),
+    );
+    answer(equity::utilize_crr(graph.as_ref(), &scope, &body))
+}
+
+async fn list_redemptions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = company_filter(query.as_deref());
+    answer(equity::list_crr_redemptions(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn list_crr_creations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = company_filter(query.as_deref());
+    answer(equity::list_crr_creations(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn list_crr_utilizations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let company = company_filter(query.as_deref());
+    answer(equity::list_crr_utilizations(
+        graph.as_ref(),
+        &scope,
+        company.as_deref(),
+    ))
+}
+
+async fn crr_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(equity::crr_summary(graph.as_ref(), &scope, &company_id))
+}
+
 async fn create_reserve(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -2281,6 +2496,55 @@ fn records_router(graph: GraphHandle) -> Router {
             get(schedule_summary),
         )
         .route(
+            "/records/share-premium/entries/record",
+            post(record_share_premium),
+        )
+        .route("/records/share-premium/entries", get(share_premium_entries))
+        .route(
+            "/records/share-premium/utilizations/record",
+            post(utilize_share_premium),
+        )
+        .route(
+            "/records/share-premium/utilizations",
+            get(share_premium_utilizations),
+        )
+        .route(
+            "/records/share-premium/adjustments/create",
+            post(adjust_share_premium),
+        )
+        .route(
+            "/records/share-premium/summary/:company_id",
+            get(share_premium_summary),
+        )
+        .route(
+            "/records/capital-redemption-reserve/redemptions/record",
+            post(record_redemption),
+        )
+        .route(
+            "/records/capital-redemption-reserve/redemptions",
+            get(list_redemptions),
+        )
+        .route(
+            "/records/capital-redemption-reserve/creations/create",
+            post(create_crr),
+        )
+        .route(
+            "/records/capital-redemption-reserve/creations",
+            get(list_crr_creations),
+        )
+        .route(
+            "/records/capital-redemption-reserve/utilizations/record",
+            post(utilize_crr),
+        )
+        .route(
+            "/records/capital-redemption-reserve/utilizations",
+            get(list_crr_utilizations),
+        )
+        .route(
+            "/records/capital-redemption-reserve/summary/:company_id",
+            get(crr_summary),
+        )
+        .route(
             "/records/general-reserve/reserves",
             get(reserves).post(create_reserve),
         )
@@ -2800,6 +3064,52 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(asset_schedule),
         )
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
+        .route("/share-premium/entries/record", post(record_share_premium))
+        .route("/share-premium/entries", get(share_premium_entries))
+        .route(
+            "/share-premium/utilizations/record",
+            post(utilize_share_premium),
+        )
+        .route(
+            "/share-premium/utilizations",
+            get(share_premium_utilizations),
+        )
+        .route(
+            "/share-premium/adjustments/create",
+            post(adjust_share_premium),
+        )
+        .route(
+            "/share-premium/summary/:company_id",
+            get(share_premium_summary),
+        )
+        .route(
+            "/capital-redemption-reserve/redemptions/record",
+            post(record_redemption),
+        )
+        .route(
+            "/capital-redemption-reserve/redemptions",
+            get(list_redemptions),
+        )
+        .route(
+            "/capital-redemption-reserve/creations/create",
+            post(create_crr),
+        )
+        .route(
+            "/capital-redemption-reserve/creations",
+            get(list_crr_creations),
+        )
+        .route(
+            "/capital-redemption-reserve/utilizations/record",
+            post(utilize_crr),
+        )
+        .route(
+            "/capital-redemption-reserve/utilizations",
+            get(list_crr_utilizations),
+        )
+        .route(
+            "/capital-redemption-reserve/summary/:company_id",
+            get(crr_summary),
+        )
         .route(
             "/general-reserve/reserves",
             get(reserves).post(create_reserve),

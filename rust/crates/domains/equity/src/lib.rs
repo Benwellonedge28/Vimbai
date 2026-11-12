@@ -4,6 +4,10 @@
 //! * `equity-changes-service`
 //! * `authorized-share-capital-service` (records on the store: share classes, their issuances,
 //!   buybacks and the used-capacity summary)
+//! * `share-premium-service` (records on the store: premium entries, utilizations and signed
+//!   adjustments, with the balance the three of them share)
+//! * `capital-redemption-reserve-service` (records on the store: redemptions that create the reserve,
+//!   reserves created by a capital reduction, and utilizations)
 //! * `general-reserve-service` (records on the store: reserves with their allocations and
 //!   utilizations, the balance the only figure they share)
 //! * `retained-profits-service` (records on the store: appropriations with their carry-forward chain,
@@ -20,10 +24,12 @@
 #![forbid(unsafe_code)]
 
 pub mod equity_changes;
+pub mod redemption_reserve;
 pub mod reserves;
 pub mod retained_profits;
 pub mod share_classes;
 pub mod share_events;
+pub mod share_premium;
 pub mod shares;
 pub use share_classes::{
     buyback as buyback_shares, create_class as create_share_class, get_class as get_share_class,
@@ -31,6 +37,12 @@ pub use share_classes::{
     list_issuances as list_share_issuances, summary as share_capital_summary,
 };
 
+pub use redemption_reserve::{
+    capital_account, create_crr, crr_summary, list_creations as list_crr_creations,
+    list_redemptions as list_crr_redemptions, list_utilizations as list_crr_utilizations,
+    record_redemption, redemption_proceeds, redemption_reserve,
+    utilization_destination as crr_utilization_destination, utilize_crr,
+};
 pub use reserves::{
     allocate_to_reserve, allocation_source_account, create_reserve, get_reserve, list_reserves,
     reserve_history, utilization_destination_account, utilize_reserve,
@@ -43,6 +55,12 @@ pub use retained_profits::{
 pub use share_events::{
     accept_rights, bonus_reserve_account, get_right_issue, issue_bonus_shares, list_bonus_issues,
     list_right_issues, offer_rights, renounce_rights,
+};
+pub use share_premium::{
+    adjust_premium, list_adjustments as list_premium_adjustments,
+    list_entries as list_premium_entries, list_utilizations as list_premium_utilizations,
+    premium_on_issue, premium_summary, record_share_premium, utilization_destination,
+    utilize_premium,
 };
 pub use shares::{
     create_preference_class, declare_ordinary_dividend, declare_preference_dividend,

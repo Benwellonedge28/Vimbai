@@ -33,6 +33,15 @@ impl Scripted {
         })
     }
 
+    fn last(&self) -> (String, Value) {
+        self.seen
+            .lock()
+            .unwrap()
+            .last()
+            .cloned()
+            .unwrap_or_else(|| (String::new(), Value::Null))
+    }
+
     fn statements(&self) -> usize {
         self.seen.lock().unwrap().len()
     }
@@ -973,6 +982,87 @@ async fn the_reserve_and_retained_profit_routes_answer_under_records_too() {
         listing,
         "GET",
         "/records/retained-profits/appropriations?company_id=co-1&financial_year=2026",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn an_issue_that_creates_premium_answers_on_its_published_path() {
+    let graph = Scripted::returning(vec![json!({"id": "sp-1"})]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/share-premium/entries/record?company_id=co-1&shares_issued=1000&nominal_value=1&issue_price=2.25&share_class=ordinary&reference_id=iss-9",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, params) = seen.last();
+    assert_eq!(params["props"]["premium_amount"], json!("1250.000000"));
+}
+
+#[tokio::test]
+async fn the_premium_summary_and_crr_summary_answer_on_their_published_paths() {
+    let premium = Scripted::queue(vec![
+        vec![json!({"company_id": "co-1", "premium_amount": "1250"})],
+        vec![json!({"company_id": "co-1", "amount": "250"})],
+        Vec::new(),
+    ]);
+    let (status, body) = call_with(premium, "GET", "/share-premium/summary/co-1", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["current_balance"], json!("1000.000000"));
+
+    let reserve = Scripted::queue(vec![
+        vec![json!({"company_id": "co-1", "redemption_reserve_amount": "200"})],
+        Vec::new(),
+        Vec::new(),
+    ]);
+    let (status, body) = call_with(
+        reserve,
+        "GET",
+        "/capital-redemption-reserve/summary/co-1",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_created"], json!("200.000000"));
+    assert_eq!(body["transaction_count"], json!(1));
+}
+
+#[tokio::test]
+async fn a_redemption_of_preference_shares_answers_on_the_crr_path() {
+    let graph = Scripted::returning(vec![json!({"id": "t-1"})]);
+    let seen = Arc::clone(&graph);
+    let (status, _) = call_with(
+        graph,
+        "POST",
+        "/capital-redemption-reserve/redemptions/record?company_id=co-1&share_class=preference&shares_redeemed=500&redemption_price=1.40&nominal_value=1&redemption_date=2026-03-01&source_account=profits",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, params) = seen.last();
+    assert_eq!(
+        params["props"]["redemption_reserve_amount"],
+        json!("200.000000")
+    );
+    assert_eq!(params["props"]["total_proceeds"], json!("700.000000"));
+}
+
+#[tokio::test]
+async fn the_premium_and_reserve_routes_mirror_under_records() {
+    let graph = Scripted::returning(Vec::new());
+    let (status, _) = call_with(graph, "GET", "/records/share-premium/entries", None).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let listing = Scripted::returning(Vec::new());
+    let (status, _) = call_with(
+        listing,
+        "GET",
+        "/records/capital-redemption-reserve/redemptions?company_id=co-1",
         None,
     )
     .await;
