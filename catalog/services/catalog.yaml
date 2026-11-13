@@ -1057,23 +1057,12 @@ services:
 - name: family-community-group-service
   domain: partnerships
   target: rust/crates/domains/partnerships
-  port: 8005
+  port: 8099
   gateway_path: /family-community-group
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /groups
-  - GET /groups
-  - GET /groups/{group_id}
-  - POST /groups/{group_id}/members
-  - GET /groups/{group_id}/members
-  - POST /groups/{group_id}/contribute
-  - GET /groups/{group_id}/contributions
-  - POST /groups/{group_id}/advance-cycle
-  - GET /groups/{group_id}/payouts
+  records: false
+  endpoints: []
 - name: financial-identity-service
   domain: identity
   target: rust/crates/domains/identity
@@ -1570,64 +1559,39 @@ services:
 - name: partnership-agreement-service
   domain: partnerships
   target: rust/crates/domains/partnerships
-  port: 8094
+  port: 8099
   gateway_path: /partnership-agreement
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /agreements
-  - GET /agreements/{agreement_id}
-  - GET /agreements
-  - PUT /agreements/{agreement_id}
-  - POST /agreements/{agreement_id}/partners/add
-  - GET /agreements/{agreement_id}/summary
+  records: false
+  endpoints: []
 - name: partnership-changes-service
   domain: partnerships
   target: rust/crates/domains/partnerships
-  port: 8095
+  port: 8099
   gateway_path: /partnership-changes
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /changes/retirement
-  - POST /changes/admission
-  - POST /changes/death
-  - GET /changes
-  - POST /changes/{change_id}/settle
+  records: false
+  endpoints: []
 - name: partnership-dissolution-service
   domain: partnerships
   target: rust/crates/domains/partnerships
-  port: 8096
+  port: 8099
   gateway_path: /partnership-dissolution
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /dissolve
-  - GET /dissolutions
-  - GET /dissolutions/{dissolution_id}
+  records: false
+  endpoints: []
 - name: partnership-revaluation-service
   domain: partnerships
   target: rust/crates/domains/partnerships
-  port: 8097
+  port: 8099
   gateway_path: /partnership-revaluation
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /revalue
-  - GET /revaluations
-  - GET /revaluations/{revaluation_id}
+  records: false
+  endpoints: []
 - name: payback-period-service
   domain: finance
   target: rust/crates/domains/finance

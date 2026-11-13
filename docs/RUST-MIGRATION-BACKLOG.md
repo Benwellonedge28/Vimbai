@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 136 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 2 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 131 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 7 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -65,7 +65,7 @@ encrypted-backup-service                       8006  routes=8   records=no  rust
 equity-changes-service                         8049  routes=5   records=yes rust http
 etl-service                                    8363  routes=7   records=no  rust http
 expense-tracking-service                       8051  routes=6   records=yes rust http
-family-community-group-service                 8005  routes=11  records=yes rust http
+family-community-group-service                 8099  routes=0   records=no  rust http (no python source)
 financial-identity-service                     8053  routes=5   records=yes rust http
 financial-integrity-service                    8054  routes=6   records=yes rust http
 financial-state-machine-service                8055  routes=7   records=yes rust http
@@ -95,10 +95,10 @@ notifications-service                          8091  routes=16  records=yes rust
 npo-service                                    8085  routes=35  records=yes rust http
 ordinary-shares-service                        8090  routes=5   records=yes rust http
 overhead-absorption-rate-service               8092  routes=13  records=yes rust http
-partnership-agreement-service                  8094  routes=8   records=yes rust http
-partnership-changes-service                    8095  routes=7   records=yes rust http
-partnership-dissolution-service                8096  routes=5   records=yes rust http
-partnership-revaluation-service                8097  routes=5   records=yes rust http
+partnership-agreement-service                  8099  routes=0   records=no  rust http (no python source)
+partnership-changes-service                    8099  routes=0   records=no  rust http (no python source)
+partnership-dissolution-service                8099  routes=0   records=no  rust http (no python source)
+partnership-revaluation-service                8099  routes=0   records=no  rust http (no python source)
 payback-period-service                         8098  routes=5   records=no  rust http
 performance-benchmarking-service               8280  routes=8   records=no  rust http
 personal-finance-service                       8099  routes=24  records=yes rust http

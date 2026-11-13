@@ -563,20 +563,20 @@ npo-service                                  /npo                               
 
 ```text
 service                                      address                            eps  owns engine crate
-family-community-group-service               /family-community-group             11  recs rust   rust/crates/domains/partnerships
-partnership-agreement-service                /partnership-agreement               8  recs rust   rust/crates/domains/partnerships
-partnership-changes-service                  /partnership-changes                 7  recs rust   rust/crates/domains/partnerships
-partnership-dissolution-service              /partnership-dissolution             5  recs rust   rust/crates/domains/partnerships
-partnership-revaluation-service              /partnership-revaluation             5  recs rust   rust/crates/domains/partnerships
+family-community-group-service               /family-community-group              0  -    rust   rust/crates/domains/partnerships
+partnership-agreement-service                /partnership-agreement               0  -    rust   rust/crates/domains/partnerships
+partnership-changes-service                  /partnership-changes                 0  -    rust   rust/crates/domains/partnerships
+partnership-dissolution-service              /partnership-dissolution             0  -    rust   rust/crates/domains/partnerships
+partnership-revaluation-service              /partnership-revaluation             0  -    rust   rust/crates/domains/partnerships
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `family-community-group-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `partnership-agreement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `partnership-changes-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `partnership-dissolution-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `partnership-revaluation-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `family-community-group-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `partnership-agreement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `partnership-changes-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `partnership-dissolution-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `partnership-revaluation-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## payables — 2/2 on Rust
 

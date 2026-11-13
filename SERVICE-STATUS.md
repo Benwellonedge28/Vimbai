@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          136
+live and routed          131
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -70,7 +70,6 @@ Routed by the API gateway and deployed. These are the running product.
 `equity-changes-service`
 `etl-service`
 `expense-tracking-service`
-`family-community-group-service`
 `financial-identity-service`
 `financial-integrity-service`
 `financial-state-machine-service`
@@ -101,10 +100,6 @@ Routed by the API gateway and deployed. These are the running product.
 `npo-service`
 `ordinary-shares-service`
 `overhead-absorption-rate-service`
-`partnership-agreement-service`
-`partnership-changes-service`
-`partnership-dissolution-service`
-`partnership-revaluation-service`
 `payback-period-service`
 `payment-gateway-service`
 `performance-benchmarking-service`

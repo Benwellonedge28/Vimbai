@@ -53,8 +53,6 @@ jobs:
             services: "risk-assessment-service "
           - group: statements-reporting
             services: "balance-sheet-service cash-flow-statement-service reporting-service "
-          - group: partnership
-            services: "partnership-agreement-service partnership-changes-service partnership-dissolution-service partnership-revaluation-service "
           - group: tax-audit-investigation
             services: "audit-engagement-service sox-compliance-service "
           - group: treasury-banking

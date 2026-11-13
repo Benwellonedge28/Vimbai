@@ -436,11 +436,11 @@ Lands in `rust/crates/domains/partnerships`.
 
 ```
 service                                         port  routes  records  engine
-family-community-group-service                  8005      11      yes  rust
-partnership-agreement-service                   8094       8      yes  rust
-partnership-changes-service                     8095       7      yes  rust
-partnership-dissolution-service                 8096       5      yes  rust
-partnership-revaluation-service                 8097       5      yes  rust
+family-community-group-service                  8099       0       no  rust
+partnership-agreement-service                   8099       0       no  rust
+partnership-changes-service                     8099       0       no  rust
+partnership-dissolution-service                 8099       0       no  rust
+partnership-revaluation-service                 8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

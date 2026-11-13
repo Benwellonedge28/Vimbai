@@ -392,8 +392,8 @@
     {
       "name": "family-community-group-service",
       "path": "/family-community-group",
-      "url": "http://localhost:9010",
-      "port": 8005,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -628,32 +628,32 @@
     {
       "name": "partnership-agreement-service",
       "path": "/partnership-agreement",
-      "url": "http://localhost:9011",
-      "port": 8094,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "partnership-changes-service",
       "path": "/partnership-changes",
-      "url": "http://localhost:9011",
-      "port": 8095,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "partnership-dissolution-service",
       "path": "/partnership-dissolution",
-      "url": "http://localhost:9011",
-      "port": 8096,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "partnership-revaluation-service",
       "path": "/partnership-revaluation",
-      "url": "http://localhost:9011",
-      "port": 8097,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
