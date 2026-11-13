@@ -275,6 +275,18 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- subscription-plans-service -> invoicing crate, records on the store: the plans a Book sells on and the
+  subscriptions taken against them. A plan keeps the tier, name and monthly price it is given and defaults to 5 users,
+  1 company and 1,000 calls a month when nothing else is said; its price is read as an exact decimal, so a plan priced
+  199 is 199 rather than a float that has drifted. A subscription needs a plan the CALLER holds - another Book's plan
+  is simply not found - and takes the plan's TIER rather than a tier of its own, with its period running 30, 90 or 365
+  days from the day it starts. The upgrade preview is PURE and reads no stored plan: it prices the four tiers from a
+  fixed table (0, 49, 199, 999 a month), which is what the shipped endpoint did, so a plan a Book priced itself does
+  not change what an upgrade is quoted at. Proration is the daily difference over the days left in the period,
+  reckoned in exact money and rounded to cents, and a period end that cannot be read prorates nothing. Routes:
+  /plans (both methods), /subscribe, /subscriptions/{company} and /upgrade. "Today" comes from the caller rather than
+  the clock, so a quote can be repeated.
+
 - financial-identity-service -> identity crate, records on the store: the KYC profile a Book keeps for a person.
   A profile names a SUBJECT - the person it describes - which is not the caller: the caller owns the profile and the
   subject is recorded beside it, so a Book can hold profiles for people who never sign in. A profile arrives pending,

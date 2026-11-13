@@ -1,0 +1,12 @@
+[package]
+name = "vimbai_service_invoicing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Invoicing services: what a Book bills for and the plans it bills on."
+
+[dependencies]
+vimbai_common = { path = "../../common" }
+vimbai_store = { path = "../../adapters/database" }
+serde_json = { workspace = true }

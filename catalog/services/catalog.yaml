@@ -19,7 +19,7 @@ domains:
   responsibility: purchase ledger and expense capture
   target: rust/crates/domains/payables
 - name: invoicing
-  responsibility: issuing and tracking invoices
+  responsibility: issuing and tracking invoices, and the plans a Book bills on
   target: rust/crates/domains/invoicing
 - name: banking
   responsibility: bank connectivity and reconciliation
@@ -2193,12 +2193,12 @@ services:
   - PUT /deficiencies/{deficiency_id}
   - GET /dashboard
 - name: subscription-plans-service
-  domain: payments
-  target: rust/crates/domains/payments
+  domain: invoicing
+  target: rust/crates/domains/invoicing
   port: 8001
   gateway_path: /subscription-plans
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

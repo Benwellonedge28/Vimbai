@@ -3,7 +3,7 @@ domain:
   name: payments
   responsibility: 'Vimbai Pay: orchestration, lifecycle and providers'
   target: rust/crates/domains/payments
-  services: 3
+  services: 2
 services:
 - name: payment-gateway-service
   domain: payments
@@ -57,19 +57,3 @@ services:
   - POST /reports/sales-summary
   - POST /integrations/{pos_type}/webhook
   - GET /metrics
-- name: subscription-plans-service
-  domain: payments
-  target: rust/crates/domains/payments
-  port: 8001
-  gateway_path: /subscription-plans
-  auth_required: true
-  engine: python
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /plans
-  - GET /plans
-  - POST /subscribe
-  - GET /subscriptions/{company_id}
-  - POST /upgrade

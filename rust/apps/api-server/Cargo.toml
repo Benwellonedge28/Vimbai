@@ -29,6 +29,7 @@ banking = { package = "vimbai_service_banking", path = "../../crates/domains/ban
 reporting_services = { package = "vimbai_service_reporting", path = "../../crates/domains/reporting" }
 compliance = { package = "vimbai_service_compliance", path = "../../crates/domains/compliance" }
 identity = { package = "vimbai_service_identity", path = "../../crates/domains/identity" }
+invoicing = { package = "vimbai_service_invoicing", path = "../../crates/domains/invoicing" }
 audit_services = { package = "vimbai_service_audit", path = "../../crates/domains/audit" }
 treasury = { package = "vimbai_service_treasury", path = "../../crates/domains/treasury" }
 performance_measures = { package = "vimbai_performance_measures", path = "../../crates/calculations/performance_measures" }

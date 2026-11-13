@@ -10612,6 +10612,76 @@ async fn document_state_catalogue() -> Response {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
+// subscription plans: the plans a Book sells on, the subscriptions taken against them, and what a change of plan
+// would cost. The preview is pure - it prices the four tiers from its own table and reads no stored plan.
+// ---------------------------------------------------------------------------
+
+async fn post_plan(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(invoicing::billing::create_plan(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_plans(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoicing::billing::list_plans(graph.as_ref(), &scope))
+}
+
+async fn post_subscribe(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(invoicing::billing::subscribe(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_subscriptions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoicing::billing::subscriptions_for_company(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn post_upgrade(RawQuery(query): RawQuery, payload: Option<Json<Value>>) -> Response {
+    let asked = merged_request(payload, query.as_deref());
+    answer(invoicing::billing::preview_upgrade(&asked))
+}
+
+// ---------------------------------------------------------------------------
 // financial identity: the KYC profile a Book keeps for a person, and the verification done against it. A profile
 // names a SUBJECT, which is not the caller, so it answers at /profiles and is read back by id or by subject.
 // ---------------------------------------------------------------------------
@@ -13086,6 +13156,12 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/doubtful/calculate-provision", post(calculate_doubtful_provision))
         .route("/doubtful/provision/create", post(create_doubtful_provision))
         .route("/doubtful/provisions", get(list_doubtful_provisions))
+        // subscription plans: the plan catalogue, subscriptions and the upgrade preview
+        .route("/plans", post(post_plan).get(get_plans))
+        .route("/subscribe", post(post_subscribe))
+        .route("/subscriptions/:company", get(get_subscriptions))
+        .route("/upgrade", post(post_upgrade))
+
         // financial identity: the KYC profile register
         .route("/profiles", post(post_profile))
         .route("/profiles/by-subject/:user", get(get_profile_for_subject))

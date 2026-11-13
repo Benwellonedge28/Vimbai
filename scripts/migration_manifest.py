@@ -29,7 +29,10 @@ DOMAINS = {
     "accounting": ("accounting workflows and the statements they produce", "rust/crates/domains/accounting"),
     "receivables": ("sales ledger, bad debts and provisions against them", "rust/crates/domains/receivables"),
     "payables": ("purchase ledger and expense capture", "rust/crates/domains/payables"),
-    "invoicing": ("issuing and tracking invoices", "rust/crates/domains/invoicing"),
+    "invoicing": (
+        "issuing and tracking invoices, and the plans a Book bills on",
+        "rust/crates/domains/invoicing",
+    ),
     "banking": ("bank connectivity and reconciliation", "rust/crates/domains/banking"),
     "payments": ("Vimbai Pay: orchestration, lifecycle and providers", "rust/crates/domains/payments"),
     "identity": (
@@ -94,7 +97,7 @@ OWNERS = {
     "currency-service": "banking",
     "payment-gateway-service": "payments",
     "pos-integration-service": "payments",
-    "subscription-plans-service": "payments",
+    "subscription-plans-service": "invoicing",
     "activity-based-budget-service": "budgeting",
     "appropriation-control-service": "budgeting",
     "rolling-forecast-service": "budgeting",
