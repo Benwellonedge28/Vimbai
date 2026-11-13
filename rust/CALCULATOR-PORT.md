@@ -291,6 +291,24 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- graphql-service -> integrations crate (rust/crates/domains/integrations, module `graphql`), ONE route: POST /graphql. The
+  service was a FACADE when it shipped and is ported as one: every query answered fixed sample rows, the filters it offered
+  (`account_type`, `is_active`, `status`, `severity`, `unread_only`, `limit`) were accepted and IGNORED, and every mutation
+  answered success without writing anything - the ids it answered (`acc-new-001`, `je-new-001`, `txn-new-001`) were not ids
+  of anything. All of that is kept field for field, and the filters still change nothing, because applying them would answer
+  differently from the service being replaced. What IS real: the doorway - an operation is read with its fields, their
+  arguments (numbers, strings, booleans, lists, objects, enums) and their sub-selections, variables are folded into the
+  arguments they stand for, and each answer is cut down to exactly the fields asked for (a field nobody asked for is not
+  answered), with `__typename` supported. Fragments, aliases and subscriptions are REFUSED BY NAME rather than answered
+  wrongly, because an alias would hand a figure back under a name the client chose. `exchange_rate` answers from the same
+  six-pair table and NULL for any other pair (a missing rate is not a rate of one); `convert_currency` still converts an
+  unknown pair at 1.0, which is shipped behaviour and a genuine hazard - it makes a conversion a copy without saying so -
+  pinned by a test. ONE DELIBERATE CHANGE: `create_journal_entry` refuses anything not EXACTLY balanced; the shipped check
+  tolerated 0.001 of drift and the ledger kernel answers the same mutation exactly, so a tolerant facade would be the one
+  door in the platform where an entry need not balance. Two reader defects fixed while porting: a decimal argument stopped
+  at the point (so `debit: 100.01` was read as a name error), and folding a variable also rewrote the operation's own
+  `$name:` DECLARATION, which broke the variable it was meant to supply.
+
 - pos-integration-service -> payments crate (rust/crates/domains/payments, module `pos`), records on the store: the tills
   a Book runs (`PosDevice`) and the takings they report (`PosTransaction`). Rules kept: a till is registered OFFLINE and
   answers to the id the outside world knows it by; the same till registered twice, or the same transaction id received

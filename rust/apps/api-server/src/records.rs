@@ -12176,6 +12176,18 @@ async fn get_pos_metrics(State(graph): GraphState, headers: HeaderMap) -> Respon
 }
 
 // ---------------------------------------------------------------------------
+// The GraphQL door: one POST body carrying a query, answered field by field.
+// ---------------------------------------------------------------------------
+
+async fn post_graphql(payload: Option<Json<Value>>) -> Response {
+    let asked = match payload {
+        Some(Json(body)) => body,
+        None => Value::Null,
+    };
+    answer(integrations::graphql::graphql_request(&asked))
+}
+
+// ---------------------------------------------------------------------------
 // The realtime calculation engine: four figures, each answered by the calculator that already owns it.
 // ---------------------------------------------------------------------------
 
@@ -16604,6 +16616,9 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/reports/sales-summary", post(post_pos_sales_summary))
         .route("/integrations/:pos_type/webhook", post(post_pos_webhook))
         .route("/pos-metrics", get(get_pos_metrics))
+
+        // The GraphQL door
+        .route("/graphql", post(post_graphql))
 
         // The realtime calculation engine: four figures, each from the calculator that already owns it
         .route("/npv", post(post_quick_npv))

@@ -186,3 +186,38 @@ mod instant_tests {
         assert_eq!(instant_of("2026-13-13"), None);
     }
 }
+
+/// The moment a count of seconds lands on, written `YYYY-MM-DDTHH:MM:SSZ`.
+///
+/// The inverse of [`instant_of`], so a figure the engine stamps as seconds can be handed to a caller that speaks dates.
+/// Whole seconds only: a fraction is dropped rather than rounded, because rounding a moment forward can move it into the
+/// next day at the end of a year.
+pub fn written_at(seconds: f64) -> String {
+    let whole = seconds.floor() as i64;
+    let day = whole.div_euclid(86_400);
+    let into_day = whole.rem_euclid(86_400);
+    format!(
+        "{}T{:02}:{:02}:{:02}Z",
+        date_of(day),
+        into_day / 3_600,
+        (into_day % 3_600) / 60,
+        into_day % 60
+    )
+}
+
+#[cfg(test)]
+mod written_tests {
+    use super::*;
+
+    #[test]
+    fn a_moment_is_written_back_as_the_instant_it_came_from() {
+        assert_eq!(written_at(0.0), "1970-01-01T00:00:00Z");
+        assert_eq!(written_at(5_415.0), "1970-01-01T01:30:15Z");
+        // a fraction is dropped, never rounded into the next day
+        assert_eq!(written_at(86_399.9), "1970-01-01T23:59:59Z");
+        // and it reads back to itself
+        for seconds in [0.0, 1_000.0, 1_790_000_000.0] {
+            assert_eq!(instant_of(&written_at(seconds)), Some(seconds));
+        }
+    }
+}
