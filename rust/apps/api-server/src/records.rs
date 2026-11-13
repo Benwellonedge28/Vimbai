@@ -20,7 +20,7 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
-use budgeting_services::appropriation_control;
+use budgeting_services::{appropriation_control, master_budget, zero_based_budget};
 use common::Money;
 use costing::{
     absorption, basis_apportionment, cost_calculations, cvp, job_costing, overhead_absorption,
@@ -2308,6 +2308,143 @@ async fn personal_overview(
         graph.as_ref(),
         &scope,
         &query_object(query.as_deref()),
+    ))
+}
+
+async fn budget_prepare(Json(payload): Json<Value>) -> Response {
+    answer(master_budget::prepare(&payload))
+}
+
+async fn budget_create(Json(payload): Json<Value>) -> Response {
+    answer(master_budget::create_budget(&payload))
+}
+
+async fn budget_monitor(Json(payload): Json<Value>) -> Response {
+    answer(master_budget::monitor(&payload))
+}
+
+async fn budget_analyze(Json(payload): Json<Value>) -> Response {
+    answer(master_budget::analyze(&payload))
+}
+
+async fn budget_variance(Json(payload): Json<Value>) -> Response {
+    answer(master_budget::detailed_variance(&payload))
+}
+
+async fn budget_forecast(Json(payload): Json<Value>) -> Response {
+    answer(master_budget::forecast(&payload))
+}
+
+async fn budget_rolling_forecast(Json(payload): Json<Value>) -> Response {
+    answer(master_budget::rolling_forecast(&payload))
+}
+
+async fn open_budget_package(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(zero_based_budget::create_package(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn budget_packages(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let mut asked = query_object(query.as_deref());
+    if let Some(object) = asked.as_object_mut() {
+        object.insert("company_id".to_string(), json!(company_id));
+    }
+    answer(zero_based_budget::list_packages(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn add_budget_item(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(package_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(zero_based_budget::add_item(
+        graph.as_ref(),
+        &scope,
+        &package_id,
+        &payload,
+    ))
+}
+
+async fn budget_package_status(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(package_id): Path<String>,
+    RawQuery(query): RawQuery,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(zero_based_budget::update_status(
+        graph.as_ref(),
+        &scope,
+        &package_id,
+        &query_object(query.as_deref()),
+        &payload,
+    ))
+}
+
+async fn budget_item_priority(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(item_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(zero_based_budget::set_item_priority(
+        graph.as_ref(),
+        &scope,
+        &item_id,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn budget_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(zero_based_budget::summary(
+        graph.as_ref(),
+        &scope,
+        &company_id,
     ))
 }
 
@@ -6954,6 +7091,71 @@ fn records_router(graph: GraphHandle) -> Router {
             post(add_legacy_debt),
         )
         .route("/records/personal-finance/overview", get(personal_overview))
+        .route("/budgeting/prepare", post(budget_prepare))
+        .route("/budgeting/budget", post(budget_create))
+        .route("/budgeting/monitor", post(budget_monitor))
+        .route("/budgeting/analyze", post(budget_analyze))
+        .route("/budgeting/variance-analysis", post(budget_variance))
+        .route("/budgeting/forecast", post(budget_forecast))
+        .route("/budgeting/rolling-forecast", post(budget_rolling_forecast))
+        .route("/zero-based-budgeting/packages", post(open_budget_package))
+        .route(
+            "/zero-based-budgeting/packages/:company_id",
+            get(budget_packages),
+        )
+        .route(
+            "/zero-based-budgeting/packages/:package_id/items",
+            post(add_budget_item),
+        )
+        .route(
+            "/zero-based-budgeting/packages/:package_id/status",
+            put(budget_package_status),
+        )
+        .route(
+            "/zero-based-budgeting/items/:item_id/priority",
+            put(budget_item_priority),
+        )
+        .route(
+            "/zero-based-budgeting/summary/:company_id",
+            get(budget_summary),
+        )
+        .route("/records/budgeting/prepare", post(budget_prepare))
+        .route("/records/budgeting/budget", post(budget_create))
+        .route("/records/budgeting/monitor", post(budget_monitor))
+        .route("/records/budgeting/analyze", post(budget_analyze))
+        .route(
+            "/records/budgeting/variance-analysis",
+            post(budget_variance),
+        )
+        .route("/records/budgeting/forecast", post(budget_forecast))
+        .route(
+            "/records/budgeting/rolling-forecast",
+            post(budget_rolling_forecast),
+        )
+        .route(
+            "/records/zero-based-budgeting/packages",
+            post(open_budget_package),
+        )
+        .route(
+            "/records/zero-based-budgeting/packages/:company_id",
+            get(budget_packages),
+        )
+        .route(
+            "/records/zero-based-budgeting/packages/:package_id/items",
+            post(add_budget_item),
+        )
+        .route(
+            "/records/zero-based-budgeting/packages/:package_id/status",
+            put(budget_package_status),
+        )
+        .route(
+            "/records/zero-based-budgeting/items/:item_id/priority",
+            put(budget_item_priority),
+        )
+        .route(
+            "/records/zero-based-budgeting/summary/:company_id",
+            get(budget_summary),
+        )
         .route("/net-present-value/calculate", post(npv_calculate))
         .route(
             "/net-present-value/calculate-percent",

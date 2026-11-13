@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 66 are proven on a Rust engine. 71 are still Python-only.
+The gateway routes 137 services. 67 are proven on a Rust engine. 70 are still Python-only.
 
-Of the backlog, 18 own no records and can be ported as pure functions; 53 own records and
+Of the backlog, 18 own no records and can be ported as pure functions; 52 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-66 services.
+67 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -82,6 +82,7 @@ treasury-management-service                    8136  routes=7   records=yes rust
 treasury-policy-service                        8263  routes=8   records=yes rust http
 treasury-reporting-service                     8262  routes=7   records=yes rust http
 treasury-risk-service                          8259  routes=11  records=yes rust http
+zero-based-budgeting-service                   8143  routes=7   records=yes rust http
 ```
 
 ### Backlog: no records owned (port the maths only)
@@ -111,7 +112,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-53 services.
+52 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -123,7 +124,6 @@ bank-relationship-service                      8021  routes=7   records=yes none
 financial-state-machine-service                8055  routes=7   records=yes none
 sensitivity-analysis-service                   8124  routes=3   records=yes none
 webhook-service                                8140  routes=5   records=yes none
-zero-based-budgeting-service                   8143  routes=7   records=yes none
 scenario-analysis-service                      8121  routes=6   records=yes none
 subscription-plans-service                     8001  routes=7   records=yes none
 risk-assessment-service                        8117  routes=6   records=yes none

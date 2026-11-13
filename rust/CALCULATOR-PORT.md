@@ -353,6 +353,27 @@ xbrl-reporting-service
   Correction of form: the original read the server clock for the day a run happened and for a projected payoff. The
   port takes that date from the request as `today`, so a reckoning can be repeated and a test can pin it.
 
+- budget-service -> budgeting crate: the master budget, what it is doing against actual, and the projections drawn
+  from it. Variance is always actual less budget, so a negative variance is money not spent, which for a cost line is
+  favourable. Shapes kept: an account that carries no actual is measured at 95% of its budget rather than at nil; a
+  variance against a nil budget is nil rather than a division; a budget is on track while it is inside five percent
+  either way and needs attention outside that, and a line is lifted out as significant past ten; the detailed analysis
+  reports the net as the unfavourable side less the favourable one, so an underspend reads negative; a forecast starts
+  from the sum of the history, grows by 3% unless told otherwise, is multiplied by the quarter's seasonal factor and
+  carries a confidence band of a tenth either way; the rolling forecast's base figures are the shipped placeholders
+  (1,000,000 revenue, 700,000 expenses, 300,000 profit growing at 5%, 3% and 7%), which is a shape rather than a model,
+  and its arms bend revenue and expenses in opposite directions. Correction of form: the rolling forecast's id is built
+  from a `today` supplied by the caller instead of the server clock.
+
+- zero-based-budgeting-service -> budgeting crate, records on the store: budget packages built up from nothing, each
+  line argued for on its own. A package holds its items and every question about it is answered by rewriting the
+  package, so the items are part of the package rather than records of their own, which is how the service kept them.
+  Shapes kept: a package starts as a draft and its total is the sum of its items as given; adding an item recalculates
+  the total rather than adding to it, so a stale figure cannot survive; a priority outside one to five is refused and a
+  priority change may carry a status with it; a status moves only among draft, submitted, reviewed, approved and
+  rejected; the summary counts packages, totals them and groups them by department and by status, answering with zeros
+  when there are none.
+
 - net-present-value-service -> finance crate, no records: what a project's future flows are worth today once the
   investment is paid for, with the rate given as a decimal or as a percentage. Discounting is exact, one year at a
   time, through the one engine this crate's four capital-budgeting services share, so a change to how a discount

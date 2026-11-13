@@ -204,6 +204,9 @@ pub const LIQUIDITY_POSITION: RecordKind =
 
 /// accounting-service's supporting records: petty cash, reconciliation, and the single-entry statements.
 pub const PETTY_CASH_FUND: RecordKind = RecordKind::new("PettyCashFund", "OWNS_PETTY_CASH_FUND");
+/// zero-based-budgeting-service's packages, with their items kept on the package.
+pub const ZERO_BASED_PACKAGE: RecordKind = RecordKind::new("ZBBPackage", "OWNS_ZBB_PACKAGE");
+
 /// personal-finance-service: the household's recurring items, debts, payments, investments and trades.
 pub const PERSONAL_RECURRING: RecordKind = RecordKind::new("PersonalRecurring", "OWNS_RECURRING");
 pub const PERSONAL_DEBT: RecordKind = RecordKind::new("PersonalDebt", "OWNS_PERSONAL_DEBT");

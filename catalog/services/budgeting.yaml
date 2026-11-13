@@ -111,7 +111,7 @@ services:
   port: 8143
   gateway_path: /zero-based-budgeting
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

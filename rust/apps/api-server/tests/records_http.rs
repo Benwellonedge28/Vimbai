@@ -2856,3 +2856,76 @@ async fn the_personal_overview_answers_over_http() {
     assert_eq!(body["total_debt"], json!("2000.000000"));
     assert_eq!(body["active_goals"], json!(1));
 }
+
+#[tokio::test]
+async fn the_master_budget_summary_answers_over_http() {
+    let (status, body) = call_with(
+        Scripted::returning(vec![]),
+        "POST",
+        "/budgeting/prepare",
+        Some(
+            json!({"company_id": "c-1", "revenue": "1000000", "cogs": "600000", "opex": "250000"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["gross_profit"], json!("400000.00"));
+    assert_eq!(body["ebitda"], json!("150000.00"));
+}
+
+#[tokio::test]
+async fn a_budget_outside_five_percent_needs_attention_over_http() {
+    let (status, body) = call_with(
+        Scripted::returning(vec![]),
+        "POST",
+        "/records/budgeting/monitor",
+        Some(json!({"company_id": "c-1", "budget": "1000", "actual": "1200"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["variance_pct"], json!("20.00"));
+    assert_eq!(body["status"], json!("attention_needed"));
+}
+
+#[tokio::test]
+async fn a_zero_based_package_is_created_and_listed_over_http() {
+    let graph = Scripted::queue(vec![vec![json!({"id": "z-1"})]]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/zero-based-budgeting/packages",
+        Some(
+            json!({"company_id": "c-1", "period": "2026-Q1", "name": "Q1 build",
+                    "department": "Ops",
+                    "items": [{"description": "Licence", "amount": "1200",
+                               "justification": "the team needs it"}]}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_amount"], json!("1200.000000"));
+    assert_eq!(body["status"], json!("draft"));
+}
+
+#[tokio::test]
+async fn a_zero_based_summary_answers_over_http() {
+    let graph = Scripted::returning(vec![json!({"id": "z-1", "company_id": "c-1",
+                                                "department": "Ops", "total_amount": "2000.000000",
+                                                "status": "approved"})]);
+    let (status, body) = call_with(graph, "GET", "/zero-based-budgeting/summary/c-1", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_packages"], json!(1));
+    assert_eq!(body["by_department"]["Ops"], json!("2000.000000"));
+}
+
+#[tokio::test]
+async fn a_rolling_forecast_without_a_date_is_refused_over_http() {
+    let (status, _body) = call_with(
+        Scripted::returning(vec![]),
+        "POST",
+        "/budgeting/rolling-forecast",
+        Some(json!({"company_id": "c-1"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
