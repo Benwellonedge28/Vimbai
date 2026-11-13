@@ -543,8 +543,12 @@ pub fn create_org(
         "headcount": headcount,
     });
     // the organisation's own Book can be linked later, so one is only carried when it is named
-    if let (Some(object), Some(book)) = (recorded.as_object_mut(), optional(payload, "book_id")) {
-        object.insert("book_id".into(), json!(book));
+    // `org_book_id`, not `book_id`: every stored row already carries the Book it lives in, and the organisation's own
+    // Book is a second, separate attachment - the one its members share. Reading the stamp as the attachment made an
+    // organisation look like it had a Book the moment it was created, and answered the caller's OWN Book instead.
+    if let (Some(object), Some(book)) = (recorded.as_object_mut(), optional(payload, "org_book_id"))
+    {
+        object.insert("org_book_id".into(), json!(book));
     }
     remember(graph, scope, NPO_SCALE_ORG, recorded)
 }
@@ -2255,6 +2259,122 @@ fn branch_of(row: &Value) -> Option<String> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// The organisation's Book.
+//
+// These four routes used to proxy the Book sync service over HTTP: `GET /orgs/{id}/book`, `GET` and `POST
+// /orgs/{id}/members`, and `POST /orgs/{id}/book/link`. book-sync is on Rust now too, so the proxy is gone and the
+// answers come from its crate in-process - the same records, the same membership checks, no network hop and no 503
+// "book sync unavailable" to degrade into.
+//
+// Kept as shipped: only the org's OWNER may invite a member, and that refusal is a 403 distinct from the uniform 404
+// that hides another tenant's organisation, so a misdirected invitation is explained to its sender. An org with no Book
+// yet is refused by name on reads, and on an invitation it is a plain bad request - the two states differ because
+// linking a Book is the way out of the first and not the second.
+// ---------------------------------------------------------------------------
+
+/// The org a caller owns, refusing everyone else with the shipped 403 rather than the 404 used elsewhere.
+fn owned_org(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    // existence first: a record nobody can see is missing, and that is a 404 like every other read
+    let org = Records::new(graph, NPO_SCALE_ORG).get(scope, org_id)?;
+    // then ownership: what exists but is not the caller's is a REFUSAL, because a misdirected invitation deserves an
+    // explanation rather than the uniform 404 the other reads answer with
+    if field(&org, "owner_id") != scope.user_id {
+        return Err(StoreError::Forbidden(
+            "Only the org owner can manage Book members".into(),
+        ));
+    }
+    Ok(org)
+}
+
+/// The Book an organisation is attached to, or the refusal that says it has none yet.
+fn org_book_id(org: &Value) -> Result<String, StoreError> {
+    // the organisation's attached Book, never the scoping Book stamped on the record
+    let book = field(org, "org_book_id");
+    if book.is_empty() {
+        return Err(StoreError::NotFound);
+    }
+    Ok(book.to_owned())
+}
+
+/// `GET /orgs/{id}/book`: the org's Book and its members. Membership is enforced by the sync crate, so a non-member sees
+/// nothing rather than an organisation's private register.
+pub fn org_book(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    let org = held_org(graph, scope, org_id)?;
+    let book = org_book_id(&org)?;
+    let found = vimbai_service_offline_sync::sync::get_book(graph, scope, book.as_str())?;
+    let members = vimbai_service_offline_sync::sync::book_members(graph, scope, book.as_str())?;
+    Ok(json!({
+        "service": "npo-scale-service",
+        "book": found.get("book").cloned().unwrap_or(Value::Null),
+        "members": members.get("members").cloned().unwrap_or(json!([])),
+    }))
+}
+
+/// `GET /orgs/{id}/members`: the people in the org's Book.
+pub fn org_members(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    let org = held_org(graph, scope, org_id)?;
+    let book = org_book_id(&org)?;
+    let mut answer = vimbai_service_offline_sync::sync::book_members(graph, scope, book.as_str())?;
+    answer["service"] = json!("npo-scale-service");
+    Ok(answer)
+}
+
+/// `POST /orgs/{id}/members`: invite a trustee, partner, director or manager into the org's Book, carrying the key
+/// wrapped for them.
+pub fn invite_org_member(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    let owner = owned_org(graph, scope, org_id)?;
+    let book = field(&owner, "org_book_id");
+    if book.is_empty() {
+        // an invitation into a Book that does not exist is a bad request, because linking is the way forward
+        return Err(StoreError::Invalid("Org has no Book yet".into()));
+    }
+    let mut answer = vimbai_service_offline_sync::sync::invite_member(graph, scope, book, payload)?;
+    answer["service"] = json!("npo-scale-service");
+    Ok(answer)
+}
+
+/// `POST /orgs/{id}/book/link`: attach an existing Book to this org, for an organisation created while the sync service
+/// was down, or one adopting a Book that already exists. Only the owner may, and the Book must be one they can read.
+pub fn link_org_book(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    let _ = owned_org(graph, scope, org_id)?;
+    let book = field(payload, "book_id");
+    if book.is_empty() {
+        return Err(StoreError::Invalid("book_id is required".into()));
+    }
+    // the Book must really exist and be the caller's to adopt; the sync crate's own membership check is that proof
+    let found = vimbai_service_offline_sync::sync::get_book(graph, scope, book)?;
+    Records::new(graph, NPO_SCALE_ORG).update(scope, org_id, &json!({ "org_book_id": book }))?;
+    Ok(json!({
+        "service": "npo-scale-service",
+        "org_id": org_id,
+        "book": found.get("book").cloned().unwrap_or(Value::Null),
+        "linked": true,
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2271,6 +2391,54 @@ mod tests {
         } else {
             params["patch"].clone()
         }
+    }
+
+    #[test]
+    fn another_tenants_organisation_answers_as_a_missing_one() {
+        let graph = FakeGraph::queue(vec![vec![
+            json!({"id": "org-2", "owner_id": "user-2", "org_book_id": "book-3"}),
+        ]]);
+        assert_eq!(
+            org_book(&graph, &scope(), "org-2").unwrap_err().to_string(),
+            StoreError::NotFound.to_string()
+        );
+    }
+
+    #[test]
+    fn an_organisation_that_never_got_a_book_says_so() {
+        let graph = FakeGraph::queue(vec![vec![
+            json!({"id": "org-3", "owner_id": "user-1", "org_book_id": ""}),
+        ]]);
+        assert_eq!(
+            org_book(&graph, &scope(), "org-3").unwrap_err().to_string(),
+            StoreError::NotFound.to_string()
+        );
+    }
+
+    #[test]
+    fn the_orgs_book_and_its_members_come_from_the_sync_crate() {
+        // one row is both the Book and the caller's place in it, so the same answer serves the Book read, the
+        // membership check and the member list - the fake repeats its last script, which is what the queue documents
+        let both = json!({"id": "book-2", "name": "Zvishavane Trust", "tier": "nonprofit", "book_id": "book-2",
+                          "member_user_id": "user-1", "role": "owner", "display_name": "Sam",
+                          "status": "active", "created_at": 1.0});
+        let graph = FakeGraph::queue(vec![
+            vec![json!({"id": "org-1", "owner_id": "user-1", "org_book_id": "book-2"})],
+            vec![both.clone()],
+        ]);
+        let answered = org_book(&graph, &scope(), "org-1").expect("the org's book");
+        assert_eq!(answered["service"], json!("npo-scale-service"));
+        assert_eq!(answered["book"]["name"], json!("Zvishavane Trust"));
+        assert_eq!(answered["members"][0]["role"], json!("owner"));
+
+        // the members route reads the organisation afresh, so it is given its own script
+        let for_members = FakeGraph::queue(vec![
+            vec![json!({"id": "org-1", "owner_id": "user-1", "org_book_id": "book-2"})],
+            vec![both],
+        ]);
+        let members = org_members(&for_members, &scope(), "org-1").expect("the org's members");
+        assert_eq!(members["service"], json!("npo-scale-service"));
+        assert_eq!(members["members"][0]["role"], json!("owner"));
     }
 
     #[test]

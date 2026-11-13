@@ -56,7 +56,7 @@ services:
   port: 9021
   gateway_path: /npo-scale
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health

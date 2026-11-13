@@ -25,6 +25,6 @@ services:
   port: 8099
   gateway_path: /calcs
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints: []

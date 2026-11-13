@@ -2530,7 +2530,7 @@ services:
   port: 9021
   gateway_path: /npo-scale
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -2607,6 +2607,6 @@ services:
   port: 8099
   gateway_path: /calcs
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints: []

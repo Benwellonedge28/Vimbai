@@ -7973,6 +7973,72 @@ async fn update_npo_scale_org(
     ))
 }
 
+// The organisation's Book: answered from the sync crate in-process, where these four routes used to proxy the Book
+// sync service over HTTP - the same records and the same membership checks, with no hop and no 503 to degrade into.
+async fn get_npo_scale_org_book(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::org_book(graph.as_ref(), &scope, &org_id))
+}
+
+async fn get_npo_scale_org_members(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::org_members(graph.as_ref(), &scope, &org_id))
+}
+
+async fn post_npo_scale_org_member(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(npo_scale::invite_org_member(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &asked,
+    ))
+}
+
+async fn post_npo_scale_org_book_link(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(npo_scale::link_org_book(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &asked,
+    ))
+}
+
 async fn npo_scale_org_features(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -18114,6 +18180,12 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route(
             "/npo-scale/orgs/:org_id",
             get(npo_scale_org).patch(update_npo_scale_org),
+        )
+        .route("/npo-scale/orgs/:org_id/book", get(get_npo_scale_org_book))
+        .route("/npo-scale/orgs/:org_id/book/link", post(post_npo_scale_org_book_link))
+        .route(
+            "/npo-scale/orgs/:org_id/members",
+            get(get_npo_scale_org_members).post(post_npo_scale_org_member),
         )
         .route("/npo-scale/orgs/:org_id/features", get(npo_scale_org_features))
         .route(

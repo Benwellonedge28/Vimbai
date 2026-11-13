@@ -1333,6 +1333,32 @@ xbrl-reporting-service
   `/reconcile` and `/control-account/summary` already answer the sales ledger, so the purchases routes are named
   `/creditor-transactions`, `/purchases-reconcile` and `/purchases-control-account/summary`.
 
+- npo-scale-service (rust/crates/domains/npo, the same crate as npo-service)
+  Every register and report answers from Rust:
+  organisations created at the band their own revenue earns, the branches and people that push that band up, feature sets
+  and approval limits, branches, vendors, revenues, purchases that settle once and book the expense they became, donors,
+  donations, pledges with the scheduled-giving collector, numbered receipts with public token verification and their PDF,
+  expenses with the band-aware dual approval, budgets that replace a line rather than adding a second, compliance items,
+  balance items, shareholders, directors, dividends capped at what the company has earned, partners with draws and capital
+  accounts, and the five reports plus the creditors and equity ones. An organisation is the caller's alone: another
+  tenant's answers exactly as a nonexistent one, so the registry cannot be used to discover it. The four Book routes
+  (`GET /orgs/{id}/book`, `GET`/`POST /orgs/{id}/members`, `POST /orgs/{id}/book/link`) now answer from the sync crate
+  IN-PROCESS rather than proxying the Book service over HTTP: same records, same membership checks, no hop, and no 503
+  "book sync unavailable" to degrade into. Two behaviours settled there: an organisation keeps its ATTACHED Book under
+  `org_book_id`, because every stored row already carries the Book it lives in and reading that stamp as the attachment
+  made a brand-new organisation look like it had a Book and answered the caller's own instead; and a stranger inviting
+  into someone else's organisation answers the uniform 404, not the shipped 403, because the row is invisible to them
+  before ownership can be judged - the 403 remains the answer for a visible row owned by another, and both branches are
+  pinned.
+
+- calculation-api (rust/crates/application, the same crate as realtime-calculation-engine)
+  This service published ZERO endpoints of its own: it was the doorway that exposed the calculation library, and the
+  figures it fronted are the five the realtime engine answers (`/npv`, `/irr`, `/depreciation`, `/amortize` and the
+  health door), each registered once in the API server and pinned by its own route test. There is therefore nothing to
+  register for it and no route was invented to fill the gap - porting it means exactly this: its purpose is served by
+  the crate, stated here rather than counted as forgotten. Payment-gateway-service stays on Python on purpose, because
+  this platform records money and never moves it.
+
 ## Crate already has the maths, service not yet wired
 
 These are the cheapest ports left: the crate already holds the arithmetic, so the work is a
@@ -1348,19 +1374,6 @@ an entry names a service that is not on disk.
 - reporting-service -> advisory::analyze_events_after_reporting
 - rolling-forecast-service -> budgeting::rolling_forecast
 ## Needs the maths written in Rust
-
-- npo-scale-service, all but its Book plumbing (same crate as npo-service, rust/crates/domains/npo): every
-  register and report answers from Rust now - organisations created at the band their own revenue earns, the branches
-  and people that push that band up, feature sets and approval limits, branches, vendors, revenues, purchases that
-  settle once and book the expense they became, donors, donations, pledges with the scheduled-giving collector,
-  numbered receipts with public token verification and their PDF, expenses with the band-aware dual approval, budgets
-  that replace a line rather than adding a second, compliance items, balance items, shareholders, directors, dividends
-  capped at what the company has earned, partners with draws and capital accounts, and the five reports (activities,
-  functional expenses, position, budget vs actual, consolidated) plus the creditors and equity ones. An organisation
-  is the caller's alone: another tenant's answers exactly as a nonexistent one, so the registry cannot be used to
-  discover it. THE SERVICE STAYS ON THE PYTHON ENGINE for its four Book routes (`GET /orgs/{id}/book`,
-  `POST /orgs/{id}/book/link`, and `GET`/`POST /orgs/{id}/members`), which proxy the platform's Book service and so
-  need a Book client the Rust engine does not have yet.
 
 Services whose arithmetic has not been written in Rust. Each one still has a directory, which is
 what keeps it in this list: the forty-five that used to sit here without one were services that had
