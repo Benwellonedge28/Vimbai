@@ -10917,6 +10917,238 @@ async fn get_subject_attempts(
 }
 
 // ---------------------------------------------------------------------------
+// documents: the files a Book holds, their checksums, the text taken off them and what they are linked to. The
+// statistics answer at /document-statistics because /statistics already answers the receivables control account.
+// ---------------------------------------------------------------------------
+
+async fn post_document(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(documents::documents::upload_document(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn post_documents_batch(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(documents::documents::upload_documents(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn post_documents_search(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(documents::documents::search_documents(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_documents(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(documents::documents::list_documents(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_document_statistics(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(documents::documents::documents_held_counted(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn get_document(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(document_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(documents::documents::document_held(
+        graph.as_ref(),
+        &scope,
+        &document_id,
+    ))
+}
+
+async fn get_document_download(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(document_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(documents::documents::download_document(
+        graph.as_ref(),
+        &scope,
+        &document_id,
+    ))
+}
+
+async fn get_document_preview(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(document_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(documents::documents::preview_document(
+        graph.as_ref(),
+        &scope,
+        &document_id,
+    ))
+}
+
+async fn put_document(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(document_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(documents::documents::update_document(
+        graph.as_ref(),
+        &scope,
+        &document_id,
+        &asked,
+    ))
+}
+
+async fn delete_document(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(document_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(documents::documents::delete_document(
+        graph.as_ref(),
+        &scope,
+        &document_id,
+        &asked,
+    ))
+}
+
+async fn post_document_ocr(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(document_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(documents::documents::process_ocr(
+        graph.as_ref(),
+        &scope,
+        &document_id,
+        &asked,
+    ))
+}
+
+async fn post_document_link(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(document_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(documents::documents::link_document(
+        graph.as_ref(),
+        &scope,
+        &document_id,
+        &asked,
+    ))
+}
+
+async fn post_documents_batch_link(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(documents::documents::link_documents(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // financial identity: the KYC profile a Book keeps for a person, and the verification done against it. A profile
 // names a SUBJECT, which is not the caller, so it answers at /profiles and is read back by id or by subject.
 // ---------------------------------------------------------------------------
@@ -13422,6 +13654,27 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/evaluate", post(post_access_evaluation))
         .route("/attempts", get(get_access_attempts))
         .route("/attempts/user/:user_id", get(get_subject_attempts))
+
+        // documents: filing, searching, the text taken off, and what each one is linked to. The register answers
+        // under /files because /documents is the financial document state machine, whose records are a different thing.
+        .route("/document-statistics", get(get_document_statistics))
+        .route("/files/search", post(post_documents_search))
+        .route(
+            "/files/batch",
+            post(post_documents_batch),
+        )
+        .route("/files/batch/link", post(post_documents_batch_link))
+        .route("/files", post(post_document).get(get_documents))
+        .route(
+            "/files/:document_id",
+            get(get_document)
+                .put(put_document)
+                .delete(delete_document),
+        )
+        .route("/files/:document_id/download", get(get_document_download))
+        .route("/files/:document_id/preview", get(get_document_preview))
+        .route("/files/:document_id/ocr", post(post_document_ocr))
+        .route("/files/:document_id/link", post(post_document_link))
 
         // financial identity: the KYC profile register
         .route("/profiles", post(post_profile))

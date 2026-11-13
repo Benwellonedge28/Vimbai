@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 112 are proven on a Rust engine. 25 are still Python-only.
+The gateway routes 137 services. 113 are proven on a Rust engine. 24 are still Python-only.
 
-Of the backlog, 10 own no records and can be ported as pure functions; 15 own records and
+Of the backlog, 10 own no records and can be ported as pure functions; 14 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-112 services.
+113 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -53,6 +53,7 @@ debt-management-service                        8194  routes=6   records=yes rust
 departmental-accounting-service                8100  routes=22  records=yes rust http
 disposal-account-service                       8045  routes=6   records=no  rust http
 disposal-group-service                         8226  routes=8   records=yes rust http
+document-service                               8096  routes=14  records=yes rust http
 double-entry-principles-service                8047  routes=9   records=no  rust http
 equity-changes-service                         8049  routes=5   records=yes rust http
 expense-tracking-service                       8051  routes=6   records=yes rust http
@@ -149,7 +150,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-15 services.
+14 services.
 
 ```
 webhook-service                                8140  routes=5   records=yes none
@@ -162,7 +163,6 @@ multimodal-pipeline-service                    8002  routes=1   records=yes none
 notifications-service                          8091  routes=16  records=yes none
 pos-integration-service                        8095  routes=14  records=yes none
 message-bus-service                            8097  routes=16  records=yes none
-document-service                               8096  routes=14  records=yes none
 book-sync-service                              9020  routes=18  records=yes none
 alerts-service                                 8090  routes=15  records=yes none
 admin-service                                  8099  routes=27  records=yes none

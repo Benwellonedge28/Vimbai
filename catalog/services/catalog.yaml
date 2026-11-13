@@ -925,7 +925,7 @@ services:
   port: 8096
   gateway_path: /document
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

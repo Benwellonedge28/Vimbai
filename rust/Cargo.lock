@@ -1954,6 +1954,7 @@ dependencies = [
  "vimbai_capital_valuation",
  "vimbai_common",
  "vimbai_cost_accounting",
+ "vimbai_documents",
  "vimbai_equity_payroll",
  "vimbai_group_accounting",
  "vimbai_ifrs",
@@ -2075,6 +2076,15 @@ dependencies = [
  "vimbai_capital_valuation",
  "vimbai_common",
  "vimbai_service_costing",
+]
+
+[[package]]
+name = "vimbai_documents"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vimbai_common",
+ "vimbai_store",
 ]
 
 [[package]]

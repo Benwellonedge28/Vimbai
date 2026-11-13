@@ -29,6 +29,7 @@ members = [
     "crates/domains/audit",
     "crates/domains/treasury",
     "crates/platform/identity",
+    "crates/platform/documents",
     "crates/platform/access-control/rbac",
     "crates/platform/access-control/abac",
     "crates/kernel/ledger-core",

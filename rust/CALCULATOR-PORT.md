@@ -275,6 +275,24 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- document-service -> documents crate (platform shelf), records on the store: the files a Book holds, their checksums,
+  the text taken off them, and what they are linked to. A file's KIND is judged by its extension alone against the ten
+  allowed, and anything else is refused before anything is stored; the content type follows the extension, an unlisted
+  one reading as a plain byte stream. The same CONTENT cannot be filed twice - the checksum is taken over the bytes and
+  a document already held under it refuses the second copy as a duplicate - while a document that has since been
+  deleted no longer blocks a fresh copy. Deleting is SOFT (the record keeps its place, marked deleted, with the moment
+  it went) unless the caller asks for it permanently, which also drops the stored content; downloading a deleted
+  document is refused, and a preview exists only for pictures. A listing leaves deleted documents out, newest first; a
+  search adds a type, ANY of the tags named, a date range on when it was filed, what it is linked to, and a phrase
+  matched against the title, the description AND the text taken off the document, so a document found by its own OCR
+  text answers that search. The text itself is a PLACEHOLDER as the shipped service's was: a picture yields text and
+  three entities, a PDF yields text, anything else yields nothing with a confidence of zero. Deviation: the shipped
+  service kept bytes on disk under a generated name; a service crate has no disk, so the bytes travel as base64 in the
+  record (the standing rule for binary content in JSON transport) and the download hands them back the same way, with
+  the checksum still taken over the bytes so the same content refuses a second copy either way. Routes answer under
+  /files and /document-statistics: /documents is the financial document state machine's, whose records are a different
+  thing, and /statistics already answers the receivables control account.
+
 - zero-trust-data-service -> security crate, records on the store: the access policies a Book sets and every decision
   taken against them, kept as a record so an access question can be answered after the fact. A policy is the caller's
   own, replaced WHOLE when updated (the id asked for wins over any id sent with it) and defaulting to the lowest
