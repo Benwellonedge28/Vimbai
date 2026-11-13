@@ -310,6 +310,69 @@ impl Graph for MemoryGraph {
             return Ok(vec![json!({ "x": props })]);
         }
 
+        // a read that walks a line to the account it moves: the edges decide, which is what makes them an index
+        if cypher.contains("-[:DEBITED|CREDITED]->(a:Account") {
+            let book = stated(&params, "book_id");
+            let number = stated(&params, "account_number");
+            let nodes = self
+                .nodes
+                .lock()
+                .expect("the memory graph is never poisoned");
+            let account = nodes
+                .iter()
+                .find(|node| {
+                    node.label == "Account"
+                        && node.props.get("book_id").and_then(Value::as_str) == Some(book.as_str())
+                        && node.props.get("account_number").and_then(Value::as_str)
+                            == Some(number.as_str())
+                })
+                .and_then(|node| {
+                    node.props
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                });
+            let Some(account) = account else {
+                return Ok(Vec::new());
+            };
+            let touching: Vec<String> = self
+                .edges
+                .lock()
+                .expect("the memory graph is never poisoned")
+                .iter()
+                .filter(|edge| {
+                    edge.to == account && (edge.label == "DEBITED" || edge.label == "CREDITED")
+                })
+                .map(|edge| edge.from.clone())
+                .collect();
+            let mut rows: Vec<Value> = Vec::new();
+            for line in nodes.iter().filter(|node| node.label == "JournalLine") {
+                let id = line
+                    .props
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                if !touching.iter().any(|touching| touching == id) {
+                    continue;
+                }
+                let entry_id = line
+                    .props
+                    .get("entry_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                let entry = nodes
+                    .iter()
+                    .find(|node| node.props.get("id").and_then(Value::as_str) == Some(entry_id));
+                rows.push(json!({
+                    "l": line.props.clone(),
+                    "entry_id": entry_id,
+                    "entry_date": entry.and_then(|e| e.props.get("entry_date")).cloned().unwrap_or(Value::Null),
+                    "entry_description": entry.and_then(|e| e.props.get("description")).cloned().unwrap_or(Value::Null),
+                }));
+            }
+            return Ok(rows);
+        }
+
         // a read that collects children answers each parent with the lines that name it as their entry
         if cypher.contains("collect(l)") {
             let label = matched_label(cypher)

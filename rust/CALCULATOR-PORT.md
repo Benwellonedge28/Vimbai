@@ -1569,8 +1569,11 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   exactly this, rather than inferred from the amounts. The memory graph keeps edges as well as nodes now, which is what
   let the change be tested rather than asserted: the crate test shows one `DEBITED` edge from the asset line to account
   1000, one `CREDITED` edge to the revenue account, and both lines hanging off their entry by `HAS_LINE`. Reading a
-  posting back out of those edges - an account's lines fetched by edge instead of by scanning every entry - is the next
-  step; nothing reads them yet, so today they are the lineage rather than an index.
+  posting back out of those edges is done too: `account_postings` walks in from the account and answers what moved it,
+  with each line's entry named beside it and the two sides totalled. It is tested the only way it can be - through the
+  edges, in a graph where the edges are the only path from an account to its lines - including the case of an account
+  nothing moved, which answers with no postings rather than with everything. No HTTP route exposes it yet, so it is a
+  capability the domain now has rather than a door the gateway offers.
 
 ## Divergences worth knowing
 

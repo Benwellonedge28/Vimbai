@@ -902,6 +902,36 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
         Ok(rows.into_iter().map(unwrap_node).collect())
     }
 
+    /// The lines that moved one account, fetched through the edges rather than by reading every entry in the Book.
+    ///
+    /// This is what the `DEBITED`/`CREDITED` edges are for: an account's postings are a walk from the account inwards,
+    /// so answering "what moved account 1000" stops depending on how many entries the Book holds. Each row is the line
+    /// itself with the entry it belongs to named beside it.
+    pub fn lines_for_account(
+        &self,
+        scope: &BookScope,
+        child: RecordKind,
+        account_number: &str,
+        limit: usize,
+    ) -> Result<Vec<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+             MATCH (x)-[:{child_edge}]->(l:{child_label})\n\
+             MATCH (l)-[:DEBITED|CREDITED]->(a:Account {{book_id: $book_id, account_number: $account_number}})\n\
+             RETURN l, x.id AS entry_id, x.entry_date AS entry_date, x.description AS entry_description\n\
+             ORDER BY entry_date DESC\n\
+             LIMIT $limit",
+            label = self.kind.label,
+            edge = self.kind.edge,
+            child_edge = child.edge,
+            child_label = child.label
+        );
+        let mut params = scope.params();
+        params["account_number"] = json!(account_number);
+        params["limit"] = json!(limit as i64);
+        self.graph.run(&cypher, params)
+    }
+
     /// Merge the supplied fields into a record that already belongs to this Book.
     pub fn update(&self, scope: &BookScope, id: &str, fields: &Value) -> Result<Value, StoreError> {
         let patch = self.clean_fields(fields)?;

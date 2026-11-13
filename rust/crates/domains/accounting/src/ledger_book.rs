@@ -549,6 +549,49 @@ pub fn create_entry<G: Graph + ?Sized>(
     Ok(answer)
 }
 
+/// `GET /accounts/{number}/postings`: the lines that moved one account, fetched through the ledger's own edges.
+///
+/// This is the read the `DEBITED`/`CREDITED` edges exist for. Answering it by listing every entry in the Book and
+/// filtering would return the same rows today and get slower with every entry posted; walking in from the account does
+/// not, which is the difference between having lineage and having an index.
+pub fn account_postings<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    account_number: &str,
+    limit: usize,
+) -> Result<Value, StoreError> {
+    let rows = Records::new(graph, JOURNAL_ENTRY).lines_for_account(
+        scope,
+        JOURNAL_LINE,
+        account_number,
+        limit,
+    )?;
+    let mut postings: Vec<Value> = Vec::new();
+    let mut debits = zero();
+    let mut credits = zero();
+    for row in &rows {
+        let line = row.get("l").cloned().unwrap_or(Value::Null);
+        let debit = money_or_nothing(&line, "debit")?;
+        let credit = money_or_nothing(&line, "credit")?;
+        debits = debits.plus(&debit);
+        credits = credits.plus(&credit);
+        postings.push(json!({
+            "entry_id": row.get("entry_id").cloned().unwrap_or(Value::Null),
+            "entry_date": row.get("entry_date").cloned().unwrap_or(Value::Null),
+            "description": field(&line, "description"),
+            "line_no": line.get("line_no").cloned().unwrap_or(Value::Null),
+            "debit": wire(&debit),
+            "credit": wire(&credit),
+        }));
+    }
+    Ok(json!({
+        "account_number": account_number,
+        "postings": postings,
+        "total_debit": wire(&debits),
+        "total_credit": wire(&credits),
+    }))
+}
+
 /// `GET /journal-entries/{id}`.
 pub fn get_entry<G: Graph + ?Sized>(
     graph: &G,
@@ -1033,6 +1076,43 @@ mod tests {
         assert_eq!(lines.len(), 2);
         assert_eq!(field(&lines[0], "account_number"), "1000");
         assert_eq!(field(&lines[1], "account_number"), "4000");
+    }
+
+    #[test]
+    fn an_accounts_postings_are_found_through_the_ledger_edges() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        for (number, kind, normal) in [("1000", "asset", "debit"), ("4000", "revenue", "credit")] {
+            vimbai_store::Records::new(&graph, LEDGER_ACCOUNT)
+                .create(&scope(), &account(number, kind, normal))
+                .expect("an account");
+        }
+        create_entry(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-03-15", "description": "sale", "status": "posted",
+            "lines": [
+                {"account_number": "1000", "debit": "250.00", "credit": "0"},
+                {"account_number": "4000", "debit": "0", "credit": "250.00"}
+            ]}),
+        )
+        .expect("posted");
+
+        // the walk from the account finds the line that moved it, with the entry named beside it
+        let moved = account_postings(&graph, &scope(), "1000", 100).expect("postings");
+        let postings = moved["postings"].as_array().expect("postings");
+        assert_eq!(postings.len(), 1, "{moved}");
+        assert_eq!(field(&postings[0], "debit"), "250.000000");
+        assert_eq!(moved["total_debit"], json!("250.000000"));
+
+        // and the other side is a different account with its own posting
+        let revenue = account_postings(&graph, &scope(), "4000", 100).expect("postings");
+        assert_eq!(revenue["postings"].as_array().map(Vec::len), Some(1));
+        assert_eq!(revenue["total_credit"], json!("250.000000"));
+
+        // an account nothing moved answers with no postings rather than with everything
+        let untouched = account_postings(&graph, &scope(), "9999", 100).expect("postings");
+        assert_eq!(untouched["postings"].as_array().map(Vec::len), Some(0));
     }
 
     #[test]
