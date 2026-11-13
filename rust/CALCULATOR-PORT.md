@@ -646,6 +646,23 @@ xbrl-reporting-service
   fifty times too large, and the day count ran backwards, so every debtor aged to zero days and no provision was
   raised. Both are pinned by tests.
 
+- tax-accounting-service -> the tax crate (rust/crates/domains/tax), records on the store: rates and their
+  registration, the tax worked out on a transaction (single or as a batch), returns with their filing and payment,
+  withholding tax, the summary and VAT-by-jurisdiction reports, deferred tax, and the liability schedule. One crate
+  for the tax domain, so the three tax services answer a rate question one way. Which rate applies is decided once
+  (crates/domains/tax/src/rates.rs): a registered rate covers a window from `effective_from` to `effective_to`, the
+  first that covers the day wins rather than the newest, and a tax type with no registered rate falls back to the
+  shipped default table - so a VAT sale answers 20% before any rate was ever entered rather than being refused. The
+  net/gross split is applied once there too: a net amount has the rate added on, a gross amount has it divided back
+  out, and only the tax is rounded to the cent so the two figures always add back to the gross exactly. A return is
+  never taken from the caller: its sales, purchases, collected and paid figures are measured from the transactions in
+  its own period and its net due is collected less paid plus the adjustment stated, with a reversal excluded because
+  the entry it reverses is already in the period. The VAT breakdown puts everything that is not a sale on the paid
+  side, which is what shipped - imports and expenses included - and the liability schedule counts only a filed return
+  as outstanding, since a draft is not yet owed. Nothing here moves money: a calculation stores the transaction and
+  reports the journal it would post, and filing or paying a return writes the status and the date, exactly as the
+  shipped service said in its own comments.
+
 ## Crate already has the maths, service not yet wired
 
 These are the cheapest ports left: the crate already holds the arithmetic, so the work is a

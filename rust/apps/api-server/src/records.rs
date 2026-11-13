@@ -43,6 +43,7 @@ use receivables;
 use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
+use tax_services as tax;
 use treasury::{
     cash_management, cash_optimization, debt_management, foreign_exchange, petty_cash,
     sovereign_treasury, treasury_analytics, treasury_compliance, treasury_management,
@@ -9931,6 +9932,30 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/scenario-modeling/compare",
             post(compare_model_scenarios),
         )
+        // tax: rates and registration
+        .route("/tax-rates", post(post_tax_rate).get(list_tax_rates))
+        .route("/tax-rates/:rate_id", get(get_tax_rate).put(put_tax_rate))
+        .route(
+            "/tax-registrations",
+            post(post_tax_registration).get(list_tax_registrations),
+        )
+        // tax: the tax worked out on a transaction, one at a time or as a batch
+        .route("/calculate", post(post_tax_calculation))
+        .route("/calculate-batch", post(post_tax_calculation_batch))
+        // tax: returns and their filing and payment
+        .route("/tax-returns", post(post_tax_return).get(list_tax_returns))
+        .route("/tax-returns/:return_id/file", post(post_file_tax_return))
+        .route("/tax-returns/:return_id/pay", post(post_pay_tax_return))
+        // tax: withholding
+        .route(
+            "/withholding-tax",
+            post(post_withholding_tax).get(list_withholding_tax),
+        )
+        // tax: the reports a tax manager reads
+        .route("/reports/tax-summary", post(post_tax_summary))
+        .route("/reports/vat-by-jurisdiction", get(get_vat_by_jurisdiction))
+        .route("/deferred-tax", post(post_deferred_tax))
+        .route("/liability-schedule", get(get_tax_liability_schedule))
         .with_state(graph)
 }
 
@@ -11517,6 +11542,312 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/scenario-modeling/sensitivity", post(run_model_sweep))
         .route("/scenario-modeling/compare", post(compare_model_scenarios))
         .with_state(graph)
+}
+
+// --- tax: rates, registration, calculation, returns, withholding and the reports ---
+
+async fn post_tax_rate(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::accounting::create_rate(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_tax_rates(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::accounting::list_rates(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn get_tax_rate(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(rate_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::accounting::get_rate(graph.as_ref(), &scope, &rate_id))
+}
+
+async fn put_tax_rate(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(rate_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::accounting::update_rate(
+        graph.as_ref(),
+        &scope,
+        &rate_id,
+        &payload,
+    ))
+}
+
+async fn post_tax_registration(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::accounting::create_registration(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_tax_registrations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::accounting::list_registrations(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn post_tax_calculation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), payload.map(|Json(value)| value));
+    answer(tax::accounting::calculate(graph.as_ref(), &scope, &body))
+}
+
+async fn post_tax_calculation_batch(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = match payload {
+        Some(Json(value)) => value,
+        None => Value::Null,
+    };
+    answer(tax::accounting::calculate_batch(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn post_tax_return(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), payload.map(|Json(value)| value));
+    answer(tax::accounting::create_return(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn list_tax_returns(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::accounting::list_returns(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn post_file_tax_return(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(return_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = match payload {
+        Some(Json(value)) => value,
+        None => Value::Null,
+    };
+    answer(tax::accounting::file_return(
+        graph.as_ref(),
+        &scope,
+        &return_id,
+        &body,
+    ))
+}
+
+async fn post_pay_tax_return(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(return_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = match payload {
+        Some(Json(value)) => value,
+        None => Value::Null,
+    };
+    answer(tax::accounting::pay_return(
+        graph.as_ref(),
+        &scope,
+        &return_id,
+        &body,
+    ))
+}
+
+async fn post_withholding_tax(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::accounting::record_withholding(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_withholding_tax(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::accounting::list_withholding(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn post_tax_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), payload.map(|Json(value)| value));
+    answer(tax::accounting::summary_report(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn get_vat_by_jurisdiction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::accounting::vat_by_jurisdiction(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn post_deferred_tax(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::accounting::deferred_tax(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn get_tax_liability_schedule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::accounting::liability_schedule(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
 }
 
 #[cfg(test)]

@@ -1,0 +1,12 @@
+[package]
+name = "vimbai_service_tax"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Tax services: rates and registration, the tax worked out on a transaction and returned for a period, withholding, deferred tax, and the compliance and planning services beside them. Every service here owns its own records and shares the store's Book scoping."
+
+[dependencies]
+vimbai_common = { path = "../../common" }
+vimbai_store = { path = "../../adapters/database" }
+serde_json = { workspace = true }

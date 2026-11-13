@@ -106,6 +106,14 @@ pub const CASH_ACCOUNT: RecordKind = RecordKind::new("CashAccount", "OWNS_ACCOUN
 pub const CASH_SUGGESTION: RecordKind =
     RecordKind::new("OptimizationSuggestion", "OWNS_SUGGESTION");
 
+pub const TAX_RATE: RecordKind = RecordKind::new("TaxRate", "OWNS_TAX_RATE");
+pub const TAX_REGISTRATION: RecordKind =
+    RecordKind::new("TaxRegistration", "OWNS_TAX_REGISTRATION");
+pub const TAX_TRANSACTION: RecordKind = RecordKind::new("TaxTransaction", "OWNS_TAX_TRANSACTION");
+pub const TAX_RETURN: RecordKind = RecordKind::new("TaxReturn", "OWNS_TAX_RETURN");
+pub const WITHHOLDING_ENTRY: RecordKind = RecordKind::new("WithholdingEntry", "OWNS_WITHHOLDING");
+pub const TAX_REPORT: RecordKind = RecordKind::new("TaxReport", "OWNS_TAX_REPORT");
+pub const DEFERRED_TAX: RecordKind = RecordKind::new("DeferredTax", "OWNS_DEFERRED_TAX");
 pub const EQUITY_TRANSACTION: RecordKind = RecordKind::new("EquityTransaction", "OWNS_TRANSACTION");
 pub const EQUITY_STATEMENT: RecordKind = RecordKind::new("EquityStatement", "OWNS_STATEMENT");
 

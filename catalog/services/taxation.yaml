@@ -11,7 +11,7 @@ services:
   port: 8129
   gateway_path: /tax-accounting
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
