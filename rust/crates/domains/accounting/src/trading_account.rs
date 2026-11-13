@@ -15,19 +15,8 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{stored_amount, wire};
+use vimbai_store::read::money_or_nothing;
 use vimbai_store::{BookScope, Graph, Records, StoreError, TRADING_ACCOUNT};
-
-fn field(payload: &Value, key: &str) -> Result<Money, StoreError> {
-    match payload.get(key) {
-        Some(Value::Number(number)) => Money::from_f64_shortest(number.as_f64().unwrap_or(0.0))
-            .map_err(|error| StoreError::Invalid(format!("{key}: {error}"))),
-        Some(Value::String(text)) => {
-            Money::parse(text).map_err(|error| StoreError::Invalid(format!("{key}: {error}")))
-        }
-        None | Some(Value::Null) => Ok(Money::zero()),
-        Some(_) => Err(StoreError::Invalid(format!("{key} is not an amount"))),
-    }
-}
 
 /// What the account says, given its inputs.
 struct Figures {
@@ -39,14 +28,14 @@ struct Figures {
 }
 
 fn compute(payload: &Value) -> Result<Figures, StoreError> {
-    let opening_stock = field(payload, "opening_stock")?;
-    let purchases = field(payload, "purchases")?;
-    let carriage_inward = field(payload, "carriage_inward")?;
-    let closing_stock = field(payload, "closing_stock")?;
-    let sales = field(payload, "sales")?;
-    let sales_returns = field(payload, "sales_returns")?;
-    let direct_wages = field(payload, "direct_wages")?;
-    let factory_overhead = field(payload, "factory_overhead")?;
+    let opening_stock = money_or_nothing(payload, "opening_stock")?;
+    let purchases = money_or_nothing(payload, "purchases")?;
+    let carriage_inward = money_or_nothing(payload, "carriage_inward")?;
+    let closing_stock = money_or_nothing(payload, "closing_stock")?;
+    let sales = money_or_nothing(payload, "sales")?;
+    let sales_returns = money_or_nothing(payload, "sales_returns")?;
+    let direct_wages = money_or_nothing(payload, "direct_wages")?;
+    let factory_overhead = money_or_nothing(payload, "factory_overhead")?;
 
     let net_sales = sales.minus(&sales_returns);
     let cost_of_goods_sold = opening_stock

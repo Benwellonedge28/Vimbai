@@ -31,28 +31,8 @@ use serde_json::{json, Map, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount_or_zero, stored_amount, wire};
+use vimbai_store::read::{text, whole_signed};
 use vimbai_store::{BookScope, Graph, Records, StoreError, BONUS_ISSUE, RENUNCIATION, RIGHT_ISSUE};
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn whole(payload: &Value, key: &str) -> Result<i64, StoreError> {
-    match payload.get(key) {
-        Some(Value::Number(number)) => number
-            .as_i64()
-            .ok_or_else(|| StoreError::Invalid(format!("{key} must be a whole number"))),
-        Some(Value::String(raw)) => raw
-            .trim()
-            .parse::<i64>()
-            .map_err(|_| StoreError::Invalid(format!("{key} must be a whole number"))),
-        _ => Err(StoreError::Invalid(format!("{key} is required"))),
-    }
-}
 
 fn flag(payload: &Value, key: &str, fallback: bool) -> bool {
     payload
@@ -99,7 +79,7 @@ pub fn issue_bonus_shares<G: Graph + ?Sized>(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
-    let shares = whole(payload, "shares_issued")?;
+    let shares = whole_signed(payload, "shares_issued")?;
     let nominal_value = amount_or_zero(payload, "nominal_value")?;
     let total = nominal_value.times(&Money::from_i64(shares));
     let reserve = text(payload, "source_reserve");
@@ -160,7 +140,7 @@ pub fn offer_rights<G: Graph + ?Sized>(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
-    let offered = whole(payload, "new_shares_offered")?;
+    let offered = whole_signed(payload, "new_shares_offered")?;
     let price = amount_or_zero(payload, "issue_price")?;
     // the offer's stated total is the new shares at the issue price
     let total = price.times(&Money::from_i64(offered));
@@ -172,7 +152,7 @@ pub fn offer_rights<G: Graph + ?Sized>(
             "issue_date": text(payload, "issue_date"),
             "expiry_date": text(payload, "expiry_date"),
             "share_class": text(payload, "share_class"),
-            "rights_offered": whole(payload, "rights_offered")?,
+            "rights_offered": whole_signed(payload, "rights_offered")?,
             "new_shares_offered": offered,
             "issue_price": wire(&price),
             "nominal_value": wire(&amount_or_zero(payload, "nominal_value")?),
@@ -236,7 +216,7 @@ pub fn accept_rights<G: Graph + ?Sized>(
     let records = Records::new(graph, RIGHT_ISSUE);
     let issue = records.get(scope, issue_id)?;
     let shareholder = text(payload, "shareholder_id");
-    let shares = whole(payload, "shares_accepted")?;
+    let shares = whole_signed(payload, "shares_accepted")?;
 
     let mut acceptances: Map<String, Value> = issue
         .get("acceptances")

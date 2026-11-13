@@ -39,35 +39,11 @@ use serde_json::{json, Map, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, wire};
+use vimbai_store::read::{field, optional, or_default, text};
 use vimbai_store::{
     created_record, BookScope, Graph, Records, StoreError, DEPARTMENT, DEPARTMENT_ALLOCATION,
     DEPARTMENT_ALLOCATION_RULE, DEPARTMENT_COST_POOL, DEPARTMENT_FINANCIALS, INTER_DEPARTMENT_BILL,
 };
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn optional(payload: &Value, key: &str) -> Option<String> {
-    let value = text(payload, key);
-    if value.is_empty() {
-        None
-    } else {
-        Some(value)
-    }
-}
-
-fn or_default(payload: &Value, key: &str, fallback: &str) -> String {
-    optional(payload, key).unwrap_or_else(|| fallback.to_string())
-}
-
-fn field<'a>(record: &'a Value, key: &str) -> &'a str {
-    record.get(key).and_then(Value::as_str).unwrap_or("")
-}
 
 fn flag(payload: &Value, key: &str) -> Option<bool> {
     payload.get(key).and_then(Value::as_bool)

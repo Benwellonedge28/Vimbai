@@ -29,26 +29,12 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, amount_or_zero, stored_amount, wire};
+use vimbai_store::read::required_text;
+use vimbai_store::read::text;
 use vimbai_store::{
     BookScope, Graph, Records, StoreError, CUMULATIVE_REVALUATION, REVALUATION_ENTRY,
     REVALUATION_UTILIZATION,
 };
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn required(payload: &Value, key: &str) -> Result<String, StoreError> {
-    let value = text(payload, key);
-    if value.trim().is_empty() {
-        return Err(StoreError::Invalid(format!("{key} is required")));
-    }
-    Ok(value)
-}
 
 fn asset_account(asset_class: &str) -> &'static str {
     if asset_class == "property" {
@@ -73,10 +59,10 @@ pub fn record_revaluation<G: Graph + ?Sized>(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
-    let asset_id = required(payload, "asset_id")?;
-    let asset_name = required(payload, "asset_name")?;
-    let asset_class = required(payload, "asset_class")?;
-    let revaluation_date = required(payload, "revaluation_date")?;
+    let asset_id = required_text(payload, "asset_id")?;
+    let asset_name = required_text(payload, "asset_name")?;
+    let asset_class = required_text(payload, "asset_class")?;
+    let revaluation_date = required_text(payload, "revaluation_date")?;
     let previous = amount(payload, "previous_value")?;
     let new_value = amount(payload, "new_value")?;
     let adjustment = amount_or_zero(payload, "depreciation_adjustment")?;
@@ -113,7 +99,7 @@ pub fn record_revaluation<G: Graph + ?Sized>(
         )
     };
 
-    let company_id = required(payload, "company_id")?;
+    let company_id = required_text(payload, "company_id")?;
     let entry_fields = json!({
             "company_id": company_id,
             "asset_id": asset_id,
@@ -218,7 +204,7 @@ pub fn record_utilization<G: Graph + ?Sized>(
     if amount_moved.to_f64_lossy() < 0.0 {
         return Err(StoreError::Invalid("amount cannot be negative".to_string()));
     }
-    let utilization_type = required(payload, "utilization_type")?;
+    let utilization_type = required_text(payload, "utilization_type")?;
     let description = text(payload, "description");
     let utilization_date = {
         let value = text(payload, "utilization_date");
@@ -246,7 +232,7 @@ pub fn record_utilization<G: Graph + ?Sized>(
 
     let related = text(payload, "related_asset_id");
     let mut fields = json!({
-        "company_id": required(payload, "company_id")?,
+        "company_id": required_text(payload, "company_id")?,
         "amount": wire(&amount_moved),
         "utilization_type": utilization_type,
         "description": description,

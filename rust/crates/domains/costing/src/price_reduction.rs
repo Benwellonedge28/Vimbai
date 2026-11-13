@@ -17,18 +17,12 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, amount_or_zero, stored_amount, wire};
+use vimbai_store::read::required;
 use vimbai_store::{BookScope, Graph, Records, StoreError, SELLING_PRICE_ANALYSIS};
 
 /// `Money` states strict positivity as "not zero and not negative", the pair it already offers.
 fn positive(money: &Money) -> bool {
     !money.is_zero() && !money.is_negative()
-}
-
-fn text<'a>(payload: &'a Value, key: &str) -> Result<&'a str, StoreError> {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| StoreError::Invalid(format!("{key} is required")))
 }
 
 fn stored_text(row: &Value, key: &str) -> String {
@@ -80,8 +74,8 @@ pub fn create_analysis<G: Graph + ?Sized>(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
-    let product_id = text(payload, "product_id")?.to_owned();
-    let product_name = text(payload, "product_name")?.to_owned();
+    let product_id = required(payload, "product_id")?.to_owned();
+    let product_name = required(payload, "product_name")?.to_owned();
     let current_price = amount(payload, "current_price")?;
     let proposed_price = amount(payload, "proposed_price")?;
     let variable_cost = amount(payload, "variable_cost_per_unit")?;
@@ -157,7 +151,7 @@ pub fn create_analysis<G: Graph + ?Sized>(
 /// `/discount-analysis`: contribution at each discount, held to the same demand response the
 /// Python service assumed - each percent off is taken as two percent more volume.
 pub fn discount_analysis(payload: &Value) -> Result<Value, StoreError> {
-    let product_name = text(payload, "product_name")?.to_owned();
+    let product_name = required(payload, "product_name")?.to_owned();
     let list_price = amount(payload, "list_price")?;
     let variable_cost = amount(payload, "variable_cost_per_unit")?;
     let expected_sales = amount(payload, "expected_sales_at_list")?;

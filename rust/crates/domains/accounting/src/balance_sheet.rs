@@ -21,19 +21,12 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount_or_zero, stored_amount, wire};
+use vimbai_store::read::text;
 use vimbai_store::{BookScope, Graph, Records, StoreError, BALANCE_SHEET};
 
 /// A cent, the tolerance the sheet balances to.
 fn cent() -> Money {
     Money::parse("0.01").expect("a cent")
-}
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
 }
 
 fn items(payload: &Value, key: &str) -> Vec<Value> {

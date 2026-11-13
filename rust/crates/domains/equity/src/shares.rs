@@ -29,31 +29,11 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount_or_zero, wire};
+use vimbai_store::read::{text, whole_signed};
 use vimbai_store::{
     BookScope, Graph, Records, StoreError, ORDINARY_DIVIDEND, PREFERENCE_CLASS,
     PREFERENCE_DIVIDEND, PREFERENCE_REDEMPTION,
 };
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn whole(payload: &Value, key: &str) -> Result<i64, StoreError> {
-    match payload.get(key) {
-        Some(Value::Number(number)) => number
-            .as_i64()
-            .ok_or_else(|| StoreError::Invalid(format!("{key} must be a whole number"))),
-        Some(Value::String(raw)) => raw
-            .trim()
-            .parse::<i64>()
-            .map_err(|_| StoreError::Invalid(format!("{key} must be a whole number"))),
-        _ => Err(StoreError::Invalid(format!("{key} is required"))),
-    }
-}
 
 fn count_in(record: &Value, key: &str) -> i64 {
     record.get(key).and_then(Value::as_i64).unwrap_or(0)
@@ -92,7 +72,7 @@ pub fn declare_ordinary_dividend<G: Graph + ?Sized>(
     payload: &Value,
 ) -> Result<Value, StoreError> {
     let per_share = amount_or_zero(payload, "per_share_amount")?;
-    let shares = whole(payload, "total_shares")?;
+    let shares = whole_signed(payload, "total_shares")?;
     let total = per_share.times(&Money::from_i64(shares));
     let date = text(payload, "record_date");
     let kind = text(payload, "dividend_type");
@@ -230,7 +210,7 @@ pub fn issue_preference_shares<G: Graph + ?Sized>(
 ) -> Result<Value, StoreError> {
     let records = Records::new(graph, PREFERENCE_CLASS);
     let class = records.get(scope, class_id)?;
-    let shares = whole(payload, "shares_issued")?;
+    let shares = whole_signed(payload, "shares_issued")?;
     let issued = count_in(&class, "shares_issued") + shares;
     let outstanding = count_in(&class, "shares_outstanding") + shares;
 
@@ -276,7 +256,7 @@ pub fn declare_preference_dividend<G: Graph + ?Sized>(
 ) -> Result<Value, StoreError> {
     let class = Records::new(graph, PREFERENCE_CLASS).get(scope, class_id)?;
     let per_share = amount_or_zero(payload, "per_share_amount")?;
-    let shares = whole(payload, "total_shares")?;
+    let shares = whole_signed(payload, "total_shares")?;
     let arrears = amount_or_zero(payload, "preference_arears")?;
     let total = per_share.times(&Money::from_i64(shares)).plus(&arrears);
     let date = text(payload, "record_date");
@@ -349,7 +329,7 @@ pub fn redeem_preference_shares<G: Graph + ?Sized>(
 ) -> Result<Value, StoreError> {
     let records = Records::new(graph, PREFERENCE_CLASS);
     let class = records.get(scope, class_id)?;
-    let shares = whole(payload, "shares_redeemed")?;
+    let shares = whole_signed(payload, "shares_redeemed")?;
     let price = amount_or_zero(payload, "redemption_price")?;
     let total = price.times(&Money::from_i64(shares));
     let nominal_value = vimbai_store::amounts::stored_amount(&class, "nominal_value")?;

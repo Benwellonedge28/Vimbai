@@ -25,28 +25,14 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, amount_or_zero, stored_amount, wire};
+use vimbai_store::read::required_text;
+use vimbai_store::read::text;
 use vimbai_store::{
     BookScope, Graph, Records, StoreError, DISPOSAL_ASSET, DISPOSAL_GROUP, IMPAIRMENT_TEST,
 };
 
 /// The three statuses a group can hold.
 pub const STATUSES: [&str; 3] = ["held_for_sale", "sold", "withdrawn"];
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn required(payload: &Value, key: &str) -> Result<String, StoreError> {
-    let value = text(payload, key);
-    if value.trim().is_empty() {
-        return Err(StoreError::Invalid(format!("{key} is required")));
-    }
-    Ok(value)
-}
 
 /// `/groups`: open a disposal group.
 pub fn create_group<G: Graph + ?Sized>(
@@ -63,7 +49,7 @@ pub fn create_group<G: Graph + ?Sized>(
         }
     };
     let mut fields = json!({
-        "name": required(payload, "name")?,
+        "name": required_text(payload, "name")?,
         "description": text(payload, "description"),
         "disposal_method": method,
         "status": "held_for_sale",
@@ -126,7 +112,7 @@ pub fn add_asset<G: Graph + ?Sized>(
 ) -> Result<Value, StoreError> {
     let group = get_group(graph, scope, group_id)?;
 
-    let asset_id = required(payload, "asset_id")?;
+    let asset_id = required_text(payload, "asset_id")?;
     let classification = {
         let value = text(payload, "classification");
         if value.is_empty() {
@@ -138,7 +124,7 @@ pub fn add_asset<G: Graph + ?Sized>(
     let fields = json!({
         "group_id": group_id,
         "asset_id": asset_id,
-        "asset_name": required(payload, "asset_name")?,
+        "asset_name": required_text(payload, "asset_name")?,
         "carrying_amount": wire(&amount(payload, "carrying_amount")?),
         "fair_value": wire(&amount_or_zero(payload, "fair_value")?),
         "classification": classification,

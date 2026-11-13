@@ -35,6 +35,7 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, wire};
+use vimbai_store::read::{field, optional, or_default, text};
 use vimbai_store::{
     created_record, BookScope, Graph, Records, StoreError, CAPITAL_TRANSACTION, COMPANY,
     COMPANY_RESERVE, COMPANY_SHARE_CAPITAL, DIVIDEND, DIVIDEND_PAYMENT, RETAINED_EARNINGS,
@@ -58,33 +59,8 @@ fn written(body: Value, stored: &Value) -> Value {
     }
 }
 
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn optional(payload: &Value, key: &str) -> Option<String> {
-    let value = text(payload, key);
-    if value.is_empty() {
-        None
-    } else {
-        Some(value)
-    }
-}
-
-fn or_default(payload: &Value, key: &str, fallback: &str) -> String {
-    optional(payload, key).unwrap_or_else(|| fallback.to_string())
-}
-
 fn count(payload: &Value, key: &str) -> i64 {
     payload.get(key).and_then(Value::as_i64).unwrap_or_default()
-}
-
-fn field<'a>(record: &'a Value, key: &str) -> &'a str {
-    record.get(key).and_then(Value::as_str).unwrap_or("")
 }
 
 fn shares(record: &Value) -> i64 {

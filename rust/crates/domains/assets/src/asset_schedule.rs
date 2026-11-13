@@ -28,11 +28,8 @@ use vimbai_common::Money;
 use vimbai_store::amounts::stored_amount;
 
 use crate::fixed_assets_register::schedule_view;
+use vimbai_store::read::present;
 use vimbai_store::{BookScope, Graph, Records, StoreError, ASSET_SCHEDULE, FIXED_ASSET};
-
-fn text(payload: &Value, key: &str) -> Option<String> {
-    payload.get(key).and_then(Value::as_str).map(str::to_string)
-}
 
 /// A field under either of the two spellings the two services used.
 fn alias<'a>(record: &'a Value, names: &[&str]) -> Option<&'a Value> {
@@ -54,7 +51,7 @@ fn amount_alias(record: &Value, names: &[&str]) -> Result<Money, StoreError> {
 }
 
 fn category_of(record: &Value) -> String {
-    text(record, "category").unwrap_or_default()
+    present(record, "category").unwrap_or_default()
 }
 
 /// `/assets`: the schedule service's envelope, `{"assets": [...], "count": n}`.
@@ -74,7 +71,7 @@ pub fn list_with_count<G: Graph + ?Sized>(
         })
         .filter(|row| match status {
             None => true,
-            Some(wanted) => text(row, "status").as_deref() == Some(wanted),
+            Some(wanted) => present(row, "status").as_deref() == Some(wanted),
         })
         .collect();
     Ok(json!({"assets": filtered, "count": filtered.len()}))

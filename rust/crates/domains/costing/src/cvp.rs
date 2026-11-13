@@ -16,6 +16,7 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, amount_or_zero, stored_amount, wire};
+use vimbai_store::read::required;
 use vimbai_store::{BookScope, Graph, Records, StoreError, CVP_ANALYSIS};
 
 /// `Money` states strict positivity as "not zero and not negative", the pair it already offers.
@@ -30,13 +31,6 @@ fn divided_by(numerator: &Money, divisor: &Money) -> Option<Money> {
     } else {
         None
     }
-}
-
-fn text<'a>(payload: &'a Value, key: &str) -> Result<&'a str, StoreError> {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| StoreError::Invalid(format!("{key} is required")))
 }
 
 fn stored_text(row: &Value, key: &str) -> String {
@@ -155,8 +149,8 @@ pub fn create_analysis<G: Graph + ?Sized>(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
-    let entity_id = text(payload, "entity_id")?.to_owned();
-    let entity_name = text(payload, "entity_name")?.to_owned();
+    let entity_id = required(payload, "entity_id")?.to_owned();
+    let entity_name = required(payload, "entity_name")?.to_owned();
     let price = amount(payload, "selling_price_per_unit")?;
     let variable_cost = amount(payload, "variable_cost_per_unit")?;
     let fixed_costs = amount(payload, "fixed_costs")?;
@@ -249,8 +243,8 @@ pub fn quick_analysis(payload: &Value) -> Result<Value, StoreError> {
 
 /// `/contribution`: what each unit leaves behind, and what the run of them leaves behind.
 pub fn contribution(payload: &Value) -> Result<Value, StoreError> {
-    let entity_id = text(payload, "entity_id")?.to_owned();
-    let entity_name = text(payload, "entity_name")?.to_owned();
+    let entity_id = required(payload, "entity_id")?.to_owned();
+    let entity_name = required(payload, "entity_name")?.to_owned();
     let price = amount(payload, "selling_price_per_unit")?;
     let variable_cost = amount(payload, "variable_cost_per_unit")?;
     let units_sold = amount_or_zero(payload, "units_sold")?;
@@ -275,7 +269,7 @@ pub fn contribution(payload: &Value) -> Result<Value, StoreError> {
 /// `/target-profit`: the volume a profit needs. A contribution that is not positive cannot reach any
 /// profit, and the service has always refused that outright rather than answering a number.
 pub fn target_profit(payload: &Value) -> Result<Value, StoreError> {
-    let entity_name = text(payload, "entity_name")?.to_owned();
+    let entity_name = required(payload, "entity_name")?.to_owned();
     let price = amount(payload, "selling_price_per_unit")?;
     let variable_cost = amount(payload, "variable_cost_per_unit")?;
     let fixed_costs = amount(payload, "fixed_costs")?;
@@ -314,8 +308,8 @@ pub fn target_profit(payload: &Value) -> Result<Value, StoreError> {
 
 /// `/multi-product`: break-even for a mix, weighted by how much of the mix each product is.
 pub fn multi_product(payload: &Value) -> Result<Value, StoreError> {
-    let entity_id = text(payload, "entity_id")?.to_owned();
-    let entity_name = text(payload, "entity_name")?.to_owned();
+    let entity_id = required(payload, "entity_id")?.to_owned();
+    let entity_name = required(payload, "entity_name")?.to_owned();
     let fixed_costs = amount(payload, "fixed_costs")?;
     let target = amount_or_zero(payload, "target_profit")?;
 
@@ -335,7 +329,7 @@ pub fn multi_product(payload: &Value) -> Result<Value, StoreError> {
     let mut weights = Vec::with_capacity(products.len());
 
     for product in products {
-        let name = text(product, "product_name")?.to_owned();
+        let name = required(product, "product_name")?.to_owned();
         let price = amount(product, "selling_price")?;
         let variable_cost = amount(product, "variable_cost")?;
         let proportion = amount(product, "expected_proportion")?;

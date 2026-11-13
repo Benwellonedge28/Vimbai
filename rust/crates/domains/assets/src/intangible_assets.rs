@@ -20,6 +20,8 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, stored_amount, wire};
+use vimbai_store::read::required_text;
+use vimbai_store::read::{text, whole_signed};
 use vimbai_store::{BookScope, Graph, Records, StoreError, AMORTIZATION_ENTRY, INTANGIBLE_ASSET};
 
 /// The six types the service accepted.
@@ -32,42 +34,13 @@ pub const TYPES: [&str; 6] = [
     "license",
 ];
 
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn required(payload: &Value, key: &str) -> Result<String, StoreError> {
-    let value = text(payload, key);
-    if value.trim().is_empty() {
-        return Err(StoreError::Invalid(format!("{key} is required")));
-    }
-    Ok(value)
-}
-
-fn whole(payload: &Value, key: &str) -> Result<i64, StoreError> {
-    match payload.get(key) {
-        Some(Value::Number(number)) => number
-            .as_i64()
-            .ok_or_else(|| StoreError::Invalid(format!("{key} must be a whole number"))),
-        Some(Value::String(text)) => text
-            .trim()
-            .parse::<i64>()
-            .map_err(|_| StoreError::Invalid(format!("{key} must be a whole number"))),
-        _ => Err(StoreError::Invalid(format!("{key} is required"))),
-    }
-}
-
 /// `/assets`: register an intangible, at cost.
 pub fn create_asset<G: Graph + ?Sized>(
     graph: &G,
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
-    let asset_type = required(payload, "asset_type")?;
+    let asset_type = required_text(payload, "asset_type")?;
     if !TYPES.contains(&asset_type.as_str()) {
         return Err(StoreError::Invalid(format!(
             "Invalid type. Must be one of {TYPES:?}"
@@ -90,12 +63,12 @@ pub fn create_asset<G: Graph + ?Sized>(
     Records::new(graph, INTANGIBLE_ASSET).create(
         scope,
         &json!({
-            "name": required(payload, "name")?,
+            "name": required_text(payload, "name")?,
             "asset_type": asset_type,
             "cost": wire(&cost),
-            "useful_life_years": whole(payload, "useful_life_years")?,
+            "useful_life_years": whole_signed(payload, "useful_life_years")?,
             "residual_value": wire(&residual),
-            "acquisition_date": required(payload, "acquisition_date")?,
+            "acquisition_date": required_text(payload, "acquisition_date")?,
             "amortization_method": method,
             "accumulated_amortization": wire(&Money::zero()),
             "net_book_value": wire(&cost),

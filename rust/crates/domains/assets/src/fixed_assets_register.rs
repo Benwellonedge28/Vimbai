@@ -32,6 +32,8 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, stored_amount, wire};
+use vimbai_store::read::{key_under, required_text};
+use vimbai_store::read::{text, whole_signed};
 use vimbai_store::{
     BookScope, Graph, Records, StoreError, ASSET_DISPOSAL, DEPRECIATION_ENTRY, FIXED_ASSET,
 };
@@ -91,43 +93,6 @@ pub fn schedule_view(record: &Value) -> Value {
     view
 }
 
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn required_text(payload: &Value, key: &str) -> Result<String, StoreError> {
-    let value = text(payload, key);
-    if value.trim().is_empty() {
-        return Err(StoreError::Invalid(format!("{key} is required")));
-    }
-    Ok(value)
-}
-
-/// The first of `names` the payload actually carries.
-fn present<'a>(payload: &'a Value, names: &[&'a str]) -> Option<&'a str> {
-    names
-        .iter()
-        .find(|name| payload.get(**name).map(|v| !v.is_null()).unwrap_or(false))
-        .copied()
-}
-
-fn whole(payload: &Value, key: &str) -> Result<i64, StoreError> {
-    match payload.get(key) {
-        Some(Value::Number(number)) => number
-            .as_i64()
-            .ok_or_else(|| StoreError::Invalid(format!("{key} must be a whole number"))),
-        Some(Value::String(text)) => text
-            .trim()
-            .parse::<i64>()
-            .map_err(|_| StoreError::Invalid(format!("{key} must be a whole number"))),
-        _ => Err(StoreError::Invalid(format!("{key} is required"))),
-    }
-}
-
 /// `/assets`: register an asset, stamped with the caller's Book.
 pub fn create_asset<G: Graph + ?Sized>(
     graph: &G,
@@ -144,10 +109,10 @@ pub fn create_asset<G: Graph + ?Sized>(
     // an amount under either spelling the two services used
     let cost = amount(
         payload,
-        present(payload, &["acquisition_cost", "purchase_cost"])
+        key_under(payload, &["acquisition_cost", "purchase_cost"])
             .ok_or_else(|| StoreError::Invalid("acquisition_cost is required".to_string()))?,
     )?;
-    let salvage = match present(payload, &["salvage_value", "residual_value"]) {
+    let salvage = match key_under(payload, &["salvage_value", "residual_value"]) {
         None => Money::zero(),
         Some(key) => amount(payload, key)?,
     };
@@ -168,11 +133,11 @@ pub fn create_asset<G: Graph + ?Sized>(
         "department": text(payload, "department"),
         "acquisition_date": required_text(
             payload,
-            present(payload, &["acquisition_date", "purchase_date"])
+            key_under(payload, &["acquisition_date", "purchase_date"])
                 .ok_or_else(|| StoreError::Invalid("acquisition_date is required".to_string()))?,
         )?,
         "acquisition_cost": wire(&cost),
-        "useful_life_years": whole(payload, "useful_life_years")?,
+        "useful_life_years": whole_signed(payload, "useful_life_years")?,
         "salvage_value": wire(&salvage),
         "depreciation_method": method,
         "accumulated_depreciation": wire(&Money::zero()),

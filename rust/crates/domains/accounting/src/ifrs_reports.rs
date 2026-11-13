@@ -18,6 +18,7 @@
 
 use serde_json::{json, Value};
 
+use vimbai_store::read::{optional, text};
 use vimbai_store::{
     created_record, BookScope, Graph, Records, StoreError, DISCLOSURE_NOTE, IFRS_REPORT,
 };
@@ -30,23 +31,6 @@ pub const TYPES: [&str; 5] = [
     "equity_changes",
     "notes",
 ];
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn optional(payload: &Value, key: &str) -> Option<String> {
-    let given = text(payload, key);
-    if given.is_empty() {
-        None
-    } else {
-        Some(given)
-    }
-}
 
 /// `/reports`.
 pub fn create_report<G: Graph + ?Sized>(

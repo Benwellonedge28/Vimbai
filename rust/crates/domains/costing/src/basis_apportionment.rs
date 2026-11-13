@@ -17,19 +17,13 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, stored_amount, wire};
+use vimbai_store::read::required;
 use vimbai_store::{
     BookScope, Graph, Records, StoreError, APPORTIONMENT_RESULT, APPORTIONMENT_RULE,
 };
 
 /// The places an apportioned amount is held to, which is the precision the store keeps.
 const PLACES: i64 = 6;
-
-fn text<'a>(payload: &'a Value, key: &str) -> Result<&'a str, StoreError> {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| StoreError::Invalid(format!("{key} is required")))
-}
 
 fn stored_text(row: &Value, key: &str) -> String {
     row.get(key)
@@ -72,9 +66,9 @@ pub fn create_rule<G: Graph + ?Sized>(
     payload: &Value,
 ) -> Result<Value, StoreError> {
     let record = json!({
-        "cost_type": text(payload, "cost_type")?,
-        "basis": text(payload, "basis")?,
-        "description": text(payload, "description")?,
+        "cost_type": required(payload, "cost_type")?,
+        "basis": required(payload, "basis")?,
+        "description": required(payload, "description")?,
     });
     let saved = Records::new(graph, APPORTIONMENT_RULE).create(scope, &record)?;
     Ok(rule_json(&saved))
@@ -137,7 +131,7 @@ pub fn apportion<G: Graph + ?Sized>(
     let basis = BASES
         .get(index)
         .ok_or_else(|| StoreError::Invalid("unknown apportionment basis".into()))?;
-    let cost_type = text(payload, "cost_type")?.to_owned();
+    let cost_type = required(payload, "cost_type")?.to_owned();
     let total_cost = amount(payload, "total_cost")?;
 
     let centres = payload
@@ -149,8 +143,8 @@ pub fn apportion<G: Graph + ?Sized>(
     let mut ids = Vec::with_capacity(centres.len());
     let mut weights = Vec::with_capacity(centres.len());
     for centre in centres {
-        names.push(text(centre, "cost_centre_name")?.to_owned());
-        ids.push(text(centre, "cost_centre_id")?.to_owned());
+        names.push(required(centre, "cost_centre_name")?.to_owned());
+        ids.push(required(centre, "cost_centre_id")?.to_owned());
         // a centre with no figure for the basis takes none of the cost, as it always did
         weights.push(amount(centre, basis.key).unwrap_or_else(|_| Money::zero()));
     }

@@ -20,25 +20,11 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, amount_or_zero, stored_amount, wire};
+use vimbai_store::read::required_text;
+use vimbai_store::read::text;
 use vimbai_store::{
     BookScope, Graph, Records, StoreError, LEASE_TERMINATION, TERMINATION_SETTLEMENT,
 };
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn required(payload: &Value, key: &str) -> Result<String, StoreError> {
-    let value = text(payload, key);
-    if value.trim().is_empty() {
-        return Err(StoreError::Invalid(format!("{key} is required")));
-    }
-    Ok(value)
-}
 
 fn payments_remaining(payload: &Value) -> Result<i64, StoreError> {
     match payload.get("remaining_payments") {
@@ -70,9 +56,9 @@ pub fn create_termination<G: Graph + ?Sized>(
     Records::new(graph, LEASE_TERMINATION).create(
         scope,
         &json!({
-            "lease_id": required(payload, "lease_id")?,
-            "termination_date": required(payload, "termination_date")?,
-            "original_end_date": required(payload, "original_end_date")?,
+            "lease_id": required_text(payload, "lease_id")?,
+            "termination_date": required_text(payload, "termination_date")?,
+            "original_end_date": required_text(payload, "original_end_date")?,
             "remaining_payments": remaining,
             "remaining_payment_amount": wire(&payment),
             "early_termination_penalty": wire(&penalty),

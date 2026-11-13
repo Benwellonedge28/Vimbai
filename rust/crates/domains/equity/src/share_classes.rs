@@ -24,33 +24,13 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount_or_zero, stored_amount, wire};
+use vimbai_store::read::{text, whole_signed};
 use vimbai_store::{
     BookScope, Graph, Records, StoreError, SHARE_BUYBACK, SHARE_CLASS, SHARE_ISSUANCE,
 };
 
 /// The voting rights a class may declare.
 pub const VOTING_RIGHTS: [&str; 3] = ["ordinary", "preferential", "none"];
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn whole(payload: &Value, key: &str) -> Result<i64, StoreError> {
-    match payload.get(key) {
-        Some(Value::Number(number)) => number
-            .as_i64()
-            .ok_or_else(|| StoreError::Invalid(format!("{key} must be a whole number"))),
-        Some(Value::String(text)) => text
-            .trim()
-            .parse::<i64>()
-            .map_err(|_| StoreError::Invalid(format!("{key} must be a whole number"))),
-        _ => Err(StoreError::Invalid(format!("{key} is required"))),
-    }
-}
 
 /// `/share-classes`: open a class of shares with a ceiling.
 pub fn create_class<G: Graph + ?Sized>(
@@ -81,7 +61,7 @@ pub fn create_class<G: Graph + ?Sized>(
         scope,
         &json!({
             "name": name,
-            "authorized_shares": whole(payload, "authorized_shares")?,
+            "authorized_shares": whole_signed(payload, "authorized_shares")?,
             "issued_shares": 0,
             "par_value": wire(&amount_or_zero(payload, "par_value")?),
             "voting_rights": voting,
@@ -122,7 +102,7 @@ pub fn issue<G: Graph + ?Sized>(
         .get("issued_shares")
         .and_then(Value::as_i64)
         .unwrap_or(0);
-    let shares = whole(payload, "number_of_shares")?;
+    let shares = whole_signed(payload, "number_of_shares")?;
 
     if issued + shares > authorized {
         return Err(StoreError::Invalid(
@@ -183,7 +163,7 @@ pub fn buyback<G: Graph + ?Sized>(
         .get("issued_shares")
         .and_then(Value::as_i64)
         .unwrap_or(0);
-    let shares = whole(payload, "number_of_shares")?;
+    let shares = whole_signed(payload, "number_of_shares")?;
 
     if shares > issued {
         return Err(StoreError::Invalid("Buyback exceeds issued shares".into()));

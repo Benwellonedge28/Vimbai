@@ -45,7 +45,9 @@ use vimbai_common::Money;
 use vimbai_ledger_core::hash_chain::{
     chain_state_from_digests, compute_entry_hash, EntryDigest, GENESIS_HASH,
 };
-use vimbai_store::amounts::{amount, wire};
+use vimbai_store::amounts::wire;
+use vimbai_store::read::money_or_nothing;
+use vimbai_store::read::{field, optional, or_default, refused, text};
 use vimbai_store::{
     created_record, BookScope, Graph, Records, StoreError, JOURNAL_ENTRY, LEDGER_ACCOUNT,
 };
@@ -60,50 +62,8 @@ const REFERENCE_CHECKED: [&str; 6] = [
     "MobileApp",
 ];
 
-fn refused(message: &str) -> StoreError {
-    StoreError::Invalid(message.to_string())
-}
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn optional(payload: &Value, key: &str) -> Option<String> {
-    let value = text(payload, key);
-    if value.is_empty() {
-        None
-    } else {
-        Some(value)
-    }
-}
-
-fn or_default(payload: &Value, key: &str, fallback: &str) -> String {
-    optional(payload, key).unwrap_or_else(|| fallback.to_string())
-}
-
-fn field<'a>(record: &'a Value, key: &str) -> &'a str {
-    record.get(key).and_then(Value::as_str).unwrap_or("")
-}
-
 fn zero() -> Money {
     Money::zero()
-}
-
-/// An amount read from a stored or supplied figure, exact. Anything unreadable is refused rather than
-/// treated as zero, which is the difference between a missing debit and a free one.
-fn money(value: &Value) -> Result<Money, StoreError> {
-    amount(&json!({ "amount": value }), "amount")
-}
-
-fn money_at(payload: &Value, key: &str) -> Result<Money, StoreError> {
-    match payload.get(key) {
-        Some(Value::Null) | None => Ok(zero()),
-        Some(value) => money(value),
-    }
 }
 
 fn is_zero(value: &Money) -> bool {
@@ -306,7 +266,10 @@ fn movements(
             if field(&line, "account_number") != account_number {
                 continue;
             }
-            rows.push((money_at(&line, "debit")?, money_at(&line, "credit")?));
+            rows.push((
+                money_or_nothing(&line, "debit")?,
+                money_or_nothing(&line, "credit")?,
+            ));
         }
     }
     Ok(rows)
@@ -383,8 +346,8 @@ fn validated_lines(payload: &Value) -> Result<Vec<Value>, StoreError> {
     let mut credit_total = zero();
     let mut lines = Vec::new();
     for (index, line) in rows.iter().enumerate() {
-        let debit = money_at(line, "debit")?;
-        let credit = money_at(line, "credit")?;
+        let debit = money_or_nothing(line, "debit")?;
+        let credit = money_or_nothing(line, "credit")?;
         if debit < zero() || credit < zero() {
             return Err(refused(&format!("line {index} carries a negative amount")));
         }
@@ -724,8 +687,8 @@ pub fn ledger_report<G: Graph + ?Sized>(
             if field(&line, "account_number") != number {
                 continue;
             }
-            let debit = money_at(&line, "debit")?;
-            let credit = money_at(&line, "credit")?;
+            let debit = money_or_nothing(&line, "debit")?;
+            let credit = money_or_nothing(&line, "credit")?;
             running = if field(&account, "normal_balance") == "debit" {
                 running.plus(&debit).minus(&credit)
             } else {
@@ -781,7 +744,10 @@ fn before(
             if field(&line, "account_number") != account_number {
                 continue;
             }
-            rows.push((money_at(&line, "debit")?, money_at(&line, "credit")?));
+            rows.push((
+                money_or_nothing(&line, "debit")?,
+                money_or_nothing(&line, "credit")?,
+            ));
         }
     }
     Ok(rows)

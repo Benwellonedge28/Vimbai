@@ -26,6 +26,10 @@ STORE_MODULES = {
     # machinery, not a service: reading a value out of a query string, shared by every port that has
     # to honour ?limit=5 or ?reconciled=true instead of silently keeping its default
     "query.rs",
+    # machinery too: reading a value out of a request payload and writing a record back, shared by
+    # every port that used to carry its own copy of them
+    "read.rs",
+    "write.rs",
 }
 
 
@@ -55,7 +59,7 @@ def test_the_store_declares_no_service_module():
     with open(os.path.join(STORE, "lib.rs"), encoding="utf-8") as handle:
         text = handle.read()
     declared = set(re.findall(r"^pub mod (\w+);", text, re.MULTILINE))
-    machinery = {"amounts", "fake", "neo4j_client", "query"}
+    machinery = {"amounts", "fake", "neo4j_client", "query", "read", "write"}
     assert declared <= machinery, (
         f"the store still re-exports a domain module: {sorted(declared - machinery)}"
     )

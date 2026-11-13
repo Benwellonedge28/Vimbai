@@ -15,12 +15,7 @@ pub mod treasury;
 use serde_json::Value;
 use vimbai_common::py_round2;
 
-pub fn text(v: &Value, key: &str) -> String {
-    v.get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
+pub use vimbai_store::read::text;
 
 pub fn num(v: &Value, key: &str) -> f64 {
     v.get(key).and_then(Value::as_f64).unwrap_or(0.0)

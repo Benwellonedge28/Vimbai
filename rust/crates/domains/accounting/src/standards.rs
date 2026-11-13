@@ -26,6 +26,7 @@
 use std::sync::OnceLock;
 
 use serde_json::{json, Value};
+use vimbai_store::read::{field, optional, or_default, text};
 use vimbai_store::{
     created_record, BookScope, Graph, Records, StoreError, ACCOUNTING_POLICY, ACCOUNT_MAPPING,
     COMPLIANCE_CHECK, STANDARDS_CONFIG,
@@ -76,29 +77,10 @@ fn standard_matching(value: &str) -> Option<&'static Value> {
 }
 
 /// A lookup the catalogue, the store or the caller's own records do not satisfy.
-fn refused(_message: &str) -> StoreError {
+/// A record the caller does not hold. Named for what it is: this is a miss, not a refusal, and a miss never
+/// admits that something exists elsewhere.
+fn missing() -> StoreError {
     StoreError::NotFound
-}
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn optional(payload: &Value, key: &str) -> Option<String> {
-    let value = text(payload, key);
-    if value.is_empty() {
-        None
-    } else {
-        Some(value)
-    }
-}
-
-fn or_default(payload: &Value, key: &str, fallback: &str) -> String {
-    optional(payload, key).unwrap_or_else(|| fallback.to_string())
 }
 
 fn strings(payload: &Value, key: &str) -> Vec<String> {
@@ -116,10 +98,6 @@ fn strings(payload: &Value, key: &str) -> Vec<String> {
             .collect(),
         _ => Vec::new(),
     }
-}
-
-fn field<'a>(record: &'a Value, key: &str) -> &'a str {
-    record.get(key).and_then(Value::as_str).unwrap_or("")
 }
 
 fn written(body: Value, saved: &Value) -> Value {
@@ -170,7 +148,7 @@ pub fn list_standards(query: &Value) -> Value {
 pub fn get_standard(standard_type: &str) -> Result<Value, StoreError> {
     standard_matching(standard_type)
         .cloned()
-        .ok_or_else(|| refused("Standard not found"))
+        .ok_or_else(missing)
 }
 
 /// `/standards/comparison`.
@@ -360,8 +338,7 @@ pub fn get_configuration<G: Graph + ?Sized>(
     scope: &BookScope,
     organization_id: &str,
 ) -> Result<Value, StoreError> {
-    configuration_of(graph, scope, organization_id)?
-        .ok_or_else(|| refused("Configuration not found"))
+    configuration_of(graph, scope, organization_id)?.ok_or_else(missing)
 }
 
 /// `PUT /organizations/{id}/configuration`, which needs one to exist first.
@@ -372,7 +349,7 @@ pub fn update_configuration<G: Graph + ?Sized>(
     payload: &Value,
 ) -> Result<Value, StoreError> {
     if configuration_of(graph, scope, organization_id)?.is_none() {
-        return Err(refused("Configuration not found"));
+        return Err(missing());
     }
     replace_configuration(graph, scope, organization_id, payload)
 }
@@ -385,8 +362,7 @@ fn toggle_standard<G: Graph + ?Sized>(
     activate: bool,
     stamp: &str,
 ) -> Result<Value, StoreError> {
-    let existing = configuration_of(graph, scope, organization_id)?
-        .ok_or_else(|| refused("Organization configuration not found"))?;
+    let existing = configuration_of(graph, scope, organization_id)?.ok_or_else(missing)?;
     let mut selected = strings(&existing, "selected_standards");
     let present = selected.iter().any(|value| value == standard_type);
     // a standard already active, or already absent, is left exactly as it is
@@ -565,7 +541,7 @@ pub fn policy_for_area<G: Graph + ?Sized>(
                 && field(row, "policy_area") == policy_area
                 && field(row, "standard_type") == standard
         })
-        .ok_or_else(|| refused("Policy not found"))
+        .ok_or_else(missing)
 }
 
 // --- compliance ---

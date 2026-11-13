@@ -29,18 +29,11 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount_or_zero, stored_amount, wire};
+use vimbai_store::read::text;
 use vimbai_store::{
     BookScope, Graph, Records, StoreError, CAPITAL_RECONSTRUCTION, RECONSTRUCTION_ADJUSTMENT,
     RESERVE_CONVERSION,
 };
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
 
 /// What a scheme reduces share capital by.
 pub fn reduction(previous: &Money, new: &Money) -> Money {

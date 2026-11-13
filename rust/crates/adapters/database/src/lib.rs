@@ -31,6 +31,8 @@ pub mod amounts;
 pub mod fake;
 pub mod neo4j_client;
 pub mod query;
+pub mod read;
+pub mod write;
 
 pub use neo4j_client::Neo4jGraph;
 

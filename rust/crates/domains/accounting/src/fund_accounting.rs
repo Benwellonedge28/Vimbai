@@ -20,15 +20,8 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount_or_zero, stored_amount, wire};
+use vimbai_store::read::text;
 use vimbai_store::{created_id, BookScope, Graph, Records, StoreError, FUND, FUND_TRANSACTION};
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
 
 /// What a fund is worth: its balance, plus what came in, less what went out.
 pub fn net_assets(balance: &Money, income: &Money, expenses: &Money) -> Money {

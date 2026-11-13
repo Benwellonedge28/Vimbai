@@ -24,6 +24,7 @@
 use serde_json::{json, Value};
 
 use vimbai_store::amounts::{amount_or_zero, stored_amount, wire};
+use vimbai_store::read::{optional, or_default, text};
 use vimbai_store::{
     created_id, BookScope, Graph, Records, StoreError, INTERCOMPANY_ELIMINATION,
     INTERCOMPANY_ENTITY, INTERCOMPANY_TRANSACTION,
@@ -31,32 +32,6 @@ use vimbai_store::{
 
 /// The types a transaction may be.
 pub const TYPES: [&str; 5] = ["loan", "service_fee", "royalty", "sale", "cost_allocation"];
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn or_default(payload: &Value, key: &str, fallback: &str) -> String {
-    let given = text(payload, key);
-    if given.is_empty() {
-        fallback.to_string()
-    } else {
-        given
-    }
-}
-
-fn optional(payload: &Value, key: &str) -> Option<String> {
-    let given = text(payload, key);
-    if given.is_empty() {
-        None
-    } else {
-        Some(given)
-    }
-}
 
 /// `/entities`.
 pub fn create_entity<G: Graph + ?Sized>(

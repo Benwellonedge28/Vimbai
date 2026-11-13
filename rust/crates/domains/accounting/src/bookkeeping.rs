@@ -37,57 +37,16 @@
 
 use serde_json::{json, Value};
 use vimbai_common::Money;
-use vimbai_store::amounts::{amount, wire};
+use vimbai_store::amounts::wire;
 use vimbai_store::{
-    created_record, BookScope, Graph, RecordKind, Records, StoreError, BANK_RECONCILIATION,
-    CAPITAL_CALCULATION, CONTROL_ACCOUNT, PETTY_CASH_ENTRY, PETTY_CASH_FUND, PROFIT_ESTIMATION,
-    RECEIPTS_PAYMENTS, SINGLE_ENTRY_CONVERSION, STATEMENT_OF_AFFAIRS,
+    BookScope, Graph, RecordKind, Records, StoreError, BANK_RECONCILIATION, CAPITAL_CALCULATION,
+    CONTROL_ACCOUNT, PETTY_CASH_ENTRY, PETTY_CASH_FUND, PROFIT_ESTIMATION, RECEIPTS_PAYMENTS,
+    SINGLE_ENTRY_CONVERSION, STATEMENT_OF_AFFAIRS,
 };
 
 use crate::ledger_book;
-
-fn refused(message: &str) -> StoreError {
-    StoreError::Invalid(message.to_string())
-}
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn optional(payload: &Value, key: &str) -> Option<String> {
-    let value = text(payload, key);
-    if value.is_empty() {
-        None
-    } else {
-        Some(value)
-    }
-}
-
-fn or_default(payload: &Value, key: &str, fallback: &str) -> String {
-    optional(payload, key).unwrap_or_else(|| fallback.to_string())
-}
-
-fn field<'a>(record: &'a Value, key: &str) -> &'a str {
-    record.get(key).and_then(Value::as_str).unwrap_or("")
-}
-
-fn money(payload: &Value, key: &str) -> Result<Money, StoreError> {
-    match payload.get(key) {
-        Some(Value::Null) | None => Err(refused(&format!("{key} is required"))),
-        Some(value) => amount(&json!({ "amount": value }), "amount"),
-    }
-}
-
-fn money_or_nothing(payload: &Value, key: &str) -> Result<Money, StoreError> {
-    match payload.get(key) {
-        Some(Value::Null) | None => Ok(Money::zero()),
-        Some(value) => amount(&json!({ "amount": value }), "amount"),
-    }
-}
+use vimbai_store::read::{field, money, money_or_nothing, optional, or_default, refused, text};
+use vimbai_store::write::remember;
 
 fn rows(payload: &Value, key: &str) -> Vec<Value> {
     payload
@@ -95,22 +54,6 @@ fn rows(payload: &Value, key: &str) -> Vec<Value> {
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default()
-}
-
-fn remember(
-    graph: &(impl Graph + ?Sized),
-    scope: &BookScope,
-    kind: RecordKind,
-    body: Value,
-) -> Result<Value, StoreError> {
-    let saved = Records::new(graph, kind).create(scope, &body)?;
-    let mut answer = created_record(&saved);
-    if let (Some(answer), Some(fields)) = (answer.as_object_mut(), body.as_object()) {
-        for (key, value) in fields {
-            answer.entry(key.clone()).or_insert_with(|| value.clone());
-        }
-    }
-    Ok(answer)
 }
 
 fn listing(

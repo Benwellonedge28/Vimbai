@@ -16,17 +16,11 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, stored_amount, wire};
+use vimbai_store::read::required;
 use vimbai_store::{BookScope, Graph, Records, StoreError, ABSORPTION_RATE, OAR_ANALYSIS};
 
 fn positive(money: &Money) -> bool {
     !money.is_zero() && !money.is_negative()
-}
-
-fn text<'a>(payload: &'a Value, key: &str) -> Result<&'a str, StoreError> {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| StoreError::Invalid(format!("{key} is required")))
 }
 
 fn text_or<'a>(payload: &'a Value, key: &str, fallback: &'a str) -> &'a str {
@@ -126,8 +120,8 @@ pub fn create_rate<G: Graph + ?Sized>(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
-    let name = text(payload, "cost_centre_name")?.to_owned();
-    let cost_centre_id = text(payload, "cost_centre_id")?.to_owned();
+    let name = required(payload, "cost_centre_name")?.to_owned();
+    let cost_centre_id = required(payload, "cost_centre_id")?.to_owned();
     let overhead = amount(payload, "budgeted_overhead")?;
     let base = amount(payload, "budgeted_base_units")?;
     let overhead_type = text_or(payload, "overhead_type", "production").to_owned();
@@ -208,7 +202,7 @@ pub fn base_rate<G: Graph + ?Sized>(
     let base_route = BASES
         .get(index)
         .ok_or_else(|| StoreError::Invalid("unknown absorption base".into()))?;
-    let cost_centre_name = text(payload, "cost_centre_name")?.to_owned();
+    let cost_centre_name = required(payload, "cost_centre_name")?.to_owned();
     let overhead = amount(payload, "budgeted_overhead")?;
     let base = amount(payload, base_route.key)?;
 
@@ -249,8 +243,8 @@ pub fn blanket_rate<G: Graph + ?Sized>(
     scope: &BookScope,
     payload: &Value,
 ) -> Result<Value, StoreError> {
-    let entity_name = text(payload, "entity_name")?.to_owned();
-    let absorption_base = text(payload, "absorption_base")?.to_owned();
+    let entity_name = required(payload, "entity_name")?.to_owned();
+    let absorption_base = required(payload, "absorption_base")?.to_owned();
     let overhead = amount(payload, "total_budgeted_overhead")?;
     let base = amount(payload, "total_base_units")?;
 
@@ -282,7 +276,7 @@ pub fn blanket_rate<G: Graph + ?Sized>(
 
 /// `/absorbed-overhead`: what a rate recovers from the activity that actually happened.
 pub fn absorbed_overhead(payload: &Value) -> Result<Value, StoreError> {
-    let cost_centre_name = text(payload, "cost_centre_name")?.to_owned();
+    let cost_centre_name = required(payload, "cost_centre_name")?.to_owned();
     let units = amount(payload, "actual_base_units")?;
     let rate = amount(payload, "absorption_rate")?;
 

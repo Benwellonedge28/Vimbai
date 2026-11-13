@@ -27,15 +27,8 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, amount_or_zero, stored_amount, wire};
+use vimbai_store::read::text;
 use vimbai_store::{BookScope, Graph, Records, StoreError, REVENUE_CONTRACT};
-
-fn text(payload: &Value, key: &str) -> String {
-    payload
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
 
 fn obligations(payload: &Value) -> Vec<Value> {
     payload
