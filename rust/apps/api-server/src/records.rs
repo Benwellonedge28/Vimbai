@@ -12,6 +12,7 @@
 
 use std::sync::Arc;
 
+use ::npo::npo_scale;
 use accounting::{cash_flow, trading_account};
 use axum::{
     extract::{Path, RawQuery, State},
@@ -3730,7 +3731,10 @@ async fn community_group_payouts(
     ))
 }
 
-/// lose the query it already sends, and a body must win where both name the same field.
+/// A request's payload: the query string, with any JSON body laid over it.
+///
+/// These services took their arguments as query parameters, so a caller migrating to a body must not lose the query
+/// it already sends, and a body must win where both name the same field.
 pub(crate) fn overlay(query: Value, body: Option<Value>) -> Value {
     let mut merged = query.as_object().cloned().unwrap_or_default();
     if let Some(Value::Object(fields)) = body {
@@ -7873,8 +7877,216 @@ async fn add_npo_budget_line(
     ))
 }
 
-/// These services took their arguments as query parameters, so a caller migrating to a body must not
-/// The query string as a payload, with a JSON body laid over it.
+// --- npo-scale-service: the same non-profit accounting at multi-entity scale ---
+
+async fn create_npo_scale_org(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo_scale::create_org(graph.as_ref(), &scope, &body))
+}
+
+async fn npo_scale_orgs(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::list_orgs(graph.as_ref(), &scope))
+}
+
+async fn npo_scale_org(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::get_org(graph.as_ref(), &scope, &org_id))
+}
+
+async fn update_npo_scale_org(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo_scale::update_org(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &body,
+    ))
+}
+
+async fn npo_scale_org_features(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::org_features(graph.as_ref(), &scope, &org_id))
+}
+
+async fn create_npo_scale_branch(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo_scale::create_branch(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &body,
+    ))
+}
+
+async fn npo_scale_branches(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::list_branches(graph.as_ref(), &scope, &org_id))
+}
+
+async fn add_npo_scale_vendor(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo_scale::add_vendor(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &body,
+    ))
+}
+
+async fn npo_scale_vendors(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::list_vendors(graph.as_ref(), &scope, &org_id))
+}
+
+async fn record_npo_scale_revenue(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo_scale::record_revenue(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &body,
+    ))
+}
+
+async fn npo_scale_revenues(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::list_revenues(graph.as_ref(), &scope, &org_id))
+}
+
+async fn record_npo_scale_purchase(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo_scale::record_purchase(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &body,
+    ))
+}
+
+async fn pay_npo_scale_purchase(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((org_id, purchase_id)): Path<(String, String)>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    // the person settling a purchase is the one its expense names as approving it
+    let payer = scope.user_id.clone();
+    answer(npo_scale::pay_purchase(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &purchase_id,
+        &payer,
+    ))
+}
+
+async fn npo_scale_creditors(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::report_creditors(graph.as_ref(), &scope, &org_id))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone())
         .merge(service_root_router(graph.clone()))
@@ -10358,6 +10570,37 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         )
         .route("/npo/statements/financial-position/", post(create_npo_statement_of_position))
         .route("/npo/assets/", post(describe_npo_asset))
+        .route(
+            "/npo-scale/orgs",
+            get(npo_scale_orgs).post(create_npo_scale_org),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id",
+            get(npo_scale_org).patch(update_npo_scale_org),
+        )
+        .route("/npo-scale/orgs/:org_id/features", get(npo_scale_org_features))
+        .route(
+            "/npo-scale/orgs/:org_id/branches",
+            get(npo_scale_branches).post(create_npo_scale_branch),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/vendors",
+            get(npo_scale_vendors).post(add_npo_scale_vendor),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/revenues",
+            get(npo_scale_revenues).post(record_npo_scale_revenue),
+        )
+        .route("/npo-scale/orgs/:org_id/purchases", post(record_npo_scale_purchase))
+        .route(
+            "/npo-scale/orgs/:org_id/purchases/:purchase_id/pay",
+            post(pay_npo_scale_purchase),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/reports/creditors",
+            get(npo_scale_creditors),
+        )
+
         .route("/treasury-analytics/kpi/:company_id", get(treasury_kpi))
         .route("/cash-flow-statement/generate", post(generate_cash_flow_statement))
         .route("/cash-flow-statement/latest/:company_id", get(latest_cash_flow_statement))

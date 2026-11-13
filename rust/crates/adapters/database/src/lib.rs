@@ -472,6 +472,17 @@ pub const TRADING_ACCOUNT_STATEMENT: RecordKind =
     RecordKind::new("TradingAccountStatement", "OWNS_TRADING_ACCOUNT_STATEMENT");
 pub const PRODUCTION_COST_STATEMENT: RecordKind =
     RecordKind::new("ProductionCostStatement", "OWNS_PRODUCTION_COST_STATEMENT");
+/// The records npo-scale-service owns.
+pub const NPO_SCALE_ORG: RecordKind = RecordKind::new("NPOOrg", "OWNS_NPO_SCALE_ORG");
+pub const NPO_SCALE_BRANCH: RecordKind = RecordKind::new("NPOScaleBranch", "OWNS_NPO_SCALE_BRANCH");
+pub const NPO_SCALE_VENDOR: RecordKind = RecordKind::new("NPOScaleVendor", "OWNS_NPO_SCALE_VENDOR");
+pub const NPO_SCALE_PURCHASE: RecordKind =
+    RecordKind::new("NPOScalePurchase", "OWNS_NPO_SCALE_PURCHASE");
+pub const NPO_SCALE_REVENUE: RecordKind =
+    RecordKind::new("NPOScaleRevenue", "OWNS_NPO_SCALE_REVENUE");
+pub const NPO_SCALE_EXPENSE: RecordKind =
+    RecordKind::new("NPOScaleExpense", "OWNS_NPO_SCALE_EXPENSE");
+
 /// The records npo-service owns.
 pub const NPO_FUND: RecordKind = RecordKind::new("NPOFund", "OWNS_NPO_FUND");
 pub const NPO_FUND_TRANSACTION: RecordKind =
