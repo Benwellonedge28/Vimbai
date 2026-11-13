@@ -55,7 +55,7 @@ services:
   port: 8290
   gateway_path: /investment-monitoring
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -135,7 +135,7 @@ services:
   port: 8191
   gateway_path: /trade-finance
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

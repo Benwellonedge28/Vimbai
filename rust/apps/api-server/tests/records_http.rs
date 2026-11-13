@@ -2692,3 +2692,73 @@ async fn a_decision_the_caller_does_not_hold_answers_200_over_http() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["error"], json!("Decision not found"));
 }
+
+#[tokio::test]
+async fn a_trade_instrument_is_opened_and_answers_with_its_fee_over_http() {
+    let graph = Scripted::queue(vec![vec![json!({
+        "id": "i-1", "company_id": "c-1", "instrument_type": "letter_of_credit",
+        "amount": "200000.000000", "status": "issued"
+    })]]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/trade-finance/instruments",
+        Some(
+            json!({"company_id": "c-1", "instrument_type": "letter_of_credit",
+                    "counterparty": "Sino Ltd", "amount": "200000"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["fee_estimate"], json!("400.000000"));
+    assert_eq!(body["risk_assessment"], json!("medium"));
+}
+
+#[tokio::test]
+async fn an_instrument_the_company_does_not_hold_is_a_404_over_http() {
+    let graph = Scripted::returning(vec![]);
+    let (status, _body) = call_with(
+        graph,
+        "POST",
+        "/trade-finance/instruments/i-9/settle?company_id=c-1",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn a_portfolio_measurement_answers_over_http() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "p-1", "name": "Growth"})],
+        vec![
+            json!({"id": "h-1", "portfolio_id": "p-1", "quantity": "100.000000",
+                    "purchase_price": "10.000000", "current_price": "12.000000"}),
+        ],
+        vec![json!({"id": "m-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/investment-monitoring/portfolios/p-1/performance",
+        Some(json!({"metric_date": "2026-03-01"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_value"], json!("1200.000000"));
+    assert_eq!(body["unrealized_gain"], json!("200.000000"));
+    assert_eq!(body["unrealized_gain_pct"], json!("20.000000"));
+}
+
+#[tokio::test]
+async fn a_portfolio_with_nothing_in_it_is_a_404_over_http() {
+    let graph = Scripted::queue(vec![vec![json!({"id": "p-1"})], vec![]]);
+    let (status, _body) = call_with(
+        graph,
+        "POST",
+        "/investment-monitoring/portfolios/p-1/performance",
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

@@ -204,6 +204,18 @@ pub const LIQUIDITY_POSITION: RecordKind =
 
 /// accounting-service's supporting records: petty cash, reconciliation, and the single-entry statements.
 pub const PETTY_CASH_FUND: RecordKind = RecordKind::new("PettyCashFund", "OWNS_PETTY_CASH_FUND");
+/// investment-monitoring-service's portfolios, what they hold, and how each was measured.
+pub const INVESTMENT_PORTFOLIO: RecordKind =
+    RecordKind::new("InvestmentPortfolio", "OWNS_INVESTMENT_PORTFOLIO");
+pub const INVESTMENT_HOLDING: RecordKind =
+    RecordKind::new("InvestmentHolding", "OWNS_INVESTMENT_HOLDING");
+pub const PERFORMANCE_METRIC: RecordKind =
+    RecordKind::new("PerformanceMetric", "OWNS_PERFORMANCE_METRIC");
+
+/// trade-finance-service's instruments: letters of credit, documentary collections, bank guarantees.
+pub const TRADE_INSTRUMENT: RecordKind =
+    RecordKind::new("TradeInstrument", "OWNS_TRADE_INSTRUMENT");
+
 /// continue-shutdown-decision-service's decisions: whether a department, product or division carries on trading.
 pub const CONTINUE_SHUTDOWN_DECISION: RecordKind = RecordKind::new(
     "ContinueShutdownDecision",

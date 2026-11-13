@@ -28,7 +28,8 @@ use costing::{
 };
 use equity::equity_changes;
 use finance::{
-    continue_shutdown, insurance_claims, internal_rate_return, net_present_value, payback_period,
+    continue_shutdown, insurance_claims, internal_rate_return, investment_monitoring,
+    net_present_value, payback_period, trade_finance,
 };
 use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
@@ -1880,6 +1881,189 @@ async fn continue_shutdown_decision(
         Err(response) => return *response,
     };
     answer(continue_shutdown::get(graph.as_ref(), &scope, &decision_id))
+}
+
+async fn open_portfolio(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(investment_monitoring::create_portfolio(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn portfolios(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(investment_monitoring::list_portfolios(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn add_portfolio_holding(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(portfolio_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(investment_monitoring::add_holding(
+        graph.as_ref(),
+        &scope,
+        &portfolio_id,
+        &payload,
+    ))
+}
+
+async fn portfolio_holdings(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(portfolio_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(investment_monitoring::list_holdings(
+        graph.as_ref(),
+        &scope,
+        &portfolio_id,
+    ))
+}
+
+async fn measure_portfolio(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(portfolio_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(investment_monitoring::record_performance(
+        graph.as_ref(),
+        &scope,
+        &portfolio_id,
+        &payload,
+    ))
+}
+
+async fn portfolio_performance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(portfolio_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(investment_monitoring::list_performance(
+        graph.as_ref(),
+        &scope,
+        &portfolio_id,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn reprice_holding(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(holding_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(investment_monitoring::update_price(
+        graph.as_ref(),
+        &scope,
+        &holding_id,
+        &payload,
+    ))
+}
+
+async fn open_trade_instrument(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(trade_finance::create_instrument(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn trade_instruments(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(trade_finance::list_instruments(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn present_trade_documents(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(instrument_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(trade_finance::present_documents(
+        graph.as_ref(),
+        &scope,
+        &instrument_id,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn settle_trade_instrument(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(instrument_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(trade_finance::settle_instrument(
+        graph.as_ref(),
+        &scope,
+        &instrument_id,
+        &query_object(query.as_deref()),
+    ))
 }
 
 async fn liquidity_history(
@@ -6370,6 +6554,62 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/petty-cash/reports/category-summary",
             get(petty_cash_category_summary),
+        )
+        .route(
+            "/investment-monitoring/portfolios",
+            post(open_portfolio).get(portfolios),
+        )
+        .route(
+            "/investment-monitoring/portfolios/:portfolio_id/holdings",
+            post(add_portfolio_holding).get(portfolio_holdings),
+        )
+        .route(
+            "/investment-monitoring/portfolios/:portfolio_id/performance",
+            post(measure_portfolio).get(portfolio_performance),
+        )
+        .route(
+            "/investment-monitoring/holdings/:holding_id/update-price",
+            post(reprice_holding),
+        )
+        .route(
+            "/trade-finance/instruments",
+            post(open_trade_instrument).get(trade_instruments),
+        )
+        .route(
+            "/trade-finance/instruments/:instrument_id/present",
+            post(present_trade_documents),
+        )
+        .route(
+            "/trade-finance/instruments/:instrument_id/settle",
+            post(settle_trade_instrument),
+        )
+        .route(
+            "/records/investment-monitoring/portfolios",
+            post(open_portfolio).get(portfolios),
+        )
+        .route(
+            "/records/investment-monitoring/portfolios/:portfolio_id/holdings",
+            post(add_portfolio_holding).get(portfolio_holdings),
+        )
+        .route(
+            "/records/investment-monitoring/portfolios/:portfolio_id/performance",
+            post(measure_portfolio).get(portfolio_performance),
+        )
+        .route(
+            "/records/investment-monitoring/holdings/:holding_id/update-price",
+            post(reprice_holding),
+        )
+        .route(
+            "/records/trade-finance/instruments",
+            post(open_trade_instrument).get(trade_instruments),
+        )
+        .route(
+            "/records/trade-finance/instruments/:instrument_id/present",
+            post(present_trade_documents),
+        )
+        .route(
+            "/records/trade-finance/instruments/:instrument_id/settle",
+            post(settle_trade_instrument),
         )
         .route("/net-present-value/calculate", post(npv_calculate))
         .route(

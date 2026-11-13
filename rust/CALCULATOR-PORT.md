@@ -319,6 +319,22 @@ xbrl-reporting-service
   the compliance listing filters by policy and hands back the most recent `limit` checks in the order they were
   made.
 
+- trade-finance-service -> finance crate, records on the store: the instruments a company trades on - letters of
+  credit, documentary collections, bank guarantees, advance payments and factoring - and what each costs and risks.
+  Shapes kept: the fee is a rate on the face amount by type, 0.2% for a letter of credit, 0.1% for a documentary
+  collection, 1.5% for a bank guarantee, nothing for an advance payment and 3% for factoring; the risk band follows the
+  face amount itself (under 100,000 low, under 500,000 medium, above that high); the documentation is the four papers
+  every shipment needs, with a letter of credit adding its application and the proforma invoice; an instrument type
+  outside the five is refused; presenting documents and settling only move the status; an instrument the company does
+  not hold is a miss; the listing reads by issue date then id, oldest first.
+
+- investment-monitoring-service -> finance crate, records on the store: the portfolios a company invests through, what
+  each holds, and how it has done. Shapes kept: a holding's worth is quantity times price, exactly; performance is the
+  worth of the holdings against what they cost, the gain as a percentage of the cost and nothing when the cost is
+  nothing rather than dividing; a portfolio with no holdings cannot be measured and is a miss rather than a report of
+  nothing; a holding is added only to a portfolio the caller holds; a price change answers with what the holding is now
+  worth and leaves the measurements already taken alone; performance history reads newest first, thirty by default.
+
 - net-present-value-service -> finance crate, no records: what a project's future flows are worth today once the
   investment is paid for, with the rate given as a decimal or as a percentage. Discounting is exact, one year at a
   time, through the one engine this crate's four capital-budgeting services share, so a change to how a discount

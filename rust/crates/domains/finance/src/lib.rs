@@ -3,9 +3,11 @@
 //! Services here:
 //! * `insurance-claims-service`
 //! * `internal-rate-return-service`
+//! * `investment-monitoring-service`
 //! * `continue-shutdown-decision-service`
 //! * `net-present-value-service`
 //! * `payback-period-service`
+//! * `trade-finance-service`
 //!
 //! One crate per business domain, not one per service: these services were separate Python
 //! containers that each carried a copy of the same models, the same database access and the same
@@ -17,5 +19,7 @@ pub mod continue_shutdown;
 pub mod discounting;
 pub mod insurance_claims;
 pub mod internal_rate_return;
+pub mod investment_monitoring;
 pub mod net_present_value;
 pub mod payback_period;
+pub mod trade_finance;
