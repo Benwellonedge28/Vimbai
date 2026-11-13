@@ -384,10 +384,10 @@
     {
       "name": "expense-tracking-service",
       "path": "/expense-tracking",
-      "url": "http://localhost:9006",
-      "port": 8051,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "family-community-group-service",
@@ -400,10 +400,10 @@
     {
       "name": "financial-identity-service",
       "path": "/financial-identity",
-      "url": "http://localhost:9011",
-      "port": 8053,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "financial-integrity-service",
@@ -755,10 +755,10 @@
     {
       "name": "purchases-ledger-control-service",
       "path": "/purchases-ledger-control",
-      "url": "http://localhost:9002",
-      "port": 8110,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "realtime-calculation-engine",

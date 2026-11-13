@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 131 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 7 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 128 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 10 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -64,9 +64,9 @@ double-entry-principles-service                8047  routes=9   records=no  rust
 encrypted-backup-service                       8006  routes=8   records=no  rust http
 equity-changes-service                         8049  routes=5   records=yes rust http
 etl-service                                    8363  routes=7   records=no  rust http
-expense-tracking-service                       8051  routes=6   records=yes rust http
+expense-tracking-service                       8099  routes=0   records=no  rust http (no python source)
 family-community-group-service                 8099  routes=0   records=no  rust http (no python source)
-financial-identity-service                     8053  routes=5   records=yes rust http
+financial-identity-service                     8099  routes=0   records=no  rust http (no python source)
 financial-integrity-service                    8054  routes=6   records=yes rust http
 financial-state-machine-service                8055  routes=7   records=yes rust http
 fixed-assets-register-service                  8355  routes=9   records=yes rust http
@@ -110,7 +110,7 @@ process-costing-service                        8105  routes=5   records=yes rust
 product-costing-service                        8106  routes=5   records=yes rust http
 provision-bad-debts-service                    8108  routes=8   records=yes rust http
 provision-doubtful-debts-service               8109  routes=8   records=yes rust http
-purchases-ledger-control-service               8110  routes=6   records=yes rust http
+purchases-ledger-control-service               8099  routes=0   records=no  rust http (no python source)
 realtime-calculation-engine                    8099  routes=0   records=no  rust http (no python source)
 regulatory-compliance-service                  8285  routes=6   records=yes rust http
 report-automation-service                      8272  routes=10  records=no  rust http

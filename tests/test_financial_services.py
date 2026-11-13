@@ -58,32 +58,6 @@ def cost_accounting_client():
 
 
 @pytest.fixture
-def expense_client():
-    pkg = load_service("expense-tracking-service")
-    app = pkg.main.app
-    # Expense Tracking is now Neo4j-backed: swap in the shared fake driver
-    # (repo-root CI has no database) and send the gateway identity headers.
-    import importlib.util
-    import os as _os
-
-    fake_path = _os.path.join(
-        _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
-        "expense-tracking-service",
-        "fake_neo4j.py",
-    )
-    if "expense_fake_neo4j" not in sys.modules:
-        spec = importlib.util.spec_from_file_location("expense_fake_neo4j", fake_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        sys.modules["expense_fake_neo4j"] = mod
-    fake_mod = sys.modules["expense_fake_neo4j"]
-    if not hasattr(pkg.main, "_ci_fake_session"):
-        pkg.main._ci_fake_session = fake_mod.FakeSession()
-        pkg.main.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(pkg.main._ci_fake_session))
-    return TestClient(app)
-
-
-@pytest.fixture
 def revenue_client():
     _patch_fake("revenue_recognition_service", "revenue_root_fake")
     app = load_service("revenue-recognition-service").main.app
@@ -228,50 +202,6 @@ class TestCostAccounting:
         assert data["actual_cost_per_unit"] == 20.0  # 20000/1000
         assert data["material_variance"] == 2000  # 12000 - 10000
         assert data["total_variance"] == 2000  # 2000 + (-500) + 500
-
-
-class TestExpenseTracking:
-    def test_health(self, expense_client):
-        assert expense_client.get("/").status_code == 200
-
-    def test_create_and_approve_expense(self, expense_client):
-        create = expense_client.post(
-            "/expenses",
-            json={
-                "company_id": "comp-1",
-                "employee_id": "emp-1",
-                "category": "travel",
-                "amount": 1500,
-                "description": "Client visit",
-                "vendor": "Airline",
-            },
-            headers={"X-User-Id": "ci-user"},
-        )
-        assert create.status_code == 200, create.text
-        expense_id = create.json()["id"]
-        approve = expense_client.put(
-            f"/expenses/{expense_id}/approve?approver=manager-1", headers={"X-User-Id": "ci-user"}
-        )
-        assert approve.status_code == 200
-        assert approve.json()["status"] == "approved"
-
-    def test_expense_summary(self, expense_client):
-        expense_client.post(
-            "/expenses",
-            json={"company_id": "comp-sum", "employee_id": "e1", "category": "travel", "amount": 500},
-            headers={"X-User-Id": "ci-user"},
-        )
-        expense_client.post(
-            "/expenses",
-            json={"company_id": "comp-sum", "employee_id": "e2", "category": "office", "amount": 300},
-            headers={"X-User-Id": "ci-user"},
-        )
-        resp = expense_client.get("/summary/comp-sum", headers={"X-User-Id": "ci-user"})
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["total_amount"] == 800
-        assert "travel" in data["by_category"]
-        assert "office" in data["by_category"]
 
 
 class TestRevenueRecognition:

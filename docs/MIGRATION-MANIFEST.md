@@ -340,7 +340,7 @@ Lands in `rust/crates/domains/identity`.
 
 ```
 service                                         port  routes  records  engine
-financial-identity-service                      8053       5      yes  rust
+financial-identity-service                      8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -453,8 +453,8 @@ Lands in `rust/crates/domains/payables`.
 
 ```
 service                                         port  routes  records  engine
-expense-tracking-service                        8051       6      yes  rust
-purchases-ledger-control-service                8110       6      yes  rust
+expense-tracking-service                        8099       0       no  rust
+purchases-ledger-control-service                8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

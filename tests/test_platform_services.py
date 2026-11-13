@@ -66,15 +66,6 @@ def integrity_client():
 
 
 @pytest.fixture
-def identity_client():
-    _patch_fake("financial_identity_service", "fin_identity_root_fake")
-    app = load_service("financial-identity-service").main.app
-    client = TestClient(app)
-    client.headers.update(_H)
-    return client
-
-
-@pytest.fixture
 def appropriation_client():
     _patch_fake("appropriation_control_service", "appropriation_root_fake")
     app = load_service("appropriation-control-service").main.app
@@ -223,29 +214,6 @@ class TestFinancialIntegrity:
         resp = integrity_client.get("/report/comp-rpt")
         assert resp.status_code == 200
         assert resp.json()["total_checks"] >= 1
-
-
-class TestFinancialIdentity:
-    def test_health(self, identity_client):
-        assert identity_client.get("/").status_code == 200
-
-    def test_create_profile(self, identity_client):
-        resp = identity_client.post(
-            "/profiles",
-            json={"user_id": "user-1", "legal_name": "John Doe", "national_id": "ID123", "email": "john@example.com"},
-        )
-        assert resp.status_code == 200
-        assert resp.json()["verification_status"] == "pending"
-
-    def test_verify_profile(self, identity_client):
-        create = identity_client.post("/profiles", json={"user_id": "user-2", "legal_name": "Jane"})
-        profile_id = create.json()["id"]
-        resp = identity_client.put(f'/profiles/{profile_id}/verify?documents=["passport","utility_bill"]')
-        # The documents param is a list, let me try differently
-        # Actually it takes a List[str] body
-        resp = identity_client.put(f"/profiles/{profile_id}/verify", json=["passport", "utility_bill"])
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "verified"
 
 
 class TestAppropriationControl:

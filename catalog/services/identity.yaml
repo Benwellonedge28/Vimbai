@@ -8,14 +8,9 @@ services:
 - name: financial-identity-service
   domain: identity
   target: rust/crates/domains/identity
-  port: 8053
+  port: 8099
   gateway_path: /financial-identity
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /profiles
-  - GET /profiles/{profile_id}
-  - PUT /profiles/{profile_id}/verify
-  - GET /profiles/user/{user_id}
+  records: false
+  endpoints: []

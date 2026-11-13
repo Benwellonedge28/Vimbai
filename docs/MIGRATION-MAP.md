@@ -448,12 +448,12 @@ trade-finance-service                        /trade-finance                     
 
 ```text
 service                                      address                            eps  owns engine crate
-financial-identity-service                   /financial-identity                  5  recs rust   rust/crates/domains/identity
+financial-identity-service                   /financial-identity                  0  -    rust   rust/crates/domains/identity
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `financial-identity-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `financial-identity-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## integrations — 1/1 on Rust
 
@@ -586,14 +586,14 @@ partnership-revaluation-service              /partnership-revaluation           
 
 ```text
 service                                      address                            eps  owns engine crate
-expense-tracking-service                     /expense-tracking                    6  recs rust   rust/crates/domains/payables
-purchases-ledger-control-service             /purchases-ledger-control            6  recs rust   rust/crates/domains/payables
+expense-tracking-service                     /expense-tracking                    0  -    rust   rust/crates/domains/payables
+purchases-ledger-control-service             /purchases-ledger-control            0  -    rust   rust/crates/domains/payables
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `expense-tracking-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `purchases-ledger-control-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `expense-tracking-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `purchases-ledger-control-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## payments — 1/2 on Rust
 

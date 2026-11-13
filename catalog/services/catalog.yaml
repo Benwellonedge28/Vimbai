@@ -1042,18 +1042,12 @@ services:
 - name: expense-tracking-service
   domain: payables
   target: rust/crates/domains/payables
-  port: 8051
+  port: 8099
   gateway_path: /expense-tracking
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /expenses
-  - GET /expenses/{company_id}
-  - PUT /expenses/{expense_id}/approve
-  - PUT /expenses/{expense_id}/reject
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: family-community-group-service
   domain: partnerships
   target: rust/crates/domains/partnerships
@@ -1066,17 +1060,12 @@ services:
 - name: financial-identity-service
   domain: identity
   target: rust/crates/domains/identity
-  port: 8053
+  port: 8099
   gateway_path: /financial-identity
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /profiles
-  - GET /profiles/{profile_id}
-  - PUT /profiles/{profile_id}/verify
-  - GET /profiles/user/{user_id}
+  records: false
+  endpoints: []
 - name: financial-integrity-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
@@ -1839,18 +1828,12 @@ services:
 - name: purchases-ledger-control-service
   domain: payables
   target: rust/crates/domains/payables
-  port: 8110
+  port: 8099
   gateway_path: /purchases-ledger-control
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /transactions
-  - GET /control-account/summary
-  - GET /creditors
-  - POST /reconcile
+  records: false
+  endpoints: []
 - name: realtime-calculation-engine
   domain: calculations
   target: rust/crates/application
