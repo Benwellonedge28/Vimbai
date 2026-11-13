@@ -1108,9 +1108,14 @@ xbrl-reporting-service
   the map exists to enforce. Two answers differ from the Python on purpose: `/validate-journal-entry` accepted a
   one cent drift and now refuses anything that is not exactly balanced, and `/account-rules/{account_type}` raised
   for every account type because its examples catalogue named two members the enum never had, so the port answers
-  the rules and examples it meant to give. One boundary is named rather than crossed: ledger-core validates balance
-  in f64 with a 1e-9 tolerance, which would put floats back into a posting decision, so this service answers in
-  exact Money and does not call it - moving that validator onto Money belongs in ledger-core. The documents carry
+  the rules and examples it meant to give. That boundary is now closed rather than named: ledger-core decides the
+  rules itself, through `validate_money_lines`, and `/validate-journal-entry` calls it instead of keeping a second
+  copy of double entry - so there is one implementation of the rules and a posting cannot be judged two different
+  ways. The kernel reads a caller's f64 back to the decimal it was written as and to ten places (so `0.1 + 0.2` reads
+  as `0.3`), sums in BigDecimal and compares the two sides for equality: the old 1e-9 tolerance is gone, and a cent out
+  of balance is refused wherever it is judged. Three consequences pinned by tests: float noise is read as the figure
+  the caller meant, a cent of drift is a real imbalance rather than a lesser fault, and ten thousand 0.01 lines against
+  one 100.00 line balance exactly where a float sum would drift. The documents carry
   their own `OWNS_FINANCIAL_DOCUMENT` edge rather than borrowing the accounting crate's document edge, so the two
   registers cannot be mistaken for one.
 

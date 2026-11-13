@@ -21,7 +21,10 @@ pub mod reversal;
 #[cfg(feature = "python")]
 pub mod python;
 
-pub use double_entry::{validate_lines, JournalLine, ValidationError as DoubleEntryError};
+pub use double_entry::{
+    validate_lines, validate_money_lines, JournalLine, ValidationError as DoubleEntryError,
+    LEDGER_SCALE,
+};
 pub use hash_chain::{
     chain_state_from_digests, compute_entry_hash, genesis_stamp, ChainReport, ChainState,
     EntryDigest, GENESIS_HASH,

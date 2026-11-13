@@ -26,6 +26,7 @@
 use serde_json::{json, Value};
 
 use vimbai_common::Money;
+use vimbai_ledger_core::DoubleEntryError;
 use vimbai_store::amounts::{amount_or_zero, wire};
 use vimbai_store::read::{refused, text};
 use vimbai_store::StoreError;
@@ -113,6 +114,33 @@ fn require_type(raw: &Value) -> Result<String, StoreError> {
 ///
 /// The entry is accepted when the debits and the credits are the same amount, exactly. The answer carries
 /// both totals and the difference, which is a zero `Money` whenever the entry balances.
+/// The kernel's refusal in the words this service answers with.
+fn describe(failure: &DoubleEntryError) -> String {
+    match failure {
+        DoubleEntryError::LineMovesBothSides { line } => {
+            format!("line {} moves both a debit and a credit", line + 1)
+        }
+        DoubleEntryError::LineMovesNothing { line } => format!("line {} moves no money", line + 1),
+        DoubleEntryError::InvalidAmount { line } => {
+            format!("line {} carries an invalid amount", line + 1)
+        }
+        DoubleEntryError::TooFewLines { lines } => {
+            format!(
+                "double entry violation: an entry needs at least two lines, this one has {lines}"
+            )
+        }
+        DoubleEntryError::Unbalanced { debits, credits } => format!(
+            "double entry violation: debits ({}) must equal credits ({})",
+            Money::from_f64_shortest(*debits)
+                .map(|money| money.to_fixed(2))
+                .unwrap_or_else(|_| debits.to_string()),
+            Money::from_f64_shortest(*credits)
+                .map(|money| money.to_fixed(2))
+                .unwrap_or_else(|_| credits.to_string())
+        ),
+    }
+}
+
 pub fn validate_entry(payload: &Value) -> Result<Value, StoreError> {
     let entries = payload
         .get("entries")
@@ -122,25 +150,35 @@ pub fn validate_entry(payload: &Value) -> Result<Value, StoreError> {
         return Err(refused("an entry needs at least one line"));
     }
 
-    let mut debit = Money::zero();
-    let mut credit = Money::zero();
+    // nothing here decides double entry: the kernel does, on the amounts themselves, and this handler only reads the
+    // payload and translates the answer. One implementation of the rules, so a posting can never be judged twice, two
+    // different ways.
+    let mut lines = Vec::with_capacity(entries.len());
     for line in entries {
         let line_debit = amount_or_zero(line, "debit")?;
         let line_credit = amount_or_zero(line, "credit")?;
-        if line_debit.is_negative() || line_credit.is_negative() {
-            return Err(refused("a line cannot carry a negative amount"));
-        }
-        debit = debit.plus(&line_debit);
-        credit = credit.plus(&line_credit);
+        lines.push((line_debit, line_credit));
+    }
+    let report = vimbai_ledger_core::validate_money_lines(&lines);
+    if let Some(failure) = report
+        .errors
+        .iter()
+        .find(|error| !matches!(error, DoubleEntryError::TooFewLines { .. }))
+    {
+        return Err(refused(&describe(failure)));
+    }
+    if !report.valid {
+        return Err(refused(
+            "double entry violation: an entry needs at least two lines",
+        ));
+    }
+    let mut debit = Money::zero();
+    let mut credit = Money::zero();
+    for (line_debit, line_credit) in &lines {
+        debit = debit.plus(line_debit);
+        credit = credit.plus(line_credit);
     }
     let difference = debit.minus(&credit).abs();
-    if !difference.is_zero() {
-        return Err(refused(&format!(
-            "double entry violation: debits ({}) must equal credits ({})",
-            debit.to_fixed(2),
-            credit.to_fixed(2)
-        )));
-    }
 
     Ok(json!({
         "valid": true,

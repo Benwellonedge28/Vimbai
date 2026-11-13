@@ -19,10 +19,11 @@
 //! reference and stores nothing. Money is exact throughout, so the balance and reconciliation answers are
 //! decided on the amounts themselves rather than on a float approximation of them.
 //!
-//! One boundary is named rather than crossed quietly: `ledger-core::double_entry::validate_lines` decides
-//! balance in `f64` with a 1e-9 tolerance, which would put floats back into a posting decision. This crate
-//! answers exactly, in `Money`, and therefore does not call it. Moving the kernel's validator onto `Money`
-//! is a change to `ledger-core` and belongs in that crate, not here.
+//! The boundary this crate used to name is now closed: `ledger-core::double_entry::validate_money_lines` decides the
+//! rules on the amounts themselves, and `/validate-journal-entry` calls it rather than keeping a second copy of double
+//! entry. The kernel reads a caller's `f64` back to the decimal it was written as (and to ten places, so `0.1 + 0.2`
+//! reads as `0.3`) and then compares the two sides for equality: there is no money tolerance anywhere in this crate or
+//! in the kernel, and a cent out of balance is refused.
 
 pub mod control_account;
 pub mod double_entry;
