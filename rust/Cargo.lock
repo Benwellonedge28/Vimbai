@@ -1970,6 +1970,7 @@ dependencies = [
  "vimbai_ifrs",
  "vimbai_ledger_services",
  "vimbai_market_risk",
+ "vimbai_notifications",
  "vimbai_performance_measures",
  "vimbai_ratios_statements",
  "vimbai_reporting",
@@ -2143,6 +2144,15 @@ dependencies = [
  "serde",
  "serde_json",
  "vimbai_common",
+]
+
+[[package]]
+name = "vimbai_notifications"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vimbai_common",
+ "vimbai_store",
 ]
 
 [[package]]

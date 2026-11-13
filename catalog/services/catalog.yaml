@@ -91,6 +91,9 @@ domains:
 - name: calculations
   responsibility: the calculation surface the client calls
   target: rust/crates/application
+- name: notifications
+  responsibility: each person's inbox, their preferences and the templates behind a notice
+  target: rust/crates/platform/notifications
 - name: alerts
   responsibility: the rules a Book watches, and the alerts they raise
   target: rust/crates/platform/alerts
@@ -1434,12 +1437,12 @@ services:
   - POST /compare
   - POST /profitability-index
 - name: notifications-service
-  domain: platform
-  target: rust/crates/platform
+  domain: notifications
+  target: rust/crates/platform/notifications
   port: 8091
   gateway_path: /notifications
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

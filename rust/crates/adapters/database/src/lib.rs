@@ -647,6 +647,9 @@ pub const DISTRIBUTION_LOG: RecordKind =
 pub enum StoreError {
     /// The record does not exist, or belongs to another Book. Deliberately the same answer.
     NotFound,
+    /// The caller asked for something that is not theirs to ask for - another person's inbox, say. The answer a
+    /// shipped service gave as a 403.
+    Forbidden(String),
     Graph(String),
     Invalid(String),
     /// The record contradicts one already held - the same external id imported twice, say. The answer a
@@ -658,6 +661,7 @@ impl std::fmt::Display for StoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::NotFound => write!(f, "record not found"),
+            Self::Forbidden(message) => write!(f, "{message}"),
             Self::Graph(message) => write!(f, "graph error: {message}"),
             Self::Invalid(message) => write!(f, "{message}"),
             Self::Conflict(message) => write!(f, "{message}"),

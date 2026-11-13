@@ -85,6 +85,7 @@ pub(crate) fn scope_of(headers: &HeaderMap) -> Result<BookScope, Box<Response>> 
 fn fail(error: StoreError) -> Response {
     let status = match error {
         StoreError::NotFound => StatusCode::NOT_FOUND,
+        StoreError::Forbidden(_) => StatusCode::FORBIDDEN,
         StoreError::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
         StoreError::Conflict(_) => StatusCode::CONFLICT,
         StoreError::Graph(_) => StatusCode::BAD_GATEWAY,
@@ -11374,6 +11375,233 @@ async fn post_alert_trigger(
 }
 
 // ---------------------------------------------------------------------------
+// notifications: each person's own inbox, their preferences and the templates a notice is filled from. The templates
+// answer under /notification-templates because /templates belongs to the report service, and the statistics under
+// /notification-stats because /stats is the receivables control account.
+// ---------------------------------------------------------------------------
+
+fn asked_from(payload: Option<Json<Value>>, query: Option<&str>) -> Value {
+    merged_request(payload, query)
+}
+
+async fn post_notification(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(notifications::notifications::create_notification(
+        graph.as_ref(),
+        &scope,
+        &asked_from(payload, query.as_deref()),
+    ))
+}
+
+async fn post_notifications_batch(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(notifications::notifications::create_notifications(
+        graph.as_ref(),
+        &scope,
+        &asked_from(payload, query.as_deref()),
+    ))
+}
+
+async fn get_inbox(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(user_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(notifications::notifications::inbox_of(
+        graph.as_ref(),
+        &scope,
+        &user_id,
+        &asked_from(None, query.as_deref()),
+    ))
+}
+
+async fn delete_one_notification(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(notification_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(notifications::notifications::delete_notification(
+        graph.as_ref(),
+        &scope,
+        &notification_id,
+    ))
+}
+
+async fn put_notification_read(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(notification_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(notifications::notifications::mark_read(
+        graph.as_ref(),
+        &scope,
+        &notification_id,
+        &asked_from(payload, query.as_deref()),
+    ))
+}
+
+async fn put_notifications_read_all(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(user_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(notifications::notifications::mark_all_read(
+        graph.as_ref(),
+        &scope,
+        &user_id,
+        &asked_from(payload, query.as_deref()),
+    ))
+}
+
+async fn get_notification_preferences(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(user_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(notifications::notifications::preferences_of(
+        graph.as_ref(),
+        &scope,
+        &user_id,
+    ))
+}
+
+async fn put_notification_preferences(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(user_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(notifications::notifications::save_preferences(
+        graph.as_ref(),
+        &scope,
+        &user_id,
+        &asked_from(payload, query.as_deref()),
+    ))
+}
+
+async fn get_notification_templates() -> Response {
+    answer(Ok(notifications::notifications::notification_templates()))
+}
+
+async fn get_notification_template(Path(template_name): Path<String>) -> Response {
+    answer(notifications::notifications::template_held(&template_name))
+}
+
+async fn post_notification_template_send(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(template_name): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(notifications::notifications::send_from_template(
+        graph.as_ref(),
+        &scope,
+        &template_name,
+        &asked_from(payload, query.as_deref()),
+    ))
+}
+
+async fn post_workflow_notify(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(workflow_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(notifications::notifications::notify_workflow(
+        graph.as_ref(),
+        &scope,
+        &workflow_id,
+        &asked_from(payload, query.as_deref()),
+    ))
+}
+
+async fn post_approval_notify(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(approval_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(notifications::notifications::notify_approval(
+        graph.as_ref(),
+        &scope,
+        &approval_id,
+        &asked_from(payload, query.as_deref()),
+    ))
+}
+
+async fn get_notification_stats(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(notifications::notifications::notification_totals(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // financial identity: the KYC profile a Book keeps for a person, and the verification done against it. A profile
 // names a SUBJECT, which is not the caller, so it answers at /profiles and is read back by id or by subject.
 // ---------------------------------------------------------------------------
@@ -13920,6 +14148,32 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(put_alert_rule_delete),
         )
         .route("/trigger/:rule_id", post(post_alert_trigger))
+
+        // notifications: one person's inbox, their preferences, the templates and the notices workflows raise
+        .route("/notifications/batch", post(post_notifications_batch))
+        .route("/notifications", post(post_notification))
+        .route(
+            "/notifications/:id",
+            get(get_inbox).delete(delete_one_notification),
+        )
+        .route("/notifications/:id/read", put(put_notification_read))
+        .route("/notifications/:id/read-all", put(put_notifications_read_all))
+        .route(
+            "/preferences/:user_id",
+            get(get_notification_preferences).put(put_notification_preferences),
+        )
+        .route("/notification-templates", get(get_notification_templates))
+        .route(
+            "/notification-templates/:name",
+            get(get_notification_template),
+        )
+        .route(
+            "/notification-templates/:name/send",
+            post(post_notification_template_send),
+        )
+        .route("/workflow/:workflow_id/notify", post(post_workflow_notify))
+        .route("/approval/:approval_id/notify", post(post_approval_notify))
+        .route("/notification-stats", get(get_notification_stats))
 
         // financial identity: the KYC profile register
         .route("/profiles", post(post_profile))

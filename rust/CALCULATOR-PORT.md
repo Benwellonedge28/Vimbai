@@ -275,6 +275,25 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- notifications-service -> notifications crate (platform shelf), records on the store: each person's own inbox,
+  their preferences, and the five templates a notice is filled from. A notice is written once PER RECIPIENT and each
+  copy belongs to that recipient, so a notice raised by one person lands in another's inbox and is theirs to read or
+  delete; every copy arrives already sent, with the moment it went, and remembers the sender it came from. An inbox is
+  the caller's own: asking for somebody else's is refused outright (403) rather than answered empty, and marking
+  everything read counts only what was still unread. Preferences are personal too, and a person who has never set any
+  reads the defaults - no channel choices, email batched every sixty minutes, no quiet hours; saving again replaces
+  rather than piles up. Five templates come with the service: a notice built from one has its {{variable}}
+  placeholders filled in, and a name the service does not know is missing. A workflow notice is named after its event
+  and is filed as a COMPLETED workflow only when it completed - everything else reads as a failure, which is what the
+  shipped two-way mapping did - while an approval notice is loud only when it is the request itself and goes to the
+  approvers, with every answer afterwards going to whoever asked. Nobody is shown as listening, because the shipped
+  service broadcast each notice over a live socket and none exist here. Modelling point: because copies live in one
+  Book beside other people's, each listing and single-record answer filters on the copy's OWNER rather than trusting
+  the scope alone. Routes: /notifications, /notifications/batch, /notifications/{id} (read and delete), the two read
+  paths, /preferences/{user_id}, /notification-templates and its two, /workflow/{id}/notify, /approval/{id}/notify and
+  /notification-stats - /templates belongs to the report service and /stats to the receivables control account. The
+  store gained a Forbidden answer (403) for the personal-inbox case.
+
 - alerts-service -> alerts crate (platform shelf), records on the store: the rules a Book watches and the alerts those
   rules raise. A rule's name is three to a hundred letters, its category, severity and action are the ones the service
   names, and its cooldown is a whole number of seconds that may be nothing (anything else is refused, not read as

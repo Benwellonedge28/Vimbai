@@ -11,9 +11,9 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 114
-still Python             24
-owner domains            31
+already on a Rust engine 115
+still Python             23
+owner domains            32
 ```
 
 ## accounting
@@ -336,6 +336,19 @@ multimodal-pipeline-service                     8002      11      yes  python
 
 Retirement gate: port the maths and its records into this domain, capture parity against the Python, then de-register. Nothing is deleted before that.
 
+## notifications
+
+_each person's inbox, their preferences and the templates behind a notice_
+
+Lands in `rust/crates/platform/notifications`.
+
+```
+service                                         port  routes  records  engine
+notifications-service                           8091      16      yes  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
 ## npo
 
 _non-profit accounting: funds, donations, grants, impact, and the same at multi-entity scale_
@@ -423,7 +436,6 @@ cache-service                                   8000       7       no  python
 encrypted-backup-service                        8006       8       no  python
 message-bus-service                             8097      16      yes  python
 mfa-auth-service                                8007       6      yes  python
-notifications-service                           8091      16      yes  python
 privacy-admin-dashboard-service                 8003      10       no  python
 websocket-service                               8141       4       no  python
 ```

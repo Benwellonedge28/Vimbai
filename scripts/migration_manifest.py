@@ -61,6 +61,10 @@ DOMAINS = {
     "documents": ("document storage and rendering", "rust/crates/platform/documents"),
     "integrations": ("webhooks, GraphQL and external feeds", "rust/crates/platform/integrations"),
     "calculations": ("the calculation surface the client calls", "rust/crates/application"),
+    "notifications": (
+        "each person's inbox, their preferences and the templates behind a notice",
+        "rust/crates/platform/notifications",
+    ),
     "alerts": (
         "the rules a Book watches, and the alerts they raise",
         "rust/crates/platform/alerts",
@@ -275,7 +279,7 @@ OWNERS = {
     "financial-identity-service": "identity",
     "message-bus-service": "platform",
     "mfa-auth-service": "platform",
-    "notifications-service": "platform",
+    "notifications-service": "notifications",
     "privacy-admin-dashboard-service": "platform",
     "websocket-service": "platform",
     "zero-trust-data-service": "security",

@@ -3,7 +3,7 @@ domain:
   name: platform
   responsibility: identity, events, caching, sync and observability
   target: rust/crates/platform
-  services: 9
+  services: 8
 services:
 - name: admin-service
   domain: platform
@@ -114,31 +114,6 @@ services:
   - POST /verify
   - POST /challenge
   - POST /challenge/{challenge_id}/verify
-- name: notifications-service
-  domain: platform
-  target: rust/crates/platform
-  port: 8091
-  gateway_path: /notifications
-  auth_required: true
-  engine: python
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /notifications
-  - POST /notifications/batch
-  - GET /notifications/{user_id}
-  - PUT /notifications/{notification_id}/read
-  - PUT /notifications/{user_id}/read-all
-  - DELETE /notifications/{notification_id}
-  - PUT /preferences/{user_id}
-  - GET /preferences/{user_id}
-  - GET /templates
-  - GET /templates/{template_name}
-  - POST /templates/{template_name}/send
-  - POST /workflow/{workflow_id}/notify
-  - POST /approval/{approval_id}/notify
-  - GET /stats
 - name: privacy-admin-dashboard-service
   domain: platform
   target: rust/crates/platform
