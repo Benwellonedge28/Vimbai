@@ -10793,6 +10793,130 @@ async fn get_employee_leave(
 }
 
 // ---------------------------------------------------------------------------
+// zero trust: the access policies a Book sets and every decision taken against them. The policy collection answers at
+// /access-policies rather than /policies, which the zero-trust-data service's sibling register already holds.
+// ---------------------------------------------------------------------------
+
+async fn post_access_policy(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(security_services::zero_trust::set_access_policy(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_access_policies(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(security_services::zero_trust::access_policies_held(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn put_access_policy(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(policy_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(security_services::zero_trust::replace_policy(
+        graph.as_ref(),
+        &scope,
+        &policy_id,
+        &asked,
+    ))
+}
+
+async fn delete_access_policy(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(policy_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(security_services::zero_trust::delete_policy(
+        graph.as_ref(),
+        &scope,
+        &policy_id,
+    ))
+}
+
+async fn post_access_evaluation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(security_services::zero_trust::evaluate_access(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_access_attempts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(security_services::zero_trust::list_attempts(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_subject_attempts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(user_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(security_services::zero_trust::attempts_for_user(
+        graph.as_ref(),
+        &scope,
+        &user_id,
+        &asked,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // financial identity: the KYC profile a Book keeps for a person, and the verification done against it. A profile
 // names a SUBJECT, which is not the caller, so it answers at /profiles and is read back by id or by subject.
 // ---------------------------------------------------------------------------
@@ -13285,6 +13409,19 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         )
         .route("/leave/accrue", post(post_leave_accrual))
         .route("/employee/:employee_id/leave", get(get_employee_leave))
+
+        // zero trust: access policies, the decision taken against them, and the decisions on record
+        .route(
+            "/access-policies",
+            post(post_access_policy).get(get_access_policies),
+        )
+        .route(
+            "/access-policies/:policy_id",
+            put(put_access_policy).delete(delete_access_policy),
+        )
+        .route("/evaluate", post(post_access_evaluation))
+        .route("/attempts", get(get_access_attempts))
+        .route("/attempts/user/:user_id", get(get_subject_attempts))
 
         // financial identity: the KYC profile register
         .route("/profiles", post(post_profile))

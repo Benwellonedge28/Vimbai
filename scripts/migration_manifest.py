@@ -61,7 +61,11 @@ DOMAINS = {
     "documents": ("document storage and rendering", "rust/crates/platform/documents"),
     "integrations": ("webhooks, GraphQL and external feeds", "rust/crates/platform/integrations"),
     "calculations": ("the calculation surface the client calls", "rust/crates/application"),
-    "platform": ("identity, security, events, caching, sync and observability", "rust/crates/platform"),
+    "security": (
+        "zero-trust access control: policies and the decisions taken against them",
+        "rust/crates/domains/security",
+    ),
+    "platform": ("identity, events, caching, sync and observability", "rust/crates/platform"),
 }
 
 # Every routed service, and the domain that owns it.
@@ -270,7 +274,7 @@ OWNERS = {
     "notifications-service": "platform",
     "privacy-admin-dashboard-service": "platform",
     "websocket-service": "platform",
-    "zero-trust-data-service": "platform",
+    "zero-trust-data-service": "security",
 }
 
 PERSISTENCE = re.compile(r"neo4j|AsyncSession|sqlite3|crud\.")

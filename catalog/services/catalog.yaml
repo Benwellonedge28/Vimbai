@@ -91,8 +91,11 @@ domains:
 - name: calculations
   responsibility: the calculation surface the client calls
   target: rust/crates/application
+- name: security
+  responsibility: 'zero-trust access control: policies and the decisions taken against them'
+  target: rust/crates/domains/security
 - name: platform
-  responsibility: identity, security, events, caching, sync and observability
+  responsibility: identity, events, caching, sync and observability
   target: rust/crates/platform
 services:
 - name: absorption-costing-service
@@ -2445,12 +2448,12 @@ services:
   - PUT /items/{item_id}/priority
   - GET /summary/{company_id}
 - name: zero-trust-data-service
-  domain: platform
-  target: rust/crates/platform
+  domain: security
+  target: rust/crates/domains/security
   port: 8002
   gateway_path: /zero-trust-data
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

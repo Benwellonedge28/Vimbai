@@ -275,6 +275,21 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- zero-trust-data-service -> security crate, records on the store: the access policies a Book sets and every decision
+  taken against them, kept as a record so an access question can be answered after the fact. A policy is the caller's
+  own, replaced WHOLE when updated (the id asked for wins over any id sent with it) and defaulting to the lowest
+  clearance gate and to requiring MFA; deleting one that is not the caller's answers as missing rather than forbidden.
+  An evaluation is decided against the OLDEST policy naming the resource, so a second policy for the same resource is
+  unreachable until the first is deleted - the shipped service took the first of a list it scanned in order, and a
+  stable rule is better than whatever order the graph hands back. A policy that requires no roles lets anyone through
+  that gate; a required role is satisfied by holding ANY of them; a required clearance is a FLOOR rather than a match,
+  and a name the scale does not know counts as the lowest level, which is why a policy's default "standard" is the same
+  gate as "public". MFA and the address list bite only when the policy asks. Every decision is recorded with its
+  reasons joined ("MFA required but not verified; IP not in whitelist"), or "Access granted". The SUBJECT of a decision
+  is not the caller, so it is stored under its own name and presented back as user_id. Decisions are listed oldest
+  first, the last `limit` of them, fifty when nothing was said. Routes: /access-policies (both methods, since /policies
+  already answers the policy register), /access-policies/{id}, /evaluate, /attempts and /attempts/user/{id}.
+
 - benefits-admin-service -> payroll crate, records on the store: the benefit plans a Book offers, who is enrolled in
   them, and the leave each person has accrued. A plan's kind is one of five (pension, medical, dental, life insurance,
   leave) and anything else is refused by name, as a validation refusal (422); a plan arrives active. An enrollment

@@ -11,9 +11,9 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 111
-still Python             27
-owner domains            29
+already on a Rust engine 112
+still Python             26
+owner domains            30
 ```
 
 ## accounting
@@ -398,7 +398,7 @@ Retirement gate: answered from Rust with parity holding, so the Python directory
 
 ## platform
 
-_identity, security, events, caching, sync and observability_
+_identity, events, caching, sync and observability_
 
 Lands in `rust/crates/platform`.
 
@@ -414,7 +414,6 @@ mfa-auth-service                                8007       6      yes  python
 notifications-service                           8091      16      yes  python
 privacy-admin-dashboard-service                 8003      10       no  python
 websocket-service                               8141       4       no  python
-zero-trust-data-service                         8002       9      yes  python
 ```
 
 Retirement gate: port the maths and its records into this domain, capture parity against the Python, then de-register. Nothing is deleted before that.
@@ -447,6 +446,19 @@ dashboard-service                               8365       4       no  rust
 report-automation-service                       8272      10       no  rust
 report-distribution-service                     8273       8       no  rust
 reporting-service                               8361       3       no  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## security
+
+_zero-trust access control: policies and the decisions taken against them_
+
+Lands in `rust/crates/domains/security`.
+
+```
+service                                         port  routes  records  engine
+zero-trust-data-service                         8002       9      yes  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
