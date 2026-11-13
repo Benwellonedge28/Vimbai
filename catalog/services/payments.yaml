@@ -40,7 +40,7 @@ services:
   port: 8095
   gateway_path: /pos-integration
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

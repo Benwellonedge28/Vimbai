@@ -291,6 +291,32 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- pos-integration-service -> payments crate (rust/crates/domains/payments, module `pos`), records on the store: the tills
+  a Book runs (`PosDevice`) and the takings they report (`PosTransaction`). Rules kept: a till is registered OFFLINE and
+  answers to the id the outside world knows it by; the same till registered twice, or the same transaction id received
+  twice (a till replaying its queue after a dropped connection), is a 409 CONFLICT rather than a second record, so takings
+  cannot double; a device status change is NOT validated - the shipped endpoint took a plain map and stored whatever arrived,
+  so a state nobody agreed on is stored as given and a test pins it; a batch answers one line at a time and one refusal
+  does not stop the reports behind it; reconciling inventory reports nothing found, ALWAYS, because the shipped loop compared
+  nothing at all, and stating stock writes nothing while saying `recorded: false` rather than implying stock moved; the
+  sales summary nets refunds and voids off sales and sums each payment method. The three outside systems are read in their
+  own units: Square and Stripe state CENTS (divided by a hundred), Shopify states money (taken as it stands), and anything
+  else is read as a taking already in this platform's shape. Amounts are stored as exact decimals to the cent however they
+  arrived. TWO DELIBERATE DIVERGENCES: (1) the shipped service "processed transactions for accounting" in a background task
+  that minted a `JE-xxxxxxxx` reference and updated the row without ever posting anything - the ledger has one route in and
+  corrections are reversals, so a taking is recorded PENDING and `POST /till-transactions/{id}/sync` marks it synced with
+  `journal_posted: false` and NO invented journal id, since a reference to an entry that does not exist is worse than none;
+  (2) the two WebSocket doors (`/ws/pos/{id}`, `/ws/dashboard`) are not carried, because a socket is a transport and every
+  connection in this platform is served by the one websocket service. ENGINE GAPS FOUND AND FIXED WHILE PORTING: a bare-LIST
+  request body was silently dropped by `merged_request` (the shipped batch endpoint takes `List[POSTransactionCreate]`), now
+  passed through as the request; and a span filter compared an ISO date as TEXT against the engine's numeric moments, so
+  `vimbai_common::dates::instant_of` now reads a moment from either form (number, `YYYY-MM-DD`, with `Z`, with a `+HH:MM`
+  offset, or naive) and takings are filtered and ordered as moments - two takings on one afternoon are hours apart, not a
+  day apart. Routes: /devices, /devices/{id}, /devices/{id}/status, /till-transactions (the plain /transactions belongs to
+  receivables), /till-transactions/batch, /till-transactions/{id}, /till-transactions/{id}/sync, /inventory/sync,
+  /inventory/reconcile, /reports/sales-summary, /integrations/{pos_type}/webhook, /pos-metrics (/metrics belongs to another
+  crate).
+
 - realtime-calculation-engine -> NO new calculator: four figures answered by the calculators the workspace already
   owns, which is the whole point of this port. `/npv` is `finance::discounting::quick_npv` (the one discounting engine the
   four capital-budgeting services share; the engine published its rate as a PERCENT, so 10 meant ten percent, and only the

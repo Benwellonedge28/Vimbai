@@ -99,6 +99,11 @@ fn fail(error: StoreError) -> Response {
 
 /// A request whose scalar fields arrive in the query string, overlaid by anything sent as a body.
 fn merged_request(payload: Option<Json<Value>>, query: Option<&str>) -> Value {
+    // a body that is a bare list IS the request - the shipped services that took one (a till emptying its queue, a set of
+    // department ids) had nothing to merge it with, and dropping it silently answers as though the caller sent nothing
+    if let Some(Json(Value::Array(queued))) = &payload {
+        return Value::Array(queued.clone());
+    }
     let merged = body_or_query(query);
     let Value::Object(mut into) = merged else {
         return merged;
@@ -11948,6 +11953,229 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// Point of sale: the tills a Book runs, the takings they report, and what those takings add up to.
+// ---------------------------------------------------------------------------
+
+async fn post_pos_device(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payments::pos::pos_register_device(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_pos_devices(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payments::pos::pos_devices(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_pos_device(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((device_id,)): Path<(String,)>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payments::pos::pos_device(
+        graph.as_ref(),
+        &scope,
+        &device_id,
+    ))
+}
+
+async fn put_pos_device_status(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((device_id,)): Path<(String,)>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payments::pos::pos_set_status(
+        graph.as_ref(),
+        &scope,
+        &device_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_pos_taking(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payments::pos::pos_ingest(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_pos_batch(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payments::pos::pos_batch(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_pos_takings(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payments::pos::pos_transactions(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_pos_taking(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((transaction_id,)): Path<(String,)>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payments::pos::pos_transaction(
+        graph.as_ref(),
+        &scope,
+        &transaction_id,
+    ))
+}
+
+async fn post_pos_taking_sync(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((transaction_id,)): Path<(String,)>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payments::pos::pos_mark_synced(
+        graph.as_ref(),
+        &scope,
+        &transaction_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_pos_inventory_sync(
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    answer(payments::pos::pos_inventory_sync(&merged_request(
+        payload,
+        query.as_deref(),
+    )))
+}
+
+async fn post_pos_inventory_reconcile(
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    answer(payments::pos::pos_reconcile_inventory(&merged_request(
+        payload,
+        query.as_deref(),
+    )))
+}
+
+async fn post_pos_sales_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payments::pos::pos_sales_summary(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_pos_webhook(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((pos_type,)): Path<(String,)>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payments::pos::pos_webhook(
+        graph.as_ref(),
+        &scope,
+        &pos_type,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_pos_metrics(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payments::pos::pos_metrics(graph.as_ref(), &scope))
+}
+
+// ---------------------------------------------------------------------------
 // The realtime calculation engine: four figures, each answered by the calculator that already owns it.
 // ---------------------------------------------------------------------------
 
@@ -16362,6 +16590,20 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // Point of sale: the tills a Book runs and the takings they report
+        .route("/devices", get(get_pos_devices).post(post_pos_device))
+        .route("/devices/:id", get(get_pos_device))
+        .route("/devices/:id/status", put(put_pos_device_status))
+        .route("/till-transactions", get(get_pos_takings).post(post_pos_taking))
+        .route("/till-transactions/batch", post(post_pos_batch))
+        .route("/till-transactions/:id", get(get_pos_taking))
+        .route("/till-transactions/:id/sync", post(post_pos_taking_sync))
+        .route("/inventory/sync", post(post_pos_inventory_sync))
+        .route("/inventory/reconcile", post(post_pos_inventory_reconcile))
+        .route("/reports/sales-summary", post(post_pos_sales_summary))
+        .route("/integrations/:pos_type/webhook", post(post_pos_webhook))
+        .route("/pos-metrics", get(get_pos_metrics))
 
         // The realtime calculation engine: four figures, each from the calculator that already owns it
         .route("/npv", post(post_quick_npv))

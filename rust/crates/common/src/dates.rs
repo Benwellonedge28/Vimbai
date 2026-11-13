@@ -110,3 +110,79 @@ mod tests {
         assert_eq!(day_of("2026-13-01"), None);
     }
 }
+
+/// The instant a moment was at, in seconds from 1970-01-01T00:00:00Z.
+///
+/// The rest of this module counts whole days, which is right for ageing a debtor and wrong for a till's takings: two
+/// transactions on one afternoon are hours apart, and a report asked for a span has to be able to say so. This reads the
+/// same dates with their clock, and accepts either form a caller may send:
+///
+/// * a number, which is already an instant - the engine stamps its own moments that way;
+/// * text, `YYYY-MM-DD` on its own or with `THH:MM:SS`, and with `Z`, a `+HH:MM` / `-HH:MM` offset, or neither, in which
+///   case the clock is read as written rather than being moved.
+///
+/// A moment that cannot be read has no instant, so a caller can tell a missing bound from the epoch.
+pub fn instant_of(value: &str) -> Option<f64> {
+    let text = value.trim();
+    if let Ok(seconds) = text.parse::<f64>() {
+        return Some(seconds);
+    }
+    let day = day_of(text)?;
+    let behind = text.get(10..).unwrap_or("").trim_start_matches(['T', ' ']);
+    // an offset is honoured rather than ignored: +02:00 is two hours EARLIER in UTC
+    let (clock, offset) = split_offset(behind);
+    let mut parts = clock.split(':');
+    let hours: i64 = parts.next().unwrap_or("0").trim().parse().unwrap_or(0);
+    let minutes: i64 = parts.next().unwrap_or("0").trim().parse().unwrap_or(0);
+    let seconds: f64 = parts.next().unwrap_or("0").trim().parse().unwrap_or(0.0);
+    if !(0..=24).contains(&hours) || !(0..=59).contains(&minutes) {
+        return None;
+    }
+    Some(day as f64 * 86_400.0 + (hours * 3_600 + minutes * 60) as f64 + seconds - offset as f64)
+}
+
+/// The clock part and the offset behind it, in seconds.
+fn split_offset(behind: &str) -> (&str, i64) {
+    let trimmed = behind.trim_end_matches('Z');
+    let Some(at) = trimmed.rfind(['+', '-']) else {
+        return (trimmed, 0);
+    };
+    // a lone date has no offset, and a negative sign that starts the text is not one either
+    if at == 0 {
+        return (trimmed, 0);
+    }
+    let offset = trimmed.get(at..).and_then(|tail| {
+        let (hours, minutes) = tail.get(1..)?.split_once(':')?;
+        let hours: i64 = hours.trim().parse().ok()?;
+        let minutes: i64 = minutes.trim().parse().ok()?;
+        let sign = if tail.starts_with('-') { -1 } else { 1 };
+        Some(sign * (hours * 3_600 + minutes * 60))
+    });
+    (trimmed.get(..at).unwrap_or(trimmed), offset.unwrap_or(0))
+}
+
+#[cfg(test)]
+mod instant_tests {
+    use super::*;
+
+    #[test]
+    fn an_instant_is_seconds_and_text_reads_to_the_same_second() {
+        // a number is already an instant
+        assert_eq!(instant_of("1000"), Some(1000.0));
+        // the epoch itself, written either way
+        assert_eq!(instant_of("1970-01-01"), Some(0.0));
+        assert_eq!(instant_of("1970-01-02T00:00:00Z"), Some(86_400.0));
+        assert_eq!(instant_of("1970-01-01T01:30:15Z"), Some(5_415.0));
+        // an offset moves the moment back to UTC rather than being ignored
+        assert_eq!(instant_of("1970-01-01T02:00:00+02:00"), Some(0.0));
+        assert_eq!(instant_of("1970-01-01T00:00:00-01:00"), Some(3_600.0));
+        // two takings on one afternoon are NOT a day apart, which is the whole reason this exists
+        assert_eq!(
+            instant_of("2026-11-13T14:00:00Z"),
+            Some(instant_of("2026-11-13T09:00:00Z").unwrap() + 18_000.0)
+        );
+        // a moment that cannot be read has no instant
+        assert_eq!(instant_of("not a date"), None);
+        assert_eq!(instant_of("2026-13-13"), None);
+    }
+}

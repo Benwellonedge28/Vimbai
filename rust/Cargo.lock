@@ -1995,6 +1995,7 @@ dependencies = [
  "vimbai_service_offline_sync",
  "vimbai_service_partnerships",
  "vimbai_service_payables",
+ "vimbai_service_payments",
  "vimbai_service_payroll",
  "vimbai_service_receivables",
  "vimbai_service_reporting",
@@ -2389,6 +2390,16 @@ dependencies = [
 name = "vimbai_service_payables"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
+ "vimbai_common",
+ "vimbai_store",
+]
+
+[[package]]
+name = "vimbai_service_payments"
+version = "0.1.0"
+dependencies = [
+ "serde",
  "serde_json",
  "vimbai_common",
  "vimbai_store",
