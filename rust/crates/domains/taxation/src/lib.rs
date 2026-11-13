@@ -14,4 +14,6 @@
 //! the accounting books' business.
 
 pub mod accounting;
+pub mod compliance;
+pub mod planning;
 pub mod rates;

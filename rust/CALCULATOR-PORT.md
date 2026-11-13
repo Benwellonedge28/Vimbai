@@ -646,11 +646,11 @@ xbrl-reporting-service
   fifty times too large, and the day count ran backwards, so every debtor aged to zero days and no provision was
   raised. Both are pinned by tests.
 
-- tax-accounting-service -> the tax crate (rust/crates/domains/tax), records on the store: rates and their
+- tax-accounting-service -> the tax crate (rust/crates/domains/taxation), records on the store: rates and their
   registration, the tax worked out on a transaction (single or as a batch), returns with their filing and payment,
   withholding tax, the summary and VAT-by-jurisdiction reports, deferred tax, and the liability schedule. One crate
   for the tax domain, so the three tax services answer a rate question one way. Which rate applies is decided once
-  (crates/domains/tax/src/rates.rs): a registered rate covers a window from `effective_from` to `effective_to`, the
+  (crates/domains/taxation/src/rates.rs): a registered rate covers a window from `effective_from` to `effective_to`, the
   first that covers the day wins rather than the newest, and a tax type with no registered rate falls back to the
   shipped default table - so a VAT sale answers 20% before any rate was ever entered rather than being refused. The
   net/gross split is applied once there too: a net amount has the rate added on, a gross amount has it divided back
@@ -662,6 +662,21 @@ xbrl-reporting-service
   as outstanding, since a draft is not yet owed. Nothing here moves money: a calculation stores the transaction and
   reports the journal it would post, and filing or paying a return writes the status and the date, exactly as the
   shipped service said in its own comments.
+
+- tax-compliance-service -> the same tax crate (rust/crates/domains/taxation, module `compliance`), obligations on the
+  store: created pending whatever the caller says, listed by due date with the status filter applied to the answer
+  rather than in the query, filed with the figure stated or with the obligation's own amount when the caller names
+  none, and summarised as counts, a score and the deadlines inside a month. Filing another company's obligation
+  answers exactly as a nonexistent one does, so the register cannot be used to discover another tenant's work. A
+  company with nothing owed scores 100 rather than nil, and an already overdue deadline is listed with a negative
+  count of days because it is the most urgent thing on the list. The day the summary measures from is the caller's
+  `today`, not the clock, so the same obligations answer the same summary twice. The route is `/compliance-summary`
+  because `/summary` already answers the receivables control account.
+- tax-planning-service -> the same tax crate (module `planning`), strategies on the store and `/plan` answered from the
+  request: savings larger than the bill plan a nil bill and never a refund, a strategy that costs nothing states no
+  return (`null`, not an infinite one) and is never advised, and only a low or medium risk strategy returning more
+  than it costs is recommended - a high-risk saving is measured but never advised. A plan carries an identifier even
+  though nothing is stored, so a caller can refer to the answer they were given.
 
 ## Crate already has the maths, service not yet wired
 

@@ -40,7 +40,7 @@ services:
   port: 8293
   gateway_path: /tax-compliance
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -55,7 +55,7 @@ services:
   port: 8292
   gateway_path: /tax-planning
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

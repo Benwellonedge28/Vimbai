@@ -9956,6 +9956,24 @@ fn records_router(graph: GraphHandle) -> Router {
         .route("/reports/vat-by-jurisdiction", get(get_vat_by_jurisdiction))
         .route("/deferred-tax", post(post_deferred_tax))
         .route("/liability-schedule", get(get_tax_liability_schedule))
+        // tax: the obligations a company owes and the compliance summary over them
+        .route(
+            "/obligations",
+            post(post_tax_obligation).get(list_tax_obligations),
+        )
+        .route(
+            "/obligations/:obligation_id/file",
+            post(post_file_tax_obligation),
+        )
+        // "summary" already answers the receivables control account, so the compliance score is named for
+        // what it summarises rather than reusing the word
+        .route("/compliance-summary", get(get_tax_compliance_summary))
+        // tax: the strategies a planner submits and the plan they add up to
+        .route(
+            "/strategies",
+            post(post_tax_strategy).get(list_tax_strategies),
+        )
+        .route("/plan", post(post_tax_plan))
         .with_state(graph)
 }
 
@@ -11848,6 +11866,105 @@ async fn get_tax_liability_schedule(
         &scope,
         &body_or_query(query.as_deref()),
     ))
+}
+
+// --- tax: obligations, compliance and planning ---
+
+async fn post_tax_obligation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::compliance::create_obligation(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_tax_obligations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(tax::compliance::list_obligations(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn post_file_tax_obligation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(obligation_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = match payload {
+        Some(Json(value)) => crate::merge_request(query.as_deref(), Some(value)),
+        None => crate::merge_request(query.as_deref(), None),
+    };
+    answer(tax::compliance::file_obligation(
+        graph.as_ref(),
+        &scope,
+        &obligation_id,
+        &body,
+    ))
+}
+
+async fn get_tax_compliance_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(tax::compliance::summary(graph.as_ref(), &scope, &body))
+}
+
+async fn post_tax_strategy(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::planning::create_strategy(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_tax_strategies(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(tax::planning::list_strategies(graph.as_ref(), &scope))
+}
+
+async fn post_tax_plan(Json(payload): Json<Value>) -> Response {
+    answer(tax::planning::plan(&payload))
 }
 
 #[cfg(test)]

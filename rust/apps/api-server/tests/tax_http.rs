@@ -349,3 +349,159 @@ async fn the_liability_schedule_counts_only_filed_returns_as_outstanding() {
     assert_eq!(body["total_outstanding"], json!("10.000000"));
     assert_eq!(body["count"], json!(2));
 }
+
+#[tokio::test]
+async fn an_obligation_is_stored_pending_and_echoed() {
+    let graph = Scripted::queue(vec![vec![json!({"id": "ob-1"})]]);
+    let (status, body) = send(
+        graph,
+        "/obligations",
+        json!({
+            "company_id": "co-1",
+            "obligation_type": "vat_return",
+            "description": "VAT for March",
+            "due_date": "2026-03-25",
+            "amount": 1200,
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["id"], json!("ob-1"));
+    assert_eq!(body["status"], json!("pending"));
+    assert_eq!(body["amount"], json!("1200.000000"));
+}
+
+#[tokio::test]
+async fn obligations_are_listed_by_company_and_status() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "ob-2", "company_id": "co-1", "due_date": "2026-04-25", "status": "pending"}),
+            json!({"id": "ob-1", "company_id": "co-1", "due_date": "2026-03-25", "status": "filed"}),
+        ],
+        vec![
+            json!({"id": "ob-2", "company_id": "co-1", "due_date": "2026-04-25", "status": "pending"}),
+            json!({"id": "ob-1", "company_id": "co-1", "due_date": "2026-03-25", "status": "filed"}),
+        ],
+    ]);
+    let (status, body) = call(
+        graph.clone(),
+        Method::GET,
+        "/obligations?company_id=co-1&status=pending",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["count"], json!(1));
+    assert_eq!(body["obligations"][0]["id"], json!("ob-2"));
+}
+
+#[tokio::test]
+async fn filing_through_the_route_takes_the_amount_from_the_query() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "ob-1", "company_id": "co-1", "amount": "1200.000000", "status": "pending"}),
+        ],
+        vec![json!({"id": "ob-1"})],
+    ]);
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/obligations/ob-1/file?company_id=co-1&filed_amount=900",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["filed"], json!(true));
+    assert_eq!(body["amount"], json!("900.000000"));
+    let (statement, params) = graph.last();
+    assert!(statement.contains("SET"), "{statement}");
+    assert_eq!(params["patch"]["status"], json!("filed"));
+}
+
+#[tokio::test]
+async fn the_compliance_summary_answers_the_score_and_the_deadlines() {
+    let graph = Scripted::queue(vec![vec![
+        json!({"id": "ob-1", "company_id": "co-1", "due_date": "2026-03-10", "status": "pending", "amount": "100.000000", "obligation_type": "paye"}),
+        json!({"id": "ob-2", "company_id": "co-1", "due_date": "2026-02-25", "status": "filed", "amount": "200.000000", "obligation_type": "vat_return"}),
+    ]]);
+    let (status, body) = call(
+        graph,
+        Method::GET,
+        "/compliance-summary?company_id=co-1&today=2026-03-01",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["compliance_score"], json!(50.0));
+    assert_eq!(body["total_obligations"], json!(2));
+    assert_eq!(
+        body["upcoming_deadlines"][0]["obligation_id"],
+        json!("ob-1")
+    );
+    assert_eq!(body["upcoming_deadlines"][0]["days_until"], json!(9));
+}
+
+#[tokio::test]
+async fn a_plan_answers_the_projection_recommendations_and_roi() {
+    let graph = Scripted::queue(vec![Vec::new()]);
+    let (status, body) = send(
+        graph,
+        "/plan",
+        json!({
+            "company_id": "co-1",
+            "fiscal_year": 2026,
+            "current_taxable_income": 500000,
+            "current_tax": 125000,
+            "strategies": [
+                {"id": "s-1", "name": "Accelerate deductions", "strategy_type": "deduction",
+                 "estimated_savings": 5000, "implementation_cost": 1000, "risk_level": "low",
+                 "timeframe": "short-term"},
+                {"id": "s-2", "name": "Aggressive shelter", "strategy_type": "structure",
+                 "estimated_savings": 40000, "implementation_cost": 1000, "risk_level": "high",
+                 "timeframe": "long-term"}
+            ],
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["projected_tax"], json!("80000.000000"));
+    assert_eq!(body["net_benefit"], json!("43000.000000"));
+    assert_eq!(
+        body["recommended_strategies"],
+        json!(["Accelerate deductions"])
+    );
+    assert_eq!(body["strategies"][0]["roi"], json!(4.0));
+}
+
+#[tokio::test]
+async fn a_strategy_is_stored_and_listed() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "s-1"})],
+        vec![
+            json!({"id": "s-1", "name": "Accelerate deductions", "created_date": "2026-03-01T00:00:00"}),
+        ],
+    ]);
+    let (status, body) = send(
+        graph.clone(),
+        "/strategies",
+        json!({
+            "name": "Accelerate deductions",
+            "description": "Bring forward the claim",
+            "strategy_type": "timing",
+            "estimated_savings": 5000,
+            "implementation_cost": 0,
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["id"], json!("s-1"));
+    assert_eq!(body["risk_level"], json!("low"));
+
+    let (status, listed) = call(graph, Method::GET, "/strategies", None).await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    assert_eq!(listed["count"], json!(1));
+    assert_eq!(
+        listed["strategies"][0]["name"],
+        json!("Accelerate deductions")
+    );
+}
