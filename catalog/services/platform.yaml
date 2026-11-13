@@ -3,7 +3,7 @@ domain:
   name: platform
   responsibility: identity, events, caching, sync and observability
   target: rust/crates/platform
-  services: 7
+  services: 6
 services:
 - name: admin-service
   domain: platform
@@ -83,21 +83,6 @@ services:
   - POST /trigger/budget-variance-alert
   - POST /trigger/transaction-flagged
   - POST /trigger/approval-requested
-- name: mfa-auth-service
-  domain: platform
-  target: rust/crates/platform
-  port: 8007
-  gateway_path: /mfa-auth
-  auth_required: true
-  engine: python
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /setup
-  - POST /verify
-  - POST /challenge
-  - POST /challenge/{challenge_id}/verify
 - name: privacy-admin-dashboard-service
   domain: platform
   target: rust/crates/platform

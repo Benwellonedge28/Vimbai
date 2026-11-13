@@ -1,3 +1,9 @@
+//! Proving who someone is.
+//!
+//! * *enterprise-sso-service*: single sign-on verification, below.
+//! * *mfa-auth-service* ([`mfa`]): the second factor a person carries - an enrolment and the short-lived challenges
+//!   raised to prove possession. Both live here because both answer the same question; neither is a business domain.
+//!
 //! Enterprise single sign-on for Vimbai.
 //!
 //! Verification first: an identity provider token is checked against a published
@@ -24,6 +30,7 @@ pub mod error;
 pub mod i18n;
 pub mod idp;
 pub mod jose;
+pub mod mfa;
 pub mod saml;
 pub mod session;
 pub mod store;

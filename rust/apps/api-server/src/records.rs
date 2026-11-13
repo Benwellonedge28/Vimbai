@@ -11944,6 +11944,96 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// MFA: the second factor a person carries. Self-service only, so the person is always the caller.
+// ---------------------------------------------------------------------------
+
+async fn post_mfa_setup(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(mfa::mfa::setup(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_mfa_verify(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(mfa::mfa::verify(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_mfa_challenge(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(mfa::mfa::raise_challenge(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_mfa_challenge_verify(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(challenge_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(mfa::mfa::verify_challenge(
+        graph.as_ref(),
+        &scope,
+        &challenge_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_mfa_status(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(mfa::mfa::enrolment_status(graph.as_ref(), &scope))
+}
+
+async fn get_mfa_backup_codes(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(mfa::mfa::backup_remaining(graph.as_ref(), &scope))
+}
+
+// ---------------------------------------------------------------------------
 // financial identity: the KYC profile a Book keeps for a person, and the verification done against it. A profile
 // names a SUBJECT, which is not the caller, so it answers at /profiles and is read back by id or by subject.
 // ---------------------------------------------------------------------------
@@ -14551,6 +14641,14 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // MFA: the second factor a person carries, self-service only
+        .route("/mfa/setup", post(post_mfa_setup))
+        .route("/mfa/verify", post(post_mfa_verify))
+        .route("/mfa/challenge", post(post_mfa_challenge))
+        .route("/mfa/challenge/:id/verify", post(post_mfa_challenge_verify))
+        .route("/mfa/status", get(get_mfa_status))
+        .route("/mfa/backup-codes", get(get_mfa_backup_codes))
 
         // financial identity: the KYC profile register
         .route("/profiles", post(post_profile))

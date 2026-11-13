@@ -30,6 +30,10 @@ domains:
 - name: identity
   responsibility: the financial identity a Book knows a person by, and the verification done against it
   target: rust/crates/domains/identity
+- name: authentication
+  responsibility: 'proving who someone is: single sign-on verification, and the second factor a person
+    carries'
+  target: rust/crates/platform/identity
 - name: budgeting
   responsibility: budgets, forecasts and scenario planning
   target: rust/crates/domains/budgeting
@@ -1404,12 +1408,12 @@ services:
   - POST /trigger/transaction-flagged
   - POST /trigger/approval-requested
 - name: mfa-auth-service
-  domain: platform
-  target: rust/crates/platform
+  domain: authentication
+  target: rust/crates/platform/identity
   port: 8007
   gateway_path: /mfa-auth
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

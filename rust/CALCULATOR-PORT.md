@@ -275,6 +275,22 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- mfa-auth-service -> identity platform crate (rust/crates/platform/identity, beside single sign-on), records on the
+  store: the second factor a person carries - an enrolment (secret and backup codes) and the short-lived challenges
+  raised to prove possession. MFA belongs to the PERSON across every Book, so it is self-service only: enrolling or
+  verifying someone else is refused (403) rather than quietly ignored. Enrolling again replaces the previous secret and
+  codes rather than holding two, and answers the secret, the otpauth address a client renders as a QR code, and eight
+  backup codes. Verifying someone who never enrolled says MFA is not set up rather than failing an unknown code.
+  SHIPPED QUIRK PINNED, NOT FIXED: the shipped check accepted ANY six digits and said so in its own comment; the port
+  keeps that answer rather than silently tightening it into a real TOTP check that would lock out codes the service used
+  to accept - the code comment says so, so nobody mistakes it for verification. A challenge lasts five minutes, is spent
+  when it verifies, and a WRONG code does not spend it (so a fat-fingered code can be retried, as shipped); an expired
+  challenge is dropped and answers expired, and another person's challenge is missing rather than refused. The clock
+  comes from the request, so expiry is exact. Secrets are minted from the identifier generator rather than a CSPRNG -
+  named limitation, not a claim of cryptographic entropy. Routes: /mfa/setup, /mfa/verify, /mfa/challenge,
+  /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
+  services).
+
 - workflow-service -> workflow domain crate (rust/crates/domains/workflow, which is the doc's domains/workflow),
   records on the store: definitions and the instances that walk them. A definition holds its steps IN ORDER, each step
   naming the steps that follow it and, optionally, the ones a rejection goes to instead, and it is active unless it is
