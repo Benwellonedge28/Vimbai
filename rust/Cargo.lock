@@ -1961,6 +1961,7 @@ dependencies = [
  "vimbai_assurance",
  "vimbai_bridge",
  "vimbai_budgeting",
+ "vimbai_cache",
  "vimbai_capital_valuation",
  "vimbai_common",
  "vimbai_cost_accounting",
@@ -2059,6 +2060,15 @@ dependencies = [
  "serde",
  "serde_json",
  "vimbai_common",
+]
+
+[[package]]
+name = "vimbai_cache"
+version = "0.3.0"
+dependencies = [
+ "serde_json",
+ "vimbai_common",
+ "vimbai_store",
 ]
 
 [[package]]

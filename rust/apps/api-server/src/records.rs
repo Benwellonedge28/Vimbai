@@ -11681,6 +11681,82 @@ async fn get_webhook_deliveries(
 }
 
 // ---------------------------------------------------------------------------
+// cache: keyed values with a life, a size limit and the counts a cache keeps of itself. The clock comes from the
+// request, so a cache can be reasoned about exactly.
+// ---------------------------------------------------------------------------
+
+async fn post_cache_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cache::cache::write(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_cache_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(key): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cache::cache::read(
+        graph.as_ref(),
+        &scope,
+        &key,
+        &merged_request(None, query.as_deref()),
+    ))
+}
+
+async fn delete_cache_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(key): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cache::cache::remove(graph.as_ref(), &scope, &key))
+}
+
+async fn delete_whole_cache(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cache::cache::clear(graph.as_ref(), &scope))
+}
+
+async fn get_cache_stats(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(cache::cache::cache_totals(
+        graph.as_ref(),
+        &scope,
+        &merged_request(None, query.as_deref()),
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // financial identity: the KYC profile a Book keeps for a person, and the verification done against it. A profile
 // names a SUBJECT, which is not the caller, so it answers at /profiles and is read back by id or by subject.
 // ---------------------------------------------------------------------------
@@ -14259,6 +14335,14 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/endpoints/:company_id", get(get_webhook_endpoints))
         .route("/dispatch/:company_id", post(post_webhook_dispatch))
         .route("/deliveries/:endpoint_id", get(get_webhook_deliveries))
+
+        // cache: keyed values with a life, a size limit and the cache's own counts
+        .route("/cache", post(post_cache_entry).delete(delete_whole_cache))
+        .route(
+            "/cache/:key",
+            get(get_cache_entry).delete(delete_cache_entry),
+        )
+        .route("/cache-stats", get(get_cache_stats))
 
         // financial identity: the KYC profile register
         .route("/profiles", post(post_profile))

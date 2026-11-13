@@ -3,7 +3,7 @@ domain:
   name: platform
   responsibility: identity, events, caching, sync and observability
   target: rust/crates/platform
-  services: 8
+  services: 7
 services:
 - name: admin-service
   domain: platform
@@ -41,22 +41,6 @@ services:
   - POST /audit-logs
   - GET /services/health
   - GET /dashboard/stats
-- name: cache-service
-  domain: platform
-  target: rust/crates/platform
-  port: 8000
-  gateway_path: /cache
-  auth_required: true
-  engine: python
-  records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - GET /cache/{key}
-  - POST /cache
-  - DELETE /cache/{key}
-  - DELETE /cache
-  - GET /stats
 - name: encrypted-backup-service
   domain: platform
   target: rust/crates/platform

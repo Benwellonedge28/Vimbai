@@ -91,6 +91,9 @@ domains:
 - name: calculations
   responsibility: the calculation surface the client calls
   target: rust/crates/application
+- name: cache
+  responsibility: keyed values with a life, a size limit and the cache's own counts
+  target: rust/crates/platform/cache
 - name: webhooks
   responsibility: the endpoints a Book subscribes, the events dispatched to them and how each delivery
     went
@@ -531,12 +534,12 @@ services:
   - POST /issue
   - GET /issues
 - name: cache-service
-  domain: platform
-  target: rust/crates/platform
+  domain: cache
+  target: rust/crates/platform/cache
   port: 8000
   gateway_path: /cache
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /

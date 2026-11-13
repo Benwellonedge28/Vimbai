@@ -61,6 +61,10 @@ DOMAINS = {
     "documents": ("document storage and rendering", "rust/crates/platform/documents"),
     "integrations": ("webhooks, GraphQL and external feeds", "rust/crates/platform/integrations"),
     "calculations": ("the calculation surface the client calls", "rust/crates/application"),
+    "cache": (
+        "keyed values with a life, a size limit and the cache's own counts",
+        "rust/crates/platform/cache",
+    ),
     "webhooks": (
         "the endpoints a Book subscribes, the events dispatched to them and how each delivery went",
         "rust/crates/platform/webhooks",
@@ -278,7 +282,7 @@ OWNERS = {
     "admin-service": "platform",
     "alerts-service": "alerts",
     "book-sync-service": "platform",
-    "cache-service": "platform",
+    "cache-service": "cache",
     "encrypted-backup-service": "platform",
     "financial-identity-service": "identity",
     "message-bus-service": "platform",

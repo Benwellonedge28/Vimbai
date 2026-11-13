@@ -275,6 +275,20 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- cache-service -> cache crate (platform shelf), records on the store: keyed entries with a life, a size limit, and
+  the counts a cache keeps of itself. An entry is read before its moment and answers its value with how long is left;
+  read after it, it is DROPPED and the read answers as a miss, so a stale value is never handed back. A hit marks the
+  entry as the most recently used, and when the cache is full it is the least recently used entry that goes, not the
+  oldest written (pinned by a test that reads the older entry and watches the newer one evict). Writing the same key
+  again replaces rather than holds two, and answers the value with the life it was given. Removing says whether there
+  was anything to remove; clearing says how many went. The counts are the cache's own - hits, misses, evictions, writes,
+  and the hit rate as a percentage of reads, with 66.67 pinned for two hits in three reads and 0 rather than a made-up
+  figure for a cache nobody used. Modelling points: the clock comes from the request (`now`, in seconds) rather than
+  being read here, so a cache can be reasoned about and tested exactly; entries and counts live on the store rather than
+  in one process's memory, so every replica sees the same cache, which the shipped in-memory OrderedDict could not do.
+  Routes: /cache (write, clear), /cache/{key} (read, remove) and /cache-stats, because /stats is the receivables control
+  account.
+
 - webhook-service -> webhooks crate (platform shelf), records on the store: the endpoints a Book subscribes, the
   events dispatched to them, and how each delivery went. An endpoint is registered for a company with a URL, the events
   it wants and a secret; the answer is its id, its URL and its events, never the secret. A dispatch goes only to the
