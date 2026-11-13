@@ -70,9 +70,6 @@ domains:
 - name: compliance
   responsibility: regulatory and controls compliance
   target: rust/crates/domains/compliance
-- name: risk
-  responsibility: risk assessment and mitigation
-  target: rust/crates/domains/risk
 - name: workflow
   responsibility: workflow definitions and long-running orchestration
   target: rust/crates/domains/workflow
@@ -2010,12 +2007,12 @@ services:
   - GET /right-issues
   - GET /{right_issue_id}
 - name: risk-assessment-service
-  domain: risk
-  target: rust/crates/domains/risk
+  domain: compliance
+  target: rust/crates/domains/compliance
   port: 8117
   gateway_path: /risk-assessment
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -2179,7 +2176,7 @@ services:
   port: 8286
   gateway_path: /sox-compliance
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

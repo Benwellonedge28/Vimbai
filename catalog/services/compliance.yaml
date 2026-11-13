@@ -3,7 +3,7 @@ domain:
   name: compliance
   responsibility: regulatory and controls compliance
   target: rust/crates/domains/compliance
-  services: 2
+  services: 3
 services:
 - name: regulatory-compliance-service
   domain: compliance
@@ -20,13 +20,28 @@ services:
   - GET /regulations
   - POST /regulations/{reg_id}/update
   - GET /dashboard
+- name: risk-assessment-service
+  domain: compliance
+  target: rust/crates/domains/compliance
+  port: 8117
+  gateway_path: /risk-assessment
+  auth_required: true
+  engine: rust
+  records: true
+  endpoints:
+  - GET /
+  - POST /risks
+  - GET /risks/{company_id}
+  - PUT /risks/{risk_id}
+  - GET /dashboard/{company_id}
+  - DELETE /risks/{risk_id}
 - name: sox-compliance-service
   domain: compliance
   target: rust/crates/domains/compliance
   port: 8286
   gateway_path: /sox-compliance
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

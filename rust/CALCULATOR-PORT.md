@@ -275,6 +275,28 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- sox-compliance-service -> compliance crate, records on the store: a control is registered active at medium
+  risk and keeps the reference the caller gave it (SOX-ITGC-001) beside its own id; a test is only recorded
+  against a control that exists and is the caller's, and the verdict is DERIVED rather than taken from the caller
+  - no exceptions is a pass, fewer than a tenth in exception is a pass with exception, a tenth or more is a
+  failure (the shipped comparison was `exceptions < sample * 0.1`, so exactly a tenth fails); a failing test
+  raises its own deficiency before anyone asks, significant when more than a fifth of the sample failed and an
+  ordinary control deficiency otherwise, plan left `TBD`; a deficiency states one of three severities and any
+  other word is refused; marking it remediated stamps the caller's date; the dashboard counts a material weakness
+  as open until remediated and does not count a remediated one at all. Routes: /sox-dashboard, because a bare
+  /dashboard would not say whose figures they are.
+
+- risk-assessment-service -> compliance crate, records on the store: a risk scores likelihood times impact and
+  the score picks its level (up to 4 low, up to 9 moderate, up to 16 high, above that critical); it starts
+  `identified` and is created returning only the id, score and level as shipped; the level is recomputed on every
+  reassessment, so a mitigated risk that is reassessed downward stops being reported at its old level; an update
+  that names no mitigation or status keeps the ones it had; the listing counts every level whether or not a risk
+  sits at it, because the caller draws its bars from that; the dashboard answers zeroes rather than nothing for a
+  company with no risks and names the five highest scoring risks; closing a risk keeps its score, level and
+  mitigation for the record. Routes: the shipped service answered GET /risks/{company_id} and PUT/DELETE
+  /risks/{risk_id} - the same one-segment shape, so the port answers all three methods on /risks/{id}, and the
+  dashboard is /risk-dashboard/{company}.
+
 - report-automation-service -> reporting crate, records on the store: a template states one of four report types
   (financial_summary, kpi_dashboard, compliance, operational) and anything else is refused rather than stored; a
   schedule must name a template that exists, so it can never be a schedule for nothing; a schedule starts active

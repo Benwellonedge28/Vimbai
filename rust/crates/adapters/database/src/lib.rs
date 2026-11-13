@@ -327,6 +327,13 @@ pub const STATEMENT_OF_AFFAIRS: RecordKind =
     RecordKind::new("StatementOfAffairs", "OWNS_STATEMENT_OF_AFFAIRS");
 pub const CAPITAL_CALCULATION: RecordKind =
     RecordKind::new("CapitalCalculation", "OWNS_CAPITAL_CALCULATION");
+// compliance: the SOX controls a Book tests and the risks it carries. sox-compliance-service keeps controls,
+// their tests and the deficiencies they raise; risk-assessment-service keeps the risk register. A control and a
+// risk are different records, so each keeps its own label rather than sharing one shape.
+pub const SOX_CONTROL: RecordKind = RecordKind::new("SoxControl", "OWNS_CONTROL");
+pub const SOX_CONTROL_TEST: RecordKind = RecordKind::new("SoxControlTest", "OWNS_CONTROL_TEST");
+pub const SOX_DEFICIENCY: RecordKind = RecordKind::new("SoxDeficiency", "OWNS_DEFICIENCY");
+pub const RISK_ITEM: RecordKind = RecordKind::new("RiskItem", "OWNS_RISK");
 pub const CONTROL_ACCOUNT: RecordKind = RecordKind::new("ControlAccount", "OWNS_CONTROL_ACCOUNT");
 pub const RECEIPTS_PAYMENTS: RecordKind =
     RecordKind::new("ReceiptsPaymentsAccount", "OWNS_RECEIPTS_PAYMENTS");

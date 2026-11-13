@@ -10594,6 +10594,244 @@ async fn document_state_catalogue() -> Response {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// compliance: the SOX controls a Book tests and the risks it carries. The dashboards are named for their
+// service (/sox-dashboard, /risk-dashboard/{company}) because a bare /dashboard would not say whose figures
+// they are. Every handler reads its arguments from the body or the query, the body winning, because the
+// shipped endpoints were written as query parameters.
+// ---------------------------------------------------------------------------
+
+async fn post_sox_control(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(compliance::sox::create_control(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn list_sox_controls(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(compliance::sox::list_controls(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn post_sox_control_test(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(control_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(compliance::sox::test_control(
+        graph.as_ref(),
+        &scope,
+        &control_id,
+        &asked,
+    ))
+}
+
+async fn list_sox_control_tests(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(control_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(compliance::sox::list_tests(
+        graph.as_ref(),
+        &scope,
+        &control_id,
+    ))
+}
+
+async fn post_sox_deficiency(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(compliance::sox::create_deficiency(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn list_sox_deficiencies(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(compliance::sox::list_deficiencies(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn put_sox_deficiency(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(deficiency_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(compliance::sox::update_deficiency(
+        graph.as_ref(),
+        &scope,
+        &deficiency_id,
+        &asked,
+    ))
+}
+
+async fn get_sox_dashboard(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(compliance::sox::sox_dashboard(graph.as_ref(), &scope))
+}
+
+async fn post_risk(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(compliance::risks::create_risk(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn list_risks(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(compliance::risks::list_risks(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        &asked,
+    ))
+}
+
+async fn put_risk(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(risk_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(compliance::risks::update_risk(
+        graph.as_ref(),
+        &scope,
+        &risk_id,
+        &asked,
+    ))
+}
+
+async fn delete_risk(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(risk_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(compliance::risks::close_risk(
+        graph.as_ref(),
+        &scope,
+        &risk_id,
+        &asked,
+    ))
+}
+
+async fn get_risk_dashboard(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(compliance::risks::risk_dashboard(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
 // reporting, automation and distribution: the templates a Book keeps, the schedules they run on, the reports they
 // produced, the lists those go to and the record of what was sent. The listing of produced reports is called
 // /generated-reports here because plain /reports already answers the receivables control account.
@@ -12288,6 +12526,22 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/doubtful/calculate-provision", post(calculate_doubtful_provision))
         .route("/doubtful/provision/create", post(create_doubtful_provision))
         .route("/doubtful/provisions", get(list_doubtful_provisions))
+        // compliance: the SOX controls a Book tests and the risks it carries
+        .route("/controls", post(post_sox_control).get(list_sox_controls))
+        .route("/controls/:id/test", post(post_sox_control_test))
+        .route("/controls/:id/tests", get(list_sox_control_tests))
+        .route(
+            "/deficiencies",
+            post(post_sox_deficiency).get(list_sox_deficiencies),
+        )
+        .route("/deficiencies/:id", put(put_sox_deficiency))
+        .route("/sox-dashboard", get(get_sox_dashboard))
+        .route("/risks", post(post_risk))
+        // the same shape answers the register and works one risk, as the shipped service did: one segment that
+        // is a company on a read and a risk on a write
+        .route("/risks/:id", get(list_risks).put(put_risk).delete(delete_risk))
+        .route("/risk-dashboard/:company", get(get_risk_dashboard))
+
         // reporting, automation and distribution
         .route(
             "/templates",
