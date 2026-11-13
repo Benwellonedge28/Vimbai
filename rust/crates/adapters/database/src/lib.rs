@@ -784,6 +784,13 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
              CREATE (l:{child_label})\n\
              SET l = child\n\
              MERGE (x)-[:{child_edge}]->(l)\n\
+             WITH x, l, child\n\
+             OPTIONAL MATCH (a:Account {{book_id: $book_id, account_number: child.account_number}})\n\
+             FOREACH (_ IN CASE WHEN child.side = 'debit' THEN [1] ELSE [] END |\n\
+                 MERGE (l)-[:DEBITED]->(a))\n\
+             FOREACH (_ IN CASE WHEN child.side = 'credit' THEN [1] ELSE [] END |\n\
+                 MERGE (l)-[:CREDITED]->(a))\n\
+             WITH x, l\n\
              RETURN x, collect(l) AS lines",
             label = self.kind.label,
             edge = self.kind.edge,

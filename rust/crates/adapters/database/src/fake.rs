@@ -81,9 +81,18 @@ struct Node {
 /// listed, updated. The store's statements are few and fixed in shape, so this understands exactly those and
 /// refuses anything else rather than guessing. Records are scoped the way the real store scopes them, which is
 /// what lets a test show that one Book cannot see another's.
+/// One edge between two stored nodes, by the ids they carry.
+#[derive(Clone, Debug)]
+pub struct Edge {
+    pub from: String,
+    pub label: String,
+    pub to: String,
+}
+
 #[derive(Default)]
 pub struct MemoryGraph {
     nodes: Mutex<Vec<Node>>,
+    edges: Mutex<Vec<Edge>>,
 }
 
 /// The label a statement creates, read out of `CREATE (x:Label)`.
@@ -125,6 +134,17 @@ fn stated(params: &Value, key: &str) -> String {
 impl MemoryGraph {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Every edge of one label, oldest first, so a test can see what a write joined up.
+    pub fn edges(&self, label: &str) -> Vec<Edge> {
+        self.edges
+            .lock()
+            .expect("the memory graph is never poisoned")
+            .iter()
+            .filter(|edge| edge.label == label)
+            .cloned()
+            .collect()
     }
 
     /// The records a Book holds under one label, newest first, as the store's listing orders them.
@@ -189,6 +209,82 @@ impl Graph for MemoryGraph {
                 });
             }
             drop(nodes);
+
+            // the statement links each line to its parent, and to the account it moves by the side it states
+            let parent_id = props
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let child_edge = cypher
+                .find("MERGE (x)-[:")
+                .map(|start| {
+                    let rest = &cypher[start + "MERGE (x)-[:".len()..];
+                    rest[..rest.find(']').unwrap_or(rest.len())].to_string()
+                })
+                .unwrap_or_default();
+            let book = stated(&params, "book_id");
+            {
+                let mut edges = self
+                    .edges
+                    .lock()
+                    .expect("the memory graph is never poisoned");
+                for child in &children {
+                    let line_id = child
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string();
+                    if !child_edge.is_empty() {
+                        edges.push(Edge {
+                            from: parent_id.clone(),
+                            label: child_edge.clone(),
+                            to: line_id.clone(),
+                        });
+                    }
+                    let number = child
+                        .get("account_number")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    let side = child
+                        .get("side")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    let account = self
+                        .nodes
+                        .lock()
+                        .expect("the memory graph is never poisoned")
+                        .iter()
+                        .find(|node| {
+                            node.label == "Account"
+                                && node.props.get("book_id").and_then(Value::as_str)
+                                    == Some(book.as_str())
+                                && node.props.get("account_number").and_then(Value::as_str)
+                                    == Some(number)
+                        })
+                        .and_then(|node| {
+                            node.props
+                                .get("id")
+                                .and_then(Value::as_str)
+                                .map(str::to_owned)
+                        });
+                    if let Some(account) = account {
+                        let label = match side {
+                            "debit" => "DEBITED",
+                            "credit" => "CREDITED",
+                            _ => "",
+                        };
+                        if !label.is_empty() {
+                            edges.push(Edge {
+                                from: line_id,
+                                label: label.to_string(),
+                                to: account,
+                            });
+                        }
+                    }
+                }
+            }
+
             let mut answer = props;
             if let Some(object) = answer.as_object_mut() {
                 object.insert("lines".into(), json!(children));

@@ -370,6 +370,8 @@ fn validated_lines(payload: &Value) -> Result<Vec<Value>, StoreError> {
             "debit": wire(&debit),
             "credit": wire(&credit),
             "description": text(line, "description"),
+            // said outright rather than inferred: the store links the line to its account by this side
+            "side": if moves_debit { "debit" } else { "credit" },
         }));
     }
     if debit_total != credit_total {
@@ -1009,6 +1011,21 @@ mod tests {
             "the entry still carries its lines as a property: {}",
             stored[0]
         );
+
+        // each line is joined to the account it moves, by the side it moves
+        let debited_edges = graph.edges("DEBITED");
+        let credited_edges = graph.edges("CREDITED");
+        assert_eq!(debited_edges.len(), 1, "{debited_edges:?}");
+        assert_eq!(credited_edges.len(), 1, "{credited_edges:?}");
+        let asset = graph
+            .held("book-1", "Account")
+            .into_iter()
+            .find(|account| field(account, "account_number") == "1000")
+            .expect("the asset account");
+        assert_eq!(debited_edges[0].to, field(&asset, "id"));
+        assert_eq!(debited_edges[0].from, field(debited, "id"));
+        // and every line still hangs off its entry
+        assert_eq!(graph.edges("HAS_LINE").len(), 2);
 
         // and reading the entry hands the lines back, assembled from their own records
         let read = get_entry(&graph, &scope(), &id).expect("read back");

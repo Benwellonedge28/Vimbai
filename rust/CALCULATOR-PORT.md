@@ -1564,11 +1564,13 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   sees a second query and the wire shape is unchanged. A test pins all three facts: two line records exist naming the
   entry, the entry node no longer carries a `lines` property (one shape, so the two can never disagree), and reading the
   entry hands the lines back assembled.
-  NAMED GAP, not justified away: the design also wants `DEBITED`/`CREDITED` edges from a line to the account it moves.
-  Those are not written yet because the store's CRUD is property-based and the in-memory graph understands only the
-  statement shapes the store emits - an edge-writing statement would ship with no test that could see it. A line
-  states its side and its account as properties today; the edges are the remaining step, and they need real edge
-  support in the memory graph first.
+  The design's `DEBITED`/`CREDITED` edges are written too, not just their properties: the same statement that writes the
+  entry links each line to the account node it moves, by the side the line states - `side` is carried on the line for
+  exactly this, rather than inferred from the amounts. The memory graph keeps edges as well as nodes now, which is what
+  let the change be tested rather than asserted: the crate test shows one `DEBITED` edge from the asset line to account
+  1000, one `CREDITED` edge to the revenue account, and both lines hanging off their entry by `HAS_LINE`. Reading a
+  posting back out of those edges - an account's lines fetched by edge instead of by scanning every entry - is the next
+  step; nothing reads them yet, so today they are the lineage rather than an index.
 
 ## Divergences worth knowing
 
