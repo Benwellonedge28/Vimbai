@@ -37,6 +37,13 @@ CORE_MEMBERS = (
     ("book-sync", "book-sync-service"),
 )
 
+# A service retired to the Rust engine has no directory left, and loading it would only produce a skip. The profile is
+# therefore whatever of it is still on disk: the local runtime is a Python convenience, not the definition of the
+# platform, and it shrinks as Python leaves rather than holding it in place.
+CORE_MEMBERS = tuple(
+    member for member in CORE_MEMBERS if os.path.isdir(os.path.join(REPO_ROOT, member[1]))
+)
+
 
 def _load_services_json():
     with open(SERVICES_JSON, encoding="utf-8") as fh:

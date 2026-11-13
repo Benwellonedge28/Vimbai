@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 os.environ.setdefault("JWT_SECRET", "local-test-secret")
 
-from vimbai_local.launcher import build_app  # noqa: E402
+from vimbai_local.launcher import CORE_MEMBERS, build_app  # noqa: E402
 
 
 @pytest.fixture()
@@ -64,7 +64,8 @@ def test_health_reports_core_profile(local_stack):
     body = resp.json()
     assert body["status"] == "healthy"
     assert body["profile"] == "core"
-    assert body["services_loaded"] == 5
+    # the core profile is what is still on disk; a retired service does not leave a skip behind it
+    assert body["services_loaded"] == len(CORE_MEMBERS)
     assert body["services_skipped"] == 0
     assert body["skipped"] == []
 

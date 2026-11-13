@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 117 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 21 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 111 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 27 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -24,16 +24,16 @@ activity-based-budget-service                  8177  routes=8   records=yes rust
 admin-service                                  8099  routes=27  records=yes rust http
 alerts-service                                 8090  routes=15  records=yes rust http
 appropriation-control-service                  8015  routes=5   records=yes rust http
-audit-compliance-service                       8016  routes=19  records=yes rust http
-audit-sampling-service                         8196  routes=2   records=no  rust http
+audit-compliance-service                       8099  routes=0   records=no  rust http (no python source)
+audit-sampling-service                         8099  routes=0   records=no  rust http (no python source)
 authorized-share-capital-service               8017  routes=8   records=yes rust http
 automation-engine-service                      8000  routes=10  records=yes rust http
 bad-debts-recovery-service                     8018  routes=7   records=yes rust http
 balance-sheet-service                          8019  routes=5   records=yes rust http
 bank-feed-service                              8097  routes=23  records=yes rust http
-bank-reconciliation-service                    8020  routes=13  records=yes rust http
-bank-relationship-service                      8021  routes=7   records=yes rust http
-banking-integration-service                    8386  routes=8   records=no  rust http
+bank-reconciliation-service                    8099  routes=0   records=no  rust http (no python source)
+bank-relationship-service                      8099  routes=0   records=no  rust http (no python source)
+banking-integration-service                    8099  routes=0   records=no  rust http (no python source)
 basis-apportionment-service                    8022  routes=12  records=yes rust http
 benefits-admin-service                         8360  routes=8   records=yes rust http
 biological-assets-service                      8146  routes=7   records=no  rust http
@@ -151,7 +151,7 @@ zero-based-budgeting-service                   8143  routes=7   records=yes rust
 zero-trust-data-service                        8002  routes=9   records=yes rust http
 book-sync-service                              9020  routes=18  records=yes rust http
 npo-scale-service                              9021  routes=51  records=yes rust http
-audit-engagement-service                       8371  routes=8   records=yes rust http
+audit-engagement-service                       8099  routes=0   records=no  rust http (no python source)
 calculation-api                                8099  routes=0   records=no  rust http (no python source)
 ```
 

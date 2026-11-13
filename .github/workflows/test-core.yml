@@ -36,7 +36,7 @@ jobs:
       matrix:
         include:
           - group: standalone-containers
-            services: "identity-service accounting-service finance-service multimodal-pipeline-service banking-integration-service scenario-modeling-service workflow-service budget-service "
+            services: "identity-service accounting-service finance-service multimodal-pipeline-service scenario-modeling-service workflow-service budget-service "
           - group: advanced-accounting
             services: "financial-integrity-service revenue-recognition-service currency-service general-reserve-service data-warehouse-service subscription-plans-service intercompany-service "
           - group: ap-ar-expenses
@@ -54,7 +54,7 @@ jobs:
           - group: statements-reporting
             services: "balance-sheet-service cash-flow-statement-service "
           - group: tax-audit-investigation
-            services: "audit-engagement-service sox-compliance-service "
+            services: "sox-compliance-service "
           - group: treasury-banking
             services: "sovereign-treasury-service treasury-analytics-service treasury-compliance-service treasury-management-service bank-feed-service cash-management-service "
 

@@ -8,56 +8,27 @@ services:
 - name: audit-compliance-service
   domain: audit
   target: rust/crates/domains/audit
-  port: 8016
+  port: 8099
   gateway_path: /audit-compliance
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /events
-  - GET /events
-  - GET /events/{event_id}
-  - POST /versions/{resource_type}/{resource_id}
-  - GET /versions/{resource_type}/{resource_id}
-  - GET /lineage/{resource_id}
-  - GET /integrity/verify
-  - GET /integrity/verify-event/{event_id}
-  - POST /planning/plan
-  - POST /reports/generate
-  - POST /trails/analyze
-  - POST /compliance/monitor
-  - POST /compliance/sox
-  - POST /compliance/gdpr
-  - POST /compliance/report
-  - GET /analytics/summary
-  - GET /search
+  records: false
+  endpoints: []
 - name: audit-sampling-service
   domain: audit
   target: rust/crates/domains/audit
-  port: 8196
+  port: 8099
   gateway_path: /audit-sampling
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - POST /sample
+  endpoints: []
 - name: audit-engagement-service
   domain: audit
   target: rust/crates/domains/audit
-  port: 8371
+  port: 8099
   gateway_path: /audit-engagement
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /engagements
-  - GET /audit-types
-  - GET /engagements/{company_id}
-  - PUT /engagements/{engagement_id}/status
-  - POST /engagements/{engagement_id}/findings
-  - PUT /findings/{finding_id}/remediate
-  - GET /report/{engagement_id}
+  records: false
+  endpoints: []

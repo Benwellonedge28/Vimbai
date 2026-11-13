@@ -66,18 +66,18 @@
     {
       "name": "audit-compliance-service",
       "path": "/audit-compliance",
-      "url": "http://localhost:9004",
-      "port": 8016,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "audit-sampling-service",
       "path": "/audit-sampling",
-      "url": "http://localhost:9004",
-      "port": 8196,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "authorized-share-capital-service",
@@ -122,25 +122,26 @@
     {
       "name": "bank-reconciliation-service",
       "path": "/bank-reconciliation",
-      "url": "http://localhost:9003",
-      "port": 8020,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "bank-relationship-service",
       "path": "/bank-relationship",
-      "url": "http://localhost:9003",
-      "port": 8021,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "banking-integration-service",
       "path": "/banking-integration",
-      "url": "http://localhost:8386",
-      "port": 8386,
-      "auth_required": true
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": true
     },
     {
       "name": "basis-apportionment-service",
@@ -1081,10 +1082,10 @@
     {
       "name": "audit-engagement-service",
       "path": "/audit-engagement",
-      "url": "http://localhost:9004",
-      "port": 8371,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "calculation-api",

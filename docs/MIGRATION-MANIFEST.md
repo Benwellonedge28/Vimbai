@@ -110,9 +110,9 @@ Lands in `rust/crates/domains/audit`.
 
 ```
 service                                         port  routes  records  engine
-audit-compliance-service                        8016      19      yes  rust
-audit-engagement-service                        8371       8      yes  rust
-audit-sampling-service                          8196       2       no  rust
+audit-compliance-service                        8099       0       no  rust
+audit-engagement-service                        8099       0       no  rust
+audit-sampling-service                          8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -152,9 +152,9 @@ Lands in `rust/crates/domains/banking`.
 ```
 service                                         port  routes  records  engine
 bank-feed-service                               8097      23      yes  rust
-bank-reconciliation-service                     8020      13      yes  rust
-bank-relationship-service                       8021       7      yes  rust
-banking-integration-service                     8386       8       no  rust
+bank-reconciliation-service                     8099       0       no  rust
+bank-relationship-service                       8099       0       no  rust
+banking-integration-service                     8099       0       no  rust
 currency-service                                8092      19      yes  rust
 ```
 

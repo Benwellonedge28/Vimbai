@@ -296,42 +296,21 @@ services:
 - name: audit-compliance-service
   domain: audit
   target: rust/crates/domains/audit
-  port: 8016
+  port: 8099
   gateway_path: /audit-compliance
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /events
-  - GET /events
-  - GET /events/{event_id}
-  - POST /versions/{resource_type}/{resource_id}
-  - GET /versions/{resource_type}/{resource_id}
-  - GET /lineage/{resource_id}
-  - GET /integrity/verify
-  - GET /integrity/verify-event/{event_id}
-  - POST /planning/plan
-  - POST /reports/generate
-  - POST /trails/analyze
-  - POST /compliance/monitor
-  - POST /compliance/sox
-  - POST /compliance/gdpr
-  - POST /compliance/report
-  - GET /analytics/summary
-  - GET /search
+  records: false
+  endpoints: []
 - name: audit-sampling-service
   domain: audit
   target: rust/crates/domains/audit
-  port: 8196
+  port: 8099
   gateway_path: /audit-sampling
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - POST /sample
+  endpoints: []
 - name: authorized-share-capital-service
   domain: equity
   target: rust/crates/domains/equity
@@ -433,58 +412,30 @@ services:
 - name: bank-reconciliation-service
   domain: banking
   target: rust/crates/domains/banking
-  port: 8020
+  port: 8099
   gateway_path: /bank-reconciliation
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /statements
-  - GET /statements
-  - GET /statements/{statement_id}
-  - POST /cash-book
-  - GET /cash-book
-  - POST /reconcile
-  - POST /reconcile/{reconciliation_id}/auto-match
-  - POST /reconcile/{reconciliation_id}/post-adjustments
-  - GET /reconciliations
-  - GET /reconciliations/{reconciliation_id}
-  - GET /outstanding-items
+  records: false
+  endpoints: []
 - name: bank-relationship-service
   domain: banking
   target: rust/crates/domains/banking
-  port: 8021
+  port: 8099
   gateway_path: /bank-relationship
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /relationships
-  - GET /relationships/{company_id}
-  - PUT /relationships/{rel_id}
-  - POST /quality-metrics
-  - GET /quality-metrics/{relationship_id}
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: banking-integration-service
   domain: banking
   target: rust/crates/domains/banking
-  port: 8386
+  port: 8099
   gateway_path: /banking-integration
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /connect
-  - GET /connections
-  - POST /sync/{connection_id}
-  - GET /transactions/{connection_id}
-  - POST /transactions/{connection_id}/reconcile
-  - DELETE /connections/{connection_id}
+  endpoints: []
 - name: basis-apportionment-service
   domain: costing
   target: rust/crates/domains/costing
@@ -2450,20 +2401,12 @@ services:
 - name: audit-engagement-service
   domain: audit
   target: rust/crates/domains/audit
-  port: 8371
+  port: 8099
   gateway_path: /audit-engagement
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /engagements
-  - GET /audit-types
-  - GET /engagements/{company_id}
-  - PUT /engagements/{engagement_id}/status
-  - POST /engagements/{engagement_id}/findings
-  - PUT /findings/{finding_id}/remediate
-  - GET /report/{engagement_id}
+  records: false
+  endpoints: []
 - name: calculation-api
   domain: calculations
   target: rust/crates/application

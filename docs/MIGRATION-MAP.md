@@ -142,15 +142,15 @@ revaluation-reserve-service                  /revaluation-reserve               
 
 ```text
 service                                      address                            eps  owns engine crate
-audit-compliance-service                     /audit-compliance                   19  recs rust   rust/crates/domains/audit
-audit-engagement-service                     /audit-engagement                    8  recs rust   rust/crates/domains/audit
-audit-sampling-service                       /audit-sampling                      2  -    rust   rust/crates/domains/audit
+audit-compliance-service                     /audit-compliance                    0  -    rust   rust/crates/domains/audit
+audit-engagement-service                     /audit-engagement                    0  -    rust   rust/crates/domains/audit
+audit-sampling-service                       /audit-sampling                      0  -    rust   rust/crates/domains/audit
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `audit-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `audit-engagement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `audit-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `audit-engagement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `audit-sampling-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## authentication — 1/1 on Rust
@@ -192,17 +192,17 @@ automation-engine-service                    /automation                        
 ```text
 service                                      address                            eps  owns engine crate
 bank-feed-service                            /bank-feed                          23  recs rust   rust/crates/domains/banking
-bank-reconciliation-service                  /bank-reconciliation                13  recs rust   rust/crates/domains/banking
-bank-relationship-service                    /bank-relationship                   7  recs rust   rust/crates/domains/banking
-banking-integration-service                  /banking-integration                 8  -    rust   rust/crates/domains/banking
+bank-reconciliation-service                  /bank-reconciliation                 0  -    rust   rust/crates/domains/banking
+bank-relationship-service                    /bank-relationship                   0  -    rust   rust/crates/domains/banking
+banking-integration-service                  /banking-integration                 0  -    rust   rust/crates/domains/banking
 currency-service                             /currency                           19  recs rust   rust/crates/domains/banking
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
 | `bank-feed-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `bank-reconciliation-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `bank-relationship-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `bank-reconciliation-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `bank-relationship-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `banking-integration-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `currency-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
 

@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          117
+live and routed          111
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -27,17 +27,11 @@ Routed by the API gateway and deployed. These are the running product.
 `admin-service`
 `alerts-service`
 `appropriation-control-service`
-`audit-compliance-service`
-`audit-engagement-service`
-`audit-sampling-service`
 `authorized-share-capital-service`
 `automation-engine-service`
 `bad-debts-recovery-service`
 `balance-sheet-service`
 `bank-feed-service`
-`bank-reconciliation-service`
-`bank-relationship-service`
-`banking-integration-service`
 `basis-apportionment-service`
 `benefits-admin-service`
 `biological-assets-service`

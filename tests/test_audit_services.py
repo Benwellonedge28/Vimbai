@@ -41,15 +41,6 @@ def _patch_fake(pkg_name, fake_name):
 
 
 @pytest.fixture
-def audit_engagement_client():
-    _patch_fake("audit_engagement_service", "audit_engagement_root_fake")
-    app = load_service("audit-engagement-service").main.app
-    client = TestClient(app)
-    client.headers.update(_H)
-    return client
-
-
-@pytest.fixture
 def process_costing_client():
     _patch_fake("process_costing_service", "process_costing_root_fake")
     app = load_service("process-costing-service").main.app
@@ -72,27 +63,6 @@ def job_costing_client():
     _patch_fake("job_costing_service", "job_costing_root_fake")
     app = load_service("job-costing-service").main.app
     return TestClient(app)
-
-
-class TestAuditEngagementService:
-    def test_health(self, audit_engagement_client):
-        assert audit_engagement_client.get("/").status_code == 200
-
-    def test_full_audit_cycle(self, audit_engagement_client):
-        create = audit_engagement_client.post(
-            "/engagements", json={"company_id": "comp-4", "audit_type": "tax", "title": "Tax Compliance Audit 2026"}
-        )
-        eng_id = create.json()["id"]
-        # Add findings
-        audit_engagement_client.post(
-            f"/engagements/{eng_id}/findings",
-            json={"title": "Under-reported income", "severity": "high", "description": "Income not fully reported"},
-        )
-        # Complete
-        audit_engagement_client.put(f"/engagements/{eng_id}/status?status=completed")
-        # Verify
-        report = audit_engagement_client.get(f"/report/{eng_id}")
-        assert report.json()["findings_summary"]["total"] >= 1
 
 
 class TestProcessCosting:
@@ -197,35 +167,3 @@ class TestJobCosting:
         assert data["total_profit"] == 40000  # 100000 - 60000
 
 
-class TestAuditTypeSeparation:
-    """One store, four audit families; the caller picks its own."""
-
-    def _create(self, client, company_id, audit_type, title):
-        return client.post(
-            "/engagements",
-            json={
-                "company_id": company_id,
-                "audit_type": audit_type,
-                "title": title,
-                "scope": "FY2026",
-                "objectives": ["obtain assurance"],
-                "auditor": "sam",
-            },
-            headers=_H,
-        )
-
-    def test_audit_type_filters_the_listing(self, audit_engagement_client):
-        c = audit_engagement_client
-        assert self._create(c, "C-SEP", "tax", "Tax review").status_code in (200, 201)
-        assert self._create(c, "C-SEP", "forensic", "Fraud review").status_code in (200, 201)
-
-        everything = c.get("/engagements/C-SEP", headers=_H).json()
-        assert everything["total"] == 2
-
-        forensic_only = c.get("/engagements/C-SEP?audit_type=forensic", headers=_H).json()
-        assert forensic_only["total"] == 1
-        assert forensic_only["engagements"][0]["audit_type"] == "forensic"
-
-    def test_supported_audit_types_are_advertised(self, audit_engagement_client):
-        body = audit_engagement_client.get("/audit-types", headers=_H).json()
-        assert body["audit_types"] == ["tax", "forensic", "it", "operational"]

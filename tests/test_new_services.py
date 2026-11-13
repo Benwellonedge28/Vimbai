@@ -40,49 +40,6 @@ def use_fake_store(store_module_name, service_dir):
     return store
 
 
-class TestBankingIntegrationService:
-    def setup_method(self):
-        self.client = TestClient(load_service_app("banking-integration-service"))
-        use_fake_store("banking_integration_store", "banking-integration-service")
-        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
-        self.client = TestClient(load_service_app("banking-integration-service"))
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "banking-integration" in resp.json()["service"]
-
-    def test_create_bank_connection(self):
-        resp = self.client.post(
-            "/connect",
-            params={
-                "bank_name": "Standard Bank",
-                "account_number": "1234567890",
-                "api_key": "test-key",
-                "account_type": "checking",
-            },
-        )
-        data = resp.json()
-        assert resp.status_code == 200
-        assert data["bank_name"] == "Standard Bank"
-        assert data["status"] == "active"
-
-    def test_sync_transactions(self):
-        conn = self.client.post(
-            "/connect",
-            params={
-                "bank_name": "CBZ",
-                "account_number": "9876543210",
-                "api_key": "test-key",
-                "account_type": "savings",
-            },
-        )
-        conn_id = conn.json()["id"]
-        resp = self.client.post(f"/sync/{conn_id}")
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "success"
-
-
 class TestPrivacyAdminDashboardService:
     def setup_method(self):
         self.client = TestClient(load_service_app("privacy-admin-dashboard-service"))

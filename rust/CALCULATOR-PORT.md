@@ -1608,6 +1608,13 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   biological-assets, disposal-account and investment-property still have paths the engine does not answer - so this is a
   partial domain retirement, and the survey says so rather than the commit pretending the domain is finished.
 
+- The banking and audit domains, batch five: bank-reconciliation, bank-relationship, banking-integration,
+  audit-compliance, audit-engagement and audit-sampling are gone; all six answer flat, so their entries drop the prefix.
+  Two things had to follow: the local runtime's core profile is now "whatever of it is still on disk", because loading a
+  retired service only produces a skip and a shrinking profile is the truth rather than a failure, and the audit suite's
+  fixture and its two tests went with the service they loaded. bank-feed-service and currency-service stay in banking -
+  the engine still misses paths on both.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's
