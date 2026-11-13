@@ -205,6 +205,16 @@ pub const LIQUIDITY_POSITION: RecordKind =
 /// accounting-service's supporting records: petty cash, reconciliation, and the single-entry statements.
 pub const PETTY_CASH_FUND: RecordKind = RecordKind::new("PettyCashFund", "OWNS_PETTY_CASH_FUND");
 pub const PETTY_CASH_ENTRY: RecordKind = RecordKind::new("PettyCashEntry", "OWNS_PETTY_CASH_ENTRY");
+
+/// petty-cash-service's own records. Its funds are `PETTY_CASH_FUND` above, which accounting-service's petty
+/// cash book also writes: one label under one edge, so the funds both describe are one set. What is left is
+/// what only this service keeps - the spending, the vouchers that authorise it and the replenishments.
+pub const PETTY_CASH_TRANSACTION: RecordKind =
+    RecordKind::new("PettyCashTransaction", "OWNS_PETTY_CASH_TRANSACTION");
+pub const PETTY_CASH_VOUCHER: RecordKind =
+    RecordKind::new("PettyCashVoucher", "OWNS_PETTY_CASH_VOUCHER");
+pub const PETTY_CASH_REPLENISHMENT: RecordKind =
+    RecordKind::new("PettyCashReplenishment", "OWNS_PETTY_CASH_REPLENISHMENT");
 pub const BANK_RECONCILIATION: RecordKind =
     RecordKind::new("BankReconciliation", "OWNS_BANK_RECONCILIATION");
 pub const STATEMENT_OF_AFFAIRS: RecordKind =

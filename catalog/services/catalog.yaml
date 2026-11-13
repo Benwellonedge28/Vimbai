@@ -1121,7 +1121,7 @@ services:
   port: 8192
   gateway_path: /foreign-exchange
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /
@@ -1687,7 +1687,7 @@ services:
   port: 8097
   gateway_path: /petty-cash
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

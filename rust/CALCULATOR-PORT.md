@@ -319,6 +319,31 @@ xbrl-reporting-service
   the compliance listing filters by policy and hands back the most recent `limit` checks in the order they were
   made.
 
+- foreign-exchange-service -> treasury crate, no records: the spot table, a conversion between two currencies,
+  and what an exposure costs when it is only partly hedged. Nothing is stored, every answer is worked out from
+  the request and the table. Shapes kept: the table is the service's own, base USD, and rates are exact decimal
+  text rather than floats so a large amount does not drift in the last cent; a currency outside the table is a
+  miss on `GET /rates/{currency}` and a refusal on convert and hedge, which is how the original answered; a
+  conversion crosses through the base (100 EUR into ZAR is 100 / 0.92 * 18.5), the rate answers to six places and
+  the amounts to two; a hedge with no forward rate falls back to spot and its potential loss is what the unhedged
+  part would move by per hundred units of spot, which is the figure the original published; the hedge cost is
+  0.2% of the hedged part; a hedge ratio above one would cover money that is not exposed and is refused. The
+  conversion no longer mints an id: a conversion is not a record.
+
+- petty-cash-service -> treasury crate, records on the store: funds, the spending out of them, the vouchers that
+  authorise it and the replenishments that put the money back. Shapes kept: the same four transaction groups the
+  service knew (fund status, transaction type, payment category, replenishment status) refuse anything outside
+  them with the list; a receipt, a replenishment and the initial fund all count as money in and only a payment as
+  money out, so the balance is worked out from the transactions every time it is asked for rather than stored
+  beside them, which is what keeps the two from disagreeing; a voucher brings its payment with it as one act, so
+  the balance moves the moment the voucher exists; a payment for more than the fund holds is refused rather than
+  driven negative; a fund is closed by a status change, not a delete, so its history stays readable; a minimum
+  above the maximum is refused. One correction: the original counted outstanding vouchers as transactions whose
+  status was pending, and a transaction has no status, so it always reported zero; what is actually outstanding
+  is a voucher still waiting, so that is what is counted. One label shared: this service and accounting's petty
+  cash book both wrote `:PettyCashFund`, each under its own edge, so neither could see the other's funds; the port
+  keeps one label under one edge, and the funds both describe are one set.
+
 - treasury-risk-service -> treasury crate, records on the store: the exposures a Book carries, the value at
   risk calculated over a portfolio, the stress scenarios and the results of running them. Shapes kept: an
   exposure type outside the five the service knows is refused with the list; a scenario shock type outside its

@@ -2523,3 +2523,83 @@ async fn a_loan_schedule_answers_over_http_for_a_loan_the_caller_holds() {
     assert_eq!(body.as_array().expect("rows").len(), 12);
     assert_eq!(body[11]["balance"], json!("0.000000"));
 }
+
+#[tokio::test]
+async fn the_fx_table_and_a_conversion_answer_over_http() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call_with(graph, "GET", "/foreign-exchange/rates", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["base"], json!("USD"));
+    assert_eq!(body["rates"]["GBP"], json!("0.790000"));
+
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/foreign-exchange/convert",
+        Some(json!({"from_currency": "USD", "to_currency": "ZWL", "amount": "10"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["converted_amount"], json!("155.00"));
+    assert_eq!(body["rate"], json!("15.500000"));
+}
+
+#[tokio::test]
+async fn an_unknown_currency_is_a_404_over_http() {
+    let graph = Scripted::returning(vec![]);
+    let (status, _body) =
+        call_with(graph, "GET", "/records/foreign-exchange/rates/QQQ", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn a_petty_cash_fund_and_its_balance_answer_over_http() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "f-1", "fund_code": "PC-1", "fund_name": "Office",
+                    "status": "active", "maximum_balance": "1000.000000",
+                    "replenishment_threshold": "400.000000"}),
+        ],
+        vec![
+            json!({"id": "t-1", "fund_id": "f-1", "transaction_type": "initial_fund",
+                    "amount": "800.000000", "date": "2026-03-01"}),
+        ],
+    ]);
+    let (status, body) = call_with(graph, "GET", "/petty-cash/funds/f-1/balance", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["current_balance"], json!("800.000000"));
+}
+
+#[tokio::test]
+async fn a_petty_cash_voucher_brings_its_payment_over_http() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "f-1", "fund_name": "Office", "status": "active"})],
+        vec![
+            json!({"id": "v-1", "fund_id": "f-1", "voucher_number": "V-7",
+                    "amount": "45.000000", "status": "pending"}),
+        ],
+        vec![json!({"id": "t-2"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/petty-cash/vouchers",
+        Some(
+            json!({"fund_id": "f-1", "voucher_number": "V-7", "date": "2026-03-02",
+                    "payee": "Rudo", "amount": "45", "description": "stamps",
+                    "category": "postage", "entered_by": "user-1"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["status"], json!("pending"));
+    assert_eq!(body["amount"], json!("45.000000"));
+}
+
+#[tokio::test]
+async fn a_petty_cash_fund_the_caller_does_not_hold_is_a_404_over_http() {
+    let graph = Scripted::queue(vec![vec![]]);
+    let (status, _body) = call_with(graph, "GET", "/petty-cash/funds/other/balance", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

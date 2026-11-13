@@ -32,8 +32,9 @@ use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
 use treasury::{
-    cash_management, cash_optimization, debt_management, sovereign_treasury, treasury_analytics,
-    treasury_compliance, treasury_management, treasury_policy, treasury_reporting, treasury_risk,
+    cash_management, cash_optimization, debt_management, foreign_exchange, petty_cash,
+    sovereign_treasury, treasury_analytics, treasury_compliance, treasury_management,
+    treasury_policy, treasury_reporting, treasury_risk,
 };
 
 /// A graph the API can use for the whole life of the process. The driver pools its own
@@ -1486,6 +1487,308 @@ async fn measure_liquidity(
         graph.as_ref(),
         &scope,
         &payload,
+    ))
+}
+
+async fn fx_rates() -> Response {
+    answer(Ok(foreign_exchange::rates()))
+}
+
+async fn fx_rate(Path(currency): Path<String>) -> Response {
+    answer(foreign_exchange::rate_for(&currency))
+}
+
+async fn fx_convert(Json(payload): Json<Value>) -> Response {
+    answer(foreign_exchange::convert(&payload))
+}
+
+async fn fx_hedge(Json(payload): Json<Value>) -> Response {
+    answer(foreign_exchange::hedge_exposure(&payload))
+}
+
+async fn open_petty_cash_fund(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::create_fund(graph.as_ref(), &scope, &payload))
+}
+
+async fn petty_cash_funds(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::list_funds(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn petty_cash_fund(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(fund_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::get_fund(graph.as_ref(), &scope, &fund_id))
+}
+
+async fn change_petty_cash_fund(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(fund_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::update_fund(
+        graph.as_ref(),
+        &scope,
+        &fund_id,
+        &payload,
+    ))
+}
+
+async fn close_petty_cash_fund(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(fund_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::close_fund(
+        graph.as_ref(),
+        &scope,
+        &fund_id,
+        &payload,
+    ))
+}
+
+async fn petty_cash_fund_balance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(fund_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::fund_balance(graph.as_ref(), &scope, &fund_id))
+}
+
+async fn petty_cash_fund_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(fund_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::fund_summary(graph.as_ref(), &scope, &fund_id))
+}
+
+async fn add_petty_cash_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::create_transaction(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn petty_cash_transactions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::list_transactions(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn petty_cash_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(transaction_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::get_transaction(
+        graph.as_ref(),
+        &scope,
+        &transaction_id,
+    ))
+}
+
+async fn add_petty_cash_voucher(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::create_voucher(graph.as_ref(), &scope, &payload))
+}
+
+async fn petty_cash_vouchers(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::list_vouchers(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn approve_petty_cash_voucher(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(voucher_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::approve_voucher(
+        graph.as_ref(),
+        &scope,
+        &voucher_id,
+        &payload,
+    ))
+}
+
+async fn add_replenishment(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::create_replenishment(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_replenishment_requests(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::list_replenishments(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn approve_replenishment_request(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(replenishment_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::approve_replenishment(
+        graph.as_ref(),
+        &scope,
+        &replenishment_id,
+        &payload,
+    ))
+}
+
+async fn petty_cash_fund_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(fund_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::fund_report(
+        graph.as_ref(),
+        &scope,
+        &fund_id,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn petty_cash_position(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::cash_position(graph.as_ref(), &scope))
+}
+
+async fn petty_cash_category_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(petty_cash::category_summary(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
     ))
 }
 
@@ -5917,6 +6220,126 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/cash-management/liquidity",
             post(measure_liquidity).get(liquidity_history),
+        )
+        .route("/foreign-exchange/rates", get(fx_rates))
+        .route("/foreign-exchange/rates/:currency", get(fx_rate))
+        .route("/foreign-exchange/convert", post(fx_convert))
+        .route("/foreign-exchange/hedge", post(fx_hedge))
+        .route(
+            "/petty-cash/funds",
+            post(open_petty_cash_fund).get(petty_cash_funds),
+        )
+        .route(
+            "/petty-cash/funds/:fund_id",
+            get(petty_cash_fund).put(change_petty_cash_fund),
+        )
+        .route(
+            "/petty-cash/funds/:fund_id/close",
+            post(close_petty_cash_fund),
+        )
+        .route(
+            "/petty-cash/funds/:fund_id/balance",
+            get(petty_cash_fund_balance),
+        )
+        .route(
+            "/petty-cash/funds/:fund_id/summary",
+            get(petty_cash_fund_summary),
+        )
+        .route(
+            "/petty-cash/transactions",
+            post(add_petty_cash_transaction).get(petty_cash_transactions),
+        )
+        .route(
+            "/petty-cash/transactions/:transaction_id",
+            get(petty_cash_transaction),
+        )
+        .route(
+            "/petty-cash/vouchers",
+            post(add_petty_cash_voucher).get(petty_cash_vouchers),
+        )
+        .route(
+            "/petty-cash/vouchers/:voucher_id/approve",
+            put(approve_petty_cash_voucher),
+        )
+        .route(
+            "/petty-cash/replenishments",
+            post(add_replenishment).get(list_replenishment_requests),
+        )
+        .route(
+            "/petty-cash/replenishments/:replenishment_id/approve",
+            put(approve_replenishment_request),
+        )
+        .route(
+            "/petty-cash/reports/fund-report/:fund_id",
+            get(petty_cash_fund_report),
+        )
+        .route(
+            "/petty-cash/reports/cash-position",
+            get(petty_cash_position),
+        )
+        .route(
+            "/petty-cash/reports/category-summary",
+            get(petty_cash_category_summary),
+        )
+        .route("/records/foreign-exchange/rates", get(fx_rates))
+        .route("/records/foreign-exchange/rates/:currency", get(fx_rate))
+        .route("/records/foreign-exchange/convert", post(fx_convert))
+        .route("/records/foreign-exchange/hedge", post(fx_hedge))
+        .route(
+            "/records/petty-cash/funds",
+            post(open_petty_cash_fund).get(petty_cash_funds),
+        )
+        .route(
+            "/records/petty-cash/funds/:fund_id",
+            get(petty_cash_fund).put(change_petty_cash_fund),
+        )
+        .route(
+            "/records/petty-cash/funds/:fund_id/close",
+            post(close_petty_cash_fund),
+        )
+        .route(
+            "/records/petty-cash/funds/:fund_id/balance",
+            get(petty_cash_fund_balance),
+        )
+        .route(
+            "/records/petty-cash/funds/:fund_id/summary",
+            get(petty_cash_fund_summary),
+        )
+        .route(
+            "/records/petty-cash/transactions",
+            post(add_petty_cash_transaction).get(petty_cash_transactions),
+        )
+        .route(
+            "/records/petty-cash/transactions/:transaction_id",
+            get(petty_cash_transaction),
+        )
+        .route(
+            "/records/petty-cash/vouchers",
+            post(add_petty_cash_voucher).get(petty_cash_vouchers),
+        )
+        .route(
+            "/records/petty-cash/vouchers/:voucher_id/approve",
+            put(approve_petty_cash_voucher),
+        )
+        .route(
+            "/records/petty-cash/replenishments",
+            post(add_replenishment).get(list_replenishment_requests),
+        )
+        .route(
+            "/records/petty-cash/replenishments/:replenishment_id/approve",
+            put(approve_replenishment_request),
+        )
+        .route(
+            "/records/petty-cash/reports/fund-report/:fund_id",
+            get(petty_cash_fund_report),
+        )
+        .route(
+            "/records/petty-cash/reports/cash-position",
+            get(petty_cash_position),
+        )
+        .route(
+            "/records/petty-cash/reports/category-summary",
+            get(petty_cash_category_summary),
         )
         .route(
             "/records/cash-management/accounts",

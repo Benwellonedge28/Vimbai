@@ -1,9 +1,11 @@
 //! Treasury services: treasury analytics, cash optimisation, and cash management. Snapshots and the
 //! recommendations drawn from them, the accounts money sits in, the transfers between them and the liquidity
-//! they add up to, all Book-scoped.
+//! they add up to, all Book-scoped, plus the spot table and the petty cash funds.
 //!
 //! Services here:
 //! * `cash-management-service`
+//! * `foreign-exchange-service`
+//! * `petty-cash-service`
 //! * `debt-management-service`
 //! * `sovereign-treasury-service`
 //! * `treasury-compliance-service`
@@ -25,6 +27,8 @@ mod helpers;
 pub mod cash_management;
 pub mod cash_optimization;
 pub mod debt_management;
+pub mod foreign_exchange;
+pub mod petty_cash;
 pub mod sovereign_treasury;
 pub mod treasury_analytics;
 pub mod treasury_compliance;
