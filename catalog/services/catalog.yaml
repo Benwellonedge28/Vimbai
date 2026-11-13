@@ -477,7 +477,7 @@ services:
   port: 8360
   gateway_path: /benefits-admin
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

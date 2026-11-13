@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 110
-still Python             28
+already on a Rust engine 111
+still Python             27
 owner domains            29
 ```
 
@@ -391,10 +391,10 @@ Lands in `rust/crates/domains/payroll`.
 
 ```
 service                                         port  routes  records  engine
-benefits-admin-service                          8360       8      yes  python
+benefits-admin-service                          8360       8      yes  rust
 ```
 
-Retirement gate: port the maths and its records into this domain, capture parity against the Python, then de-register. Nothing is deleted before that.
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
 
 ## platform
 

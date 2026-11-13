@@ -275,6 +275,18 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- benefits-admin-service -> payroll crate, records on the store: the benefit plans a Book offers, who is enrolled in
+  them, and the leave each person has accrued. A plan's kind is one of five (pension, medical, dental, life insurance,
+  leave) and anything else is refused by name, as a validation refusal (422); a plan arrives active. An enrollment
+  needs a plan the CALLER holds - another Book's plan answers as missing - and the same person cannot be enrolled in
+  the same plan twice, which is a 409 rather than a second record. Leave is a RUNNING BALANCE rather than an entry:
+  each accrual carries forward the balance of the last accrual for that person and that kind, adds the days accrued
+  and takes off the days taken, so an interest-only month never pushes the balance anywhere odd. Days are reckoned
+  exactly rather than in floats, a movement of no days is refused (the shipped endpoint's gt=0 constraint), and a
+  person's leave is listed newest first, by kind when one is asked for. Routes: /benefit-plans (both methods),
+  /enroll, /employee/{id}/enrollments, /leave/accrue and /employee/{id}/leave. Note: the shipped collection path was
+  /plans, which the subscription plan catalogue already answers, so the benefit plans answer at /benefit-plans.
+
 - subscription-plans-service -> invoicing crate, records on the store: the plans a Book sells on and the
   subscriptions taken against them. A plan keeps the tier, name and monthly price it is given and defaults to 5 users,
   1 company and 1,000 calls a month when nothing else is said; its price is read as an exact decimal, so a plan priced

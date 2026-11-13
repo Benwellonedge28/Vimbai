@@ -10682,6 +10682,117 @@ async fn post_upgrade(RawQuery(query): RawQuery, payload: Option<Json<Value>>) -
 }
 
 // ---------------------------------------------------------------------------
+// payroll benefits: the plans a Book offers, who is enrolled in them, and the leave each person has accrued.
+// The plan collection answers at /benefit-plans rather than /plans, which the subscription catalogue already serves.
+// ---------------------------------------------------------------------------
+
+async fn post_benefit_plan(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(payroll::benefits::offer_benefit_plan(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_benefit_plans(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(payroll::benefits::benefit_plans_offered(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn post_enroll(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(payroll::benefits::enroll_employee(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_employee_enrollments(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(employee_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payroll::benefits::list_employee_enrollments(
+        graph.as_ref(),
+        &scope,
+        &employee_id,
+    ))
+}
+
+async fn post_leave_accrual(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(payroll::benefits::accrue_leave(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_employee_leave(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(employee_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(payroll::benefits::list_employee_leave(
+        graph.as_ref(),
+        &scope,
+        &employee_id,
+        &asked,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // financial identity: the KYC profile a Book keeps for a person, and the verification done against it. A profile
 // names a SUBJECT, which is not the caller, so it answers at /profiles and is read back by id or by subject.
 // ---------------------------------------------------------------------------
@@ -13161,6 +13272,19 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/subscribe", post(post_subscribe))
         .route("/subscriptions/:company", get(get_subscriptions))
         .route("/upgrade", post(post_upgrade))
+
+        // payroll benefits: plans, enrolments and leave
+        .route(
+            "/benefit-plans",
+            post(post_benefit_plan).get(get_benefit_plans),
+        )
+        .route("/enroll", post(post_enroll))
+        .route(
+            "/employee/:employee_id/enrollments",
+            get(get_employee_enrollments),
+        )
+        .route("/leave/accrue", post(post_leave_accrual))
+        .route("/employee/:employee_id/leave", get(get_employee_leave))
 
         // financial identity: the KYC profile register
         .route("/profiles", post(post_profile))
