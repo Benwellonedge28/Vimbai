@@ -75,7 +75,7 @@ services:
   port: 8094
   gateway_path: /partnership-agreement
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -92,7 +92,7 @@ services:
   port: 8095
   gateway_path: /partnership-changes
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -108,7 +108,7 @@ services:
   port: 8096
   gateway_path: /partnership-dissolution
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -122,7 +122,7 @@ services:
   port: 8097
   gateway_path: /partnership-revaluation
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health

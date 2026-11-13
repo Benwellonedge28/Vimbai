@@ -463,6 +463,13 @@ pub const TRADING_ACCOUNT_STATEMENT: RecordKind =
     RecordKind::new("TradingAccountStatement", "OWNS_TRADING_ACCOUNT_STATEMENT");
 pub const PRODUCTION_COST_STATEMENT: RecordKind =
     RecordKind::new("ProductionCostStatement", "OWNS_PRODUCTION_COST_STATEMENT");
+pub const PARTNERSHIP_AGREEMENT: RecordKind =
+    RecordKind::new("PartnershipAgreement", "OWNS_PARTNERSHIP_AGREEMENT");
+pub const PARTNER_CHANGE: RecordKind = RecordKind::new("PartnerChange", "OWNS_PARTNER_CHANGE");
+pub const DISSOLUTION_REPORT: RecordKind =
+    RecordKind::new("DissolutionReport", "OWNS_DISSOLUTION_REPORT");
+pub const PARTNERSHIP_REVALUATION: RecordKind =
+    RecordKind::new("PartnershipRevaluation", "OWNS_PARTNERSHIP_REVALUATION");
 pub const ACTIVITY: RecordKind = RecordKind::new("Activity", "OWNS_ACTIVITY");
 pub const ACTIVITY_BUDGET: RecordKind = RecordKind::new("ActivityBudget", "OWNS_ACTIVITY_BUDGET");
 pub const SELLING_PRICE_ANALYSIS: RecordKind =

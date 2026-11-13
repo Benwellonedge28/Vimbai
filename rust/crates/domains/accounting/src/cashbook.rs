@@ -27,15 +27,11 @@ use serde_json::{json, Value};
 use vimbai_common::Money;
 
 use vimbai_store::amounts::{amount, amount_or_zero, stored_amount, wire};
-use vimbai_store::read::{field, optional, or_default, text};
+use vimbai_store::read::{field, flag, optional, or_default, text};
 use vimbai_store::{
     created_id, BookScope, Graph, Records, StoreError, CASH_BANK_ACCOUNT, CASH_ENTRY,
     CASH_FLOW_ENTRY, CASH_RECONCILIATION,
 };
-
-fn flag(payload: &Value, key: &str) -> bool {
-    payload.get(key).and_then(Value::as_bool).unwrap_or(false)
-}
 
 /// An optional amount: absent is absent, not zero.
 fn optional_amount(payload: &Value, key: &str) -> Result<Option<Money>, StoreError> {
@@ -50,10 +46,6 @@ fn stored_optional(record: &Value, key: &str) -> Result<Option<Money>, StoreErro
         None | Some(Value::Null) => Ok(None),
         _ => stored_amount(record, key).map(Some),
     }
-}
-
-fn is_true(record: &Value, key: &str) -> bool {
-    record.get(key).and_then(Value::as_bool).unwrap_or(false)
 }
 
 // --- accounts ---
@@ -117,7 +109,7 @@ pub fn list_accounts<G: Graph + ?Sized>(
                     .map(|want| field(row, "currency") == want)
                     .unwrap_or(true)
                 && active
-                    .map(|want| is_true(row, "is_active") == want)
+                    .map(|want| flag(row, "is_active") == want)
                     .unwrap_or(true)
         })
         .collect();
@@ -167,11 +159,11 @@ pub fn update_account<G: Graph + ?Sized>(
         "is_active": payload
             .get("is_active")
             .and_then(Value::as_bool)
-            .unwrap_or_else(|| is_true(&existing, "is_active")),
+            .unwrap_or_else(|| flag(&existing, "is_active")),
         "reconciliation_enabled": payload
             .get("reconciliation_enabled")
             .and_then(Value::as_bool)
-            .unwrap_or_else(|| is_true(&existing, "reconciliation_enabled")),
+            .unwrap_or_else(|| flag(&existing, "reconciliation_enabled")),
     });
     if patch.get("account_type") == Some(&json!("")) {
         patch["account_type"] = json!("bank");
@@ -303,7 +295,7 @@ pub fn list_entries<G: Graph + ?Sized>(
                     .map(|want| field(row, "entry_date") <= want)
                     .unwrap_or(true)
                 && reconciled
-                    .map(|want| is_true(row, "reconciled") == want)
+                    .map(|want| flag(row, "reconciled") == want)
                     .unwrap_or(true)
         })
         .collect();
@@ -348,7 +340,7 @@ pub fn void_entry<G: Graph + ?Sized>(
     let records = Records::new(graph, CASH_ENTRY);
     let entry = records.get(scope, entry_id)?;
     let base = stored_amount(&entry, "base_amount")?;
-    let undo = if is_true(&entry, "is_debit") {
+    let undo = if flag(&entry, "is_debit") {
         base.negate()
     } else {
         base
@@ -398,7 +390,7 @@ pub fn summary<G: Graph + ?Sized>(
             continue;
         }
         let base = stored_amount(row, "base_amount")?;
-        if is_true(row, "is_debit") {
+        if flag(row, "is_debit") {
             debits = debits.plus(&base);
         } else {
             credits = credits.plus(&base);
@@ -443,7 +435,7 @@ pub fn create_reconciliation<G: Graph + ?Sized>(
             continue;
         }
         let base = stored_amount(&row, "base_amount")?;
-        book_balance = if is_true(&row, "is_debit") {
+        book_balance = if flag(&row, "is_debit") {
             book_balance.plus(&base)
         } else {
             book_balance.minus(&base)
@@ -573,7 +565,7 @@ pub fn outstanding_items<G: Graph + ?Sized>(
         .into_iter()
         .filter(|row| {
             field(row, "bank_account") == account_code
-                && !is_true(row, "reconciled")
+                && !flag(row, "reconciled")
                 && field(row, "status") == "posted"
         })
         .collect();
@@ -583,7 +575,7 @@ pub fn outstanding_items<G: Graph + ?Sized>(
     let mut credits = Money::zero();
     for row in &rows {
         let base = stored_amount(row, "base_amount")?;
-        if is_true(row, "is_debit") {
+        if flag(row, "is_debit") {
             debits = debits.plus(&base);
         } else {
             credits = credits.plus(&base);
@@ -817,7 +809,7 @@ pub fn cash_position_history<G: Graph + ?Sized>(
                 days.len() - 1
             }
         };
-        if is_true(&row, "is_debit") {
+        if flag(&row, "is_debit") {
             days[index].1 = days[index].1.plus(&base);
         } else {
             days[index].2 = days[index].2.plus(&base);

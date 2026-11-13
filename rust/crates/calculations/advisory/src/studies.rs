@@ -21,7 +21,7 @@
 //! * Household savings rate reads excellent at 20%, good at 10%, fair at 0%,
 //!   and expenses bucket by category in arrival order.
 
-use crate::{div, flag, num, r2, rows, text};
+use crate::{div, flag_on, num, r2, rows, text};
 use serde_json::{json, Map, Value};
 
 pub fn analyze_profitability_index(request: &Value) -> Value {
@@ -120,7 +120,7 @@ pub fn analyze_share_options(request: &Value) -> Value {
             let raw = grant.get("vesting_probability").and_then(Value::as_f64);
             raw.unwrap_or(1.0)
         };
-        let cash_settled = flag(grant, "cash_settled");
+        let cash_settled = flag_on(grant, "cash_settled");
         let total_grant_cost = options as f64 * fair_value;
         let vesting_factor = total_grant_cost / vesting_period * vesting_prob;
         total_cost += total_grant_cost;
@@ -228,7 +228,7 @@ pub fn analyze_related_parties(request: &Value) -> Value {
         } else {
             Value::Array(significant)
         },
-        "arms_length_conclusion": if flag(request, "arms_length_comparison") {
+        "arms_length_conclusion": if flag_on(request, "arms_length_comparison") {
             "Transfers at arm's length"
         } else {
             "Review of terms required"
@@ -250,7 +250,7 @@ pub fn analyze_events_after_reporting(request: &Value) -> Value {
 
     for event in rows(request, "events") {
         let impact = num(event, "financial_impact");
-        if flag(event, "adjusting_event") {
+        if flag_on(event, "adjusting_event") {
             adjusting_count += 1;
             adjusting_impact += impact.abs();
         } else {
@@ -270,7 +270,7 @@ pub fn analyze_events_after_reporting(request: &Value) -> Value {
                 "event_date": text(lit, "settlement_date"),
                 "description": format!("Litigation settlement: {}", text(lit, "description")),
                 "event_type": "legal",
-                "adjusting": flag(lit, "adjusting"),
+                "adjusting": flag_on(lit, "adjusting"),
                 "financial_impact": num(lit, "amount"),
             })
         })

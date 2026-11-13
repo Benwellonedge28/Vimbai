@@ -8,6 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import migration_backlog  # noqa: E402
+import migration_manifest  # noqa: E402
 
 
 def test_every_routed_service_is_classified_once():
@@ -18,20 +19,13 @@ def test_every_routed_service_is_classified_once():
 
 
 def _wired_section():
-    """The bullets the tracker lists as actually served from Rust, and nothing else."""
-    section = ""
-    wired = set()
-    for line in (ROOT / "rust" / "CALCULATOR-PORT.md").read_text().splitlines():
-        stripped = line.strip()
-        if stripped.startswith("## "):
-            section = stripped
-            continue
-        if "Wired to the Rust library" not in section:
-            continue
-        match = re.match(r"^-\s+([a-z0-9][a-z0-9._-]*)\s*(?:->.*)?$", stripped)
-        if match:
-            wired.add(match.group(1))
-    return wired
+    """The services the tracker lists as served from Rust, and nothing else.
+
+    This used to be a second copy of the tracker reader that only took the first name on a bullet,
+    so a crate that answers for several services reported one ported and the rest unported. The
+    manifest already reads that list - one reader, one answer.
+    """
+    return migration_manifest.ported_names()
 
 
 def test_a_port_needs_named_evidence():

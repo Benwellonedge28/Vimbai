@@ -37,7 +37,7 @@ pub fn analyze_construction_contracts(request: &Value) -> Value {
         total_value += value;
         total_revenue += revenue;
         total_provision += provision;
-        if crate::flag(contract, "completed") {
+        if crate::flag_on(contract, "completed") {
             completed += 1;
         } else {
             ongoing += 1;

@@ -410,6 +410,23 @@ xbrl-reporting-service
   carried when the budget was made, so a later rate change does not rewrite an agreed budget; the total is the sum of
   the lines and nothing else; approving sets the status and leaves the figures alone.
 
+- partnership-agreement-service, partnership-changes-service, partnership-dissolution-service and partnership-revaluation-service
+  -> partnerships crate, records on the store: one crate for the four services that
+  answer questions about the same register, with their shared arithmetic (a partner's contribution and the capital a
+  list of partners puts in) in one place rather than four, so an agreement and the summary that reports it cannot
+  disagree. Agreements carry their partners and the capital they add up to; a partner added takes the agreement's
+  capital with it, and a change touches only the fields it names. Changes record admission, retirement, death and
+  settlement: an admission keeps the draft for the capital brought in and one for any goodwill paid, and skips the
+  capital draft when nothing was brought; a retirement is owed capital, current account and goodwill, and its single
+  draft debits both balances and credits cash; a death is owed the two balances with no goodwill and names the
+  executor as its note. Shapes kept: settlement never checks the state it is coming from, so settling twice is
+  allowed; a dissolution answers a report the caller does not hold as an error body rather than a miss, and so does a
+  revaluation; a creditor's discount is what the caller says it was rather than what the amounts imply; on
+  dissolution an asset sold at exactly book value is a decrease of nothing rather than a profit; a revaluation writes
+  an asset up when its new value is over its old one and down otherwise, keeps the two totals apart, and raises a
+  goodwill reserve only under `raise_and_raise`. No service here moves money: every draft is kept with the record and
+  posting it stays the accounting books' business.
+
 - revaluation-model-service -> assets crate, no records: a revaluation pass plus the four questions that follow one.
   One pass decides per asset whether fair value sits above or below its carrying amount; gains go to a revaluation
   surplus in other comprehensive income, losses go against that surplus first and only the rest to profit or loss, and

@@ -28,7 +28,7 @@ pub fn rows<'a>(v: &'a Value, key: &str) -> &'a [Value] {
         .unwrap_or(&[])
 }
 
-pub fn flag(v: &Value, key: &str) -> bool {
+pub fn flag_on(v: &Value, key: &str) -> bool {
     v.get(key).and_then(Value::as_bool).unwrap_or(false)
 }
 

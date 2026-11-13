@@ -19,6 +19,16 @@ pub fn refused(message: &str) -> StoreError {
     StoreError::Invalid(message.to_string())
 }
 
+/// A yes/no field on a stored record: only a stored `true` counts as yes.
+pub fn flag(record: &Value, key: &str) -> bool {
+    record.get(key).and_then(Value::as_bool).unwrap_or(false)
+}
+
+/// A yes/no field that may not have been set at all.
+pub fn maybe_flag(record: &Value, key: &str) -> Option<bool> {
+    record.get(key).and_then(Value::as_bool)
+}
+
 /// A label, empty when it was never given.
 pub fn text(payload: &Value, key: &str) -> String {
     payload

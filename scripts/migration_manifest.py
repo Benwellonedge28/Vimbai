@@ -295,9 +295,17 @@ def ported_names():
             # "(crate, what it covers)". Reading only the arrow form silently dropped every service
             # annotated with a parenthetical, which is how two dozen Rust services were reported as
             # Python in the catalogue while answering from Rust.
-            match = re.match(r"^-\s+([a-z0-9][a-z0-9._-]*)\s*(?:[(-].*)?$", stripped)
+            # a bullet may name several services that now share one crate, so read the whole
+            # list before the arrow: "a-service, b-service and c-service -> partnerships crate".
+            # Reading only the first name left the other three reported as Python.
+            match = re.match(
+                r"^-\s+([a-z0-9][a-z0-9._-]*(?:\s*(?:,|and)\s+[a-z0-9][a-z0-9._-]*)*)"
+                r"\s*(?:[(-].*)?$",
+                stripped,
+            )
             if match:
-                listed.add(match.group(1))
+                for name in re.split(r",\s*|\s+and\s+", match.group(1)):
+                    listed.add(name)
     return {name for name in OWNERS if name in listed}
 
 

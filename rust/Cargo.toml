@@ -14,6 +14,7 @@ members = [
     "crates/domains/costing",
     "crates/domains/equity",
     "crates/domains/finance",
+    "crates/domains/partnerships",
     "crates/domains/treasury",
     "crates/platform/identity",
     "crates/platform/access-control/rbac",

@@ -13,13 +13,19 @@
 //! * Emoluments adds base, bonus, share options, pension and benefits; the
 //!   disclosure check compares the list with itself and so always passes.
 
-use crate::{div, flag, num, r2, rows, text};
+use crate::{div, flag_on, num, r2, rows, text};
 use serde_json::{json, Value};
 
 pub fn analyze_cash_pooling(request: &Value) -> Value {
     let accounts = rows(request, "accounts");
-    let pooled: Vec<&Value> = accounts.iter().filter(|a| flag(a, "is_pooled")).collect();
-    let non_pooled: Vec<&Value> = accounts.iter().filter(|a| !flag(a, "is_pooled")).collect();
+    let pooled: Vec<&Value> = accounts
+        .iter()
+        .filter(|a| flag_on(a, "is_pooled"))
+        .collect();
+    let non_pooled: Vec<&Value> = accounts
+        .iter()
+        .filter(|a| !flag_on(a, "is_pooled"))
+        .collect();
 
     let total_pooled: f64 = pooled.iter().map(|a| num(a, "balance")).sum();
     let total_non_pooled: f64 = non_pooled.iter().map(|a| num(a, "balance")).sum();
@@ -46,7 +52,7 @@ pub fn analyze_cash_pooling(request: &Value) -> Value {
                 "balance": r2(num(a, "balance")),
                 "currency": text(a, "currency"),
                 "bank": text(a, "bank"),
-                "is_pooled": flag(a, "is_pooled"),
+                "is_pooled": flag_on(a, "is_pooled"),
                 "surplus_deficit": r2(num(a, "balance") - threshold),
             })
         })

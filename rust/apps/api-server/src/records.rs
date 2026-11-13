@@ -35,6 +35,7 @@ use finance::{
     continue_shutdown, insurance_claims, internal_rate_return, investment_monitoring,
     net_present_value, payback_period, personal_finance, personal_money, trade_finance,
 };
+use partnerships::{agreement, changes, dissolution, revaluation as partnership_revaluation};
 use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
@@ -6962,6 +6963,256 @@ async fn indexation_allowance(RawQuery(query): RawQuery) -> Response {
     )))
 }
 
+// --- partnerships: agreements, changes, dissolution and revaluation ---
+
+async fn create_partnership_agreement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(agreement::create_agreement(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn get_partnership_agreement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(agreement_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(agreement::get_agreement(
+        graph.as_ref(),
+        &scope,
+        &agreement_id,
+    ))
+}
+
+async fn list_partnership_agreements(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(agreement::list_agreements(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn update_partnership_agreement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(agreement_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(agreement::update_agreement(
+        graph.as_ref(),
+        &scope,
+        &agreement_id,
+        &payload,
+    ))
+}
+
+async fn add_partnership_partner(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(agreement_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(agreement::add_partner(
+        graph.as_ref(),
+        &scope,
+        &agreement_id,
+        &payload,
+    ))
+}
+
+async fn partnership_agreement_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(agreement_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(agreement::agreement_summary(
+        graph.as_ref(),
+        &scope,
+        &agreement_id,
+    ))
+}
+
+async fn admit_partner(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(changes::admit(graph.as_ref(), &scope, &payload))
+}
+
+async fn retire_partner(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(changes::retire(graph.as_ref(), &scope, &payload))
+}
+
+async fn record_partner_death(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(changes::record_death(graph.as_ref(), &scope, &payload))
+}
+
+async fn partnership_changes(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(changes::list_changes(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn settle_partner_change(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(change_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(changes::settle_change(graph.as_ref(), &scope, &change_id))
+}
+
+async fn dissolve_partnership(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(dissolution::dissolve(graph.as_ref(), &scope, &payload))
+}
+
+async fn partnership_dissolutions(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(dissolution::list_dissolutions(graph.as_ref(), &scope))
+}
+
+async fn partnership_dissolution(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(dissolution_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(dissolution::get_dissolution(
+        graph.as_ref(),
+        &scope,
+        &dissolution_id,
+    ))
+}
+
+async fn revalue_partnership(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(partnership_revaluation::revalue(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn partnership_revaluations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(partnership_revaluation::list_revaluations(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn partnership_revaluation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(revaluation_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(partnership_revaluation::get_revaluation(
+        graph.as_ref(),
+        &scope,
+        &revaluation_id,
+    ))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone())
         .merge(service_root_router(graph.clone()))
@@ -8757,6 +9008,42 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/equity-changes/transactions/:company_id", get(company_equity_transactions))
         .route("/equity-changes/statement", post(generate_equity_statement))
         .route("/equity-changes/statements/:company_id", get(company_equity_statements))
+        .route(
+            "/partnership-agreement/agreements",
+            get(list_partnership_agreements).post(create_partnership_agreement),
+        )
+        .route(
+            "/partnership-agreement/agreements/:agreement_id",
+            get(get_partnership_agreement).put(update_partnership_agreement),
+        )
+        .route(
+            "/partnership-agreement/agreements/:agreement_id/partners/add",
+            post(add_partnership_partner),
+        )
+        .route(
+            "/partnership-agreement/agreements/:agreement_id/summary",
+            get(partnership_agreement_summary),
+        )
+        .route("/partnership-changes/changes/admission", post(admit_partner))
+        .route("/partnership-changes/changes/retirement", post(retire_partner))
+        .route("/partnership-changes/changes/death", post(record_partner_death))
+        .route("/partnership-changes/changes", get(partnership_changes))
+        .route(
+            "/partnership-changes/changes/:change_id/settle",
+            post(settle_partner_change),
+        )
+        .route("/partnership-dissolution/dissolve", post(dissolve_partnership))
+        .route("/partnership-dissolution/dissolutions", get(partnership_dissolutions))
+        .route(
+            "/partnership-dissolution/dissolutions/:dissolution_id",
+            get(partnership_dissolution),
+        )
+        .route("/partnership-revaluation/revalue", post(revalue_partnership))
+        .route("/partnership-revaluation/revaluations", get(partnership_revaluations))
+        .route(
+            "/partnership-revaluation/revaluations/:revaluation_id",
+            get(partnership_revaluation),
+        )
         .route("/cash-optimization/accounts", post(add_cash_account))
         .route("/cash-optimization/accounts/:company_id", get(company_cash_accounts))
         .route("/cash-optimization/optimize/:company_id", post(run_cash_optimization))
@@ -9143,5 +9430,150 @@ mod tests {
         let value: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(value["valuation_method"], json!("weighted_average"));
         assert_eq!(value["closing_stock_value"], json!("50.000000"));
+    }
+    #[tokio::test]
+    async fn a_partnership_agreement_is_created_with_the_capital_its_partners_bring() {
+        let (app, _) = app(vec![
+            json!({"id": "ag-1", "capital_amount": "12500.000000"}),
+        ]);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/partnership-agreement/agreements")
+                    .header("x-user-id", "user-1")
+                    .header("x-book-id", "book-1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"partnership_name":"Two Hands","agreement_number":"A-1","business_nature":"retail","start_date":"2026-01-01","capital_amount":999999,"partners":[{"name":"Ana","contribution":5000},{"name":"Bongani","contribution":7500}]}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        let value: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(value["capital_amount"], json!("12500.000000"));
+    }
+
+    #[tokio::test]
+    async fn a_partnership_agreement_the_caller_does_not_hold_is_not_found_over_http() {
+        let (app, _) = app(vec![]);
+        let response = app
+            .oneshot(get_request(
+                "/partnership-agreement/agreements/ag-9",
+                "user-1",
+                "book-1",
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn a_partner_admission_answers_over_http() {
+        let (app, _) = app(vec![json!({"id": "ch-1"})]);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/partnership-changes/changes/admission")
+                    .header("x-user-id", "user-1")
+                    .header("x-book-id", "book-1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"new_partner_id":"abcdef123","new_partner_name":"Chen","admission_date":"2026-04-01","capital_contribution":4000,"goodwill_paid":600}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        let value: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(value["journal_entries"].as_array().unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn a_partner_retirement_answers_over_http() {
+        let (app, _) = app(vec![json!({"id": "ch-2"})]);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/partnership-changes/changes/retirement")
+                    .header("x-user-id", "user-1")
+                    .header("x-book-id", "book-1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"partnership_id":"p-1","partner_id":"p-9","partner_name":"Ana","effective_date":"2026-02-01","capital_balance":12000,"current_account_balance":500,"goodwill_amount":1500}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        let value: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(value["total_payable"], json!("14000.000000"));
+    }
+
+    #[tokio::test]
+    async fn a_partnership_dissolution_answers_over_http() {
+        let (app, _) = app(vec![json!({"id": "d-1"})]);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/partnership-dissolution/dissolve")
+                    .header("x-user-id", "user-1")
+                    .header("x-book-id", "book-1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"partnership_id":"p-1","dissolution_date":"2026-05-01","reason":"insolvency","assets":[{"asset_id":"a-1","asset_name":"Van","book_value":10000,"sale_proceeds":11500}],"creditors":[],"partners":[]}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        let value: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(value["realization_profit"], json!("1500.000000"));
+    }
+
+    #[tokio::test]
+    async fn a_partnership_revaluation_answers_over_http() {
+        let (app, _) = app(vec![json!({"id": "r-1"})]);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/partnership-revaluation/revalue")
+                    .header("x-user-id", "user-1")
+                    .header("x-book-id", "book-1")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        r#"{"partnership_id":"p-1","revaluation_date":"2026-06-01","goodwill_treatment":"write_off","asset_revaluations":[{"asset_id":"a-1","asset_name":"Premises","asset_code":"P1","account_code":"1100","old_value":100000,"new_value":130000}]}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        let value: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(value["total_increase"], json!("30000.000000"));
     }
 }
