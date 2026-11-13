@@ -21,6 +21,7 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
+use banking;
 use budgeting_services::{
     activity_based_budget as activity_budget, appropriation_control, master_budget,
     rolling_forecast, scenario_analysis, scenario_modeling, sensitivity_analysis,
@@ -85,9 +86,24 @@ fn fail(error: StoreError) -> Response {
     let status = match error {
         StoreError::NotFound => StatusCode::NOT_FOUND,
         StoreError::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
+        StoreError::Conflict(_) => StatusCode::CONFLICT,
         StoreError::Graph(_) => StatusCode::BAD_GATEWAY,
     };
     (status, Json(json!({ "error": error.to_string() }))).into_response()
+}
+
+/// A request whose scalar fields arrive in the query string, overlaid by anything sent as a body.
+fn merged_request(payload: Option<Json<Value>>, query: Option<&str>) -> Value {
+    let merged = body_or_query(query);
+    let Value::Object(mut into) = merged else {
+        return merged;
+    };
+    if let Some(Json(Value::Object(given))) = payload {
+        for (key, value) in given {
+            into.insert(key, value);
+        }
+    }
+    Value::Object(into)
 }
 
 pub(crate) fn answer(result: Result<Value, StoreError>) -> Response {
@@ -10578,6 +10594,1225 @@ async fn document_state_catalogue() -> Response {
 }
 
 // ---------------------------------------------------------------------------
+// bank relationships and service quality, plus the plain connection door. Several paths carry a bank- prefix
+// because /connections answers the feed's door and /bank-transactions/:id answers one feed transaction.
+// ---------------------------------------------------------------------------
+
+async fn post_relationship(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::relationship::create_relationship(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn get_relationships(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    // the same position as the update below, so the parameter carries one name: a GET names a company and a PUT
+    // names a relationship
+    Path(id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::relationship::list_relationships(
+        graph.as_ref(),
+        &scope,
+        &id,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn put_relationship(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(relationship_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(banking::relationship::update_relationship(
+        graph.as_ref(),
+        &scope,
+        &relationship_id,
+        &asked,
+    ))
+}
+
+async fn post_quality_metric(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::relationship::add_quality_metric(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn get_quality_metrics(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(relationship_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::relationship::get_quality_metrics(
+        graph.as_ref(),
+        &scope,
+        &relationship_id,
+    ))
+}
+
+async fn get_bank_relationship_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::relationship::relationship_summary(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn post_connect_bank(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(banking::integration::connect(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_bank_account_connections(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::integration::list_connections(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn delete_bank_account_connection(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(connection_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(banking::integration::disconnect(
+        graph.as_ref(),
+        &scope,
+        &connection_id,
+        &store::read::label(&asked, "today"),
+    ))
+}
+
+async fn post_bank_sync(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(connection_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(banking::integration::sync(
+        graph.as_ref(),
+        &scope,
+        &connection_id,
+        &asked,
+    ))
+}
+
+async fn get_connection_transactions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(connection_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::integration::list_connection_transactions(
+        graph.as_ref(),
+        &scope,
+        &connection_id,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn post_bank_reconcile(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(connection_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(banking::integration::reconcile_bank_transaction(
+        graph.as_ref(),
+        &scope,
+        &connection_id,
+        &asked,
+    ))
+}
+
+async fn get_bank_account_balance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(connection_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::integration::balance_of(
+        graph.as_ref(),
+        &scope,
+        &connection_id,
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// bank feed: the connections a Book holds, the transactions that arrive from them, and the rules that pick
+// them out. The listing is named /bank-transactions because /transactions already answers the sales ledger.
+// ---------------------------------------------------------------------------
+
+async fn post_bank_connection(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    let organization = store::read::label(&asked, "organization_id");
+    answer(banking::bank_feed::create_connection(
+        graph.as_ref(),
+        &scope,
+        &asked,
+        &organization,
+    ))
+}
+
+async fn get_bank_connections(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(banking::bank_feed::list_connections(
+        graph.as_ref(),
+        &scope,
+        &store::read::label(&asked, "organization_id"),
+    ))
+}
+
+async fn get_bank_connection(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(connection_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::get_connection(
+        graph.as_ref(),
+        &scope,
+        &connection_id,
+    ))
+}
+
+async fn delete_bank_connection(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(connection_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::delete_connection(
+        graph.as_ref(),
+        &scope,
+        &connection_id,
+    ))
+}
+
+async fn get_bank_balance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(connection_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(banking::bank_feed::account_balance(
+        graph.as_ref(),
+        &scope,
+        &connection_id,
+        &store::read::label(&asked, "today"),
+    ))
+}
+
+async fn post_bank_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::import_transaction(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn post_bank_transactions_batch(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    // a batch arrives as a bare list, which FastAPI took as the whole body
+    let lines = match payload {
+        Some(Json(Value::Array(lines))) => lines,
+        payload => merged_request(payload, query.as_deref())
+            .get("transactions")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default(),
+    };
+    answer(banking::bank_feed::import_batch(
+        graph.as_ref(),
+        &scope,
+        &lines,
+    ))
+}
+
+async fn post_bank_mt940(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(banking::bank_feed::import_mt940(
+        graph.as_ref(),
+        &scope,
+        &store::read::label(&asked, "connection_id"),
+        &store::read::label(&asked, "statement_data"),
+        &store::read::label(&asked, "today"),
+    ))
+}
+
+async fn get_bank_transactions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::list_feed_transactions(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn get_bank_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(transaction_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::get_feed_transaction(
+        graph.as_ref(),
+        &scope,
+        &transaction_id,
+    ))
+}
+
+async fn put_bank_transaction_status(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(transaction_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(banking::bank_feed::update_transaction_status(
+        graph.as_ref(),
+        &scope,
+        &transaction_id,
+        &asked,
+    ))
+}
+
+async fn post_bank_transaction_link(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(transaction_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(banking::bank_feed::link_transaction(
+        graph.as_ref(),
+        &scope,
+        &transaction_id,
+        &asked,
+    ))
+}
+
+async fn post_bank_sync_start(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::start_sync(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn get_bank_sync_history(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::sync_history(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn get_bank_sync(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(sync_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::get_sync(
+        graph.as_ref(),
+        &scope,
+        &sync_id,
+    ))
+}
+
+async fn post_bank_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::create_feed_rule(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn get_bank_rules(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::list_feed_rules(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn put_bank_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(rule_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::update_feed_rule(
+        graph.as_ref(),
+        &scope,
+        &rule_id,
+        &payload,
+    ))
+}
+
+async fn delete_bank_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(rule_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::delete_feed_rule(
+        graph.as_ref(),
+        &scope,
+        &rule_id,
+    ))
+}
+
+async fn post_bank_rules_apply(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    // the list of transactions arrives as a bare list, which FastAPI took as the whole body, so it is read
+    // before the query is merged - an array has no keys to merge into
+    let ids: Vec<String> = match payload {
+        Some(Json(Value::Array(lines))) => lines
+            .iter()
+            .filter_map(|line| line.as_str().map(str::to_owned))
+            .collect(),
+        payload => merged_request(payload, query.as_deref())
+            .get("transaction_ids")
+            .and_then(Value::as_array)
+            .map(|lines| {
+                lines
+                    .iter()
+                    .filter_map(|line| line.as_str().map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default(),
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(banking::bank_feed::apply_rules(
+        graph.as_ref(),
+        &scope,
+        &ids,
+        &store::read::label(&asked, "today"),
+    ))
+}
+
+async fn post_bank_webhook(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(provider): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::bank_feed::handle_webhook(
+        graph.as_ref(),
+        &scope,
+        &provider,
+        &payload,
+    ))
+}
+
+async fn get_bank_statistics(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(banking::bank_feed::statistics(
+        graph.as_ref(),
+        &scope,
+        &store::read::label(&asked, "organization_id"),
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// currency: the currencies a Book deals in, the rates between them, and the conversions over them
+// ---------------------------------------------------------------------------
+
+/// The day a request was made. A port has no clock, so the caller states it, exactly as the ledger's own
+/// endpoints take `today`. A request that states none seeds undated, which only affects a brand new Book.
+fn today_of(request: &Value) -> String {
+    store::read::label(request, "today")
+}
+
+async fn get_currencies(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::currency::list_currencies(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn get_currency(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(code): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(banking::currency::get_currency(
+        graph.as_ref(),
+        &scope,
+        &code,
+        &today_of(&asked),
+    ))
+}
+
+async fn post_currency(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::currency::create_currency(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn put_currency(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(code): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::currency::update_currency(
+        graph.as_ref(),
+        &scope,
+        &code,
+        &payload,
+    ))
+}
+
+async fn delete_currency(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(code): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(banking::currency::deactivate_currency(
+        graph.as_ref(),
+        &scope,
+        &code,
+        &today_of(&asked),
+    ))
+}
+
+async fn get_rates(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::currency::list_exchange_rates(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn get_latest_rates(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(banking::currency::get_latest_rates(
+        graph.as_ref(),
+        &scope,
+        &today_of(&asked),
+    ))
+}
+
+async fn get_one_rate(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((from_currency, to_currency)): Path<(String, String)>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(banking::currency::get_exchange_rate(
+        graph.as_ref(),
+        &scope,
+        &from_currency,
+        &to_currency,
+        &today_of(&asked),
+    ))
+}
+
+async fn post_rate(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::currency::create_exchange_rate(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn put_rate(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((from_currency, to_currency)): Path<(String, String)>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::currency::update_exchange_rate(
+        graph.as_ref(),
+        &scope,
+        &from_currency,
+        &to_currency,
+        &payload,
+    ))
+}
+
+async fn post_convert(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::currency::convert_currency(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn post_convert_batch(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    // the batch was posted as a bare JSON list, which FastAPI took as the whole body, so the list is read
+    // before the query is merged - an array has no keys to merge into
+    let lines = match payload {
+        Some(Json(Value::Array(lines))) => lines,
+        payload => merged_request(payload, query.as_deref())
+            .get("requests")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default(),
+    };
+    answer(banking::currency::convert_batch(
+        graph.as_ref(),
+        &scope,
+        &lines,
+        &today_of(&Value::Null),
+    ))
+}
+
+async fn post_triangulate(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(banking::currency::triangulate(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_rate_history(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((from_currency, to_currency)): Path<(String, String)>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::currency::historical_rates(
+        graph.as_ref(),
+        &scope,
+        &from_currency,
+        &to_currency,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn get_formatted_amount(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((currency_code, amount)): Path<(String, String)>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(banking::currency::format_amount(
+        graph.as_ref(),
+        &scope,
+        &currency_code,
+        &amount,
+        &today_of(&asked),
+    ))
+}
+
+async fn post_validate_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::currency::validate_transaction(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn post_rate_alert(RawQuery(query): RawQuery, payload: Option<Json<Value>>) -> Response {
+    // the alert was never kept, so it needs neither a Book nor a record
+    answer(banking::currency::create_rate_alert(&merged_request(
+        payload,
+        query.as_deref(),
+    )))
+}
+
+async fn get_currency_stats(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(banking::currency::currency_stats(
+        graph.as_ref(),
+        &scope,
+        &today_of(&asked),
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// banking: statements imported from the bank, the cash book, and the reconciliations
+// ---------------------------------------------------------------------------
+
+async fn post_bank_statement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::reconciliation::import_statement(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn get_bank_statements(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::reconciliation::list_statements(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn get_bank_statement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(statement_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::reconciliation::get_statement(
+        graph.as_ref(),
+        &scope,
+        &statement_id,
+    ))
+}
+
+async fn post_bank_cash_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::reconciliation::add_cash_book_entry(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn get_bank_cash_book(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::reconciliation::list_cash_book(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn post_bank_reconciliation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = merged_request(payload, query.as_deref());
+    answer(banking::reconciliation::create_reconciliation(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn post_bank_auto_match(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(reconciliation_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = merged_request(payload, query.as_deref());
+    let statement_id = body
+        .get("statement_id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    if statement_id.is_empty() {
+        return refused("statement_id is required");
+    }
+    answer(banking::reconciliation::auto_match(
+        graph.as_ref(),
+        &scope,
+        &reconciliation_id,
+        &statement_id,
+    ))
+}
+
+async fn post_bank_adjustments(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(reconciliation_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = merged_request(payload, query.as_deref());
+    let reconciliation = match banking::reconciliation::get_reconciliation(
+        graph.as_ref(),
+        &scope,
+        &reconciliation_id,
+    ) {
+        Ok(found) => found,
+        Err(error) => return answer(Err(error)),
+    };
+    let journal = match banking::reconciliation::adjustment_journal(&reconciliation) {
+        Ok(journal) => journal,
+        Err(error) => return answer(Err(error)),
+    };
+    let today = body
+        .get("today")
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .or_else(|| {
+            reconciliation
+                .get("reconciliation_date")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+        .unwrap_or_default();
+
+    // nothing to adjust: the reconciliation is complete and states no journal, which is what shipped
+    let declares_a_line = journal
+        .get("lines")
+        .and_then(Value::as_array)
+        .is_some_and(|lines| !lines.is_empty());
+    if !declares_a_line {
+        return answer(banking::reconciliation::complete(
+            graph.as_ref(),
+            &scope,
+            &reconciliation_id,
+            None,
+            &today,
+        ));
+    }
+
+    // a journal is posted by the ledger's own writer, so an adjustment obeys the same rules as any other
+    // entry. A bank error alone is one line, and one-sided entries are exactly what this engine refuses:
+    // the shipped service handed that single line to the accounting service, which is where the refusal
+    // now comes from.
+    let posted = match accounting::ledger_book::create_entry(graph.as_ref(), &scope, &journal) {
+        Ok(posted) => posted,
+        Err(error) => return answer(Err(error)),
+    };
+    let journal_id = posted.get("id").and_then(Value::as_str).map(str::to_owned);
+    answer(banking::reconciliation::complete(
+        graph.as_ref(),
+        &scope,
+        &reconciliation_id,
+        journal_id.as_deref(),
+        &today,
+    ))
+}
+
+async fn get_bank_reconciliations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::reconciliation::list_reconciliations(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn get_bank_reconciliation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(reconciliation_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::reconciliation::get_reconciliation(
+        graph.as_ref(),
+        &scope,
+        &reconciliation_id,
+    ))
+}
+
+async fn get_bank_outstanding_items(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(banking::reconciliation::outstanding_items(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // payables: the purchases ledger and its control account
 // ---------------------------------------------------------------------------
 
@@ -10794,6 +12029,127 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/doubtful/calculate-provision", post(calculate_doubtful_provision))
         .route("/doubtful/provision/create", post(create_doubtful_provision))
         .route("/doubtful/provisions", get(list_doubtful_provisions))
+        // bank relationships and service quality, and the plain connection door. Several paths carry a
+        // bank- prefix because /connections answers the feed's door.
+        .route("/relationships", post(post_relationship))
+        // one path, two methods: a GET names a company and a PUT names a relationship
+        .route(
+            "/relationships/:id",
+            get(get_relationships).put(put_relationship),
+        )
+        .route("/quality-metrics", post(post_quality_metric))
+        .route(
+            "/quality-metrics/:relationship_id",
+            get(get_quality_metrics),
+        )
+        .route("/bank-summary/:company_id", get(get_bank_relationship_summary))
+        .route("/connect", post(post_connect_bank))
+        .route("/bank-account-connections", get(get_bank_account_connections))
+        .route(
+            "/bank-account-connections/:id",
+            delete(delete_bank_account_connection),
+        )
+        .route("/bank-sync/:connection_id", post(post_bank_sync))
+        .route(
+            "/bank-connection-transactions/:connection_id",
+            get(get_connection_transactions),
+        )
+        .route("/bank-reconcile/:connection_id", post(post_bank_reconcile))
+        .route(
+            "/bank-account-balance/:connection_id",
+            get(get_bank_account_balance),
+        )
+
+        // bank feed: connections, the transactions that arrive from them, and the rules that pick them out.
+        // The listing is /bank-transactions because /transactions already answers the sales ledger.
+        .route(
+            "/connections",
+            get(get_bank_connections).post(post_bank_connection),
+        )
+        .route(
+            "/connections/:id",
+            get(get_bank_connection).delete(delete_bank_connection),
+        )
+        .route("/connections/:id/balance", get(get_bank_balance))
+        .route("/bank-transactions", get(get_bank_transactions))
+        .route(
+            "/bank-transactions/import",
+            post(post_bank_transaction),
+        )
+        .route(
+            "/bank-transactions/import-batch",
+            post(post_bank_transactions_batch),
+        )
+        .route("/bank-transactions/import-mt940", post(post_bank_mt940))
+        .route("/bank-transactions/:id", get(get_bank_transaction))
+        .route(
+            "/bank-transactions/:id/status",
+            put(put_bank_transaction_status),
+        )
+        .route(
+            "/bank-transactions/:id/link",
+            post(post_bank_transaction_link),
+        )
+        .route("/sync/start", post(post_bank_sync_start))
+        .route("/sync/history", get(get_bank_sync_history))
+        .route("/sync/:id", get(get_bank_sync))
+        .route("/bank-rules", get(get_bank_rules).post(post_bank_rule))
+        .route(
+            "/bank-rules/apply",
+            post(post_bank_rules_apply),
+        )
+        .route(
+            "/bank-rules/:id",
+            put(put_bank_rule).delete(delete_bank_rule),
+        )
+        .route("/webhooks/:provider", post(post_bank_webhook))
+        .route("/statistics", get(get_bank_statistics))
+
+        // currency: the currencies a Book deals in, the rates between them and the conversions over them
+        .route("/currencies", get(get_currencies).post(post_currency))
+        .route(
+            "/currencies/:code",
+            get(get_currency).put(put_currency).delete(delete_currency),
+        )
+        .route("/rates", get(get_rates).post(post_rate))
+        .route("/rates/latest", get(get_latest_rates))
+        .route(
+            "/rates/history/:from_currency/:to_currency",
+            get(get_rate_history),
+        )
+        .route(
+            "/rates/:from_currency/:to_currency",
+            get(get_one_rate).put(put_rate),
+        )
+        .route("/convert", post(post_convert))
+        .route("/convert/batch", post(post_convert_batch))
+        .route("/triangulate", post(post_triangulate))
+        .route("/format/:currency_code/:amount", get(get_formatted_amount))
+        .route("/validate-transaction", post(post_validate_transaction))
+        .route("/alerts/rate", post(post_rate_alert))
+        .route("/currency-stats", get(get_currency_stats))
+
+        // banking: statements imported from the bank, the cash book they are reconciled against, and the
+        // reconciliations themselves. /reconcile already answers the sales ledger's control account.
+        .route("/statements", post(post_bank_statement).get(get_bank_statements))
+        .route("/statements/:statement_id", get(get_bank_statement))
+        .route("/cash-book", post(post_bank_cash_entry).get(get_bank_cash_book))
+        .route("/bank-reconcile", post(post_bank_reconciliation))
+        .route(
+            "/bank-reconcile/:reconciliation_id/auto-match",
+            post(post_bank_auto_match),
+        )
+        .route(
+            "/bank-reconcile/:reconciliation_id/post-adjustments",
+            post(post_bank_adjustments),
+        )
+        .route("/reconciliations", get(get_bank_reconciliations))
+        .route(
+            "/reconciliations/:reconciliation_id",
+            get(get_bank_reconciliation),
+        )
+        .route("/outstanding-items", get(get_bank_outstanding_items))
+
         // payables: the purchases ledger and its control account. The plain /transactions, /reconcile and
         // /control-account/summary already answer the sales ledger, so each of these is named for the side of
         // the ledger it answers.

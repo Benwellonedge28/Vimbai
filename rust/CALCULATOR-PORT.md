@@ -275,6 +275,61 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- bank-reconciliation-service -> banking crate, records on the store: a statement imported with its own lines,
+  the cash book it is reconciled against, the automatic matching of one to the other, the adjustment journal, and
+  the outstanding items a reconciliation leaves behind. A statement's credit and debit totals are measured from
+  its own lines rather than taken from the caller, and every line is stamped with the statement it arrived on; a
+  cash book entry is recorded unmatched, because the shipped service refused to take `matched`, its
+  reconciliation or the statement line it was matched to from the caller. A reconciliation subtracts bank errors
+  from both sides, so a bank error moves the difference by nothing, and the two figures nobody supplies
+  (unpresented cheques, uncredited deposits) are always nil; matching needs the same reference and an amount
+  within a cent, so a line with no reference never matches, and it searches every cash book entry the caller has
+  rather than only those on the account. Reconciliation records live on their own label: the shipped service
+  shared `BankReconciliation` with cashbook-service, so the two shapes could read each other's rows.
+
+- currency-service -> banking crate, records on the store: the currencies a Book deals in, the rates between
+  them and the conversions over them. Fifteen currencies and their USD-relative rates are seeded per Book the
+  first time it is touched, and only when the Book holds no currency at all, which is why a Book that deleted
+  them all gets them back. A rate is a series rather than a value: the newest stated rate for a pair is the one
+  a conversion uses, and older ones stay as history; an unstated pair is answered by its inverse and failing
+  that by a cross rate through USD, so EUR to GBP is answered though nobody stated it. A converted amount is
+  rounded half up to the target currency's own decimal places, so a yen conversion lands on a whole yen, and the
+  arithmetic is exact decimals rather than the shipped floats, so a large amount keeps every digit. Kept as
+  shipped: the balance-style alert is answered and never stored, `PUT /rates/{from}/{to}` restates the newest
+  row for the pair instead of adding a second, and the statistics count the rates as rows rather than as pairs.
+
+- bank-feed-service -> banking crate, records on the store: the connections a Book holds, the transactions that
+  arrive from them, the syncs over them and the rules that pick those transactions out, plus MT940 parsing,
+  provider webhooks and statistics. A transaction may only be imported against a connection the caller owns;
+  the same external id on one connection is a duplicate and answers 409, while the same id on two connections is
+  two transactions, which is what the shipped duplicate check compared; an imported transaction starts `cleared`
+  or `pending` and never takes a status from the caller. A rule matches when every condition it states holds,
+  the highest priority matching rule wins, an asleep rule never matches, and an amount band is measured against
+  the absolute amount so a debit of 500 sits inside 100 to 1000. MT940 is parsed only for the tags it understood
+  - `:86:` is what closes a transaction, so a statement without one yields nothing - but the amount reader was
+  repaired: the shipped one swallowed the bank reference into the number and raised on most real statement
+  lines, so the amount is now read as the decimal that follows the debit/credit mark. The balance answer is the
+  fixed placeholder the shipped service returned while the provider calls were a stub, and it says so.
+
+- bank-relationship-service -> banking crate, records on the store: the banks a company deals with, the quality
+  of the service it gets from them, and the summary of the whole relationship book. A relationship starts
+  `active` and rated 3 when the caller states neither, a rating is held to 1 through 5, and a status has to be
+  one of active, dormant, terminated or prospective. An update moves only the rating, the status and the notes,
+  and answers those three fields rather than the record, as shipped. A quality metric may only be pinned to a
+  relationship the caller holds, so it cannot be recorded against somebody else's bank; a relationship's average
+  is taken over its metrics oldest first, and one with no metrics averages nil rather than dividing by nothing.
+  The summary counts distinct bank names and distinct services, not rows.
+
+- banking-integration-service -> banking crate, records on the store: the plain connection to an account, the
+  sync over it, what arrived, and the reconciliation of it. One connection per bank and account number, refused
+  as a duplicate otherwise; a sync is refused on a connection that is not active and otherwise stamps the moment
+  it ran; a transaction is only reconciled through the connection it belongs to, so naming another connection's
+  transaction is a miss; disconnecting marks the connection disconnected and keeps the record. One record shared
+  deliberately: this service wrote `BankConnection` under its own edge and its transactions under another label,
+  so the feed's door and this one could not see each other's rows. Both doors now write one `BankConnection` on
+  one edge and one set of bank-feed transactions, so a transaction reconciled here is reconciled for the feed
+  too, and each door answers the fields its own shape needs with defaults rather than inventing the others.
+
 - cash-management-service -> treasury crate, records on the store: the cash accounts money sits in, the
   transfers between them, and the liquidity those balances add up to. A transfer can only move money between
   the caller's own Book-visible accounts, and only if the source keeps its stated minimum; it is recorded as
@@ -732,7 +787,6 @@ what keeps it in this list: the forty-five that used to sit here without one wer
 already been deleted, and a to-do list of deleted code is not a plan.
 
 - audit-sampling-service
-- banking-integration-service
 - biological-assets-service
 - dashboard-service
 - disposal-account-service

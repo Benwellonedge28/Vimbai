@@ -293,6 +293,36 @@ pub const PETTY_CASH_REPLENISHMENT: RecordKind =
     RecordKind::new("PettyCashReplenishment", "OWNS_PETTY_CASH_REPLENISHMENT");
 pub const BANK_RECONCILIATION: RecordKind =
     RecordKind::new("BankReconciliation", "OWNS_BANK_RECONCILIATION");
+// bank-reconciliation-service keeps its statements, its cash book entries and its reconciliations under
+// their own names. The shipped service wrote its reconciliations to `BankReconciliation` / `OWNS_BANK_RECONCILIATION`,
+// which cashbook-service already uses for a different shape - one label, two record shapes, so a read of one
+// service could see the other's rows. The split keeps each service's records to itself.
+pub const BANK_STATEMENT: RecordKind = RecordKind::new("BankStatement", "OWNS_BANK_STATEMENT");
+pub const BANK_REC_CASH_ENTRY: RecordKind =
+    RecordKind::new("BankRecCashEntry", "OWNS_BANKREC_CASH_ENTRY");
+pub const BANK_REC_RECONCILIATION: RecordKind =
+    RecordKind::new("BankRecReconciliation", "OWNS_BANKREC_RECONCILIATION");
+// The bank a Book deals with, under one label and one edge. bank-feed-service and banking-integration-service
+// both keep connections, and each wrote its own label - `BankConnection` under two different edges, so the two
+// could not see each other's rows. A connection is a connection: one label, one edge, and both services read
+// the same set. A row keeps the properties its own service stated; the other service answers the fields it
+// needs with defaults.
+pub const BANK_CONNECTION: RecordKind = RecordKind::new("BankConnection", "OWNS_CONNECTION");
+// The transactions a bank feed imports, likewise one set: bank-feed-service wrote `BankFeedTransaction` and
+// banking-integration-service wrote `BankTransaction` for the same thing - money that arrived from the bank.
+pub const BANK_FEED_TRANSACTION: RecordKind =
+    RecordKind::new("BankFeedTransaction", "OWNS_BANK_TX");
+pub const BANK_FEED_RULE: RecordKind = RecordKind::new("BankReconciliationRule", "OWNS_BANK_RULE");
+pub const BANK_SYNC: RecordKind = RecordKind::new("BankSync", "OWNS_BANK_SYNC");
+// bank-relationship-service's own records: the bank's own people and the service the Book gets from them.
+pub const BANK_RELATIONSHIP: RecordKind = RecordKind::new("BankRelationship", "OWNS_RELATIONSHIP");
+pub const BANK_QUALITY_METRIC: RecordKind =
+    RecordKind::new("ServiceQualityMetric", "OWNS_QUALITY_METRIC");
+
+// currency-service's own records: the currencies a Book deals in and the rates between them, each with the
+// date it took effect, because a rate is a series rather than a single value.
+pub const CURRENCY: RecordKind = RecordKind::new("Currency", "OWNS_CURRENCY");
+pub const EXCHANGE_RATE: RecordKind = RecordKind::new("ExchangeRate", "OWNS_RATE");
 pub const STATEMENT_OF_AFFAIRS: RecordKind =
     RecordKind::new("StatementOfAffairs", "OWNS_STATEMENT_OF_AFFAIRS");
 pub const CAPITAL_CALCULATION: RecordKind =
@@ -596,6 +626,9 @@ pub enum StoreError {
     NotFound,
     Graph(String),
     Invalid(String),
+    /// The record contradicts one already held - the same external id imported twice, say. The answer a
+    /// shipped service gave as a 409.
+    Conflict(String),
 }
 
 impl std::fmt::Display for StoreError {
@@ -604,6 +637,7 @@ impl std::fmt::Display for StoreError {
             Self::NotFound => write!(f, "record not found"),
             Self::Graph(message) => write!(f, "graph error: {message}"),
             Self::Invalid(message) => write!(f, "{message}"),
+            Self::Conflict(message) => write!(f, "{message}"),
         }
     }
 }

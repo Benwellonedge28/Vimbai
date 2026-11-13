@@ -59,6 +59,19 @@ pub fn present(payload: &Value, key: &str) -> Option<String> {
     payload.get(key).and_then(Value::as_str).map(str::to_string)
 }
 
+/// A label that may arrive as text or as a bare number.
+///
+/// Query strings are read as JSON, so `?bank_account=1234` reaches a service as a number. Reading it with
+/// this keeps an account number written either way.
+pub fn label(payload: &Value, key: &str) -> String {
+    match payload.get(key) {
+        Some(Value::String(text)) => text.clone(),
+        Some(Value::Number(number)) => number.to_string(),
+        Some(Value::Bool(flag)) => flag.to_string(),
+        _ => String::new(),
+    }
+}
+
 /// Which of the spellings the services used for a field was actually sent, so the caller can read that one.
 pub fn key_under<'a>(payload: &'a Value, names: &[&'a str]) -> Option<&'a str> {
     names
