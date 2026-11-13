@@ -8,17 +8,9 @@ services:
 - name: performance-benchmarking-service
   domain: analytics
   target: rust/crates/domains/analytics
-  port: 8280
+  port: 8099
   gateway_path: /performance-benchmarking
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /metrics
-  - GET /metrics
-  - POST /benchmark
-  - GET /results
-  - POST /peer-comparisons
-  - GET /peer-comparisons/{metric_id}
+  endpoints: []

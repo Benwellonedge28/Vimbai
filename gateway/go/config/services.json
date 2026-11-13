@@ -50,8 +50,8 @@
     {
       "name": "alerts-service",
       "path": "/alerts",
-      "url": "http://localhost:9008",
-      "port": 8090,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -98,10 +98,10 @@
     {
       "name": "bad-debts-recovery-service",
       "path": "/bad-debts-recovery",
-      "url": "http://localhost:9003",
-      "port": 8018,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "balance-sheet-service",
@@ -677,10 +677,10 @@
     {
       "name": "performance-benchmarking-service",
       "path": "/performance-benchmarking",
-      "url": "http://localhost:9007",
-      "port": 8280,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "personal-finance-service",
@@ -740,8 +740,8 @@
     {
       "name": "provision-bad-debts-service",
       "path": "/provision-bad-debts",
-      "url": "http://localhost:9003",
-      "port": 8108,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -860,10 +860,10 @@
     {
       "name": "sales-ledger-control-service",
       "path": "/sales-ledger-control",
-      "url": "http://localhost:9002",
-      "port": 8120,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "scenario-analysis-service",

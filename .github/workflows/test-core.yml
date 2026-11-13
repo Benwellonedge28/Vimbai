@@ -40,7 +40,7 @@ jobs:
           - group: advanced-accounting
             services: "revenue-recognition-service currency-service general-reserve-service data-warehouse-service subscription-plans-service intercompany-service "
           - group: ap-ar-expenses
-            services: "petty-cash-service sales-ledger-control-service "
+            services: "petty-cash-service "
           - group: corporate-finance
             services: "capital-reconstruction-service capital-redemption-reserve-service cash-optimization-service scenario-analysis-service sensitivity-analysis-service debentures-service "
           - group: costing-budgeting

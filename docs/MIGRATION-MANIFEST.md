@@ -62,7 +62,7 @@ Lands in `rust/crates/platform/alerts`.
 
 ```
 service                                         port  routes  records  engine
-alerts-service                                  8090      15      yes  rust
+alerts-service                                  8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -75,7 +75,7 @@ Lands in `rust/crates/domains/analytics`.
 
 ```
 service                                         port  routes  records  engine
-performance-benchmarking-service                8280       8       no  rust
+performance-benchmarking-service                8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -495,10 +495,10 @@ Lands in `rust/crates/domains/receivables`.
 
 ```
 service                                         port  routes  records  engine
-bad-debts-recovery-service                      8018       7      yes  rust
-provision-bad-debts-service                     8108       8      yes  rust
+bad-debts-recovery-service                      8099       0       no  rust
+provision-bad-debts-service                     8099       0       no  rust
 provision-doubtful-debts-service                8109       8      yes  rust
-sales-ledger-control-service                    8120       7      yes  rust
+sales-ledger-control-service                    8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

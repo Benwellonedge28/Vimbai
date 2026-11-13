@@ -258,27 +258,12 @@ services:
 - name: alerts-service
   domain: alerts
   target: rust/crates/platform/alerts
-  port: 8090
+  port: 8099
   gateway_path: /alerts
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /rules
-  - GET /rules
-  - GET /rules/{rule_id}
-  - PUT /rules/{rule_id}
-  - DELETE /rules/{rule_id}
-  - POST /alerts
-  - GET /alerts
-  - GET /alerts/{alert_id}
-  - PUT /alerts/{alert_id}/acknowledge
-  - PUT /alerts/{alert_id}/resolve
-  - PUT /alerts/{alert_id}/dismiss
-  - POST /evaluate
-  - GET /stats
-  - POST /trigger/{rule_id}
+  records: false
+  endpoints: []
 - name: appropriation-control-service
   domain: budgeting
   target: rust/crates/domains/budgeting
@@ -350,19 +335,12 @@ services:
 - name: bad-debts-recovery-service
   domain: receivables
   target: rust/crates/domains/receivables
-  port: 8018
+  port: 8099
   gateway_path: /bad-debts-recovery
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /bad-debts/register
-  - POST /bad-debts/{debt_id}/recover
-  - GET /bad-debts
-  - GET /bad-debts/{debt_id}
-  - GET /recovery-summary
+  records: false
+  endpoints: []
 - name: balance-sheet-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -1472,20 +1450,12 @@ services:
 - name: performance-benchmarking-service
   domain: analytics
   target: rust/crates/domains/analytics
-  port: 8280
+  port: 8099
   gateway_path: /performance-benchmarking
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /metrics
-  - GET /metrics
-  - POST /benchmark
-  - GET /results
-  - POST /peer-comparisons
-  - GET /peer-comparisons/{metric_id}
+  endpoints: []
 - name: personal-finance-service
   domain: finance
   target: rust/crates/domains/finance
@@ -1615,20 +1585,12 @@ services:
 - name: provision-bad-debts-service
   domain: receivables
   target: rust/crates/domains/receivables
-  port: 8108
+  port: 8099
   gateway_path: /provision-bad-debts
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /policies
-  - GET /policies
-  - POST /debtors/add
-  - POST /calculate-provision
-  - POST /journal/create
-  - GET /provision-history
+  records: false
+  endpoints: []
 - name: provision-doubtful-debts-service
   domain: receivables
   target: rust/crates/domains/receivables
@@ -1807,19 +1769,12 @@ services:
 - name: sales-ledger-control-service
   domain: receivables
   target: rust/crates/domains/receivables
-  port: 8120
+  port: 8099
   gateway_path: /sales-ledger-control
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /transactions
-  - GET /control-account/summary
-  - GET /debtors/{debtor_id}/balance
-  - GET /debtors
-  - POST /reconcile
+  records: false
+  endpoints: []
 - name: scenario-analysis-service
   domain: budgeting
   target: rust/crates/domains/budgeting

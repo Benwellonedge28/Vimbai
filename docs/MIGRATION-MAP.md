@@ -79,12 +79,12 @@ admin-service                                /admin                             
 
 ```text
 service                                      address                            eps  owns engine crate
-alerts-service                               /alerts                             15  recs rust   rust/crates/platform/alerts
+alerts-service                               /alerts                              0  -    rust   rust/crates/platform/alerts
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `alerts-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `alerts-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## analytics — 1/1 on Rust
 
@@ -94,7 +94,7 @@ alerts-service                               /alerts                            
 
 ```text
 service                                      address                            eps  owns engine crate
-performance-benchmarking-service             /performance-benchmarking            8  -    rust   rust/crates/domains/analytics
+performance-benchmarking-service             /performance-benchmarking            0  -    rust   rust/crates/domains/analytics
 ```
 
 | service | proof today | retires when |
@@ -635,18 +635,18 @@ benefits-admin-service                       /benefits-admin                    
 
 ```text
 service                                      address                            eps  owns engine crate
-bad-debts-recovery-service                   /bad-debts-recovery                  7  recs rust   rust/crates/domains/receivables
-provision-bad-debts-service                  /provision-bad-debts                 8  recs rust   rust/crates/domains/receivables
+bad-debts-recovery-service                   /bad-debts-recovery                  0  -    rust   rust/crates/domains/receivables
+provision-bad-debts-service                  /provision-bad-debts                 0  -    rust   rust/crates/domains/receivables
 provision-doubtful-debts-service             /provision-doubtful-debts            8  recs rust   rust/crates/domains/receivables
-sales-ledger-control-service                 /sales-ledger-control                7  recs rust   rust/crates/domains/receivables
+sales-ledger-control-service                 /sales-ledger-control                0  -    rust   rust/crates/domains/receivables
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `bad-debts-recovery-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `provision-bad-debts-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `bad-debts-recovery-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `provision-bad-debts-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `provision-doubtful-debts-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `sales-ledger-control-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `sales-ledger-control-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## reporting — 4/4 on Rust
 

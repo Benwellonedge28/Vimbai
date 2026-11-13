@@ -927,42 +927,6 @@ class TestBenefitsAdminService:
         assert data["balance_days"] == 1.5
 
 
-class TestPerformanceBenchmarkingService:
-    def setup_method(self):
-        self.client = TestClient(load_service_app("performance-benchmarking-service"))
-        use_fake_store("benchmark_store", "performance-benchmarking-service")
-        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
-        self.client = TestClient(load_service_app("performance-benchmarking-service"))
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "performance-benchmarking" in resp.json()["service"]
-
-    def test_metric_and_benchmark(self):
-        met = self.client.post(
-            "/metrics",
-            params={
-                "name": "Current Ratio",
-                "category": "financial",
-                "unit": "ratio",
-                "industry_median": 1.5,
-                "industry_top_quartile": 2.5,
-                "industry_bottom_quartile": 0.8,
-            },
-        )
-        met_id = met.json()["id"]
-
-        bench = self.client.post(
-            "/benchmark",
-            params={"org_value": 2.0, "metric_id": met_id, "period": "2026"},
-        )
-        data = bench.json()
-        assert bench.status_code == 200
-        assert data["rating"] == "above_average"
-        assert data["percentile_rank"] > 50
-
-
 class TestTreasuryReportingService:
     def setup_method(self):
         # Load first: main.py self-bootstraps the treasury_reporting_service package.

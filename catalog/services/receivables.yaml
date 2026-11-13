@@ -8,36 +8,21 @@ services:
 - name: bad-debts-recovery-service
   domain: receivables
   target: rust/crates/domains/receivables
-  port: 8018
+  port: 8099
   gateway_path: /bad-debts-recovery
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /bad-debts/register
-  - POST /bad-debts/{debt_id}/recover
-  - GET /bad-debts
-  - GET /bad-debts/{debt_id}
-  - GET /recovery-summary
+  records: false
+  endpoints: []
 - name: provision-bad-debts-service
   domain: receivables
   target: rust/crates/domains/receivables
-  port: 8108
+  port: 8099
   gateway_path: /provision-bad-debts
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /policies
-  - GET /policies
-  - POST /debtors/add
-  - POST /calculate-provision
-  - POST /journal/create
-  - GET /provision-history
+  records: false
+  endpoints: []
 - name: provision-doubtful-debts-service
   domain: receivables
   target: rust/crates/domains/receivables
@@ -58,16 +43,9 @@ services:
 - name: sales-ledger-control-service
   domain: receivables
   target: rust/crates/domains/receivables
-  port: 8120
+  port: 8099
   gateway_path: /sales-ledger-control
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /transactions
-  - GET /control-account/summary
-  - GET /debtors/{debtor_id}/balance
-  - GET /debtors
-  - POST /reconcile
+  records: false
+  endpoints: []
