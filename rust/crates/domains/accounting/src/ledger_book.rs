@@ -49,7 +49,8 @@ use vimbai_store::amounts::wire;
 use vimbai_store::read::money_or_nothing;
 use vimbai_store::read::{field, optional, or_default, refused, text};
 use vimbai_store::{
-    created_record, BookScope, Graph, Records, StoreError, JOURNAL_ENTRY, LEDGER_ACCOUNT,
+    created_record, BookScope, Graph, Records, StoreError, JOURNAL_ENTRY, JOURNAL_LINE,
+    LEDGER_ACCOUNT,
 };
 
 /// The source modules whose reference numbers the service keeps unique.
@@ -214,7 +215,7 @@ pub fn delete_account<G: Graph + ?Sized>(
     account_number: &str,
 ) -> Result<Value, StoreError> {
     let existing = require_account(graph, scope, account_number)?;
-    for entry in Records::new(graph, JOURNAL_ENTRY).list(scope, 2000)? {
+    for entry in Records::new(graph, JOURNAL_ENTRY).list_with_children(scope, 2000, JOURNAL_LINE)? {
         if touches_account(&entry, account_number) {
             return Err(refused(
                 "Account is linked to existing journal entries and cannot be deleted.",
@@ -228,7 +229,8 @@ pub fn delete_account<G: Graph + ?Sized>(
 // --- the journal ---
 
 fn entries<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Vec<Value>, StoreError> {
-    Records::new(graph, JOURNAL_ENTRY).list(scope, 4000)
+    // the lines are records of their own now, so they are read with the entry rather than out of it
+    Records::new(graph, JOURNAL_ENTRY).list_with_children(scope, 4000, JOURNAL_LINE)
 }
 
 fn posted(entry: &Value) -> bool {
@@ -486,7 +488,6 @@ pub fn create_entry<G: Graph + ?Sized>(
         "status": or_default(payload, "status", "draft"),
         "fraud_flag": or_default(payload, "fraud_flag", "safe"),
         "fraud_score": payload.get("fraud_score").cloned().unwrap_or(json!(0.0)),
-        "lines": lines,
         "created_at": text(payload, "created_at"),
         "updated_at": text(payload, "updated_at"),
     });
@@ -513,8 +514,37 @@ pub fn create_entry<G: Graph + ?Sized>(
     let mut stored_body = body.clone();
     stored_body["entry_hash"] = json!(stamp);
     stored_body["prev_hash"] = json!(prev_hash);
-    let saved = Records::new(graph, JOURNAL_ENTRY).create(scope, &stored_body)?;
-    Ok(merge(stored_body, &saved))
+    // each line is stamped with the entry it belongs to, so it can be found by account without reading the entries
+    let entry_id = stored_body
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    let mut held: Vec<Value> = Vec::with_capacity(lines.len());
+    for (index, line) in lines.iter().enumerate() {
+        let mut line = line.clone();
+        if let Some(object) = line.as_object_mut() {
+            object.insert("entry_id".into(), json!(entry_id));
+            object.insert("line_no".into(), json!(index + 1));
+        }
+        held.push(line);
+    }
+    let mut body_without_lines = stored_body.clone();
+    if let Some(object) = body_without_lines.as_object_mut() {
+        object.remove("lines");
+    }
+    let saved = Records::new(graph, JOURNAL_ENTRY).create_with_children(
+        scope,
+        &body_without_lines,
+        JOURNAL_LINE,
+        &held,
+        "entry_id",
+    )?;
+    let mut answer = merge(stored_body, &saved);
+    if let Some(object) = answer.as_object_mut() {
+        object.insert("lines".into(), Value::Array(lines));
+    }
+    Ok(answer)
 }
 
 /// `GET /journal-entries/{id}`.
@@ -523,7 +553,7 @@ pub fn get_entry<G: Graph + ?Sized>(
     scope: &BookScope,
     entry_id: &str,
 ) -> Result<Value, StoreError> {
-    Records::new(graph, JOURNAL_ENTRY).get(scope, entry_id)
+    Records::new(graph, JOURNAL_ENTRY).get_with_children(scope, entry_id, JOURNAL_LINE)
 }
 
 /// `GET /journal-entries/`, newest business date first.
@@ -935,6 +965,57 @@ mod tests {
         json!({"id": "e-1", "entry_date": "2026-03-15", "status": status,
                "description": "sale", "source_module": "Manual", "created_at": "2026-03-15T10:00:00",
                "lines": lines})
+    }
+
+    #[test]
+    fn a_posted_entrys_lines_are_records_of_their_own() {
+        use vimbai_store::fake::MemoryGraph;
+        let graph = MemoryGraph::new();
+        // a chart holding the two accounts the entry moves
+        for (number, kind, normal) in [("1000", "asset", "debit"), ("4000", "revenue", "credit")] {
+            vimbai_store::Records::new(&graph, LEDGER_ACCOUNT)
+                .create(&scope(), &account(number, kind, normal))
+                .expect("an account");
+        }
+        let posted = create_entry(
+            &graph,
+            &scope(),
+            &json!({"entry_date": "2026-03-15", "description": "sale", "status": "posted",
+            "lines": [
+                {"account_number": "1000", "debit": "250.00", "credit": "0"},
+                {"account_number": "4000", "debit": "0", "credit": "250.00"}
+            ]}),
+        )
+        .expect("posted");
+        let id = field(&posted, "id").to_string();
+
+        // the lines are their own records, each naming the entry and the side it moves
+        let held = graph.held("book-1", "JournalLine");
+        assert_eq!(held.len(), 2, "{held:?}");
+        assert!(held.iter().all(|line| field(line, "entry_id") == id));
+        let debited = held
+            .iter()
+            .find(|line| field(line, "account_number") == "1000")
+            .expect("the asset line");
+        assert_eq!(field(debited, "debit"), "250.000000");
+        assert_eq!(field(debited, "credit"), "0.000000");
+        assert_eq!(debited.get("line_no").and_then(Value::as_i64), Some(1));
+
+        // the entry itself no longer carries the lines as a block: one shape, so the two can never disagree
+        let stored = graph.held("book-1", "JournalEntry");
+        assert_eq!(stored.len(), 1);
+        assert!(
+            stored[0].get("lines").is_none(),
+            "the entry still carries its lines as a property: {}",
+            stored[0]
+        );
+
+        // and reading the entry hands the lines back, assembled from their own records
+        let read = get_entry(&graph, &scope(), &id).expect("read back");
+        let lines = read["lines"].as_array().expect("lines");
+        assert_eq!(lines.len(), 2);
+        assert_eq!(field(&lines[0], "account_number"), "1000");
+        assert_eq!(field(&lines[1], "account_number"), "4000");
     }
 
     #[test]

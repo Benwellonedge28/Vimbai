@@ -641,6 +641,11 @@ pub const DISTRIBUTION_LIST: RecordKind =
     RecordKind::new("DistributionList", "OWNS_DISTRIBUTION_LIST");
 pub const REPORT_SUBSCRIPTION: RecordKind =
     RecordKind::new("ReportSubscription", "OWNS_SUBSCRIPTION");
+/// One line of a double entry: a real record of its own, not a block inside the entry, so a line can be found by the
+/// account it moves without reading every entry first. Written and read with its entry in a single statement, because
+/// a line that exists without the entry it belongs to is a fragment of a posting.
+pub const JOURNAL_LINE: RecordKind = RecordKind::new("JournalLine", "HAS_LINE");
+
 pub const DISTRIBUTION_LOG: RecordKind =
     RecordKind::new("DistributionLog", "OWNS_DISTRIBUTION_LOG");
 
@@ -723,6 +728,124 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
         let mut params = scope.params();
         params["props"] = Value::Object(props);
         self.one(cypher, params)
+    }
+
+    /// Store a record together with the children it owns, in ONE statement.
+    ///
+    /// A child is not a list inside its parent: it is a record of its own, joined to the parent by an edge, so it can
+    /// be found by what it says rather than by reading every parent first. It is written in the same statement as the
+    /// parent because two writes could leave a posting existing in halves, which in a ledger is not a state that may
+    /// exist.
+    pub fn create_with_children(
+        &self,
+        scope: &BookScope,
+        fields: &Value,
+        child: RecordKind,
+        children: &[Value],
+        // the property each child carries the parent's id under - `entry_id` for a journal line, and whatever a
+        // different record calls its owner. The store assigns the id, so it must stamp the children itself.
+        parent_key: &str,
+    ) -> Result<Value, StoreError> {
+        let mut props = self.clean_fields(fields)?;
+        let id = props
+            .get("id")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .unwrap_or_else(|| uuid_like(&scope.book_id, props.len()));
+        props.insert("id".into(), json!(id));
+        props.insert("user_id".into(), json!(scope.user_id));
+        props.insert("book_id".into(), json!(scope.book_id));
+
+        let mut held: Vec<Value> = Vec::with_capacity(children.len());
+        for (index, line) in children.iter().enumerate() {
+            let mut child_props = line
+                .as_object()
+                .cloned()
+                .ok_or_else(|| StoreError::Invalid("a child must be an object".into()))?;
+            if child_props.contains_key("user_id") || child_props.contains_key("book_id") {
+                return Err(StoreError::Invalid(
+                    "user_id and book_id come from the caller's scope, not the payload".into(),
+                ));
+            }
+            child_props.insert("user_id".into(), json!(scope.user_id));
+            child_props.insert("book_id".into(), json!(scope.book_id));
+            child_props.insert("id".into(), json!(uuid_like(&scope.book_id, index)));
+            child_props.insert(parent_key.to_string(), json!(id));
+            held.push(Value::Object(child_props));
+        }
+
+        let cypher = format!(
+            "MATCH (u:User {{id: $user_id}})\n\
+             CREATE (x:{label})\n\
+             SET x = $props\n\
+             CREATE (u)-[:{edge}]->(x)\n\
+             WITH x\n\
+             UNWIND $children AS child\n\
+             CREATE (l:{child_label})\n\
+             SET l = child\n\
+             MERGE (x)-[:{child_edge}]->(l)\n\
+             RETURN x, collect(l) AS lines",
+            label = self.kind.label,
+            edge = self.kind.edge,
+            child_label = child.label,
+            child_edge = child.edge
+        );
+        let mut params = scope.params();
+        params["props"] = Value::Object(props);
+        params["children"] = Value::Array(held);
+        let row = self.one(cypher, params)?;
+        Ok(with_children(row, "lines"))
+    }
+
+    /// One record and the children it owns, read in ONE statement.
+    pub fn get_with_children(
+        &self,
+        scope: &BookScope,
+        id: &str,
+        child: RecordKind,
+    ) -> Result<Value, StoreError> {
+        let cypher = format!(
+            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+             WHERE x.id = $id AND x.book_id = $book_id\n\
+             OPTIONAL MATCH (x)-[:{child_edge}]->(l:{child_label})\n\
+             RETURN x, collect(l) AS lines",
+            label = self.kind.label,
+            edge = self.kind.edge,
+            child_edge = child.edge,
+            child_label = child.label
+        );
+        let mut params = scope.params();
+        params["id"] = json!(id);
+        let row = self.one(cypher, params)?;
+        Ok(with_children(row, "lines"))
+    }
+
+    /// Every record of this Book under this label, each with the children it owns, read in ONE statement.
+    pub fn list_with_children(
+        &self,
+        scope: &BookScope,
+        limit: usize,
+        child: RecordKind,
+    ) -> Result<Vec<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+             WHERE x.book_id = $book_id\n\
+             OPTIONAL MATCH (x)-[:{child_edge}]->(l:{child_label})\n\
+             RETURN x, collect(l) AS lines\n\
+             ORDER BY x.created_at DESC\n\
+             LIMIT $limit",
+            label = self.kind.label,
+            edge = self.kind.edge,
+            child_edge = child.edge,
+            child_label = child.label
+        );
+        let mut params = scope.params();
+        params["limit"] = json!(limit as i64);
+        let rows = self.graph.run(&cypher, params)?;
+        Ok(rows
+            .into_iter()
+            .map(|row| with_children(row, "lines"))
+            .collect())
     }
 
     pub fn get(&self, scope: &BookScope, id: &str) -> Result<Value, StoreError> {
@@ -886,6 +1009,23 @@ pub fn shareholder_record(payload: &Value) -> Value {
 /// The driver answers `CREATE ... RETURN x` with the node, so a record comes back as an object. A test
 /// double may answer with the bare id instead. Reading the record through this function means a port
 /// does not have to know which happened, and returning it to a caller does not depend on it either.
+/// A row whose children were collected under `key`, with the empty ones dropped.
+///
+/// `collect()` answers `[null]` for a parent with no children, so an empty list is what that means - never a list
+/// holding a null, which a reader would take for a child with no fields.
+fn with_children(mut row: Value, key: &str) -> Value {
+    let held = match row.get(key).cloned() {
+        Some(Value::Array(items)) => {
+            Value::Array(items.into_iter().filter(|item| !item.is_null()).collect())
+        }
+        _ => Value::Array(Vec::new()),
+    };
+    if let Some(object) = row.as_object_mut() {
+        object.insert(key.to_string(), held);
+    }
+    row
+}
+
 pub fn created_record(created: &Value) -> Value {
     match created {
         Value::String(id) => serde_json::json!({ "id": id }),

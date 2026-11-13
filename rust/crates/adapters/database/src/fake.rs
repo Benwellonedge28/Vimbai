@@ -154,6 +154,48 @@ impl MemoryGraph {
 
 impl Graph for MemoryGraph {
     fn run(&self, cypher: &str, params: Value) -> Result<Vec<Value>, StoreError> {
+        // a create with children writes the parent and each child, and answers the parent with its lines
+        if cypher.contains("CREATE (x:") && cypher.contains("UNWIND $children") {
+            let label = created_label(cypher)
+                .ok_or_else(|| StoreError::Graph("no label in a create".into()))?;
+            let props = params
+                .get("props")
+                .cloned()
+                .ok_or_else(|| StoreError::Graph("a create with no properties".into()))?;
+            let child_label = cypher
+                .find("CREATE (l:")
+                .map(|start| {
+                    let rest = &cypher[start + "CREATE (l:".len()..];
+                    rest[..rest.find(')').expect("a label ends")].to_string()
+                })
+                .ok_or_else(|| StoreError::Graph("no child label in a create".into()))?;
+            let children = params
+                .get("children")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default();
+            let mut nodes = self
+                .nodes
+                .lock()
+                .expect("the memory graph is never poisoned");
+            nodes.push(Node {
+                label,
+                props: props.clone(),
+            });
+            for child in &children {
+                nodes.push(Node {
+                    label: child_label.clone(),
+                    props: child.clone(),
+                });
+            }
+            drop(nodes);
+            let mut answer = props;
+            if let Some(object) = answer.as_object_mut() {
+                object.insert("lines".into(), json!(children));
+            }
+            return Ok(vec![json!({ "x": answer })]);
+        }
+
         // a create carries its own properties and stamps the caller's scope
         if cypher.contains("CREATE (x:") {
             let label = created_label(cypher)
@@ -170,6 +212,72 @@ impl Graph for MemoryGraph {
                     props: props.clone(),
                 });
             return Ok(vec![json!({ "x": props })]);
+        }
+
+        // a read that collects children answers each parent with the lines that name it as their entry
+        if cypher.contains("collect(l)") {
+            let label = matched_label(cypher)
+                .ok_or_else(|| StoreError::Graph(format!("unreadable statement: {cypher}")))?;
+            let shared = params.get("user_id").is_none();
+            let user_id = stated(&params, "user_id");
+            let book_id = stated(&params, "book_id");
+            let id = stated(&params, "id");
+            let nodes = self
+                .nodes
+                .lock()
+                .expect("the memory graph is never poisoned");
+            let mine: Vec<&Node> = nodes
+                .iter()
+                .filter(|node| node.label == label)
+                .filter(|node| {
+                    params.get("book_id").is_none()
+                        || node.props.get("book_id").and_then(Value::as_str)
+                            == Some(book_id.as_str())
+                })
+                .filter(|node| {
+                    shared
+                        || node.props.get("user_id").and_then(Value::as_str)
+                            == Some(user_id.as_str())
+                })
+                .filter(|node| {
+                    id.is_empty()
+                        || node.props.get("id").and_then(Value::as_str) == Some(id.as_str())
+                })
+                .collect();
+            // the child label is named in the statement, so a child is any node of it that carries the parent's id
+            let child_label = cypher
+                .find("->(l:")
+                .map(|start| {
+                    let rest = &cypher[start + "->(l:".len()..];
+                    rest[..rest.find(')').unwrap_or(rest.len())].to_string()
+                })
+                .unwrap_or_default();
+            let mut rows: Vec<Value> = Vec::with_capacity(mine.len());
+            for node in mine {
+                let own = node
+                    .props
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                let lines: Vec<Value> = nodes
+                    .iter()
+                    .filter(|child| child.label == child_label)
+                    .filter(|child| {
+                        child
+                            .props
+                            .as_object()
+                            .map(|fields| fields.values().any(|value| value.as_str() == Some(own)))
+                            .unwrap_or(false)
+                    })
+                    .map(|child| child.props.clone())
+                    .collect();
+                let mut row = node.props.clone();
+                if let Some(object) = row.as_object_mut() {
+                    object.insert("lines".into(), Value::Array(lines));
+                }
+                rows.push(json!({ "x": row }));
+            }
+            return Ok(rows);
         }
 
         let label = matched_label(cypher)

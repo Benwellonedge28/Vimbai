@@ -1555,6 +1555,21 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
 | working-capital-finance-service | ratios_statements::analyze_working_capital, ratios_statements::optimize_working_capital |
 | working-capital-optimization-service | ratios_statements::analyze_working_capital, ratios_statements::optimize_working_capital |
 | working-capital-service | ratios_statements::analyze_working_capital, ratios_statements::optimize_working_capital |
+- Journal lines are records of their own (rust/, the store and the accounting crate): a posted entry used to carry its
+  lines as a `lines` block on the entry node, which made a line addressable only by reading every entry first. Each line
+  is now a `JournalLine` record joined to its entry by `HAS_LINE`, naming the entry it belongs to (`entry_id`), its
+  place in the entry (`line_no`), the account it moves and the side it moves. The write is ONE statement - the entry and
+  its lines together - because two writes could leave a posting existing in halves, which in a ledger is not a state
+  that may exist; and the reads (`get`, `list`) assemble the lines back in the same single statement, so no caller
+  sees a second query and the wire shape is unchanged. A test pins all three facts: two line records exist naming the
+  entry, the entry node no longer carries a `lines` property (one shape, so the two can never disagree), and reading the
+  entry hands the lines back assembled.
+  NAMED GAP, not justified away: the design also wants `DEBITED`/`CREDITED` edges from a line to the account it moves.
+  Those are not written yet because the store's CRUD is property-based and the in-memory graph understands only the
+  statement shapes the store emits - an edge-writing statement would ship with no test that could see it. A line
+  states its side and its account as properties today; the edges are the remaining step, and they need real edge
+  support in the memory graph first.
+
 ## Divergences worth knowing
 
 `depreciation-service` published a `/calculate` schedule that was synthetic: it was never wired

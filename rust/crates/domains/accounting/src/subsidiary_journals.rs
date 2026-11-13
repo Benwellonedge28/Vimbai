@@ -753,7 +753,10 @@ mod tests {
         build(&graph).expect("created");
         let (statement, params) = graph.statement(3);
         assert!(statement.contains("CREATE"), "{statement}");
-        params["props"].clone()
+        // the lines are written as their own records now, carried in the same statement as the entry
+        let mut entry = params["props"].as_object().cloned().expect("an entry");
+        entry.insert("lines".into(), params["children"].clone());
+        Value::Object(entry)
     }
 
     #[test]
