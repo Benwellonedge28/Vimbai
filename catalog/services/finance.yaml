@@ -23,79 +23,48 @@ services:
 - name: insurance-claims-service
   domain: finance
   target: rust/crates/domains/finance
-  port: 8367
+  port: 8099
   gateway_path: /insurance-claims
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /file
-  - GET /claims
-  - POST /claims/{claim_id}/process
+  records: false
+  endpoints: []
 - name: internal-rate-return-service
   domain: finance
   target: rust/crates/domains/finance
-  port: 8068
+  port: 8099
   gateway_path: /internal-rate-return
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /calculate
-  - POST /calculate-bisection
-  - POST /compare
-  - POST /decision
+  endpoints: []
 - name: investment-monitoring-service
   domain: finance
   target: rust/crates/domains/finance
-  port: 8290
+  port: 8099
   gateway_path: /investment-monitoring
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /portfolios
-  - GET /portfolios
-  - POST /portfolios/{portfolio_id}/holdings
-  - GET /portfolios/{portfolio_id}/holdings
-  - POST /portfolios/{portfolio_id}/performance
-  - GET /portfolios/{portfolio_id}/performance
-  - POST /holdings/{holding_id}/update-price
+  records: false
+  endpoints: []
 - name: net-present-value-service
   domain: finance
   target: rust/crates/domains/finance
-  port: 8083
+  port: 8099
   gateway_path: /net-present-value
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /calculate
-  - POST /calculate-percent
-  - POST /compare
-  - POST /profitability-index
+  endpoints: []
 - name: payback-period-service
   domain: finance
   target: rust/crates/domains/finance
-  port: 8098
+  port: 8099
   gateway_path: /payback-period
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /calculate
-  - POST /compare
-  - POST /average-cash-flow
+  endpoints: []
 - name: personal-finance-service
   domain: finance
   target: rust/crates/domains/finance
@@ -103,44 +72,14 @@ services:
   gateway_path: /personal-finance
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - POST /recurring
-  - GET /recurring
-  - PATCH /recurring/{rec_id}
-  - DELETE /recurring/{rec_id}
-  - POST /recurring/{rec_id}/run
-  - POST /debts
-  - GET /debts
-  - GET /debts/{key}
-  - POST /debts/{debt_id}/payments
-  - GET /debts/{debt_id}/schedule
-  - POST /investments
-  - GET /investments
-  - POST /investments/{inv_id}/trades
-  - POST /investments/{inv_id}/price
-  - GET /tax/brackets
-  - PUT /tax/brackets
-  - POST /tax/estimate
-  - POST /goals
-  - GET /goals/{user_id}
-  - POST /income
-  - GET /income/{user_id}
-  - GET /overview/{user_id}
-  - GET /health
-  - GET /
+  records: false
+  endpoints: []
 - name: trade-finance-service
   domain: finance
   target: rust/crates/domains/finance
-  port: 8191
+  port: 8099
   gateway_path: /trade-finance
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /instruments
-  - GET /instruments
-  - POST /instruments/{instrument_id}/present
-  - POST /instruments/{instrument_id}/settle
+  records: false
+  endpoints: []

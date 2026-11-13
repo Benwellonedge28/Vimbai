@@ -489,10 +489,10 @@
     {
       "name": "insurance-claims-service",
       "path": "/insurance-claims",
-      "url": "http://localhost:9012",
-      "port": 8367,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "intangible-assets-service",
@@ -513,18 +513,18 @@
     {
       "name": "internal-rate-return-service",
       "path": "/internal-rate-return",
-      "url": "http://localhost:9007",
-      "port": 8068,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "investment-monitoring-service",
       "path": "/investment-monitoring",
-      "url": "http://localhost:9003",
-      "port": 8290,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "investment-property-service",
@@ -590,10 +590,10 @@
     {
       "name": "net-present-value-service",
       "path": "/net-present-value",
-      "url": "http://localhost:9012",
-      "port": 8083,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "notifications-service",
@@ -661,10 +661,10 @@
     {
       "name": "payback-period-service",
       "path": "/payback-period",
-      "url": "http://localhost:9012",
-      "port": 8098,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "payment-gateway-service",
@@ -685,10 +685,10 @@
     {
       "name": "personal-finance-service",
       "path": "/personal-finance",
-      "url": "http://localhost:9012",
+      "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "petty-cash-service",
@@ -963,10 +963,10 @@
     {
       "name": "trade-finance-service",
       "path": "/trade-finance",
-      "url": "http://localhost:9012",
-      "port": 8191,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "trading-account-service",

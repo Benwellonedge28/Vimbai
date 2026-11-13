@@ -336,58 +336,6 @@ class TestETLService:
         assert run_resp.json()["status"] == "completed"
 
 
-class TestInvestmentMonitoringService:
-    def setup_method(self):
-        import importlib.util
-        import os as _os
-
-        app = load_service_app("investment-monitoring-service")
-        svc_dir = _os.path.join(REPO_ROOT, "investment-monitoring-service")
-        spec = importlib.util.spec_from_file_location("im_root_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
-        fake_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fake_mod)
-        self._session = fake_mod.FakeSession()
-        import investment_monitoring_service.database as db
-
-        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
-        self.client = TestClient(app)
-        self.client.headers.update({"X-User-Id": "root-im-user"})
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "investment-monitoring" in resp.json()["service"]
-
-    def test_portfolio_and_performance(self):
-        port_resp = self.client.post(
-            "/portfolios",
-            params={
-                "name": "Growth Portfolio",
-                "target_return": 12.0,
-                "risk_tolerance": "moderate",
-            },
-        )
-        port_id = port_resp.json()["id"]
-
-        hold_resp = self.client.post(
-            f"/portfolios/{port_id}/holdings",
-            params={
-                "instrument_name": "AAPL",
-                "instrument_type": "equity",
-                "quantity": 100,
-                "purchase_price": 150.0,
-                "current_price": 175.0,
-            },
-        )
-        assert hold_resp.status_code == 200
-
-        perf_resp = self.client.post(f"/portfolios/{port_id}/performance")
-        data = perf_resp.json()
-        assert perf_resp.status_code == 200
-        assert data["total_value"] == 17500.0
-        assert data["unrealized_gain"] == 2500.0
-
-
 class TestSOXComplianceService:
     def setup_method(self):
         # Load first: main.py self-bootstraps the sox_compliance_service package.

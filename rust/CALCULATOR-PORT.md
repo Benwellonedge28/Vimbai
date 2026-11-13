@@ -1620,6 +1620,10 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   gone, all answered flat so their entries drop the prefix. Their suites went with them: the tax risk and tax provision
   tests stay because those two services stay.
 
+- The finance domain, batch seven: insurance-claims, internal-rate-return, investment-monitoring,
+  net-present-value, payback-period, personal-finance and trade-finance are gone, all answered flat. Note the traps the
+  survey avoids by comparing whole names: discounted-payback-period-service is a different service and stays.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

@@ -420,25 +420,25 @@ websocket-service                            /websocket                         
 ```text
 service                                      address                            eps  owns engine crate
 continue-shutdown-decision-service           /continue-shutdown-decision          6  recs rust   rust/crates/domains/finance
-insurance-claims-service                     /insurance-claims                    5  recs rust   rust/crates/domains/finance
-internal-rate-return-service                 /internal-rate-return                6  -    rust   rust/crates/domains/finance
-investment-monitoring-service                /investment-monitoring               9  recs rust   rust/crates/domains/finance
-net-present-value-service                    /net-present-value                   6  -    rust   rust/crates/domains/finance
-payback-period-service                       /payback-period                      5  -    rust   rust/crates/domains/finance
-personal-finance-service                     /personal-finance                   24  recs rust   rust/crates/domains/finance
-trade-finance-service                        /trade-finance                       6  recs rust   rust/crates/domains/finance
+insurance-claims-service                     /insurance-claims                    0  -    rust   rust/crates/domains/finance
+internal-rate-return-service                 /internal-rate-return                0  -    rust   rust/crates/domains/finance
+investment-monitoring-service                /investment-monitoring               0  -    rust   rust/crates/domains/finance
+net-present-value-service                    /net-present-value                   0  -    rust   rust/crates/domains/finance
+payback-period-service                       /payback-period                      0  -    rust   rust/crates/domains/finance
+personal-finance-service                     /personal-finance                    0  -    rust   rust/crates/domains/finance
+trade-finance-service                        /trade-finance                       0  -    rust   rust/crates/domains/finance
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
 | `continue-shutdown-decision-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `insurance-claims-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `insurance-claims-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `internal-rate-return-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `investment-monitoring-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `investment-monitoring-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `net-present-value-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `payback-period-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `personal-finance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `trade-finance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `personal-finance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `trade-finance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## identity — 1/1 on Rust
 

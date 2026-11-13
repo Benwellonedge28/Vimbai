@@ -321,13 +321,13 @@ Lands in `rust/crates/domains/finance`.
 ```
 service                                         port  routes  records  engine
 continue-shutdown-decision-service              8032       6      yes  rust
-insurance-claims-service                        8367       5      yes  rust
-internal-rate-return-service                    8068       6       no  rust
-investment-monitoring-service                   8290       9      yes  rust
-net-present-value-service                       8083       6       no  rust
-payback-period-service                          8098       5       no  rust
-personal-finance-service                        8099      24      yes  rust
-trade-finance-service                           8191       6      yes  rust
+insurance-claims-service                        8099       0       no  rust
+internal-rate-return-service                    8099       0       no  rust
+investment-monitoring-service                   8099       0       no  rust
+net-present-value-service                       8099       0       no  rust
+payback-period-service                          8099       0       no  rust
+personal-finance-service                        8099       0       no  rust
+trade-finance-service                           8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

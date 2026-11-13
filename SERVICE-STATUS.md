@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          104
+live and routed          97
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -65,10 +65,7 @@ Routed by the API gateway and deployed. These are the running product.
 `graphql-service`
 `ifrs-reporting-service`
 `initial-investment-service`
-`insurance-claims-service`
 `intercompany-service`
-`internal-rate-return-service`
-`investment-monitoring-service`
 `investment-property-service`
 `invoicing-service`
 `issued-share-capital-service`
@@ -76,16 +73,13 @@ Routed by the API gateway and deployed. These are the running product.
 `message-bus-service`
 `mfa-auth-service`
 `multimodal-pipeline-service`
-`net-present-value-service`
 `notifications-service`
 `npo-scale-service`
 `npo-service`
 `ordinary-shares-service`
 `overhead-absorption-rate-service`
-`payback-period-service`
 `payment-gateway-service`
 `performance-benchmarking-service`
-`personal-finance-service`
 `petty-cash-service`
 `pos-integration-service`
 `preference-shares-service`
@@ -110,7 +104,6 @@ Routed by the API gateway and deployed. These are the running product.
 `sovereign-treasury-service`
 `sox-compliance-service`
 `subscription-plans-service`
-`trade-finance-service`
 `trading-account-service`
 `treasury-analytics-service`
 `treasury-compliance-service`
