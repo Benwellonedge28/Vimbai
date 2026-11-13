@@ -427,6 +427,28 @@ xbrl-reporting-service
   goodwill reserve only under `raise_and_raise`. No service here moves money: every draft is kept with the record and
   posting it stays the accounting books' business.
 
+- double-entry-principles-service, control-account-reconciliation-service, financial-integrity-service and financial-state-machine-service
+  -> the ledger kernel's services crate (rust/crates/kernel/ledger-services),
+  beside ledger-core rather than in a domain of their own, because all four answer questions about the same journal.
+  ledger-core stays the sole authority for posting integrity; these are the kernel's HTTP and record surface.
+  Double entry is the reference and stores nothing: the sixteen account types, which side each grows on, the seven
+  journal templates, and the suggested entry for a sale, a purchase or a depreciation. Control account keeps the
+  breaks - a variance is always the absolute difference, a resolved break stops counting as money at risk, and a
+  reconciliation snapshots the pending breaks it found rather than linking them, so a later reconciliation does not
+  rewrite what an earlier report saw. Financial integrity is the balance, hash and completeness checks and the
+  report over one company's checks; a company with nothing recorded reads nil rather than dividing by nothing.
+  The state machine walks a document draft -> pending approval -> approved -> posted -> archived, checks every move
+  against the map before applying it, appends each move to the document's history, and creates every document in
+  draft whatever state the caller sends, because a document that arrives already posted has skipped the approvals
+  the map exists to enforce. Two answers differ from the Python on purpose: `/validate-journal-entry` accepted a
+  one cent drift and now refuses anything that is not exactly balanced, and `/account-rules/{account_type}` raised
+  for every account type because its examples catalogue named two members the enum never had, so the port answers
+  the rules and examples it meant to give. One boundary is named rather than crossed: ledger-core validates balance
+  in f64 with a 1e-9 tolerance, which would put floats back into a posting decision, so this service answers in
+  exact Money and does not call it - moving that validator onto Money belongs in ledger-core. The documents carry
+  their own `OWNS_FINANCIAL_DOCUMENT` edge rather than borrowing the accounting crate's document edge, so the two
+  registers cannot be mistaken for one.
+
 - revaluation-model-service -> assets crate, no records: a revaluation pass plus the four questions that follow one.
   One pass decides per asset whether fair value sits above or below its carrying amount; gains go to a revaluation
   surplus in other comprehensive income, losses go against that surplus first and only the rest to profit or loss, and

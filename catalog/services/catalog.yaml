@@ -6,8 +6,9 @@ catalog:
   services: 138
 domains:
 - name: kernel
-  responsibility: 'ledger-core: sole authority for posting integrity, immutability and the hash chain'
-  target: rust/crates/kernel/ledger-core
+  responsibility: 'ledger-core: sole authority for posting integrity, immutability and the hash chain;
+    ledger-services: the kernel services'' HTTP and record surface'
+  target: rust/crates/kernel/ledger-services
 - name: accounting
   responsibility: accounting workflows and the statements they produce
   target: rust/crates/domains/accounting
@@ -705,11 +706,11 @@ services:
   - GET /decisions/{decision_id}
 - name: control-account-reconciliation-service
   domain: kernel
-  target: rust/crates/kernel/ledger-core
+  target: rust/crates/kernel/ledger-services
   port: 8033
   gateway_path: /control-account-reconciliation
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -936,11 +937,11 @@ services:
   - POST /documents/{document_id}/link
 - name: double-entry-principles-service
   domain: kernel
-  target: rust/crates/kernel/ledger-core
+  target: rust/crates/kernel/ledger-services
   port: 8047
   gateway_path: /double-entry-principles
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /health
@@ -1050,11 +1051,11 @@ services:
   - GET /profiles/user/{user_id}
 - name: financial-integrity-service
   domain: kernel
-  target: rust/crates/kernel/ledger-core
+  target: rust/crates/kernel/ledger-services
   port: 8054
   gateway_path: /financial-integrity
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -1065,11 +1066,11 @@ services:
   - GET /report/{company_id}
 - name: financial-state-machine-service
   domain: kernel
-  target: rust/crates/kernel/ledger-core
+  target: rust/crates/kernel/ledger-services
   port: 8055
   gateway_path: /financial-state-machine
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 82
-still Python             56
+already on a Rust engine 86
+still Python             52
 owner domains            28
 ```
 
@@ -280,19 +280,19 @@ Retirement gate: port the maths and its records into this domain, capture parity
 
 ## kernel
 
-_ledger-core: sole authority for posting integrity, immutability and the hash chain_
+_ledger-core: sole authority for posting integrity, immutability and the hash chain; ledger-services: the kernel services' HTTP and record surface_
 
-Lands in `rust/crates/kernel/ledger-core`.
+Lands in `rust/crates/kernel/ledger-services`.
 
 ```
 service                                         port  routes  records  engine
-control-account-reconciliation-service          8033       8      yes  python
-double-entry-principles-service                 8047       9       no  python
-financial-integrity-service                     8054       6      yes  python
-financial-state-machine-service                 8055       7      yes  python
+control-account-reconciliation-service          8033       8      yes  rust
+double-entry-principles-service                 8047       9       no  rust
+financial-integrity-service                     8054       6      yes  rust
+financial-state-machine-service                 8055       7      yes  rust
 ```
 
-Retirement gate: port the maths and its records into this domain, capture parity against the Python, then de-register. Nothing is deleted before that.
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
 
 ## multimodal
 

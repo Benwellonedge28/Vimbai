@@ -493,6 +493,14 @@ pub const DOUBTFUL_PROVISION: RecordKind =
     RecordKind::new("DoubtfulDebtProvision", "OWNS_DOUBTFUL_PROVISION");
 pub const DEBTOR_TRANSACTION: RecordKind =
     RecordKind::new("DebtorTransaction", "OWNS_DEBTOR_TRANSACTION");
+// the ledger kernel's services: the breaks in a control account, the integrity checks, the documents
+pub const RECONCILIATION_ERROR: RecordKind =
+    RecordKind::new("ReconciliationError", "OWNS_RECONCILIATION_ERROR");
+pub const RECONCILIATION_REPORT: RecordKind =
+    RecordKind::new("ReconciliationReport", "OWNS_RECONCILIATION_REPORT");
+pub const INTEGRITY_CHECK: RecordKind = RecordKind::new("IntegrityCheck", "OWNS_INTEGRITY_CHECK");
+pub const FINANCIAL_DOCUMENT: RecordKind =
+    RecordKind::new("FinancialDocument", "OWNS_FINANCIAL_DOCUMENT");
 pub const ACTIVITY: RecordKind = RecordKind::new("Activity", "OWNS_ACTIVITY");
 pub const ACTIVITY_BUDGET: RecordKind = RecordKind::new("ActivityBudget", "OWNS_ACTIVITY_BUDGET");
 pub const SELLING_PRICE_ANALYSIS: RecordKind =

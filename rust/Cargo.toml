@@ -21,6 +21,7 @@ members = [
     "crates/platform/access-control/rbac",
     "crates/platform/access-control/abac",
     "crates/kernel/ledger-core",
+    "crates/kernel/ledger-services",
     "crates/calculations/advisory",
     "crates/domains/assets",
     "crates/calculations/assurance",

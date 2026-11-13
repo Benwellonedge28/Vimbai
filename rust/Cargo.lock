@@ -1957,6 +1957,7 @@ dependencies = [
  "vimbai_equity_payroll",
  "vimbai_group_accounting",
  "vimbai_ifrs",
+ "vimbai_ledger_services",
  "vimbai_market_risk",
  "vimbai_performance_measures",
  "vimbai_ratios_statements",
@@ -2091,6 +2092,16 @@ dependencies = [
  "serde",
  "serde_json",
  "vimbai_common",
+]
+
+[[package]]
+name = "vimbai_ledger_services"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vimbai-ledger-core",
+ "vimbai_common",
+ "vimbai_store",
 ]
 
 [[package]]
@@ -2232,6 +2243,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "subtle",
+ "vimbai_common",
 ]
 
 [[package]]

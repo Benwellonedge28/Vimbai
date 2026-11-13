@@ -22,8 +22,9 @@ OUT = os.path.join(REPO, "docs", "MIGRATION-MANIFEST.md")
 # Domain -> what it is responsible for, and where its code lands.
 DOMAINS = {
     "kernel": (
-        "ledger-core: sole authority for posting integrity, immutability and the hash chain",
-        "rust/crates/kernel/ledger-core",
+        "ledger-core: sole authority for posting integrity, immutability and the hash chain; "
+        "ledger-services: the kernel services' HTTP and record surface",
+        "rust/crates/kernel/ledger-services",
     ),
     "accounting": ("accounting workflows and the statements they produce", "rust/crates/domains/accounting"),
     "receivables": ("sales ledger, bad debts and provisions against them", "rust/crates/domains/receivables"),

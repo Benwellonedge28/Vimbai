@@ -18,6 +18,7 @@ equity = { package = "vimbai_service_equity", path = "../../crates/domains/equit
 equity_payroll = { package = "vimbai_equity_payroll", path = "../../crates/calculations/equity_payroll" }
 finance = { package = "vimbai_service_finance", path = "../../crates/domains/finance" }
 partnerships = { package = "vimbai_service_partnerships", path = "../../crates/domains/partnerships" }
+ledger = { package = "vimbai_ledger_services", path = "../../crates/kernel/ledger-services" }
 receivables = { package = "vimbai_service_receivables", path = "../../crates/domains/receivables" }
 treasury = { package = "vimbai_service_treasury", path = "../../crates/domains/treasury" }
 performance_measures = { package = "vimbai_performance_measures", path = "../../crates/calculations/performance_measures" }

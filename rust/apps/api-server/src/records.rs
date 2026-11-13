@@ -35,6 +35,7 @@ use finance::{
     continue_shutdown, insurance_claims, internal_rate_return, investment_monitoring,
     net_present_value, payback_period, personal_finance, personal_money, trade_finance,
 };
+use ledger;
 use partnerships::{agreement, changes, dissolution, revaluation as partnership_revaluation};
 use receivables;
 use serde_json::{json, Value};
@@ -8840,9 +8841,326 @@ async fn list_doubtful_debtors(State(graph): GraphState, headers: HeaderMap) -> 
     answer(receivables::doubtful::list_debtors(graph.as_ref(), &scope))
 }
 
+// --- the ledger kernel: double entry rules, control account breaks, integrity checks, documents ---
+
+async fn validate_journal_payload(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let _ = (&graph, &headers);
+    answer(ledger::double_entry::validate_entry(&payload))
+}
+
+async fn calculate_debit_credit(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let _ = (&graph, &headers);
+    answer(ledger::double_entry::calculate_entry(
+        &crate::merge_request(query.as_deref(), None),
+    ))
+}
+
+async fn account_rules(Path(account_type): Path<String>) -> Response {
+    answer(ledger::double_entry::account_rules(&account_type))
+}
+
+async fn account_type_catalogue() -> Response {
+    answer(Ok(ledger::double_entry::account_types()))
+}
+
+/// The shipped route was a POST that took no body at all: the entry type is the path and the template is
+/// the answer, so a POST with an empty body still gets the template.
+async fn journal_entry_template(Path(entry_type): Path<String>) -> Response {
+    answer(ledger::double_entry::journal_template(&entry_type))
+}
+
+async fn analyze_transaction_description(
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let _ = &headers;
+    answer(ledger::double_entry::analyze_transaction(
+        &crate::merge_request(query.as_deref(), None),
+    ))
+}
+
+async fn accounting_equation() -> Response {
+    answer(Ok(ledger::double_entry::accounting_equation()))
+}
+
+async fn report_reconciliation_error(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(ledger::control_account::report_error(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_reconciliation_errors(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let status = query_param(query.as_deref(), "status").unwrap_or_default();
+    let error_type = query_param(query.as_deref(), "error_type").unwrap_or_default();
+    answer(ledger::control_account::list_errors(
+        graph.as_ref(),
+        &scope,
+        &status,
+        &error_type,
+    ))
+}
+
+async fn resolve_reconciliation_error(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(error_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(ledger::control_account::resolve_error(
+        graph.as_ref(),
+        &scope,
+        &error_id,
+        &body,
+    ))
+}
+
+async fn reconcile_ledger_control_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(account_type): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(ledger::control_account::reconcile_control_account(
+        graph.as_ref(),
+        &scope,
+        &account_type,
+        &body,
+    ))
+}
+
+async fn list_reconciliation_reports(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let limit = query_param(query.as_deref(), "limit")
+        .and_then(|text| text.parse::<usize>().ok())
+        .unwrap_or(10);
+    answer(ledger::control_account::list_reports(
+        graph.as_ref(),
+        &scope,
+        limit,
+    ))
+}
+
+async fn reconciliation_summary(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(ledger::control_account::reconciliation_summary(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn integrity_balance_check(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(ledger::integrity::check_balance(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn integrity_hash_check(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(ledger::integrity::check_hash(graph.as_ref(), &scope, &body))
+}
+
+async fn integrity_completeness_check(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(ledger::integrity::check_completeness(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn integrity_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(ledger::integrity::integrity_report(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn create_financial_document(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(ledger::state_machine::create_document(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn get_financial_document(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(doc_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(ledger::state_machine::get_document(
+        graph.as_ref(),
+        &scope,
+        &doc_id,
+    ))
+}
+
+async fn transition_financial_document(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(doc_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(ledger::state_machine::transition(
+        graph.as_ref(),
+        &scope,
+        &doc_id,
+        &body,
+    ))
+}
+
+async fn financial_document_history(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(doc_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(ledger::state_machine::history(
+        graph.as_ref(),
+        &scope,
+        &doc_id,
+    ))
+}
+
+async fn document_state_catalogue() -> Response {
+    answer(Ok(ledger::state_machine::catalogue()))
+}
+
 pub fn service_root_router(graph: GraphHandle) -> Router {
     Router::new()
         .route("/absorption-costing/product-costs", get(product_costs).post(keep_product_cost))
+
+        // the ledger kernel: double entry rules (nothing stored)
+        .route("/validate-journal-entry", post(validate_journal_payload))
+        .route("/calculate-entry", post(calculate_debit_credit))
+        .route("/account-rules/:account_type", get(account_rules))
+        .route("/account-types", get(account_type_catalogue))
+        .route("/journal-entries/:entry_type", post(journal_entry_template))
+        .route("/transaction-analyzer", post(analyze_transaction_description))
+        .route("/accounting-equation", get(accounting_equation))
+        // the ledger kernel: control account breaks and their reconciliation reports
+        .route("/errors/report", post(report_reconciliation_error))
+        .route("/errors", get(list_reconciliation_errors))
+        .route("/errors/:error_id/resolve", post(resolve_reconciliation_error))
+        .route(
+            "/reconcile/:account_type",
+            post(reconcile_ledger_control_account),
+        )
+        .route("/reports", get(list_reconciliation_reports))
+        .route("/summary", get(reconciliation_summary))
+        // the ledger kernel: the three integrity checks and the report they add up to
+        .route("/check/balance", post(integrity_balance_check))
+        .route("/check/hash", post(integrity_hash_check))
+        .route("/check/completeness", post(integrity_completeness_check))
+        .route("/report/:company_id", get(integrity_report))
+        // the ledger kernel: the document state machine
+        .route("/documents", post(create_financial_document))
+        .route("/documents/:doc_id", get(get_financial_document))
+        .route("/documents/:doc_id/transition", post(transition_financial_document))
+        .route("/documents/:doc_id/history", get(financial_document_history))
+        .route("/states", get(document_state_catalogue))
 
         // receivables: the sales ledger and its control account
         .route("/transactions", post(post_debtor_transaction))

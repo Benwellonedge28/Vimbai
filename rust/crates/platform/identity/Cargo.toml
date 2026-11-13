@@ -6,6 +6,7 @@ description = "Enterprise SSO for Vimbai: OIDC and SAML verification, hardened s
 license = "Proprietary"
 
 [dependencies]
+vimbai_common = { path = "../../common" }
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 hmac = "0.12"

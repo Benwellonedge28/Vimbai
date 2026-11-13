@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 82 are proven on a Rust engine. 55 are still Python-only.
+The gateway routes 137 services. 86 are proven on a Rust engine. 51 are still Python-only.
 
-Of the backlog, 17 own no records and can be ported as pure functions; 38 own records and
+Of the backlog, 16 own no records and can be ported as pure functions; 35 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-82 services.
+86 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -37,13 +37,17 @@ cash-optimization-service                      8030  routes=5   records=yes rust
 cashbook-service                               8098  routes=21  records=yes rust http
 company-accounting-service                     8101  routes=23  records=yes rust http
 continue-shutdown-decision-service             8032  routes=6   records=yes rust http
+control-account-reconciliation-service         8033  routes=8   records=yes rust http
 cvp-analysis-service                           8039  routes=9   records=yes rust http
 debentures-service                             8041  routes=10  records=yes rust http
 debt-management-service                        8194  routes=6   records=yes rust http
 departmental-accounting-service                8100  routes=22  records=yes rust http
 disposal-account-service                       8045  routes=6   records=no  rust http
 disposal-group-service                         8226  routes=8   records=yes rust http
+double-entry-principles-service                8047  routes=9   records=no  rust http
 equity-changes-service                         8049  routes=5   records=yes rust http
+financial-integrity-service                    8054  routes=6   records=yes rust http
+financial-state-machine-service                8055  routes=7   records=yes rust http
 fixed-assets-register-service                  8355  routes=9   records=yes rust http
 fixed-assets-schedule-service                  8056  routes=9   records=yes rust http
 foreign-exchange-service                       8192  routes=6   records=no  rust http
@@ -102,7 +106,7 @@ zero-based-budgeting-service                   8143  routes=7   records=yes rust
 
 ### Backlog: no records owned (port the maths only)
 
-17 services.
+16 services.
 
 ```
 reporting-service                              8361  routes=3   records=no  none
@@ -120,13 +124,12 @@ distributed-workflow-orchestration-service     8046  routes=8   records=no  none
 performance-benchmarking-service               8280  routes=8   records=no  none
 report-automation-service                      8272  routes=10  records=no  none
 graphql-service                                8095  routes=2   records=no  none
-double-entry-principles-service                8047  routes=9   records=no  none
 payment-gateway-service                        8098  routes=20  records=no  none
 ```
 
 ### Backlog: owns records (needs vimbai_store)
 
-38 services.
+35 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -135,14 +138,11 @@ financial-identity-service                     8053  routes=5   records=yes none
 tax-planning-service                           8292  routes=5   records=yes none
 expense-tracking-service                       8051  routes=6   records=yes none
 bank-relationship-service                      8021  routes=7   records=yes none
-financial-state-machine-service                8055  routes=7   records=yes none
 webhook-service                                8140  routes=5   records=yes none
 subscription-plans-service                     8001  routes=7   records=yes none
 risk-assessment-service                        8117  routes=6   records=yes none
 audit-engagement-service                       8371  routes=8   records=yes none
-financial-integrity-service                    8054  routes=6   records=yes none
 benefits-admin-service                         8360  routes=8   records=yes none
-control-account-reconciliation-service         8033  routes=8   records=yes none
 mfa-auth-service                               8007  routes=6   records=yes none
 data-warehouse-service                         8362  routes=9   records=yes none
 workflow-service                               8142  routes=1   records=yes none
