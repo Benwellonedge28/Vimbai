@@ -279,21 +279,21 @@ Lands in `rust/crates/domains/equity`.
 
 ```
 service                                         port  routes  records  engine
-authorized-share-capital-service                8017       8      yes  rust
-bonus-shares-service                            8023       4      yes  rust
-capital-reconstruction-service                  8026       9      yes  rust
-capital-redemption-reserve-service              8027       9      yes  rust
-debentures-service                              8041      10      yes  rust
-equity-changes-service                          8049       5      yes  rust
+authorized-share-capital-service                8099       0       no  rust
+bonus-shares-service                            8099       0       no  rust
+capital-reconstruction-service                  8099       0       no  rust
+capital-redemption-reserve-service              8099       0       no  rust
+debentures-service                              8099       0       no  rust
+equity-changes-service                          8099       0       no  rust
 general-reserve-service                         8061       8      yes  rust
-initial-investment-service                      8067       7      yes  rust
-issued-share-capital-service                    8071       7      yes  rust
+initial-investment-service                      8099       0       no  rust
+issued-share-capital-service                    8099       0       no  rust
 ordinary-shares-service                         8090       5      yes  rust
 preference-shares-service                       8102       9      yes  rust
 retained-profits-service                        8113      10      yes  rust
-right-issues-service                            8116       7      yes  rust
-share-premium-service                           8125       8      yes  rust
-share-redemption-service                        8126       8      yes  rust
+right-issues-service                            8099       0       no  rust
+share-premium-service                           8099       0       no  rust
+share-redemption-service                        8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

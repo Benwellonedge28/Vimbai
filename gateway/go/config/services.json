@@ -82,8 +82,8 @@
     {
       "name": "authorized-share-capital-service",
       "path": "/authorized-share-capital",
-      "url": "http://localhost:9003",
-      "port": 8017,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -170,8 +170,8 @@
     {
       "name": "bonus-shares-service",
       "path": "/bonus-shares",
-      "url": "http://localhost:9011",
-      "port": 8023,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -186,16 +186,16 @@
     {
       "name": "capital-reconstruction-service",
       "path": "/capital-reconstruction",
-      "url": "http://localhost:9012",
-      "port": 8026,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "capital-redemption-reserve-service",
       "path": "/capital-redemption-reserve",
-      "url": "http://localhost:9012",
-      "port": 8027,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -298,8 +298,8 @@
     {
       "name": "debentures-service",
       "path": "/debentures",
-      "url": "http://localhost:9012",
-      "port": 8041,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -369,8 +369,8 @@
     {
       "name": "equity-changes-service",
       "path": "/equity-changes",
-      "url": "http://localhost:9011",
-      "port": 8049,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -481,8 +481,8 @@
     {
       "name": "initial-investment-service",
       "path": "/initial-investment",
-      "url": "http://localhost:9003",
-      "port": 8067,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -544,8 +544,8 @@
     {
       "name": "issued-share-capital-service",
       "path": "/issued-share-capital",
-      "url": "http://localhost:9003",
-      "port": 8071,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -836,8 +836,8 @@
     {
       "name": "right-issues-service",
       "path": "/right-issues",
-      "url": "http://localhost:9011",
-      "port": 8116,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -899,16 +899,16 @@
     {
       "name": "share-premium-service",
       "path": "/share-premium",
-      "url": "http://localhost:9011",
-      "port": 8125,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "share-redemption-service",
       "path": "/share-redemption",
-      "url": "http://localhost:9011",
-      "port": 8126,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

@@ -359,40 +359,40 @@ document-service                             /document                          
 
 ```text
 service                                      address                            eps  owns engine crate
-authorized-share-capital-service             /authorized-share-capital            8  recs rust   rust/crates/domains/equity
-bonus-shares-service                         /bonus-shares                        4  recs rust   rust/crates/domains/equity
-capital-reconstruction-service               /capital-reconstruction              9  recs rust   rust/crates/domains/equity
-capital-redemption-reserve-service           /capital-redemption-reserve          9  recs rust   rust/crates/domains/equity
-debentures-service                           /debentures                         10  recs rust   rust/crates/domains/equity
-equity-changes-service                       /equity-changes                      5  recs rust   rust/crates/domains/equity
+authorized-share-capital-service             /authorized-share-capital            0  -    rust   rust/crates/domains/equity
+bonus-shares-service                         /bonus-shares                        0  -    rust   rust/crates/domains/equity
+capital-reconstruction-service               /capital-reconstruction              0  -    rust   rust/crates/domains/equity
+capital-redemption-reserve-service           /capital-redemption-reserve          0  -    rust   rust/crates/domains/equity
+debentures-service                           /debentures                          0  -    rust   rust/crates/domains/equity
+equity-changes-service                       /equity-changes                      0  -    rust   rust/crates/domains/equity
 general-reserve-service                      /general-reserve                     8  recs rust   rust/crates/domains/equity
-initial-investment-service                   /initial-investment                  7  recs rust   rust/crates/domains/equity
-issued-share-capital-service                 /issued-share-capital                7  recs rust   rust/crates/domains/equity
+initial-investment-service                   /initial-investment                  0  -    rust   rust/crates/domains/equity
+issued-share-capital-service                 /issued-share-capital                0  -    rust   rust/crates/domains/equity
 ordinary-shares-service                      /ordinary-shares                     5  recs rust   rust/crates/domains/equity
 preference-shares-service                    /preference-shares                   9  recs rust   rust/crates/domains/equity
 retained-profits-service                     /retained-profits                   10  recs rust   rust/crates/domains/equity
-right-issues-service                         /right-issues                        7  recs rust   rust/crates/domains/equity
-share-premium-service                        /share-premium                       8  recs rust   rust/crates/domains/equity
-share-redemption-service                     /share-redemption                    8  recs rust   rust/crates/domains/equity
+right-issues-service                         /right-issues                        0  -    rust   rust/crates/domains/equity
+share-premium-service                        /share-premium                       0  -    rust   rust/crates/domains/equity
+share-redemption-service                     /share-redemption                    0  -    rust   rust/crates/domains/equity
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `authorized-share-capital-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `bonus-shares-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `capital-reconstruction-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `capital-redemption-reserve-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `debentures-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `equity-changes-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `authorized-share-capital-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `bonus-shares-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `capital-reconstruction-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `capital-redemption-reserve-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `debentures-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `equity-changes-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `general-reserve-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `initial-investment-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `issued-share-capital-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `initial-investment-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `issued-share-capital-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `ordinary-shares-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
 | `preference-shares-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
 | `retained-profits-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `right-issues-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `share-premium-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `share-redemption-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `right-issues-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `share-premium-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `share-redemption-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## events — 2/2 on Rust
 

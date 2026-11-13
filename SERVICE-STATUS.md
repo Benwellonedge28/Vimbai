@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          92
+live and routed          81
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -26,18 +26,14 @@ Routed by the API gateway and deployed. These are the running product.
 `activity-based-budget-service`
 `admin-service`
 `appropriation-control-service`
-`authorized-share-capital-service`
 `automation-engine-service`
 `balance-sheet-service`
 `bank-feed-service`
 `basis-apportionment-service`
 `benefits-admin-service`
 `biological-assets-service`
-`bonus-shares-service`
 `book-sync-service`
 `cache-service`
-`capital-reconstruction-service`
-`capital-redemption-reserve-service`
 `cash-flow-service`
 `cash-flow-statement-service`
 `cash-management-service`
@@ -48,25 +44,21 @@ Routed by the API gateway and deployed. These are the running product.
 `currency-service`
 `cvp-analysis-service`
 `data-warehouse-service`
-`debentures-service`
 `debt-management-service`
 `departmental-accounting-service`
 `disposal-account-service`
 `distributed-workflow-orchestration-service`
 `document-service`
 `encrypted-backup-service`
-`equity-changes-service`
 `etl-service`
 `foreign-exchange-service`
 `fund-accounting-service`
 `general-reserve-service`
 `graphql-service`
 `ifrs-reporting-service`
-`initial-investment-service`
 `intercompany-service`
 `investment-property-service`
 `invoicing-service`
-`issued-share-capital-service`
 `job-costing-service`
 `message-bus-service`
 `mfa-auth-service`
@@ -87,15 +79,12 @@ Routed by the API gateway and deployed. These are the running product.
 `regulatory-compliance-service`
 `retained-profits-service`
 `revenue-recognition-service`
-`right-issues-service`
 `risk-assessment-service`
 `rolling-forecast-service`
 `scenario-analysis-service`
 `scenario-modeling-service`
 `selling-price-reduction-service`
 `sensitivity-analysis-service`
-`share-premium-service`
-`share-redemption-service`
 `sovereign-treasury-service`
 `sox-compliance-service`
 `subscription-plans-service`

@@ -8,102 +8,57 @@ services:
 - name: authorized-share-capital-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8017
+  port: 8099
   gateway_path: /authorized-share-capital
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /share-classes
-  - GET /share-classes
-  - POST /share-classes/{class_id}/issue
-  - GET /share-classes/{class_id}/issuances
-  - POST /share-classes/{class_id}/buyback
-  - GET /summary
+  records: false
+  endpoints: []
 - name: bonus-shares-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8023
+  port: 8099
   gateway_path: /bonus-shares
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /issue
-  - GET /issues
+  records: false
+  endpoints: []
 - name: capital-reconstruction-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8026
+  port: 8099
   gateway_path: /capital-reconstruction
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /reconstructions/create
-  - POST /reconstructions/{reconstruction_id}/adjustments/add
-  - POST /reconstructions/{reconstruction_id}/reserve-conversions/add
-  - POST /reconstructions/{reconstruction_id}/approve
-  - GET /reconstructions
-  - GET /reconstructions/{reconstruction_id}
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: capital-redemption-reserve-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8027
+  port: 8099
   gateway_path: /capital-redemption-reserve
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /redemptions/record
-  - POST /creations/create
-  - POST /utilizations/record
-  - GET /redemptions
-  - GET /creations
-  - GET /utilizations
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: debentures-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8041
+  port: 8099
   gateway_path: /debentures
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /classes/create
-  - POST /classes/{debenture_class_id}/issue
-  - POST /classes/{debenture_class_id}/interest/accrue
-  - POST /interest/{interest_id}/pay
-  - POST /classes/{debenture_class_id}/redeem
-  - GET /classes
-  - GET /issues
-  - GET /interest
+  records: false
+  endpoints: []
 - name: equity-changes-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8049
+  port: 8099
   gateway_path: /equity-changes
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /transactions
-  - GET /transactions/{company_id}
-  - POST /statement
-  - GET /statements/{company_id}
+  records: false
+  endpoints: []
 - name: general-reserve-service
   domain: equity
   target: rust/crates/domains/equity
@@ -124,35 +79,21 @@ services:
 - name: initial-investment-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8067
+  port: 8099
   gateway_path: /initial-investment
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /create
-  - POST /simple
-  - POST /with-capital-allowance
-  - GET /list
-  - GET /get/{investment_id}
+  records: false
+  endpoints: []
 - name: issued-share-capital-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8071
+  port: 8099
   gateway_path: /issued-share-capital
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /issue
-  - POST /shareholders/register
-  - GET /shareholders/{company_id}
-  - GET /issues/{company_id}
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: ordinary-shares-service
   domain: equity
   target: rust/crates/domains/equity
@@ -207,50 +148,27 @@ services:
 - name: right-issues-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8116
+  port: 8099
   gateway_path: /right-issues
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /offer
-  - POST /{right_issue_id}/accept
-  - POST /{right_issue_id}/renounce
-  - GET /right-issues
-  - GET /{right_issue_id}
+  records: false
+  endpoints: []
 - name: share-premium-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8125
+  port: 8099
   gateway_path: /share-premium
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /entries/record
-  - POST /utilizations/record
-  - POST /adjustments/create
-  - GET /entries
-  - GET /utilizations
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: share-redemption-service
   domain: equity
   target: rust/crates/domains/equity
-  port: 8126
+  port: 8099
   gateway_path: /share-redemption
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /redemptions/initiate
-  - POST /redemptions/{redemption_id}/fresh-issue
-  - POST /redemptions/{redemption_id}/complete
-  - GET /redemptions
-  - GET /redemptions/{redemption_id}
-  - GET /crr-requirements
+  records: false
+  endpoints: []
