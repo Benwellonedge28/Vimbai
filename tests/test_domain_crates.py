@@ -90,18 +90,27 @@ def test_every_rust_service_is_named_by_its_domain_crate():
     assert unnamed == [], unnamed
 
 
-def test_every_domain_crate_is_safe_rust_only():
-    domains = os.path.join(ROOT, "rust", "crates", "domains")
+def test_every_crate_is_safe_rust_only():
+    """Every crate in the workspace, not only the domains.
+
+    This used to sweep `crates/domains/` alone, and the sweep was what made the rule look kept: the kernel crate,
+    which is the one crate where an unsafe block would matter most, carried no attribute at all and no test noticed.
+    Kernel, platform, calculations, application, adapters and the applications are all covered here.
+    """
     unsafe_gaps = []
-    for name in sorted(os.listdir(domains)):
-        lib = os.path.join(domains, name, "src", "lib.rs")
-        if not os.path.isfile(lib):
+    for directory, _, files in os.walk(os.path.join(ROOT, "rust")):
+        if "target" in directory.split(os.sep) or "Cargo.toml" not in files:
             continue
-        with open(lib, encoding="utf-8") as handle:
+        entry = os.path.join(directory, "src", "main.rs")
+        if not os.path.isfile(entry):
+            entry = os.path.join(directory, "src", "lib.rs")
+        if not os.path.isfile(entry):
+            continue
+        with open(entry, encoding="utf-8") as handle:
             text = handle.read()
         if "#![forbid(unsafe_code)]" not in text:
-            unsafe_gaps.append(name)
-    assert unsafe_gaps == [], f"domain crates without forbid(unsafe_code): {unsafe_gaps}"
+            unsafe_gaps.append(os.path.relpath(directory, os.path.join(ROOT, "rust")))
+    assert unsafe_gaps == [], f"crates without forbid(unsafe_code): {sorted(unsafe_gaps)}"
 
 
 def test_a_domain_crate_holds_every_service_of_that_domain_together():
