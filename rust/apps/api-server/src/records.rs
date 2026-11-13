@@ -8087,6 +8087,539 @@ async fn npo_scale_creditors(
     answer(npo_scale::report_creditors(graph.as_ref(), &scope, &org_id))
 }
 
+async fn create_npo_scale_donor(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::create_donor(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &payload,
+    ))
+}
+
+async fn list_npo_scale_donors(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::list_donors(graph.as_ref(), &scope, &org_id))
+}
+
+async fn create_npo_scale_donation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::record_donation(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &payload,
+    ))
+}
+
+async fn list_npo_scale_donations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let query = query_object(query.as_deref());
+    let designation = query.get("designation").and_then(Value::as_str);
+    answer(npo_scale::list_donations(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        designation,
+    ))
+}
+
+async fn create_npo_scale_pledge(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::create_pledge(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &payload,
+    ))
+}
+
+async fn run_npo_scale_pledges(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::run_pledges(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &payload,
+    ))
+}
+
+async fn list_npo_scale_receipts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::list_scale_receipts(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+    ))
+}
+
+async fn create_npo_scale_expense(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::create_expense(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &payload,
+    ))
+}
+
+async fn list_npo_scale_expenses(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::list_expenses(graph.as_ref(), &scope, &org_id))
+}
+
+async fn save_npo_scale_budget(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::upsert_budget(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &payload,
+    ))
+}
+
+async fn create_npo_scale_compliance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::create_compliance(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &payload,
+    ))
+}
+
+async fn list_npo_scale_compliance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::list_compliance(graph.as_ref(), &scope, &org_id))
+}
+
+async fn create_npo_scale_balance_item(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::create_balance_item(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &payload,
+    ))
+}
+
+async fn add_npo_scale_shareholder(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::add_shareholder(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &payload,
+    ))
+}
+
+async fn list_npo_scale_shareholders(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::list_shareholders(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+    ))
+}
+
+async fn add_npo_scale_director(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::add_director(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &payload,
+    ))
+}
+
+async fn list_npo_scale_directors(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::list_directors(graph.as_ref(), &scope, &org_id))
+}
+
+async fn declare_npo_scale_dividend(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::declare_dividend(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &payload,
+    ))
+}
+
+async fn report_npo_scale_equity(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::report_equity(graph.as_ref(), &scope, &org_id))
+}
+
+async fn add_npo_scale_partner(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::add_scale_partner(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &payload,
+    ))
+}
+
+async fn list_npo_scale_partners(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::list_partners(graph.as_ref(), &scope, &org_id))
+}
+
+async fn draw_npo_scale_partner(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((org_id, partner_id)): Path<(String, String)>,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(value)| value)
+        .unwrap_or_else(|| json!({}));
+    answer(npo_scale::partner_draw(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        &partner_id,
+        &payload,
+    ))
+}
+
+async fn report_npo_scale_capital_accounts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::report_capital_accounts(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+    ))
+}
+
+async fn report_npo_scale_activities(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::report_activities(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+    ))
+}
+
+async fn report_npo_scale_functional(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::report_functional(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+    ))
+}
+
+async fn report_npo_scale_position(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::report_position(graph.as_ref(), &scope, &org_id))
+}
+
+async fn report_npo_scale_consolidated(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo_scale::report_consolidated(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+    ))
+}
+
+async fn report_npo_scale_budget(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let query = query_object(query.as_deref());
+    let year = query
+        .get("fiscal_year")
+        .and_then(Value::as_u64)
+        .map(|year| year as u32);
+    answer(npo_scale::report_budget(
+        graph.as_ref(),
+        &scope,
+        &org_id,
+        year,
+    ))
+}
+
+/// `GET /npo-scale/receipts/verify/{token}`: the public check a receipt holder runs, so no Book is asked for.
+async fn verify_npo_scale_receipt(State(graph): GraphState, Path(token): Path<String>) -> Response {
+    answer(npo_scale::verify_receipt(graph.as_ref(), &token))
+}
+
+/// `GET /npo-scale/public/holdings/{verify_code}`: an investor's own holding, likewise without a Book.
+async fn public_npo_scale_holdings(
+    State(graph): GraphState,
+    Path(verify_code): Path<String>,
+) -> Response {
+    answer(npo_scale::public_holdings(graph.as_ref(), &verify_code))
+}
+
+/// `GET /npo-scale/orgs/{org_id}/receipts/{receipt_id}/pdf`: the receipt itself, as a document to keep.
+async fn npo_scale_receipt_pdf(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((org_id, receipt_id)): Path<(String, String)>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    match npo_scale::receipt_pdf(graph.as_ref(), &scope, &org_id, &receipt_id) {
+        Ok(pdf) => Response::builder()
+            .header("content-type", "application/pdf")
+            .header(
+                "content-disposition",
+                format!("attachment; filename=\"{receipt_id}.pdf\""),
+            )
+            .body(axum::body::Body::from(pdf))
+            .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response()),
+        Err(error) => fail(error),
+    }
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone())
         .merge(service_root_router(graph.clone()))
@@ -10599,6 +11132,99 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route(
             "/npo-scale/orgs/:org_id/reports/creditors",
             get(npo_scale_creditors),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/donors",
+            post(create_npo_scale_donor).get(list_npo_scale_donors),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/donations",
+            post(create_npo_scale_donation).get(list_npo_scale_donations),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/pledges",
+            post(create_npo_scale_pledge),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/pledges/run",
+            post(run_npo_scale_pledges),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/receipts",
+            get(list_npo_scale_receipts),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/receipts/:receipt_id/pdf",
+            get(npo_scale_receipt_pdf),
+        )
+        .route(
+            "/npo-scale/receipts/verify/:token",
+            get(verify_npo_scale_receipt),
+        )
+        .route(
+            "/npo-scale/public/holdings/:verify_code",
+            get(public_npo_scale_holdings),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/expenses",
+            post(create_npo_scale_expense).get(list_npo_scale_expenses),
+        )
+        .route("/npo-scale/orgs/:org_id/budgets", put(save_npo_scale_budget))
+        .route(
+            "/npo-scale/orgs/:org_id/compliance",
+            post(create_npo_scale_compliance).get(list_npo_scale_compliance),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/balance-items",
+            post(create_npo_scale_balance_item),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/shareholders",
+            post(add_npo_scale_shareholder).get(list_npo_scale_shareholders),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/directors",
+            post(add_npo_scale_director).get(list_npo_scale_directors),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/dividends",
+            post(declare_npo_scale_dividend),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/reports/equity",
+            get(report_npo_scale_equity),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/partners",
+            post(add_npo_scale_partner).get(list_npo_scale_partners),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/partners/:partner_id/draws",
+            post(draw_npo_scale_partner),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/reports/capital-accounts",
+            get(report_npo_scale_capital_accounts),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/reports/activities",
+            get(report_npo_scale_activities),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/reports/functional-expenses",
+            get(report_npo_scale_functional),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/reports/position",
+            get(report_npo_scale_position),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/reports/budget-vs-actual",
+            get(report_npo_scale_budget),
+        )
+        .route(
+            "/npo-scale/orgs/:org_id/reports/consolidated",
+            get(report_npo_scale_consolidated),
         )
 
         .route("/treasury-analytics/kpi/:company_id", get(treasury_kpi))

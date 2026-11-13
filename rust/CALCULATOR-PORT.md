@@ -662,16 +662,18 @@ an entry names a service that is not on disk.
 - rolling-forecast-service -> budgeting::rolling_forecast
 ## Needs the maths written in Rust
 
-- npo-scale-service, half wired (same crate as npo-service, rust/crates/domains/npo): the organisation register
-  and its credit purchases answer from Rust now - organisations created at the band their own revenue earns, the
-  branches and people that push that band up, the feature set and approval limit each type and band gets, branches,
-  vendors, revenues, purchases with settling, and the creditors report. An organisation belongs to the caller alone:
-  another tenant's organisation answers exactly as a nonexistent one, so the registry cannot be used to discover it.
-  A purchase is owed until it is settled and settles only once, and settling it books the expense it became so no
-  report trails the bank. THE SERVICE STAYS ON THE PYTHON ENGINE until the rest of its routes answer from Rust:
-  members and book linking, donors, donations, pledges and receipts (including the PDF and verification), expenses,
-  budgets, compliance, balance items, directors, shareholders and dividends, partners with their capital accounts and
-  draws, and the five reports (activities, functional expenses, position, budget vs actual, consolidated).
+- npo-scale-service, all but its Book plumbing (same crate as npo-service, rust/crates/domains/npo): every
+  register and report answers from Rust now - organisations created at the band their own revenue earns, the branches
+  and people that push that band up, feature sets and approval limits, branches, vendors, revenues, purchases that
+  settle once and book the expense they became, donors, donations, pledges with the scheduled-giving collector,
+  numbered receipts with public token verification and their PDF, expenses with the band-aware dual approval, budgets
+  that replace a line rather than adding a second, compliance items, balance items, shareholders, directors, dividends
+  capped at what the company has earned, partners with draws and capital accounts, and the five reports (activities,
+  functional expenses, position, budget vs actual, consolidated) plus the creditors and equity ones. An organisation
+  is the caller's alone: another tenant's answers exactly as a nonexistent one, so the registry cannot be used to
+  discover it. THE SERVICE STAYS ON THE PYTHON ENGINE for its four Book routes (`GET /orgs/{id}/book`,
+  `POST /orgs/{id}/book/link`, and `GET`/`POST /orgs/{id}/members`), which proxy the platform's Book service and so
+  need a Book client the Rust engine does not have yet.
 
 Services whose arithmetic has not been written in Rust. Each one still has a directory, which is
 what keeps it in this list: the forty-five that used to sit here without one were services that had

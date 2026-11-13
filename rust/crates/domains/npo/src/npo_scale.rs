@@ -26,8 +26,11 @@ use vimbai_store::read::{
 };
 use vimbai_store::write::remember;
 use vimbai_store::{
-    BookScope, Graph, RecordKind, Records, StoreError, NPO_SCALE_BRANCH, NPO_SCALE_EXPENSE,
-    NPO_SCALE_ORG, NPO_SCALE_PURCHASE, NPO_SCALE_REVENUE, NPO_SCALE_VENDOR,
+    BookScope, Graph, RecordKind, Records, StoreError, NPO_SCALE_BALANCE_ITEM, NPO_SCALE_BRANCH,
+    NPO_SCALE_BUDGET, NPO_SCALE_COMPLIANCE, NPO_SCALE_DIRECTOR, NPO_SCALE_DIVIDEND,
+    NPO_SCALE_DONATION, NPO_SCALE_DONOR, NPO_SCALE_EXPENSE, NPO_SCALE_ORG, NPO_SCALE_PARTNER,
+    NPO_SCALE_PARTNER_DRAW, NPO_SCALE_PLEDGE, NPO_SCALE_PURCHASE, NPO_SCALE_RECEIPT,
+    NPO_SCALE_REVENUE, NPO_SCALE_SHAREHOLDER, NPO_SCALE_VENDOR,
 };
 
 /// The organisation types the service accepts.
@@ -705,13 +708,19 @@ pub fn record_revenue(
 ) -> Result<Value, StoreError> {
     let org = held_org(graph, scope, org_id)?;
     let amount = money_or_nothing(payload, "amount")?;
-    if !amount.is_zero() && amount.is_negative() {
+    if amount.is_zero() || amount.is_negative() {
         return Err(refused("amount must be positive"));
     }
-    if amount.is_zero() {
-        return Err(refused("amount must be positive"));
+    // revenue entries are the commercial mirror of a donation, so a non-profit records donations instead
+    let org_type = field(&org, "org_type");
+    if !["commercial", "partnership", "company", "plc"].contains(&org_type) {
+        return Err(refused(
+            "Revenue entries are for commercial/partnership orgs",
+        ));
     }
 
+    let currency = or_default(payload, "currency", field(&org, "currency"));
+    let received_at = text(payload, "received_at");
     let revenue = remember(
         graph,
         scope,
@@ -722,11 +731,26 @@ pub fn record_revenue(
             "source": or_default(payload, "source", "sale"),
             "customer": text(payload, "customer"),
             "amount": wire(&amount),
-            "currency": or_default(payload, "currency", field(&org, "currency")),
-            "received_at": text(payload, "received_at"),
+            "currency": currency,
+            "received_at": received_at,
         }),
     )?;
-    Ok(json!({ "service": "npo-scale-service", "revenue": revenue }))
+    // a sale is receipted like a donation: the customer gets something to check
+    let receipt = issue_receipt(
+        graph,
+        scope,
+        org_id,
+        field(&revenue, "id"),
+        Value::Null,
+        &amount,
+        &currency,
+        &received_at,
+    )?;
+    Ok(json!({
+        "service": "npo-scale-service",
+        "revenue": revenue,
+        "receipt_no": field(&receipt, "receipt_no"),
+    }))
 }
 
 /// `GET /orgs/{org_id}/revenues`.
@@ -882,6 +906,1355 @@ pub fn report_creditors(
     }))
 }
 
+// ---------------------------------------------------------------------------
+// Receipts: every donation and every sale gets one, numbered per organisation
+// ---------------------------------------------------------------------------
+
+/// The receipt number an organisation's next receipt gets: `RCP-<first eight of the org>-<five digits>`.
+fn next_receipt_no(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<String, StoreError> {
+    let issued = rows_of(graph, scope, NPO_SCALE_RECEIPT)?
+        .iter()
+        .filter(|row| field(row, "org_id") == org_id)
+        .count();
+    let prefix: String = org_id.chars().take(8).collect();
+    Ok(format!("RCP-{prefix}-{:05}", issued + 1))
+}
+
+/// Issue a receipt against what it is for, and answer with it.
+#[allow(clippy::too_many_arguments)]
+fn issue_receipt(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    for_record: &str,
+    donor_id: Value,
+    amount: &Money,
+    currency: &str,
+    issued_at: &str,
+) -> Result<Value, StoreError> {
+    let receipt_no = next_receipt_no(graph, scope, org_id)?;
+    let token = vimbai_common::ids::service_id();
+    remember(
+        graph,
+        scope,
+        NPO_SCALE_RECEIPT,
+        json!({
+            "org_id": org_id,
+            "for_record": for_record,
+            "donor_id": donor_id,
+            "receipt_no": receipt_no,
+            "amount": wire(amount),
+            "currency": currency,
+            "token": token,
+            "issued_at": issued_at,
+        }),
+    )
+}
+
+/// `GET /orgs/{org_id}/receipts`.
+pub fn list_scale_receipts(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let rows: Vec<Value> = rows_of(graph, scope, NPO_SCALE_RECEIPT)?
+        .into_iter()
+        .filter(|row| field(row, "org_id") == org_id)
+        .collect();
+    Ok(json!({ "service": "npo-scale-service", "receipts": rows, "count": rows.len() }))
+}
+
+/// `GET /receipts/verify/{token}`: the public check a donor or an auditor runs.
+///
+/// No Book, because the person holding a receipt has no account here. Only what is printed on the receipt is
+/// answered, so the token cannot be used to read the organisation's books.
+pub fn verify_receipt(graph: &(impl Graph + ?Sized), token: &str) -> Result<Value, StoreError> {
+    let receipt = Records::new(graph, NPO_SCALE_RECEIPT)
+        .by_token("token", token)?
+        .ok_or(StoreError::NotFound)?;
+
+    // the organisation's name is what makes a receipt recognisable, so it is looked up by its own record
+    let scope = BookScope::new(field(&receipt, "user_id"), field(&receipt, "book_id"));
+    let org_name = Records::new(graph, NPO_SCALE_ORG)
+        .get(&scope, field(&receipt, "org_id"))
+        .map(|org| field(&org, "name").to_owned())
+        .unwrap_or_default();
+
+    Ok(json!({
+        "service": "npo-scale-service",
+        "valid": true,
+        "receipt": {
+            "receipt_no": field(&receipt, "receipt_no"),
+            "amount": field(&receipt, "amount"),
+            "currency": field(&receipt, "currency"),
+            "issued_at": field(&receipt, "issued_at"),
+            "name": org_name,
+        },
+    }))
+}
+
+/// The receipt as a real PDF, built here rather than by a dependency: a receipt a donor can keep or print.
+pub fn receipt_pdf(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    receipt_id: &str,
+) -> Result<Vec<u8>, StoreError> {
+    let org = held_org(graph, scope, org_id)?;
+    let receipt = Records::new(graph, NPO_SCALE_RECEIPT).get(scope, receipt_id)?;
+    if field(&receipt, "org_id") != org_id {
+        return Err(StoreError::NotFound);
+    }
+    Ok(pdf_of(field(&org, "name"), &receipt))
+}
+
+/// Make a string safe for a PDF literal.
+fn pdf_escape(text: &str) -> String {
+    text.replace('\\', "\\\\")
+        .replace('(', "\\(")
+        .replace(')', "\\)")
+        .chars()
+        .map(|character| if character.is_ascii() { character } else { '?' })
+        .collect()
+}
+
+fn pdf_of(org_name: &str, receipt: &Value) -> Vec<u8> {
+    let issued = field(receipt, "issued_at")
+        .get(..10)
+        .unwrap_or("")
+        .to_owned();
+    let lines: [(u32, String); 11] = [
+        (20, "OFFICIAL RECEIPT".into()),
+        (14, org_name.to_owned()),
+        (12, String::new()),
+        (12, format!("Receipt No: {}", field(receipt, "receipt_no"))),
+        (
+            12,
+            format!(
+                "Amount: {} {}",
+                field(receipt, "currency"),
+                field(receipt, "amount")
+            ),
+        ),
+        (12, format!("Date issued: {issued}")),
+        (12, String::new()),
+        (12, "Verify this receipt at:".into()),
+        (10, format!("/receipts/verify/{}", field(receipt, "token"))),
+        (12, String::new()),
+        (10, format!("This receipt was issued by {org_name}.")),
+    ];
+
+    let mut content = String::from("BT\n50 770 Td\n14 TL\n");
+    for (size, text) in lines {
+        content.push_str(&format!("/F1 {size} Tf\n({}) Tj\nT*\n", pdf_escape(&text)));
+    }
+    content.push_str("ET");
+    let stream = content.into_bytes();
+
+    let mut objects: Vec<Vec<u8>> = vec![
+        b"<< /Type /Catalog /Pages 2 0 R >>".to_vec(),
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_vec(),
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>".to_vec(),
+        {
+            let mut body = format!("<< /Length {} >>\nstream\n", stream.len()).into_bytes();
+            body.extend_from_slice(&stream);
+            body.extend_from_slice(b"\nendstream");
+            body
+        },
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_vec(),
+    ];
+    objects.retain(|object| !object.is_empty());
+
+    let mut out: Vec<u8> = b"%PDF-1.4\n".to_vec();
+    let mut offsets = Vec::new();
+    for (index, body) in objects.iter().enumerate() {
+        offsets.push(out.len());
+        out.extend_from_slice(format!("{} 0 obj\n", index + 1).as_bytes());
+        out.extend_from_slice(body);
+        out.extend_from_slice(b"\nendobj\n");
+    }
+    let xref_at = out.len();
+    out.extend_from_slice(format!("xref\n0 {}\n", objects.len() + 1).as_bytes());
+    out.extend_from_slice(b"0000000000 65535 f \n");
+    for offset in offsets {
+        out.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
+    }
+    out.extend_from_slice(
+        format!(
+            "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref_at}\n%%EOF",
+            objects.len() + 1
+        )
+        .as_bytes(),
+    );
+    out
+}
+
+// ---------------------------------------------------------------------------
+// Donor CRM, donations, and the scheduled-giving collector
+// ---------------------------------------------------------------------------
+
+/// `POST /orgs/{org_id}/donors`.
+pub fn create_donor(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let name = text(payload, "name");
+    if name.is_empty() {
+        return Err(refused("name is required"));
+    }
+    let donor = remember(
+        graph,
+        scope,
+        NPO_SCALE_DONOR,
+        json!({
+            "org_id": org_id,
+            "name": name,
+            "email": text(payload, "email"),
+            "phone": text(payload, "phone"),
+            "type": or_default(payload, "type", "individual"),
+            "is_recurring": false,
+        }),
+    )?;
+    Ok(json!({ "service": "npo-scale-service", "donor": donor }))
+}
+
+/// `GET /orgs/{org_id}/donors`.
+pub fn list_donors(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let rows: Vec<Value> = rows_of(graph, scope, NPO_SCALE_DONOR)?
+        .into_iter()
+        .filter(|row| field(row, "org_id") == org_id)
+        .collect();
+    Ok(json!({ "service": "npo-scale-service", "donors": rows, "count": rows.len() }))
+}
+
+/// `POST /orgs/{org_id}/donations`: the money in, and the receipt that proves it.
+pub fn record_donation(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let donor_id = text(payload, "donor_id");
+    // a donation belongs to one of the organisation's own donors, not to any donor id a caller happens to know
+    let known = rows_of(graph, scope, NPO_SCALE_DONOR)?
+        .iter()
+        .any(|row| field(row, "id") == donor_id && field(row, "org_id") == org_id);
+    if !known {
+        return Err(refused("Unknown donor for this org"));
+    }
+    let amount = money_or_nothing(payload, "amount")?;
+    if amount.is_zero() || amount.is_negative() {
+        return Err(refused("amount must be positive"));
+    }
+    let currency = or_default(payload, "currency", "USD");
+    let received_at = text(payload, "received_at");
+
+    let donation = remember(
+        graph,
+        scope,
+        NPO_SCALE_DONATION,
+        json!({
+            "org_id": org_id,
+            "branch_id": optional(payload, "branch_id"),
+            "donor_id": donor_id,
+            "amount": wire(&amount),
+            "currency": currency,
+            "designation": or_default(payload, "designation", "general"),
+            "source": or_default(payload, "source", "direct"),
+            "received_at": received_at,
+        }),
+    )?;
+
+    let receipt = issue_receipt(
+        graph,
+        scope,
+        org_id,
+        field(&donation, "id"),
+        json!(donor_id),
+        &amount,
+        &currency,
+        &received_at,
+    )?;
+    let receipt_id = field(&receipt, "id");
+    Records::new(graph, NPO_SCALE_DONATION).update(
+        scope,
+        field(&donation, "id"),
+        &json!({ "receipt_id": receipt_id }),
+    )?;
+
+    Ok(json!({
+        "service": "npo-scale-service",
+        "donation": donation,
+        "receipt": {
+            "receipt_no": field(&receipt, "receipt_no"),
+            "token": field(&receipt, "token"),
+            "amount": field(&receipt, "amount"),
+            "currency": field(&receipt, "currency"),
+        },
+    }))
+}
+
+/// `GET /orgs/{org_id}/donations`, narrowed to one designation when one is named.
+pub fn list_donations(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    designation: Option<&str>,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let rows: Vec<Value> = rows_of(graph, scope, NPO_SCALE_DONATION)?
+        .into_iter()
+        .filter(|row| field(row, "org_id") == org_id)
+        .filter(|row| match designation {
+            Some(wanted) if !wanted.is_empty() => field(row, "designation") == wanted,
+            _ => true,
+        })
+        .collect();
+    Ok(json!({ "service": "npo-scale-service", "donations": rows, "count": rows.len() }))
+}
+
+/// `POST /orgs/{org_id}/pledges`: a recurring promise, first one due a month out.
+pub fn create_pledge(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let amount = money_or_nothing(payload, "amount")?;
+    if amount.is_zero() || amount.is_negative() {
+        return Err(refused("amount must be positive"));
+    }
+    // a due date is a calendar day, so the caller says which day this is rather than the crate asking a clock
+    let today = text(payload, "today");
+    let next_due = vimbai_common::dates::date_after(&today, 30).unwrap_or_default();
+
+    let pledge = remember(
+        graph,
+        scope,
+        NPO_SCALE_PLEDGE,
+        json!({
+            "org_id": org_id,
+            "donor_id": text(payload, "donor_id"),
+            "amount": wire(&amount),
+            "currency": or_default(payload, "currency", "USD"),
+            "frequency": or_default(payload, "frequency", "monthly"),
+            "next_due": next_due,
+            "status": "active",
+        }),
+    )?;
+    Ok(json!({ "service": "npo-scale-service", "pledge": pledge, "next_due": next_due }))
+}
+
+/// `POST /orgs/{org_id}/pledges/run`: collect every pledge that has come due, receipts and all.
+pub fn run_pledges(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let today = text(payload, "today");
+    let due: Vec<Value> = rows_of(graph, scope, NPO_SCALE_PLEDGE)?
+        .into_iter()
+        .filter(|row| field(row, "org_id") == org_id && field(row, "status") == "active")
+        .filter(|row| {
+            let next_due = field(row, "next_due");
+            !next_due.is_empty() && !today.is_empty() && next_due <= today.as_str()
+        })
+        .collect();
+
+    let mut collected = 0;
+    let mut total = Money::zero();
+    for pledge in due {
+        let amount = money_or_nothing(&pledge, "amount")?;
+        let currency = field(&pledge, "currency");
+        let donation = remember(
+            graph,
+            scope,
+            NPO_SCALE_DONATION,
+            json!({
+                "org_id": org_id,
+                "branch_id": Value::Null,
+                "donor_id": field(&pledge, "donor_id"),
+                "amount": wire(&amount),
+                "currency": currency,
+                "designation": "pledge",
+                "source": "recurring",
+                "received_at": today,
+            }),
+        )?;
+        issue_receipt(
+            graph,
+            scope,
+            org_id,
+            field(&donation, "id"),
+            json!(field(&pledge, "donor_id")),
+            &amount,
+            currency,
+            &today,
+        )?;
+        // the next instalment is another month out, and the pledge stays active
+        let next_due = vimbai_common::dates::date_after(&today, 30).unwrap_or_default();
+        Records::new(graph, NPO_SCALE_PLEDGE).update(
+            scope,
+            field(&pledge, "id"),
+            &json!({ "next_due": next_due }),
+        )?;
+        collected += 1;
+        total = total.plus(&amount);
+    }
+
+    Ok(json!({
+        "service": "npo-scale-service",
+        "collected": collected,
+        "total": wire(&total),
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Expenses: the size band decides whether one approver is enough
+// ---------------------------------------------------------------------------
+
+/// `POST /orgs/{org_id}/expenses`.
+pub fn create_expense(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    let org = held_org(graph, scope, org_id)?;
+    let amount = money_or_nothing(payload, "amount")?;
+    if amount.is_zero() || amount.is_negative() {
+        return Err(refused("amount must be positive"));
+    }
+
+    let approver1 = text(payload, "approver1");
+    let approver2 = optional(payload, "approver2").unwrap_or_default();
+    let limit = approval_limit(field(&org, "size_band"));
+    let over_limit = match limit {
+        Some(ceiling) => amount.to_f64_lossy() > ceiling as f64,
+        // no limit means the organisation approves alone
+        None => false,
+    };
+
+    let mut status = "approved";
+    if over_limit {
+        if approver2.is_empty() {
+            status = "pending_dual_approval";
+        }
+        if !approver2.is_empty() && approver2 == approver1 {
+            return Err(refused("Dual approval requires two different approvers"));
+        }
+    }
+
+    let expense = remember(
+        graph,
+        scope,
+        NPO_SCALE_EXPENSE,
+        json!({
+            "org_id": org_id,
+            "branch_id": optional(payload, "branch_id"),
+            "fund": or_default(payload, "fund", "general"),
+            "program": text(payload, "program"),
+            "functional_area": or_default(payload, "functional_area", "program"),
+            "amount": wire(&amount),
+            "currency": or_default(payload, "currency", "USD"),
+            "description": text(payload, "description"),
+            "spent_at": text(payload, "spent_at"),
+            "approver1": approver1,
+            "approver2": approver2,
+            "status": status,
+        }),
+    )?;
+    Ok(json!({ "service": "npo-scale-service", "expense": expense, "status": status }))
+}
+
+/// `GET /orgs/{org_id}/expenses`.
+pub fn list_expenses(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let rows: Vec<Value> = rows_of(graph, scope, NPO_SCALE_EXPENSE)?
+        .into_iter()
+        .filter(|row| field(row, "org_id") == org_id)
+        .collect();
+    Ok(json!({ "service": "npo-scale-service", "expenses": rows, "count": rows.len() }))
+}
+
+// ---------------------------------------------------------------------------
+// Budgets, compliance, and the balance items a position statement is made of
+// ---------------------------------------------------------------------------
+
+/// `PUT /orgs/{org_id}/budgets`: one budget line per fund and program, replaced rather than duplicated.
+pub fn upsert_budget(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let budgeted = money_or_nothing(payload, "budgeted")?;
+    let fiscal_year = whole(payload, "fiscal_year");
+    let fund = or_default(payload, "fund", "general");
+    let program = text(payload, "program");
+
+    let existing = rows_of(graph, scope, NPO_SCALE_BUDGET)?
+        .into_iter()
+        .find(|row| {
+            field(row, "org_id") == org_id
+                && whole(row, "fiscal_year") == fiscal_year
+                && field(row, "fund") == fund
+                && field(row, "program") == program
+        });
+
+    // the same fund and program in the same year is the same line, however often it is saved
+    match existing {
+        Some(row) => {
+            Records::new(graph, NPO_SCALE_BUDGET).update(
+                scope,
+                field(&row, "id"),
+                &json!({ "budgeted": wire(&budgeted) }),
+            )?;
+        }
+        None => {
+            remember(
+                graph,
+                scope,
+                NPO_SCALE_BUDGET,
+                json!({
+                    "org_id": org_id,
+                    "fiscal_year": fiscal_year,
+                    "fund": fund,
+                    "program": program,
+                    "budgeted": wire(&budgeted),
+                }),
+            )?;
+        }
+    }
+    Ok(json!({ "service": "npo-scale-service", "status": "saved" }))
+}
+
+/// `POST /orgs/{org_id}/compliance`.
+pub fn create_compliance(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let item = remember(
+        graph,
+        scope,
+        NPO_SCALE_COMPLIANCE,
+        json!({
+            "org_id": org_id,
+            "title": text(payload, "title"),
+            "category": or_default(payload, "category", "statutory"),
+            "due_date": text(payload, "due_date"),
+            "responsible": text(payload, "responsible"),
+            "status": "open",
+        }),
+    )?;
+    Ok(json!({ "service": "npo-scale-service", "compliance": item }))
+}
+
+/// `GET /orgs/{org_id}/compliance`, soonest due first.
+pub fn list_compliance(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let mut rows: Vec<Value> = rows_of(graph, scope, NPO_SCALE_COMPLIANCE)?
+        .into_iter()
+        .filter(|row| field(row, "org_id") == org_id)
+        .collect();
+    rows.sort_by(|left, right| field(left, "due_date").cmp(field(right, "due_date")));
+    Ok(json!({ "service": "npo-scale-service", "compliance": rows, "count": rows.len() }))
+}
+
+/// `POST /orgs/{org_id}/balance-items`: a thing the organisation owns or owes.
+pub fn create_balance_item(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    let kind = text(payload, "kind");
+    if !["asset", "liability"].contains(&kind.as_str()) {
+        return Err(refused("kind must be asset or liability"));
+    }
+    held_org(graph, scope, org_id)?;
+    let amount = money_or_nothing(payload, "amount")?;
+    let item = remember(
+        graph,
+        scope,
+        NPO_SCALE_BALANCE_ITEM,
+        json!({
+            "org_id": org_id,
+            "kind": kind,
+            "name": text(payload, "name"),
+            "amount": wire(&amount),
+            "currency": or_default(payload, "currency", "USD"),
+            "as_of": text(payload, "as_of"),
+        }),
+    )?;
+    Ok(json!({ "service": "npo-scale-service", "item": item }))
+}
+
+// ---------------------------------------------------------------------------
+// Private companies: shareholders, directors, dividends
+// ---------------------------------------------------------------------------
+
+/// The organisation, refused when it is not the kind this register is for.
+fn org_of_kind(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    kinds: &[&str],
+    refusal: &str,
+) -> Result<Value, StoreError> {
+    let org = held_org(graph, scope, org_id)?;
+    let org_type = field(&org, "org_type");
+    if !kinds.contains(&org_type) {
+        return Err(refused(refusal));
+    }
+    Ok(org)
+}
+
+/// `POST /orgs/{org_id}/shareholders`: a holding, with a code its holder can check it by.
+pub fn add_shareholder(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    let shares = whole(payload, "shares");
+    if shares < 1 {
+        return Err(refused("shares must be >= 1"));
+    }
+    org_of_kind(
+        graph,
+        scope,
+        org_id,
+        &["company", "plc"],
+        "Shareholders are for company/PLC orgs",
+    )?;
+    let capital = money_or_nothing(payload, "amount_paid")?;
+    let verify_code = vimbai_common::ids::service_id().replace('-', "");
+    let shareholder = remember(
+        graph,
+        scope,
+        NPO_SCALE_SHAREHOLDER,
+        json!({
+            "org_id": org_id,
+            "name": text(payload, "name"),
+            "shares": shares,
+            "share_class": or_default(payload, "share_class", "ordinary"),
+            "amount_paid": wire(&capital),
+            "verify_code": verify_code,
+        }),
+    )?;
+    Ok(json!({ "service": "npo-scale-service", "shareholder": shareholder }))
+}
+
+/// `GET /orgs/{org_id}/shareholders`.
+pub fn list_shareholders(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let rows: Vec<Value> = rows_of(graph, scope, NPO_SCALE_SHAREHOLDER)?
+        .into_iter()
+        .filter(|row| field(row, "org_id") == org_id)
+        .collect();
+    Ok(json!({ "service": "npo-scale-service", "shareholders": rows, "count": rows.len() }))
+}
+
+/// `POST /orgs/{org_id}/directors`.
+pub fn add_director(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    org_of_kind(
+        graph,
+        scope,
+        org_id,
+        &["company", "plc"],
+        "Directors are for company/PLC orgs",
+    )?;
+    let director = remember(
+        graph,
+        scope,
+        NPO_SCALE_DIRECTOR,
+        json!({
+            "org_id": org_id,
+            "name": text(payload, "name"),
+        }),
+    )?;
+    Ok(json!({ "service": "npo-scale-service", "director": director }))
+}
+
+/// `GET /orgs/{org_id}/directors`.
+pub fn list_directors(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let rows: Vec<Value> = rows_of(graph, scope, NPO_SCALE_DIRECTOR)?
+        .into_iter()
+        .filter(|row| field(row, "org_id") == org_id)
+        .collect();
+    Ok(json!({ "service": "npo-scale-service", "directors": rows, "count": rows.len() }))
+}
+
+/// What the organisation has earned and not yet distributed: revenue less expenses less dividends already declared.
+fn distributable_reserves(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Money, StoreError> {
+    let earned = total_of(rows_of(graph, scope, NPO_SCALE_REVENUE)?, org_id, "amount")?
+        .minus(&total_of(
+            rows_of(graph, scope, NPO_SCALE_EXPENSE)?,
+            org_id,
+            "amount",
+        )?)
+        .minus(&total_of(
+            rows_of(graph, scope, NPO_SCALE_DIVIDEND)?,
+            org_id,
+            "total",
+        )?);
+    Ok(earned)
+}
+
+/// `POST /orgs/{org_id}/dividends`: a dividend per share, capped at what has been earned and not yet paid out.
+pub fn declare_dividend(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    org_of_kind(
+        graph,
+        scope,
+        org_id,
+        &["company", "plc"],
+        "Dividends are for company/PLC orgs",
+    )?;
+    let per_share = money_or_nothing(payload, "per_share")?;
+    if per_share.is_zero() || per_share.is_negative() {
+        return Err(refused("per_share must be positive"));
+    }
+
+    let shares: u64 = rows_of(graph, scope, NPO_SCALE_SHAREHOLDER)?
+        .iter()
+        .filter(|row| field(row, "org_id") == org_id)
+        .map(|row| whole(row, "shares") as u64)
+        .sum();
+    if shares == 0 {
+        return Err(refused("Add shareholders before declaring dividends"));
+    }
+
+    // a dividend is paid out of what the company has earned: an unpaid one is not reserves
+    let reserves = distributable_reserves(graph, scope, org_id)?;
+    let total = per_share.times(&Money::from_u64(shares));
+    if !total.minus(&reserves).is_negative() && !total.minus(&reserves).is_zero() {
+        return Err(refused(&format!(
+            "Dividend exceeds distributable reserves ({})",
+            reserves.to_fixed(2)
+        )));
+    }
+
+    let dividend = remember(
+        graph,
+        scope,
+        NPO_SCALE_DIVIDEND,
+        json!({
+            "org_id": org_id,
+            "per_share": wire(&per_share),
+            "total": wire(&total),
+            "status": "declared",
+        }),
+    )?;
+    Ok(json!({
+        "service": "npo-scale-service",
+        "dividend": dividend,
+        "total_shares": shares,
+        "total": wire(&total),
+    }))
+}
+
+/// `GET /orgs/{org_id}/reports/equity`: share capital paid in, retained earnings, dividends, and the closing figure.
+pub fn report_equity(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    org_of_kind(
+        graph,
+        scope,
+        org_id,
+        &["company", "plc"],
+        "Equity statement is for company/PLC orgs",
+    )?;
+    let capital = total_of(
+        rows_of(graph, scope, NPO_SCALE_SHAREHOLDER)?,
+        org_id,
+        "amount_paid",
+    )?;
+    let earned = total_of(rows_of(graph, scope, NPO_SCALE_REVENUE)?, org_id, "amount")?.minus(
+        &total_of(rows_of(graph, scope, NPO_SCALE_EXPENSE)?, org_id, "amount")?,
+    );
+    let dividends = total_of(rows_of(graph, scope, NPO_SCALE_DIVIDEND)?, org_id, "total")?;
+    let retained = earned.minus(&dividends);
+
+    Ok(json!({
+        "service": "npo-scale-service",
+        "share_capital": wire(&capital),
+        "retained_earnings": wire(&retained),
+        "dividends_declared": wire(&dividends),
+        "total_equity": wire(&capital.plus(&retained)),
+    }))
+}
+
+/// `GET /public/holdings/{verify_code}`: an investor checks their own holding without seeing the books.
+pub fn public_holdings(
+    graph: &(impl Graph + ?Sized),
+    verify_code: &str,
+) -> Result<Value, StoreError> {
+    let holding = Records::new(graph, NPO_SCALE_SHAREHOLDER)
+        .by_token("verify_code", verify_code)?
+        .ok_or(StoreError::NotFound)?;
+    let scope = BookScope::new(field(&holding, "user_id"), field(&holding, "book_id"));
+    let org_id = field(&holding, "org_id");
+    let org_name = Records::new(graph, NPO_SCALE_ORG)
+        .get(&scope, org_id)
+        .map(|org| field(&org, "name").to_owned())
+        .unwrap_or_default();
+
+    let shares = whole(&holding, "shares") as u64;
+    let total_shares: u64 = rows_of(graph, &scope, NPO_SCALE_SHAREHOLDER)?
+        .iter()
+        .filter(|row| field(row, "org_id") == org_id)
+        .map(|row| whole(row, "shares") as u64)
+        .sum();
+
+    let mut due = Money::zero();
+    let mut dividends = Vec::new();
+    for declared in rows_of(graph, &scope, NPO_SCALE_DIVIDEND)? {
+        if field(&declared, "org_id") != org_id {
+            continue;
+        }
+        let per_share = money_or_nothing(&declared, "per_share")?;
+        let amount = per_share.times(&Money::from_u64(shares));
+        due = due.plus(&amount);
+        dividends.push(json!({
+            "per_share": wire(&per_share),
+            "amount": wire(&amount),
+            "declared_at": field(&declared, "created_at"),
+        }));
+    }
+
+    // the holding as a percentage of the company, to two places, exactly
+    let percentage = if total_shares == 0 {
+        Money::zero()
+    } else {
+        Money::from_u64(shares).ratio_pct(&Money::from_u64(total_shares), 2)
+    };
+
+    Ok(json!({
+        "service": "npo-scale-service",
+        "valid": true,
+        "org_name": org_name,
+        "shareholder": field(&holding, "name"),
+        "shares": shares,
+        "share_class": field(&holding, "share_class"),
+        "capital_paid": field(&holding, "amount_paid"),
+        "percentage": wire(&percentage),
+        "total_dividends": wire(&due),
+        "dividends": dividends,
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Partnerships: partners, their draws, and their capital accounts
+// ---------------------------------------------------------------------------
+
+/// `POST /orgs/{org_id}/partners`.
+pub fn add_scale_partner(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    org_of_kind(
+        graph,
+        scope,
+        org_id,
+        &["partnership"],
+        "Partners can only be added to partnership orgs",
+    )?;
+    let contribution = money_or_nothing(payload, "capital_contribution")?;
+    let share = money_or_nothing(payload, "profit_share")?;
+    let above_a_hundred = share.minus(&Money::from_i64(100));
+    if share.is_negative() || (!above_a_hundred.is_negative() && !above_a_hundred.is_zero()) {
+        return Err(refused("profit_share must be 0-100"));
+    }
+    let partner = remember(
+        graph,
+        scope,
+        NPO_SCALE_PARTNER,
+        json!({
+            "org_id": org_id,
+            "name": text(payload, "name"),
+            "capital_contribution": wire(&contribution),
+            "profit_share": wire(&share),
+            "status": "active",
+        }),
+    )?;
+    Ok(json!({ "service": "npo-scale-service", "partner": partner }))
+}
+
+/// `GET /orgs/{org_id}/partners`.
+pub fn list_partners(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let rows: Vec<Value> = rows_of(graph, scope, NPO_SCALE_PARTNER)?
+        .into_iter()
+        .filter(|row| field(row, "org_id") == org_id)
+        .collect();
+    Ok(json!({ "service": "npo-scale-service", "partners": rows, "count": rows.len() }))
+}
+
+/// `POST /orgs/{org_id}/partners/{partner_id}/draws`.
+pub fn partner_draw(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    partner_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let amount = money_or_nothing(payload, "amount")?;
+    if amount.is_zero() || amount.is_negative() {
+        return Err(refused("amount must be positive"));
+    }
+    let partner = Records::new(graph, NPO_SCALE_PARTNER).get(scope, partner_id)?;
+    if field(&partner, "org_id") != org_id {
+        return Err(refused("Unknown partner"));
+    }
+    remember(
+        graph,
+        scope,
+        NPO_SCALE_PARTNER_DRAW,
+        json!({
+            "org_id": org_id,
+            "partner_id": partner_id,
+            "amount": wire(&amount),
+        }),
+    )?;
+    Ok(json!({ "service": "npo-scale-service", "status": "drawn" }))
+}
+
+/// `GET /orgs/{org_id}/reports/capital-accounts`: contribution plus share of income less draws, per partner.
+pub fn report_capital_accounts(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    org_of_kind(
+        graph,
+        scope,
+        org_id,
+        &["partnership"],
+        "Capital accounts are for partnership orgs",
+    )?;
+    // a partnership's income is everything it took in, donations included
+    let income = total_of(rows_of(graph, scope, NPO_SCALE_REVENUE)?, org_id, "amount")?
+        .plus(&total_of(
+            rows_of(graph, scope, NPO_SCALE_DONATION)?,
+            org_id,
+            "amount",
+        )?)
+        .minus(&total_of(
+            rows_of(graph, scope, NPO_SCALE_EXPENSE)?,
+            org_id,
+            "amount",
+        )?);
+
+    let partners: Vec<Value> = rows_of(graph, scope, NPO_SCALE_PARTNER)?
+        .into_iter()
+        .filter(|row| field(row, "org_id") == org_id && field(row, "status") == "active")
+        .collect();
+    let shares: Vec<Money> = partners
+        .iter()
+        .map(|partner| money_or_nothing(partner, "profit_share"))
+        .collect::<Result<_, _>>()?;
+    // shares that do not add to 100 are allocated in proportion, so a partnership is never left with income unassigned
+    let total_share = Money::sum(&shares);
+    let divisor = if total_share.is_zero() {
+        Money::from_i64(1)
+    } else {
+        total_share
+    };
+
+    let mut accounts = Vec::new();
+    for (partner, share) in partners.iter().zip(shares.iter()) {
+        let partner_id = field(partner, "id");
+        let draws = Money::sum(
+            &rows_of(graph, scope, NPO_SCALE_PARTNER_DRAW)?
+                .iter()
+                .filter(|row| field(row, "partner_id") == partner_id)
+                .map(|row| money_or_nothing(row, "amount"))
+                .collect::<Result<Vec<Money>, StoreError>>()?,
+        );
+        let contribution = money_or_nothing(partner, "capital_contribution")?;
+        // the share of income is the partner's percentage of the shares actually held, to two places
+        let allocated = income.times(share).over(&divisor).round(2);
+        accounts.push(json!({
+            "partner": field(partner, "name"),
+            "contribution": wire(&contribution),
+            "profit_share_pct": wire(share),
+            "allocated_income": wire(&allocated),
+            "draws": wire(&draws),
+            "capital_account": wire(&contribution.plus(&allocated).minus(&draws)),
+        }));
+    }
+
+    Ok(json!({
+        "service": "npo-scale-service",
+        "net_income": wire(&income),
+        "accounts": accounts,
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// The five reports
+// ---------------------------------------------------------------------------
+
+/// Everything one organisation recorded under a property, added up.
+fn total_of(rows: Vec<Value>, org_id: &str, property: &str) -> Result<Money, StoreError> {
+    let amounts: Vec<Money> = rows
+        .iter()
+        .filter(|row| field(row, "org_id") == org_id)
+        .map(|row| money_or_nothing(row, property))
+        .collect::<Result<_, _>>()?;
+    Ok(Money::sum(&amounts))
+}
+
+/// `GET /orgs/{org_id}/reports/activities`: revenue by fund less expenses by fund, with the organisation's net.
+///
+/// A non-profit's revenue is what it was given, so donations are read; every other organisation's is what it
+/// earned, so its sales are.
+pub fn report_activities(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    let org = held_org(graph, scope, org_id)?;
+    let org_type = field(&org, "org_type");
+    let commercial = ["commercial", "partnership", "company", "plc"].contains(&org_type);
+
+    let (source, revenue_property) = if commercial {
+        (NPO_SCALE_REVENUE, "source")
+    } else {
+        (NPO_SCALE_DONATION, "designation")
+    };
+
+    let mut funds: Vec<(String, Money, Money)> = Vec::new();
+    let mut note = |fund: &str, revenue: Option<&Money>, expense: Option<&Money>| {
+        let position = match funds.iter().position(|(name, _, _)| name == fund) {
+            Some(position) => position,
+            None => {
+                funds.push((fund.to_owned(), Money::zero(), Money::zero()));
+                funds.len() - 1
+            }
+        };
+        if let Some(amount) = revenue {
+            funds[position].1 = funds[position].1.plus(amount);
+        }
+        if let Some(amount) = expense {
+            funds[position].2 = funds[position].2.plus(amount);
+        }
+    };
+
+    for row in rows_of(graph, scope, source)? {
+        if field(&row, "org_id") != org_id {
+            continue;
+        }
+        let amount = money_or_nothing(&row, "amount")?;
+        note(field(&row, revenue_property), Some(&amount), None);
+    }
+    for row in rows_of(graph, scope, NPO_SCALE_EXPENSE)? {
+        if field(&row, "org_id") != org_id {
+            continue;
+        }
+        let amount = money_or_nothing(&row, "amount")?;
+        note(field(&row, "fund"), None, Some(&amount));
+    }
+
+    let mut total = Money::zero();
+    let lines: Vec<Value> = funds
+        .iter()
+        .map(|(fund, revenue, expenses)| {
+            let net = revenue.minus(expenses);
+            total = total.plus(&net);
+            json!({
+                "fund": fund,
+                "revenue": wire(revenue),
+                "expenses": wire(expenses),
+                "net": wire(&net),
+            })
+        })
+        .collect();
+
+    Ok(json!({
+        "service": "npo-scale-service",
+        "funds": lines,
+        "total_net": wire(&total),
+    }))
+}
+
+/// `GET /orgs/{org_id}/reports/functional-expenses`: program against administration against fundraising.
+pub fn report_functional(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let mut areas: Vec<(String, Money)> = Vec::new();
+    for row in rows_of(graph, scope, NPO_SCALE_EXPENSE)? {
+        if field(&row, "org_id") != org_id {
+            continue;
+        }
+        let area = field(&row, "functional_area").to_owned();
+        let amount = money_or_nothing(&row, "amount")?;
+        match areas.iter_mut().find(|(name, _)| *name == area) {
+            Some((_, running)) => *running = running.plus(&amount),
+            None => areas.push((area, amount)),
+        }
+    }
+    let total = Money::sum(
+        &areas
+            .iter()
+            .map(|(_, amount)| amount.clone())
+            .collect::<Vec<_>>(),
+    );
+    let program = areas
+        .iter()
+        .find(|(name, _)| name == "program")
+        .map(|(_, amount)| amount.clone())
+        .unwrap_or_else(Money::zero);
+    // the share of spending that reached the programme, to four places, and nothing when nothing was spent
+    let ratio = if total.is_zero() {
+        Money::zero()
+    } else {
+        program.over(&total).round(6)
+    };
+
+    Ok(json!({
+        "service": "npo-scale-service",
+        "areas": areas
+            .iter()
+            .map(|(area, amount)| json!({ "functional_area": area, "total": wire(amount) }))
+            .collect::<Vec<Value>>(),
+        "total": wire(&total),
+        // the shipped answer is a fraction, so 0.75 means three quarters of the spending was programme work
+        "program_ratio": wire(&ratio),
+    }))
+}
+
+/// `GET /orgs/{org_id}/reports/position`: what it owns, what it owes, and what is left.
+pub fn report_position(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let items = rows_of(graph, scope, NPO_SCALE_BALANCE_ITEM)?;
+    let side = |kind: &str| -> Result<Money, StoreError> {
+        let amounts: Vec<Money> = items
+            .iter()
+            .filter(|row| field(row, "org_id") == org_id && field(row, "kind") == kind)
+            .map(|row| money_or_nothing(row, "amount"))
+            .collect::<Result<_, _>>()?;
+        Ok(Money::sum(&amounts))
+    };
+    let assets = side("asset")?;
+    let liabilities = side("liability")?;
+
+    // the cash position stands in for the balance sheet: what came in, less what went out
+    let taken_in = total_of(rows_of(graph, scope, NPO_SCALE_DONATION)?, org_id, "amount")?.plus(
+        &total_of(rows_of(graph, scope, NPO_SCALE_REVENUE)?, org_id, "amount")?,
+    );
+    let spent = total_of(rows_of(graph, scope, NPO_SCALE_EXPENSE)?, org_id, "amount")?;
+    let net_assets = assets.plus(&taken_in).minus(&spent).minus(&liabilities);
+
+    Ok(json!({
+        "service": "npo-scale-service",
+        "assets": wire(&assets),
+        "liabilities": wire(&liabilities),
+        "net_assets": wire(&net_assets),
+        "movement": wire(&taken_in.minus(&spent)),
+    }))
+}
+
+/// `GET /orgs/{org_id}/reports/budget-vs-actual`: each budget line against what was actually spent on it.
+pub fn report_budget(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+    fiscal_year: Option<u32>,
+) -> Result<Value, StoreError> {
+    held_org(graph, scope, org_id)?;
+    let expenses = rows_of(graph, scope, NPO_SCALE_EXPENSE)?;
+
+    let mut lines = Vec::new();
+    for budget in rows_of(graph, scope, NPO_SCALE_BUDGET)? {
+        if field(&budget, "org_id") != org_id {
+            continue;
+        }
+        if let Some(year) = fiscal_year {
+            if whole(&budget, "fiscal_year") != year {
+                continue;
+            }
+        }
+        let fund = field(&budget, "fund");
+        let program = field(&budget, "program");
+        let spent: Vec<Money> = expenses
+            .iter()
+            .filter(|row| field(row, "org_id") == org_id)
+            .filter(|row| field(row, "fund") == fund && field(row, "program") == program)
+            .map(|row| money_or_nothing(row, "amount"))
+            .collect::<Result<_, _>>()?;
+        let actual = Money::sum(&spent);
+        let budgeted = money_or_nothing(&budget, "budgeted")?;
+        // how much of the budget is used, to four places, and nothing at all when nothing was budgeted
+        let utilization = if budgeted.is_zero() {
+            Money::zero()
+        } else {
+            actual.over(&budgeted).round(4)
+        };
+        lines.push(json!({
+            "fund": fund,
+            "program": program,
+            "budgeted": wire(&budgeted),
+            "actual": wire(&actual),
+            "variance": wire(&budgeted.minus(&actual)),
+            "utilization": wire(&utilization),
+        }));
+    }
+
+    Ok(json!({ "service": "npo-scale-service", "lines": lines }))
+}
+
+/// `GET /orgs/{org_id}/reports/consolidated`: the federation view of every branch, once an organisation is large.
+pub fn report_consolidated(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    org_id: &str,
+) -> Result<Value, StoreError> {
+    let org = held_org(graph, scope, org_id)?;
+    let band = field(&org, "size_band");
+    // consolidating a federation is a large organisation's report
+    if !["large", "extra_large"].contains(&band) {
+        return Err(refused("Consolidated reporting unlocks at large scale"));
+    }
+
+    let donations = rows_of(graph, scope, NPO_SCALE_DONATION)?;
+    let expenses = rows_of(graph, scope, NPO_SCALE_EXPENSE)?;
+    let side = |rows: &[Value], branch: Option<&str>| -> Result<Money, StoreError> {
+        let amounts: Vec<Money> = rows
+            .iter()
+            .filter(|row| field(row, "org_id") == org_id)
+            .filter(|row| branch_of(row) == branch.map(str::to_owned))
+            .map(|row| money_or_nothing(row, "amount"))
+            .collect::<Result<_, _>>()?;
+        Ok(Money::sum(&amounts))
+    };
+
+    let mut branches = Vec::new();
+    for branch in rows_of(graph, scope, NPO_SCALE_BRANCH)? {
+        if field(&branch, "org_id") != org_id {
+            continue;
+        }
+        let id = field(&branch, "id");
+        let given = side(&donations, Some(id))?;
+        let spent = side(&expenses, Some(id))?;
+        branches.push(json!({
+            "branch": field(&branch, "name"),
+            "donations": wire(&given),
+            "expenses": wire(&spent),
+            "net": wire(&given.minus(&spent)),
+        }));
+    }
+
+    // what was booked at head office belongs to no branch, and is still the organisation's
+    let hq_given = side(&donations, None)?;
+    let hq_spent = side(&expenses, None)?;
+    let total_given = Money::sum(
+        &branches
+            .iter()
+            .map(|branch| {
+                Money::parse(field(branch, "donations")).unwrap_or_else(|_| Money::zero())
+            })
+            .collect::<Vec<Money>>(),
+    )
+    .plus(&hq_given);
+    let total_spent = Money::sum(
+        &branches
+            .iter()
+            .map(|branch| Money::parse(field(branch, "expenses")).unwrap_or_else(|_| Money::zero()))
+            .collect::<Vec<Money>>(),
+    )
+    .plus(&hq_spent);
+
+    Ok(json!({
+        "service": "npo-scale-service",
+        "size_band": band,
+        "hq": { "donations": wire(&hq_given), "expenses": wire(&hq_spent) },
+        "branches": branches,
+        "consolidated": {
+            "donations": wire(&total_given),
+            "expenses": wire(&total_spent),
+            "net": wire(&total_given.minus(&total_spent)),
+        },
+    }))
+}
+
+/// The branch a record was booked to, if any.
+fn branch_of(row: &Value) -> Option<String> {
+    match row.get("branch_id") {
+        Some(Value::String(branch)) if !branch.is_empty() => Some(branch.clone()),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -898,6 +2271,229 @@ mod tests {
         } else {
             params["patch"].clone()
         }
+    }
+
+    #[test]
+    fn a_receipt_is_numbered_from_the_first_and_counts_per_organisation() {
+        let graph = FakeGraph::queue(vec![
+            Vec::new(),
+            vec![json!({"id": "r-1", "org_id": "abcdefgh-1"})],
+        ]);
+        let receipt = issue_receipt(
+            &graph,
+            &scope(),
+            "abcdefgh-1",
+            "donation-1",
+            Value::Null,
+            &Money::from_i64(250),
+            "USD",
+            "2026-03-01",
+        )
+        .expect("issued");
+        assert_eq!(receipt["receipt_no"], json!("RCP-abcdefgh-00001"));
+        // a token is minted, and it is what a donor hands back to check the receipt
+        assert!(!field(&receipt, "token").is_empty());
+    }
+
+    #[test]
+    fn a_donation_for_a_donor_of_another_organisation_is_refused() {
+        let graph = FakeGraph::queue(vec![
+            vec![json!({
+                "id": "org-1",
+                "name": "Harare Youth Trust",
+                "org_type": "nonprofit",
+                "book_id": "book-1",
+                "user_id": "user-1",
+                "owner_id": "user-1",
+            })],
+            vec![json!({
+                "id": "donor-9",
+                "org_id": "another-org",
+                "name": "Elsewhere",
+            })],
+        ]);
+        let refused = record_donation(
+            &graph,
+            &scope(),
+            "org-1",
+            &json!({"donor_id": "donor-9", "amount": 100}),
+        )
+        .expect_err("refused");
+        assert!(refused.to_string().contains("Unknown donor for this org"));
+    }
+
+    #[test]
+    fn a_dividend_cannot_exceed_what_the_company_has_earned() {
+        let org = json!({
+            "id": "org-1",
+            "name": "Kaguvi Holdings",
+            "org_type": "company",
+            "book_id": "book-1",
+            "user_id": "user-1",
+            "owner_id": "user-1",
+        });
+        let graph = FakeGraph::queue(vec![
+            vec![org.clone()],
+            // two shareholders holding 1000 shares between them
+            vec![
+                json!({"id": "s-1", "org_id": "org-1", "shares": 600, "amount_paid": "600.000000"}),
+                json!({"id": "s-2", "org_id": "org-1", "shares": 400, "amount_paid": "400.000000"}),
+            ],
+            // earned 5,000 on sales
+            vec![json!({"id": "r-1", "org_id": "org-1", "amount": "5000.000000"})],
+            Vec::new(),
+            Vec::new(),
+            vec![
+                json!({"id": "d-1", "org_id": "org-1", "per_share": "4.000000", "total": "4000.000000"}),
+            ],
+        ]);
+        let declared = declare_dividend(&graph, &scope(), "org-1", &json!({"per_share": "4.00"}))
+            .expect("declared");
+        assert_eq!(declared["total_shares"], json!(1000));
+        assert_eq!(declared["total"], json!("4000.000000"));
+
+        // 6.00 a share is 6,000 against 5,000 earned, so there is nothing to pay it from
+        let graph = FakeGraph::queue(vec![
+            vec![org],
+            vec![
+                json!({"id": "s-1", "org_id": "org-1", "shares": 1000, "amount_paid": "1000.000000"}),
+            ],
+            vec![json!({"id": "r-1", "org_id": "org-1", "amount": "5000.000000"})],
+            Vec::new(),
+            Vec::new(),
+        ]);
+        let refused = declare_dividend(&graph, &scope(), "org-1", &json!({"per_share": "6.00"}))
+            .expect_err("refused");
+        assert!(refused.to_string().contains("distributable reserves"));
+    }
+
+    #[test]
+    fn a_budget_line_is_replaced_rather_than_duplicated() {
+        let graph = FakeGraph::queue(vec![
+            vec![
+                json!({"id": "org-1", "name": "T", "org_type": "nonprofit", "book_id": "book-1", "user_id": "user-1", "owner_id": "user-1"}),
+            ],
+            vec![json!({
+                "id": "budget-1",
+                "org_id": "org-1",
+                "fiscal_year": 2026,
+                "fund": "general",
+                "program": "clinics",
+                "budgeted": "1000.000000",
+            })],
+            vec![json!({"id": "budget-1", "budgeted": "2500.000000"})],
+        ]);
+        upsert_budget(
+            &graph,
+            &scope(),
+            "org-1",
+            &json!({"fiscal_year": 2026, "fund": "general", "program": "clinics", "budgeted": "2500"}),
+        )
+        .expect("saved");
+        // the same fund and program in the same year is the same line, so nothing new was written
+        let (statement, params) = graph.statement(2);
+        assert!(statement.contains("SET x += $patch"), "{statement}");
+        assert_eq!(params["patch"]["budgeted"], json!("2500.000000"));
+    }
+
+    #[test]
+    fn an_expense_over_the_band_limit_needs_a_second_approver() {
+        let org = json!({
+            "id": "org-1",
+            "name": "Harare Youth Trust",
+            "org_type": "nonprofit",
+            "size_band": "medium",
+            "book_id": "book-1",
+            "user_id": "user-1",
+            "owner_id": "user-1",
+        });
+        let graph = FakeGraph::queue(vec![
+            vec![org.clone()],
+            vec![json!({"id": "expense-1", "status": "pending_dual_approval"})],
+        ]);
+        let answer = create_expense(
+            &graph,
+            &scope(),
+            "org-1",
+            &json!({"amount": "20000.00", "approver1": "tendai"}),
+        )
+        .expect("recorded");
+        assert_eq!(answer["status"], json!("pending_dual_approval"));
+
+        // the same approval twice is not two approvals
+        let graph = FakeGraph::queue(vec![vec![org]]);
+        let refused = create_expense(
+            &graph,
+            &scope(),
+            "org-1",
+            &json!({"amount": "20000.00", "approver1": "tendai", "approver2": "tendai"}),
+        )
+        .expect_err("refused");
+        assert!(refused.to_string().contains("two different approvers"));
+    }
+
+    #[test]
+    fn the_consolidated_report_is_a_large_organisations_report() {
+        let graph = FakeGraph::queue(vec![vec![json!({
+            "id": "org-1",
+            "name": "Zimbabwe Widows Fund",
+            "org_type": "nonprofit",
+            "size_band": "medium",
+            "book_id": "book-1",
+            "user_id": "user-1",
+            "owner_id": "user-1",
+        })]]);
+        let refused = report_consolidated(&graph, &scope(), "org-1").expect_err("refused");
+        assert!(refused.to_string().contains("large scale"));
+    }
+
+    #[test]
+    fn a_receipt_pdf_is_a_document_a_reader_will_accept() {
+        let pdf = pdf_of(
+            "Harare Youth Trust",
+            &json!({
+                "receipt_no": "RCP-abcdefgh-00001",
+                "amount": "250.000000",
+                "currency": "USD",
+                "issued_at": "2026-03-01",
+                "token": "abc123",
+            }),
+        );
+        let text = String::from_utf8_lossy(&pdf);
+        assert!(text.starts_with("%PDF-1.4"), "not a PDF header");
+        assert!(text.trim_end().ends_with("%%EOF"), "no end of file");
+        assert!(text.contains("OFFICIAL RECEIPT"));
+        assert!(text.contains("RCP-abcdefgh-00001"));
+        assert!(text.contains("/receipts/verify/abc123"));
+        // the cross-reference table points at the five objects the document declares
+        assert!(text.contains("/Size 6"));
+    }
+
+    #[test]
+    fn a_partners_share_of_income_is_proportional_when_the_shares_do_not_add_to_a_hundred() {
+        let graph = FakeGraph::queue(vec![
+            vec![
+                json!({"id": "org-1", "name": "Mhondoro Partners", "org_type": "partnership", "book_id": "book-1", "user_id": "user-1", "owner_id": "user-1"}),
+            ],
+            // 3,000 earned
+            vec![json!({"id": "r-1", "org_id": "org-1", "amount": "3000.000000"})],
+            Vec::new(),
+            Vec::new(),
+            vec![
+                json!({"id": "p-1", "org_id": "org-1", "name": "Rudo", "capital_contribution": "1000.000000", "profit_share": "60.000000", "status": "active"}),
+                json!({"id": "p-2", "org_id": "org-1", "name": "Farai", "capital_contribution": "1000.000000", "profit_share": "60.000000", "status": "active"}),
+            ],
+            // no draws
+            Vec::new(),
+            Vec::new(),
+        ]);
+        let answer = report_capital_accounts(&graph, &scope(), "org-1").expect("reported");
+        // two partners holding 60 each is 120 between them, so each is entitled to half of the income
+        let accounts = answer["accounts"].as_array().expect("accounts");
+        assert_eq!(accounts.len(), 2);
+        assert_eq!(accounts[0]["allocated_income"], json!("1500.000000"));
+        assert_eq!(accounts[0]["capital_account"], json!("2500.000000"));
+        assert_eq!(answer["net_income"], json!("3000.000000"));
     }
 
     #[test]

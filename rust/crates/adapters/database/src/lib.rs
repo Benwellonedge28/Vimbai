@@ -483,6 +483,29 @@ pub const NPO_SCALE_REVENUE: RecordKind =
 pub const NPO_SCALE_EXPENSE: RecordKind =
     RecordKind::new("NPOScaleExpense", "OWNS_NPO_SCALE_EXPENSE");
 
+/// The records npo-scale-service owns, continued: the money it collects, pays out, and reports on.
+pub const NPO_SCALE_RECEIPT: RecordKind =
+    RecordKind::new("NPOScaleReceipt", "OWNS_NPO_SCALE_RECEIPT");
+pub const NPO_SCALE_DONOR: RecordKind = RecordKind::new("NPOScaleDonor", "OWNS_NPO_SCALE_DONOR");
+pub const NPO_SCALE_DONATION: RecordKind =
+    RecordKind::new("NPOScaleDonation", "OWNS_NPO_SCALE_DONATION");
+pub const NPO_SCALE_PLEDGE: RecordKind = RecordKind::new("NPOScalePledge", "OWNS_NPO_SCALE_PLEDGE");
+pub const NPO_SCALE_SHAREHOLDER: RecordKind =
+    RecordKind::new("NPOScaleShareholder", "OWNS_NPO_SCALE_SHAREHOLDER");
+pub const NPO_SCALE_DIRECTOR: RecordKind =
+    RecordKind::new("NPOScaleDirector", "OWNS_NPO_SCALE_DIRECTOR");
+pub const NPO_SCALE_DIVIDEND: RecordKind =
+    RecordKind::new("NPOScaleDividend", "OWNS_NPO_SCALE_DIVIDEND");
+pub const NPO_SCALE_PARTNER: RecordKind =
+    RecordKind::new("NPOScalePartner", "OWNS_NPO_SCALE_PARTNER");
+pub const NPO_SCALE_PARTNER_DRAW: RecordKind =
+    RecordKind::new("NPOScalePartnerDraw", "OWNS_NPO_SCALE_PARTNER_DRAW");
+pub const NPO_SCALE_BUDGET: RecordKind = RecordKind::new("NPOScaleBudget", "OWNS_NPO_SCALE_BUDGET");
+pub const NPO_SCALE_COMPLIANCE: RecordKind =
+    RecordKind::new("NPOScaleCompliance", "OWNS_NPO_SCALE_COMPLIANCE");
+pub const NPO_SCALE_BALANCE_ITEM: RecordKind =
+    RecordKind::new("NPOScaleBalanceItem", "OWNS_NPO_SCALE_BALANCE_ITEM");
+
 /// The records npo-service owns.
 pub const NPO_FUND: RecordKind = RecordKind::new("NPOFund", "OWNS_NPO_FUND");
 pub const NPO_FUND_TRANSACTION: RecordKind =
@@ -631,6 +654,24 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
         let mut params = scope.params();
         params["id"] = json!(id);
         self.one(cypher, params)
+    }
+
+    /// A public verification token is itself the credential, so this is the one read that crosses Books.
+    ///
+    /// A receipt number and a holding code are printed on a document and handed to a donor or an investor who has no
+    /// account here. Looking one up has to ignore the Book scoping every other read keeps, so it is kept to exactly
+    /// that: one record whose named property is the token the caller already holds, and nothing else.
+    pub fn by_token(&self, property: &str, token: &str) -> Result<Option<Value>, StoreError> {
+        if token.trim().is_empty() {
+            return Ok(None);
+        }
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.{property} = $token\nRETURN x",
+            label = self.kind.label,
+            property = property
+        );
+        let rows = self.graph.run(&cypher, json!({ "token": token }))?;
+        Ok(rows.into_iter().next().map(unwrap_node))
     }
 
     pub fn list(&self, scope: &BookScope, limit: usize) -> Result<Vec<Value>, StoreError> {

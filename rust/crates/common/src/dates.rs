@@ -30,6 +30,37 @@ pub fn days_between(later: &str, earlier: &str) -> Option<i64> {
     Some(day_of(later)? - day_of(earlier)?)
 }
 
+/// The date a count of days from 1970-01-01 lands on, written `YYYY-MM-DD`.
+///
+/// The inverse of [`day_of`], so a due date thirty days out can be written down rather than only measured.
+pub fn date_of(days: i64) -> String {
+    let shifted = days + 719_468;
+    let era = if shifted >= 0 {
+        shifted
+    } else {
+        shifted - 146_096
+    } / 146_097;
+    let day_of_era = shifted - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_from_march = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_from_march + 2) / 5 + 1;
+    let month = if month_from_march < 10 {
+        month_from_march + 3
+    } else {
+        month_from_march - 9
+    };
+    let year = if month <= 2 { year + 1 } else { year };
+    format!("{year:04}-{month:02}-{day:02}")
+}
+
+/// Days after a date, written back as a date: `30` days after `2026-01-31` is `2026-03-02`.
+pub fn date_after(date: &str, days: i64) -> Option<String> {
+    Some(date_of(day_of(date)? + days))
+}
+
 /// The same day arithmetic the calendar uses, in closed form (no leap-year tables to get wrong).
 fn civil_day(year: i64, month: i64, day: i64) -> i64 {
     let year = if month <= 2 { year - 1 } else { year };
@@ -53,6 +84,18 @@ mod tests {
         assert_eq!(days_between("2028-03-01", "2028-02-29"), Some(1));
         assert_eq!(days_between("2026-01-01", "2026-02-01"), Some(-31));
         assert_eq!(days_between("2026-01-01", "2026-01-01"), Some(0));
+    }
+
+    #[test]
+    fn a_day_count_written_back_is_the_date_it_lands_on() {
+        assert_eq!(date_of(day_of("2026-01-01").unwrap()), "2026-01-01");
+        assert_eq!(date_of(day_of("2024-02-29").unwrap()), "2024-02-29");
+        assert_eq!(date_after("2024-02-28", 1).as_deref(), Some("2024-02-29"));
+        assert_eq!(date_after("2026-01-31", 30).as_deref(), Some("2026-03-02"));
+        assert_eq!(date_after("2026-12-15", 30).as_deref(), Some("2027-01-14"));
+        for day in [-20000i64, -1, 0, 1, 5000, 21000] {
+            assert_eq!(day_of(&date_of(day)), Some(day));
+        }
     }
 
     #[test]
