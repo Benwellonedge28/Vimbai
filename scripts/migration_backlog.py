@@ -38,9 +38,23 @@ def survey():
     for service in services:
         name = service["name"]
         directory = ROOT / name
-        if not directory.is_dir():
+        main_path = directory / "main.py"
+        # a routed service with no Python source is still a routed service: leaving it out made this file claim every
+        # gateway service appears exactly once while silently dropping the one that published no endpoints of its own
+        if not main_path.is_file():
+            rows.append(
+                {
+                    "name": name,
+                    "port": service["port"],
+                    "endpoints": 0,
+                    "owns_records": False,
+                    "rust_engine": "rust http" if name in manifest_ported else "none",
+                    "lines": 0,
+                    "python": False,
+                }
+            )
             continue
-        main = (directory / "main.py").read_text()
+        main = main_path.read_text()
         endpoints = re.findall(r'@app\.(?:get|post|put|delete|patch)\("([^"]+)"', main)
         ported = name in manifest_ported
         engine = "native seam" if "vimbai_native" in main else ("rust http" if ported else "none")
@@ -52,6 +66,7 @@ def survey():
                 "owns_records": bool(PERSISTENCE.search(main)),
                 "rust_engine": engine,
                 "lines": len(main.splitlines()),
+                "python": True,
             }
         )
     return rows
@@ -67,7 +82,7 @@ def table(title, rows):
                 row["port"],
                 row["endpoints"],
                 "yes" if row["owns_records"] else "no",
-                row["rust_engine"],
+                row["rust_engine"] + ("" if row["python"] else " (no python source)"),
             )
         )
     out += ["```", ""]
@@ -91,8 +106,17 @@ def render(rows):
         "",
         "## Where things stand",
         "",
-        "The gateway routes %d services. %d are proven on a Rust engine. %d are still Python-only."
-        % (len(rows), len(ported), len(backlog)),
+        (
+            "The gateway routes %d services, %d of them with Python source. %d answer from a Rust engine; %d are still"
+            % (
+            len(rows),
+            len([r for r in rows if r["python"]]),
+            len(ported),
+            len(backlog)
+            )
+            + " Python-only, and %d has no Python source at all because it published no endpoints of its own."
+            % len([r for r in rows if not r["python"]])
+        ),
         "",
         "Of the backlog, %d own no records and can be ported as pure functions; %d own records and"
         % (len(pure), len(owning)),
