@@ -1963,6 +1963,7 @@ dependencies = [
  "vimbai_bridge",
  "vimbai_budgeting",
  "vimbai_cache",
+ "vimbai_calculation_surface",
  "vimbai_capital_valuation",
  "vimbai_common",
  "vimbai_cost_accounting",
@@ -2078,6 +2079,18 @@ version = "0.3.0"
 dependencies = [
  "serde_json",
  "vimbai_common",
+ "vimbai_store",
+]
+
+[[package]]
+name = "vimbai_calculation_surface"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vimbai_assets",
+ "vimbai_capital_valuation",
+ "vimbai_service_finance",
+ "vimbai_service_treasury",
  "vimbai_store",
 ]
 

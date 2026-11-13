@@ -10,6 +10,7 @@
 //! 2. [`irr_bisection`] — bracketed fallback for non-convex profiles.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use vimbai_common::{py_round, py_round2};
 
 /// NPV at a given rate (IRR service's helper, residual discounted at
@@ -264,5 +265,64 @@ mod tests {
         let without = irr(1000.0, &[300.0, 300.0, 300.0], 0.0, 100, 0.0001);
         let with_res = irr(1000.0, &[300.0, 300.0, 300.0], 400.0, 100, 0.0001);
         assert!(with_res.irr_percentage > without.irr_percentage);
+    }
+}
+
+/// `/irr` on the realtime engine: the rate at which the series is worth exactly what it cost.
+///
+/// The engine ran its own Newton-Raphson loop with a fixed 10% guess and a hundred iterations. That search is [`irr`],
+/// so this door runs the same solver rather than a second copy of it, with the engine's own iteration budget and
+/// tolerance. The improvement the solver carries - verifying the rate it found against the resulting net, and re-finding
+/// it by halving a bracket when it does not hold - is why a project that repays 1100 on 1000 in one year answers 10% here
+/// instead of the -81% the loop alone returned.
+pub fn quick_irr_from_json(payload: &Value) -> Result<Value, String> {
+    #[derive(Deserialize)]
+    struct Request {
+        initial_investment: f64,
+        cash_flows: Vec<f64>,
+    }
+    let request: Request = serde_json::from_value(payload.clone())
+        .map_err(|error| format!("invalid request: {error}"))?;
+    if request.cash_flows.is_empty() {
+        return Err("cash_flows is required".into());
+    }
+    let output = irr(
+        request.initial_investment,
+        &request.cash_flows,
+        0.0,
+        100,
+        1e-6,
+    );
+    Ok(serde_json::json!({
+        "irr": (output.irr_percentage * 10_000.0).round() / 10_000.0,
+        "npv_at_irr": (output.npv_at_irr * 1_000_000.0).round() / 1_000_000.0,
+    }))
+}
+
+#[cfg(test)]
+mod quick_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn the_realtime_engine_answers_the_same_rate_the_capital_budgeting_services_do() {
+        // a project that repays 1100 on 1000 in one year returns ten percent, and the solver verifies it rather than
+        // trusting the iteration alone
+        let answer =
+            quick_irr_from_json(&json!({"initial_investment": 1000, "cash_flows": [1100]}))
+                .expect("a rate");
+        assert_eq!(answer["irr"], json!(10.0));
+        assert!((answer["npv_at_irr"].as_f64().unwrap()).abs() < 0.000001);
+
+        // two years of 600 on 1000 is about 13.07 percent
+        let longer =
+            quick_irr_from_json(&json!({"initial_investment": 1000, "cash_flows": [600, 600]}))
+                .expect("a rate");
+        assert!((longer["irr"].as_f64().unwrap() - 13.0662).abs() < 0.01);
+
+        // a series of nothing is refused rather than answered with a guess
+        assert!(
+            quick_irr_from_json(&json!({"initial_investment": 1000, "cash_flows": []})).is_err()
+        );
     }
 }

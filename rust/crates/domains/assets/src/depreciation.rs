@@ -1,7 +1,8 @@
 //! depreciation-service: batch calculation and per-method schedules.
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use vimbai_common::Money;
+use vimbai_store::StoreError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DepreciationAsset {
@@ -242,5 +243,165 @@ mod tests {
         assert_eq!(r.annual_depreciation, 4000.0);
         // 5 years of 4000 never exhausts: remaining goes very negative -> 0
         assert_eq!(r.schedule[4].book_value, 0.0);
+    }
+}
+
+/// `/depreciation` on the realtime engine: a year-by-year schedule by one of three named methods.
+///
+/// This is kept apart from [`depreciation_method`] because the two answer different questions and the shipped services
+/// disagreed on both the method set and the arithmetic. Here `straight_line` charges the depreciable amount evenly,
+/// `declining_balance` is DOUBLE declining on the carrying amount with the charge held back so the asset never falls
+/// below its salvage, and everything else - `sum_of_years` included - sums the years' digits. That last part is shipped
+/// behaviour rather than an oversight: the original fell through to sum-of-years for any name it did not recognise, so
+/// a misspelling depreciated the asset instead of refusing it. Kept, and pinned by a test.
+pub fn quick_depreciation(payload: &Value) -> Result<Value, StoreError> {
+    #[derive(Deserialize)]
+    struct Request {
+        cost: Money,
+        #[serde(default)]
+        salvage_value: Money,
+        useful_life: i64,
+        #[serde(default)]
+        method: String,
+    }
+    let request: Request = serde_json::from_value(payload.clone())
+        .map_err(|error| StoreError::Invalid(format!("invalid request: {error}")))?;
+    if request.useful_life < 1 {
+        return Err(StoreError::Invalid(
+            "useful_life must be at least one".into(),
+        ));
+    }
+    let method = if request.method.is_empty() {
+        "straight_line".to_string()
+    } else {
+        request.method.clone()
+    };
+    let life = request.useful_life;
+    let depreciable = request.cost.minus(&request.salvage_value);
+    let mut schedule = Vec::with_capacity(life as usize);
+
+    match method.as_str() {
+        "straight_line" => {
+            let annual = depreciable.over(&Money::from_i64(life));
+            for year in 1..=life {
+                let charged = annual.times(&Money::from_i64(year));
+                schedule.push(json!({
+                    "year": year,
+                    "depreciation": annual.round(2).to_f64_lossy(),
+                    "accumulated": charged.round(2).to_f64_lossy(),
+                    "book_value": request.cost.minus(&charged).round(2).to_f64_lossy(),
+                }));
+            }
+        }
+        "declining_balance" => {
+            let rate = Money::from_i64(2).over(&Money::from_i64(life));
+            let mut carried = request.cost.clone();
+            for year in 1..=life {
+                let mut charge = carried.times(&rate);
+                // the charge never takes the asset below what it is expected to be worth at the end
+                if carried.minus(&charge) < request.salvage_value {
+                    charge = carried.minus(&request.salvage_value);
+                }
+                carried = carried.minus(&charge);
+                schedule.push(json!({
+                    "year": year,
+                    "depreciation": charge.round(2).to_f64_lossy(),
+                    "accumulated": request.cost.minus(&carried).round(2).to_f64_lossy(),
+                    "book_value": carried.round(2).to_f64_lossy(),
+                }));
+            }
+        }
+        _ => {
+            let digits = Money::from_i64(life)
+                .times(&Money::from_i64(life + 1))
+                .over(&Money::from_i64(2));
+            let mut charged = Money::zero();
+            for year in 1..=life {
+                let weight = Money::from_i64(life - year + 1);
+                let charge = depreciable.times(&weight).over(&digits);
+                charged = charged.plus(&charge);
+                schedule.push(json!({
+                    "year": year,
+                    "depreciation": charge.round(2).to_f64_lossy(),
+                    "accumulated": charged.round(2).to_f64_lossy(),
+                    "book_value": request.cost.minus(&charged).round(2).to_f64_lossy(),
+                }));
+            }
+        }
+    }
+
+    Ok(json!({
+        "method": method,
+        "total_depreciable": depreciable.round(2).to_f64_lossy(),
+        "schedule": schedule,
+    }))
+}
+
+#[cfg(test)]
+mod quick_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn straight_line_charges_the_depreciable_amount_evenly() {
+        let answer = quick_depreciation(
+            &json!({"cost": 1000, "salvage_value": 100, "useful_life": 3, "method": "straight_line"}),
+        )
+        .expect("a schedule");
+        assert_eq!(answer["total_depreciable"], json!(900.0));
+        let rows = answer["schedule"].as_array().expect("rows");
+        assert_eq!(rows[0]["depreciation"], json!(300.0));
+        assert_eq!(rows[2]["accumulated"], json!(900.0));
+        // the asset lands exactly on its salvage, which is what straight line is for
+        assert_eq!(rows[2]["book_value"], json!(100.0));
+    }
+
+    #[test]
+    fn declining_balance_is_double_declining_and_never_undercuts_the_salvage() {
+        let answer = quick_depreciation(
+            &json!({"cost": 1000, "salvage_value": 0, "useful_life": 5, "method": "declining_balance"}),
+        )
+        .expect("a schedule");
+        let rows = answer["schedule"].as_array().expect("rows");
+        // forty percent of the carrying amount each year
+        assert_eq!(rows[0]["depreciation"], json!(400.0));
+        assert_eq!(rows[1]["depreciation"], json!(240.0));
+        assert_eq!(rows[4]["book_value"], json!(77.76));
+
+        // with a salvage the charge is held back rather than taking the asset below it
+        let held = quick_depreciation(
+            &json!({"cost": 1000, "salvage_value": 900, "useful_life": 5, "method": "declining_balance"}),
+        )
+        .expect("a schedule");
+        let rows = held["schedule"].as_array().expect("rows");
+        assert_eq!(rows[0]["depreciation"], json!(100.0));
+        assert_eq!(rows[4]["book_value"], json!(900.0));
+    }
+
+    #[test]
+    fn anything_that_is_not_a_named_method_sums_the_years_digits() {
+        // shipped behaviour rather than an oversight: the original fell through to sum-of-years for any name it did
+        // not recognise, so a misspelling depreciated the asset instead of refusing it
+        let answer = quick_depreciation(
+            &json!({"cost": 1000, "salvage_value": 0, "useful_life": 4, "method": "sum_of_years"}),
+        )
+        .expect("a schedule");
+        let rows = answer["schedule"].as_array().expect("rows");
+        assert_eq!(rows[0]["depreciation"], json!(400.0));
+        assert_eq!(rows[3]["depreciation"], json!(100.0));
+        assert_eq!(rows[3]["accumulated"], json!(1000.0));
+
+        let misspelt = quick_depreciation(
+            &json!({"cost": 1000, "salvage_value": 0, "useful_life": 4, "method": "sum of years"}),
+        )
+        .expect("a schedule");
+        assert_eq!(misspelt["method"], json!("sum of years"));
+        assert_eq!(misspelt["schedule"][0]["depreciation"], json!(400.0));
+
+        // a life of nothing is refused rather than divided by
+        assert!(matches!(
+            quick_depreciation(&json!({"cost": 1000, "salvage_value": 0, "useful_life": 0})),
+            Err(StoreError::Invalid(_))
+        ));
     }
 }

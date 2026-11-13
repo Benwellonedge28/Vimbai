@@ -1,0 +1,14 @@
+[package]
+name = "vimbai_calculation_surface"
+version = "0.1.0"
+edition = "2021"
+description = "The calculation surface a client calls: each figure handed to the calculator that already owns it"
+license = "MIT"
+
+[dependencies]
+serde_json = { workspace = true }
+vimbai_assets = { path = "../domains/assets" }
+vimbai_capital_valuation = { path = "../calculations/capital_valuation" }
+vimbai_service_finance = { path = "../domains/finance" }
+vimbai_service_treasury = { path = "../domains/treasury" }
+vimbai_store = { path = "../adapters/database" }

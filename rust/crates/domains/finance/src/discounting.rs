@@ -10,7 +10,7 @@
 //! used at all is the root search behind the internal rate of return, because a root found by iteration is an
 //! approximation by nature; its answer is verified exactly afterwards.
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use vimbai_common::Money;
 use vimbai_store::read::{amounts, decimal, money_or_nothing, refused};
 use vimbai_store::StoreError;
@@ -129,5 +129,59 @@ mod tests {
     fn an_empty_series_is_refused() {
         assert!(flows(&json!({"cash_flows": []}), "cash_flows").is_err());
         assert!(flows(&json!({"cash_flows": [1, 2]}), "cash_flows").is_ok());
+    }
+}
+
+/// `/npv` on the realtime engine: the series worth today once the investment is paid for.
+///
+/// The engine published its rate as a percent, so a caller saying `7.5` meant seven and a half percent. That is the one
+/// difference from the capital-budgeting services, which take a rate as a decimal; the discounting itself is this
+/// crate's, so there is no second NPV in the workspace.
+pub fn quick_npv(payload: &Value) -> Result<Value, StoreError> {
+    let investment = investment(payload)?;
+    let series = flows(payload, "cash_flows")?;
+    let percent = rate(payload, "discount_rate")?;
+    let fraction = percent.over(&Money::from_i64(100));
+    let net = net_present_value(&investment, &series, &fraction, &Money::zero());
+    Ok(json!({
+        "npv": net.round(2).to_f64_lossy(),
+        "profitable": !net.is_zero() && !net.is_negative(),
+        "rate": percent.to_f64_lossy(),
+    }))
+}
+
+#[cfg(test)]
+mod quick_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn the_realtime_engine_takes_its_rate_as_a_percent() {
+        let answer = quick_npv(
+            &json!({"initial_investment": 1000, "cash_flows": [500, 500, 500], "discount_rate": 10}),
+        )
+        .expect("a net");
+        // 500 discounted at ten percent for three years is 1243.43, so the project is worth 243.43 today
+        assert_eq!(answer["npv"], json!(243.43));
+        assert_eq!(answer["profitable"], json!(true));
+        assert_eq!(answer["rate"], json!(10.0));
+
+        // a rate high enough to make the same flows worth less than they cost
+        let dear = quick_npv(
+            &json!({"initial_investment": 1000, "cash_flows": [300, 300, 300], "discount_rate": 40}),
+        )
+        .expect("a net");
+        assert_eq!(dear["profitable"], json!(false));
+        assert!(dear["npv"].as_f64().unwrap() < 0.0);
+
+        // a series of nothing is refused, as is an investment of nothing
+        assert!(quick_npv(
+            &json!({"initial_investment": 1000, "cash_flows": [], "discount_rate": 10})
+        )
+        .is_err());
+        assert!(quick_npv(
+            &json!({"initial_investment": 0, "cash_flows": [10], "discount_rate": 10})
+        )
+        .is_err());
     }
 }

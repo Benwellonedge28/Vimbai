@@ -11948,6 +11948,72 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// The realtime calculation engine: four figures, each answered by the calculator that already owns it.
+// ---------------------------------------------------------------------------
+
+async fn post_quick_npv(
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let _ = &scope;
+    answer(calculation::realtime::npv(&merged_request(
+        payload,
+        query.as_deref(),
+    )))
+}
+
+async fn post_quick_irr(
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let _ = &scope;
+    answer(
+        capital_valuation::irr::quick_irr_from_json(&merged_request(payload, query.as_deref()))
+            .map_err(::store::StoreError::Invalid),
+    )
+}
+
+async fn post_quick_depreciation(
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let _ = &scope;
+    answer(calculation::realtime::depreciation_schedule(
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_quick_amortisation(
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let _ = &scope;
+    answer(treasury::debt_management::quick_amortisation(
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // Multimodal capture: what a Book's inbox holds, and the corrections made to it.
 // ---------------------------------------------------------------------------
 
@@ -16296,6 +16362,12 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // The realtime calculation engine: four figures, each from the calculator that already owns it
+        .route("/npv", post(post_quick_npv))
+        .route("/irr", post(post_quick_irr))
+        .route("/depreciation", post(post_quick_depreciation))
+        .route("/amortize", post(post_quick_amortisation))
 
         // Multimodal capture: the inbox of records taken in, and the corrections made to them
         .route("/tasks", get(get_captures).post(post_capture))

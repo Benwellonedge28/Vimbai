@@ -291,6 +291,24 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- realtime-calculation-engine -> NO new calculator: four figures answered by the calculators the workspace already
+  owns, which is the whole point of this port. `/npv` is `finance::discounting::quick_npv` (the one discounting engine the
+  four capital-budgeting services share; the engine published its rate as a PERCENT, so 10 meant ten percent, and only the
+  door differs - the discounting is not copied); `/irr` is `capital_valuation::irr::quick_irr_from_json` on the one solver,
+  with the engine's own 100-iteration / 1e-6 budget, and it therefore carries the verification improvement: a project
+  repaying 1100 on 1000 in one year answers 10%, not the -81% a bare Newton loop gave; `/depreciation` is
+  `assets::depreciation::quick_depreciation`, kept separate from `depreciation_method` because the two answer different
+  questions and the shipped services disagreed on both the method set and the arithmetic - `straight_line` charges the
+  depreciable amount evenly, `declining_balance` is DOUBLE declining with the charge held back so the asset never falls
+  below salvage, and ANYTHING ELSE falls through to sum-of-years, which is shipped behaviour (a misspelt method
+  depreciated the asset instead of being refused) and is pinned by a test; and `/amortize` is
+  `treasury::debt_management::quick_amortisation`, which reads the ONE loan paydown - `paydown_rows`, now shared with the
+  stored loans' schedule rather than written twice - with the engine's own arrival shape (years instead of months, a rate
+  as a percent, `month/month_payment/interest/principal/balance`) and adds `monthly_payment` and `total_interest`. The
+  schedule lands on exactly zero, because a loan schedule that leaves a residue has not cleared the loan. `/amortize`
+  takes its three figures from the query string as well as the body, as the shipped function did. Routes: /npv, /irr,
+  /depreciation, /amortize - no duplicate arithmetic, and no fourth copy of NPV, IRR or depreciation.
+
 - multimodal-pipeline-service -> multimodal crate (rust/crates/domains/multimodal, module `capture`), records on the
   store: the captures a Book's inbox holds (a document, recording, photograph or typed text, what was read out of it, and
   where that reading stands), the per-status counts the inbox badge shows, and the corrections a person made to a reading.

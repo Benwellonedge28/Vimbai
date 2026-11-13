@@ -23,6 +23,7 @@ use vimbai_store::amounts::wire;
 use vimbai_store::{BookScope, Graph, Records, StoreError, DEBT_LOAN};
 
 use crate::helpers::{field, money, money_or_nothing, or_default, remember, text, whole};
+use vimbai_store::read::whole_signed;
 
 /// `POST /loans`: a loan as it was set up.
 pub fn create_loan<G: Graph + ?Sized>(
@@ -156,30 +157,108 @@ pub fn payment(principal: &Money, rate: &Money, months: u32) -> Result<Money, St
         .over(&growth.minus(&one)))
 }
 
-/// The schedule for one loan: interest on the balance, the rest of the payment against the principal.
-fn paydown(loan: &Value) -> Result<Vec<Value>, StoreError> {
-    let principal = money_or_nothing(loan, "principal")?;
-    let rate = money_or_nothing(loan, "interest_rate")?;
-    let months = whole(loan, "term_months");
-    let each = payment(&principal, &rate, months)?;
+/// One period of a loan's paydown.
+#[derive(Debug, Clone)]
+pub struct PaydownRow {
+    pub period: u32,
+    pub payment: Money,
+    pub principal_component: Money,
+    pub interest_component: Money,
+    pub balance: Money,
+}
+
+/// The schedule one loan is paid down on: interest on the balance, the rest of the payment against the principal.
+///
+/// This is the only place a loan paydown is worked out. The stored loans below and the realtime engine's `/amortize`
+/// both read it, so a change to how a payment is split reaches both rather than drifting apart.
+pub fn paydown_rows(
+    principal: &Money,
+    rate: &Money,
+    months: u32,
+) -> Result<Vec<PaydownRow>, StoreError> {
+    let each = payment(principal, rate, months)?;
     let monthly = rate.over(&Money::parse("12").expect("money"));
 
-    let mut balance = principal;
-    let mut rows = Vec::new();
+    let mut balance = principal.clone();
+    let mut rows = Vec::with_capacity(months as usize);
     for period in 1..=months {
         let interest = balance.times(&monthly);
         let against = each.minus(&interest);
         balance = balance.minus(&against);
-        rows.push(json!({
-            "period": period,
-            "payment": wire(&each.round(2)),
-            "principal_component": wire(&against.round(2)),
-            "interest_component": wire(&interest.round(2)),
+        rows.push(PaydownRow {
+            period,
+            payment: each.round(2),
+            principal_component: against.round(2),
+            interest_component: interest.round(2),
             // the last penny of rounding must not leave the loan owing less than nothing
-            "balance": wire(&balance.round(2).max_zero()),
-        }));
+            balance: balance.round(2).max_zero(),
+        });
     }
     Ok(rows)
+}
+
+/// The schedule for one loan, as the service publishes it.
+fn paydown(loan: &Value) -> Result<Vec<Value>, StoreError> {
+    let principal = money_or_nothing(loan, "principal")?;
+    let rate = money_or_nothing(loan, "interest_rate")?;
+    let months = whole(loan, "term_months");
+    Ok(paydown_rows(&principal, &rate, months)?
+        .into_iter()
+        .map(|row| {
+            json!({
+                "period": row.period,
+                "payment": wire(&row.payment),
+                "principal_component": wire(&row.principal_component),
+                "interest_component": wire(&row.interest_component),
+                "balance": wire(&row.balance),
+            })
+        })
+        .collect())
+}
+
+/// `/amortize`: a loan paid down month by month, in the shape the realtime engine published.
+///
+/// The term arrives in years here and in months there, and the rate arrives as a percent rather than a decimal, which
+/// is the only difference between this door and the stored loans': both walk the same paydown.
+pub fn quick_amortisation(payload: &Value) -> Result<Value, StoreError> {
+    let principal = money_or_nothing(payload, "principal")?;
+    if principal.is_zero() || principal.is_negative() {
+        return Err(StoreError::Invalid("principal must be positive".into()));
+    }
+    let percent = money_or_nothing(payload, "annual_rate")?;
+    let rate = percent.over(&Money::parse("100").expect("money"));
+    let years = whole_signed(payload, "years")?;
+    if years < 1 {
+        return Err(StoreError::Invalid("years must be at least one".into()));
+    }
+    let months = u32::try_from(years * 12)
+        .map_err(|_| StoreError::Invalid("years is too long a term".into()))?;
+
+    let rows = paydown_rows(&principal, &rate, months)?;
+    let schedule: Vec<Value> = rows
+        .iter()
+        .map(|row| {
+            json!({
+                "month": row.period,
+                "payment": row.payment.to_f64_lossy(),
+                "interest": row.interest_component.to_f64_lossy(),
+                "principal": row.principal_component.to_f64_lossy(),
+                "balance": row.balance.to_f64_lossy(),
+            })
+        })
+        .collect();
+    let interest = rows.iter().fold(Money::zero(), |total, row| {
+        total.plus(&row.interest_component)
+    });
+    Ok(json!({
+        "principal": principal.round(2).to_f64_lossy(),
+        "annual_rate": percent.to_f64_lossy(),
+        "years": years,
+        "months": months,
+        "monthly_payment": rows.first().map(|row| row.payment.to_f64_lossy()).unwrap_or(0.0),
+        "total_interest": interest.round(2).to_f64_lossy(),
+        "schedule": schedule,
+    }))
 }
 
 /// The caller's loans for a company, oldest first.
@@ -341,5 +420,58 @@ mod tests {
                     "interest_rate": "0.05", "term_months": "0"}),
         );
         assert!(refused.is_err());
+    }
+}
+
+#[cfg(test)]
+mod quick_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn a_loan_pays_down_month_by_month_and_lands_on_nothing() {
+        let answer = quick_amortisation(&json!({"principal": 1000, "annual_rate": 12, "years": 1}))
+            .expect("a schedule");
+        assert_eq!(answer["months"], json!(12));
+        let schedule = answer["schedule"].as_array().expect("rows");
+        assert_eq!(schedule.len(), 12);
+        // the first month charges one percent on the whole balance, as 12% over twelve months must
+        assert_eq!(schedule[0]["interest"], json!(10.0));
+        assert_eq!(schedule[0]["balance"], json!(921.15));
+        assert_eq!(answer["monthly_payment"], json!(88.85));
+        // the schedule lands on nothing, so the loan is actually cleared
+        assert_eq!(schedule[11]["balance"], json!(0.0));
+        // and what is paid over the year is the principal plus the interest
+        let principal: f64 = schedule
+            .iter()
+            .map(|row| row["principal"].as_f64().unwrap())
+            .sum();
+        let interest: f64 = schedule
+            .iter()
+            .map(|row| row["interest"].as_f64().unwrap())
+            .sum();
+        assert!((principal + interest - 88.85 * 12.0).abs() < 0.02);
+        assert!((interest - answer["total_interest"].as_f64().unwrap()).abs() < 0.02);
+    }
+
+    #[test]
+    fn a_loan_at_no_rate_is_the_principal_split_evenly() {
+        let answer = quick_amortisation(&json!({"principal": 1200, "annual_rate": 0, "years": 1}))
+            .expect("a schedule");
+        assert_eq!(answer["monthly_payment"], json!(100.0));
+        assert_eq!(answer["total_interest"], json!(0.0));
+        let schedule = answer["schedule"].as_array().expect("rows");
+        assert_eq!(schedule[5]["payment"], json!(100.0));
+        assert_eq!(schedule[5]["balance"], json!(600.0));
+
+        // a term of nothing, or a principal of nothing, is refused rather than divided by
+        assert!(matches!(
+            quick_amortisation(&json!({"principal": 1000, "annual_rate": 5, "years": 0})),
+            Err(StoreError::Invalid(_))
+        ));
+        assert!(matches!(
+            quick_amortisation(&json!({"principal": 0, "annual_rate": 5, "years": 1})),
+            Err(StoreError::Invalid(_))
+        ));
     }
 }

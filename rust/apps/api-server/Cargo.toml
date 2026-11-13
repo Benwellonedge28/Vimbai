@@ -17,6 +17,7 @@ budgeting_services = { package = "vimbai_service_budgeting", path = "../../crate
 costing = { package = "vimbai_service_costing", path = "../../crates/domains/costing" }
 equity = { package = "vimbai_service_equity", path = "../../crates/domains/equity" }
 equity_payroll = { package = "vimbai_equity_payroll", path = "../../crates/calculations/equity_payroll" }
+calculation = { package = "vimbai_calculation_surface", path = "../../crates/application" }
 finance = { package = "vimbai_service_finance", path = "../../crates/domains/finance" }
 partnerships = { package = "vimbai_service_partnerships", path = "../../crates/domains/partnerships" }
 npo = { package = "vimbai_service_npo", path = "../../crates/domains/npo" }
