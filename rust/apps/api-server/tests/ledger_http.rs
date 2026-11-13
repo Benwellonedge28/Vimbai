@@ -419,3 +419,38 @@ async fn the_records_hang_off_the_caller_and_their_book() {
     assert_eq!(params["user_id"], json!(book().user_id));
     assert_eq!(params["book_id"], json!(book().book_id));
 }
+
+// --- an account's postings: the read the ledger's edges exist for ---
+
+#[tokio::test]
+async fn an_accounts_postings_are_read_by_walking_in_from_the_account() {
+    let graph = Scripted::returning(vec![json!({
+        "l": {"id": "line-1", "line_no": 1, "account_number": "1000", "debit": "250.000000",
+              "credit": "0.000000", "description": "sale"},
+        "entry_id": "je-1", "entry_date": "2026-03-15", "entry_description": "sale",
+    })]);
+    let (status, answer) = call(
+        graph.clone(),
+        Method::GET,
+        "/accounting/accounts/1000/postings",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{answer}");
+    assert_eq!(
+        answer["postings"].as_array().map(Vec::len),
+        Some(1),
+        "{answer}"
+    );
+    assert_eq!(answer["postings"][0]["entry_id"], json!("je-1"));
+    assert_eq!(answer["total_debit"], json!("250.000000"));
+    assert_eq!(answer["total_credit"], json!("0.000000"));
+
+    // the statement walks in from the account through the line's own edge, rather than listing every entry
+    let (statement, params) = graph.last();
+    assert!(
+        statement.contains("-[:DEBITED|CREDITED]->(a:Account"),
+        "{statement}"
+    );
+    assert_eq!(params["account_number"], json!("1000"));
+}

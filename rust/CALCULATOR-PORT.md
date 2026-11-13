@@ -1573,7 +1573,9 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   with each line's entry named beside it and the two sides totalled. It is tested the only way it can be - through the
   edges, in a graph where the edges are the only path from an account to its lines - including the case of an account
   nothing moved, which answers with no postings rather than with everything. No HTTP route exposes it yet, so it is a
-  capability the domain now has rather than a door the gateway offers.
+  capability. It has a door now: `GET /accounts/{number}/postings` on both the `/accounting` and `/records/accounting`
+  prefixes, with the caller's own limit (capped, so an unpaged read cannot ask for the whole ledger), and a route test
+  that pins the statement walking in through the edge rather than listing entries.
 
 ## Divergences worth knowing
 

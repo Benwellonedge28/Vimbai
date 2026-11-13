@@ -210,6 +210,32 @@ async fn ledger(
     ))
 }
 
+/// `GET /accounts/{number}/postings`: the lines that moved one account, walked to through the ledger's edges.
+///
+/// The limit is the caller's, with a sane cap: an account can have been moved more times than one answer should carry,
+/// and paging it is the client's business, but an unpaged read must still not ask for the whole ledger.
+async fn account_postings(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(account_number): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = query_object(query.as_deref())
+        .get("limit")
+        .and_then(Value::as_u64)
+        .unwrap_or(200);
+    answer(book::account_postings(
+        graph.as_ref(),
+        &scope,
+        &account_number,
+        asked.min(5000) as usize,
+    ))
+}
+
 async fn trial_balance(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -797,6 +823,11 @@ pub fn router(graph: GraphHandle) -> Router {
             .route(
                 &format!("{prefix}/accounts/:account_number/period-activity"),
                 get(period_activity),
+            )
+            // the ledger's own edges answer this one: the lines that moved the account, walked to from the account
+            .route(
+                &format!("{prefix}/accounts/:account_number/postings"),
+                get(account_postings),
             )
             .route(
                 &format!("{prefix}/journal-entries"),
