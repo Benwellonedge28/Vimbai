@@ -11,9 +11,9 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 119
-still Python             19
-owner domains            35
+already on a Rust engine 120
+still Python             18
+owner domains            36
 ```
 
 ## accounting
@@ -449,14 +449,13 @@ Retirement gate: answered from Rust with parity holding, so the Python directory
 
 ## platform
 
-_identity, events, caching, sync and observability_
+_identity, events, caching, observability and storage_
 
 Lands in `rust/crates/platform`.
 
 ```
 service                                         port  routes  records  engine
 admin-service                                   8099      27      yes  python
-book-sync-service                               9020      18      yes  python
 encrypted-backup-service                        8006       8       no  python
 message-bus-service                             8097      16      yes  python
 privacy-admin-dashboard-service                 8003      10       no  python
@@ -506,6 +505,19 @@ Lands in `rust/crates/domains/security`.
 ```
 service                                         port  routes  records  engine
 zero-trust-data-service                         8002       9      yes  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## sync
+
+_the shared Books a person belongs to, who else is in them, their devices and the entries those devices push_
+
+Lands in `rust/crates/platform/offline-sync`.
+
+```
+service                                         port  routes  records  engine
+book-sync-service                               9020      18      yes  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

@@ -111,8 +111,12 @@ domains:
 - name: security
   responsibility: 'zero-trust access control: policies and the decisions taken against them'
   target: rust/crates/domains/security
+- name: sync
+  responsibility: the shared Books a person belongs to, who else is in them, their devices and the entries
+    those devices push
+  target: rust/crates/platform/offline-sync
 - name: platform
-  responsibility: identity, events, caching, sync and observability
+  responsibility: identity, events, caching, observability and storage
   target: rust/crates/platform
 services:
 - name: absorption-costing-service
@@ -2483,12 +2487,12 @@ services:
   - GET /attempts
   - GET /attempts/user/{user_id}
 - name: book-sync-service
-  domain: platform
-  target: rust/crates/platform
+  domain: sync
+  target: rust/crates/platform/offline-sync
   port: 9020
   gateway_path: /book-sync
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - POST /books

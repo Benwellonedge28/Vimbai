@@ -111,6 +111,18 @@ pub fn whole(record: &Value, key: &str) -> u32 {
     }
 }
 
+/// A number, given as a number or as digits in a string, and nothing when it is neither.
+///
+/// The digits-in-a-string case is not a nicety: a value that arrived in a query string is text, so `?since=12` and
+/// `{"since": 12}` have to read the same or a delta sync silently starts from the beginning every time.
+pub fn number(payload: &Value, key: &str) -> f64 {
+    match payload.get(key) {
+        Some(Value::Number(number)) => number.as_f64().unwrap_or(0.0),
+        Some(Value::String(digits)) => digits.trim().parse().unwrap_or(0.0),
+        _ => 0.0,
+    }
+}
+
 /// A whole number the caller must supply, refused when it is not one.
 pub fn whole_signed(payload: &Value, key: &str) -> Result<i64, StoreError> {
     match payload.get(key) {

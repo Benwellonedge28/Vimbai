@@ -30,6 +30,10 @@ STORE_MODULES = {
     # every port that used to carry its own copy of them
     "read.rs",
     "write.rs",
+    # machinery as well: the one keying that is not per person, for records whose owner is the Book rather than a
+    # person. A shared Book's members are different people reading one another's rows, and the rows still belong to a
+    # service; what lives here is only how they are found and stored, gated by the membership check the caller makes.
+    "shared.rs",
 }
 
 
@@ -59,7 +63,7 @@ def test_the_store_declares_no_service_module():
     with open(os.path.join(STORE, "lib.rs"), encoding="utf-8") as handle:
         text = handle.read()
     declared = set(re.findall(r"^pub mod (\w+);", text, re.MULTILINE))
-    machinery = {"amounts", "fake", "neo4j_client", "query", "read", "write"}
+    machinery = {"amounts", "fake", "neo4j_client", "query", "read", "shared", "write"}
     assert declared <= machinery, (
         f"the store still re-exports a domain module: {sorted(declared - machinery)}"
     )

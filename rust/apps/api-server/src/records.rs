@@ -11944,6 +11944,319 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// Book sync: the shared Books a person belongs to. A Book here is identified by its own id - the caller's Book header
+// is only used to scope the store, so these entry points work the same from inside any Book.
+// ---------------------------------------------------------------------------
+
+async fn post_book(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::create_book(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_books(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::list_books(graph.as_ref(), &scope))
+}
+
+async fn post_book_default(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::default_book(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_book(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::get_book(graph.as_ref(), &scope, &book_id))
+}
+
+async fn put_book(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::update_book(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_book_shared(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    match book_sync::sync::membership_check(graph.as_ref(), &scope, &book_id) {
+        Ok(_) => answer(
+            book_sync::sync::is_shared(graph.as_ref(), &book_id)
+                .map(|shared| json!({"shared": shared})),
+        ),
+        Err(error) => answer(Err(error)),
+    }
+}
+
+async fn post_book_member(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::invite_member(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_book_members(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::book_members(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+    ))
+}
+
+async fn post_book_member_accept(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::accept_invite(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+    ))
+}
+
+async fn put_book_member(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((book_id, member_user_id)): Path<(String, String)>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::update_member(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+        &member_user_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_book_device(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::register_device(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_book_devices(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::list_devices(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+    ))
+}
+
+async fn post_book_entries_push(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::push_entries(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_book_entries(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(book_sync::sync::pull_entries(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+        &asked,
+    ))
+}
+
+async fn post_book_metadata(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::upsert_metadata(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_book_metadata(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(book_sync::sync::pull_metadata(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+        &asked,
+    ))
+}
+
+async fn get_book_audit(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(book_sync::sync::audit_log(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+        &asked,
+    ))
+}
+
+async fn get_book_membership(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(book_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(book_sync::sync::membership_check(
+        graph.as_ref(),
+        &scope,
+        &book_id,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // MFA: the second factor a person carries. Self-service only, so the person is always the caller.
 // ---------------------------------------------------------------------------
 
@@ -14641,6 +14954,21 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // Book sync: the shared Books a person belongs to, their members, devices and encrypted entries
+        .route("/books", get(get_books).post(post_book))
+        .route("/books/default", post(post_book_default))
+        .route("/books/:id", get(get_book).put(put_book))
+        .route("/books/:id/shared", get(get_book_shared))
+        .route("/books/:id/members", get(get_book_members).post(post_book_member))
+        .route("/books/:id/members/accept", post(post_book_member_accept))
+        .route("/books/:id/members/:user", put(put_book_member))
+        .route("/books/:id/devices", get(get_book_devices).post(post_book_device))
+        .route("/books/:id/entries", get(get_book_entries))
+        .route("/books/:id/entries/push", post(post_book_entries_push))
+        .route("/books/:id/metadata", get(get_book_metadata).post(post_book_metadata))
+        .route("/books/:id/audit", get(get_book_audit))
+        .route("/books/:id/membership", get(get_book_membership))
 
         // MFA: the second factor a person carries, self-service only
         .route("/mfa/setup", post(post_mfa_setup))

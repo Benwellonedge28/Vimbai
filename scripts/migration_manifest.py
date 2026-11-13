@@ -88,7 +88,11 @@ DOMAINS = {
         "zero-trust access control: policies and the decisions taken against them",
         "rust/crates/domains/security",
     ),
-    "platform": ("identity, events, caching, sync and observability", "rust/crates/platform"),
+    "sync": (
+        "the shared Books a person belongs to, who else is in them, their devices and the entries those devices push",
+        "rust/crates/platform/offline-sync",
+    ),
+    "platform": ("identity, events, caching, observability and storage", "rust/crates/platform"),
 }
 
 # Every routed service, and the domain that owns it.
@@ -288,7 +292,7 @@ OWNERS = {
     "realtime-calculation-engine": "calculations",
     "admin-service": "platform",
     "alerts-service": "alerts",
-    "book-sync-service": "platform",
+    "book-sync-service": "sync",
     "cache-service": "cache",
     "encrypted-backup-service": "platform",
     "financial-identity-service": "identity",

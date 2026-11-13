@@ -291,6 +291,24 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- book-sync-service -> sync crate (rust/crates/platform/offline-sync), records on the store: the Books a person
+  belongs to, their memberships, devices, the encrypted entries those devices push, the encrypted metadata a Book keeps
+  and the Book's own audit trail. This is the one service whose rows belong to a BOOK rather than a person, because a
+  shared Book's members are different people who each have to read what the others wrote - so it uses the store's new
+  Book-keyed records (adapters/database/src/shared.rs), and every entry point checks membership BEFORE touching them.
+  Behaviours kept as shipped, each pinned: five tiers only (anything else refused by name); the server never sees a key,
+  so an invitation without the key wrapped for the invitee is refused outright; roles ordered owner/admin/treasurer/
+  bookkeeper/viewer/auditor, with only owner and admin configuring a Book, only the four writer roles pushing entries or
+  storing metadata, and the owner never demotable or revocable; an invitation is pending until the invitee accepts, and
+  only then answers their wrapped key; a Book shows in someone's list while active OR pending, marked which; a push is
+  retry-safe, so a device that lost its answer resends the same batch and only the new entries count, with the Book's
+  sequence rising once per entry actually stored; metadata is last-write-wins by the timestamp the CLIENT states; every
+  change lands on an append-only trail. Two defects found while porting: identifiers minted in a burst could collide
+  because the clock answers in steps (vimbai_common::ids now carries a counter), and an unstated page limit would have
+  clamped to one row instead of the shipped 500. Routes: /books, /books/default, /books/{id}, /books/{id}/shared,
+  /books/{id}/members, /books/{id}/members/accept, /books/{id}/members/{user}, /books/{id}/devices, /books/{id}/entries,
+  /books/{id}/entries/push, /books/{id}/metadata, /books/{id}/audit, /books/{id}/membership.
+
 - workflow-service -> workflow domain crate (rust/crates/domains/workflow, which is the doc's domains/workflow),
   records on the store: definitions and the instances that walk them. A definition holds its steps IN ORDER, each step
   naming the steps that follow it and, optionally, the ones a rejection goes to instead, and it is active unless it is

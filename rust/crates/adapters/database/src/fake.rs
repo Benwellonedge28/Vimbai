@@ -94,12 +94,24 @@ fn created_label(cypher: &str) -> Option<String> {
     Some(rest[..end].to_string())
 }
 
-/// Every label a statement matches, read out of `(x:Label)`.
+/// Every label a statement matches, read out of `(x:Label)` - whether it hangs off the caller or the Book.
 fn matched_label(cypher: &str) -> Option<String> {
-    let start = cypher.find("->(x:")? + "->(x:".len();
+    let start = match cypher.find("->(x:") {
+        Some(found) => found + "->(x:".len(),
+        None => cypher.find("MATCH (x:")? + "MATCH (x:".len(),
+    };
     let rest = &cypher[start..];
     let end = rest.find(')')?;
     Some(rest[..end].to_string())
+}
+
+/// The property a statement filters on when it is not the id: `WHERE x.<property> = $value`.
+fn filtered_property(cypher: &str) -> Option<String> {
+    // the property is the one written immediately before `= $value`, so read back from there
+    let end = cypher.find(" = $value")?;
+    let before = &cypher[..end];
+    let start = before.rfind("x.")? + 2;
+    Some(before[start..].to_string())
 }
 
 fn stated(params: &Value, key: &str) -> String {
@@ -162,6 +174,9 @@ impl Graph for MemoryGraph {
 
         let label = matched_label(cypher)
             .ok_or_else(|| StoreError::Graph(format!("unreadable statement: {cypher}")))?;
+        // a statement that states no user_id is a Book-keyed read (see the shared module): the Book is the owner,
+        // and the caller has already established membership
+        let shared = params.get("user_id").is_none();
         let user_id = stated(&params, "user_id");
         let book_id = stated(&params, "book_id");
         let id = stated(&params, "id");
@@ -178,10 +193,15 @@ impl Graph for MemoryGraph {
             if node.label != label {
                 continue;
             }
-            if node.props.get("book_id").and_then(Value::as_str) != Some(book_id.as_str()) {
+            // a statement that states no Book is asking across Books, which only a person's own rows may do
+            if params.get("book_id").is_some()
+                && node.props.get("book_id").and_then(Value::as_str) != Some(book_id.as_str())
+            {
                 continue;
             }
-            if node.props.get("user_id").and_then(Value::as_str) != Some(user_id.as_str()) {
+            if !shared
+                && node.props.get("user_id").and_then(Value::as_str) != Some(user_id.as_str())
+            {
                 continue;
             }
             mine.push(index);
@@ -237,6 +257,23 @@ impl Graph for MemoryGraph {
             return Ok(found
                 .map(|props| vec![json!({ "x": props })])
                 .unwrap_or_default());
+        }
+
+        if let Some(property) = filtered_property(cypher) {
+            let wanted = params.get("value").cloned().unwrap_or(Value::Null);
+            let nodes = self
+                .nodes
+                .lock()
+                .expect("the memory graph is never poisoned");
+            let found: Vec<Value> = mine
+                .into_iter()
+                .filter(|index| nodes[*index].props.get(&property) == Some(&wanted))
+                .map(|index| nodes[index].props.clone())
+                .collect();
+            return Ok(found
+                .into_iter()
+                .map(|props| json!({ "x": props }))
+                .collect());
         }
 
         if cypher.contains("WHERE x.id = $id") {

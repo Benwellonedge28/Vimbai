@@ -32,6 +32,7 @@ pub mod fake;
 pub mod neo4j_client;
 pub mod query;
 pub mod read;
+pub mod shared;
 pub mod write;
 
 pub use neo4j_client::Neo4jGraph;
@@ -824,7 +825,7 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
 }
 
 /// A row is `{"x": {...}}`; the record is what is inside it.
-fn unwrap_node(row: Value) -> Value {
+pub(crate) fn unwrap_node(row: Value) -> Value {
     if let Some(object) = row.as_object() {
         if object.len() == 1 {
             if let Some((_, node)) = object.iter().next() {

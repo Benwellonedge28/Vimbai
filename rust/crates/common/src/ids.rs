@@ -8,13 +8,18 @@
 
 /// A uuid4-shaped identifier.
 ///
-/// The digits come from the clock, so two calls in the same nanosecond would agree; nothing depends on them being
-/// distinct, because an identifier a service returned is only ever read back by the caller who asked.
+/// The digits come from the clock plus a counter, because two calls in the same clock tick would otherwise agree - and
+/// they do: a coarse clock answers in steps, so a burst of records minted in one pass was handed the same identifier.
+/// That is not a theoretical worry; it produced one id for several rows before this counter was added. A service that
+/// mints its own identifier is expected to pass it, and this is what answers when one does not.
 pub fn service_id() -> String {
+    static SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let step = SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed) as u128;
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|taken| taken.as_nanos())
-        .unwrap_or(0);
+        .unwrap_or(0)
+        ^ step.wrapping_mul(0x9E37_79B9_7F4A_7C15);
     let mut digits: Vec<char> = format!("{nanos:032x}").chars().collect();
     // the version and variant markers a uuid4 carries
     digits[12] = '4';
