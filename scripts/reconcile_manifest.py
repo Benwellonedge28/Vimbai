@@ -10,6 +10,7 @@ manifest entry.
 Usage: python3 scripts/reconcile_manifest.py [--fix]
 """
 
+import importlib.util
 import json
 import os
 import pathlib
@@ -90,18 +91,44 @@ def directory_names():
     return sorted(name for name in os.listdir(ROOT) if os.path.isfile(os.path.join(ROOT, name, "main.py")))
 
 
+def retired_from_python():
+    """Services whose Python source is gone because a Rust crate answers them.
+
+    A retired service is advertised and undeployed on purpose: the route stays, pointing at the Rust engine, and the
+    directory and the pod are gone. Calling that drift would pin a disagreement that is really the point, and it would
+    read as 137 entries to explain rather than one finished retirement.
+    """
+    manifest_path = os.path.join(ROOT, "scripts", "migration_manifest.py")
+    spec = importlib.util.spec_from_file_location("migration_manifest", manifest_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    ported = module.ported_names()
+    return {
+        name
+        for name in manifest_names()
+        if name in ported and name not in set(directory_names())
+    }
+
+
 def drift():
     manifest = manifest_names()
     cluster = cluster_names()
     deployed = set(manifest)
+    retired = retired_from_python()
     return {
         "advertised without a directory": sorted(
-            name for name in manifest if name not in set(directory_names()) and name not in IN_WORKSPACE
+            name
+            for name in manifest
+            if name not in set(directory_names())
+            and name not in IN_WORKSPACE
+            and name not in retired
         ),
         "in the cluster but not the gateway": sorted(
             name for name in cluster if name not in deployed and name not in UNDECIDED
         ),
-        "advertised but absent from the cluster": sorted(name for name in manifest if name not in set(cluster)),
+        "advertised but absent from the cluster": sorted(
+            name for name in manifest if name not in set(cluster) and name not in retired
+        ),
     }
 
 

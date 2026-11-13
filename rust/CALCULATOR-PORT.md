@@ -1577,6 +1577,18 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   prefixes, with the caller's own limit (capped, so an unpaged read cannot ask for the whole ledger), and a route test
   that pins the statement walking in through the edge rather than listing entries.
 
+## Retirements
+
+- realtime-calculation-engine, first of the batch retirements: the Python service directory is gone. Its gateway entry
+  survives and now points at the Rust engine (`http://calculation-api:8099`, prefix stripped, because the engine
+  publishes `/npv`, `/irr`, `/depreciation` and `/amortize` at its root), its Kubernetes Deployment and Service are
+  removed, its CI bracket is dropped, and its Python tests are deleted - the same four figures are pinned by
+  `apps/api-server/tests/realtime_calc_http.rs`, which is the evidence that allowed the deletion. The build workflow
+  discovers directories with a Dockerfile, so the image builds itself out of the matrix.
+  One rule learned here and encoded in `scripts/reconcile_manifest.py`: a retired service is advertised, undeployed and
+  has no directory ON PURPOSE, so the drift report now treats "ported to Rust and no longer on disk" as retirement
+  rather than as a disagreement. Without that, retiring 137 services would mean pinning 137 fake drift entries.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

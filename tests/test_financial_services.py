@@ -98,12 +98,6 @@ def corporate_tax_client():
     return TestClient(app)
 
 
-@pytest.fixture
-def calc_engine_client():
-    app = load_service("realtime-calculation-engine").main.app
-    return TestClient(app)
-
-
 class TestBalanceSheet:
     def test_health(self, balance_sheet_client):
         assert balance_sheet_client.get("/").status_code == 200
@@ -349,48 +343,3 @@ class TestCorporateTax:
         data = resp.json()
         assert data["quarterly_payment"] == 125000  # 2M * 25% / 4
         assert len(data["due_dates"]) == 4
-
-
-class TestRealtimeCalculationEngine:
-    def test_health(self, calc_engine_client):
-        assert calc_engine_client.get("/").status_code == 200
-
-    def test_npv(self, calc_engine_client):
-        resp = calc_engine_client.post(
-            "/npv", json={"initial_investment": 100000, "cash_flows": [30000, 40000, 50000, 40000], "discount_rate": 10}
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert isinstance(data["npv"], (int, float))
-        assert data["profitable"] in (True, False)
-
-    def test_irr(self, calc_engine_client):
-        resp = calc_engine_client.post(
-            "/irr", json={"initial_investment": 100000, "cash_flows": [30000, 40000, 50000, 40000]}
-        )
-        assert resp.status_code == 200
-        assert resp.json()["irr"] > 0
-
-    def test_depreciation_straight_line(self, calc_engine_client):
-        resp = calc_engine_client.post(
-            "/depreciation", json={"cost": 50000, "salvage_value": 5000, "useful_life": 5, "method": "straight_line"}
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert len(data["schedule"]) == 5
-        assert data["schedule"][0]["depreciation"] == 9000  # (50000-5000)/5
-
-    def test_depreciation_declining_balance(self, calc_engine_client):
-        resp = calc_engine_client.post(
-            "/depreciation",
-            json={"cost": 50000, "salvage_value": 5000, "useful_life": 5, "method": "declining_balance"},
-        )
-        assert resp.status_code == 200
-        assert len(resp.json()["schedule"]) == 5
-
-    def test_amortization(self, calc_engine_client):
-        resp = calc_engine_client.post("/amortize?principal=200000&annual_rate=6.0&years=30")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["monthly_payment"] > 0
-        assert len(data["schedule"]) == 360  # 30 years * 12 months

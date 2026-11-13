@@ -48,7 +48,7 @@ jobs:
           - group: platform-automation
             services: "automation-engine-service notifications-service webhook-service admin-service "
           - group: platform-infrastructure
-            services: "financial-state-machine-service realtime-calculation-engine message-bus-service pos-integration-service "
+            services: "financial-state-machine-service message-bus-service pos-integration-service "
           - group: risk-governance
             services: "risk-assessment-service "
           - group: statements-reporting

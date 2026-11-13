@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 137 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 1 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 136 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 2 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -111,7 +111,7 @@ product-costing-service                        8106  routes=5   records=yes rust
 provision-bad-debts-service                    8108  routes=8   records=yes rust http
 provision-doubtful-debts-service               8109  routes=8   records=yes rust http
 purchases-ledger-control-service               8110  routes=6   records=yes rust http
-realtime-calculation-engine                    8112  routes=5   records=no  rust http
+realtime-calculation-engine                    8099  routes=0   records=no  rust http (no python source)
 regulatory-compliance-service                  8285  routes=6   records=yes rust http
 report-automation-service                      8272  routes=10  records=no  rust http
 report-distribution-service                    8273  routes=8   records=no  rust http

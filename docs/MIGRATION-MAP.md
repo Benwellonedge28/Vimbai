@@ -257,7 +257,7 @@ cache-service                                /cache                             
 ```text
 service                                      address                            eps  owns engine crate
 calculation-api                              /calcs                               0  -    rust   rust/crates/application
-realtime-calculation-engine                  /realtime-calculation                5  -    rust   rust/crates/application
+realtime-calculation-engine                  /realtime-calculation                0  -    rust   rust/crates/application
 ```
 
 | service | proof today | retires when |

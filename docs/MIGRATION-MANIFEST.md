@@ -201,7 +201,7 @@ Lands in `rust/crates/application`.
 ```
 service                                         port  routes  records  engine
 calculation-api                                 8099       0       no  rust
-realtime-calculation-engine                     8112       5       no  rust
+realtime-calculation-engine                     8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
