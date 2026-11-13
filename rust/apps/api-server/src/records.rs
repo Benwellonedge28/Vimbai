@@ -10594,6 +10594,29 @@ async fn document_state_catalogue() -> Response {
 }
 
 // ---------------------------------------------------------------------------
+// reporting: the reports a Book asks for, and the dashboard layouts its figures are read on. Both are shapes
+// rather than readings, and both say so, which is how they shipped.
+// ---------------------------------------------------------------------------
+
+async fn post_report_generate(Json(payload): Json<Value>) -> Response {
+    answer(reporting_services::reports::generate_report(&payload))
+}
+
+async fn post_report_schedule(Json(payload): Json<Value>) -> Response {
+    answer(reporting_services::reports::schedule_report(&payload))
+}
+
+async fn post_dashboard_load(Json(payload): Json<Value>) -> Response {
+    answer(reporting_services::dashboards::load_dashboard(&payload))
+}
+
+async fn post_dashboard_custom(Json(payload): Json<Value>) -> Response {
+    answer(reporting_services::dashboards::create_custom_dashboard(
+        &payload,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // bank relationships and service quality, plus the plain connection door. Several paths carry a bank- prefix
 // because /connections answers the feed's door and /bank-transactions/:id answers one feed transaction.
 // ---------------------------------------------------------------------------
@@ -12029,6 +12052,12 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/doubtful/calculate-provision", post(calculate_doubtful_provision))
         .route("/doubtful/provision/create", post(create_doubtful_provision))
         .route("/doubtful/provisions", get(list_doubtful_provisions))
+        // reporting: a report asked for, a schedule recorded, and the dashboard layouts
+        .route("/generate", post(post_report_generate))
+        .route("/schedule", post(post_report_schedule))
+        .route("/load", post(post_dashboard_load))
+        .route("/custom", post(post_dashboard_custom))
+
         // bank relationships and service quality, and the plain connection door. Several paths carry a
         // bank- prefix because /connections answers the feed's door.
         .route("/relationships", post(post_relationship))

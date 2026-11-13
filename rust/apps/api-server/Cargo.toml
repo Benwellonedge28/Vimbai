@@ -24,6 +24,9 @@ receivables = { package = "vimbai_service_receivables", path = "../../crates/dom
 tax_services = { package = "vimbai_service_tax", path = "../../crates/domains/taxation" }
 payables = { package = "vimbai_service_payables", path = "../../crates/domains/payables" }
 banking = { package = "vimbai_service_banking", path = "../../crates/domains/banking" }
+# the domain crate and the pre-existing `vimbai_reporting` calculations crate are different things: one holds the
+# services, the other the arithmetic. The services answer under their own alias so both can be depended on.
+reporting_services = { package = "vimbai_service_reporting", path = "../../crates/domains/reporting" }
 treasury = { package = "vimbai_service_treasury", path = "../../crates/domains/treasury" }
 performance_measures = { package = "vimbai_performance_measures", path = "../../crates/calculations/performance_measures" }
 treasury_fx = { package = "vimbai_treasury_fx", path = "../../crates/calculations/treasury_fx" }

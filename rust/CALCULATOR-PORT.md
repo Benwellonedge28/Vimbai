@@ -275,6 +275,19 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- reporting-service -> reporting crate, shapes only: a report asked for answers with an id stamped from the
+  moment it was asked for, the type it named, the word `generated`, and the recipients it was told about; a
+  schedule answers active with its next run at the moment it was recorded. It generates no document and stores no
+  report, which is how it shipped, so the answer carries `placeholder: true` rather than leaving a reader to
+  discover it. The file address is the one the shipped service returned, `reports.example.com`, kept as shipped.
+  The moment comes from the request rather than a clock, so the same ask answers the same id.
+
+- dashboard-service -> reporting crate, shapes only: the four fixed layouts (executive, financial, operations,
+  compliance) and the custom layout a caller states. Every figure on the fixed layouts is nil, because the
+  shipped service read nothing to fill them, and the answer says so. An unknown dashboard type falls back to the
+  executive layout as shipped; a custom widget is kept exactly as it was given, including the position the caller
+  stated, and given a short id and position only where it stated neither.
+
 - bank-reconciliation-service -> banking crate, records on the store: a statement imported with its own lines,
   the cash book it is reconciled against, the automatic matching of one to the other, the adjustment journal, and
   the outstanding items a reconciliation leaves behind. A statement's credit and debit totals are measured from
@@ -788,7 +801,6 @@ already been deleted, and a to-do list of deleted code is not a plan.
 
 - audit-sampling-service
 - biological-assets-service
-- dashboard-service
 - disposal-account-service
 - distributed-workflow-orchestration-service
 - double-entry-principles-service

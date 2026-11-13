@@ -20,6 +20,7 @@ members = [
     "crates/domains/payables",
     "crates/domains/banking",
     "crates/domains/receivables",
+    "crates/domains/reporting",
     "crates/domains/treasury",
     "crates/platform/identity",
     "crates/platform/access-control/rbac",
