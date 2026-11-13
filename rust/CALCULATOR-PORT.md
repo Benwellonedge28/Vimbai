@@ -291,6 +291,22 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- performance-benchmarking-service -> analytics crate (rust/crates/domains/analytics, module `benchmarking`), records on
+  the store: the metrics an industry is measured on, where a Book falls against them, and the peers it is compared with.
+  The ladder that places a figure is kept exactly as drawn, including where it is generous with itself: the bands are
+  inclusive at their lower edge, so a figure exactly on the industry top quartile is reported as top quartile rather than
+  merely above average; each band's span is measured against the next band's edge with a guard of one, so a flat industry
+  (quartiles sitting on each other) places a figure instead of dividing by nothing; the TOP band is NOT clamped at a
+  hundred, so a Book far ahead reports a percentile above a hundred - capping would make the leaders indistinguishable and
+  lose the only number that says how far ahead it is - while the BOTTOM band is clamped at zero, because a negative
+  percentile is not readable. The percentile is rounded to two places, as shipped. A category is one of financial,
+  operational, customer, growth and a fifth is a BAD REQUEST (400). A placement needs the metric the Book defined, and an
+  unknown or another Book's metric is missing (404). The results listing keeps the TRAILING `limit` rows (default 50),
+  which is kept rather than corrected: asking for the latest five of an oldest-first listing only works this way. A peer
+  figure is accepted for a metric nobody has defined yet, also kept: peers are other businesses' numbers, often gathered
+  before the metric was written down, and refusing them would throw away evidence that arrived first. Routes: /metrics
+  (GET and POST), /benchmark, /results, /peer-comparisons, /peer-comparisons/{metric_id}.
+
 - privacy-admin-dashboard-service -> compliance crate (rust/crates/domains/compliance, module `privacy`), records on
   the store: the data subject requests a Book must answer and the consent it must respect, beside the SOX controls, the
   risk register and the regulation register. The register a data protection officer reads is kept exact: a request is

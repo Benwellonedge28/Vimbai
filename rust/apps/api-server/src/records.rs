@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use ::npo::npo_scale;
 use accounting::{cash_flow, trading_account};
+use analytics::benchmarking;
 use axum::{
     extract::{Path, RawQuery, State},
     http::{HeaderMap, StatusCode},
@@ -11945,6 +11946,111 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// Benchmarking: the metrics an industry is measured on, and where one Book falls against them.
+// ---------------------------------------------------------------------------
+
+async fn post_benchmark_metric(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(benchmarking::create_metric(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_benchmark_metrics(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(benchmarking::benchmark_metrics(
+        graph.as_ref(),
+        &scope,
+        &merged_request(None, query.as_deref()),
+    ))
+}
+
+async fn post_benchmark(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(benchmarking::benchmark(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_benchmark_results(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(benchmarking::benchmark_results(
+        graph.as_ref(),
+        &scope,
+        &merged_request(None, query.as_deref()),
+    ))
+}
+
+async fn post_peer_comparison(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(benchmarking::add_peer_comparison(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_peer_comparisons(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(metric_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(benchmarking::peer_comparisons(
+        graph.as_ref(),
+        &scope,
+        &metric_id,
+        &merged_request(None, query.as_deref()),
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // The privacy register: the data subject requests a Book must answer, and the consent it must respect.
 // ---------------------------------------------------------------------------
 
@@ -15607,6 +15713,16 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // Benchmarking: metrics, placements and peers
+        .route(
+            "/metrics",
+            get(get_benchmark_metrics).post(post_benchmark_metric),
+        )
+        .route("/benchmark", post(post_benchmark))
+        .route("/results", get(get_benchmark_results))
+        .route("/peer-comparisons", post(post_peer_comparison))
+        .route("/peer-comparisons/:metric_id", get(get_peer_comparisons))
 
         // The privacy register: subject requests and the consent behind them
         .route("/requests", get(get_privacy_requests).post(post_privacy_request))

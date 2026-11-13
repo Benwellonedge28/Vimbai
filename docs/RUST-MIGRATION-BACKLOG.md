@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 125 are proven on a Rust engine. 12 are still Python-only.
+The gateway routes 137 services. 126 are proven on a Rust engine. 11 are still Python-only.
 
-Of the backlog, 6 own no records and can be ported as pure functions; 6 own records and
+Of the backlog, 5 own no records and can be ported as pure functions; 6 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-125 services.
+126 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -94,6 +94,7 @@ partnership-changes-service                    8095  routes=7   records=yes rust
 partnership-dissolution-service                8096  routes=5   records=yes rust http
 partnership-revaluation-service                8097  routes=5   records=yes rust http
 payback-period-service                         8098  routes=5   records=no  rust http
+performance-benchmarking-service               8280  routes=8   records=no  rust http
 personal-finance-service                       8099  routes=24  records=yes rust http
 petty-cash-service                             8097  routes=20  records=yes rust http
 preference-shares-service                      8102  routes=9   records=yes rust http
@@ -145,13 +146,12 @@ audit-engagement-service                       8371  routes=8   records=yes rust
 
 ### Backlog: no records owned (port the maths only)
 
-6 services.
+5 services.
 
 ```
 realtime-calculation-engine                    8112  routes=5   records=no  none
 websocket-service                              8141  routes=4   records=no  none
 distributed-workflow-orchestration-service     8046  routes=8   records=no  none
-performance-benchmarking-service               8280  routes=8   records=no  none
 graphql-service                                8095  routes=2   records=no  none
 payment-gateway-service                        8098  routes=20  records=no  none
 ```

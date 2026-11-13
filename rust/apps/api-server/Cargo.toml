@@ -7,6 +7,7 @@ authors.workspace = true
 description = "HTTP surface for the Vimbai calculation library. Safe Rust only."
 
 [dependencies]
+analytics = { package = "vimbai_service_analytics", path = "../../crates/domains/analytics" }
 advisory = { package = "vimbai_advisory", path = "../../crates/calculations/advisory" }
 common = { package = "vimbai_common", path = "../../crates/common" }
 cost_accounting = { package = "vimbai_cost_accounting", path = "../../crates/calculations/cost_accounting" }
