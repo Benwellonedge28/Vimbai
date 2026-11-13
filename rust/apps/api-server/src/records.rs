@@ -29,7 +29,7 @@ use costing::{
 use equity::equity_changes;
 use finance::{
     continue_shutdown, insurance_claims, internal_rate_return, investment_monitoring,
-    net_present_value, payback_period, trade_finance,
+    net_present_value, payback_period, personal_finance, personal_money, trade_finance,
 };
 use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
@@ -2062,6 +2062,251 @@ async fn settle_trade_instrument(
         graph.as_ref(),
         &scope,
         &instrument_id,
+        &query_object(query.as_deref()),
+    ))
+}
+
+/// One handler shape for the many personal-finance writes: scope, body, and a named function.
+macro_rules! personal_write {
+    ($name:ident, $call:path) => {
+        async fn $name(
+            State(graph): GraphState,
+            headers: HeaderMap,
+            Json(payload): Json<Value>,
+        ) -> Response {
+            let scope = match scope_of(&headers) {
+                Ok(scope) => scope,
+                Err(response) => return *response,
+            };
+            answer($call(graph.as_ref(), &scope, &payload))
+        }
+    };
+}
+
+personal_write!(open_recurring, personal_finance::create_recurring);
+personal_write!(open_debt, personal_finance::create_debt);
+personal_write!(open_investment, personal_finance::create_investment);
+personal_write!(open_goal, personal_money::create_goal);
+personal_write!(add_income_source, personal_money::add_income);
+personal_write!(add_legacy_debt, personal_money::create_legacy_debt);
+personal_write!(replace_tax_bands, personal_money::replace_bands);
+
+async fn recurring_items(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_finance::list_recurring(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn stop_recurring(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(recurring_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_finance::deactivate_recurring(
+        graph.as_ref(),
+        &scope,
+        &recurring_id,
+    ))
+}
+
+async fn run_recurring_now(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(recurring_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_finance::run_recurring(
+        graph.as_ref(),
+        &scope,
+        &recurring_id,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn debts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_finance::list_debts(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn one_debt(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(debt_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_finance::get_debt(
+        graph.as_ref(),
+        &scope,
+        &debt_id,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn pay_debt(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(debt_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_finance::add_payment(
+        graph.as_ref(),
+        &scope,
+        &debt_id,
+        &payload,
+    ))
+}
+
+async fn debt_projection(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(debt_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_finance::debt_schedule(
+        graph.as_ref(),
+        &scope,
+        &debt_id,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn investments(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_finance::list_investments(graph.as_ref(), &scope))
+}
+
+async fn trade_investment(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(investment_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_finance::add_trade(
+        graph.as_ref(),
+        &scope,
+        &investment_id,
+        &payload,
+    ))
+}
+
+async fn reprice_investment(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(investment_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_finance::set_investment_price(
+        graph.as_ref(),
+        &scope,
+        &investment_id,
+        &payload,
+    ))
+}
+
+async fn tax_bands(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_money::list_bands(graph.as_ref(), &scope))
+}
+
+async fn estimate_tax(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_money::estimate_tax(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn goals(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_money::list_goals(graph.as_ref(), &scope))
+}
+
+async fn income_sources(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_money::list_income(graph.as_ref(), &scope))
+}
+
+async fn personal_overview(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_money::overview(
+        graph.as_ref(),
+        &scope,
         &query_object(query.as_deref()),
     ))
 }
@@ -6611,6 +6856,104 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/trade-finance/instruments/:instrument_id/settle",
             post(settle_trade_instrument),
         )
+        .route(
+            "/personal-finance/recurring",
+            post(open_recurring).get(recurring_items),
+        )
+        .route(
+            "/personal-finance/recurring/:recurring_id",
+            delete(stop_recurring),
+        )
+        .route(
+            "/personal-finance/recurring/:recurring_id/run",
+            post(run_recurring_now),
+        )
+        .route("/personal-finance/debts", post(open_debt).get(debts))
+        .route("/personal-finance/debts/:debt_id", get(one_debt))
+        .route("/personal-finance/debts/:debt_id/payments", post(pay_debt))
+        .route(
+            "/personal-finance/debts/:debt_id/schedule",
+            get(debt_projection),
+        )
+        .route(
+            "/personal-finance/investments",
+            post(open_investment).get(investments),
+        )
+        .route(
+            "/personal-finance/investments/:investment_id/trades",
+            post(trade_investment),
+        )
+        .route(
+            "/personal-finance/investments/:investment_id/price",
+            post(reprice_investment),
+        )
+        .route(
+            "/personal-finance/tax/brackets",
+            get(tax_bands).put(replace_tax_bands),
+        )
+        .route("/personal-finance/tax/estimate", post(estimate_tax))
+        .route("/personal-finance/goals", post(open_goal).get(goals))
+        .route(
+            "/personal-finance/income",
+            post(add_income_source).get(income_sources),
+        )
+        .route("/personal-finance/legacy-debts", post(add_legacy_debt))
+        .route("/personal-finance/overview", get(personal_overview))
+        .route(
+            "/records/personal-finance/recurring",
+            post(open_recurring).get(recurring_items),
+        )
+        .route(
+            "/records/personal-finance/recurring/:recurring_id",
+            delete(stop_recurring),
+        )
+        .route(
+            "/records/personal-finance/recurring/:recurring_id/run",
+            post(run_recurring_now),
+        )
+        .route(
+            "/records/personal-finance/debts",
+            post(open_debt).get(debts),
+        )
+        .route("/records/personal-finance/debts/:debt_id", get(one_debt))
+        .route(
+            "/records/personal-finance/debts/:debt_id/payments",
+            post(pay_debt),
+        )
+        .route(
+            "/records/personal-finance/debts/:debt_id/schedule",
+            get(debt_projection),
+        )
+        .route(
+            "/records/personal-finance/investments",
+            post(open_investment).get(investments),
+        )
+        .route(
+            "/records/personal-finance/investments/:investment_id/trades",
+            post(trade_investment),
+        )
+        .route(
+            "/records/personal-finance/investments/:investment_id/price",
+            post(reprice_investment),
+        )
+        .route(
+            "/records/personal-finance/tax/brackets",
+            get(tax_bands).put(replace_tax_bands),
+        )
+        .route("/records/personal-finance/tax/estimate", post(estimate_tax))
+        .route(
+            "/records/personal-finance/goals",
+            post(open_goal).get(goals),
+        )
+        .route(
+            "/records/personal-finance/income",
+            post(add_income_source).get(income_sources),
+        )
+        .route(
+            "/records/personal-finance/legacy-debts",
+            post(add_legacy_debt),
+        )
+        .route("/records/personal-finance/overview", get(personal_overview))
         .route("/net-present-value/calculate", post(npv_calculate))
         .route(
             "/net-present-value/calculate-percent",

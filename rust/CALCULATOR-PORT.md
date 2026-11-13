@@ -335,6 +335,24 @@ xbrl-reporting-service
   nothing; a holding is added only to a portfolio the caller holds; a price change answers with what the holding is now
   worth and leaves the measurements already taken alone; performance history reads newest first, thirty by default.
 
+- personal-finance-service -> finance crate, records on the store: a household's recurring bills and income, the
+  debts it is paying down, what it holds, its tax bands, goals and income sources, and the one-page view over all of
+  it. The part that matters is the debt ledger: a payment does not simply reduce the balance, because interest is
+  charged daily on whatever was outstanding since the previous payment and only the rest touches the principal, so the
+  state of a debt is a replay of its payments and two people making the same payments at different intervals do not owe
+  the same amount. Shapes kept: a recurring item is a bill or an income on one of four frequencies, and a due date that
+  falls past the end of a shorter month is held at the 28th so February is never skipped; deactivating keeps the item
+  rather than deleting it; a debt's scheduled payment is the level payment that clears the principal over its term, and
+  nothing when the rate is nothing, in which case the principal is spread over the months; a payment smaller than the
+  interest leaves the principal alone rather than making it negative; a projection whose payment cannot cover the
+  interest is refused rather than run forever; a sale of more units than are held is refused, a buy re-averages the
+  cost and a sale keeps it and reports what was realised; a person with no bands of their own is taxed on the four the
+  service ships (nothing to 10,000, 15% to 30,000, 25% to 70,000 and 35% above), and a set of bands must ascend by
+  upper limit, be ordered by rate and end without one; the average goal progress is nothing when there are no goals,
+  and the debt-to-income ratio divides by one rather than nothing when there is no income.
+  Correction of form: the original read the server clock for the day a run happened and for a projected payoff. The
+  port takes that date from the request as `today`, so a reckoning can be repeated and a test can pin it.
+
 - net-present-value-service -> finance crate, no records: what a project's future flows are worth today once the
   investment is paid for, with the rate given as a decimal or as a percentage. Discounting is exact, one year at a
   time, through the one engine this crate's four capital-budgeting services share, so a change to how a discount

@@ -204,6 +204,19 @@ pub const LIQUIDITY_POSITION: RecordKind =
 
 /// accounting-service's supporting records: petty cash, reconciliation, and the single-entry statements.
 pub const PETTY_CASH_FUND: RecordKind = RecordKind::new("PettyCashFund", "OWNS_PETTY_CASH_FUND");
+/// personal-finance-service: the household's recurring items, debts, payments, investments and trades.
+pub const PERSONAL_RECURRING: RecordKind = RecordKind::new("PersonalRecurring", "OWNS_RECURRING");
+pub const PERSONAL_DEBT: RecordKind = RecordKind::new("PersonalDebt", "OWNS_PERSONAL_DEBT");
+pub const PERSONAL_PAYMENT: RecordKind =
+    RecordKind::new("PersonalDebtPayment", "OWNS_DEBT_PAYMENT");
+pub const PERSONAL_INVESTMENT: RecordKind =
+    RecordKind::new("PersonalInvestment", "OWNS_PERSONAL_INVESTMENT");
+pub const PERSONAL_TRADE: RecordKind = RecordKind::new("PersonalTrade", "OWNS_PERSONAL_TRADE");
+pub const PERSONAL_TAX_BRACKET: RecordKind = RecordKind::new("TaxBracket", "OWNS_TAX_BRACKET");
+pub const FINANCIAL_GOAL: RecordKind = RecordKind::new("FinancialGoal", "OWNS_FINANCIAL_GOAL");
+pub const INCOME_SOURCE: RecordKind = RecordKind::new("IncomeSource", "OWNS_INCOME_SOURCE");
+pub const LEGACY_DEBT_ITEM: RecordKind = RecordKind::new("LegacyDebtItem", "OWNS_LEGACY_DEBT");
+
 /// investment-monitoring-service's portfolios, what they hold, and how each was measured.
 pub const INVESTMENT_PORTFOLIO: RecordKind =
     RecordKind::new("InvestmentPortfolio", "OWNS_INVESTMENT_PORTFOLIO");

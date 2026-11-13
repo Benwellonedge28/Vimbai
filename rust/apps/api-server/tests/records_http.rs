@@ -2762,3 +2762,97 @@ async fn a_portfolio_with_nothing_in_it_is_a_404_over_http() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn a_personal_bill_is_kept_and_listed_over_http() {
+    let graph = Scripted::queue(vec![vec![json!({"id": "r-1", "active": true})]]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/personal-finance/recurring",
+        Some(
+            json!({"kind": "bill", "frequency": "monthly", "next_due": "2026-02-01",
+                    "amount": "85.5", "description": "Fibre"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["next_due"], json!("2026-02-01"));
+    assert_eq!(body["active"], json!(true));
+}
+
+#[tokio::test]
+async fn a_personal_bill_on_an_unknown_frequency_is_refused_over_http() {
+    let graph = Scripted::returning(vec![]);
+    let (status, _body) = call_with(
+        graph,
+        "POST",
+        "/personal-finance/recurring",
+        Some(
+            json!({"kind": "bill", "frequency": "fortnightly", "next_due": "2026-02-01",
+                    "amount": "10"}),
+        ),
+    )
+    .await;
+    // a payload the service cannot accept is refused before anything is kept
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn a_debt_payment_answers_with_where_the_debt_stands_over_http() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "d-1", "principal": "1000.000000", "annual_rate": "12.000000",
+                    "term_months": "12", "started_at": "2026-01-01"}),
+        ],
+        vec![json!({"id": "p-1"})],
+        vec![json!({"debt_id": "d-1", "amount": "100.000000", "paid_at": "2026-01-31"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/personal-finance/debts/d-1/payments",
+        Some(json!({"amount": "100", "paid_at": "2026-01-31", "today": "2026-02-01"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["payment_id"], json!("p-1"));
+    assert_eq!(body["state"]["balance"], json!("909.860000"));
+}
+
+#[tokio::test]
+async fn a_tax_estimate_answers_over_http_on_the_shipped_bands() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/personal-finance/tax/estimate",
+        Some(json!({"annual_income": "50000"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["estimated_tax"], json!("8000.000000"));
+    assert_eq!(body["monthly_withholding"], json!("666.670000"));
+}
+
+#[tokio::test]
+async fn the_personal_overview_answers_over_http() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "s-1", "amount": "1000.000000"})],
+        vec![json!({"id": "l-1", "balance": "2000.000000"})],
+        vec![],
+        vec![],
+        vec![json!({"id": "g-1", "current_amount": "100.000000", "target_amount": "400.000000"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/records/personal-finance/overview?today=2026-01-01",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["monthly_income"], json!("1000.000000"));
+    assert_eq!(body["total_debt"], json!("2000.000000"));
+    assert_eq!(body["active_goals"], json!(1));
+}

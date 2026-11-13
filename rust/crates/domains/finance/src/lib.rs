@@ -7,6 +7,7 @@
 //! * `continue-shutdown-decision-service`
 //! * `net-present-value-service`
 //! * `payback-period-service`
+//! * `personal-finance-service`
 //! * `trade-finance-service`
 //!
 //! One crate per business domain, not one per service: these services were separate Python
@@ -22,4 +23,7 @@ pub mod internal_rate_return;
 pub mod investment_monitoring;
 pub mod net_present_value;
 pub mod payback_period;
+pub mod personal_dates;
+pub mod personal_finance;
+pub mod personal_money;
 pub mod trade_finance;

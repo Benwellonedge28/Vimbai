@@ -1654,7 +1654,7 @@ services:
   port: 8099
   gateway_path: /personal-finance
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - POST /recurring

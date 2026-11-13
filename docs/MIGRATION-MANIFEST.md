@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 65
-still Python             73
+already on a Rust engine 66
+still Python             72
 owner domains            28
 ```
 
@@ -248,12 +248,11 @@ internal-rate-return-service                    8068       6       no  rust
 investment-monitoring-service                   8290       9      yes  rust
 net-present-value-service                       8083       6       no  rust
 payback-period-service                          8098       5       no  rust
-personal-finance-service                        8099      24      yes  python
+personal-finance-service                        8099      24      yes  rust
 trade-finance-service                           8191       6      yes  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
-Retirement gate: port the maths and its records into this domain, capture parity against the Python, then de-register. Nothing is deleted before that.
 
 ## integrations
 
