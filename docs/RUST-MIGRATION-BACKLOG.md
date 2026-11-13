@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 100 are proven on a Rust engine. 37 are still Python-only.
+The gateway routes 137 services. 102 are proven on a Rust engine. 35 are still Python-only.
 
-Of the backlog, 13 own no records and can be ported as pure functions; 24 own records and
+Of the backlog, 11 own no records and can be ported as pure functions; 24 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-100 services.
+102 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -89,6 +89,8 @@ product-costing-service                        8106  routes=5   records=yes rust
 provision-bad-debts-service                    8108  routes=8   records=yes rust http
 provision-doubtful-debts-service               8109  routes=8   records=yes rust http
 purchases-ledger-control-service               8110  routes=6   records=yes rust http
+report-automation-service                      8272  routes=10  records=no  rust http
+report-distribution-service                    8273  routes=8   records=no  rust http
 reporting-service                              8361  routes=3   records=no  rust http
 retained-profits-service                       8113  routes=10  records=yes rust http
 revaluation-model-service                      8144  routes=6   records=no  rust http
@@ -120,7 +122,7 @@ zero-based-budgeting-service                   8143  routes=7   records=yes rust
 
 ### Backlog: no records owned (port the maths only)
 
-13 services.
+11 services.
 
 ```
 cache-service                                  8000  routes=7   records=no  none
@@ -130,10 +132,8 @@ websocket-service                              8141  routes=4   records=no  none
 etl-service                                    8363  routes=7   records=no  none
 encrypted-backup-service                       8006  routes=8   records=no  none
 privacy-admin-dashboard-service                8003  routes=10  records=no  none
-report-distribution-service                    8273  routes=8   records=no  none
 distributed-workflow-orchestration-service     8046  routes=8   records=no  none
 performance-benchmarking-service               8280  routes=8   records=no  none
-report-automation-service                      8272  routes=10  records=no  none
 graphql-service                                8095  routes=2   records=no  none
 payment-gateway-service                        8098  routes=20  records=no  none
 ```

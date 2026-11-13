@@ -275,6 +275,26 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- report-automation-service -> reporting crate, records on the store: a template states one of four report types
+  (financial_summary, kpi_dashboard, compliance, operational) and anything else is refused rather than stored; a
+  schedule must name a template that exists, so it can never be a schedule for nothing; a schedule starts active
+  with its next run at the moment it was recorded until something runs it; a report runs only from an active
+  schedule and running it is what moves the schedule's last run; a run copies the template's sections into the
+  report and addresses it to the schedule's recipients, so a schedule addressing somebody reports itself
+  `delivered` and one addressing nobody reports itself `generated`; a period is what the caller stated and the
+  month it was recorded in otherwise; pausing and resuming are status changes, so the reports already produced
+  stay readable; the reports listing is the newest kept, narrowed to one schedule. Route note: the produced
+  reports are answered at `/generated-reports` because plain `/reports` already answers the receivables control
+  account.
+
+- report-distribution-service -> reporting crate, records on the store: a distribution list names its recipients
+  and channels and defaults to email; a subscription must name a list that exists and runs daily, weekly, monthly
+  or quarterly, with its next run at the moment it was recorded; the shipped endpoint took its format from a
+  parameter called `fmt`, and the port accepts that spelling (and the plainer one); distributing is refused for an
+  inactive subscription rather than quietly doing nothing; a distribution goes over the list's first channel and
+  falls back to email when the list names no channel; the log keeps the recipients it went to, so the trail does
+  not depend on the list still existing; the log listing is the newest kept, narrowed to one subscription.
+
 - reporting-service -> reporting crate, shapes only: a report asked for answers with an id stamped from the
   moment it was asked for, the type it named, the word `generated`, and the recipients it was told about; a
   schedule answers active with its next run at the moment it was recorded. It generates no document and stores no
@@ -815,8 +835,6 @@ already been deleted, and a to-do list of deleted code is not a plan.
 - payment-gateway-service
 - performance-benchmarking-service
 - privacy-admin-dashboard-service
-- report-automation-service
-- report-distribution-service
 - revaluation-model-service
 - websocket-service
 

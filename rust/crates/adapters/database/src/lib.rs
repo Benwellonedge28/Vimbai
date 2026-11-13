@@ -619,6 +619,19 @@ pub const ACTIVITY: RecordKind = RecordKind::new("Activity", "OWNS_ACTIVITY");
 pub const ACTIVITY_BUDGET: RecordKind = RecordKind::new("ActivityBudget", "OWNS_ACTIVITY_BUDGET");
 pub const SELLING_PRICE_ANALYSIS: RecordKind =
     RecordKind::new("PriceReductionAnalysis", "OWNS_PRICE_ANALYSIS");
+// reporting: the templates a Book keeps, the schedules they run on, and the reports they produced
+pub const REPORT_TEMPLATE: RecordKind = RecordKind::new("ReportTemplate", "OWNS_REPORT_TEMPLATE");
+pub const REPORT_SCHEDULE: RecordKind = RecordKind::new("ReportSchedule", "OWNS_REPORT_SCHEDULE");
+pub const GENERATED_REPORT: RecordKind =
+    RecordKind::new("GeneratedReport", "OWNS_GENERATED_REPORT");
+// reporting, distribution: the lists a report is addressed to, the subscriptions that send it, and the record of
+// what was sent
+pub const DISTRIBUTION_LIST: RecordKind =
+    RecordKind::new("DistributionList", "OWNS_DISTRIBUTION_LIST");
+pub const REPORT_SUBSCRIPTION: RecordKind =
+    RecordKind::new("ReportSubscription", "OWNS_SUBSCRIPTION");
+pub const DISTRIBUTION_LOG: RecordKind =
+    RecordKind::new("DistributionLog", "OWNS_DISTRIBUTION_LOG");
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StoreError {

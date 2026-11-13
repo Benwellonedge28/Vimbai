@@ -10594,6 +10594,242 @@ async fn document_state_catalogue() -> Response {
 }
 
 // ---------------------------------------------------------------------------
+// reporting, automation and distribution: the templates a Book keeps, the schedules they run on, the reports they
+// produced, the lists those go to and the record of what was sent. The listing of produced reports is called
+// /generated-reports here because plain /reports already answers the receivables control account.
+// ---------------------------------------------------------------------------
+
+async fn post_automation_template(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(reporting_services::automation::create_template(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_automation_templates(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(reporting_services::automation::list_templates(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn post_automation_schedule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(reporting_services::automation::create_schedule(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_automation_schedules(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(reporting_services::automation::list_schedules(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn post_automation_schedule_run(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(schedule_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(reporting_services::automation::run_report(
+        graph.as_ref(),
+        &scope,
+        &schedule_id,
+        &asked,
+    ))
+}
+
+async fn get_generated_reports(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(reporting_services::automation::list_generated_reports(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn put_automation_schedule_pause(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(schedule_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(reporting_services::automation::pause_schedule(
+        graph.as_ref(),
+        &scope,
+        &schedule_id,
+    ))
+}
+
+async fn put_automation_schedule_resume(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(schedule_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(reporting_services::automation::resume_schedule(
+        graph.as_ref(),
+        &scope,
+        &schedule_id,
+    ))
+}
+
+async fn post_distribution_list(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(reporting_services::distribution::create_list(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_distribution_lists(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(reporting_services::distribution::list_lists(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn post_distribution_subscription(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(reporting_services::distribution::create_subscription(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_distribution_subscriptions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(reporting_services::distribution::list_subscriptions(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn post_distribution_send(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(subscription_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(reporting_services::distribution::distribute_report(
+        graph.as_ref(),
+        &scope,
+        &subscription_id,
+        &asked,
+    ))
+}
+
+async fn list_distribution_logs(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    answer(reporting_services::distribution::list_logs(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // reporting: the reports a Book asks for, and the dashboard layouts its figures are read on. Both are shapes
 // rather than readings, and both say so, which is how they shipped.
 // ---------------------------------------------------------------------------
@@ -12052,6 +12288,30 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/doubtful/calculate-provision", post(calculate_doubtful_provision))
         .route("/doubtful/provision/create", post(create_doubtful_provision))
         .route("/doubtful/provisions", get(list_doubtful_provisions))
+        // reporting, automation and distribution
+        .route(
+            "/templates",
+            post(post_automation_template).get(list_automation_templates),
+        )
+        .route(
+            "/schedules",
+            post(post_automation_schedule).get(list_automation_schedules),
+        )
+        .route("/schedules/:id/run", post(post_automation_schedule_run))
+        .route("/schedules/:id/pause", put(put_automation_schedule_pause))
+        .route("/schedules/:id/resume", put(put_automation_schedule_resume))
+        .route("/generated-reports", get(get_generated_reports))
+        .route(
+            "/lists",
+            post(post_distribution_list).get(list_distribution_lists),
+        )
+        .route(
+            "/subscriptions",
+            post(post_distribution_subscription).get(list_distribution_subscriptions),
+        )
+        .route("/subscriptions/:id/distribute", post(post_distribution_send))
+        .route("/logs", get(list_distribution_logs))
+
         // reporting: a report asked for, a schedule recorded, and the dashboard layouts
         .route("/generate", post(post_report_generate))
         .route("/schedule", post(post_report_schedule))
