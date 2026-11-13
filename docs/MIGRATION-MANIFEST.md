@@ -380,10 +380,10 @@ Lands in `rust/crates/kernel/ledger-services`.
 
 ```
 service                                         port  routes  records  engine
-control-account-reconciliation-service          8033       8      yes  rust
-double-entry-principles-service                 8047       9       no  rust
-financial-integrity-service                     8054       6      yes  rust
-financial-state-machine-service                 8055       7      yes  rust
+control-account-reconciliation-service          8099       0       no  rust
+double-entry-principles-service                 8099       0       no  rust
+financial-integrity-service                     8099       0       no  rust
+financial-state-machine-service                 8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -553,9 +553,9 @@ Lands in `rust/crates/domains/taxation`.
 
 ```
 service                                         port  routes  records  engine
-tax-accounting-service                          8129      20      yes  rust
-tax-compliance-service                          8293       6      yes  rust
-tax-planning-service                            8292       5      yes  rust
+tax-accounting-service                          8099       0       no  rust
+tax-compliance-service                          8099       0       no  rust
+tax-planning-service                            8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

@@ -9,66 +9,36 @@ services:
 - name: control-account-reconciliation-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
-  port: 8033
+  port: 8099
   gateway_path: /control-account-reconciliation
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /errors/report
-  - GET /errors
-  - POST /errors/{error_id}/resolve
-  - POST /reconcile/{account_type}
-  - GET /reports
-  - GET /summary
+  records: false
+  endpoints: []
 - name: double-entry-principles-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
-  port: 8047
+  port: 8099
   gateway_path: /double-entry-principles
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /validate-journal-entry
-  - POST /calculate-entry
-  - GET /account-rules/{account_type}
-  - GET /account-types
-  - POST /journal-entries/{entry_type}
-  - POST /transaction-analyzer
-  - GET /accounting-equation
+  endpoints: []
 - name: financial-integrity-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
-  port: 8054
+  port: 8099
   gateway_path: /financial-integrity
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /check/balance
-  - POST /check/hash
-  - POST /check/completeness
-  - GET /report/{company_id}
+  records: false
+  endpoints: []
 - name: financial-state-machine-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
-  port: 8055
+  port: 8099
   gateway_path: /financial-state-machine
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /documents
-  - GET /documents/{doc_id}
-  - POST /documents/{doc_id}/transition
-  - GET /documents/{doc_id}/history
-  - GET /states
+  records: false
+  endpoints: []

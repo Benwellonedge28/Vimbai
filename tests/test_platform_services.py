@@ -48,24 +48,6 @@ def webhook_client():
 
 
 @pytest.fixture
-def state_machine_client():
-    _patch_fake("financial_state_machine_service", "fin_state_machine_root_fake")
-    app = load_service("financial-state-machine-service").main.app
-    client = TestClient(app)
-    client.headers.update(_H)
-    return client
-
-
-@pytest.fixture
-def integrity_client():
-    _patch_fake("financial_integrity_service", "fin_integrity_root_fake")
-    app = load_service("financial-integrity-service").main.app
-    client = TestClient(app)
-    client.headers.update(_H)
-    return client
-
-
-@pytest.fixture
 def appropriation_client():
     _patch_fake("appropriation_control_service", "appropriation_root_fake")
     app = load_service("appropriation-control-service").main.app
@@ -135,85 +117,6 @@ class TestWebhook:
         resp = webhook_client.get("/endpoints/comp-2")
         assert resp.status_code == 200
         assert resp.json()["total"] >= 1
-
-
-class TestStateMachine:
-    def test_health(self, state_machine_client):
-        assert state_machine_client.get("/").status_code == 200
-
-    def test_get_states(self, state_machine_client):
-        resp = state_machine_client.get("/states")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert "draft" in data["states"]
-        assert "posted" in data["states"]
-
-    def test_create_and_transition(self, state_machine_client):
-        create = state_machine_client.post(
-            "/documents", json={"company_id": "comp-1", "document_type": "invoice", "reference": "INV-001"}
-        )
-        assert create.status_code == 200
-        doc_id = create.json()["id"]
-        assert create.json()["current_state"] == "draft"
-
-        # Valid transition: draft -> pending_approval
-        t1 = state_machine_client.post(f"/documents/{doc_id}/transition?to_state=pending_approval&user_id=user1")
-        assert t1.status_code == 200
-        assert t1.json()["current_state"] == "pending_approval"
-
-        # Valid transition: pending_approval -> approved
-        t2 = state_machine_client.post(f"/documents/{doc_id}/transition?to_state=approved&user_id=user1")
-        assert t2.status_code == 200
-        assert t2.json()["current_state"] == "approved"
-
-        # Valid transition: approved -> posted
-        t3 = state_machine_client.post(f"/documents/{doc_id}/transition?to_state=posted")
-        assert t3.json()["current_state"] == "posted"
-
-    def test_invalid_transition(self, state_machine_client):
-        create = state_machine_client.post("/documents", json={"company_id": "comp-2", "document_type": "invoice"})
-        doc_id = create.json()["id"]
-        # Invalid: draft -> posted (not allowed)
-        resp = state_machine_client.post(f"/documents/{doc_id}/transition?to_state=posted")
-        assert resp.status_code == 400
-
-    def test_history(self, state_machine_client):
-        create = state_machine_client.post("/documents", json={"company_id": "comp-h", "document_type": "payment"})
-        doc_id = create.json()["id"]
-        state_machine_client.post(f"/documents/{doc_id}/transition?to_state=pending_approval")
-        state_machine_client.post(f"/documents/{doc_id}/transition?to_state=approved")
-        resp = state_machine_client.get(f"/documents/{doc_id}/history")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert len(data["history"]) == 2
-        assert data["current_state"] == "approved"
-
-
-class TestFinancialIntegrity:
-    def test_health(self, integrity_client):
-        assert integrity_client.get("/").status_code == 200
-
-    def test_balance_check_pass(self, integrity_client):
-        resp = integrity_client.post("/check/balance?company_id=comp-1&account_id=acc-1&debits=10000&credits=10000")
-        assert resp.status_code == 200
-        assert resp.json()["passed"] == True
-
-    def test_balance_check_fail(self, integrity_client):
-        resp = integrity_client.post("/check/balance?company_id=comp-1&account_id=acc-1&debits=10000&credits=9000")
-        assert resp.json()["passed"] == False
-
-    def test_completeness_check(self, integrity_client):
-        resp = integrity_client.post(
-            "/check/completeness?company_id=comp-1&entity_type=transactions&expected_count=100&actual_count=98"
-        )
-        assert resp.json()["passed"] == False
-        assert resp.json()["missing"] == 2
-
-    def test_integrity_report(self, integrity_client):
-        integrity_client.post("/check/balance?company_id=comp-rpt&account_id=a1&debits=100&credits=100")
-        resp = integrity_client.get("/report/comp-rpt")
-        assert resp.status_code == 200
-        assert resp.json()["total_checks"] >= 1
 
 
 class TestAppropriationControl:

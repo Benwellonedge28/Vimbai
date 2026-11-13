@@ -38,7 +38,7 @@ jobs:
           - group: standalone-containers
             services: "identity-service accounting-service finance-service multimodal-pipeline-service scenario-modeling-service workflow-service budget-service "
           - group: advanced-accounting
-            services: "financial-integrity-service revenue-recognition-service currency-service general-reserve-service data-warehouse-service subscription-plans-service intercompany-service "
+            services: "revenue-recognition-service currency-service general-reserve-service data-warehouse-service subscription-plans-service intercompany-service "
           - group: ap-ar-expenses
             services: "petty-cash-service sales-ledger-control-service "
           - group: corporate-finance
@@ -48,7 +48,7 @@ jobs:
           - group: platform-automation
             services: "automation-engine-service notifications-service webhook-service admin-service "
           - group: platform-infrastructure
-            services: "financial-state-machine-service message-bus-service pos-integration-service "
+            services: "message-bus-service pos-integration-service "
           - group: risk-governance
             services: "risk-assessment-service "
           - group: statements-reporting

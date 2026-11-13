@@ -8,58 +8,27 @@ services:
 - name: tax-accounting-service
   domain: taxation
   target: rust/crates/domains/taxation
-  port: 8129
+  port: 8099
   gateway_path: /tax-accounting
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /tax-rates
-  - GET /tax-rates
-  - GET /tax-rates/{rate_id}
-  - PUT /tax-rates/{rate_id}
-  - POST /tax-registrations
-  - GET /tax-registrations
-  - POST /calculate
-  - POST /calculate-batch
-  - POST /tax-returns
-  - GET /tax-returns
-  - POST /tax-returns/{return_id}/file
-  - POST /tax-returns/{return_id}/pay
-  - POST /withholding-tax
-  - GET /withholding-tax
-  - POST /reports/tax-summary
-  - GET /reports/vat-by-jurisdiction
-  - POST /deferred-tax
-  - GET /liability-schedule
+  records: false
+  endpoints: []
 - name: tax-compliance-service
   domain: taxation
   target: rust/crates/domains/taxation
-  port: 8293
+  port: 8099
   gateway_path: /tax-compliance
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /obligations
-  - GET /obligations
-  - POST /obligations/{obligation_id}/file
-  - GET /summary
+  records: false
+  endpoints: []
 - name: tax-planning-service
   domain: taxation
   target: rust/crates/domains/taxation
-  port: 8292
+  port: 8099
   gateway_path: /tax-planning
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /strategies
-  - GET /strategies
-  - POST /plan
+  records: false
+  endpoints: []

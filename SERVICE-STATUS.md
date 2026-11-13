@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          111
+live and routed          104
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -47,7 +47,6 @@ Routed by the API gateway and deployed. These are the running product.
 `cashbook-service`
 `company-accounting-service`
 `continue-shutdown-decision-service`
-`control-account-reconciliation-service`
 `currency-service`
 `cvp-analysis-service`
 `data-warehouse-service`
@@ -57,12 +56,9 @@ Routed by the API gateway and deployed. These are the running product.
 `disposal-account-service`
 `distributed-workflow-orchestration-service`
 `document-service`
-`double-entry-principles-service`
 `encrypted-backup-service`
 `equity-changes-service`
 `etl-service`
-`financial-integrity-service`
-`financial-state-machine-service`
 `foreign-exchange-service`
 `fund-accounting-service`
 `general-reserve-service`
@@ -114,9 +110,6 @@ Routed by the API gateway and deployed. These are the running product.
 `sovereign-treasury-service`
 `sox-compliance-service`
 `subscription-plans-service`
-`tax-accounting-service`
-`tax-compliance-service`
-`tax-planning-service`
 `trade-finance-service`
 `trading-account-service`
 `treasury-analytics-service`

@@ -55,50 +55,6 @@ class TestTaxRiskService:
         assert len(data["recommendations"]) > 0
 
 
-class TestTaxComplianceService:
-    def setup_method(self):
-        import importlib.util
-        import os as _os
-
-        app = load_app("tax-compliance-service")
-        svc_dir = _os.path.join(
-            _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "tax-compliance-service"
-        )
-        spec = importlib.util.spec_from_file_location("tc_batch3_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
-        fake_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fake_mod)
-        self._session = fake_mod.FakeSession()
-        import tax_compliance_service.database as db
-
-        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
-        self.client = TestClient(app)
-        self.client.headers.update({"X-User-Id": "batch3-tc-user"})
-
-    def test_obligation_lifecycle(self):
-        obl = self.client.post(
-            "/obligations",
-            json={
-                "company_id": "comp-1",
-                "obligation_type": "vat_return",
-                "description": "Q1 VAT Return",
-                "due_date": "2026-04-30T00:00:00Z",
-                "amount": 15000,
-                "filing_frequency": "quarterly",
-            },
-        )
-        assert obl.status_code == 200, obl.text
-        obl_id = obl.json()["id"]
-
-        filed = self.client.post(f"/obligations/{obl_id}/file", params={"company_id": "comp-1", "filed_amount": 15000})
-        assert filed.status_code == 200
-        assert filed.json()["filed"] is True
-
-        summary = self.client.get("/summary", params={"company_id": "comp-1"})
-        data = summary.json()
-        assert data["filed"] >= 1
-        assert data["compliance_score"] > 0
-
-
 class TestTaxProvisionService:
     def setup_method(self):
         self.client = TestClient(load_app("tax-provision-service"))
@@ -126,46 +82,6 @@ class TestTaxProvisionService:
         assert data["deferred_tax_liabilities"] > 0
         assert data["deferred_tax_assets"] > 0
         assert data["effective_rate"] < data["statutory_rate"] + 0.05
-
-
-class TestTaxPlanningService:
-    def setup_method(self):
-        self.client = TestClient(load_app("tax-planning-service"))
-
-    def test_plan(self):
-        resp = self.client.post(
-            "/plan",
-            json={
-                "company_id": "comp-1",
-                "fiscal_year": 2026,
-                "current_taxable_income": 1000000,
-                "current_tax": 250000,
-                "strategies": [
-                    {
-                        "name": "R&D Credit",
-                        "description": "Claim R&D credits",
-                        "strategy_type": "credit",
-                        "estimated_savings": 50000,
-                        "implementation_cost": 5000,
-                        "risk_level": "low",
-                    },
-                    {
-                        "name": "Accelerated Depreciation",
-                        "description": "Use accelerated depreciation",
-                        "strategy_type": "timing",
-                        "estimated_savings": 30000,
-                        "implementation_cost": 2000,
-                        "risk_level": "low",
-                    },
-                ],
-            },
-        )
-        data = resp.json()
-        assert resp.status_code == 200
-        assert data["total_savings"] == 80000
-        assert data["net_benefit"] == 73000
-        assert data["projected_tax"] == 170000
-        assert len(data["recommended_strategies"]) >= 1
 
 
 class TestRDTaxService:

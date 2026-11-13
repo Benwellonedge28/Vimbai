@@ -258,10 +258,10 @@
     {
       "name": "control-account-reconciliation-service",
       "path": "/control-account-reconciliation",
-      "url": "http://localhost:9011",
-      "port": 8033,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "currency-service",
@@ -353,10 +353,10 @@
     {
       "name": "double-entry-principles-service",
       "path": "/double-entry-principles",
-      "url": "http://localhost:9011",
-      "port": 8047,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "encrypted-backup-service",
@@ -409,18 +409,18 @@
     {
       "name": "financial-integrity-service",
       "path": "/financial-integrity",
-      "url": "http://localhost:9011",
-      "port": 8054,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "financial-state-machine-service",
       "path": "/financial-state-machine",
-      "url": "http://localhost:9013",
-      "port": 8055,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "fixed-assets-register-service",
@@ -939,26 +939,26 @@
     {
       "name": "tax-accounting-service",
       "path": "/tax-accounting",
-      "url": "http://localhost:9004",
-      "port": 8129,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "tax-compliance-service",
       "path": "/tax-compliance",
-      "url": "http://localhost:9004",
-      "port": 8293,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "tax-planning-service",
       "path": "/tax-planning",
-      "url": "http://localhost:9004",
-      "port": 8292,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "trade-finance-service",

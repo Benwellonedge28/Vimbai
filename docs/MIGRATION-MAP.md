@@ -495,18 +495,18 @@ subscription-plans-service                   /subscription-plans                
 
 ```text
 service                                      address                            eps  owns engine crate
-control-account-reconciliation-service       /control-account-reconciliation      8  recs rust   rust/crates/kernel/ledger-services
-double-entry-principles-service              /double-entry-principles             9  -    rust   rust/crates/kernel/ledger-services
-financial-integrity-service                  /financial-integrity                 6  recs rust   rust/crates/kernel/ledger-services
-financial-state-machine-service              /financial-state-machine             7  recs rust   rust/crates/kernel/ledger-services
+control-account-reconciliation-service       /control-account-reconciliation      0  -    rust   rust/crates/kernel/ledger-services
+double-entry-principles-service              /double-entry-principles             0  -    rust   rust/crates/kernel/ledger-services
+financial-integrity-service                  /financial-integrity                 0  -    rust   rust/crates/kernel/ledger-services
+financial-state-machine-service              /financial-state-machine             0  -    rust   rust/crates/kernel/ledger-services
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `control-account-reconciliation-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `control-account-reconciliation-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `double-entry-principles-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `financial-integrity-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `financial-state-machine-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `financial-integrity-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `financial-state-machine-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## multimodal — 1/1 on Rust
 
@@ -707,16 +707,16 @@ book-sync-service                            /book-sync                         
 
 ```text
 service                                      address                            eps  owns engine crate
-tax-accounting-service                       /tax-accounting                     20  recs rust   rust/crates/domains/taxation
-tax-compliance-service                       /tax-compliance                      6  recs rust   rust/crates/domains/taxation
-tax-planning-service                         /tax-planning                        5  recs rust   rust/crates/domains/taxation
+tax-accounting-service                       /tax-accounting                      0  -    rust   rust/crates/domains/taxation
+tax-compliance-service                       /tax-compliance                      0  -    rust   rust/crates/domains/taxation
+tax-planning-service                         /tax-planning                        0  -    rust   rust/crates/domains/taxation
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `tax-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `tax-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `tax-planning-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `tax-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `tax-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `tax-planning-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## treasury — 12/12 on Rust
 

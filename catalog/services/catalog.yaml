@@ -697,20 +697,12 @@ services:
 - name: control-account-reconciliation-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
-  port: 8033
+  port: 8099
   gateway_path: /control-account-reconciliation
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /errors/report
-  - GET /errors
-  - POST /errors/{error_id}/resolve
-  - POST /reconcile/{account_type}
-  - GET /reports
-  - GET /summary
+  records: false
+  endpoints: []
 - name: currency-service
   domain: banking
   target: rust/crates/domains/banking
@@ -916,21 +908,12 @@ services:
 - name: double-entry-principles-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
-  port: 8047
+  port: 8099
   gateway_path: /double-entry-principles
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /validate-journal-entry
-  - POST /calculate-entry
-  - GET /account-rules/{account_type}
-  - GET /account-types
-  - POST /journal-entries/{entry_type}
-  - POST /transaction-analyzer
-  - GET /accounting-equation
+  endpoints: []
 - name: encrypted-backup-service
   domain: data
   target: rust/crates/domains/data
@@ -1008,34 +991,21 @@ services:
 - name: financial-integrity-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
-  port: 8054
+  port: 8099
   gateway_path: /financial-integrity
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /check/balance
-  - POST /check/hash
-  - POST /check/completeness
-  - GET /report/{company_id}
+  records: false
+  endpoints: []
 - name: financial-state-machine-service
   domain: kernel
   target: rust/crates/kernel/ledger-services
-  port: 8055
+  port: 8099
   gateway_path: /financial-state-machine
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /documents
-  - GET /documents/{doc_id}
-  - POST /documents/{doc_id}/transition
-  - GET /documents/{doc_id}/history
-  - GET /states
+  records: false
+  endpoints: []
 - name: fixed-assets-register-service
   domain: assets
   target: rust/crates/domains/assets
@@ -2060,61 +2030,30 @@ services:
 - name: tax-accounting-service
   domain: taxation
   target: rust/crates/domains/taxation
-  port: 8129
+  port: 8099
   gateway_path: /tax-accounting
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /tax-rates
-  - GET /tax-rates
-  - GET /tax-rates/{rate_id}
-  - PUT /tax-rates/{rate_id}
-  - POST /tax-registrations
-  - GET /tax-registrations
-  - POST /calculate
-  - POST /calculate-batch
-  - POST /tax-returns
-  - GET /tax-returns
-  - POST /tax-returns/{return_id}/file
-  - POST /tax-returns/{return_id}/pay
-  - POST /withholding-tax
-  - GET /withholding-tax
-  - POST /reports/tax-summary
-  - GET /reports/vat-by-jurisdiction
-  - POST /deferred-tax
-  - GET /liability-schedule
+  records: false
+  endpoints: []
 - name: tax-compliance-service
   domain: taxation
   target: rust/crates/domains/taxation
-  port: 8293
+  port: 8099
   gateway_path: /tax-compliance
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /obligations
-  - GET /obligations
-  - POST /obligations/{obligation_id}/file
-  - GET /summary
+  records: false
+  endpoints: []
 - name: tax-planning-service
   domain: taxation
   target: rust/crates/domains/taxation
-  port: 8292
+  port: 8099
   gateway_path: /tax-planning
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /strategies
-  - GET /strategies
-  - POST /plan
+  records: false
+  endpoints: []
 - name: trade-finance-service
   domain: finance
   target: rust/crates/domains/finance

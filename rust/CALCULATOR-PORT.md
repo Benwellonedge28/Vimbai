@@ -1615,6 +1615,11 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   fixture and its two tests went with the service they loaded. bank-feed-service and currency-service stay in banking -
   the engine still misses paths on both.
 
+- The taxation and kernel domains, batch six: tax-accounting, tax-compliance, tax-planning, and the four kernel
+  services - control-account-reconciliation, double-entry-principles, financial-integrity, financial-state-machine - are
+  gone, all answered flat so their entries drop the prefix. Their suites went with them: the tax risk and tax provision
+  tests stay because those two services stay.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's
