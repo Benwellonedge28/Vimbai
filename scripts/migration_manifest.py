@@ -307,7 +307,7 @@ OWNERS = {
     "message-bus-service": "events",
     "mfa-auth-service": "authentication",
     "notifications-service": "notifications",
-    "privacy-admin-dashboard-service": "platform",
+    "privacy-admin-dashboard-service": "compliance",
     "websocket-service": "platform",
     "zero-trust-data-service": "security",
 }

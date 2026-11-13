@@ -291,6 +291,23 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- privacy-admin-dashboard-service -> compliance crate (rust/crates/domains/compliance, module `privacy`), records on
+  the store: the data subject requests a Book must answer and the consent it must respect, beside the SOX controls, the
+  risk register and the regulation register. The register a data protection officer reads is kept exact: a request is
+  one of four kinds (access, deletion, correction, portability) and a fifth is a BAD REQUEST (400) rather than stored
+  under a kind nobody agreed to, because a mislabelled subject request is a legal clock running on the wrong thing; a
+  request starts pending and settling it (resolved, rejected or completed) stamps the moment it was settled; amending
+  REPLACES the notes with what was sent, exactly as shipped - a status change sent without notes clears them, and that is
+  pinned by a test rather than smoothed over, because pretending otherwise would hide a loss of the record's history.
+  Consent is granted by email and data type, defaults to given, and is REVOKED rather than deleted: the record stays with
+  the moment it was withdrawn and the flag turned off, since "they never consented" and "they withdrew" are different
+  answers and only one is true. Looking up by email answers only what still stands - a revoked record is not consent -
+  while an explicit refusal that was never revoked is still listed, which is the safer reading: the caller sees a refusal
+  rather than silence. The dashboard's arithmetic is kept as shipped and pinned: `rejected` stamps a settling moment yet
+  counts in neither pending nor resolved, so a rejection is never reported as resolved. Routes: /requests,
+  /requests/{id} (PUT and DELETE), /consent, /consent/{key} (GET by email, DELETE by id - the shipped service put both on
+  one path, and one key serves both here), /dashboard.
+
 - encrypted-backup-service -> data crate (rust/crates/domains/data, module `backup`), records on the store: the backups
   a Book took, the key each was sealed with, and the restores asked of them. Kept honest about what it is: a backup here
   is a RECORD of a backup, not the backup. No bytes are copied, so the size is zero because nothing was measured, and the

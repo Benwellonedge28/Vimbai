@@ -3,8 +3,27 @@ domain:
   name: compliance
   responsibility: regulatory and controls compliance
   target: rust/crates/domains/compliance
-  services: 3
+  services: 4
 services:
+- name: privacy-admin-dashboard-service
+  domain: compliance
+  target: rust/crates/domains/compliance
+  port: 8003
+  gateway_path: /privacy-admin-dashboard
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - GET /
+  - GET /health
+  - POST /requests
+  - GET /requests
+  - PUT /requests/{request_id}
+  - DELETE /requests/{request_id}
+  - POST /consent
+  - DELETE /consent/{consent_id}
+  - GET /consent/{email}
+  - GET /dashboard
 - name: regulatory-compliance-service
   domain: compliance
   target: rust/crates/domains/compliance

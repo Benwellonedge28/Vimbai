@@ -11945,6 +11945,141 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// The privacy register: the data subject requests a Book must answer, and the consent it must respect.
+// ---------------------------------------------------------------------------
+
+async fn post_privacy_request(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(compliance::privacy::open_request(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_privacy_requests(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(compliance::privacy::privacy_requests(
+        graph.as_ref(),
+        &scope,
+        &merged_request(None, query.as_deref()),
+    ))
+}
+
+async fn put_privacy_request(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(request_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(compliance::privacy::amend_request(
+        graph.as_ref(),
+        &scope,
+        &request_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn delete_privacy_request(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(request_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(compliance::privacy::delete_request(
+        graph.as_ref(),
+        &scope,
+        &request_id,
+    ))
+}
+
+async fn post_consent(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(compliance::privacy::record_consent(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn delete_consent(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(consent_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(compliance::privacy::revoke_consent(
+        graph.as_ref(),
+        &scope,
+        &consent_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_consent_for(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(subject): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(compliance::privacy::consents_for(
+        graph.as_ref(),
+        &scope,
+        &subject,
+    ))
+}
+
+async fn get_privacy_dashboard(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(compliance::privacy::privacy_dashboard(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // Encrypted backups: the backups a Book took, the key each was sealed with, and the restores asked of them.
 // ---------------------------------------------------------------------------
 
@@ -15472,6 +15607,20 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // The privacy register: subject requests and the consent behind them
+        .route("/requests", get(get_privacy_requests).post(post_privacy_request))
+        .route(
+            "/requests/:id",
+            put(put_privacy_request).delete(delete_privacy_request),
+        )
+        .route("/consent", post(post_consent))
+        // the shipped service answered GET by email and DELETE by id under one path; here one key serves both
+        .route(
+            "/consent/:subject",
+            get(get_consent_for).delete(delete_consent),
+        )
+        .route("/dashboard", get(get_privacy_dashboard))
 
         // Encrypted backups and the restores asked of them
         .route("/backup", post(post_backup))

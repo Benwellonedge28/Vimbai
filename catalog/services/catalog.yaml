@@ -1788,12 +1788,12 @@ services:
   - GET /classes
   - GET /dividends
 - name: privacy-admin-dashboard-service
-  domain: platform
-  target: rust/crates/platform
+  domain: compliance
+  target: rust/crates/domains/compliance
   port: 8003
   gateway_path: /privacy-admin-dashboard
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /

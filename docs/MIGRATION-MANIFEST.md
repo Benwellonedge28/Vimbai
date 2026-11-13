@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 124
-still Python             14
+already on a Rust engine 125
+still Python             13
 owner domains            38
 ```
 
@@ -201,6 +201,7 @@ Lands in `rust/crates/domains/compliance`.
 
 ```
 service                                         port  routes  records  engine
+privacy-admin-dashboard-service                 8003      10       no  rust
 regulatory-compliance-service                   8285       6      yes  rust
 risk-assessment-service                         8117       6      yes  rust
 sox-compliance-service                          8286      10      yes  rust
@@ -482,7 +483,6 @@ Lands in `rust/crates/platform`.
 ```
 service                                         port  routes  records  engine
 admin-service                                   8099      27      yes  python
-privacy-admin-dashboard-service                 8003      10       no  python
 websocket-service                               8141       4       no  python
 ```
 

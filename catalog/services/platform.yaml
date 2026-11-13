@@ -3,7 +3,7 @@ domain:
   name: platform
   responsibility: identity, events, caching, observability and storage
   target: rust/crates/platform
-  services: 3
+  services: 2
 services:
 - name: admin-service
   domain: platform
@@ -41,25 +41,6 @@ services:
   - POST /audit-logs
   - GET /services/health
   - GET /dashboard/stats
-- name: privacy-admin-dashboard-service
-  domain: platform
-  target: rust/crates/platform
-  port: 8003
-  gateway_path: /privacy-admin-dashboard
-  auth_required: true
-  engine: python
-  records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /requests
-  - GET /requests
-  - PUT /requests/{request_id}
-  - DELETE /requests/{request_id}
-  - POST /consent
-  - DELETE /consent/{consent_id}
-  - GET /consent/{email}
-  - GET /dashboard
 - name: websocket-service
   domain: platform
   target: rust/crates/platform
