@@ -61,6 +61,10 @@ DOMAINS = {
     "documents": ("document storage and rendering", "rust/crates/platform/documents"),
     "integrations": ("webhooks, GraphQL and external feeds", "rust/crates/platform/integrations"),
     "calculations": ("the calculation surface the client calls", "rust/crates/application"),
+    "alerts": (
+        "the rules a Book watches, and the alerts they raise",
+        "rust/crates/platform/alerts",
+    ),
     "security": (
         "zero-trust access control: policies and the decisions taken against them",
         "rust/crates/domains/security",
@@ -264,7 +268,7 @@ OWNERS = {
     "calculation-api": "calculations",
     "realtime-calculation-engine": "calculations",
     "admin-service": "platform",
-    "alerts-service": "platform",
+    "alerts-service": "alerts",
     "book-sync-service": "platform",
     "cache-service": "platform",
     "encrypted-backup-service": "platform",

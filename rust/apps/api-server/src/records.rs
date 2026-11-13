@@ -11149,6 +11149,231 @@ async fn post_documents_batch_link(
 }
 
 // ---------------------------------------------------------------------------
+// alerts: the rules a Book watches and the alerts those rules raise. Evaluating answers at /alerts/evaluate because
+// /evaluate already answers an access decision, and the statistics at /alerts/stats because /stats is taken too.
+// ---------------------------------------------------------------------------
+
+async fn post_alert_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(alerts::alerts::set_alert_rule(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_alert_rules(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(alerts::alerts::alert_rules_held(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_alert_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(alerts::alerts::rule_held(graph.as_ref(), &scope, &id))
+}
+
+async fn put_alert_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(alerts::alerts::replace_rule(
+        graph.as_ref(),
+        &scope,
+        &id,
+        &asked,
+    ))
+}
+
+async fn put_alert_rule_delete(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(alerts::alerts::remove_alert_rule(
+        graph.as_ref(),
+        &scope,
+        &id,
+    ))
+}
+
+async fn post_alert(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(alerts::alerts::create_alert(graph.as_ref(), &scope, &asked))
+}
+
+async fn get_alerts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(alerts::alerts::list_alerts(graph.as_ref(), &scope, &asked))
+}
+
+async fn post_alerts_evaluate(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(alerts::alerts::evaluate_data(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_alert_stats(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(alerts::alerts::alerts_counted(graph.as_ref(), &scope))
+}
+
+async fn get_alert(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(alerts::alerts::alert_held(graph.as_ref(), &scope, &id))
+}
+
+async fn put_alert_acknowledge(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(alerts::alerts::acknowledge_alert(
+        graph.as_ref(),
+        &scope,
+        &id,
+        &asked,
+    ))
+}
+
+async fn put_alert_resolve(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(alerts::alerts::resolve_alert(
+        graph.as_ref(),
+        &scope,
+        &id,
+        &asked,
+    ))
+}
+
+async fn put_alert_dismiss(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(alerts::alerts::dismiss_alert(graph.as_ref(), &scope, &id))
+}
+
+async fn post_alert_trigger(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(alerts::alerts::trigger_rule(
+        graph.as_ref(),
+        &scope,
+        &id,
+        &asked,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // financial identity: the KYC profile a Book keeps for a person, and the verification done against it. A profile
 // names a SUBJECT, which is not the caller, so it answers at /profiles and is read back by id or by subject.
 // ---------------------------------------------------------------------------
@@ -13675,6 +13900,26 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/files/:document_id/preview", get(get_document_preview))
         .route("/files/:document_id/ocr", post(post_document_ocr))
         .route("/files/:document_id/link", post(post_document_link))
+
+        // alerts: the rules watched, the alerts they raise, and what became of each one
+        .route("/alerts/evaluate", post(post_alerts_evaluate))
+        .route("/alerts/stats", get(get_alert_stats))
+        .route("/alerts", post(post_alert).get(get_alerts))
+        .route("/alerts/:alert_id", get(get_alert))
+        .route(
+            "/alerts/:alert_id/acknowledge",
+            put(put_alert_acknowledge),
+        )
+        .route("/alerts/:alert_id/resolve", put(put_alert_resolve))
+        .route("/alerts/:alert_id/dismiss", put(put_alert_dismiss))
+        .route("/rules", post(post_alert_rule).get(get_alert_rules))
+        .route(
+            "/rules/:rule_id",
+            get(get_alert_rule)
+                .put(put_alert_rule)
+                .delete(put_alert_rule_delete),
+        )
+        .route("/trigger/:rule_id", post(post_alert_trigger))
 
         // financial identity: the KYC profile register
         .route("/profiles", post(post_profile))

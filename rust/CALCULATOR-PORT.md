@@ -275,6 +275,25 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- alerts-service -> alerts crate (platform shelf), records on the store: the rules a Book watches and the alerts those
+  rules raise. A rule's name is three to a hundred letters, its category, severity and action are the ones the service
+  names, and its cooldown is a whole number of seconds that may be nothing (anything else is refused, not read as
+  nought); a rule arrives enabled with a trigger count of nought, and replacing it keeps the bookkeeping - how often it
+  has fired and when it last did - so an edited rule does not look like a rule that never fired. A condition is a
+  threshold (field, operator, value, all three required, the operator one of gt/gte/lt/lte/eq/neq compared as exact
+  decimals), a pattern (a velocity: more than the threshold inside an hour, and no longer a window) or a deadline
+  (within days_before of now, seven when nothing is said, and a deadline already gone is NOT approaching). Anything
+  else, an unknown operator, a field the data does not carry, or a value that is not a number is not a match - the
+  shipped engine answered false rather than raising. Evaluating watches only ENABLED rules and holds a rule back while
+  its cooldown has not run out; a firing rule raises an alert titled after the rule, counts itself fired and remembers
+  when. Triggering a rule by name fires whatever its cooldown and whether or not it is switched on, because the shipped
+  endpoint was for other services to shout through. An alert is raised active and is acknowledged, resolved or
+  dismissed whatever status it held, as the shipped endpoints never looked. Two limits of where this runs: the shipped
+  service broadcast each alert over a live socket and there are no live sockets here, so a statistics answer reports no
+  listeners; and "now" is taken from the request rather than a clock so a cooldown or a deadline can be reckoned over.
+  Routes: /rules, /rules/{id}, /alerts, /alerts/{id}, the three settle paths, /alerts/evaluate (since /evaluate is an
+  access decision) and /alerts/stats (since /stats is the receivables control account).
+
 - document-service -> documents crate (platform shelf), records on the store: the files a Book holds, their checksums,
   the text taken off them, and what they are linked to. A file's KIND is judged by its extension alone against the ten
   allowed, and anything else is refused before anything is stored; the content type follows the extension, an unlisted

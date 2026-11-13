@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 113 are proven on a Rust engine. 24 are still Python-only.
+The gateway routes 137 services. 114 are proven on a Rust engine. 23 are still Python-only.
 
-Of the backlog, 10 own no records and can be ported as pure functions; 14 own records and
+Of the backlog, 10 own no records and can be ported as pure functions; 13 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-113 services.
+114 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -21,6 +21,7 @@ absorption-costing-statement-service           8011  routes=7   records=yes rust
 accounting-service                             8000  routes=1   records=yes rust http
 accounting-standards-service                   8095  routes=20  records=yes rust http
 activity-based-budget-service                  8177  routes=8   records=yes rust http
+alerts-service                                 8090  routes=15  records=yes rust http
 appropriation-control-service                  8015  routes=5   records=yes rust http
 audit-compliance-service                       8016  routes=19  records=yes rust http
 audit-sampling-service                         8196  routes=2   records=no  rust http
@@ -150,7 +151,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-14 services.
+13 services.
 
 ```
 webhook-service                                8140  routes=5   records=yes none
@@ -164,7 +165,6 @@ notifications-service                          8091  routes=16  records=yes none
 pos-integration-service                        8095  routes=14  records=yes none
 message-bus-service                            8097  routes=16  records=yes none
 book-sync-service                              9020  routes=18  records=yes none
-alerts-service                                 8090  routes=15  records=yes none
 admin-service                                  8099  routes=27  records=yes none
 npo-scale-service                              9021  routes=51  records=yes none
 ```

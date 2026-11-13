@@ -91,6 +91,9 @@ domains:
 - name: calculations
   responsibility: the calculation surface the client calls
   target: rust/crates/application
+- name: alerts
+  responsibility: the rules a Book watches, and the alerts they raise
+  target: rust/crates/platform/alerts
 - name: security
   responsibility: 'zero-trust access control: policies and the decisions taken against them'
   target: rust/crates/domains/security
@@ -224,12 +227,12 @@ services:
   - GET /services/health
   - GET /dashboard/stats
 - name: alerts-service
-  domain: platform
-  target: rust/crates/platform
+  domain: alerts
+  target: rust/crates/platform/alerts
   port: 8090
   gateway_path: /alerts
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

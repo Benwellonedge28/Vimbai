@@ -1936,6 +1936,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vimbai_alerts"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vimbai_common",
+ "vimbai_store",
+]
+
+[[package]]
 name = "vimbai_api"
 version = "0.1.0"
 dependencies = [
@@ -1947,6 +1956,7 @@ dependencies = [
  "tower",
  "url",
  "vimbai_advisory",
+ "vimbai_alerts",
  "vimbai_assets",
  "vimbai_assurance",
  "vimbai_bridge",
