@@ -38,6 +38,7 @@ use finance::{
     continue_shutdown, insurance_claims, internal_rate_return, investment_monitoring,
     net_present_value, payback_period, personal_finance, personal_money, trade_finance,
 };
+use invoicing::invoices;
 use ledger;
 use npo::npo;
 use partnerships::{agreement, changes, dissolution, revaluation as partnership_revaluation};
@@ -11946,6 +11947,193 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// Invoicing: the customers a Book bills, the invoices it raises, and what has been paid.
+// ---------------------------------------------------------------------------
+
+async fn post_invoice_customer(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoices::create_invoice_customer(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_invoice_customers(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoices::invoice_customers(graph.as_ref(), &scope))
+}
+
+async fn get_invoice_customer(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(customer_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoices::invoice_customer(
+        graph.as_ref(),
+        &scope,
+        &customer_id,
+    ))
+}
+
+async fn put_invoice_customer(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(customer_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoices::update_invoice_customer(
+        graph.as_ref(),
+        &scope,
+        &customer_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn delete_invoice_customer(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(customer_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoices::delete_invoice_customer(
+        graph.as_ref(),
+        &scope,
+        &customer_id,
+    ))
+}
+
+async fn post_invoice(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoices::create_invoice(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_invoices(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoices::invoices(graph.as_ref(), &scope))
+}
+
+async fn get_invoice(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(invoice_number): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoices::invoice(graph.as_ref(), &scope, &invoice_number))
+}
+
+async fn put_invoice(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(invoice_number): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoices::update_invoice(
+        graph.as_ref(),
+        &scope,
+        &invoice_number,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn delete_invoice(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(invoice_number): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoices::delete_invoice(
+        graph.as_ref(),
+        &scope,
+        &invoice_number,
+    ))
+}
+
+async fn post_invoice_payment(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(invoice_number): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoices::record_invoice_payment(
+        graph.as_ref(),
+        &scope,
+        &invoice_number,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_invoice_payments(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(invoice_number): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(invoices::invoice_payments(
+        graph.as_ref(),
+        &scope,
+        &invoice_number,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // The automation engine: the rules a Book automates, and what happened when one ran.
 // ---------------------------------------------------------------------------
 
@@ -15849,6 +16037,28 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // Invoicing: customers, their invoices, and what has been paid against them
+        .route(
+            "/customers",
+            get(get_invoice_customers).post(post_invoice_customer),
+        )
+        .route(
+            "/customers/:id",
+            get(get_invoice_customer)
+                .put(put_invoice_customer)
+                .delete(delete_invoice_customer),
+        )
+        .route("/invoices", get(get_invoices).post(post_invoice))
+        .route(
+            "/invoices/:id",
+            get(get_invoice).put(put_invoice).delete(delete_invoice),
+        )
+        .route(
+            "/invoices/:id/record-payment",
+            post(post_invoice_payment),
+        )
+        .route("/invoices/:id/payments", get(get_invoice_payments))
 
         // The automation engine: rules, their switches, and the runs behind them
         .route(

@@ -1342,7 +1342,7 @@ services:
   port: 8070
   gateway_path: /invoicing
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

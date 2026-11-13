@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 127 are proven on a Rust engine. 10 are still Python-only.
+The gateway routes 137 services. 128 are proven on a Rust engine. 9 are still Python-only.
 
-Of the backlog, 5 own no records and can be ported as pure functions; 5 own records and
+Of the backlog, 5 own no records and can be ported as pure functions; 4 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-127 services.
+128 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -80,6 +80,7 @@ intercompany-service                           8350  routes=8   records=yes rust
 internal-rate-return-service                   8068  routes=6   records=no  rust http
 investment-monitoring-service                  8290  routes=9   records=yes rust http
 investment-property-service                    8145  routes=6   records=no  rust http
+invoicing-service                              8070  routes=1   records=yes rust http
 issued-share-capital-service                   8071  routes=7   records=yes rust http
 job-costing-service                            8073  routes=5   records=yes rust http
 lease-termination-service                      8224  routes=8   records=yes rust http
@@ -159,10 +160,9 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-5 services.
+4 services.
 
 ```
-invoicing-service                              8070  routes=1   records=yes none
 multimodal-pipeline-service                    8002  routes=1   records=yes none
 pos-integration-service                        8095  routes=14  records=yes none
 admin-service                                  8099  routes=27  records=yes none

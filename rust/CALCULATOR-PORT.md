@@ -291,6 +291,24 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- invoicing-service -> invoicing crate (rust/crates/domains/invoicing, module `invoices`), records on the store: the
+  customers a Book bills, the invoices it raises and what has been paid against them, beside the plan catalogue the crate
+  already held. Three rules decide whether an invoice register can be trusted and all three are kept: a customer
+  identifier is the Book's own and a second customer under it is a CONFLICT (409) because the identifier is what invoices
+  point at; an invoice must bill a customer that exists here and its number may not already be taken; and an invoice's
+  total must match the sum of its lines to the cent - the shipped service allowed exactly ONE cent of drift and refused
+  anything further, which is kept rather than tightened, since a cent between a total and its lines is real bookkeeping
+  and refusing it would block invoices the Book already holds. A due date before the invoice date is refused (an invoice
+  overdue the moment it was raised is a data error), an invoice with no lines is refused, an empty customer identifier is
+  refused rather than minted, and a sixth status is refused by name. A re-total on update is checked against the lines
+  that stand, so an invoice cannot be re-totalled away from what it bills. ONE DELIBERATE DIFFERENCE: the shipped
+  record-payment reached into the accounting service with the caller's token and asked it to post a journal entry. That
+  would be a second route into the ledger, and the ledger has one - entries are written once through accounting and
+  corrected only by reversing entries - so the port records the payment against the invoice (part payment keeps the
+  status, a settled invoice becomes paid, payments are kept as their own records) and the answer states
+  `journal_posted: false` with the reason, instead of reporting a posting that did not happen. Routes: /customers,
+  /customers/{id}, /invoices, /invoices/{id}, /invoices/{id}/record-payment, /invoices/{id}/payments.
+
 - automation-engine-service -> automation crate (rust/crates/domains/automation, module `automations`), records on the store:
   the rules a Book automates and the runs behind them, beside the workflow service they belong with. A rule is a name, one
   of four triggers (scheduled, event, manual, webhook - a fifth is a BAD REQUEST, an unstated one is a manual rule), a
