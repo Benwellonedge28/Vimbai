@@ -57,6 +57,15 @@ impl BookScope {
 }
 
 /// A stored record type: the node label and the edge the owning user reaches it by.
+/// The label a record is written under, and the edge that hangs it off its owner.
+///
+/// Every query in [`Records`] matches on the label *and* the edge, so a listing answers one kind and one
+/// kind only. That is what lets an edge be shared where two kinds genuinely belong together - the equity
+/// statement and the cash flow statement both hang off `OWNS_STATEMENT`, an equity, intercompany and fund
+/// transaction off `OWNS_TRANSACTION` - without either service seeing the other's rows. Renaming those
+/// edges is not a cleanup: the query would stop matching the nodes already written, so the records would
+/// go quietly missing. A shared edge is safe; a shared label would not be, and the label table is checked
+/// for that.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RecordKind {
     pub label: &'static str,

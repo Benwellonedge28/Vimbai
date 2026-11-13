@@ -100,7 +100,9 @@ pub fn record_recovery(
         .unwrap_or_else(|_| Money::zero())
         .plus(&amount);
     let written_off = stored_amount(&debt, "written_off_amount").unwrap_or_else(|_| Money::zero());
-    let status = if recovered.is_zero() || recovered.to_f64_lossy() < written_off.to_f64_lossy() {
+    // compared as exact decimals: turning either side into a float first could call a debt complete a
+    // hair early, and the amounts here are the amounts the ledger was written off at
+    let status = if recovered.is_zero() || recovered < written_off {
         PARTIAL
     } else {
         COMPLETED
