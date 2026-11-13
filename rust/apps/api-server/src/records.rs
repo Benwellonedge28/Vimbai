@@ -88,6 +88,7 @@ fn fail(error: StoreError) -> Response {
         StoreError::Forbidden(_) => StatusCode::FORBIDDEN,
         StoreError::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
         StoreError::Conflict(_) => StatusCode::CONFLICT,
+        StoreError::BadRequest(_) => StatusCode::BAD_REQUEST,
         StoreError::Graph(_) => StatusCode::BAD_GATEWAY,
     };
     (status, Json(json!({ "error": error.to_string() }))).into_response()
@@ -11944,6 +11945,98 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// Encrypted backups: the backups a Book took, the key each was sealed with, and the restores asked of them.
+// ---------------------------------------------------------------------------
+
+async fn post_backup(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::backup::take_backup(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_backups(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::backup::backups(
+        graph.as_ref(),
+        &scope,
+        &merged_request(None, query.as_deref()),
+    ))
+}
+
+async fn get_backup(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(backup_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::backup::backup(graph.as_ref(), &scope, &backup_id))
+}
+
+async fn post_backup_restore(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(backup_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::backup::restore(
+        graph.as_ref(),
+        &scope,
+        &backup_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn delete_backup(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(backup_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::backup::delete_backup(
+        graph.as_ref(),
+        &scope,
+        &backup_id,
+    ))
+}
+
+async fn get_restores(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::backup::restores(graph.as_ref(), &scope))
+}
+
+// ---------------------------------------------------------------------------
 // The Book's data shelf: the warehouse's dimensions, facts and queries, and the ETL pipelines that fill it.
 // ---------------------------------------------------------------------------
 
@@ -15379,6 +15472,13 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // Encrypted backups and the restores asked of them
+        .route("/backup", post(post_backup))
+        .route("/backups", get(get_backups))
+        .route("/backups/:id", get(get_backup).delete(delete_backup))
+        .route("/backups/:id/restore", post(post_backup_restore))
+        .route("/restores", get(get_restores))
 
         // The Book's data shelf: warehouse tables and queries, and the ETL pipelines behind them
         .route("/dimensions", get(get_dimensions).post(post_dimension))

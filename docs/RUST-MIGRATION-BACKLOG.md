@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 123 are proven on a Rust engine. 14 are still Python-only.
+The gateway routes 137 services. 124 are proven on a Rust engine. 13 are still Python-only.
 
-Of the backlog, 8 own no records and can be ported as pure functions; 6 own records and
+Of the backlog, 7 own no records and can be ported as pure functions; 6 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-123 services.
+124 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -58,6 +58,7 @@ disposal-account-service                       8045  routes=6   records=no  rust
 disposal-group-service                         8226  routes=8   records=yes rust http
 document-service                               8096  routes=14  records=yes rust http
 double-entry-principles-service                8047  routes=9   records=no  rust http
+encrypted-backup-service                       8006  routes=8   records=no  rust http
 equity-changes-service                         8049  routes=5   records=yes rust http
 etl-service                                    8363  routes=7   records=no  rust http
 expense-tracking-service                       8051  routes=6   records=yes rust http
@@ -143,12 +144,11 @@ audit-engagement-service                       8371  routes=8   records=yes rust
 
 ### Backlog: no records owned (port the maths only)
 
-8 services.
+7 services.
 
 ```
 realtime-calculation-engine                    8112  routes=5   records=no  none
 websocket-service                              8141  routes=4   records=no  none
-encrypted-backup-service                       8006  routes=8   records=no  none
 privacy-admin-dashboard-service                8003  routes=10  records=no  none
 distributed-workflow-orchestration-service     8046  routes=8   records=no  none
 performance-benchmarking-service               8280  routes=8   records=no  none

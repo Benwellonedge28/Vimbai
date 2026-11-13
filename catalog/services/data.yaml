@@ -3,7 +3,7 @@ domain:
   name: data
   responsibility: the warehouse's dimensions, facts and queries, and the ETL pipelines that fill them
   target: rust/crates/domains/data
-  services: 2
+  services: 3
 services:
 - name: data-warehouse-service
   domain: data
@@ -23,6 +23,23 @@ services:
   - POST /query
   - POST /etl
   - GET /etl
+- name: encrypted-backup-service
+  domain: data
+  target: rust/crates/domains/data
+  port: 8006
+  gateway_path: /encrypted-backup
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - GET /
+  - GET /health
+  - POST /backup
+  - GET /backups
+  - GET /backups/{backup_id}
+  - POST /backup/{backup_id}/restore
+  - DELETE /backups/{backup_id}
+  - GET /restores
 - name: etl-service
   domain: data
   target: rust/crates/domains/data

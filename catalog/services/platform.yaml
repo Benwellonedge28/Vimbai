@@ -3,7 +3,7 @@ domain:
   name: platform
   responsibility: identity, events, caching, observability and storage
   target: rust/crates/platform
-  services: 4
+  services: 3
 services:
 - name: admin-service
   domain: platform
@@ -41,23 +41,6 @@ services:
   - POST /audit-logs
   - GET /services/health
   - GET /dashboard/stats
-- name: encrypted-backup-service
-  domain: platform
-  target: rust/crates/platform
-  port: 8006
-  gateway_path: /encrypted-backup
-  auth_required: true
-  engine: python
-  records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /backup
-  - GET /backups
-  - GET /backups/{backup_id}
-  - POST /backup/{backup_id}/restore
-  - DELETE /backups/{backup_id}
-  - GET /restores
 - name: privacy-admin-dashboard-service
   domain: platform
   target: rust/crates/platform

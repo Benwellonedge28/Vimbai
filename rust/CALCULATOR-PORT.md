@@ -291,6 +291,22 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- encrypted-backup-service -> data crate (rust/crates/domains/data, module `backup`), records on the store: the backups
+  a Book took, the key each was sealed with, and the restores asked of them. Kept honest about what it is: a backup here
+  is a RECORD of a backup, not the backup. No bytes are copied, so the size is zero because nothing was measured, and the
+  file path names where a real archiver would have put the archive - a record claiming a size it never saw is the fiction
+  that makes a restore fail at the worst moment. The checksum is REAL, and this is a deliberate difference: the shipped
+  service made one up (a uuid dressed as a digest, which detects nothing); here it is SHA-256 over the backup's identity -
+  its service, its type, the key and the moment - computed by vimbai_common::hash, the platform's one hash, so the same
+  backup names the same digest and a changed one names a different digest. The backup type is full, incremental or
+  differential and anything else is a BAD REQUEST (400) rather than being quietly stored as full; a key id is minted when
+  the caller names none, because a sealed archive that forgets its key cannot be opened; and a restore is refused (400)
+  unless the backup it names finished, which is the one mistake that turns a bad day into a lost Book. Listing narrows by
+  service and status; a backup that is not there is missing; deleting answers what it deleted; nothing crosses Books.
+  Routes: /backup, /backups, /backups/{id}, /backups/{id}/restore, /restores. This port added one shared store error,
+  BadRequest, answering 400 as distinct from the 422 a malformed body earns - the two were being told apart by the shipped
+  services and a caller needs to as well.
+
 - data-warehouse-service -> data crate (rust/crates/domains/data, module `warehouse`), records on the store: the
   dimension and fact tables a Book describes, the aggregate queries it runs against them, and the loads that filled them
   (on a label of their own, WarehouseLoad, not shared with the etl-service pipeline label). The honest line is held

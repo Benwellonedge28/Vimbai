@@ -302,7 +302,7 @@ OWNERS = {
     "alerts-service": "alerts",
     "book-sync-service": "sync",
     "cache-service": "cache",
-    "encrypted-backup-service": "platform",
+    "encrypted-backup-service": "data",
     "financial-identity-service": "identity",
     "message-bus-service": "events",
     "mfa-auth-service": "authentication",

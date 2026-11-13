@@ -989,12 +989,12 @@ services:
   - POST /transaction-analyzer
   - GET /accounting-equation
 - name: encrypted-backup-service
-  domain: platform
-  target: rust/crates/platform
+  domain: data
+  target: rust/crates/domains/data
   port: 8006
   gateway_path: /encrypted-backup
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /

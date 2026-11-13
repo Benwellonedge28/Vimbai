@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 123
-still Python             15
+already on a Rust engine 124
+still Python             14
 owner domains            38
 ```
 
@@ -238,6 +238,7 @@ Lands in `rust/crates/domains/data`.
 ```
 service                                         port  routes  records  engine
 data-warehouse-service                          8362       9      yes  rust
+encrypted-backup-service                        8006       8       no  rust
 etl-service                                     8363       7       no  rust
 ```
 
@@ -481,7 +482,6 @@ Lands in `rust/crates/platform`.
 ```
 service                                         port  routes  records  engine
 admin-service                                   8099      27      yes  python
-encrypted-backup-service                        8006       8       no  python
 privacy-admin-dashboard-service                 8003      10       no  python
 websocket-service                               8141       4       no  python
 ```

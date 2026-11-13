@@ -656,6 +656,10 @@ pub enum StoreError {
     /// The record contradicts one already held - the same external id imported twice, say. The answer a
     /// shipped service gave as a 409.
     Conflict(String),
+    /// The request was understood and refused on its merits - a backup type that does not exist, a restore asked of a
+    /// backup that never finished. The answer a shipped service gave as a 400, kept distinct from the 422 a malformed
+    /// body earns because a caller telling the two apart is what makes the answer actionable.
+    BadRequest(String),
 }
 
 impl std::fmt::Display for StoreError {
@@ -666,6 +670,7 @@ impl std::fmt::Display for StoreError {
             Self::Graph(message) => write!(f, "graph error: {message}"),
             Self::Invalid(message) => write!(f, "{message}"),
             Self::Conflict(message) => write!(f, "{message}"),
+            Self::BadRequest(message) => write!(f, "{message}"),
         }
     }
 }
