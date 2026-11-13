@@ -10597,6 +10597,264 @@ async fn document_state_catalogue() -> Response {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// audit compliance: the immutable trail, resource versions, lineage, chain integrity, and the planning, report,
+// trail and compliance readings drawn from a caller's own figures. Every handler reads its arguments from the
+// body or the query, the body winning, because the shipped endpoints were written as query parameters.
+// ---------------------------------------------------------------------------
+
+async fn post_audit_event(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(audit_services::compliance::create_event(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn list_audit_events(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(audit_services::compliance::list_events(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_audit_event(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(event_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(audit_services::compliance::get_event(
+        graph.as_ref(),
+        &scope,
+        &event_id,
+    ))
+}
+
+async fn post_version_snapshot(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((resource_type, resource_id)): Path<(String, String)>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(audit_services::compliance::create_version(
+        graph.as_ref(),
+        &scope,
+        &resource_type,
+        &resource_id,
+        &asked,
+    ))
+}
+
+async fn get_version_history(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((resource_type, resource_id)): Path<(String, String)>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(audit_services::compliance::version_history(
+        graph.as_ref(),
+        &scope,
+        &resource_type,
+        &resource_id,
+    ))
+}
+
+async fn get_audit_lineage(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(resource_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(audit_services::compliance::lineage(
+        graph.as_ref(),
+        &scope,
+        &resource_id,
+        &asked,
+    ))
+}
+
+async fn get_audit_chain_integrity(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(audit_services::compliance::verify_chain(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_audit_event_integrity(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(event_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(audit_services::compliance::verify_event(
+        graph.as_ref(),
+        &scope,
+        &event_id,
+        &asked,
+    ))
+}
+
+async fn post_audit_plan(headers: HeaderMap, payload: Option<Json<Value>>) -> Response {
+    if let Err(response) = scope_of(&headers) {
+        return *response;
+    }
+    // a plan is answered from the caller's own figures and kept nowhere
+    answer(Ok(audit_services::compliance::plan_audit(&merged_request(
+        payload, None,
+    ))))
+}
+
+async fn post_audit_report_generate(headers: HeaderMap, payload: Option<Json<Value>>) -> Response {
+    if let Err(response) = scope_of(&headers) {
+        return *response;
+    }
+    answer(Ok(audit_services::compliance::generate_audit_report(
+        &merged_request(payload, None),
+    )))
+}
+
+async fn post_audit_trails(headers: HeaderMap, payload: Option<Json<Value>>) -> Response {
+    if let Err(response) = scope_of(&headers) {
+        return *response;
+    }
+    answer(Ok(audit_services::compliance::analyse_trails(
+        &merged_request(payload, None),
+    )))
+}
+
+async fn post_compliance_monitor(headers: HeaderMap, payload: Option<Json<Value>>) -> Response {
+    if let Err(response) = scope_of(&headers) {
+        return *response;
+    }
+    answer(Ok(audit_services::compliance::monitor_compliance(
+        &merged_request(payload, None),
+    )))
+}
+
+async fn post_compliance_sox(headers: HeaderMap, payload: Option<Json<Value>>) -> Response {
+    if let Err(response) = scope_of(&headers) {
+        return *response;
+    }
+    answer(Ok(audit_services::compliance::assess_sox(&merged_request(
+        payload, None,
+    ))))
+}
+
+async fn post_compliance_gdpr(headers: HeaderMap, payload: Option<Json<Value>>) -> Response {
+    if let Err(response) = scope_of(&headers) {
+        return *response;
+    }
+    answer(Ok(audit_services::compliance::assess_gdpr(
+        &merged_request(payload, None),
+    )))
+}
+
+async fn post_compliance_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(audit_services::compliance::compliance_report(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_audit_analytics(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(audit_services::compliance::analytics(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_audit_search(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(audit_services::compliance::search(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
 // audit: the engagements an auditor runs with their findings, and the sample it draws. Every handler reads its
 // arguments from the body or the query, the body winning, because the shipped endpoints were query parameters.
 // ---------------------------------------------------------------------------
@@ -12657,6 +12915,26 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/doubtful/calculate-provision", post(calculate_doubtful_provision))
         .route("/doubtful/provision/create", post(create_doubtful_provision))
         .route("/doubtful/provisions", get(list_doubtful_provisions))
+        // audit compliance: the trail, versions, lineage, integrity and the readings drawn from them
+        .route("/events", post(post_audit_event).get(list_audit_events))
+        .route("/events/:id", get(get_audit_event))
+        .route(
+            "/versions/:resource_type/:resource_id",
+            post(post_version_snapshot).get(get_version_history),
+        )
+        .route("/lineage/:id", get(get_audit_lineage))
+        .route("/integrity/verify", get(get_audit_chain_integrity))
+        .route("/integrity/verify-event/:id", get(get_audit_event_integrity))
+        .route("/planning/plan", post(post_audit_plan))
+        .route("/reports/generate", post(post_audit_report_generate))
+        .route("/trails/analyze", post(post_audit_trails))
+        .route("/compliance/monitor", post(post_compliance_monitor))
+        .route("/compliance/sox", post(post_compliance_sox))
+        .route("/compliance/gdpr", post(post_compliance_gdpr))
+        .route("/compliance/report", post(post_compliance_report))
+        .route("/analytics/summary", get(get_audit_analytics))
+        .route("/search", get(get_audit_search))
+
         // audit: the engagements an auditor runs and the sample it draws
         .route("/engagements", post(post_engagement))
         .route("/audit-types", get(get_audit_types))

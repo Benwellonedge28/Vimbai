@@ -11,7 +11,7 @@ services:
   port: 8016
   gateway_path: /audit-compliance
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

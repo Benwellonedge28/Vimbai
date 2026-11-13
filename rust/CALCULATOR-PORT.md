@@ -275,6 +275,35 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- audit-compliance-service -> audit crate: the trail, its versions, the lineage it traces and the readings drawn
+  from it. An event's checksum is taken over its body with the checksum left out, by one canonical serializer, so a
+  stored event always verifies against itself; the shipped service hashed one rendering and verified another and
+  therefore never matched, so only the sounding behaviour is carried over. The checksum covers the body only, not
+  the checksum or the chain position. Each event takes the next chain position, which is what makes the trail
+  append-only, and verification walks it in that order reporting a mismatch per event before folding the checksums
+  into one chain hash. An actor is not the caller, so an event's user_id is kept under its own property and
+  presented back as user_id, with every filter, report and search reading that one place. A version snapshot is
+  numbered one after the last the caller holds for that RESOURCE ID - the shipped count ignored the resource type,
+  so two types sharing an id share a numbering - and its checksum covers the state alone. Lineage is derived from
+  the caller's events for one resource id: the first `depth` become nodes and an edge is drawn from a correlation
+  id to the event it names when that correlation is one of the caller's events; a resource with no events answers
+  "No lineage data found" rather than an empty graph. The planning, formal report, trail analysis and the
+  monitoring, SOX and GDPR assessments are pure (entry points `plan_audit`, `generate_audit_report`,
+  `analyse_trails`, `monitor_compliance`, `assess_sox`, `assess_gdpr`, named so no name is defined twice) and answered from the caller's figures: the plan works from a fixed
+  million base rather than the company's own numbers (planning materiality 500,000, performance 375,000, thresholds
+  18,750) and only calls the audit high at more than three high findings, medium at more than two medium ones, with a
+  finding naming no level counted as medium; an opinion not named defaults to unqualified; a compliance rate with no
+  checks is zero rather than a division; an untested SOX control counts as passing, which is what the shipped
+  `tested: true` default did; and a GDPR assessment costs fifteen points a violation with a half-point floor that
+  two violations never reach. The compliance report and the analytics summary are derived from the trail and never
+  stored, with top resources and actors taken ten at a time. A search reads the text of the fields it is given, a
+  structured field by the text it renders to, and a search with no query is refused rather than answered with
+  everything. Where the shipped service stamped the clock, the port takes the caller's moment (verified_at,
+  generated_at, monitoring_date, changed_at, the report date), so a reckoning can be repeated. Routes keep the
+  shipped shapes, all currently free: /events, /versions/{type}/{id}, /lineage/{id}, /integrity/verify,
+  /planning/plan, /reports/generate, /trails/analyze, /compliance/{monitor,sox,gdpr,report}, /analytics/summary,
+  /search.
+
 - audit-engagement-service -> audit crate, records on the store: an engagement opens `planned` with no findings, no
   summary and the caller's date as its start, and its four states are planned, in progress, completed and
   cancelled; a row for any other state or any other audit family is refused rather than stored, because the
