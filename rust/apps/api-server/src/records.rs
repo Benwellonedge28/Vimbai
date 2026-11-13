@@ -36,6 +36,7 @@ use finance::{
     net_present_value, payback_period, personal_finance, personal_money, trade_finance,
 };
 use ledger;
+use npo::npo;
 use partnerships::{agreement, changes, dissolution, revaluation as partnership_revaluation};
 use receivables;
 use serde_json::{json, Value};
@@ -7369,9 +7370,511 @@ async fn partnership_revaluation(
     ))
 }
 
-/// The query string as a payload, with a JSON body laid over it.
-///
+// --- npo-service: the non-profit's funds, what moves through them, and its statements ---
+
+async fn create_npo_fund(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_npo_fund(graph.as_ref(), &scope, &body))
+}
+
+async fn npo_funds(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::list_npo_funds(graph.as_ref(), &scope, &body))
+}
+
+async fn create_npo_donation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_donation(graph.as_ref(), &scope, &body))
+}
+
+async fn npo_donations(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo::list_donations(graph.as_ref(), &scope))
+}
+
+async fn create_npo_grant(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_grant(graph.as_ref(), &scope, &body))
+}
+
+async fn npo_grants(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::list_grants(graph.as_ref(), &scope, &body))
+}
+
+async fn create_npo_project(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_project(graph.as_ref(), &scope, &body))
+}
+
+async fn npo_projects(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::list_projects(graph.as_ref(), &scope, &body))
+}
+
+async fn create_npo_program(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_program(graph.as_ref(), &scope, &body))
+}
+
+async fn npo_programs(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo::list_programs(graph.as_ref(), &scope))
+}
+
+async fn create_npo_donor(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_donor(graph.as_ref(), &scope, &body))
+}
+
+async fn npo_donors(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo::list_donors(graph.as_ref(), &scope))
+}
+
+async fn create_npo_budget(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_npo_budget(graph.as_ref(), &scope, &body))
+}
+
+async fn npo_budgets(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::list_npo_budgets(graph.as_ref(), &scope, &body))
+}
+
+async fn create_npo_internal_control(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_internal_control(graph.as_ref(), &scope, &body))
+}
+
+async fn npo_internal_controls(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo::list_internal_controls(graph.as_ref(), &scope))
+}
+
+async fn create_npo_audit_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_audit_report(graph.as_ref(), &scope, &body))
+}
+
+async fn npo_audit_reports(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo::list_audit_reports(graph.as_ref(), &scope))
+}
+
+async fn create_npo_program_metric(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_program_metric(graph.as_ref(), &scope, &body))
+}
+
+async fn create_npo_impact_measurement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_impact_measurement(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn create_npo_volunteer_record(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_volunteer_record(graph.as_ref(), &scope, &body))
+}
+
+async fn npo_volunteer_records(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::list_volunteer_records(graph.as_ref(), &scope, &body))
+}
+
+async fn create_npo_net_assets(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_net_assets(graph.as_ref(), &scope, &body))
+}
+
+async fn create_npo_statement_of_activities(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_statement_of_activities(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn npo_statement_of_activities(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::statement_of_activities(graph.as_ref(), &scope, &body))
+}
+
+async fn create_npo_statement_of_position(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::create_statement_of_position(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn describe_npo_asset(
+    State(_graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let _scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::describe_asset(&body))
+}
+
+async fn npo_sroi_analysis(
+    State(_graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let _scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::analyse_sroi(&body))
+}
+
+async fn npo_fund(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(fund_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo::get_npo_fund(graph.as_ref(), &scope, &fund_id))
+}
+
+async fn npo_fund_transactions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(fund_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::fund_transactions(
+        graph.as_ref(),
+        &scope,
+        &fund_id,
+        &body,
+    ))
+}
+
+async fn record_npo_fund_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(fund_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::record_fund_transaction(
+        graph.as_ref(),
+        &scope,
+        &fund_id,
+        &body,
+    ))
+}
+
+async fn restrict_npo_fund(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(fund_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::restrict_fund(graph.as_ref(), &scope, &fund_id, &body))
+}
+
+async fn npo_net_assets_on(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(as_of_date): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo::net_assets_on(graph.as_ref(), &scope, &as_of_date))
+}
+
+async fn npo_grant(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(grant_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo::get_grant(graph.as_ref(), &scope, &grant_id))
+}
+
+async fn record_npo_drawdown(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(grant_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::record_drawdown(
+        graph.as_ref(),
+        &scope,
+        &grant_id,
+        &body,
+    ))
+}
+
+async fn npo_project(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(project_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo::get_project(graph.as_ref(), &scope, &project_id))
+}
+
+async fn npo_donor(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(donor_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(npo::get_donor(graph.as_ref(), &scope, &donor_id))
+}
+
+async fn add_npo_budget_line(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(budget_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(npo::add_budget_line(
+        graph.as_ref(),
+        &scope,
+        &budget_id,
+        &body,
+    ))
+}
+
 /// These services took their arguments as query parameters, so a caller migrating to a body must not
+/// The query string as a payload, with a JSON body laid over it.
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone())
         .merge(service_root_router(graph.clone()))
@@ -9814,6 +10317,47 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/insurance-claims/claims", get(insurance_claims))
         .route("/insurance-claims/claims/:claim_id/process", post(process_insurance_claim))
         .route("/treasury-analytics/analyze", post(analyze_treasury))
+
+        // the non-profit service keeps its own trailing slash on the collection paths; both answer
+        .route("/npo/funds/", get(npo_funds).post(create_npo_fund))
+        .route("/npo/funds", get(npo_funds).post(create_npo_fund))
+        .route("/npo/funds/:fund_id", get(npo_fund))
+        .route(
+            "/npo/funds/:fund_id/transactions/",
+            get(npo_fund_transactions).post(record_npo_fund_transaction),
+        )
+        .route("/npo/funds/:fund_id/restrictions/", post(restrict_npo_fund))
+        .route("/npo/net-assets/", post(create_npo_net_assets))
+        .route("/npo/net-assets/:as_of_date", get(npo_net_assets_on))
+        .route("/npo/donations/", get(npo_donations).post(create_npo_donation))
+        .route("/npo/grants/", get(npo_grants).post(create_npo_grant))
+        .route("/npo/grants/:grant_id", get(npo_grant))
+        .route("/npo/grants/:grant_id/drawdowns/", post(record_npo_drawdown))
+        .route("/npo/projects/", get(npo_projects).post(create_npo_project))
+        .route("/npo/projects/:project_id", get(npo_project))
+        .route("/npo/programs/", get(npo_programs).post(create_npo_program))
+        .route("/npo/donors/", get(npo_donors).post(create_npo_donor))
+        .route("/npo/donors/:donor_id", get(npo_donor))
+        .route("/npo/budgets/", get(npo_budgets).post(create_npo_budget))
+        .route("/npo/budgets/:budget_id/lines/", post(add_npo_budget_line))
+        .route(
+            "/npo/internal-controls/",
+            get(npo_internal_controls).post(create_npo_internal_control),
+        )
+        .route("/npo/audit-reports/", get(npo_audit_reports).post(create_npo_audit_report))
+        .route("/npo/program-metrics/", post(create_npo_program_metric))
+        .route("/npo/impact-measurements/", post(create_npo_impact_measurement))
+        .route("/npo/sroi-analyses/", post(npo_sroi_analysis))
+        .route(
+            "/npo/volunteer-records/",
+            get(npo_volunteer_records).post(create_npo_volunteer_record),
+        )
+        .route(
+            "/npo/statements/activities/",
+            get(npo_statement_of_activities).post(create_npo_statement_of_activities),
+        )
+        .route("/npo/statements/financial-position/", post(create_npo_statement_of_position))
+        .route("/npo/assets/", post(describe_npo_asset))
         .route("/treasury-analytics/kpi/:company_id", get(treasury_kpi))
         .route("/cash-flow-statement/generate", post(generate_cash_flow_statement))
         .route("/cash-flow-statement/latest/:company_id", get(latest_cash_flow_statement))

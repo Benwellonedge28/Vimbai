@@ -427,6 +427,24 @@ xbrl-reporting-service
   goodwill reserve only under `raise_and_raise`. No service here moves money: every draft is kept with the record and
   posting it stays the accounting books' business.
 
+- npo-service -> the non-profit crate (rust/crates/domains/npo), records on the store: funds and their restrictions,
+  the money moving through them, donations, grants and drawdowns, donors, projects, programs, budgets and their lines,
+  internal controls, audit reports, program metrics, impact measurements, volunteer records, and the two statements.
+  The whole non-profit domain is ONE crate: npo-scale-service joins this one rather than getting a crate of its own,
+  so a fund balance is worked out one way whether a small charity or a multi-branch non-profit is asking. A fund
+  balance is never taken from a caller: it starts on its opening balance and moves by the transactions recorded
+  against it, with the running contribution and disbursement totals following the same split. A second fund with the
+  same code in the same Book is refused rather than created. A permanently restricted or endowment fund accepts only
+  investment and appreciation, so a contribution into one is refused exactly as a disbursement is. Net assets are read
+  from the ACTIVE funds, general/operating/board designated outside the donor's restriction and everything else
+  inside it, with the total being the funds' own total and the closing figure standing in for the opening one because
+  the service had no earlier snapshot to compare against. A statement of activities counts donations in the period,
+  grant money received, and fund disbursements in the period, and reports the difference as the change in net assets.
+  A statement of financial position sets the funds' total against no liabilities, which is what the service shipped.
+  SROI analyses and NPO assets are answered WITHOUT being kept, as they were before - neither had a store - and an
+  asset's net book value is its acquisition cost with no depreciation. Drawdowns raise the grant's amount received;
+  budget lines and fund restrictions refuse to hang off a budget or fund the caller does not hold.
+
 - family-community-group-service -> partnerships crate, records on the store: savings groups, the members in them, the
   contributions each makes and the payouts read back. A group's four figures belong to the register, not the caller: a
   new group starts at cycle one, with a pool of nothing, no members and active, whatever the request claimed. The

@@ -1967,6 +1967,7 @@ dependencies = [
  "vimbai_service_costing",
  "vimbai_service_equity",
  "vimbai_service_finance",
+ "vimbai_service_npo",
  "vimbai_service_partnerships",
  "vimbai_service_receivables",
  "vimbai_service_treasury",
@@ -2193,6 +2194,15 @@ dependencies = [
 
 [[package]]
 name = "vimbai_service_finance"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vimbai_common",
+ "vimbai_store",
+]
+
+[[package]]
+name = "vimbai_service_npo"
 version = "0.1.0"
 dependencies = [
  "serde_json",

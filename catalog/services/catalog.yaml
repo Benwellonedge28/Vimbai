@@ -46,8 +46,12 @@ domains:
   responsibility: share capital, reserves and equity movements
   target: rust/crates/domains/equity
 - name: partnerships
-  responsibility: partnerships, groups and non-profit entities
+  responsibility: partnership registers and the changes made to them, and community savings groups
   target: rust/crates/domains/partnerships
+- name: npo
+  responsibility: 'non-profit accounting: funds, donations, grants, impact, and the same at multi-entity
+    scale'
+  target: rust/crates/domains/npo
 - name: payroll
   responsibility: payroll and benefits
   target: rust/crates/domains/payroll
@@ -1449,12 +1453,12 @@ services:
   - POST /approval/{approval_id}/notify
   - GET /stats
 - name: npo-service
-  domain: partnerships
-  target: rust/crates/domains/partnerships
+  domain: npo
+  target: rust/crates/domains/npo
   port: 8085
   gateway_path: /npo
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -2486,8 +2490,8 @@ services:
   - GET /health
   - GET /
 - name: npo-scale-service
-  domain: partnerships
-  target: rust/crates/domains/partnerships
+  domain: npo
+  target: rust/crates/domains/npo
   port: 9021
   gateway_path: /npo-scale
   auth_required: true

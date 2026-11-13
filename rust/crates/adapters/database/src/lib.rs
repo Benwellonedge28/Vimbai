@@ -472,6 +472,34 @@ pub const TRADING_ACCOUNT_STATEMENT: RecordKind =
     RecordKind::new("TradingAccountStatement", "OWNS_TRADING_ACCOUNT_STATEMENT");
 pub const PRODUCTION_COST_STATEMENT: RecordKind =
     RecordKind::new("ProductionCostStatement", "OWNS_PRODUCTION_COST_STATEMENT");
+/// The records npo-service owns.
+pub const NPO_FUND: RecordKind = RecordKind::new("NPOFund", "OWNS_NPO_FUND");
+pub const NPO_FUND_TRANSACTION: RecordKind =
+    RecordKind::new("NPOFundTransaction", "OWNS_NPO_FUND_TRANSACTION");
+pub const NPO_FUND_RESTRICTION: RecordKind =
+    RecordKind::new("FundRestriction", "OWNS_FUND_RESTRICTION");
+pub const NPO_NET_ASSETS: RecordKind = RecordKind::new("NetAssets", "OWNS_NET_ASSETS");
+pub const NPO_DONATION: RecordKind = RecordKind::new("Donation", "OWNS_DONATION");
+pub const NPO_GRANT: RecordKind = RecordKind::new("Grant", "OWNS_GRANT");
+pub const NPO_GRANT_DRAWDOWN: RecordKind = RecordKind::new("GrantDrawdown", "OWNS_GRANT_DRAWDOWN");
+pub const NPO_PROJECT: RecordKind = RecordKind::new("Project", "OWNS_PROJECT");
+pub const NPO_PROGRAM: RecordKind = RecordKind::new("Program", "OWNS_PROGRAM");
+pub const NPO_DONOR: RecordKind = RecordKind::new("Donor", "OWNS_DONOR");
+pub const NPO_BUDGET: RecordKind = RecordKind::new("Budget", "OWNS_BUDGET");
+pub const NPO_BUDGET_LINE: RecordKind = RecordKind::new("BudgetLine", "OWNS_BUDGET_LINE");
+pub const NPO_INTERNAL_CONTROL: RecordKind =
+    RecordKind::new("InternalControl", "OWNS_INTERNAL_CONTROL");
+pub const NPO_AUDIT_REPORT: RecordKind = RecordKind::new("AuditReport", "OWNS_AUDIT_REPORT");
+pub const NPO_PROGRAM_METRIC: RecordKind = RecordKind::new("ProgramMetric", "OWNS_PROGRAM_METRIC");
+pub const NPO_IMPACT_MEASUREMENT: RecordKind =
+    RecordKind::new("ImpactMeasurement", "OWNS_IMPACT_MEASUREMENT");
+pub const NPO_VOLUNTEER_RECORD: RecordKind =
+    RecordKind::new("VolunteerRecord", "OWNS_VOLUNTEER_RECORD");
+pub const NPO_STATEMENT_OF_ACTIVITIES: RecordKind =
+    RecordKind::new("StatementOfActivities", "OWNS_STATEMENT_OF_ACTIVITIES");
+pub const NPO_STATEMENT_OF_POSITION: RecordKind =
+    RecordKind::new("StatementOfFinancialPosition", "OWNS_STATEMENT_OF_FP");
+
 /// The records family-community-group-service owns.
 pub const COMMUNITY_GROUP: RecordKind = RecordKind::new("CommunityGroup", "OWNS_GROUP");
 pub const GROUP_MEMBER: RecordKind = RecordKind::new("GroupMember", "OWNS_MEMBER");

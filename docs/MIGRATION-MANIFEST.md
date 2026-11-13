@@ -11,9 +11,9 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 87
-still Python             51
-owner domains            28
+already on a Rust engine 88
+still Python             50
+owner domains            29
 ```
 
 ## accounting
@@ -307,17 +307,30 @@ multimodal-pipeline-service                     8002      11      yes  python
 
 Retirement gate: port the maths and its records into this domain, capture parity against the Python, then de-register. Nothing is deleted before that.
 
+## npo
+
+_non-profit accounting: funds, donations, grants, impact, and the same at multi-entity scale_
+
+Lands in `rust/crates/domains/npo`.
+
+```
+service                                         port  routes  records  engine
+npo-scale-service                               9021      51      yes  python
+npo-service                                     8085      40      yes  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+Retirement gate: port the maths and its records into this domain, capture parity against the Python, then de-register. Nothing is deleted before that.
+
 ## partnerships
 
-_partnerships, groups and non-profit entities_
+_partnership registers and the changes made to them, and community savings groups_
 
 Lands in `rust/crates/domains/partnerships`.
 
 ```
 service                                         port  routes  records  engine
 family-community-group-service                  8005      11      yes  rust
-npo-scale-service                               9021      51      yes  python
-npo-service                                     8085      40      yes  python
 partnership-agreement-service                   8094       8      yes  rust
 partnership-changes-service                     8095       7      yes  rust
 partnership-dissolution-service                 8096       5      yes  rust
@@ -325,7 +338,6 @@ partnership-revaluation-service                 8097       5      yes  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
-Retirement gate: port the maths and its records into this domain, capture parity against the Python, then de-register. Nothing is deleted before that.
 
 ## payables
 

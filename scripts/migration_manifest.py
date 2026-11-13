@@ -38,7 +38,10 @@ DOMAINS = {
     "taxation": ("tax accounting, planning and compliance", "rust/crates/domains/taxation"),
     "assets": ("fixed, intangible, biological and investment assets", "rust/crates/domains/assets"),
     "equity": ("share capital, reserves and equity movements", "rust/crates/domains/equity"),
-    "partnerships": ("partnerships, groups and non-profit entities", "rust/crates/domains/partnerships"),
+    "partnerships": ("partnership registers and the changes made to them, and community savings groups", "rust/crates/domains/partnerships"),
+    # the whole non-profit domain in one crate: a fund balance is worked out one way whether a small charity or a
+    # multi-branch non-profit is asking, and the second service joins the first rather than getting a crate of its own
+    "npo": ("non-profit accounting: funds, donations, grants, impact, and the same at multi-entity scale", "rust/crates/domains/npo"),
     "payroll": ("payroll and benefits", "rust/crates/domains/payroll"),
     "reporting": ("report assembly and distribution", "rust/crates/domains/reporting"),
     "analytics": ("benchmarking, warehousing and data movement", "rust/crates/domains/analytics"),
@@ -213,8 +216,8 @@ OWNERS = {
     "debentures-service": "equity",
     "capital-reconstruction-service": "equity",
     "family-community-group-service": "partnerships",
-    "npo-scale-service": "partnerships",
-    "npo-service": "partnerships",
+    "npo-scale-service": "npo",
+    "npo-service": "npo",
     "partnership-agreement-service": "partnerships",
     "partnership-changes-service": "partnerships",
     "partnership-dissolution-service": "partnerships",
