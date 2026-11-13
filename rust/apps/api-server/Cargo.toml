@@ -35,6 +35,7 @@ book_sync = { package = "vimbai_service_offline_sync", path = "../../crates/plat
 events = { package = "vimbai_service_events", path = "../../crates/platform/events" }
 data = { package = "vimbai_service_data", path = "../../crates/domains/data" }
 invoicing = { package = "vimbai_service_invoicing", path = "../../crates/domains/invoicing" }
+automation = { package = "vimbai_automation", path = "../../crates/domains/automation" }
 workflow = { package = "vimbai_service_workflow", path = "../../crates/domains/workflow" }
 payroll = { package = "vimbai_service_payroll", path = "../../crates/domains/payroll" }
 security_services = { package = "vimbai_service_security", path = "../../crates/domains/security" }

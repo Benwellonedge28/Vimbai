@@ -11946,6 +11946,142 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// The automation engine: the rules a Book automates, and what happened when one ran.
+// ---------------------------------------------------------------------------
+
+async fn post_automation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(automation::automations::create_automation_rule(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_automations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(automation::automations::automations(
+        graph.as_ref(),
+        &scope,
+        &merged_request(None, query.as_deref()),
+    ))
+}
+
+async fn get_automation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(rule_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(automation::automations::automation(
+        graph.as_ref(),
+        &scope,
+        &rule_id,
+    ))
+}
+
+async fn delete_automation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(rule_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(automation::automations::delete_automation(
+        graph.as_ref(),
+        &scope,
+        &rule_id,
+    ))
+}
+
+async fn toggle_automation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(rule_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(automation::automations::toggle_automation(
+        graph.as_ref(),
+        &scope,
+        &rule_id,
+    ))
+}
+
+async fn post_automation_run(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(rule_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(automation::automations::execute_automation(
+        graph.as_ref(),
+        &scope,
+        &rule_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_automation_runs(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(automation::automations::executions(
+        graph.as_ref(),
+        &scope,
+        &merged_request(None, query.as_deref()),
+    ))
+}
+
+async fn get_automation_run(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(execution_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(automation::automations::execution(
+        graph.as_ref(),
+        &scope,
+        &execution_id,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // Benchmarking: the metrics an industry is measured on, and where one Book falls against them.
 // ---------------------------------------------------------------------------
 
@@ -15713,6 +15849,23 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // The automation engine: rules, their switches, and the runs behind them
+        .route(
+            "/automation-rules",
+            get(get_automations).post(post_automation),
+        )
+        .route(
+            "/automation-rules/:id",
+            get(get_automation).delete(delete_automation),
+        )
+        .route("/automation-rules/:id/toggle", post(toggle_automation))
+        .route("/automation-rules/:id/execute", post(post_automation_run))
+        .route("/automation-executions", get(get_automation_runs))
+        .route(
+            "/automation-executions/:id",
+            get(get_automation_run),
+        )
 
         // Benchmarking: metrics, placements and peers
         .route(

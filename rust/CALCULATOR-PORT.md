@@ -291,6 +291,23 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- automation-engine-service -> automation crate (rust/crates/domains/automation, module `automations`), records on the store:
+  the rules a Book automates and the runs behind them, beside the workflow service they belong with. A rule is a name, one
+  of four triggers (scheduled, event, manual, webhook - a fifth is a BAD REQUEST, an unstated one is a manual rule), a
+  condition, an ordered step list, an enabled switch and a priority defaulting to five. Two behaviours decide whether a run
+  is trustworthy and both are kept: a step that depends on a step which has not completed stops the run, the execution is
+  recorded FAILED with "Dependency X not completed for step Y", and no later step is attempted (running the tail of a
+  workflow after the step it relied on never happened is how a Book ends up half automated); and a rule that is switched
+  off REFUSES to run (400), because a caller who believes a run happened reads an empty result as "nothing to do". Steps
+  are recorded as taken, with their parameters, and claim nothing more - the work belongs to whichever service the action
+  names, and claiming a step did something would be the fiction to avoid. Deleting a rule that is not there answers
+  `deleted: false` rather than missing, kept as shipped: the caller is told it is gone either way and the id comes back, so
+  a delete can be repeated safely. ONE DELIBERATE DIFFERENCE: the run is performed inside the request, so the answer is
+  the finished execution instead of a `running` one the caller has to poll for; GET /executions/{id} still answers the same
+  record for a caller that polls. Route names had to be service-specific because /rules already answers the alert rules:
+  /automation-rules, /automation-rules/{id}, /automation-rules/{id}/toggle, /automation-rules/{id}/execute,
+  /automation-executions, /automation-executions/{id}.
+
 - performance-benchmarking-service -> analytics crate (rust/crates/domains/analytics, module `benchmarking`), records on
   the store: the metrics an industry is measured on, where a Book falls against them, and the peers it is compared with.
   The ladder that places a figure is kept exactly as drawn, including where it is generous with itself: the bands are

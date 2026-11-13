@@ -8,8 +8,12 @@
 //! Timing is supplied by the caller (ids and timestamps), which keeps the
 //! transitions testable and means this crate never reads a clock.
 
+//! *automation-engine-service* ([`automations`]): the rules a Book automates, their switches, and the runs
+//! behind them, kept on the store and scoped to the caller and the Book.
+//!
 #![forbid(unsafe_code)]
 
+pub mod automations;
 pub mod defaults;
 pub mod engine;
 pub mod execution;
