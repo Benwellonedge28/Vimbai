@@ -111,28 +111,28 @@ performance-benchmarking-service             /performance-benchmarking          
 service                                      address                            eps  owns engine crate
 biological-assets-service                    /biological-assets                   7  -    rust   rust/crates/domains/assets
 disposal-account-service                     /disposal-account                    6  -    rust   rust/crates/domains/assets
-disposal-group-service                       /disposal-group                      8  recs rust   rust/crates/domains/assets
-fixed-assets-register-service                /fixed-assets-register               9  recs rust   rust/crates/domains/assets
-fixed-assets-schedule-service                /fixed-assets-schedule               9  recs rust   rust/crates/domains/assets
-intangible-assets-service                    /intangible-assets                   7  recs rust   rust/crates/domains/assets
+disposal-group-service                       /disposal-group                      0  -    rust   rust/crates/domains/assets
+fixed-assets-register-service                /fixed-assets-register               0  -    rust   rust/crates/domains/assets
+fixed-assets-schedule-service                /fixed-assets-schedule               0  -    rust   rust/crates/domains/assets
+intangible-assets-service                    /intangible-assets                   0  -    rust   rust/crates/domains/assets
 investment-property-service                  /investment-property                 6  -    rust   rust/crates/domains/assets
-lease-termination-service                    /lease-termination                   8  recs rust   rust/crates/domains/assets
-revaluation-model-service                    /revaluation-model                   6  -    rust   rust/crates/domains/assets
-revaluation-reserve-service                  /revaluation-reserve                 7  recs rust   rust/crates/domains/assets
+lease-termination-service                    /lease-termination                   0  -    rust   rust/crates/domains/assets
+revaluation-model-service                    /revaluation-model                   0  -    rust   rust/crates/domains/assets
+revaluation-reserve-service                  /revaluation-reserve                 0  -    rust   rust/crates/domains/assets
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
 | `biological-assets-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `disposal-account-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `disposal-group-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `fixed-assets-register-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `fixed-assets-schedule-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `intangible-assets-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `disposal-group-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `fixed-assets-register-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `fixed-assets-schedule-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `intangible-assets-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `investment-property-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `lease-termination-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `lease-termination-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `revaluation-model-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `revaluation-reserve-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `revaluation-reserve-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## audit — 3/3 on Rust
 

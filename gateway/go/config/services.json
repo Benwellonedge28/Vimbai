@@ -329,8 +329,8 @@
     {
       "name": "disposal-group-service",
       "path": "/disposal-group",
-      "url": "http://localhost:9011",
-      "port": 8226,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -424,16 +424,16 @@
     {
       "name": "fixed-assets-register-service",
       "path": "/fixed-assets-register",
-      "url": "http://localhost:9009",
-      "port": 8355,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "fixed-assets-schedule-service",
       "path": "/fixed-assets-schedule",
-      "url": "http://localhost:9008",
-      "port": 8056,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -496,8 +496,8 @@
     {
       "name": "intangible-assets-service",
       "path": "/intangible-assets",
-      "url": "http://localhost:9011",
-      "port": 8358,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -559,8 +559,8 @@
     {
       "name": "lease-termination-service",
       "path": "/lease-termination",
-      "url": "http://localhost:9011",
-      "port": 8224,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -811,16 +811,16 @@
     {
       "name": "revaluation-model-service",
       "path": "/revaluation-model",
-      "url": "http://localhost:9011",
-      "port": 8144,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "revaluation-reserve-service",
       "path": "/revaluation-reserve",
-      "url": "http://localhost:9011",
-      "port": 8114,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

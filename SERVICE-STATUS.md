@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          124
+live and routed          117
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -61,7 +61,6 @@ Routed by the API gateway and deployed. These are the running product.
 `debt-management-service`
 `departmental-accounting-service`
 `disposal-account-service`
-`disposal-group-service`
 `distributed-workflow-orchestration-service`
 `document-service`
 `double-entry-principles-service`
@@ -70,8 +69,6 @@ Routed by the API gateway and deployed. These are the running product.
 `etl-service`
 `financial-integrity-service`
 `financial-state-machine-service`
-`fixed-assets-register-service`
-`fixed-assets-schedule-service`
 `foreign-exchange-service`
 `fund-accounting-service`
 `general-reserve-service`
@@ -79,7 +76,6 @@ Routed by the API gateway and deployed. These are the running product.
 `ifrs-reporting-service`
 `initial-investment-service`
 `insurance-claims-service`
-`intangible-assets-service`
 `intercompany-service`
 `internal-rate-return-service`
 `investment-monitoring-service`
@@ -87,7 +83,6 @@ Routed by the API gateway and deployed. These are the running product.
 `invoicing-service`
 `issued-share-capital-service`
 `job-costing-service`
-`lease-termination-service`
 `message-bus-service`
 `mfa-auth-service`
 `multimodal-pipeline-service`
@@ -111,8 +106,6 @@ Routed by the API gateway and deployed. These are the running product.
 `provision-doubtful-debts-service`
 `regulatory-compliance-service`
 `retained-profits-service`
-`revaluation-model-service`
-`revaluation-reserve-service`
 `revenue-recognition-service`
 `right-issues-service`
 `risk-assessment-service`

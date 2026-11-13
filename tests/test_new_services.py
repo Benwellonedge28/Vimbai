@@ -431,50 +431,6 @@ class TestInvestmentMonitoringService:
         assert data["unrealized_gain"] == 2500.0
 
 
-class TestIntangibleAssetsService:
-    def setup_method(self):
-        import importlib.util
-        import os as _os
-
-        app = load_service_app("intangible-assets-service")
-        svc_dir = _os.path.join(REPO_ROOT, "intangible-assets-service")
-        spec = importlib.util.spec_from_file_location("ia_root_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
-        fake_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fake_mod)
-        self._session = fake_mod.FakeSession()
-        import intangible_assets_service.database as db
-
-        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
-        self.client = TestClient(app)
-        self.client.headers.update({"X-User-Id": "root-ia-user"})
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "intangible-assets" in resp.json()["service"]
-
-    def test_create_and_amortize(self):
-        resp = self.client.post(
-            "/assets",
-            params={
-                "name": "Software License",
-                "asset_type": "software",
-                "cost": 120000.0,
-                "useful_life_years": 3,
-                "acquisition_date": "2026-01-01T00:00:00",
-                "residual_value": 0.0,
-                "amortization_method": "straight_line",
-            },
-        )
-        asset_id = resp.json()["id"]
-        assert resp.status_code == 200
-
-        amort_resp = self.client.post(f"/assets/{asset_id}/amortize", params={"period": "2026-01"})
-        data = amort_resp.json()
-        assert amort_resp.status_code == 200
-        assert data["amortization_amount"] > 0
-
-
 class TestSOXComplianceService:
     def setup_method(self):
         # Load first: main.py self-bootstraps the sox_compliance_service package.
@@ -703,58 +659,6 @@ class TestIFRSReportingService:
         )
         assert note_resp.status_code == 200
         assert note_resp.json()["title"] == "Accounting Policies"
-
-
-class TestFixedAssetsRegisterService:
-    def setup_method(self):
-        import importlib.util
-        import os as _os
-
-        app = load_service_app("fixed-assets-register-service")
-        svc_dir = _os.path.join(
-            _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "fixed-assets-register-service"
-        )
-        spec = importlib.util.spec_from_file_location("far_new_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
-        fake_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fake_mod)
-        self._session = fake_mod.FakeSession()
-
-        import fixed_assets_register_service.database as db
-
-        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
-        self.client = TestClient(app)
-        self.client.headers.update({"X-User-Id": "new-far-user"})
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "fixed-assets-register" in resp.json()["service"]
-
-    def test_register_and_depreciate(self):
-        resp = self.client.post(
-            "/assets",
-            params={
-                "asset_code": "FA-001",
-                "asset_name": "Delivery Truck",
-                "category": "vehicles",
-                "acquisition_date": "2026-01-01T00:00:00",
-                "acquisition_cost": 50000.0,
-                "useful_life_years": 5,
-                "salvage_value": 5000.0,
-                "depreciation_method": "straight_line",
-            },
-        )
-        asset_id = resp.json()["id"]
-        assert resp.status_code == 200
-
-        dep_resp = self.client.post(f"/assets/{asset_id}/depreciate", params={"period": "2026-01"})
-        data = dep_resp.json()
-        assert dep_resp.status_code == 200
-        assert data["depreciation_amount"] > 0
-
-        summary = self.client.get("/summary")
-        assert summary.status_code == 200
-        assert "total_assets" in summary.json()
 
 
 class TestLifecycleCostingService:
@@ -1013,59 +917,6 @@ class TestTreasuryRiskService:
         assert "total_exposures" in resp.json()
 
 
-class TestDisposalGroupService:
-    def setup_method(self):
-        import importlib.util
-        import os as _os
-
-        app = load_service_app("disposal-group-service")
-        svc_dir = _os.path.join(REPO_ROOT, "disposal-group-service")
-        spec = importlib.util.spec_from_file_location("dg_root_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
-        fake_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fake_mod)
-        self._session = fake_mod.FakeSession()
-        import disposal_group_service.database as db
-
-        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
-        self.client = TestClient(app)
-        self.client.headers.update({"X-User-Id": "root-dg-user"})
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "disposal-group" in resp.json()["service"]
-
-    def test_create_group_and_impairment(self):
-        grp = self.client.post(
-            "/groups",
-            params={
-                "name": "Discontinued Operations",
-                "description": "Business segment for sale",
-                "disposal_method": "sale",
-            },
-        )
-        grp_id = grp.json()["id"]
-
-        asset = self.client.post(
-            f"/groups/{grp_id}/assets",
-            params={
-                "asset_id": "FA-100",
-                "asset_name": "Factory Building",
-                "carrying_amount": 500000.0,
-                "fair_value": 450000.0,
-            },
-        )
-        assert asset.status_code == 200
-
-        imp = self.client.post(
-            f"/groups/{grp_id}/impairment-test",
-            params={"fair_value_less_costs": 440000.0},
-        )
-        data = imp.json()
-        assert imp.status_code == 200
-        assert data["impairment_amount"] == 60000.0
-
-
 class TestActivityBasedBudgetService:
     def setup_method(self):
         # Patch the fake Neo4j driver AFTER app load (package alias registers on
@@ -1205,53 +1056,6 @@ class TestPerformanceBenchmarkingService:
         assert bench.status_code == 200
         assert data["rating"] == "above_average"
         assert data["percentile_rank"] > 50
-
-
-class TestLeaseTerminationService:
-    def setup_method(self):
-        import importlib.util
-        import os as _os
-
-        app = load_service_app("lease-termination-service")
-        svc_dir = _os.path.join(REPO_ROOT, "lease-termination-service")
-        spec = importlib.util.spec_from_file_location("lt_root_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
-        fake_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fake_mod)
-        self._session = fake_mod.FakeSession()
-        import lease_termination_service.database as db
-
-        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
-        self.client = TestClient(app)
-        self.client.headers.update({"X-User-Id": "root-lt-user"})
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "lease-termination" in resp.json()["service"]
-
-    def test_create_and_settle(self):
-        term = self.client.post(
-            "/terminations",
-            params={
-                "lease_id": "LEASE-001",
-                "termination_date": "2026-06-01T00:00:00",
-                "original_end_date": "2027-06-01T00:00:00",
-                "remaining_payments": 12,
-                "remaining_payment_amount": 5000.0,
-                "early_termination_penalty": 10000.0,
-            },
-        )
-        term_id = term.json()["id"]
-        assert term.status_code == 200
-        assert term.json()["settlement_amount"] == 70000.0
-
-        settle = self.client.post(
-            f"/terminations/{term_id}/settlement",
-            params={"asset_return_value": 20000.0},
-        )
-        data = settle.json()
-        assert settle.status_code == 200
-        assert data["net_settlement"] == 50000.0
 
 
 class TestTreasuryReportingService:

@@ -1603,6 +1603,11 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   whether a gateway entry keeps its prefix or drops it. Paths carrying parameters are not counted as coverage. Its
   first run: 103 of the 129 services still on disk are ready, 26 still have paths the engine does not answer.
 
+- The assets domain, batch four: disposal-group, fixed-assets-register, fixed-assets-schedule, intangible-assets,
+  lease-termination, revaluation-model and revaluation-reserve are gone. Three other assets services stay for now -
+  biological-assets, disposal-account and investment-property still have paths the engine does not answer - so this is a
+  partial domain retirement, and the survey says so rather than the commit pretending the domain is finished.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

@@ -90,14 +90,14 @@ Lands in `rust/crates/domains/assets`.
 service                                         port  routes  records  engine
 biological-assets-service                       8146       7       no  rust
 disposal-account-service                        8045       6       no  rust
-disposal-group-service                          8226       8      yes  rust
-fixed-assets-register-service                   8355       9      yes  rust
-fixed-assets-schedule-service                   8056       9      yes  rust
-intangible-assets-service                       8358       7      yes  rust
+disposal-group-service                          8099       0       no  rust
+fixed-assets-register-service                   8099       0       no  rust
+fixed-assets-schedule-service                   8099       0       no  rust
+intangible-assets-service                       8099       0       no  rust
 investment-property-service                     8145       6       no  rust
-lease-termination-service                       8224       8      yes  rust
-revaluation-model-service                       8144       6       no  rust
-revaluation-reserve-service                     8114       7      yes  rust
+lease-termination-service                       8099       0       no  rust
+revaluation-model-service                       8099       0       no  rust
+revaluation-reserve-service                     8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

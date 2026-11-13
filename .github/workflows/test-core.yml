@@ -36,9 +36,9 @@ jobs:
       matrix:
         include:
           - group: standalone-containers
-            services: "identity-service accounting-service finance-service multimodal-pipeline-service banking-integration-service scenario-modeling-service workflow-service budget-service"
+            services: "identity-service accounting-service finance-service multimodal-pipeline-service banking-integration-service scenario-modeling-service workflow-service budget-service "
           - group: advanced-accounting
-            services: "financial-integrity-service revenue-recognition-service currency-service fixed-assets-register-service general-reserve-service revaluation-reserve-service data-warehouse-service subscription-plans-service intercompany-service      "
+            services: "financial-integrity-service revenue-recognition-service currency-service general-reserve-service data-warehouse-service subscription-plans-service intercompany-service "
           - group: ap-ar-expenses
             services: "petty-cash-service sales-ledger-control-service "
           - group: corporate-finance

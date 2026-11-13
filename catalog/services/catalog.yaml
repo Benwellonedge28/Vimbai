@@ -916,20 +916,12 @@ services:
 - name: disposal-group-service
   domain: assets
   target: rust/crates/domains/assets
-  port: 8226
+  port: 8099
   gateway_path: /disposal-group
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /groups
-  - GET /groups
-  - POST /groups/{group_id}/assets
-  - GET /groups/{group_id}/assets
-  - POST /groups/{group_id}/impairment-test
-  - PUT /groups/{group_id}/status
+  records: false
+  endpoints: []
 - name: distributed-workflow-orchestration-service
   domain: workflow
   target: rust/crates/domains/workflow
@@ -1096,39 +1088,21 @@ services:
 - name: fixed-assets-register-service
   domain: assets
   target: rust/crates/domains/assets
-  port: 8355
+  port: 8099
   gateway_path: /fixed-assets-register
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /assets
-  - GET /assets
-  - GET /assets/{asset_id}
-  - POST /assets/{asset_id}/depreciate
-  - GET /assets/{asset_id}/depreciation
-  - POST /assets/{asset_id}/dispose
-  - GET /summary
+  records: false
+  endpoints: []
 - name: fixed-assets-schedule-service
   domain: assets
   target: rust/crates/domains/assets
-  port: 8056
+  port: 8099
   gateway_path: /fixed-assets-schedule
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /assets
-  - GET /assets
-  - GET /assets/{asset_id}
-  - PUT /assets/{asset_id}
-  - POST /schedule/generate
-  - GET /schedule/latest
-  - GET /summary
+  records: false
+  endpoints: []
 - name: foreign-exchange-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -1236,19 +1210,12 @@ services:
 - name: intangible-assets-service
   domain: assets
   target: rust/crates/domains/assets
-  port: 8358
+  port: 8099
   gateway_path: /intangible-assets
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /assets
-  - GET /assets
-  - GET /assets/{asset_id}
-  - POST /assets/{asset_id}/amortize
-  - GET /assets/{asset_id}/amortization
+  records: false
+  endpoints: []
 - name: intercompany-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -1357,20 +1324,12 @@ services:
 - name: lease-termination-service
   domain: assets
   target: rust/crates/domains/assets
-  port: 8224
+  port: 8099
   gateway_path: /lease-termination
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /terminations
-  - GET /terminations
-  - GET /terminations/{termination_id}
-  - POST /terminations/{termination_id}/settlement
-  - PUT /terminations/{termination_id}/approve
-  - PUT /terminations/{termination_id}/complete
+  records: false
+  endpoints: []
 - name: message-bus-service
   domain: events
   target: rust/crates/platform/events
@@ -1903,34 +1862,21 @@ services:
 - name: revaluation-model-service
   domain: assets
   target: rust/crates/domains/assets
-  port: 8144
+  port: 8099
   gateway_path: /revaluation-model
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - POST /revalue
-  - POST /revaluation-surplus
-  - POST /depreciation-after-revaluation
-  - POST /impairment-after-revaluation
-  - POST /indexation-allowance
+  endpoints: []
 - name: revaluation-reserve-service
   domain: assets
   target: rust/crates/domains/assets
-  port: 8114
+  port: 8099
   gateway_path: /revaluation-reserve
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /revaluations/record
-  - POST /utilizations/record
-  - GET /revaluations
-  - GET /cumulative/{asset_id}
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: revenue-recognition-service
   domain: accounting
   target: rust/crates/domains/accounting
