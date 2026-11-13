@@ -656,10 +656,10 @@ sales-ledger-control-service                 /sales-ledger-control              
 
 ```text
 service                                      address                            eps  owns engine crate
-dashboard-service                            /dashboard                           4  -    rust   rust/crates/domains/reporting
-report-automation-service                    /report-automation                  10  -    rust   rust/crates/domains/reporting
-report-distribution-service                  /report-distribution                 8  -    rust   rust/crates/domains/reporting
-reporting-service                            /reporting                           3  -    rust   rust/crates/domains/reporting
+dashboard-service                            /dashboard                           0  -    rust   rust/crates/domains/reporting
+report-automation-service                    /report-automation                   0  -    rust   rust/crates/domains/reporting
+report-distribution-service                  /report-distribution                 0  -    rust   rust/crates/domains/reporting
+reporting-service                            /reporting                           0  -    rust   rust/crates/domains/reporting
 ```
 
 | service | proof today | retires when |

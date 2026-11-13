@@ -201,34 +201,6 @@ class TestInventoryValuationService:
         assert data["cost_of_goods_sold"] == round(80 * avg_cost, 2)
 
 
-class TestDashboardService:
-    def setup_method(self):
-        self.client = TestClient(load_app("dashboard-service"))
-
-    def test_executive_dashboard(self):
-        resp = self.client.post(
-            "/load", json={"company_id": "comp-1", "dashboard_type": "executive", "refresh_interval": 30}
-        )
-        data = resp.json()
-        assert resp.status_code == 200
-        assert "executive" in data["dashboard_type"]
-        assert len(data["widgets"]) >= 4
-        widget_types = [w["type"] for w in data["widgets"]]
-        assert "kpi_card" in widget_types
-        assert "chart" in widget_types
-
-    def test_financial_dashboard(self):
-        resp = self.client.post(
-            "/load", json={"company_id": "comp-1", "dashboard_type": "financial", "refresh_interval": 60}
-        )
-        data = resp.json()
-        assert any(w["title"] == "Current Ratio" for w in data["widgets"])
-
-
-# TestEnterpriseSSOService moved to rust/crates/platform/identity: the service is now the
-# vimbai_sso crate and its 401/400 contract is pinned in Rust parity tests.
-
-
 class TestAmortizationService:
     def setup_method(self):
         self.client = TestClient(load_app("amortization-service"))

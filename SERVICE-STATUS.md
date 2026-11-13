@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          128
+live and routed          124
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -56,7 +56,6 @@ Routed by the API gateway and deployed. These are the running product.
 `control-account-reconciliation-service`
 `currency-service`
 `cvp-analysis-service`
-`dashboard-service`
 `data-warehouse-service`
 `debentures-service`
 `debt-management-service`
@@ -111,9 +110,6 @@ Routed by the API gateway and deployed. These are the running product.
 `provision-bad-debts-service`
 `provision-doubtful-debts-service`
 `regulatory-compliance-service`
-`report-automation-service`
-`report-distribution-service`
-`reporting-service`
 `retained-profits-service`
 `revaluation-model-service`
 `revaluation-reserve-service`

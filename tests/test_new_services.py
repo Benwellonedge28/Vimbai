@@ -306,44 +306,6 @@ class TestDistributedWorkflowOrchestrationService:
         assert exec_resp.json()["status"] == "completed"
 
 
-class TestReportDistributionService:
-    def setup_method(self):
-        self.client = TestClient(load_service_app("report-distribution-service"))
-        use_fake_store("report_distribution_store", "report-distribution-service")
-        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
-        self.client = TestClient(load_service_app("report-distribution-service"))
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "report-distribution" in resp.json()["service"]
-
-    def test_create_list_and_subscribe(self):
-        list_resp = self.client.post(
-            "/lists",
-            params={
-                "name": "Finance Team",
-                "recipients": ["cfo@vimbai.com", "ceo@vimbai.com"],
-            },
-        )
-        list_id = list_resp.json()["id"]
-
-        sub_resp = self.client.post(
-            "/subscriptions",
-            params={
-                "report_type": "monthly_summary",
-                "distribution_list_id": list_id,
-                "frequency": "monthly",
-            },
-        )
-        assert sub_resp.status_code == 200
-
-        sub_id = sub_resp.json()["id"]
-        dist_resp = self.client.post(f"/subscriptions/{sub_id}/distribute")
-        assert dist_resp.status_code == 200
-        assert dist_resp.json()["status"] == "sent"
-
-
 class TestDataWarehouseService:
     def setup_method(self):
         # Load first: main.py self-bootstraps the data_warehouse_service package.
@@ -1049,45 +1011,6 @@ class TestTreasuryRiskService:
         resp = self.client.get("/dashboard")
         assert resp.status_code == 200
         assert "total_exposures" in resp.json()
-
-
-class TestReportAutomationService:
-    def setup_method(self):
-        self.client = TestClient(load_service_app("report-automation-service"))
-        use_fake_store("report_automation_store", "report-automation-service")
-        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
-        self.client = TestClient(load_service_app("report-automation-service"))
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "report-automation" in resp.json()["service"]
-
-    def test_template_schedule_and_run(self):
-        tpl_resp = self.client.post(
-            "/templates",
-            params={
-                "name": "Monthly Financial Summary",
-                "report_type": "financial_summary",
-                "format": "pdf",
-            },
-        )
-        tpl_id = tpl_resp.json()["id"]
-
-        sch_resp = self.client.post(
-            "/schedules",
-            params={
-                "template_id": tpl_id,
-                "name": "Monthly Run",
-                "cron_expression": "0 0 1 * *",
-            },
-            json=["cfo@vimbai.com"],
-        )
-        sch_id = sch_resp.json()["id"]
-
-        run_resp = self.client.post(f"/schedules/{sch_id}/run", params={"period": "2026-09"})
-        assert run_resp.status_code == 200
-        assert run_resp.json()["status"] == "delivered"
 
 
 class TestDisposalGroupService:

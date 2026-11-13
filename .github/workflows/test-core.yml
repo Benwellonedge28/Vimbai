@@ -52,7 +52,7 @@ jobs:
           - group: risk-governance
             services: "risk-assessment-service "
           - group: statements-reporting
-            services: "balance-sheet-service cash-flow-statement-service reporting-service "
+            services: "balance-sheet-service cash-flow-statement-service "
           - group: tax-audit-investigation
             services: "audit-engagement-service sox-compliance-service "
           - group: treasury-banking

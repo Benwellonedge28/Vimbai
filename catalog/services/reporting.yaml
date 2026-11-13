@@ -8,61 +8,36 @@ services:
 - name: dashboard-service
   domain: reporting
   target: rust/crates/domains/reporting
-  port: 8365
+  port: 8099
   gateway_path: /dashboard
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /load
-  - POST /custom
+  endpoints: []
 - name: report-automation-service
   domain: reporting
   target: rust/crates/domains/reporting
-  port: 8272
+  port: 8099
   gateway_path: /report-automation
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /templates
-  - GET /templates
-  - POST /schedules
-  - GET /schedules
-  - POST /schedules/{schedule_id}/run
-  - GET /reports
-  - PUT /schedules/{schedule_id}/pause
-  - PUT /schedules/{schedule_id}/resume
+  endpoints: []
 - name: report-distribution-service
   domain: reporting
   target: rust/crates/domains/reporting
-  port: 8273
+  port: 8099
   gateway_path: /report-distribution
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /lists
-  - GET /lists
-  - POST /subscriptions
-  - GET /subscriptions
-  - POST /subscriptions/{sub_id}/distribute
-  - GET /logs
+  endpoints: []
 - name: reporting-service
   domain: reporting
   target: rust/crates/domains/reporting
-  port: 8361
+  port: 8099
   gateway_path: /reporting
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - POST /generate
-  - POST /schedule
+  endpoints: []

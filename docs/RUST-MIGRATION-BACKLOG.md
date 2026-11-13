@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 128 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 10 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 124 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 14 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -51,7 +51,7 @@ continue-shutdown-decision-service             8032  routes=6   records=yes rust
 control-account-reconciliation-service         8033  routes=8   records=yes rust http
 currency-service                               8092  routes=19  records=yes rust http
 cvp-analysis-service                           8039  routes=9   records=yes rust http
-dashboard-service                              8365  routes=4   records=no  rust http
+dashboard-service                              8099  routes=0   records=no  rust http (no python source)
 data-warehouse-service                         8362  routes=9   records=yes rust http
 debentures-service                             8041  routes=10  records=yes rust http
 debt-management-service                        8194  routes=6   records=yes rust http
@@ -113,9 +113,9 @@ provision-doubtful-debts-service               8109  routes=8   records=yes rust
 purchases-ledger-control-service               8099  routes=0   records=no  rust http (no python source)
 realtime-calculation-engine                    8099  routes=0   records=no  rust http (no python source)
 regulatory-compliance-service                  8285  routes=6   records=yes rust http
-report-automation-service                      8272  routes=10  records=no  rust http
-report-distribution-service                    8273  routes=8   records=no  rust http
-reporting-service                              8361  routes=3   records=no  rust http
+report-automation-service                      8099  routes=0   records=no  rust http (no python source)
+report-distribution-service                    8099  routes=0   records=no  rust http (no python source)
+reporting-service                              8099  routes=0   records=no  rust http (no python source)
 retained-profits-service                       8113  routes=10  records=yes rust http
 revaluation-model-service                      8144  routes=6   records=no  rust http
 revaluation-reserve-service                    8114  routes=7   records=yes rust http

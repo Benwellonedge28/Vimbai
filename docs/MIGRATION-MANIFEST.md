@@ -511,10 +511,10 @@ Lands in `rust/crates/domains/reporting`.
 
 ```
 service                                         port  routes  records  engine
-dashboard-service                               8365       4       no  rust
-report-automation-service                       8272      10       no  rust
-report-distribution-service                     8273       8       no  rust
-reporting-service                               8361       3       no  rust
+dashboard-service                               8099       0       no  rust
+report-automation-service                       8099       0       no  rust
+report-distribution-service                     8099       0       no  rust
+reporting-service                               8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

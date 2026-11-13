@@ -281,10 +281,10 @@
     {
       "name": "dashboard-service",
       "path": "/dashboard",
-      "url": "http://localhost:9013",
-      "port": 8365,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "data-warehouse-service",
@@ -779,26 +779,26 @@
     {
       "name": "report-automation-service",
       "path": "/report-automation",
-      "url": "http://localhost:9002",
-      "port": 8272,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "report-distribution-service",
       "path": "/report-distribution",
-      "url": "http://localhost:9002",
-      "port": 8273,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "reporting-service",
       "path": "/reporting",
-      "url": "http://localhost:9002",
-      "port": 8361,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "retained-profits-service",
