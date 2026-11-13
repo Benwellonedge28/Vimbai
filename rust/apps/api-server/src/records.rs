@@ -11947,6 +11947,117 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// Distributed workflow orchestration: multi-step workflows and the rollback of what ran.
+// ---------------------------------------------------------------------------
+
+async fn post_orchestration(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::orchestration::create_orchestration(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_orchestrations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::orchestration::orchestrations(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_orchestration(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(workflow_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::orchestration::orchestration(
+        graph.as_ref(),
+        &scope,
+        &workflow_id,
+    ))
+}
+
+async fn post_orchestration_run(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(workflow_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::orchestration::run_orchestration(
+        graph.as_ref(),
+        &scope,
+        &workflow_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_orchestration_rollback(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(workflow_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::orchestration::compensate_orchestration(
+        graph.as_ref(),
+        &scope,
+        &workflow_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn delete_orchestration(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(workflow_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::orchestration::cancel_orchestration(
+        graph.as_ref(),
+        &scope,
+        &workflow_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // Invoicing: the customers a Book bills, the invoices it raises, and what has been paid.
 // ---------------------------------------------------------------------------
 
@@ -16037,6 +16148,18 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // Distributed workflow orchestration: the steps a workflow walks and its rollback
+        .route(
+            "/workflows",
+            get(get_orchestrations).post(post_orchestration),
+        )
+        .route("/workflows/:id", get(get_orchestration).delete(delete_orchestration))
+        .route("/workflows/:id/execute", post(post_orchestration_run))
+        .route(
+            "/workflows/:id/compensate",
+            post(post_orchestration_rollback),
+        )
 
         // Invoicing: customers, their invoices, and what has been paid against them
         .route(

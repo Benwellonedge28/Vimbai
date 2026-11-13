@@ -291,6 +291,22 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- distributed-workflow-orchestration-service -> workflow crate (rust/crates/domains/workflow, module `orchestration`),
+  records on the store: multi-step workflows, the order they run in, and the rollback of what ran. A step carries the
+  service address, endpoint, method (POST by default), payload, its OWN compensation address, max_retries 3 and
+  retry_count 0 until stated. KEPT AS SHIPPED, and the port says it in every answer that could be mistaken for it: the
+  shipped service never called the services its steps name - running a workflow walked the step list and marked each step
+  completed without sending a single request. Inventing those calls would be a far larger change than a port, and the
+  compensations it would then owe were never performed either, so the run records the steps and answers
+  `requests_sent: 0` with a note. `steps_completed` counts the WHOLE step list, as shipped, because that is the number a
+  reader has been comparing against. Rules kept: a workflow runs only from `pending` or `failed` (running a completed one
+  again would mark its steps a second time and lose the fact that it finished; `failed` stays runnable, which is how a
+  caller retries); a rollback walks the steps BACKWARDS and undoes only a step that completed AND carries a compensation
+  address, leaving a step with nothing to undo as completed rather than labelling it compensated; and cancelling
+  (DELETE) is UNCONDITIONAL, so a completed workflow can still be closed out - refusing it for some states only leaves
+  records that can never be closed. Routes use the shipped paths because nothing else had claimed them: /workflows,
+  /workflows/{id}, /workflows/{id}/execute, /workflows/{id}/compensate.
+
 - invoicing-service -> invoicing crate (rust/crates/domains/invoicing, module `invoices`), records on the store: the
   customers a Book bills, the invoices it raises and what has been paid against them, beside the plan catalogue the crate
   already held. Three rules decide whether an invoice register can be trusted and all three are kept: a customer
