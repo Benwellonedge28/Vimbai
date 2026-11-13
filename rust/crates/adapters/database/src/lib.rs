@@ -544,6 +544,11 @@ pub const NPO_STATEMENT_OF_ACTIVITIES: RecordKind =
 pub const NPO_STATEMENT_OF_POSITION: RecordKind =
     RecordKind::new("StatementOfFinancialPosition", "OWNS_STATEMENT_OF_FP");
 
+// payables: the purchases ledger and the expenses claimed against it
+pub const CREDITOR_TRANSACTION: RecordKind =
+    RecordKind::new("CreditorTransaction", "OWNS_CREDITOR_TX");
+pub const EXPENSE: RecordKind = RecordKind::new("Expense", "SUBMITTED");
+
 /// The records family-community-group-service owns.
 pub const COMMUNITY_GROUP: RecordKind = RecordKind::new("CommunityGroup", "OWNS_GROUP");
 pub const GROUP_MEMBER: RecordKind = RecordKind::new("GroupMember", "OWNS_MEMBER");

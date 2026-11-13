@@ -678,6 +678,26 @@ xbrl-reporting-service
   than it costs is recommended - a high-risk saving is measured but never advised. A plan carries an identifier even
   though nothing is stored, so a caller can refer to the answer they were given.
 
+- purchases-ledger-control-service and expense-tracking-service -> payables crate
+  (rust/crates/domains/payables), records on the store: one crate for the two services that answer the same money
+  going out. The purchases ledger is its transactions: a creditor's balance is replayed from them in creation
+  order, so the balance cannot drift from the entries behind it, and the control account is the movement totals
+  whose closing figure is the same number the replay reaches - reconciling the two is a comparison, and anything
+  under a cent counts as agreed. A discount is recorded and moves nothing, because the shipped service listed it as
+  a type the API accepts but left it out of both sign sets; an as-at date keeps the days up to it, read as calendar
+  days rather than by clock time. Expenses are separate records rather than a ledger: a claim arrives pending
+  whatever the caller sent, because the status, the approver and the rejection reason belong to the service; an
+  amount of nothing or less is refused, and so is a category outside the nine the service accepted; a page larger
+  than the service's own largest is refused rather than quietly filled; approval records who approved and rejection
+  records why, each answering only the three fields the shipped route answered; and the summary measures the same
+  listing, so it counts at most the listing's own page of claims - the shipped shape, pinned rather than smoothed
+  over. A defect was found on the way in that also affected the receivables port already on main: an entry type that
+  moves nothing still added its amount to an existing balance, because the replay treated a zero direction as "add"
+  for anyone already in the list. Rather than fix it twice, both ledgers now call one shared replay in
+  `vimbai_common::ledger`, which has its own tests for the zero-movement case. The plain `/transactions`,
+  `/reconcile` and `/control-account/summary` already answer the sales ledger, so the purchases routes are named
+  `/creditor-transactions`, `/purchases-reconcile` and `/purchases-control-account/summary`.
+
 ## Crate already has the maths, service not yet wired
 
 These are the cheapest ports left: the crate already holds the arithmetic, so the work is a

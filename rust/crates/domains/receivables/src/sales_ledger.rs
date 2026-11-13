@@ -18,6 +18,7 @@
 use serde_json::{json, Value};
 
 use vimbai_common::dates::day_of;
+use vimbai_common::ledger::replayed_balances;
 use vimbai_common::Money;
 use vimbai_store::amounts::{amount_or_zero, stored_amount, wire};
 use vimbai_store::read::{field, text};
@@ -46,31 +47,9 @@ fn transactions(
     Records::new(graph, DEBTOR_TRANSACTION).list(scope, 2000)
 }
 
-/// Each debtor's balance, replayed in creation order.
+/// Each debtor's balance, replayed from the ledger by the one shared walk.
 fn replayed(rows: &[Value]) -> Vec<(String, Money)> {
-    let mut order: Vec<String> = Vec::new();
-    let mut balances: Vec<Money> = Vec::new();
-    for row in rows {
-        let debtor = field(row, "debtor_id").to_owned();
-        let moved = stored_amount(row, "amount").unwrap_or_else(|_| Money::zero());
-        let direction = movement(field(row, "transaction_type"));
-        match order.iter().position(|seen| *seen == debtor) {
-            Some(at) => {
-                let next = if direction >= 0 {
-                    balances[at].plus(&moved)
-                } else {
-                    balances[at].minus(&moved)
-                };
-                balances[at] = next;
-            }
-            None if direction != 0 => {
-                order.push(debtor);
-                balances.push(if direction > 0 { moved } else { moved.negate() });
-            }
-            None => {}
-        }
-    }
-    order.into_iter().zip(balances).collect()
+    replayed_balances(rows, "debtor_id", movement)
 }
 
 fn balance_of(balances: &[(String, Money)], debtor_id: &str) -> Money {

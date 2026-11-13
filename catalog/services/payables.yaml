@@ -11,7 +11,7 @@ services:
   port: 8051
   gateway_path: /expense-tracking
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -26,7 +26,7 @@ services:
   port: 8110
   gateway_path: /purchases-ledger-control
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health

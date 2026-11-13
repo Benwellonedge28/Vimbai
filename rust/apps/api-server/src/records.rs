@@ -39,6 +39,7 @@ use finance::{
 use ledger;
 use npo::npo;
 use partnerships::{agreement, changes, dissolution, revaluation as partnership_revaluation};
+use payables;
 use receivables;
 use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
@@ -10576,6 +10577,163 @@ async fn document_state_catalogue() -> Response {
     answer(Ok(ledger::state_machine::catalogue()))
 }
 
+// ---------------------------------------------------------------------------
+// payables: the purchases ledger and its control account
+// ---------------------------------------------------------------------------
+
+async fn post_creditor_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payables::purchases_ledger::record_transaction(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn get_purchases_control_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payables::purchases_ledger::purchases_control_summary(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn get_creditors(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payables::purchases_ledger::list_creditors(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn reconcile_purchases_control_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payables::purchases_ledger::purchases_reconcile(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// payables: the expenses claimed against that ledger
+// ---------------------------------------------------------------------------
+
+async fn post_expense(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payables::expenses::claim_expense(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn get_expenses(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payables::expenses::list_expense_claims(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn approve_expense(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(expense_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    let approver = asked.get("approver").and_then(Value::as_str).unwrap_or("");
+    answer(payables::expenses::approve_expense(
+        graph.as_ref(),
+        &scope,
+        &expense_id,
+        approver,
+    ))
+}
+
+async fn reject_expense(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(expense_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = body_or_query(query.as_deref());
+    let reason = asked.get("reason").and_then(Value::as_str).unwrap_or("");
+    answer(payables::expenses::reject_expense(
+        graph.as_ref(),
+        &scope,
+        &expense_id,
+        reason,
+    ))
+}
+
+async fn get_expense_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(payables::expenses::expense_summary(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
 pub fn service_root_router(graph: GraphHandle) -> Router {
     Router::new()
         .route("/absorption-costing/product-costs", get(product_costs).post(keep_product_cost))
@@ -10636,6 +10794,21 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/doubtful/calculate-provision", post(calculate_doubtful_provision))
         .route("/doubtful/provision/create", post(create_doubtful_provision))
         .route("/doubtful/provisions", get(list_doubtful_provisions))
+        // payables: the purchases ledger and its control account. The plain /transactions, /reconcile and
+        // /control-account/summary already answer the sales ledger, so each of these is named for the side of
+        // the ledger it answers.
+        .route("/creditor-transactions", post(post_creditor_transaction))
+        .route("/purchases-control-account/summary", get(get_purchases_control_summary))
+        .route("/creditors", get(get_creditors))
+        .route("/purchases-reconcile", post(reconcile_purchases_control_account))
+        // payables: the expenses claimed against it
+        .route("/expenses", post(post_expense))
+        .route("/expenses/:company_id", get(get_expenses))
+        .route("/expenses/:expense_id/approve", put(approve_expense))
+        .route("/expenses/:expense_id/reject", put(reject_expense))
+        .route("/expense-summary/:company_id", get(get_expense_summary))
+
+        // absorption-costing: the stock valuation derived from the product costs
         .route("/absorption-costing/product-costs/:product_id/latest", get(latest_product_cost))
         .route("/absorption-costing/stock-valuation", get(stock_valuation))
         .route("/job-costing/jobs", post(open_job))

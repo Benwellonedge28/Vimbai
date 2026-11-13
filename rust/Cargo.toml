@@ -17,6 +17,7 @@ members = [
     "crates/domains/npo",
     "crates/domains/taxation",
     "crates/domains/partnerships",
+    "crates/domains/payables",
     "crates/domains/receivables",
     "crates/domains/treasury",
     "crates/platform/identity",
