@@ -4,7 +4,7 @@ domain:
   responsibility: publishing an event inside a Book, the subscriptions that listen and every delivery
     attempt
   target: rust/crates/platform/events
-  services: 1
+  services: 2
 services:
 - name: message-bus-service
   domain: events
@@ -31,3 +31,16 @@ services:
   - POST /trigger/budget-variance-alert
   - POST /trigger/transaction-flagged
   - POST /trigger/approval-requested
+- name: websocket-service
+  domain: events
+  target: rust/crates/platform/events
+  port: 8141
+  gateway_path: /websocket
+  auth_required: true
+  engine: rust
+  records: false
+  endpoints:
+  - GET /
+  - GET /stats
+  - POST /events/ingest
+  - POST /broadcast/{channel}

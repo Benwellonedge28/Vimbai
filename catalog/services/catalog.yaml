@@ -2441,12 +2441,12 @@ services:
   - POST /dispatch/{company_id}
   - GET /deliveries/{endpoint_id}
 - name: websocket-service
-  domain: platform
-  target: rust/crates/platform
+  domain: events
+  target: rust/crates/platform/events
   port: 8141
   gateway_path: /websocket
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /

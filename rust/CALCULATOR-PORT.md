@@ -545,6 +545,27 @@ xbrl-reporting-service
   property list on the instance, the same shape journal lines and report rows already use. Routes:
   /workflow-definitions (+ /{id}, /{id}/start) and /workflow-instances (+ /{id}, /{id}/complete), all new.
 
+- websocket-service -> events crate (platform shelf, beside the bus whose stream it carries), records on the store:
+  the sockets subscribed to a channel, the events carried, and the broadcasts sent by name. This is the LAST MILE of the
+  stream the bus already publishes: one delivery arrives, is given its Book's channel, is shaped into what a client sees,
+  and is carried ONCE. PINNED: the Book is read from the payload first (`payload.book_id`), then the event itself, then
+  the envelope's `metadata.book_id`, and an event with no Book is DROPPED rather than broadcast to a guessed channel -
+  answering `{"delivered_to": 0, "channel": null}` and recording nothing, so a later copy is not mistaken for a duplicate.
+  The same event delivered twice (broker and HTTP both reach a pod) is carried once: an id already seen answers
+  `delivered_to: 0` on the channel it would have used, and the record of what was seen is bounded - the LEAST RECENTLY
+  seen goes first - so a busy stream cannot grow it without limit (pinned with a window of two). A broadcast names a
+  channel outright, is refused when the channel is blank, and is counted whether or not anything listens. `messages_sent`
+  counts MESSAGES, not events - one per listening socket at the moment it was carried - so two sockets on one channel and
+  one on another make three messages out of two events (pinned). The relay reads `disabled`, because this build holds no
+  broker client and claiming to be consuming when nothing is would be the one lie the statistics could tell.
+  NAMED LIMITATION: a socket is a live connection held by a process, and this crate answers requests, so it holds no
+  sockets. The platform's socket layer holds them and registers each as a subscription (POST /realtime-subscriptions is
+  that door); nothing registers any today, so `delivered_to` and the connection counts read zero until it does - stated
+  rather than invented. Modelling point: the counts live on the store, so a figure a replica reports is the Book's own
+  rather than one process's share of it, which the shipped per-pod ints could not do. Routes: /events/ingest,
+  /broadcast/{channel}, /realtime-subscriptions (the socket layer's door), /websocket-stats and /websocket-health,
+  because /stats and / are taken elsewhere.
+
 - admin-service -> admin crate (platform shelf), records on the store: each caller's own feature overrides,
   organisation feature configuration, rollout schedules, feature requests, configuration overrides and the audit trail.
   The catalogue itself is DATA, not code: `seeds.json` was lifted out of the shipped `catalog.py` field for field - 28

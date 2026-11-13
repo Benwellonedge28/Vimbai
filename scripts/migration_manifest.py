@@ -313,7 +313,7 @@ OWNERS = {
     "mfa-auth-service": "authentication",
     "notifications-service": "notifications",
     "privacy-admin-dashboard-service": "compliance",
-    "websocket-service": "platform",
+    "websocket-service": "events",
     "zero-trust-data-service": "security",
 }
 
