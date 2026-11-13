@@ -459,6 +459,12 @@ pub const CUMULATIVE_REVALUATION: RecordKind =
 pub const ASSET_SCHEDULE: RecordKind = RecordKind::new("AssetSchedule", "OWNS_ASSET_SCHEDULE");
 
 /// The price reduction decisions selling-price-reduction-service owns.
+pub const TRADING_ACCOUNT_STATEMENT: RecordKind =
+    RecordKind::new("TradingAccountStatement", "OWNS_TRADING_ACCOUNT_STATEMENT");
+pub const PRODUCTION_COST_STATEMENT: RecordKind =
+    RecordKind::new("ProductionCostStatement", "OWNS_PRODUCTION_COST_STATEMENT");
+pub const ACTIVITY: RecordKind = RecordKind::new("Activity", "OWNS_ACTIVITY");
+pub const ACTIVITY_BUDGET: RecordKind = RecordKind::new("ActivityBudget", "OWNS_ACTIVITY_BUDGET");
 pub const SELLING_PRICE_ANALYSIS: RecordKind =
     RecordKind::new("PriceReductionAnalysis", "OWNS_PRICE_ANALYSIS");
 

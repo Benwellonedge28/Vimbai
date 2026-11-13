@@ -11,7 +11,7 @@ services:
   port: 8177
   gateway_path: /activity-based-budget
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

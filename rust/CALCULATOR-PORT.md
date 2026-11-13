@@ -394,6 +394,34 @@ xbrl-reporting-service
   variable offers at most five recommendations; a comparison names the best and worst of the scenarios given and reports
   nothing else, with the comparison date taken from the caller so the reckoning repeats.
 
+- absorption-costing-statement-service -> costing crate, records on the store: the trading account that runs from
+  sales to gross profit and, once expenses are added, to net profit; and the production cost statement that runs from
+  materials through prime cost to the cost of each unit. Both are kept, not just computed, and the line items are
+  built in the shipped order with the totals flagged. Adding expenses appends a profit section to the statement it
+  finds and marks it completed, so a second call appends a second section; adding expenses to a statement the caller
+  does not hold is a miss rather than a new statement. The cost per unit is left at nil rather than dividing when
+  nothing was produced. NOTE the paths: this is *not* the accounting crate's trading-account-service, which books
+  sales less returns, direct wages and factory overhead and reports a gross profit percentage. Two different services
+  behind one familiar name, so the routes here sit under `/absorption-costing-statement/`.
+
+- activity-based-budget-service -> budgeting crate, records on the store: activities carrying a cost pool, a driver and
+  a rate, and budgets that price the driver volume expected in a period at those rates. A line naming an activity the
+  caller does not hold is refused by name rather than dropped; a line's cost is the volume times the rate the activity
+  carried when the budget was made, so a later rate change does not rewrite an agreed budget; the total is the sum of
+  the lines and nothing else; approving sets the status and leaves the figures alone.
+
+- revaluation-model-service -> assets crate, no records: a revaluation pass plus the four questions that follow one.
+  One pass decides per asset whether fair value sits above or below its carrying amount; gains go to a revaluation
+  surplus in other comprehensive income, losses go against that surplus first and only the rest to profit or loss, and
+  the surplus is a running figure in the order the assets are listed, so a loss only finds a surplus an earlier gain in
+  the same list created. An asset with no fair value given is measured at cost, which for a depreciated asset reports a
+  gain. Shapes kept: depreciation is adjusted only for assets written *down*, which is what the service did; the
+  remaining life counts from a fixed two years held rather than from dates; and a rate over nothing reports nil where
+  the service would have failed the request. The four companions answer the surplus after deferred tax, the
+  depreciation over the remaining life, an impairment against a surplus standing, and the indexation allowance on a
+  disposal. The frequency-check and regularity fields carry no arithmetic, as they did not before. These five answer
+  from their figures alone and touch no records, so they need no Book.
+
 - budget-service -> budgeting crate: the master budget, what it is doing against actual, and the projections drawn
   from it. Variance is always actual less budget, so a negative variance is money not spent, which for a cost line is
   favourable. Shapes kept: an account that carries no actual is measured at 95% of its budget rather than at nil; a

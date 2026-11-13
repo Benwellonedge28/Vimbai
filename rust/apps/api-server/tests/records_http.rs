@@ -3043,3 +3043,191 @@ async fn a_scenario_that_is_not_the_callers_is_a_miss_over_http() {
     let (status, _body) = call_with(graph, "GET", "/scenario-modeling/scenarios/other", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn a_trading_account_statement_is_generated_and_read_back() {
+    let graph = Scripted::returning(vec![json!({"id": "t-1", "gross_profit": "4000.000000"})]);
+    let (status, answer) = call(
+        graph.clone(),
+        "/absorption-costing-statement/trading-account/generate",
+        Some(
+            json!({"company_id": "c-1", "period_start": "2026-01-01", "period_end": "2026-12-31",
+                    "opening_stock": 1000, "purchases": 5000, "carriage_inwards": 200,
+                    "closing_stock": 1200, "sales_revenue": 9000}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(answer["gross_profit"], json!("4000.000000"));
+
+    let (status, listed) = call(graph, "/absorption-costing-statement/trading-account", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(listed["statements"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_production_cost_statement_is_generated_and_listed() {
+    let graph = Scripted::returning(vec![
+        json!({"id": "p-1", "product_id": "pr-1", "period": "2026-01"}),
+    ]);
+    let (status, answer) = call(
+        graph.clone(),
+        "/absorption-costing-statement/production-cost/generate",
+        Some(
+            json!({"product_id": "pr-1", "period": "2026-01", "direct_materials_opening": 1000,
+                    "direct_materials_purchases": 4000, "direct_materials_closing": 800,
+                    "direct_labor": 2000, "direct_expenses": 300, "factory_overhead": 1500,
+                    "work_in_progress_opening": 400, "work_in_progress_closing": 600,
+                    "units_produced": 10}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(answer["cost_per_unit"], json!("780.000000"));
+
+    let (status, listed) = call(
+        graph,
+        "/absorption-costing-statement/production-cost?product_id=pr-1",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(listed["statements"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn activities_are_defined_and_budgets_priced_at_their_rates() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "a-1", "driver_rate": "250.000000"})],
+        vec![json!({"id": "a-1", "driver_rate": "250.000000"})],
+        vec![json!({"id": "b-1", "status": "draft"})],
+    ]);
+    let (status, answer) = call(
+        graph.clone(),
+        "/activity-based-budget/activities",
+        Some(json!({"name": "Setups", "cost_pool": "Factory", "driver": "setups", "driver_rate": 250})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(answer["driver_rate"], json!("250.000000"));
+
+    let (status, budget) = call(
+        graph,
+        "/activity-based-budget/budgets",
+        Some(
+            json!({"name": "Q1", "fiscal_year": "2026", "period": "2026-Q1",
+                    "line_items": [{"activity_id": "a-1", "expected_driver_volume": 8}]}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(budget["total_budget"], json!("2000.000000"));
+}
+
+#[tokio::test]
+async fn a_budget_is_approved_or_reported_missing() {
+    let graph = Scripted::queue(vec![
+        vec![json!({"id": "b-1", "status": "draft"})],
+        vec![json!({"id": "b-1"})],
+        vec![],
+    ]);
+    let (status, answer) = call_with(
+        graph.clone(),
+        "PUT",
+        "/activity-based-budget/budgets/b-1/approve",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(answer["status"], json!("approved"));
+
+    let (status, _) = call(graph, "/activity-based-budget/budgets/missing", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn a_revaluation_reports_gains_losses_and_the_figures_after() {
+    let graph = Scripted::returning(vec![]);
+    let (status, answer) = call(
+        graph,
+        "/revaluation-model/revalue",
+        Some(
+            json!({"company_id": "c-1", "revaluation_date": "2026-03-31",
+                    "assets": [{"asset_id": "a", "asset_name": "Plant", "original_cost": 100000,
+                                "accumulated_depreciation": 20000, "residual_value": 0,
+                                "useful_life_years": 6}],
+                    "fair_values": {"a": 135000}}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(answer["gains"].as_array().unwrap().len(), 1);
+    assert_eq!(answer["revaluation_surplus_OCI"], json!("55000.000000"));
+}
+
+#[tokio::test]
+async fn the_four_revaluation_companions_answer_from_their_figures() {
+    let graph = Scripted::returning(vec![]);
+    let router = || vimbai_api::records::router(graph.clone());
+
+    let request = |uri: &str| {
+        Request::builder()
+            .method("POST")
+            .uri(uri)
+            .header("content-type", "application/json")
+            .body(Body::empty())
+            .unwrap()
+    };
+
+    let response = router()
+        .oneshot(request(
+            "/revaluation-model/revaluation-surplus?revaluation_gain=50000&deferred_tax_rate=0.25",
+        ))
+        .await
+        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let answer: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(
+        answer["revaluation_surplus_OCI"],
+        json!("37500.000000"),
+        "answer was {answer}"
+    );
+
+    let response = router()
+        .oneshot(request(
+            "/revaluation-model/depreciation-after-revaluation?revalued_amount=120000&residual_value=20000&remaining_useful_life=4&total_useful_life=10",
+        ))
+        .await
+        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let answer: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(answer["annual_depreciation"], json!("25000.000000"));
+
+    let response = router()
+        .oneshot(request(
+            "/revaluation-model/impairment-after-revaluation?carrying_amount=100000&recoverable_amount=60000&revaluation_surplus_available=25000",
+        ))
+        .await
+        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let answer: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(answer["charged_to_profit_or_loss"], json!("15000.000000"));
+
+    let response = router()
+        .oneshot(request(
+            "/revaluation-model/indexation-allowance?original_cost=10000&cpi_at_acquisition=1.5&cpi_at_disposal=1.8",
+        ))
+        .await
+        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let answer: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(answer["indexation_allowance"], json!("2000.000000"));
+}

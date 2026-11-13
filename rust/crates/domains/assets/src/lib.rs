@@ -97,7 +97,11 @@ pub use lease_termination::{
     approve as approve_termination, calculate_settlement, complete as complete_termination,
     create_termination, get_termination, list_terminations,
 };
-pub use revaluation::{revalue, AssetBook, RevaluationAsset, RevaluationOutput, RevaluationRow};
+pub use revaluation::{
+    depreciation_after_from_json, impairment_after_from_json, indexation_from_json, revaluation,
+    revalue_from_json, surplus_from_json, AssetBook, DepreciationAdjustment, Revaluation,
+    RevaluationAsset, RevaluationRow,
+};
 pub use revaluation_reserve::{
     cumulative as cumulative_revaluation, list_revaluations, record_revaluation,
     record_utilization as record_revaluation_utilization, summary as revaluation_summary,

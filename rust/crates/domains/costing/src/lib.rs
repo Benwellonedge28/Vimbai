@@ -2,6 +2,7 @@
 //!
 //! Services here:
 //! * `absorption-costing-service`
+//! * `absorption-costing-statement-service`
 //! * `basis-apportionment-service`
 //! * `cvp-analysis-service`
 //! * `job-costing-service`
@@ -23,3 +24,4 @@ pub mod cvp;
 pub mod job_costing;
 pub mod overhead_absorption;
 pub mod price_reduction;
+pub mod statement;

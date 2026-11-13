@@ -21,13 +21,14 @@ use axum::{
     Json, Router,
 };
 use budgeting_services::{
-    appropriation_control, master_budget, rolling_forecast, scenario_analysis, scenario_modeling,
-    sensitivity_analysis, zero_based_budget,
+    activity_based_budget as activity_budget, appropriation_control, master_budget,
+    rolling_forecast, scenario_analysis, scenario_modeling, sensitivity_analysis,
+    zero_based_budget,
 };
 use common::Money;
 use costing::{
     absorption, basis_apportionment, cost_calculations, cvp, job_costing, overhead_absorption,
-    price_reduction,
+    price_reduction, statement,
 };
 use equity::equity_changes;
 use finance::{
@@ -6736,6 +6737,231 @@ async fn revaluation_summary(
     ))
 }
 
+// --- absorption-costing-statement: the trading account and the production cost statement ---
+
+async fn generate_statement_trading_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(statement::generate_trading_statement(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn add_statement_expenses(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(statement_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(statement::add_statement_expenses(
+        graph.as_ref(),
+        &scope,
+        &statement_id,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn generate_production_cost_statement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(statement::generate_production_statement(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn statement_trading_accounts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(statement::list_trading_statements(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn one_statement_trading_account(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(statement_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(statement::get_trading_statement(
+        graph.as_ref(),
+        &scope,
+        &statement_id,
+    ))
+}
+
+async fn statement_production_costs(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(statement::list_production_statements(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+// --- activity-based budget: activities, budgets and their approval ---
+
+async fn define_activity(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(activity_budget::define_activity(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn activities(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(activity_budget::list_activities(graph.as_ref(), &scope))
+}
+
+async fn create_activity_budget(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(activity_budget::create_budget(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn activity_budgets(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(activity_budget::list_budgets(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn one_activity_budget(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(budget_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(activity_budget::get_budget(
+        graph.as_ref(),
+        &scope,
+        &budget_id,
+    ))
+}
+
+async fn approve_activity_budget(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(budget_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(activity_budget::approve_budget(
+        graph.as_ref(),
+        &scope,
+        &budget_id,
+    ))
+}
+
+// --- revaluation model: a revaluation and the four questions that follow one ---
+
+fn stateless(result: Result<Value, String>) -> Response {
+    match result {
+        Ok(answer) => Json(answer).into_response(),
+        Err(message) => (StatusCode::BAD_REQUEST, Json(json!({"detail": message}))).into_response(),
+    }
+}
+
+async fn perform_revaluation(Json(payload): Json<Value>) -> Response {
+    stateless(assets::revalue_from_json(&payload))
+}
+
+async fn revaluation_surplus(RawQuery(query): RawQuery) -> Response {
+    stateless(assets::surplus_from_json(&body_or_query(query.as_deref())))
+}
+
+async fn depreciation_after_revaluation(RawQuery(query): RawQuery) -> Response {
+    stateless(assets::depreciation_after_from_json(&body_or_query(
+        query.as_deref(),
+    )))
+}
+
+async fn impairment_after_revaluation(RawQuery(query): RawQuery) -> Response {
+    stateless(assets::impairment_after_from_json(&body_or_query(
+        query.as_deref(),
+    )))
+}
+
+async fn indexation_allowance(RawQuery(query): RawQuery) -> Response {
+    stateless(assets::indexation_from_json(&body_or_query(
+        query.as_deref(),
+    )))
+}
+
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone())
         .merge(service_root_router(graph.clone()))
@@ -8535,6 +8761,63 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/cash-optimization/accounts/:company_id", get(company_cash_accounts))
         .route("/cash-optimization/optimize/:company_id", post(run_cash_optimization))
         .route("/cash-optimization/suggestions/:company_id", get(company_cash_suggestions))
+        .route(
+            "/absorption-costing-statement/trading-account/generate",
+            post(generate_statement_trading_account),
+        )
+        .route(
+            "/absorption-costing-statement/trading-account",
+            get(statement_trading_accounts),
+        )
+        .route(
+            "/absorption-costing-statement/trading-account/:statement_id",
+            get(one_statement_trading_account),
+        )
+        .route(
+            "/absorption-costing-statement/trading-account/:statement_id/add-expenses",
+            post(add_statement_expenses),
+        )
+        .route(
+            "/absorption-costing-statement/production-cost/generate",
+            post(generate_production_cost_statement),
+        )
+        .route(
+            "/absorption-costing-statement/production-cost",
+            get(statement_production_costs),
+        )
+        .route(
+            "/activity-based-budget/activities",
+            get(activities).post(define_activity),
+        )
+        .route(
+            "/activity-based-budget/budgets",
+            get(activity_budgets).post(create_activity_budget),
+        )
+        .route(
+            "/activity-based-budget/budgets/:budget_id",
+            get(one_activity_budget),
+        )
+        .route(
+            "/activity-based-budget/budgets/:budget_id/approve",
+            put(approve_activity_budget),
+        )
+        .route("/revaluation-model/revalue", post(perform_revaluation))
+        .route(
+            "/revaluation-model/revaluation-surplus",
+            post(revaluation_surplus),
+        )
+        .route(
+            "/revaluation-model/depreciation-after-revaluation",
+            post(depreciation_after_revaluation),
+        )
+        .route(
+            "/revaluation-model/impairment-after-revaluation",
+            post(impairment_after_revaluation),
+        )
+        .route(
+            "/revaluation-model/indexation-allowance",
+            post(indexation_allowance),
+        )
         .route("/trading-account/generate", post(generate_trading_account))
         .route("/trading-account/accounts", get(list_trading_accounts))
         .route("/trading-account/accounts/:account_id", get(get_trading_account))

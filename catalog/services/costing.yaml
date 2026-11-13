@@ -28,7 +28,7 @@ services:
   port: 8011
   gateway_path: /absorption-costing-statement
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - POST /trading-account/generate

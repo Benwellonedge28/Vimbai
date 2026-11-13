@@ -2,6 +2,7 @@
 //!
 //! Services here:
 //! * `appropriation-control-service`
+//! * `activity-based-budget-service`
 //! * `profit-loss-account-service`
 //! * `scenario-budget-service`
 //! * `budget-service`
@@ -17,6 +18,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod activity_based_budget;
 pub mod appropriation_control;
 pub mod figures;
 pub mod master_budget;

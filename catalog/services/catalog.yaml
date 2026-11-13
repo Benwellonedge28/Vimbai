@@ -113,7 +113,7 @@ services:
   port: 8011
   gateway_path: /absorption-costing-statement
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - POST /trading-account/generate
@@ -168,7 +168,7 @@ services:
   port: 8177
   gateway_path: /activity-based-budget
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -1949,7 +1949,7 @@ services:
   port: 8144
   gateway_path: /revaluation-model
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /

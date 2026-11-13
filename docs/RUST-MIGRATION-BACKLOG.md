@@ -6,19 +6,21 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 71 are proven on a Rust engine. 66 are still Python-only.
+The gateway routes 137 services. 74 are proven on a Rust engine. 63 are still Python-only.
 
-Of the backlog, 18 own no records and can be ported as pure functions; 48 own records and
+Of the backlog, 17 own no records and can be ported as pure functions; 46 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-71 services.
+74 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
+absorption-costing-statement-service           8011  routes=7   records=yes rust http
 accounting-service                             8000  routes=1   records=yes rust http
 accounting-standards-service                   8095  routes=20  records=yes rust http
+activity-based-budget-service                  8177  routes=8   records=yes rust http
 appropriation-control-service                  8015  routes=5   records=yes rust http
 authorized-share-capital-service               8017  routes=8   records=yes rust http
 balance-sheet-service                          8019  routes=5   records=yes rust http
@@ -67,6 +69,7 @@ preference-shares-service                      8102  routes=9   records=yes rust
 process-costing-service                        8105  routes=5   records=yes rust http
 product-costing-service                        8106  routes=5   records=yes rust http
 retained-profits-service                       8113  routes=10  records=yes rust http
+revaluation-model-service                      8144  routes=6   records=no  rust http
 revaluation-reserve-service                    8114  routes=7   records=yes rust http
 revenue-recognition-service                    8115  routes=5   records=yes rust http
 right-issues-service                           8116  routes=7   records=yes rust http
@@ -91,7 +94,7 @@ zero-based-budgeting-service                   8143  routes=7   records=yes rust
 
 ### Backlog: no records owned (port the maths only)
 
-18 services.
+17 services.
 
 ```
 reporting-service                              8361  routes=3   records=no  none
@@ -107,7 +110,6 @@ banking-integration-service                    8386  routes=8   records=no  none
 report-distribution-service                    8273  routes=8   records=no  none
 distributed-workflow-orchestration-service     8046  routes=8   records=no  none
 performance-benchmarking-service               8280  routes=8   records=no  none
-revaluation-model-service                      8144  routes=6   records=no  none
 report-automation-service                      8272  routes=10  records=no  none
 graphql-service                                8095  routes=2   records=no  none
 double-entry-principles-service                8047  routes=9   records=no  none
@@ -116,7 +118,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-48 services.
+46 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -137,7 +139,6 @@ control-account-reconciliation-service         8033  routes=8   records=yes none
 mfa-auth-service                               8007  routes=6   records=yes none
 partnership-agreement-service                  8094  routes=8   records=yes none
 data-warehouse-service                         8362  routes=9   records=yes none
-activity-based-budget-service                  8177  routes=8   records=yes none
 workflow-service                               8142  routes=1   records=yes none
 bad-debts-recovery-service                     8018  routes=7   records=yes none
 provision-bad-debts-service                    8108  routes=8   records=yes none
@@ -148,7 +149,6 @@ partnership-revaluation-service                8097  routes=5   records=yes none
 provision-doubtful-debts-service               8109  routes=8   records=yes none
 partnership-changes-service                    8095  routes=7   records=yes none
 sox-compliance-service                         8286  routes=10  records=yes none
-absorption-costing-statement-service           8011  routes=7   records=yes none
 family-community-group-service                 8005  routes=11  records=yes none
 sales-ledger-control-service                   8120  routes=7   records=yes none
 invoicing-service                              8070  routes=1   records=yes none
