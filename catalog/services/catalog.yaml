@@ -73,9 +73,6 @@ domains:
 - name: compliance
   responsibility: regulatory and controls compliance
   target: rust/crates/domains/compliance
-- name: workflow
-  responsibility: workflow definitions and long-running orchestration
-  target: rust/crates/domains/workflow
 - name: automation
   responsibility: scheduled and triggered automation
   target: rust/crates/domains/automation
@@ -91,6 +88,9 @@ domains:
 - name: calculations
   responsibility: the calculation surface the client calls
   target: rust/crates/application
+- name: workflow
+  responsibility: the definitions a step runs through and the instances that walk them
+  target: rust/crates/domains/workflow
 - name: cache
   responsibility: keyed values with a life, a size limit and the cache's own counts
   target: rust/crates/platform/cache
@@ -2440,7 +2440,7 @@ services:
   port: 8142
   gateway_path: /workflow
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

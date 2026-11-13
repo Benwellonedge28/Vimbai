@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 117
-still Python             21
+already on a Rust engine 118
+still Python             20
 owner domains            34
 ```
 
@@ -552,14 +552,15 @@ Retirement gate: answered from Rust with parity holding, so the Python directory
 
 ## workflow
 
-_workflow definitions and long-running orchestration_
+_the definitions a step runs through and the instances that walk them_
 
 Lands in `rust/crates/domains/workflow`.
 
 ```
 service                                         port  routes  records  engine
 distributed-workflow-orchestration-service      8046       8       no  python
-workflow-service                                8142      10      yes  python
+workflow-service                                8142      10      yes  rust
 ```
 
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
 Retirement gate: port the maths and its records into this domain, capture parity against the Python, then de-register. Nothing is deleted before that.

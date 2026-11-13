@@ -24,6 +24,7 @@ members = [
     "crates/domains/compliance",
     "crates/domains/identity",
     "crates/domains/invoicing",
+    "crates/domains/workflow",
     "crates/domains/payroll",
     "crates/domains/security",
     "crates/domains/audit",

@@ -30,6 +30,7 @@ reporting_services = { package = "vimbai_service_reporting", path = "../../crate
 compliance = { package = "vimbai_service_compliance", path = "../../crates/domains/compliance" }
 identity = { package = "vimbai_service_identity", path = "../../crates/domains/identity" }
 invoicing = { package = "vimbai_service_invoicing", path = "../../crates/domains/invoicing" }
+workflow = { package = "vimbai_service_workflow", path = "../../crates/domains/workflow" }
 payroll = { package = "vimbai_service_payroll", path = "../../crates/domains/payroll" }
 security_services = { package = "vimbai_service_security", path = "../../crates/domains/security" }
 documents = { package = "vimbai_documents", path = "../../crates/platform/documents" }

@@ -275,6 +275,22 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- workflow-service -> workflow domain crate (rust/crates/domains/workflow, which is the doc's domains/workflow),
+  records on the store: definitions and the instances that walk them. A definition holds its steps IN ORDER, each step
+  naming the steps that follow it and, optionally, the ones a rejection goes to instead, and it is active unless it is
+  not. An instance starts at the FIRST step in the definition's list - the shipped engine took the first step rather
+  than a step named as the start - and a definition with no steps at all, or one that has been switched off, has no way
+  in. The first step's role, person and configuration become the first task, which arrives pending, and the instance is
+  running. Completing a task records the action it was given (approve, reject or complete), who completed it, when and
+  any comment; the task leaves the current steps and the steps that follow arrive as new pending tasks. SHIPPED QUIRK
+  PINNED: a rejection follows the rejection route only when the step named one - an empty rejection route is no route,
+  so a rejection falls through to the ordinary next steps, which is what the shipped truthiness test did. A task that is
+  not waiting cannot be completed twice, and the refusal names the state it is already in. An instance is complete once
+  nothing is current, with its end stamped, and one that was failed or cancelled stays that way even when further tasks
+  appear. The clock is taken from the request, so a walk can be reasoned about and tested exactly. Tasks are held as a
+  property list on the instance, the same shape journal lines and report rows already use. Routes:
+  /workflow-definitions (+ /{id}, /{id}/start) and /workflow-instances (+ /{id}, /{id}/complete), all new.
+
 - cache-service -> cache crate (platform shelf), records on the store: keyed entries with a life, a size limit, and
   the counts a cache keeps of itself. An entry is read before its moment and answers its value with how long is left;
   read after it, it is DROPPED and the read answers as a miss, so a stale value is never handed back. A hit marks the

@@ -11757,6 +11757,193 @@ async fn get_cache_stats(
 }
 
 // ---------------------------------------------------------------------------
+// workflow: the definitions a step runs through and the instances that walk them. The steps themselves are held on the
+// definition, and a walk raises one task per step it enters.
+// ---------------------------------------------------------------------------
+
+async fn post_workflow_definition(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::workflow::create_definition(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_workflow_definitions(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::workflow::definitions(graph.as_ref(), &scope))
+}
+
+async fn get_workflow_definition(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(definition_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::workflow::definition_of(
+        graph.as_ref(),
+        &scope,
+        &definition_id,
+    ))
+}
+
+async fn put_workflow_definition(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(definition_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::workflow::update_definition(
+        graph.as_ref(),
+        &scope,
+        &definition_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn delete_workflow_definition(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(definition_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::workflow::delete_definition(
+        graph.as_ref(),
+        &scope,
+        &definition_id,
+    ))
+}
+
+async fn post_workflow_start(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(definition_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::workflow::start_instance(
+        graph.as_ref(),
+        &scope,
+        &definition_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_workflow_instance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::workflow::create_instance(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_workflow_instance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(instance_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::workflow::instance_of(
+        graph.as_ref(),
+        &scope,
+        &instance_id,
+    ))
+}
+
+async fn put_workflow_instance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(instance_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::workflow::update_instance(
+        graph.as_ref(),
+        &scope,
+        &instance_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn delete_workflow_instance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(instance_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::workflow::delete_instance(
+        graph.as_ref(),
+        &scope,
+        &instance_id,
+    ))
+}
+
+async fn post_workflow_complete(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(instance_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(workflow::workflow::complete_task(
+        graph.as_ref(),
+        &scope,
+        &instance_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // financial identity: the KYC profile a Book keeps for a person, and the verification done against it. A profile
 // names a SUBJECT, which is not the caller, so it answers at /profiles and is read back by id or by subject.
 // ---------------------------------------------------------------------------
@@ -14343,6 +14530,27 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(get_cache_entry).delete(delete_cache_entry),
         )
         .route("/cache-stats", get(get_cache_stats))
+
+        // workflow: the definitions and the instances that walk them
+        .route(
+            "/workflow-definitions",
+            get(get_workflow_definitions).post(post_workflow_definition),
+        )
+        .route(
+            "/workflow-definitions/:id",
+            get(get_workflow_definition)
+                .put(put_workflow_definition)
+                .delete(delete_workflow_definition),
+        )
+        .route("/workflow-definitions/:id/start", post(post_workflow_start))
+        .route("/workflow-instances", post(post_workflow_instance))
+        .route(
+            "/workflow-instances/:id",
+            get(get_workflow_instance)
+                .put(put_workflow_instance)
+                .delete(delete_workflow_instance),
+        )
+        .route("/workflow-instances/:id/complete", post(post_workflow_complete))
 
         // financial identity: the KYC profile register
         .route("/profiles", post(post_profile))

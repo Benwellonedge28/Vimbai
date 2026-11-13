@@ -55,12 +55,15 @@ DOMAINS = {
     "finance": ("financial management and decision support", "rust/crates/domains/finance"),
     "audit": ("audit engagements, sampling and evidence", "rust/crates/domains/audit"),
     "compliance": ("regulatory and controls compliance", "rust/crates/domains/compliance"),
-    "workflow": ("workflow definitions and long-running orchestration", "rust/crates/domains/workflow"),
     "automation": ("scheduled and triggered automation", "rust/crates/domains/automation"),
     "multimodal": ("document, image and audio understanding", "rust/crates/domains/multimodal"),
     "documents": ("document storage and rendering", "rust/crates/platform/documents"),
     "integrations": ("webhooks, GraphQL and external feeds", "rust/crates/platform/integrations"),
     "calculations": ("the calculation surface the client calls", "rust/crates/application"),
+    "workflow": (
+        "the definitions a step runs through and the instances that walk them",
+        "rust/crates/domains/workflow",
+    ),
     "cache": (
         "keyed values with a life, a size limit and the cache's own counts",
         "rust/crates/platform/cache",

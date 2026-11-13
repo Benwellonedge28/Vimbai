@@ -1994,6 +1994,7 @@ dependencies = [
  "vimbai_service_security",
  "vimbai_service_tax",
  "vimbai_service_treasury",
+ "vimbai_service_workflow",
  "vimbai_store",
  "vimbai_tax",
  "vimbai_treasury_fx",
@@ -2377,6 +2378,15 @@ dependencies = [
  "vimbai_common",
  "vimbai_store",
  "vimbai_treasury_fx",
+]
+
+[[package]]
+name = "vimbai_service_workflow"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vimbai_common",
+ "vimbai_store",
 ]
 
 [[package]]
