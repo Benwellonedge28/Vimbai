@@ -27,6 +27,9 @@ domains:
 - name: payments
   responsibility: 'Vimbai Pay: orchestration, lifecycle and providers'
   target: rust/crates/domains/payments
+- name: identity
+  responsibility: the financial identity a Book knows a person by, and the verification done against it
+  target: rust/crates/domains/identity
 - name: budgeting
   responsibility: budgets, forecasts and scenario planning
   target: rust/crates/domains/budgeting
@@ -1037,12 +1040,12 @@ services:
   - POST /groups/{group_id}/advance-cycle
   - GET /groups/{group_id}/payouts
 - name: financial-identity-service
-  domain: platform
-  target: rust/crates/platform
+  domain: identity
+  target: rust/crates/domains/identity
   port: 8053
   gateway_path: /financial-identity
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

@@ -6829,7 +6829,21 @@ pub(crate) fn body_or_query(query: Option<&str>) -> Value {
     for (key, value) in url::form_urlencoded::parse(query.unwrap_or("").as_bytes()) {
         let parsed =
             serde_json::from_str::<Value>(&value).unwrap_or(Value::String(value.to_string()));
-        payload.insert(key.to_string(), parsed);
+        // a key given more than once is a LIST, which is how the shipped services took
+        // `?documents=a&documents=b`: dropping the earlier values would quietly lose them
+        match payload.get_mut(key.as_ref()) {
+            Some(held) => match held {
+                Value::Array(list) => list.push(parsed),
+                Value::Null => *held = json!([parsed]),
+                first => {
+                    let earlier = first.take();
+                    *first = json!([earlier, parsed]);
+                }
+            },
+            None => {
+                payload.insert(key.to_string(), parsed);
+            }
+        }
     }
     Value::Object(payload)
 }
@@ -10598,6 +10612,82 @@ async fn document_state_catalogue() -> Response {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
+// financial identity: the KYC profile a Book keeps for a person, and the verification done against it. A profile
+// names a SUBJECT, which is not the caller, so it answers at /profiles and is read back by id or by subject.
+// ---------------------------------------------------------------------------
+
+async fn post_profile(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(identity::kyc::create_profile(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_profile(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(profile_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(identity::kyc::get_profile(
+        graph.as_ref(),
+        &scope,
+        &profile_id,
+    ))
+}
+
+async fn put_profile_verify(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(profile_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    // the documents arrive as repeated query parameters, which is how the shipped endpoint took them
+    let asked = merged_request(payload, query.as_deref());
+    answer(identity::kyc::verify_profile(
+        graph.as_ref(),
+        &scope,
+        &profile_id,
+        &asked,
+    ))
+}
+
+async fn get_profile_for_subject(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(subject): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(identity::kyc::profile_for_subject(
+        graph.as_ref(),
+        &scope,
+        &subject,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // regulatory compliance: the regulations a company is held to and the dashboard that adds them up. The listing
 // answers at /regulations/{company} and the board at /regulation-dashboard, because a bare /dashboard would not say
 // whose figures they are.
@@ -12996,6 +13086,12 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/doubtful/calculate-provision", post(calculate_doubtful_provision))
         .route("/doubtful/provision/create", post(create_doubtful_provision))
         .route("/doubtful/provisions", get(list_doubtful_provisions))
+        // financial identity: the KYC profile register
+        .route("/profiles", post(post_profile))
+        .route("/profiles/by-subject/:user", get(get_profile_for_subject))
+        .route("/profiles/:id", get(get_profile))
+        .route("/profiles/:id/verify", put(put_profile_verify))
+
         // regulatory compliance: the regulation register and the board it adds up to
         .route("/regulations", post(post_regulation))
         .route("/regulations/:company", get(get_regulations))

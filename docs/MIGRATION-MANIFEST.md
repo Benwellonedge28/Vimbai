@@ -11,9 +11,9 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 108
-still Python             30
-owner domains            28
+already on a Rust engine 109
+still Python             29
+owner domains            29
 ```
 
 ## accounting
@@ -252,6 +252,19 @@ trade-finance-service                           8191       6      yes  rust
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
 
+## identity
+
+_the financial identity a Book knows a person by, and the verification done against it_
+
+Lands in `rust/crates/domains/identity`.
+
+```
+service                                         port  routes  records  engine
+financial-identity-service                      8053       5      yes  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
 ## integrations
 
 _webhooks, GraphQL and external feeds_
@@ -395,7 +408,6 @@ alerts-service                                  8090      15      yes  python
 book-sync-service                               9020      18      yes  python
 cache-service                                   8000       7       no  python
 encrypted-backup-service                        8006       8       no  python
-financial-identity-service                      8053       5      yes  python
 message-bus-service                             8097      16      yes  python
 mfa-auth-service                                8007       6      yes  python
 notifications-service                           8091      16      yes  python

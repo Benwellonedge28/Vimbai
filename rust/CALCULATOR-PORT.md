@@ -275,6 +275,21 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- financial-identity-service -> identity crate, records on the store: the KYC profile a Book keeps for a person.
+  A profile names a SUBJECT - the person it describes - which is not the caller: the caller owns the profile and the
+  subject is recorded beside it, so a Book can hold profiles for people who never sign in. A profile arrives pending,
+  with no documents and a risk of nothing. A verification with two documents or more marks the profile verified,
+  stamps the moment and scores it twenty, low risk; fewer than two documents leaves the STATE where it was - it does
+  not fail it - but scores the profile eighty, high risk, and the documents handed over are kept either way, which is
+  what the shipped service did. A profile asked for by id, or by subject, is the caller's own or missing; by subject
+  the EARLIEST profile the Book holds for that person answers, so a later registration does not displace the first
+  answer. The documents arrive as repeated query parameters (?documents=a&documents=b), which is how the shipped
+  endpoint took a List[str]; that exposed a defect in the shared query reader, which kept only the last value of a
+  repeated key and would have silently dropped the rest - a repeated key is now read as a list. Routes:
+  /profiles, /profiles/by-subject/{user}, /profiles/{id} and /profiles/{id}/verify. The service has its own domain
+  crate, rust/crates/domains/identity, rather than sitting under platform with the caches and event buses: a KYC
+  register is a business record set, not infrastructure.
+
 - regulatory-compliance-service -> compliance crate, records on the store: the regulations a company is held to.
   A regulation arrives `pending_review` unless the caller names a state, and keeps the risk it is given, with a risk
   that is not named defaulting to medium. A listing is the caller's own regulations for one company, narrowed by

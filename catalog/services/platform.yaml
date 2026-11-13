@@ -3,7 +3,7 @@ domain:
   name: platform
   responsibility: identity, security, events, caching, sync and observability
   target: rust/crates/platform
-  services: 12
+  services: 11
 services:
 - name: admin-service
   domain: platform
@@ -98,20 +98,6 @@ services:
   - POST /backup/{backup_id}/restore
   - DELETE /backups/{backup_id}
   - GET /restores
-- name: financial-identity-service
-  domain: platform
-  target: rust/crates/platform
-  port: 8053
-  gateway_path: /financial-identity
-  auth_required: true
-  engine: python
-  records: true
-  endpoints:
-  - GET /
-  - POST /profiles
-  - GET /profiles/{profile_id}
-  - PUT /profiles/{profile_id}/verify
-  - GET /profiles/user/{user_id}
 - name: message-bus-service
   domain: platform
   target: rust/crates/platform
