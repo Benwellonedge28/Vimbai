@@ -40,6 +40,7 @@ use finance::{
 };
 use invoicing::invoices;
 use ledger;
+use multimodal::capture;
 use npo::npo;
 use partnerships::{agreement, changes, dissolution, revaluation as partnership_revaluation};
 use payables;
@@ -11947,6 +11948,153 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// Multimodal capture: what a Book's inbox holds, and the corrections made to it.
+// ---------------------------------------------------------------------------
+
+async fn post_capture(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(capture::create_capture(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_captures(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(capture::captures(graph.as_ref(), &scope))
+}
+
+async fn get_capture(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(task_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(capture::capture(graph.as_ref(), &scope, &task_id))
+}
+
+async fn put_capture(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(task_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(capture::update_capture(
+        graph.as_ref(),
+        &scope,
+        &task_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn delete_capture(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(task_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(capture::delete_capture(graph.as_ref(), &scope, &task_id))
+}
+
+async fn get_capture_inbox(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(capture::inbox(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_capture_summary(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(capture::inbox_summary(graph.as_ref(), &scope))
+}
+
+async fn post_capture_organize(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(task_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(capture::organize_capture(
+        graph.as_ref(),
+        &scope,
+        &task_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_capture_correction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(task_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(capture::submit_correction(
+        graph.as_ref(),
+        &scope,
+        &task_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_capture_corrections(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(task_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(capture::corrections(graph.as_ref(), &scope, &task_id))
+}
+
+// ---------------------------------------------------------------------------
 // Distributed workflow orchestration: multi-step workflows and the rollback of what ran.
 // ---------------------------------------------------------------------------
 
@@ -16148,6 +16296,20 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // Multimodal capture: the inbox of records taken in, and the corrections made to them
+        .route("/tasks", get(get_captures).post(post_capture))
+        .route(
+            "/tasks/:id",
+            get(get_capture).put(put_capture).delete(delete_capture),
+        )
+        .route(
+            "/tasks/:id/corrections",
+            get(get_capture_corrections).post(post_capture_correction),
+        )
+        .route("/inbox", get(get_capture_inbox))
+        .route("/inbox/summary", get(get_capture_summary))
+        .route("/inbox/:id/organize", post(post_capture_organize))
 
         // Distributed workflow orchestration: the steps a workflow walks and its rollback
         .route(

@@ -291,6 +291,23 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- multimodal-pipeline-service -> multimodal crate (rust/crates/domains/multimodal, module `capture`), records on the
+  store: the captures a Book's inbox holds (a document, recording, photograph or typed text, what was read out of it, and
+  where that reading stands), the per-status counts the inbox badge shows, and the corrections a person made to a reading.
+  Rules kept: an input is one of FIVE kinds and a reading one of SEVEN states, anything else refused BY NAME as
+  unprocessable (422, as shipped - the request was understood and its value was wrong); the inbox view is one of three and
+  a fourth is refused the same way; the inbox limit is held between 1 and 500, so a caller asking for a thousand rows gets
+  five hundred and one asking for none gets one rather than an empty answer that looks like an empty inbox; organizing is
+  IDEMPOTENT - accepting an already-accepted capture answers it unchanged instead of stamping a second finishing time over
+  the first; and a correction is kept as its own record with the field it touched and the value it started from, marking
+  the capture `user_corrected` because a reading a person overruled is no longer what the pipeline concluded. The badge
+  totals what is open (received, processing, ai_extracted, review_pending, user_corrected, failed) against what is accepted
+  (completed). ONE DELIBERATE DIFFERENCE, the honest half of the port: the shipped service created the task and handed it
+  to a background worker that read the document or recording and wrote the extracted figures back. Nothing here reads a
+  document, hears a recording or calls a model, so the capture is recorded as `received` with `reading_queued: false` and
+  stays there until something else answers for it, rather than leaving a caller to poll for a reading that is not coming.
+  Routes: /tasks, /tasks/{id}, /tasks/{id}/corrections, /inbox, /inbox/summary, /inbox/{id}/organize.
+
 - distributed-workflow-orchestration-service -> workflow crate (rust/crates/domains/workflow, module `orchestration`),
   records on the store: multi-step workflows, the order they run in, and the rollback of what ran. A step carries the
   service address, endpoint, method (POST by default), payload, its OWN compensation address, max_retries 3 and

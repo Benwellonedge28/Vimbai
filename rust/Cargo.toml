@@ -26,6 +26,7 @@ members = [
     "crates/domains/compliance",
     "crates/domains/identity",
     "crates/domains/invoicing",
+    "crates/domains/multimodal",
     "crates/domains/workflow",
     "crates/platform/events",
     "crates/platform/offline-sync",

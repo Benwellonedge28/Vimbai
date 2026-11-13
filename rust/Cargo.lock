@@ -1989,6 +1989,7 @@ dependencies = [
  "vimbai_service_finance",
  "vimbai_service_identity",
  "vimbai_service_invoicing",
+ "vimbai_service_multimodal",
  "vimbai_service_npo",
  "vimbai_service_offline_sync",
  "vimbai_service_partnerships",
@@ -2329,6 +2330,16 @@ dependencies = [
 name = "vimbai_service_invoicing"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
+ "vimbai_common",
+ "vimbai_store",
+]
+
+[[package]]
+name = "vimbai_service_multimodal"
+version = "0.1.0"
+dependencies = [
+ "serde",
  "serde_json",
  "vimbai_common",
  "vimbai_store",

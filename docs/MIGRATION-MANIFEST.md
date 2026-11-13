@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 129
-still Python             9
+already on a Rust engine 130
+still Python             8
 owner domains            38
 ```
 
@@ -382,10 +382,10 @@ Lands in `rust/crates/domains/multimodal`.
 
 ```
 service                                         port  routes  records  engine
-multimodal-pipeline-service                     8002      11      yes  python
+multimodal-pipeline-service                     8002      11      yes  rust
 ```
 
-Retirement gate: port the maths and its records into this domain, capture parity against the Python, then de-register. Nothing is deleted before that.
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
 
 ## notifications
 
