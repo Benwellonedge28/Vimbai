@@ -470,6 +470,20 @@ pub const DISSOLUTION_REPORT: RecordKind =
     RecordKind::new("DissolutionReport", "OWNS_DISSOLUTION_REPORT");
 pub const PARTNERSHIP_REVALUATION: RecordKind =
     RecordKind::new("PartnershipRevaluation", "OWNS_PARTNERSHIP_REVALUATION");
+// receivables: the sales ledger, the debts that go bad in it and the provisions against them
+pub const BAD_DEBT_RECORD: RecordKind = RecordKind::new("BadDebtRecord", "OWNS_BAD_DEBT");
+pub const RECOVERY_JOURNAL: RecordKind =
+    RecordKind::new("RecoveryJournal", "OWNS_RECOVERY_JOURNAL");
+pub const PROVISION_POLICY: RecordKind =
+    RecordKind::new("ProvisionPolicy", "OWNS_PROVISION_POLICY");
+pub const DEBTOR_RECORD: RecordKind = RecordKind::new("DebtorRecord", "OWNS_DEBTOR");
+pub const PROVISION_JOURNAL: RecordKind =
+    RecordKind::new("ProvisionJournal", "OWNS_PROVISION_JOURNAL");
+pub const DOUBTFUL_DEBTOR: RecordKind = RecordKind::new("DoubtfulDebtor", "OWNS_DOUBTFUL_DEBTOR");
+pub const DOUBTFUL_PROVISION: RecordKind =
+    RecordKind::new("DoubtfulDebtProvision", "OWNS_DOUBTFUL_PROVISION");
+pub const DEBTOR_TRANSACTION: RecordKind =
+    RecordKind::new("DebtorTransaction", "OWNS_DEBTOR_TRANSACTION");
 pub const ACTIVITY: RecordKind = RecordKind::new("Activity", "OWNS_ACTIVITY");
 pub const ACTIVITY_BUDGET: RecordKind = RecordKind::new("ActivityBudget", "OWNS_ACTIVITY_BUDGET");
 pub const SELLING_PRICE_ANALYSIS: RecordKind =

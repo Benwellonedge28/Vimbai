@@ -573,6 +573,27 @@ xbrl-reporting-service
   reports no ratio rather than dividing when there is no debt or no equity. The payment is computed once, here;
   the debt portfolio report takes its weighted rate as given rather than recomputing it.
 
+- sales-ledger-control-service, bad-debts-recovery-service, provision-bad-debts-service and provision-doubtful-debts-service
+  -> receivables crate, records on the store: one crate for the four services that measure what will not be collected,
+  sharing one exact percentage helper and one calendar-day counter rather than four copies of each. The sales ledger
+  is its transactions: a debtor's balance is replayed from them in creation order, so the balance cannot drift from
+  the entries behind it, and the control account is the movement totals whose closing figure is the same number the
+  replay reaches - reconciling the two is a comparison, and anything under a cent counts as agreed. A type that
+  neither adds nor takes away is accepted and moves nothing; an as-at date keeps the days up to it, read as calendar
+  days rather than by clock time; a debtor balance reports that debtor's last ten entries. Bad debts carry what was
+  written off and what has come back: a recovery leaves its own journal beside the debt, a debt is completed once
+  what came back reaches what was written off, a completed debt is refused rather than banked twice, and the summary
+  counts only incomplete debts as still owed, with a rate of nil rather than a division when nothing was written off.
+  The aged provision starts from the debtor's stored days and adds the days since the period end, so the same period
+  run twice ages twice - the shipped shape, pinned by a test - and the journal never threads a policy through, so it
+  always ages against the default ladder, crediting the size of a negative adjustment. The graded provision escalates
+  and never relaxes: a debtor graded doubtful stays doubtful however current it is, an assessment by the caller may
+  lower a grade, an unknown grade earns the medium rate, days overdue count from the due date and never go below nil,
+  and a provision sums the entries it is given rather than recalculating them. Two defects were found and fixed on the
+  way in: the shared percentage helper multiplied by the rate instead of dividing by a hundred, so a 25% provision was
+  fifty times too large, and the day count ran backwards, so every debtor aged to zero days and no provision was
+  raised. Both are pinned by tests.
+
 ## Crate already has the maths, service not yet wired
 
 These are the cheapest ports left: the crate already holds the arithmetic, so the work is a

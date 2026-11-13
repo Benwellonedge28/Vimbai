@@ -36,6 +36,7 @@ use finance::{
     net_present_value, payback_period, personal_finance, personal_money, trade_finance,
 };
 use partnerships::{agreement, changes, dissolution, revaluation as partnership_revaluation};
+use receivables;
 use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
@@ -8527,10 +8528,348 @@ fn records_router(graph: GraphHandle) -> Router {
         .with_state(graph)
 }
 
-/// The drop-in paths, identical to what the Python services answered.
+// --- receivables: the sales ledger, bad debts and the two provisions ---
+
+async fn post_debtor_transaction(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::sales_ledger::add_debtor_transaction(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn get_control_summary(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::sales_ledger::control_summary(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn get_debtor_balance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(debtor_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::sales_ledger::debtor_balance(
+        graph.as_ref(),
+        &scope,
+        &debtor_id,
+    ))
+}
+
+async fn list_sales_ledger_debtors(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::sales_ledger::list_debtors(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn reconcile_control_account(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::sales_ledger::reconcile(graph.as_ref(), &scope))
+}
+
+async fn register_bad_debt(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::bad_debts::register_debt(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn recover_bad_debt(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(debt_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::bad_debts::record_recovery(
+        graph.as_ref(),
+        &scope,
+        &debt_id,
+        &payload,
+    ))
+}
+
+async fn list_bad_debts(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::bad_debts::list_bad_debts(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn get_bad_debt(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(debt_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::bad_debts::get_bad_debt(
+        graph.as_ref(),
+        &scope,
+        &debt_id,
+    ))
+}
+
+async fn get_recovery_summary(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::bad_debts::recovery_summary(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn create_provision_policy(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::provision::create_provision_policy(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_provision_policies(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::provision::list_provision_policies(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn add_aged_debtor(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::provision::add_debtor(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn calculate_aged_provision(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::provision::calculate_provision(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn create_aged_provision_journal(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::provision::create_journal(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_aged_provision_history(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::provision::provision_history(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn add_doubtful_debtor(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::doubtful::add_debtor(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn assess_doubtful_debtor(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(debtor_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::doubtful::assess_debtor(
+        graph.as_ref(),
+        &scope,
+        &debtor_id,
+        &payload,
+    ))
+}
+
+async fn calculate_doubtful_provision(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::doubtful::calculate_provision(
+        graph.as_ref(),
+        &scope,
+        &body_or_query(query.as_deref()),
+    ))
+}
+
+async fn create_doubtful_provision(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::doubtful::create_provision(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn list_doubtful_provisions(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::doubtful::list_provisions(
+        graph.as_ref(),
+        &scope,
+    ))
+}
+
+async fn list_doubtful_debtors(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(receivables::doubtful::list_debtors(graph.as_ref(), &scope))
+}
+
 pub fn service_root_router(graph: GraphHandle) -> Router {
     Router::new()
         .route("/absorption-costing/product-costs", get(product_costs).post(keep_product_cost))
+
+        // receivables: the sales ledger and its control account
+        .route("/transactions", post(post_debtor_transaction))
+        .route("/control-account/summary", get(get_control_summary))
+        .route("/debtors/:debtor_id/balance", get(get_debtor_balance))
+        .route("/reconcile", post(reconcile_control_account))
+        // receivables: bad debts written off and recovered
+        .route("/bad-debts/register", post(register_bad_debt))
+        .route("/bad-debts/:debt_id/recover", post(recover_bad_debt))
+        .route("/bad-debts/:debt_id", get(get_bad_debt))
+        .route("/bad-debts", get(list_bad_debts))
+        .route("/recovery-summary", get(get_recovery_summary))
+        // receivables: the provision aged from a rule ladder
+        .route("/policies", get(list_provision_policies).post(create_provision_policy))
+        .route("/debtors", get(list_sales_ledger_debtors))
+        .route("/journal/create", post(create_aged_provision_journal))
+        .route("/provision-history", get(list_aged_provision_history))
+        // receivables: provision-bad-debts, whose paths differ from the doubtful service only by prefix
+        .route("/provision-bad-debts/debtors/add", post(add_aged_debtor))
+        .route("/provision-bad-debts/calculate-provision", post(calculate_aged_provision))
+        // receivables: the provision graded per debtor
+        .route("/doubtful/debtors/add", post(add_doubtful_debtor))
+        .route("/doubtful/debtors/:debtor_id/assess", post(assess_doubtful_debtor))
+        .route("/doubtful/debtors", get(list_doubtful_debtors))
+        .route("/doubtful/calculate-provision", post(calculate_doubtful_provision))
+        .route("/doubtful/provision/create", post(create_doubtful_provision))
+        .route("/doubtful/provisions", get(list_doubtful_provisions))
         .route("/absorption-costing/product-costs/:product_id/latest", get(latest_product_cost))
         .route("/absorption-costing/stock-valuation", get(stock_valuation))
         .route("/job-costing/jobs", post(open_job))

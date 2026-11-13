@@ -298,33 +298,10 @@ pub fn cash_forecast(
 }
 
 /// Whole days from one calendar date to another, both written as `YYYY-MM-DD`.
+///
+/// The count itself lives in `vimbai_common::dates`; this keeps the order this service reads it in.
 fn days_between(from: &str, to: &str) -> Option<i64> {
-    let parse = |value: &str| -> Option<(i64, i64, i64)> {
-        let date = value.get(0..10)?;
-        let mut parts = date.split('-');
-        let year = parts.next()?.parse().ok()?;
-        let month = parts.next()?.parse().ok()?;
-        let day = parts.next()?.parse().ok()?;
-        Some((year, month, day))
-    };
-    let (from_year, from_month, from_day) = parse(from)?;
-    let (to_year, to_month, to_day) = parse(to)?;
-    Some(day_number(to_year, to_month, to_day) - day_number(from_year, from_month, from_day))
-}
-
-/// Days since the epoch, so two dates can be subtracted without a calendar dependency.
-fn day_number(year: i64, month: i64, day: i64) -> i64 {
-    let mut y = year;
-    let mut m = month;
-    if m <= 2 {
-        y -= 1;
-        m += 12;
-    }
-    let era = if y >= 0 { y } else { y - 399 } / 400;
-    let year_of_era = y - era * 400;
-    let day_of_year = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
-    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    era * 146_097 + day_of_era
+    vimbai_common::dates::days_between(to, from)
 }
 
 /// `GET /investment-options`: the fixed list this service offers.

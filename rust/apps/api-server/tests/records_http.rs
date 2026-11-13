@@ -3231,3 +3231,192 @@ async fn the_four_revaluation_companions_answer_from_their_figures() {
     let answer: Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(answer["indexation_allowance"], json!("2000.000000"));
 }
+
+// --- receivables: the sales ledger, bad debts and the two provisions ---
+
+#[tokio::test]
+async fn a_debtor_transaction_is_stamped_and_answered_on_the_published_path() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "t-1", "debtor_id": "d-1", "transaction_type": "invoice",
+                    "amount": "1000.000000", "date": "2026-01-01"}),
+        ],
+        vec![json!({"id": "t-2", "debtor_id": "d-1", "balance": "700.000000"})],
+    ]);
+    let (status, body) = call(
+        graph,
+        "/transactions",
+        Some(
+            json!({"debtor_id": "d-1", "transaction_type": "payment", "amount": 300,
+                    "date": "2026-02-01"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["balance"], json!("700.000000"));
+}
+
+#[tokio::test]
+async fn the_control_account_answers_on_the_published_path() {
+    let graph = Scripted::returning(vec![
+        json!({"id": "t-1", "debtor_id": "d-1", "transaction_type": "invoice",
+               "amount": "1000.000000", "date": "2026-01-01"}),
+        json!({"id": "t-2", "debtor_id": "d-1", "transaction_type": "payment",
+               "amount": "250.000000", "date": "2026-01-15"}),
+    ]);
+    let (status, body) = call_with(graph, "GET", "/control-account/summary", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["closing_balance"], json!("750.000000"));
+    assert_eq!(body["transaction_count"], json!(2));
+}
+
+#[tokio::test]
+async fn a_debtor_balance_and_the_reconciliation_answer_on_the_published_paths() {
+    let graph = Scripted::returning(vec![json!({"id": "t-1", "debtor_id": "d-1",
+                                                 "transaction_type": "invoice",
+                                                 "amount": "1000.000000", "date": "2026-01-01"})]);
+    let (status, body) = call_with(graph, "GET", "/debtors/d-1/balance", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["balance"], json!("1000.000000"));
+
+    let graph = Scripted::returning(vec![json!({"id": "t-1", "debtor_id": "d-1",
+                                                 "transaction_type": "invoice",
+                                                 "amount": "1000.000000", "date": "2026-01-01"})]);
+    let (status, body) = call_with(graph, "POST", "/reconcile", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["reconciled"], json!(true));
+}
+
+#[tokio::test]
+async fn a_bad_debt_is_registered_and_recovered_on_the_published_paths() {
+    let graph = Scripted::returning(vec![json!({"id": "b-1", "debtor_name": "Ana",
+                                                 "written_off_amount": "5000.000000",
+                                                 "status": "pending"})]);
+    let (status, body) = call(
+        graph,
+        "/bad-debts/register",
+        Some(json!({"original_debt_id": "d-1", "debtor_name": "Ana",
+                    "original_amount": 5000, "written_off_amount": 5000})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["status"], json!("pending"));
+
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "b-1", "debtor_name": "Ana", "written_off_amount": "5000.000000",
+                    "recovered_amount": "0.000000", "status": "pending"}),
+        ],
+        vec![json!({"id": "j-1", "amount": "5000.000000"})],
+        vec![json!({"id": "b-1", "status": "completed"})],
+        vec![json!({"id": "b-1", "status": "completed"})],
+    ]);
+    let (status, body) = call(
+        graph,
+        "/bad-debts/b-1/recover",
+        Some(json!({"amount": 5000, "recovery_date": "2026-02-01"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["debt"]["status"], json!("completed"));
+}
+
+#[tokio::test]
+async fn a_recovery_summary_answers_on_the_published_path() {
+    let graph = Scripted::returning(vec![
+        json!({"id": "b-1", "written_off_amount": "1000.000000",
+                                                 "recovered_amount": "250.000000",
+                                                 "status": "partial"}),
+    ]);
+    let (status, body) = call_with(graph, "GET", "/recovery-summary", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["pending_recovery"], json!("750.000000"));
+}
+
+#[tokio::test]
+async fn the_aged_provision_and_its_journal_answer_on_their_prefixed_paths() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "d-1", "debtor_id": "d-1", "outstanding_amount": "1000.000000",
+                    "days_outstanding": 0}),
+        ],
+        vec![json!({"id": "d-1"})],
+    ]);
+    // the service took its figures as query parameters, so the port reads them from there
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/provision-bad-debts/calculate-provision?period_end=2026-03-01&today=2026-03-31",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["provision_required"], json!("10.000000"));
+
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "d-1", "debtor_id": "d-1", "outstanding_amount": "1000.000000",
+                    "days_outstanding": 90}),
+        ],
+        vec![json!({"id": "d-1"})],
+        vec![json!({"id": "p-1"})],
+    ]);
+    let (status, body) = call(
+        graph,
+        "/journal/create",
+        Some(json!({"period_end": "2026-03-01", "total_debtors": 1000, "provision_opening": 0})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["provision_required"], json!("100.000000"));
+}
+
+#[tokio::test]
+async fn the_doubtful_provision_answers_on_its_prefixed_paths() {
+    let graph = Scripted::returning(vec![json!({"id": "dd-1", "debtor_id": "d-1",
+                                                 "debtor_name": "Ana", "amount": 2000,
+                                                 "risk_assessment": "high",
+                                                 "due_date": "2026-01-01"})]);
+    let (status, body) = call(
+        graph,
+        "/doubtful/debtors/add",
+        Some(
+            json!({"debtor_id": "d-1", "debtor_name": "Ana", "amount": 2000,
+                    "risk_assessment": "high", "due_date": "2026-01-01"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["provision_percent"], json!("25.000000"));
+
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "dd-1", "debtor_id": "d-1", "outstanding": "1000.000000",
+                    "due_date": "2026-01-01", "risk_assessment": "low",
+                    "provision_percent": "1.000000"}),
+        ],
+        vec![json!({"id": "dd-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/doubtful/calculate-provision?period_end=2026-04-01",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_provision_required"], json!("250.000000"));
+
+    let graph = Scripted::returning(vec![
+        json!({"id": "dp-1", "provision_required": "300.000000"}),
+    ]);
+    let (status, body) = call(
+        graph,
+        "/doubtful/provision/create",
+        Some(json!({"period_end": "2026-04-01", "provision_opening": 100,
+                    "entries": [{"debtor_id": "d-1", "provision_amount": "300.000000"}]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["provision_adjustment"], json!("200.000000"));
+}

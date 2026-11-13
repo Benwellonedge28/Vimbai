@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 //! Shared helpers for all Vimbai calculation libraries.
 
+pub mod dates;
 pub mod ids;
 pub mod money;
 pub mod normal;

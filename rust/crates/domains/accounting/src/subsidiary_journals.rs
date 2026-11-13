@@ -522,29 +522,11 @@ pub fn create_vendor_bill(
 }
 
 /// Days between two ISO business dates, negative when the later one is first.
+///
+/// The count itself lives in `vimbai_common::dates`; this keeps the shape the ageing here wants - a date
+/// that cannot be read ages nothing rather than stopping the ledger.
 fn days_between(later: &str, earlier: &str) -> i64 {
-    fn parse(value: &str) -> Option<(i64, i64, i64)> {
-        let date = value.get(0..10)?;
-        let mut parts = date.split('-');
-        let year = parts.next()?.parse().ok()?;
-        let month = parts.next()?.parse().ok()?;
-        let day = parts.next()?.parse().ok()?;
-        Some((year, month, day))
-    }
-    let (Some((y2, m2, d2)), Some((y1, m1, d1))) = (parse(later), parse(earlier)) else {
-        return 0;
-    };
-    // days since an arbitrary epoch, so months and years of different lengths still count
-    let ordinal = |y: i64, m: i64, d: i64| -> i64 {
-        let y = if m <= 2 { y - 1 } else { y };
-        let era = if y >= 0 { y } else { y - 399 } / 400;
-        let yoe = y - era * 400;
-        let mp = (m + 9) % 12;
-        let doy = (153 * mp + 2) / 5 + d - 1;
-        let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-        era * 146_097 + doe
-    };
-    ordinal(y2, m2, d2) - ordinal(y1, m1, d1)
+    vimbai_common::dates::days_between(later, earlier).unwrap_or(0)
 }
 
 fn document_status(recorded: &str, days_outstanding: i64) -> String {

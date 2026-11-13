@@ -89,25 +89,7 @@ fn pct(part: f64, whole: f64) -> f64 {
 /// not parse as `YYYY-MM-DD` returns `None`, matching the original's bare
 /// `except: return False`.
 pub fn days_between(date: &str, today: &str) -> Option<i64> {
-    Some(days_from_civil(today)? - days_from_civil(date)?)
-}
-
-fn days_from_civil(date: &str) -> Option<i64> {
-    let mut parts = date.split('-');
-    let year: i64 = parts.next()?.parse().ok()?;
-    let month: i64 = parts.next()?.parse().ok()?;
-    let day: i64 = parts.next()?.parse().ok()?;
-    if parts.next().is_some() || !(1..=12).contains(&month) || !(1..=31).contains(&day) {
-        return None;
-    }
-    // Howard Hinnant's days_from_civil.
-    let y = if month <= 2 { year - 1 } else { year };
-    let era = if y >= 0 { y } else { y - 399 } / 400;
-    let yoe = y - era * 400;
-    let mp = (month + 9) % 12;
-    let doy = (153 * mp + 2) / 5 + day - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    Some(era * 146_097 + doe)
+    vimbai_common::dates::days_between(today, date)
 }
 
 fn value_map(pairs: Vec<(&str, Value)>) -> Value {

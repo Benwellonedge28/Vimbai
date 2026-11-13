@@ -334,7 +334,7 @@ services:
   port: 8018
   gateway_path: /bad-debts-recovery
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -1804,7 +1804,7 @@ services:
   port: 8108
   gateway_path: /provision-bad-debts
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -1821,7 +1821,7 @@ services:
   port: 8109
   gateway_path: /provision-doubtful-debts
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -2041,7 +2041,7 @@ services:
   port: 8120
   gateway_path: /sales-ledger-control
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
