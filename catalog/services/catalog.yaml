@@ -694,7 +694,7 @@ services:
   port: 8032
   gateway_path: /continue-shutdown-decision
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /health
@@ -1258,7 +1258,7 @@ services:
   port: 8068
   gateway_path: /internal-rate-return
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /health
@@ -1413,7 +1413,7 @@ services:
   port: 8083
   gateway_path: /net-present-value
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /health
@@ -1594,7 +1594,7 @@ services:
   port: 8098
   gateway_path: /payback-period
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /health

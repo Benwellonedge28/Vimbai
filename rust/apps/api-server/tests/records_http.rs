@@ -2603,3 +2603,92 @@ async fn a_petty_cash_fund_the_caller_does_not_hold_is_a_404_over_http() {
     let (status, _body) = call_with(graph, "GET", "/petty-cash/funds/other/balance", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn a_net_present_value_answers_over_http() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/net-present-value/calculate",
+        Some(json!({"initial_investment": 1000, "cash_flows": [600, 600],
+                    "discount_rate": 0.1})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["net_present_value"], json!("41.32"));
+    assert_eq!(body["decision"], json!("Accept - Positive NPV"));
+}
+
+#[tokio::test]
+async fn a_rate_of_return_answers_over_http_with_a_net_of_nothing() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/internal-rate-return/calculate",
+        Some(json!({"initial_investment": 1000, "cash_flows": [1100]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["irr_percentage"], json!("10.00"));
+    assert_eq!(body["npv_at_irr"], json!("0.00"));
+}
+
+#[tokio::test]
+async fn a_payback_period_answers_over_http() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/payback-period/calculate",
+        Some(json!({"initial_investment": "1000", "annual_cash_flows": ["400", "800"]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["payback_period"], json!("1.75"));
+}
+
+#[tokio::test]
+async fn a_continue_or_shutdown_decision_is_kept_over_http() {
+    let graph = Scripted::queue(vec![vec![json!({"id": "x-1"})]]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/continue-shutdown/analyze",
+        Some(
+            json!({"entity_id": "d-1", "entity_name": "Milling", "entity_type": "department",
+                    "period": "2026-Q1", "revenue": "300", "variable_costs": "200",
+                    "avoidable_fixed_costs": "400", "unavoidable_fixed_costs": "100"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["recommendation"], json!("SHUTDOWN"));
+    assert_eq!(body["financial_outcome_shutdown"], json!("300.000000"));
+}
+
+#[tokio::test]
+async fn the_quick_continue_analysis_answers_over_http() {
+    let graph = Scripted::returning(vec![]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/continue-shutdown/quick-analysis",
+        Some(json!({"entity_name": "Milling", "contribution": "500",
+                    "unavoidable_fixed_costs": "400"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["recommendation"], json!("CONTINUE"));
+    assert_eq!(body["financial_outcome"], json!("100.00"));
+}
+
+#[tokio::test]
+async fn a_decision_the_caller_does_not_hold_answers_200_over_http() {
+    let graph = Scripted::queue(vec![vec![]]);
+    let (status, body) =
+        call_with(graph, "GET", "/continue-shutdown/decisions/missing", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["error"], json!("Decision not found"));
+}

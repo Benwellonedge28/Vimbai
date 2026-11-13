@@ -27,7 +27,9 @@ use costing::{
     price_reduction,
 };
 use equity::equity_changes;
-use finance::insurance_claims;
+use finance::{
+    continue_shutdown, insurance_claims, internal_rate_return, net_present_value, payback_period,
+};
 use serde_json::{json, Value};
 use store::amounts::{amount, amount_or_zero, wire};
 use store::{BookScope, Graph, StoreError};
@@ -1790,6 +1792,94 @@ async fn petty_cash_category_summary(
         &scope,
         &query_object(query.as_deref()),
     ))
+}
+
+async fn npv_calculate(Json(payload): Json<Value>) -> Response {
+    answer(net_present_value::calculate(&payload))
+}
+
+async fn npv_calculate_percent(Json(payload): Json<Value>) -> Response {
+    answer(net_present_value::calculate_percent(&payload))
+}
+
+async fn npv_compare(Json(payload): Json<Value>) -> Response {
+    answer(net_present_value::compare(&payload))
+}
+
+async fn npv_profitability_index(Json(payload): Json<Value>) -> Response {
+    answer(net_present_value::profitability_index(&payload))
+}
+
+async fn irr_calculate(Json(payload): Json<Value>) -> Response {
+    answer(internal_rate_return::calculate(&payload))
+}
+
+async fn irr_calculate_bisection(Json(payload): Json<Value>) -> Response {
+    answer(internal_rate_return::calculate_bisection(&payload))
+}
+
+async fn irr_compare(Json(payload): Json<Value>) -> Response {
+    answer(internal_rate_return::compare(&payload))
+}
+
+async fn irr_decision(Json(payload): Json<Value>) -> Response {
+    answer(internal_rate_return::decision(&payload))
+}
+
+async fn payback_calculate(Json(payload): Json<Value>) -> Response {
+    answer(payback_period::calculate(&payload))
+}
+
+async fn payback_compare(Json(payload): Json<Value>) -> Response {
+    answer(payback_period::compare(&payload))
+}
+
+async fn payback_average_cash_flow(Json(payload): Json<Value>) -> Response {
+    answer(payback_period::average_cash_flow(&payload))
+}
+
+async fn analyze_continue_shutdown(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(continue_shutdown::analyze(graph.as_ref(), &scope, &payload))
+}
+
+async fn quick_continue_shutdown(Json(payload): Json<Value>) -> Response {
+    answer(continue_shutdown::quick_decision(&payload))
+}
+
+async fn continue_shutdown_decisions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(continue_shutdown::list(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn continue_shutdown_decision(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(decision_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(continue_shutdown::get(graph.as_ref(), &scope, &decision_id))
 }
 
 async fn liquidity_history(
@@ -6280,6 +6370,87 @@ fn records_router(graph: GraphHandle) -> Router {
         .route(
             "/petty-cash/reports/category-summary",
             get(petty_cash_category_summary),
+        )
+        .route("/net-present-value/calculate", post(npv_calculate))
+        .route(
+            "/net-present-value/calculate-percent",
+            post(npv_calculate_percent),
+        )
+        .route("/net-present-value/compare", post(npv_compare))
+        .route(
+            "/net-present-value/profitability-index",
+            post(npv_profitability_index),
+        )
+        .route("/records/net-present-value/calculate", post(npv_calculate))
+        .route(
+            "/records/net-present-value/calculate-percent",
+            post(npv_calculate_percent),
+        )
+        .route("/records/net-present-value/compare", post(npv_compare))
+        .route(
+            "/records/net-present-value/profitability-index",
+            post(npv_profitability_index),
+        )
+        .route("/internal-rate-return/calculate", post(irr_calculate))
+        .route(
+            "/internal-rate-return/calculate-bisection",
+            post(irr_calculate_bisection),
+        )
+        .route("/internal-rate-return/compare", post(irr_compare))
+        .route("/internal-rate-return/decision", post(irr_decision))
+        .route(
+            "/records/internal-rate-return/calculate",
+            post(irr_calculate),
+        )
+        .route(
+            "/records/internal-rate-return/calculate-bisection",
+            post(irr_calculate_bisection),
+        )
+        .route("/records/internal-rate-return/compare", post(irr_compare))
+        .route("/records/internal-rate-return/decision", post(irr_decision))
+        .route("/payback-period/calculate", post(payback_calculate))
+        .route("/payback-period/compare", post(payback_compare))
+        .route(
+            "/payback-period/average-cash-flow",
+            post(payback_average_cash_flow),
+        )
+        .route("/records/payback-period/calculate", post(payback_calculate))
+        .route("/records/payback-period/compare", post(payback_compare))
+        .route(
+            "/records/payback-period/average-cash-flow",
+            post(payback_average_cash_flow),
+        )
+        .route(
+            "/continue-shutdown/analyze",
+            post(analyze_continue_shutdown),
+        )
+        .route(
+            "/continue-shutdown/quick-analysis",
+            post(quick_continue_shutdown),
+        )
+        .route(
+            "/continue-shutdown/decisions",
+            get(continue_shutdown_decisions),
+        )
+        .route(
+            "/continue-shutdown/decisions/:decision_id",
+            get(continue_shutdown_decision),
+        )
+        .route(
+            "/records/continue-shutdown/analyze",
+            post(analyze_continue_shutdown),
+        )
+        .route(
+            "/records/continue-shutdown/quick-analysis",
+            post(quick_continue_shutdown),
+        )
+        .route(
+            "/records/continue-shutdown/decisions",
+            get(continue_shutdown_decisions),
+        )
+        .route(
+            "/records/continue-shutdown/decisions/:decision_id",
+            get(continue_shutdown_decision),
         )
         .route("/records/foreign-exchange/rates", get(fx_rates))
         .route("/records/foreign-exchange/rates/:currency", get(fx_rate))

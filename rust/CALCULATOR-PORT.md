@@ -319,6 +319,44 @@ xbrl-reporting-service
   the compliance listing filters by policy and hands back the most recent `limit` checks in the order they were
   made.
 
+- net-present-value-service -> finance crate, no records: what a project's future flows are worth today once the
+  investment is paid for, with the rate given as a decimal or as a percentage. Discounting is exact, one year at a
+  time, through the one engine this crate's four capital-budgeting services share, so a change to how a discount
+  factor is worked out reaches all of them. Shapes kept: the decision is accept for a positive net, reject for a
+  negative one and indifferent at exactly zero; a residual value belongs to the final year and is discounted the same
+  number of years as the last flow; the schedule publishes the discount factor to four places and the present value to
+  two; a project in a comparison with no flows or a zero rate is left out of the ranking rather than ranked last, and
+  the recommendation is nothing when no project was usable; the profitability index is the inflows over the
+  investment, and an investment of nothing indexes zero rather than dividing.
+
+- internal-rate-return-service -> finance crate, no records: the rate at which a project's flows are worth exactly what
+  it costs. The search is the only place in the crate that iterates rather than computes, because a root is an
+  approximation by nature; what it settles on is then priced exactly and that exact net is what the answer reports.
+  Shapes kept: an empty series or an investment of nothing is refused rather than guessed at; the search starts from
+  the average flow over the investment; a rate below -0.99 resets to -0.5 and one above ten to five, so a wild step
+  cannot run away; the percentage is the decimal times a hundred only when the decimal is positive, which is how the
+  original published a negative rate. Correction: the original never checked the rate it found against the net it
+  produced, and a project paying back 1100 for 1000 inside one year, which is ten percent, came back as -0.81. The
+  rate is now verified against the exact net and re-found by halving a bracket when it does not hold.
+
+- payback-period-service -> finance crate, no records: how long a project takes to give back what it cost. Shapes kept:
+  a level series is one division and a series that moves is walked year by year with the part-year interpolated rather
+  than rounded up; a level flow of nothing or less is refused rather than divided by; a project that never covers its
+  investment reports no period at all and says so rather than giving a figure; the period is published to two places
+  and also as a sentence of years and months; a comparison ranks the quickest first and leaves out any project that
+  never pays back; the average-flow route spreads the total over the years and then divides the investment by that
+  average.
+
+- continue-shutdown-decision-service -> finance crate, records on the store: whether a department, product or division
+  carries on trading. `/analyze` takes the whole picture and keeps the decision; `/quick-analysis` takes the two
+  figures that settle it and keeps nothing. Shapes kept: contribution is revenue less variable costs; continuing
+  leaves the contribution less the costs a shutdown cannot avoid; stopping leaves only those unavoidable costs, less
+  what it saves, so the avoidable costs come back, the shutdown costs are paid and any other saving is added; the
+  recommendation is whichever leaves more, and indifferent when they are equal; the quick analysis says "CONSIDER
+  SHUTDOWN" rather than "SHUTDOWN" because two figures alone cannot settle it; a decision the caller does not hold
+  answers with the shipped `{"error": ...}` body rather than a miss. Not carried: an HTTP client for accounting-service
+  that no endpoint ever called.
+
 - foreign-exchange-service -> treasury crate, no records: the spot table, a conversion between two currencies,
   and what an exposure costs when it is only partly hedged. Nothing is stored, every answer is worked out from
   the request and the table. Shapes kept: the table is the service's own, base USD, and rates are exact decimal

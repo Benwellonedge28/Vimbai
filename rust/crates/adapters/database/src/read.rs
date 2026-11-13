@@ -118,6 +118,36 @@ pub fn money_or_nothing(payload: &Value, key: &str) -> Result<Money, StoreError>
     }
 }
 
+/// A series of amounts, read exactly. Absent means an empty series, which the callers that need one
+/// refuse themselves rather than being given a zero they did not send.
+pub fn amounts(payload: &Value, key: &str) -> Result<Vec<vimbai_common::Money>, StoreError> {
+    let items = match payload.get(key) {
+        None | Some(Value::Null) => return Ok(Vec::new()),
+        Some(Value::Array(items)) => items.clone(),
+        Some(_) => return Err(refused(&format!("{key} must be a list of amounts"))),
+    };
+    items
+        .iter()
+        .map(|item| match item {
+            Value::String(text) => vimbai_common::Money::parse(text),
+            Value::Number(number) => {
+                vimbai_common::Money::from_f64_shortest(number.as_f64().unwrap_or_default())
+            }
+            _ => vimbai_common::Money::parse("0"),
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| refused(&format!("{key} holds an amount that cannot be read")))
+}
+
+/// A rate or a ratio, kept as its exact decimal text rather than being turned into a float on the way in.
+pub fn decimal(payload: &Value, key: &str, fallback: &str) -> String {
+    match payload.get(key) {
+        Some(Value::Number(value)) => value.to_string(),
+        Some(Value::String(value)) if !value.is_empty() => value.clone(),
+        _ => fallback.to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

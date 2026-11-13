@@ -204,6 +204,12 @@ pub const LIQUIDITY_POSITION: RecordKind =
 
 /// accounting-service's supporting records: petty cash, reconciliation, and the single-entry statements.
 pub const PETTY_CASH_FUND: RecordKind = RecordKind::new("PettyCashFund", "OWNS_PETTY_CASH_FUND");
+/// continue-shutdown-decision-service's decisions: whether a department, product or division carries on trading.
+pub const CONTINUE_SHUTDOWN_DECISION: RecordKind = RecordKind::new(
+    "ContinueShutdownDecision",
+    "OWNS_CONTINUE_SHUTDOWN_DECISION",
+);
+
 pub const PETTY_CASH_ENTRY: RecordKind = RecordKind::new("PettyCashEntry", "OWNS_PETTY_CASH_ENTRY");
 
 /// petty-cash-service's own records. Its funds are `PETTY_CASH_FUND` above, which accounting-service's petty

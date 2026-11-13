@@ -21,11 +21,5 @@ pub(crate) fn number(payload: &Value, key: &str) -> Option<f64> {
     }
 }
 
-/// A rate or a ratio, kept as its exact decimal text rather than a float.
-pub(crate) fn percent(payload: &Value, key: &str, fallback: &str) -> String {
-    match payload.get(key) {
-        Some(Value::Number(value)) => value.to_string(),
-        Some(Value::String(value)) if !value.is_empty() => value.clone(),
-        _ => fallback.to_string(),
-    }
-}
+/// A rate or a ratio: the shared reader, under the name the treasury modules already call it.
+pub(crate) use vimbai_store::read::decimal as percent;
