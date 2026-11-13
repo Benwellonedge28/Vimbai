@@ -61,6 +61,10 @@ DOMAINS = {
     "documents": ("document storage and rendering", "rust/crates/platform/documents"),
     "integrations": ("webhooks, GraphQL and external feeds", "rust/crates/platform/integrations"),
     "calculations": ("the calculation surface the client calls", "rust/crates/application"),
+    "webhooks": (
+        "the endpoints a Book subscribes, the events dispatched to them and how each delivery went",
+        "rust/crates/platform/webhooks",
+    ),
     "notifications": (
         "each person's inbox, their preferences and the templates behind a notice",
         "rust/crates/platform/notifications",
@@ -268,7 +272,7 @@ OWNERS = {
     "multimodal-pipeline-service": "multimodal",
     "document-service": "documents",
     "graphql-service": "integrations",
-    "webhook-service": "integrations",
+    "webhook-service": "webhooks",
     "calculation-api": "calculations",
     "realtime-calculation-engine": "calculations",
     "admin-service": "platform",

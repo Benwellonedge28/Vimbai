@@ -91,6 +91,10 @@ domains:
 - name: calculations
   responsibility: the calculation surface the client calls
   target: rust/crates/application
+- name: webhooks
+  responsibility: the endpoints a Book subscribes, the events dispatched to them and how each delivery
+    went
+  target: rust/crates/platform/webhooks
 - name: notifications
   responsibility: each person's inbox, their preferences and the templates behind a notice
   target: rust/crates/platform/notifications
@@ -2401,12 +2405,12 @@ services:
   - GET /stress-results
   - GET /dashboard
 - name: webhook-service
-  domain: integrations
-  target: rust/crates/platform/integrations
+  domain: webhooks
+  target: rust/crates/platform/webhooks
   port: 8140
   gateway_path: /webhook
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

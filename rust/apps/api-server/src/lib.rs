@@ -22,6 +22,7 @@ use std::sync::Arc;
 
 pub mod accounting_book;
 pub mod accounting_standards;
+pub mod outbound;
 pub mod records;
 
 pub type Calculator = fn(&Value) -> Result<Value, String>;

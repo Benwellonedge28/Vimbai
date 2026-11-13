@@ -275,6 +275,19 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- webhook-service -> webhooks crate (platform shelf), records on the store: the endpoints a Book subscribes, the
+  events dispatched to them, and how each delivery went. An endpoint is registered for a company with a URL, the events
+  it wants and a secret; the answer is its id, its URL and its events, never the secret. A dispatch goes only to the
+  caller's own endpoints for that company that are switched on AND subscribed to that event, and writes ONE delivery for
+  each: under 400 is delivered, 400 or over is failed, and one that could not be reached at all is failed with the
+  reason kept rather than a code invented. Each delivery remembers its single attempt, the code it got and when it last
+  tried. A signed endpoint gets an HMAC-SHA256 over the body exactly as sent in X-Signature-256; an endpoint with no
+  secret is sent unsigned rather than signed over nothing. Deliveries list newest first, fifty by default. Reaching the
+  outside is not the crate's business: a Sender carries the request, so the service is checked without a network.
+  NAMED LIMITATION: this build has no TLS client, so an https endpoint is reported unreachable and the delivery recorded
+  as failed with that reason (the api-server's PlainHttp sender posts plain http directly). Closing it means swapping
+  that one type for a TLS client; nothing else in the service changes.
+
 - notifications-service -> notifications crate (platform shelf), records on the store: each person's own inbox,
   their preferences, and the five templates a notice is filled from. A notice is written once PER RECIPIENT and each
   copy belongs to that recipient, so a notice raised by one person lands in another's inbox and is theirs to read or

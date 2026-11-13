@@ -11602,6 +11602,85 @@ async fn get_notification_stats(State(graph): GraphState, headers: HeaderMap) ->
 }
 
 // ---------------------------------------------------------------------------
+// webhooks: the endpoints a Book subscribes, the events dispatched to them, and how each delivery went. This build has
+// no TLS client, so an https endpoint is reported unreachable with the reason kept on the delivery, rather than a
+// delivery being pretended.
+// ---------------------------------------------------------------------------
+
+async fn post_webhook_endpoint(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(webhooks::webhooks::register_endpoint(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_webhook_endpoints(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(webhooks::webhooks::endpoints_of(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn post_webhook_dispatch(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    let sender = crate::outbound::PlainHttp;
+    answer(webhooks::webhooks::dispatch_event(
+        graph.as_ref(),
+        &scope,
+        &sender,
+        &company_id,
+        &asked,
+    ))
+}
+
+async fn get_webhook_deliveries(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(endpoint_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(webhooks::webhooks::deliveries_of(
+        graph.as_ref(),
+        &scope,
+        &endpoint_id,
+        &merged_request(None, query.as_deref()),
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // financial identity: the KYC profile a Book keeps for a person, and the verification done against it. A profile
 // names a SUBJECT, which is not the caller, so it answers at /profiles and is read back by id or by subject.
 // ---------------------------------------------------------------------------
@@ -14174,6 +14253,12 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/workflow/:workflow_id/notify", post(post_workflow_notify))
         .route("/approval/:approval_id/notify", post(post_approval_notify))
         .route("/notification-stats", get(get_notification_stats))
+
+        // webhooks: the endpoints subscribed, an event dispatched to them and the trail of attempts
+        .route("/endpoints", post(post_webhook_endpoint))
+        .route("/endpoints/:company_id", get(get_webhook_endpoints))
+        .route("/dispatch/:company_id", post(post_webhook_dispatch))
+        .route("/deliveries/:endpoint_id", get(get_webhook_deliveries))
 
         // financial identity: the KYC profile register
         .route("/profiles", post(post_profile))

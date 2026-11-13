@@ -11,9 +11,9 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 115
-still Python             23
-owner domains            32
+already on a Rust engine 116
+still Python             22
+owner domains            33
 ```
 
 ## accounting
@@ -287,7 +287,6 @@ Lands in `rust/crates/platform/integrations`.
 ```
 service                                         port  routes  records  engine
 graphql-service                                 8095       2       no  python
-webhook-service                                 8140       5      yes  python
 ```
 
 Retirement gate: port the maths and its records into this domain, capture parity against the Python, then de-register. Nothing is deleted before that.
@@ -522,6 +521,19 @@ treasury-management-service                     8136       7      yes  rust
 treasury-policy-service                         8263       8      yes  rust
 treasury-reporting-service                      8262       7      yes  rust
 treasury-risk-service                           8259      11      yes  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## webhooks
+
+_the endpoints a Book subscribes, the events dispatched to them and how each delivery went_
+
+Lands in `rust/crates/platform/webhooks`.
+
+```
+service                                         port  routes  records  engine
+webhook-service                                 8140       5      yes  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

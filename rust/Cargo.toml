@@ -32,6 +32,7 @@ members = [
     "crates/platform/documents",
     "crates/platform/alerts",
     "crates/platform/notifications",
+    "crates/platform/webhooks",
     "crates/platform/access-control/rbac",
     "crates/platform/access-control/abac",
     "crates/kernel/ledger-core",

@@ -1997,6 +1997,7 @@ dependencies = [
  "vimbai_tax",
  "vimbai_treasury_fx",
  "vimbai_variance",
+ "vimbai_webhooks",
 ]
 
 [[package]]
@@ -2433,6 +2434,18 @@ dependencies = [
  "serde",
  "serde_json",
  "vimbai_common",
+]
+
+[[package]]
+name = "vimbai_webhooks"
+version = "0.3.0"
+dependencies = [
+ "hmac",
+ "serde",
+ "serde_json",
+ "sha2",
+ "vimbai_common",
+ "vimbai_store",
 ]
 
 [[package]]
