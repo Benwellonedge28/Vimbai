@@ -12,6 +12,7 @@ members = [
     "crates/domains/accounting",
     "crates/domains/budgeting",
     "crates/domains/costing",
+    "crates/domains/data",
     "crates/domains/equity",
     "crates/domains/finance",
     "crates/domains/npo",

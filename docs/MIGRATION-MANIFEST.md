@@ -11,9 +11,9 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 121
-still Python             17
-owner domains            37
+already on a Rust engine 123
+still Python             15
+owner domains            38
 ```
 
 ## accounting
@@ -62,8 +62,6 @@ Lands in `rust/crates/domains/analytics`.
 
 ```
 service                                         port  routes  records  engine
-data-warehouse-service                          8362       9      yes  python
-etl-service                                     8363       7       no  python
 performance-benchmarking-service                8280       8       no  python
 ```
 
@@ -227,6 +225,20 @@ overhead-absorption-rate-service                8092      13      yes  rust
 process-costing-service                         8105       5      yes  rust
 product-costing-service                         8106       5      yes  rust
 selling-price-reduction-service                 8123       5      yes  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## data
+
+_the warehouse's dimensions, facts and queries, and the ETL pipelines that fill them_
+
+Lands in `rust/crates/domains/data`.
+
+```
+service                                         port  routes  records  engine
+data-warehouse-service                          8362       9      yes  rust
+etl-service                                     8363       7       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

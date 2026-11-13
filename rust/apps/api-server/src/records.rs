@@ -11944,6 +11944,186 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// The Book's data shelf: the warehouse's dimensions, facts and queries, and the ETL pipelines that fill it.
+// ---------------------------------------------------------------------------
+
+async fn post_dimension(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::warehouse::create_dimension(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_dimensions(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::warehouse::dimensions(graph.as_ref(), &scope))
+}
+
+async fn post_fact(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::warehouse::create_fact(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_facts(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::warehouse::facts(graph.as_ref(), &scope))
+}
+
+async fn post_warehouse_query(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::warehouse::run_query(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn post_warehouse_load(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::warehouse::load(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_warehouse_loads(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::warehouse::loads(graph.as_ref(), &scope))
+}
+
+async fn post_pipeline(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::pipelines::create_pipeline(
+        graph.as_ref(),
+        &scope,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn get_pipelines(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::pipelines::pipelines(
+        graph.as_ref(),
+        &scope,
+        &merged_request(None, query.as_deref()),
+    ))
+}
+
+async fn get_pipeline(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(pipeline_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::pipelines::pipeline(
+        graph.as_ref(),
+        &scope,
+        &pipeline_id,
+    ))
+}
+
+async fn post_pipeline_run(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(pipeline_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::pipelines::run_pipeline(
+        graph.as_ref(),
+        &scope,
+        &pipeline_id,
+        &merged_request(payload, query.as_deref()),
+    ))
+}
+
+async fn delete_pipeline(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(pipeline_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(data::pipelines::delete_pipeline(
+        graph.as_ref(),
+        &scope,
+        &pipeline_id,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // The Book event bus: publishing, the subscriptions that listen, and every delivery attempt against one event.
 // ---------------------------------------------------------------------------
 
@@ -15199,6 +15379,15 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // The Book's data shelf: warehouse tables and queries, and the ETL pipelines behind them
+        .route("/dimensions", get(get_dimensions).post(post_dimension))
+        .route("/facts", get(get_facts).post(post_fact))
+        .route("/query", post(post_warehouse_query))
+        .route("/etl", get(get_warehouse_loads).post(post_warehouse_load))
+        .route("/pipelines", get(get_pipelines).post(post_pipeline))
+        .route("/pipelines/:id", get(get_pipeline).delete(delete_pipeline))
+        .route("/pipelines/:id/run", post(post_pipeline_run))
 
         // The Book event bus: publishing, subscriptions and delivery attempts
         .route("/bus/health", get(get_bus_health))

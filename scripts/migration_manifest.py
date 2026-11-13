@@ -92,6 +92,10 @@ DOMAINS = {
         "publishing an event inside a Book, the subscriptions that listen and every delivery attempt",
         "rust/crates/platform/events",
     ),
+    "data": (
+        "the warehouse's dimensions, facts and queries, and the ETL pipelines that fill them",
+        "rust/crates/domains/data",
+    ),
     "sync": (
         "the shared Books a person belongs to, who else is in them, their devices and the entries those devices push",
         "rust/crates/platform/offline-sync",
@@ -268,8 +272,8 @@ OWNERS = {
     "report-automation-service": "reporting",
     "report-distribution-service": "reporting",
     "reporting-service": "reporting",
-    "data-warehouse-service": "analytics",
-    "etl-service": "analytics",
+    "data-warehouse-service": "data",
+    "etl-service": "data",
     "performance-benchmarking-service": "analytics",
     "continue-shutdown-decision-service": "finance",
     "insurance-claims-service": "finance",

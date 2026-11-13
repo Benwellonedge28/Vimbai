@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 121 are proven on a Rust engine. 16 are still Python-only.
+The gateway routes 137 services. 123 are proven on a Rust engine. 14 are still Python-only.
 
-Of the backlog, 9 own no records and can be ported as pure functions; 7 own records and
+Of the backlog, 8 own no records and can be ported as pure functions; 6 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-121 services.
+123 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -50,6 +50,7 @@ control-account-reconciliation-service         8033  routes=8   records=yes rust
 currency-service                               8092  routes=19  records=yes rust http
 cvp-analysis-service                           8039  routes=9   records=yes rust http
 dashboard-service                              8365  routes=4   records=no  rust http
+data-warehouse-service                         8362  routes=9   records=yes rust http
 debentures-service                             8041  routes=10  records=yes rust http
 debt-management-service                        8194  routes=6   records=yes rust http
 departmental-accounting-service                8100  routes=22  records=yes rust http
@@ -58,6 +59,7 @@ disposal-group-service                         8226  routes=8   records=yes rust
 document-service                               8096  routes=14  records=yes rust http
 double-entry-principles-service                8047  routes=9   records=no  rust http
 equity-changes-service                         8049  routes=5   records=yes rust http
+etl-service                                    8363  routes=7   records=no  rust http
 expense-tracking-service                       8051  routes=6   records=yes rust http
 family-community-group-service                 8005  routes=11  records=yes rust http
 financial-identity-service                     8053  routes=5   records=yes rust http
@@ -141,12 +143,11 @@ audit-engagement-service                       8371  routes=8   records=yes rust
 
 ### Backlog: no records owned (port the maths only)
 
-9 services.
+8 services.
 
 ```
 realtime-calculation-engine                    8112  routes=5   records=no  none
 websocket-service                              8141  routes=4   records=no  none
-etl-service                                    8363  routes=7   records=no  none
 encrypted-backup-service                       8006  routes=8   records=no  none
 privacy-admin-dashboard-service                8003  routes=10  records=no  none
 distributed-workflow-orchestration-service     8046  routes=8   records=no  none
@@ -157,10 +158,9 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-7 services.
+6 services.
 
 ```
-data-warehouse-service                         8362  routes=9   records=yes none
 automation-engine-service                      8000  routes=10  records=yes none
 invoicing-service                              8070  routes=1   records=yes none
 multimodal-pipeline-service                    8002  routes=1   records=yes none

@@ -115,6 +115,9 @@ domains:
   responsibility: publishing an event inside a Book, the subscriptions that listen and every delivery
     attempt
   target: rust/crates/platform/events
+- name: data
+  responsibility: the warehouse's dimensions, facts and queries, and the ETL pipelines that fill them
+  target: rust/crates/domains/data
 - name: sync
   responsibility: the shared Books a person belongs to, who else is in them, their devices and the entries
     those devices push
@@ -813,12 +816,12 @@ services:
   - POST /load
   - POST /custom
 - name: data-warehouse-service
-  domain: analytics
-  target: rust/crates/domains/analytics
+  domain: data
+  target: rust/crates/domains/data
   port: 8362
   gateway_path: /data-warehouse
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -1017,12 +1020,12 @@ services:
   - POST /statement
   - GET /statements/{company_id}
 - name: etl-service
-  domain: analytics
-  target: rust/crates/domains/analytics
+  domain: data
+  target: rust/crates/domains/data
   port: 8363
   gateway_path: /etl
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /

@@ -291,6 +291,28 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- data-warehouse-service -> data crate (rust/crates/domains/data, module `warehouse`), records on the store: the
+  dimension and fact tables a Book describes, the aggregate queries it runs against them, and the loads that filled them
+  (on a label of their own, WarehouseLoad, not shared with the etl-service pipeline label). The honest line is held
+  throughout: a dimension and a fact table are DESCRIPTIONS - a name, columns, the dimensions a fact hangs off, the
+  measures it carries - plus the row count a loader reported, and nothing here stores business rows. An aggregate query
+  is answered against a fact table the Book described, NAMED by name, and an unknown name is missing (404) rather than
+  empty, the distinction that stops a query which cannot run looking like one that found nothing; its results stay empty
+  because the shipped service never computed any, and storing figures it cannot produce would put a lie in the record. A
+  load is recorded already finished with zero rows processed, which is what the shipped service simulated. Describing the
+  same table twice makes two tables: there is no uniqueness rule to break, and inventing one would refuse the second
+  description of a table loaded under two names. Routes: /dimensions, /facts, /query, /etl.
+- etl-service -> data crate (rust/crates/domains/data, module `pipelines`), records on the store: the pipelines a Book
+  defines, their steps in the order given, and the runs that walked them. A pipeline is a durable DEFINITION, not a
+  running process: describing it stores it pending and runs nothing; running it walks every step, stamps each completed
+  with the moment and a zero row count (the shipped simulation), then re-stamps the pipeline completed carrying the
+  moment it ran. A pipeline with no steps still runs and completes with nothing walked, its last run still stamped -
+  refusing it would refuse a definition that is merely unfinished. A status filter narrows the LISTING only, so a
+  pipeline asked for by id answers whether or not it matches a filter used elsewhere. Deleting answers what it deleted,
+  and a second delete finds nothing. Routes: /pipelines, /pipelines/{id}, POST /pipelines/{id}/run and its DELETE. The
+  moment stamped on a run or a load comes from vimbai_common::clock, the one place that reads the system clock, and only
+  when the caller states no moment - a stated moment is honoured so a reckoning repeats.
+
 - message-bus-service -> events crate (rust/crates/platform/events), records on the store: the events a Book
   published, the subscriptions listening for them, and one immutable record per delivery attempt. The fan-out is the
   part worth pinning, and it is kept as shipped: an event is STORED before it is delivered, so a subscriber that was down

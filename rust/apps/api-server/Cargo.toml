@@ -32,6 +32,7 @@ identity = { package = "vimbai_service_identity", path = "../../crates/domains/i
 mfa = { package = "vimbai_sso", path = "../../crates/platform/identity" }
 book_sync = { package = "vimbai_service_offline_sync", path = "../../crates/platform/offline-sync" }
 events = { package = "vimbai_service_events", path = "../../crates/platform/events" }
+data = { package = "vimbai_service_data", path = "../../crates/domains/data" }
 invoicing = { package = "vimbai_service_invoicing", path = "../../crates/domains/invoicing" }
 workflow = { package = "vimbai_service_workflow", path = "../../crates/domains/workflow" }
 payroll = { package = "vimbai_service_payroll", path = "../../crates/domains/payroll" }
