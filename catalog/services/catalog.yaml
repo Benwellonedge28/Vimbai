@@ -111,6 +111,10 @@ domains:
 - name: security
   responsibility: 'zero-trust access control: policies and the decisions taken against them'
   target: rust/crates/domains/security
+- name: events
+  responsibility: publishing an event inside a Book, the subscriptions that listen and every delivery
+    attempt
+  target: rust/crates/platform/events
 - name: sync
   responsibility: the shared Books a person belongs to, who else is in them, their devices and the entries
     those devices push
@@ -1387,12 +1391,12 @@ services:
   - PUT /terminations/{termination_id}/approve
   - PUT /terminations/{termination_id}/complete
 - name: message-bus-service
-  domain: platform
-  target: rust/crates/platform
+  domain: events
+  target: rust/crates/platform/events
   port: 8097
   gateway_path: /message-bus
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

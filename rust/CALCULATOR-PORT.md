@@ -291,6 +291,25 @@ xbrl-reporting-service
   /mfa/challenge/{id}/verify, /mfa/status and /mfa/backup-codes, all new (the plain /setup and /verify belong to other
   services).
 
+- message-bus-service -> events crate (rust/crates/platform/events), records on the store: the events a Book
+  published, the subscriptions listening for them, and one immutable record per delivery attempt. The fan-out is the
+  part worth pinning, and it is kept as shipped: an event is STORED before it is delivered, so a subscriber that was down
+  can be caught up from the store; a delivery that fails never fails the publish (the failure is recorded against the
+  event with its reason, and the event stays on the bus); only the caller's own ENABLED subscriptions that named this
+  event type are told, a disabled subscription being silent rather than slow; each attempt is its own record naming the
+  subscription, the URL and the answer it gave, never rewritten; and a subscription carrying a secret gets the body
+  signed HMAC-SHA256 over the exact text sent, using the webhook crate's one signature implementation rather than a
+  second copy. The event type is a fixed list of thirty-six, and a type outside it is refused by name instead of being
+  published to nobody; priorities are low/normal/high/critical with anything else reading as normal. The four trigger
+  endpoints are the same publish with type and source filled in, and the shipped thresholds are kept: a budget variance
+  past twenty percent is high (at twenty it is not), and a fraud score past eight tenths is critical, everything else
+  high. Reaching a subscriber is not this crate's job - it takes the webhook crate's Sender, so prod delivers and the
+  fan-out is checkable without a network. Honest difference: there is no message broker behind this port, so health and
+  metrics answer broker_connected false instead of pretending a queue exists. Routes live under /bus because /events and
+  /subscriptions were already taken (/subscriptions by report distribution): /bus/health, /bus/metrics, /event-types,
+  /bus/events, /bus/events/publish, /bus/events/{type}/publish, /bus/events/{id}, /bus/events/{id}/deliveries,
+  /bus/event-subscriptions and its single-record pair, and the four /bus/trigger paths.
+
 - book-sync-service -> sync crate (rust/crates/platform/offline-sync), records on the store: the Books a person
   belongs to, their memberships, devices, the encrypted entries those devices push, the encrypted metadata a Book keeps
   and the Book's own audit trail. This is the one service whose rows belong to a BOOK rather than a person, because a

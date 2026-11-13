@@ -88,6 +88,10 @@ DOMAINS = {
         "zero-trust access control: policies and the decisions taken against them",
         "rust/crates/domains/security",
     ),
+    "events": (
+        "publishing an event inside a Book, the subscriptions that listen and every delivery attempt",
+        "rust/crates/platform/events",
+    ),
     "sync": (
         "the shared Books a person belongs to, who else is in them, their devices and the entries those devices push",
         "rust/crates/platform/offline-sync",
@@ -296,7 +300,7 @@ OWNERS = {
     "cache-service": "cache",
     "encrypted-backup-service": "platform",
     "financial-identity-service": "identity",
-    "message-bus-service": "platform",
+    "message-bus-service": "events",
     "mfa-auth-service": "authentication",
     "notifications-service": "notifications",
     "privacy-admin-dashboard-service": "platform",

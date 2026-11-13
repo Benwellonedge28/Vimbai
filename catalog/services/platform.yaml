@@ -3,7 +3,7 @@ domain:
   name: platform
   responsibility: identity, events, caching, observability and storage
   target: rust/crates/platform
-  services: 5
+  services: 4
 services:
 - name: admin-service
   domain: platform
@@ -58,31 +58,6 @@ services:
   - POST /backup/{backup_id}/restore
   - DELETE /backups/{backup_id}
   - GET /restores
-- name: message-bus-service
-  domain: platform
-  target: rust/crates/platform
-  port: 8097
-  gateway_path: /message-bus
-  auth_required: true
-  engine: python
-  records: true
-  endpoints:
-  - GET /
-  - POST /events/publish
-  - POST /events/{event_type}/publish
-  - POST /subscriptions
-  - GET /subscriptions
-  - GET /subscriptions/{subscription_id}
-  - DELETE /subscriptions/{subscription_id}
-  - GET /events
-  - GET /events/{event_id}/deliveries
-  - GET /events/{event_id}
-  - GET /event-types
-  - GET /metrics
-  - POST /trigger/journal-entry-created
-  - POST /trigger/budget-variance-alert
-  - POST /trigger/transaction-flagged
-  - POST /trigger/approval-requested
 - name: privacy-admin-dashboard-service
   domain: platform
   target: rust/crates/platform

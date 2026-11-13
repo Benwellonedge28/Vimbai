@@ -11944,6 +11944,251 @@ async fn post_workflow_complete(
 }
 
 // ---------------------------------------------------------------------------
+// The Book event bus: publishing, the subscriptions that listen, and every delivery attempt against one event.
+// ---------------------------------------------------------------------------
+
+fn bus_payload(payload: Option<Json<Value>>, query: Option<&str>) -> Value {
+    merged_request(payload, query)
+}
+
+async fn post_bus_publish(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let sender = crate::outbound::PlainHttp;
+    answer(events::events::publish(
+        graph.as_ref(),
+        &scope,
+        &bus_payload(payload, query.as_deref()),
+        &sender,
+    ))
+}
+
+async fn post_bus_publish_type(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(event_type): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let sender = crate::outbound::PlainHttp;
+    answer(events::events::publish_by_type(
+        graph.as_ref(),
+        &scope,
+        &event_type,
+        &bus_payload(payload, query.as_deref()),
+        &sender,
+    ))
+}
+
+async fn get_bus_events(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(events::events::bus_events(
+        graph.as_ref(),
+        &scope,
+        &bus_payload(None, query.as_deref()),
+    ))
+}
+
+async fn get_bus_event(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(event_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(events::events::bus_event(graph.as_ref(), &scope, &event_id))
+}
+
+async fn get_bus_event_deliveries(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(event_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(events::events::event_deliveries(
+        graph.as_ref(),
+        &scope,
+        &event_id,
+    ))
+}
+
+async fn post_bus_subscription(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(events::events::bus_subscribe(
+        graph.as_ref(),
+        &scope,
+        &bus_payload(payload, query.as_deref()),
+    ))
+}
+
+async fn get_bus_subscriptions(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(events::events::bus_subscriptions(graph.as_ref(), &scope))
+}
+
+async fn get_bus_subscription(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(subscription_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(events::events::get_subscription(
+        graph.as_ref(),
+        &scope,
+        &subscription_id,
+    ))
+}
+
+async fn delete_bus_subscription(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(subscription_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(events::events::delete_subscription(
+        graph.as_ref(),
+        &scope,
+        &subscription_id,
+    ))
+}
+
+async fn get_bus_event_types() -> Response {
+    answer(Ok(events::events::event_types()))
+}
+
+async fn get_bus_metrics(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(events::events::metrics(graph.as_ref(), &scope))
+}
+
+async fn get_bus_health(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(events::events::health(graph.as_ref(), &scope))
+}
+
+async fn post_bus_trigger_journal(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let sender = crate::outbound::PlainHttp;
+    answer(events::events::trigger_journal_entry(
+        graph.as_ref(),
+        &scope,
+        &bus_payload(payload, query.as_deref()),
+        &sender,
+    ))
+}
+
+async fn post_bus_trigger_variance(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let sender = crate::outbound::PlainHttp;
+    answer(events::events::trigger_budget_variance(
+        graph.as_ref(),
+        &scope,
+        &bus_payload(payload, query.as_deref()),
+        &sender,
+    ))
+}
+
+async fn post_bus_trigger_flagged(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let sender = crate::outbound::PlainHttp;
+    answer(events::events::trigger_transaction_flagged(
+        graph.as_ref(),
+        &scope,
+        &bus_payload(payload, query.as_deref()),
+        &sender,
+    ))
+}
+
+async fn post_bus_trigger_approval(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let sender = crate::outbound::PlainHttp;
+    answer(events::events::trigger_approval_requested(
+        graph.as_ref(),
+        &scope,
+        &bus_payload(payload, query.as_deref()),
+        &sender,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // Book sync: the shared Books a person belongs to. A Book here is identified by its own id - the caller's Book header
 // is only used to scope the store, so these entry points work the same from inside any Book.
 // ---------------------------------------------------------------------------
@@ -14954,6 +15199,28 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 .delete(delete_workflow_instance),
         )
         .route("/workflow-instances/:id/complete", post(post_workflow_complete))
+
+        // The Book event bus: publishing, subscriptions and delivery attempts
+        .route("/bus/health", get(get_bus_health))
+        .route("/bus/metrics", get(get_bus_metrics))
+        .route("/event-types", get(get_bus_event_types))
+        .route("/bus/events", get(get_bus_events))
+        .route("/bus/events/publish", post(post_bus_publish))
+        .route("/bus/events/:event_type/publish", post(post_bus_publish_type))
+        .route("/bus/events/:id", get(get_bus_event))
+        .route("/bus/events/:id/deliveries", get(get_bus_event_deliveries))
+        .route(
+            "/bus/event-subscriptions",
+            get(get_bus_subscriptions).post(post_bus_subscription),
+        )
+        .route(
+            "/bus/event-subscriptions/:id",
+            get(get_bus_subscription).delete(delete_bus_subscription),
+        )
+        .route("/bus/trigger/journal-entry-created", post(post_bus_trigger_journal))
+        .route("/bus/trigger/budget-variance-alert", post(post_bus_trigger_variance))
+        .route("/bus/trigger/transaction-flagged", post(post_bus_trigger_flagged))
+        .route("/bus/trigger/approval-requested", post(post_bus_trigger_approval))
 
         // Book sync: the shared Books a person belongs to, their members, devices and encrypted entries
         .route("/books", get(get_books).post(post_book))
