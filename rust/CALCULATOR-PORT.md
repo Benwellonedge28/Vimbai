@@ -1579,6 +1579,15 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
 
 ## Divergences worth knowing
 
+The last V1.5 shape question is settled, and it was two different things wearing one name. The design's
+`ControlAccount` node is the incomplete-records feature - the debtors/creditors control account a statement of affairs is
+built from - and it is a stored node, `OWNS_CONTROL_ACCOUNT`, written and read by the bookkeeping routes. The control
+account the receivables services talk about is a different figure: the movement totals whose closing number is what
+replaying the transactions reaches. That one is DERIVED and stays derived, because its whole value is being checkable
+against the entries behind it - a stored balance would be a second number that can drift from them, and reconciling a
+copy against its source is the defect, not the control. So nothing is missing and nothing is duplicated: one stored node
+for the feature that records a figure, one derived figure for the reconciliation that proves it.
+
 `depreciation-service` published a `/calculate` schedule that was synthetic: it was never wired
 to the library, and its Python body did not call the seam. The Rust ladder in `vimbai_assets`
 is the real implementation, so the figures from that one endpoint were never a like-for-like
