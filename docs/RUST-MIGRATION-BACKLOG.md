@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 86 are proven on a Rust engine. 51 are still Python-only.
+The gateway routes 137 services. 87 are proven on a Rust engine. 50 are still Python-only.
 
-Of the backlog, 16 own no records and can be ported as pure functions; 35 own records and
+Of the backlog, 16 own no records and can be ported as pure functions; 34 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-86 services.
+87 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -46,6 +46,7 @@ disposal-account-service                       8045  routes=6   records=no  rust
 disposal-group-service                         8226  routes=8   records=yes rust http
 double-entry-principles-service                8047  routes=9   records=no  rust http
 equity-changes-service                         8049  routes=5   records=yes rust http
+family-community-group-service                 8005  routes=11  records=yes rust http
 financial-integrity-service                    8054  routes=6   records=yes rust http
 financial-state-machine-service                8055  routes=7   records=yes rust http
 fixed-assets-register-service                  8355  routes=9   records=yes rust http
@@ -129,7 +130,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-35 services.
+34 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -150,7 +151,6 @@ automation-engine-service                      8000  routes=10  records=yes none
 purchases-ledger-control-service               8110  routes=6   records=yes none
 zero-trust-data-service                        8002  routes=9   records=yes none
 sox-compliance-service                         8286  routes=10  records=yes none
-family-community-group-service                 8005  routes=11  records=yes none
 invoicing-service                              8070  routes=1   records=yes none
 multimodal-pipeline-service                    8002  routes=1   records=yes none
 bank-reconciliation-service                    8020  routes=13  records=yes none

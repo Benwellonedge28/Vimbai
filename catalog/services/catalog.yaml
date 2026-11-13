@@ -1021,7 +1021,7 @@ services:
   port: 8005
   gateway_path: /family-community-group
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

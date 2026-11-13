@@ -35,6 +35,19 @@ pub fn partners_of(record: &Value) -> Vec<Value> {
         .unwrap_or_default()
 }
 
+/// The pool after a contribution: what the group held plus what was paid in.
+///
+/// Worked out from the record rather than from a total the caller sent, so the pool and the contributions
+/// listed against the group can never tell different stories.
+pub fn group_pool_after(
+    group: &serde_json::Value,
+    paid: &Money,
+) -> Result<Money, vimbai_store::StoreError> {
+    let held = Money::parse(&decimal(group, "total_pool", "0"))
+        .map_err(|_| refused("the group's pool is not a number"))?;
+    Ok(held.plus(paid))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

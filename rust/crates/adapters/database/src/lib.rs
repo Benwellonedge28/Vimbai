@@ -472,6 +472,13 @@ pub const TRADING_ACCOUNT_STATEMENT: RecordKind =
     RecordKind::new("TradingAccountStatement", "OWNS_TRADING_ACCOUNT_STATEMENT");
 pub const PRODUCTION_COST_STATEMENT: RecordKind =
     RecordKind::new("ProductionCostStatement", "OWNS_PRODUCTION_COST_STATEMENT");
+/// The records family-community-group-service owns.
+pub const COMMUNITY_GROUP: RecordKind = RecordKind::new("CommunityGroup", "OWNS_GROUP");
+pub const GROUP_MEMBER: RecordKind = RecordKind::new("GroupMember", "OWNS_MEMBER");
+pub const GROUP_CONTRIBUTION: RecordKind =
+    RecordKind::new("GroupContribution", "OWNS_CONTRIBUTION");
+pub const GROUP_PAYOUT: RecordKind = RecordKind::new("GroupPayout", "OWNS_PAYOUT");
+
 pub const PARTNERSHIP_AGREEMENT: RecordKind =
     RecordKind::new("PartnershipAgreement", "OWNS_PARTNERSHIP_AGREEMENT");
 pub const PARTNER_CHANGE: RecordKind = RecordKind::new("PartnerChange", "OWNS_PARTNER_CHANGE");

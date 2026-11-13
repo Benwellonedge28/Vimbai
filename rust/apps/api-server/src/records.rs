@@ -3572,9 +3572,163 @@ async fn complete_lease_termination(
     ))
 }
 
-/// The query string as a payload, with a JSON body laid over it.
-///
-/// These services took their arguments as query parameters, so a caller migrating to a body must not
+// --- family-community-group-service: savings groups and what they collect ---
+
+async fn create_community_group(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(partnerships::groups::create_group(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn community_groups(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(partnerships::groups::list_groups(
+        graph.as_ref(),
+        &scope,
+        &body,
+    ))
+}
+
+async fn community_group(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(group_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(partnerships::groups::get_group(
+        graph.as_ref(),
+        &scope,
+        &group_id,
+    ))
+}
+
+async fn add_community_group_member(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(group_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(partnerships::groups::add_member(
+        graph.as_ref(),
+        &scope,
+        &group_id,
+        &body,
+    ))
+}
+
+async fn community_group_members(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(group_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(partnerships::groups::list_members(
+        graph.as_ref(),
+        &scope,
+        &group_id,
+    ))
+}
+
+async fn contribute_to_community_group(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(group_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(partnerships::groups::contribute(
+        graph.as_ref(),
+        &scope,
+        &group_id,
+        &body,
+    ))
+}
+
+async fn community_group_contributions(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(group_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let body = crate::merge_request(query.as_deref(), None);
+    answer(partnerships::groups::list_contributions(
+        graph.as_ref(),
+        &scope,
+        &group_id,
+        &body,
+    ))
+}
+
+async fn advance_community_group_cycle(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(group_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(partnerships::groups::advance_cycle(
+        graph.as_ref(),
+        &scope,
+        &group_id,
+    ))
+}
+
+async fn community_group_payouts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(group_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(partnerships::groups::list_payouts(
+        graph.as_ref(),
+        &scope,
+        &group_id,
+    ))
+}
+
 /// lose the query it already sends, and a body must win where both name the same field.
 pub(crate) fn overlay(query: Value, body: Option<Value>) -> Value {
     let mut merged = query.as_object().cloned().unwrap_or_default();
@@ -7215,6 +7369,9 @@ async fn partnership_revaluation(
     ))
 }
 
+/// The query string as a payload, with a JSON body laid over it.
+///
+/// These services took their arguments as query parameters, so a caller migrating to a body must not
 pub fn router(graph: GraphHandle) -> Router {
     records_router(graph.clone())
         .merge(service_root_router(graph.clone()))
@@ -9680,6 +9837,31 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route(
             "/partnership-agreement/agreements/:agreement_id/summary",
             get(partnership_agreement_summary),
+        )
+        .route(
+            "/family-community-group/groups",
+            get(community_groups).post(create_community_group),
+        )
+        .route("/family-community-group/groups/:group_id", get(community_group))
+        .route(
+            "/family-community-group/groups/:group_id/members",
+            get(community_group_members).post(add_community_group_member),
+        )
+        .route(
+            "/family-community-group/groups/:group_id/contribute",
+            post(contribute_to_community_group),
+        )
+        .route(
+            "/family-community-group/groups/:group_id/contributions",
+            get(community_group_contributions),
+        )
+        .route(
+            "/family-community-group/groups/:group_id/advance-cycle",
+            post(advance_community_group_cycle),
+        )
+        .route(
+            "/family-community-group/groups/:group_id/payouts",
+            get(community_group_payouts),
         )
         .route("/partnership-changes/changes/admission", post(admit_partner))
         .route("/partnership-changes/changes/retirement", post(retire_partner))

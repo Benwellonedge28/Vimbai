@@ -427,6 +427,18 @@ xbrl-reporting-service
   goodwill reserve only under `raise_and_raise`. No service here moves money: every draft is kept with the record and
   posting it stays the accounting books' business.
 
+- family-community-group-service -> partnerships crate, records on the store: savings groups, the members in them, the
+  contributions each makes and the payouts read back. A group's four figures belong to the register, not the caller: a
+  new group starts at cycle one, with a pool of nothing, no members and active, whatever the request claimed. The
+  frequency is one of weekly, biweekly, monthly and anything else is refused by name before a record is written. A
+  member who brings no amount of their own takes the group's, and the group's member count is *recounted* from the
+  members it holds rather than incremented, so adding twice cannot inflate it. A contribution is accepted only from a
+  member the group actually holds, carries the cycle the group is on at the time rather than one the caller claims,
+  and raises the pool by exactly the amount paid in - worked out from the record, so the pool and the contributions
+  listed against the group cannot tell different stories. Advancing a cycle moves it on by one and answers where it
+  landed. Everything is held through the store, scoped to the caller's Book; a group the caller does not hold is a
+  miss rather than a leak.
+
 - double-entry-principles-service, control-account-reconciliation-service, financial-integrity-service and financial-state-machine-service
   -> the ledger kernel's services crate (rust/crates/kernel/ledger-services),
   beside ledger-core rather than in a domain of their own, because all four answer questions about the same journal.

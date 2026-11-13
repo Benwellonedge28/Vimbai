@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 86
-still Python             52
+already on a Rust engine 87
+still Python             51
 owner domains            28
 ```
 
@@ -315,7 +315,7 @@ Lands in `rust/crates/domains/partnerships`.
 
 ```
 service                                         port  routes  records  engine
-family-community-group-service                  8005      11      yes  python
+family-community-group-service                  8005      11      yes  rust
 npo-scale-service                               9021      51      yes  python
 npo-service                                     8085      40      yes  python
 partnership-agreement-service                   8094       8      yes  rust
