@@ -10598,6 +10598,87 @@ async fn document_state_catalogue() -> Response {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
+// regulatory compliance: the regulations a company is held to and the dashboard that adds them up. The listing
+// answers at /regulations/{company} and the board at /regulation-dashboard, because a bare /dashboard would not say
+// whose figures they are.
+// ---------------------------------------------------------------------------
+
+async fn post_regulation(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(compliance::regulation::create_regulation(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_regulations(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let mut asked = merged_request(None, query.as_deref());
+    // the company is the one the path names
+    asked["company_id"] = json!(company_id);
+    answer(compliance::regulation::list_regulations(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn post_regulation_status(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(regulation_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(compliance::regulation::update_regulation_status(
+        graph.as_ref(),
+        &scope,
+        &regulation_id,
+        &asked,
+    ))
+}
+
+async fn get_regulation_dashboard(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(compliance::regulation::compliance_dashboard(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // audit compliance: the immutable trail, resource versions, lineage, chain integrity, and the planning, report,
 // trail and compliance readings drawn from a caller's own figures. Every handler reads its arguments from the
 // body or the query, the body winning, because the shipped endpoints were written as query parameters.
@@ -12915,6 +12996,12 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/doubtful/calculate-provision", post(calculate_doubtful_provision))
         .route("/doubtful/provision/create", post(create_doubtful_provision))
         .route("/doubtful/provisions", get(list_doubtful_provisions))
+        // regulatory compliance: the regulation register and the board it adds up to
+        .route("/regulations", post(post_regulation))
+        .route("/regulations/:company", get(get_regulations))
+        .route("/regulations/:id/update", post(post_regulation_status))
+        .route("/regulation-dashboard", get(get_regulation_dashboard))
+
         // audit compliance: the trail, versions, lineage, integrity and the readings drawn from them
         .route("/events", post(post_audit_event).get(list_audit_events))
         .route("/events/:id", get(get_audit_event))

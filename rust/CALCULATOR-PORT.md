@@ -275,6 +275,18 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- regulatory-compliance-service -> compliance crate, records on the store: the regulations a company is held to.
+  A regulation arrives `pending_review` unless the caller names a state, and keeps the risk it is given, with a risk
+  that is not named defaulting to medium. A listing is the caller's own regulations for one company, narrowed by
+  framework when one is asked for and unfiltered when the framework asked for is empty. A status change refuses
+  nothing: a state outside the four (compliant, non_compliant, pending_review, n/a) is ignored and the regulation
+  keeps the state it had, a known state is taken, and either way the review date is stamped; a regulation that is
+  not the caller's is missing. The dashboard's rate is the compliant share of the total, but a company with NO
+  regulations scores a full hundred rather than nothing - kept because it is what the board has always said - and
+  the critical list is every regulation carrying a high or critical risk that is not compliant. Routes:
+  /regulations, /regulations/{company} for the listing and /regulation-dashboard for the board, because a bare
+  /dashboard would not say whose figures they are.
+
 - audit-compliance-service -> audit crate: the trail, its versions, the lineage it traces and the readings drawn
   from it. An event's checksum is taken over its body with the checksum left out, by one canonical serializer, so a
   stored event always verifies against itself; the shipped service hashed one rendering and verified another and

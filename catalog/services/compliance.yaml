@@ -11,7 +11,7 @@ services:
   port: 8285
   gateway_path: /regulatory-compliance
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
