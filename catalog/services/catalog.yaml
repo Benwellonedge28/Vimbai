@@ -289,7 +289,7 @@ services:
   port: 8196
   gateway_path: /audit-sampling
   auth_required: true
-  engine: python
+  engine: rust
   records: false
   endpoints:
   - GET /
@@ -2552,7 +2552,7 @@ services:
   port: 8371
   gateway_path: /audit-engagement
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

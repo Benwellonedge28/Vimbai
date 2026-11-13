@@ -275,6 +275,35 @@ statutory-filing-service
 trial-balance-service
 xbrl-reporting-service
 
+- audit-engagement-service -> audit crate, records on the store: an engagement opens `planned` with no findings, no
+  summary and the caller's date as its start, and its four states are planned, in progress, completed and
+  cancelled; a row for any other state or any other audit family is refused rather than stored, because the
+  shipped enum rejected it; a summary only takes when the engagement is COMPLETED - one offered while moving to
+  any other state is ignored and the engagement keeps the summary it had, as shipped, and completing stamps the
+  end date the caller states; a finding defaults to medium severity, is raised against an engagement that must be
+  the caller's, and the answer is just the engagement, the finding and its severity rather than the whole record;
+  a finding is remediated by its own id, found among the caller's engagements, and one that is not the caller's is
+  missing; the report counts critical, high, medium and low findings but NOT informative ones, while its total
+  counts every finding, so the four can add up to less than the total (pinned by a test). Findings travel with
+  their engagement as a property rather than as separate nodes, because a finding is only ever read back with its
+  engagement. Routes: GET /engagement-report/{id}, because /report/{company_id} already answers the integrity
+  report and axum will not register the same one-segment shape twice.
+
+- audit-sampling-service -> audit crate, no records: a sample is answered and forgotten, which is what the shipped
+  service did with it. The confidence factor is 1.96 at ninety-five per cent or above and 1.645 below. An
+  attribute sample sizes from the factor and the tolerance alone and is capped at the population. A value sample
+  runs the shipped formula, which puts the error rates in the numerator and the factor and tolerance in the
+  denominator (`pop * p(1-p) / (conf^2 * tol^2)`) - the inverse of the textbook sum - and is then clamped to at
+  least thirty and at most the population; on realistic figures that clamp nearly always saturates the sample at
+  the whole population, and that is the answer shipped. A stratified draw splits by risk band (seventy and above
+  high, forty and above medium, the rest low), takes half for high, thirty-five per cent for medium and fifteen
+  per cent for low, but never fewer items than the band actually holds, so a small band is taken whole and the
+  sample can exceed its nominal size; it is not random, it takes the band in order. A plain draw is random from the
+  stated seed and the same seed draws the same items. A zero tolerance is refused rather than divided by, and an
+  empty population answers a one-item interval and no sample. The conclusion multiplies the stated confidence by a
+  hundred, so a ninety-five per cent sample states "9500% confidence" - the shipped answer, pinned rather than
+  quietly corrected.
+
 - sox-compliance-service -> compliance crate, records on the store: a control is registered active at medium
   risk and keeps the reference the caller gave it (SOX-ITGC-001) beside its own id; a test is only recorded
   against a control that exists and is the caller's, and the verdict is DERIVED rather than taken from the caller

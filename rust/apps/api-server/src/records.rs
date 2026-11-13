@@ -10596,6 +10596,137 @@ async fn document_state_catalogue() -> Response {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// audit: the engagements an auditor runs with their findings, and the sample it draws. Every handler reads its
+// arguments from the body or the query, the body winning, because the shipped endpoints were query parameters.
+// ---------------------------------------------------------------------------
+
+async fn post_engagement(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(audit_services::engagement::create_engagement(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
+async fn get_audit_types(headers: HeaderMap) -> Response {
+    if let Err(response) = scope_of(&headers) {
+        return *response;
+    }
+    answer(Ok(audit_services::engagement::audit_types()))
+}
+
+async fn list_engagements(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(audit_services::engagement::list_engagements(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+        &asked,
+    ))
+}
+
+async fn put_engagement_status(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(engagement_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(audit_services::engagement::move_engagement(
+        graph.as_ref(),
+        &scope,
+        &engagement_id,
+        &asked,
+    ))
+}
+
+async fn post_engagement_finding(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(engagement_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(audit_services::engagement::add_finding(
+        graph.as_ref(),
+        &scope,
+        &engagement_id,
+        &asked,
+    ))
+}
+
+async fn put_finding_remediate(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(finding_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(audit_services::engagement::remediate_finding(
+        graph.as_ref(),
+        &scope,
+        &finding_id,
+    ))
+}
+
+async fn get_audit_report(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(engagement_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(audit_services::engagement::audit_report(
+        graph.as_ref(),
+        &scope,
+        &engagement_id,
+    ))
+}
+
+async fn post_audit_sample(headers: HeaderMap, payload: Option<Json<Value>>) -> Response {
+    if let Err(response) = scope_of(&headers) {
+        return *response;
+    }
+    // a sample is answered and forgotten, so it needs no store and no Book
+    let asked = merged_request(payload, None);
+    answer(audit_services::sampling::draw_sample(&asked).map_err(store::StoreError::Invalid))
+}
+
 // compliance: the SOX controls a Book tests and the risks it carries. The dashboards are named for their
 // service (/sox-dashboard, /risk-dashboard/{company}) because a bare /dashboard would not say whose figures
 // they are. Every handler reads its arguments from the body or the query, the body winning, because the
@@ -12526,6 +12657,16 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/doubtful/calculate-provision", post(calculate_doubtful_provision))
         .route("/doubtful/provision/create", post(create_doubtful_provision))
         .route("/doubtful/provisions", get(list_doubtful_provisions))
+        // audit: the engagements an auditor runs and the sample it draws
+        .route("/engagements", post(post_engagement))
+        .route("/audit-types", get(get_audit_types))
+        .route("/engagements/:company", get(list_engagements))
+        .route("/engagements/:id/status", put(put_engagement_status))
+        .route("/engagements/:id/findings", post(post_engagement_finding))
+        .route("/findings/:id/remediate", put(put_finding_remediate))
+        .route("/engagement-report/:id", get(get_audit_report))
+        .route("/sample", post(post_audit_sample))
+
         // compliance: the SOX controls a Book tests and the risks it carries
         .route("/controls", post(post_sox_control).get(list_sox_controls))
         .route("/controls/:id/test", post(post_sox_control_test))

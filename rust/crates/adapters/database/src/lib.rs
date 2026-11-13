@@ -334,6 +334,9 @@ pub const SOX_CONTROL: RecordKind = RecordKind::new("SoxControl", "OWNS_CONTROL"
 pub const SOX_CONTROL_TEST: RecordKind = RecordKind::new("SoxControlTest", "OWNS_CONTROL_TEST");
 pub const SOX_DEFICIENCY: RecordKind = RecordKind::new("SoxDeficiency", "OWNS_DEFICIENCY");
 pub const RISK_ITEM: RecordKind = RecordKind::new("RiskItem", "OWNS_RISK");
+// audit: the engagements an auditor runs and the evidence it draws. An engagement carries its findings as a
+// property rather than as separate nodes, as shipped - the finding is only ever read back with its engagement.
+pub const AUDIT_ENGAGEMENT: RecordKind = RecordKind::new("AuditEngagement", "OWNS_ENGAGEMENT");
 pub const CONTROL_ACCOUNT: RecordKind = RecordKind::new("ControlAccount", "OWNS_CONTROL_ACCOUNT");
 pub const RECEIPTS_PAYMENTS: RecordKind =
     RecordKind::new("ReceiptsPaymentsAccount", "OWNS_RECEIPTS_PAYMENTS");

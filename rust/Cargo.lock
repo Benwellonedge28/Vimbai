@@ -1963,6 +1963,7 @@ dependencies = [
  "vimbai_ratios_statements",
  "vimbai_reporting",
  "vimbai_service_accounting",
+ "vimbai_service_audit",
  "vimbai_service_banking",
  "vimbai_service_budgeting",
  "vimbai_service_compliance",
@@ -2165,6 +2166,15 @@ dependencies = [
  "serde",
  "serde_json",
  "vimbai-ledger-core",
+ "vimbai_common",
+ "vimbai_store",
+]
+
+[[package]]
+name = "vimbai_service_audit"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
  "vimbai_common",
  "vimbai_store",
 ]
