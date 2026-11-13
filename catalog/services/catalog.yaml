@@ -2025,7 +2025,7 @@ services:
   port: 8173
   gateway_path: /rolling-forecast
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -2057,7 +2057,7 @@ services:
   port: 8121
   gateway_path: /scenario-analysis
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -2072,7 +2072,7 @@ services:
   port: 8122
   gateway_path: /scenario-modeling
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
@@ -2112,7 +2112,7 @@ services:
   port: 8124
   gateway_path: /sensitivity-analysis
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /

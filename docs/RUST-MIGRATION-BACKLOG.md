@@ -6,14 +6,14 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 137 services. 67 are proven on a Rust engine. 70 are still Python-only.
+The gateway routes 137 services. 71 are proven on a Rust engine. 66 are still Python-only.
 
-Of the backlog, 18 own no records and can be ported as pure functions; 52 own records and
+Of the backlog, 18 own no records and can be ported as pure functions; 48 own records and
 need vimbai_store alongside the maths.
 
 ### Already on a Rust engine
 
-67 services.
+71 services.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
@@ -70,7 +70,11 @@ retained-profits-service                       8113  routes=10  records=yes rust
 revaluation-reserve-service                    8114  routes=7   records=yes rust http
 revenue-recognition-service                    8115  routes=5   records=yes rust http
 right-issues-service                           8116  routes=7   records=yes rust http
+rolling-forecast-service                       8173  routes=7   records=yes rust http
+scenario-analysis-service                      8121  routes=6   records=yes rust http
+scenario-modeling-service                      8122  routes=17  records=yes rust http
 selling-price-reduction-service                8123  routes=5   records=yes rust http
+sensitivity-analysis-service                   8124  routes=3   records=yes rust http
 share-premium-service                          8125  routes=8   records=yes rust http
 share-redemption-service                       8126  routes=8   records=yes rust http
 sovereign-treasury-service                     8127  routes=7   records=yes rust http
@@ -112,7 +116,7 @@ payment-gateway-service                        8098  routes=20  records=no  none
 
 ### Backlog: owns records (needs vimbai_store)
 
-52 services.
+48 services.
 
 ```
 tax-compliance-service                         8293  routes=6   records=yes none
@@ -122,16 +126,13 @@ tax-planning-service                           8292  routes=5   records=yes none
 expense-tracking-service                       8051  routes=6   records=yes none
 bank-relationship-service                      8021  routes=7   records=yes none
 financial-state-machine-service                8055  routes=7   records=yes none
-sensitivity-analysis-service                   8124  routes=3   records=yes none
 webhook-service                                8140  routes=5   records=yes none
-scenario-analysis-service                      8121  routes=6   records=yes none
 subscription-plans-service                     8001  routes=7   records=yes none
 risk-assessment-service                        8117  routes=6   records=yes none
 audit-engagement-service                       8371  routes=8   records=yes none
 financial-integrity-service                    8054  routes=6   records=yes none
 benefits-admin-service                         8360  routes=8   records=yes none
 partnership-dissolution-service                8096  routes=5   records=yes none
-rolling-forecast-service                       8173  routes=7   records=yes none
 control-account-reconciliation-service         8033  routes=8   records=yes none
 mfa-auth-service                               8007  routes=6   records=yes none
 partnership-agreement-service                  8094  routes=8   records=yes none
@@ -155,7 +156,6 @@ multimodal-pipeline-service                    8002  routes=1   records=yes none
 bank-reconciliation-service                    8020  routes=13  records=yes none
 currency-service                               8092  routes=19  records=yes none
 notifications-service                          8091  routes=16  records=yes none
-scenario-modeling-service                      8122  routes=17  records=yes none
 pos-integration-service                        8095  routes=14  records=yes none
 message-bus-service                            8097  routes=16  records=yes none
 npo-service                                    8085  routes=35  records=yes none

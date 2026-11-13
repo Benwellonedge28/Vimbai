@@ -204,6 +204,29 @@ pub const LIQUIDITY_POSITION: RecordKind =
 
 /// accounting-service's supporting records: petty cash, reconciliation, and the single-entry statements.
 pub const PETTY_CASH_FUND: RecordKind = RecordKind::new("PettyCashFund", "OWNS_PETTY_CASH_FUND");
+/// rolling-forecast-service's forecasts, with their periods kept on the forecast.
+pub const ROLLING_FORECAST: RecordKind = RecordKind::new("RollingForecast", "OWNS_FORECAST");
+
+/// scenario-analysis-service's compared scenarios, with their assumptions.
+pub const SCENARIO: RecordKind = RecordKind::new("Scenario", "OWNS_SCENARIO");
+
+/// sensitivity-analysis-service's completed analyses.
+pub const SENSITIVITY_ANALYSIS: RecordKind =
+    RecordKind::new("SensitivityAnalysis", "OWNS_ANALYSIS");
+
+/// scenario-modeling-service's modelled scenarios, with their variables and the rules they call on.
+pub const SCENARIO_MODEL: RecordKind = RecordKind::new("ScenarioModel", "OWNS_SCENARIO_MODEL");
+
+/// scenario-modeling-service's rules: conditions to meet and what to do when they are met.
+pub const MODELING_RULE: RecordKind = RecordKind::new("ModelingRule", "OWNS_MODELING_RULE");
+
+/// one what-if run against a modelled scenario.
+pub const WHAT_IF_RESULT: RecordKind = RecordKind::new("WhatIfModelResult", "OWNS_WHATIF_RESULT");
+
+/// one swept variable against a modelled scenario.
+pub const SENSITIVITY_MODEL_RESULT: RecordKind =
+    RecordKind::new("SensitivityModelResult", "OWNS_SENSITIVITY_RESULT");
+
 /// zero-based-budgeting-service's packages, with their items kept on the package.
 pub const ZERO_BASED_PACKAGE: RecordKind = RecordKind::new("ZBBPackage", "OWNS_ZBB_PACKAGE");
 

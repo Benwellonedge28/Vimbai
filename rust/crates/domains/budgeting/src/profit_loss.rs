@@ -17,16 +17,9 @@
 //! while the body carried its own. The merged request has one company id and it
 //! is the one returned.
 
+use crate::figures::{money, r2};
 use serde::{Deserialize, Serialize};
-use vimbai_common::{py_round, Money};
-
-fn r2(value: f64) -> f64 {
-    py_round(value, 2)
-}
-
-fn rate(value: f64) -> Money {
-    Money::from_f64_shortest(value).unwrap_or_else(|_| Money::zero())
-}
+use vimbai_common::Money;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PnLInput {
@@ -115,7 +108,7 @@ pub fn prepare_pnl(req: &PnLInput) -> PnLStatement {
     } else {
         Money::zero()
     };
-    let tax_expense = taxable.times(&rate(req.tax_rate)).round(2);
+    let tax_expense = taxable.times(&money(req.tax_rate)).round(2);
     let net_income = pretax_income.minus(&tax_expense);
     let net_margin = margin(&net_income, &req.revenue);
 
@@ -174,7 +167,7 @@ pub fn compare_pnl(
     } else {
         Money::zero()
     };
-    let tax = taxable.times(&rate(req.tax_rate)).round(2);
+    let tax = taxable.times(&money(req.tax_rate)).round(2);
     let net_income = pretax.minus(&tax);
     let revenue_change = if previous_revenue.is_zero() {
         0.0

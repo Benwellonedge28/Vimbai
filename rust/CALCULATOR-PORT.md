@@ -353,6 +353,47 @@ xbrl-reporting-service
   Correction of form: the original read the server clock for the day a run happened and for a projected payoff. The
   port takes that date from the request as `today`, so a reckoning can be repeated and a test can pin it.
 
+- rolling-forecast-service -> budgeting crate, records on the store: a forecast that moves, with periods appended as
+  time passes and actuals filled in behind it. The periods ride on the forecast rather than standing alone, so recording
+  an actual rewrites the forecast. Shapes kept: a frequency outside weekly, monthly and quarterly is refused; the current
+  period is the first period given and empty when there are none; an actual for a period the forecast does not carry
+  changes nothing and reports no variance rather than adding the period; the variance is actual less forecast, and its
+  percentage is against the forecast and nil rather than a division when the forecast is nil; rolling reports how many
+  periods the forecast now holds.
+
+- scenario-analysis-service -> budgeting crate, records on the store: three assumptions set side by side over one base of
+  figures. `/analyze` is arithmetic over the payload and keeps nothing; the scenario records are the assumptions a
+  company wants to remember and compare. Shapes kept: an unstated assumption keeps the shipped rates (revenue up 10%,
+  costs up 5%, interest 5%, tax 25%); a loss carries no charge, since tax is on the positive part of pre-tax income only;
+  the margin is against revenue and nil rather than a division when there is no revenue; the revenue sensitivity is the
+  best case's net less the worst case's and the cost sensitivity the base case's net less the worst case's, which is the
+  pair the service reported even though the labels invite a closer reading; the recommendation follows the worst case
+  first, then the base case; a comparison needs two scenarios and reports the range between the best and the worst.
+
+- sensitivity-analysis-service -> budgeting crate, records on the store: how much the target moves when one variable is
+  nudged. Shapes kept: every variable is swept across every step, so the count is the variables times the steps; the
+  change_s steps default to -10, -5, 0, 5 and 10; a base target below one is measured against one rather than itself.
+  FINDING PINNED, NOT FIXED: the impact of a step is not measured but estimated from the variable's *name*, reading words
+  like "revenue", "cost" or "interest" and applying a fixed share (six tenths for revenue against a profit target, four
+  tenths the other way for cost, a tenth for interest, a fifth otherwise; seven and five tenths for cash flow; eight and
+  nine tenths for price and volume against revenue), and the elasticity is the step divided by the target's relative
+  move, the reciprocal of the usual definition. So "most sensitive variable" points at the variable that shifts the
+  target *least*. Ported as it stands, because the answers are what callers see, and each point is pinned by a test.
+
+- scenario-modeling-service -> budgeting crate, records on the store: scenarios built from labelled variables, rules that
+  fire on values, and what-if runs against them. A rule holds conditions that must all hold and actions to take when they
+  do; comparison is by number once both sides read as numbers and by text otherwise, which is how "contains" works. A
+  scenario's outcome is read off by its type: a budget forecast adds its variables up, a revenue projection compounds a
+  growth rate over the months between the two dates at the shipped thirty-day month, an expense simulation adds the
+  variables whose names mention expenses, a cash flow nets inflows against outflows, a profitability subtracts costs from
+  revenue. Shapes kept: a condition on a field the figures do not carry is not met rather than treated as zero; every
+  rule fires in the order the scenario names them, with nothing sorted by the priority the rules carry; a what-if over a
+  variable the scenario does not carry leaves it alone rather than adding it; the variance is the new outcome less the
+  original and its percentage is nil when the original was nil; the affected accounts are the shipped split of the
+  variance - four tenths revenue, three tenths expenses, three tenths net income, a shape rather than a posting; a swept
+  variable offers at most five recommendations; a comparison names the best and worst of the scenarios given and reports
+  nothing else, with the comparison date taken from the caller so the reckoning repeats.
+
 - budget-service -> budgeting crate: the master budget, what it is doing against actual, and the projections drawn
   from it. Variance is always actual less budget, so a negative variance is money not spent, which for a cost line is
   favourable. Shapes kept: an account that carries no actual is measured at 95% of its budget rather than at nil; a

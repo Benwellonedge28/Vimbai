@@ -12,6 +12,8 @@
 //! synergy-analysis in `corporate_events.rs`. With those the capital and
 //! valuation family is fully ported; see `queued.rs` for what remains.
 
+use vimbai_common::service_id;
+
 pub mod acquisition_financing;
 pub mod allocation;
 pub mod appraisal;
@@ -166,23 +168,6 @@ pub fn asset_allocation_service_from_json(
         }
     }
     Ok(out)
-}
-
-/// A uuid4-shaped identifier, matching the `id` the service gives each appraisal.
-fn service_id() -> String {
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    let hex = format!("{nanos:032x}");
-    format!(
-        "{}-{}-4{}-a{}-{}",
-        &hex[16..24],
-        &hex[24..28],
-        &hex[8..11],
-        &hex[12..15],
-        &hex[0..8]
-    )
 }
 
 /// `project-appraisal-service /appraise`.

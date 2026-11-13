@@ -2929,3 +2929,117 @@ async fn a_rolling_forecast_without_a_date_is_refused_over_http() {
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
+
+#[tokio::test]
+async fn a_rolling_forecast_is_created_and_rolled_over_http() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "f-1", "periods": [{"period": "2026-01", "forecast_value": "1000.000000"}]}),
+        ],
+        vec![json!({"id": "f-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/forecasts/f-1/roll",
+        Some(json!({"new_periods": [{"period": "2026-02", "forecast_value": "1200"}]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total_periods"], json!(2));
+}
+
+#[tokio::test]
+async fn a_forecast_actual_is_measured_over_http() {
+    let graph = Scripted::queue(vec![
+        vec![
+            json!({"id": "f-1", "periods": [{"period": "2026-01", "forecast_value": "1000.000000"}]}),
+        ],
+        vec![json!({"id": "f-1"})],
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/forecasts/f-1/update-actual?period=2026-01&actual_value=1100",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["variance"], json!("100.000000"));
+}
+
+#[tokio::test]
+async fn three_scenarios_are_analyzed_over_http() {
+    let (status, body) = call_with(
+        Scripted::returning(vec![]),
+        "POST",
+        "/scenario-analysis/analyze",
+        Some(
+            json!({"company_id": "c-1", "base_revenue": "1000", "base_cost": "500",
+                    "best_case": {"revenue_growth": 0.2},
+                    "base_case": {"revenue_growth": 0.1},
+                    "worst_case": {"revenue_growth": -0.1}}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    // the cases grow revenue only, so costs keep the shipped 5% growth: 1,200 less 525, taxed at 25%
+    assert_eq!(body["best_case"]["net_income"], json!("506.25"));
+    assert_eq!(body["worst_case"]["net_income"], json!("281.25"));
+}
+
+#[tokio::test]
+async fn a_sensitivity_sweep_answers_over_http() {
+    let graph = Scripted::returning(vec![json!({"id": "a-1"})]);
+    let (status, body) = call_with(
+        graph,
+        "POST",
+        "/records/sensitivity-analysis/analyze",
+        Some(json!({"company_id": "c-1", "target_metric": "net_profit",
+                    "base_target_value": "1000",
+                    "variables": [{"name": "Revenue", "base_value": "5000"}],
+                    "change_steps": [10]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["results"][0]["impact_on_target"], json!("1060.000000"));
+    assert_eq!(body["most_sensitive_variable"], json!("Revenue"));
+}
+
+#[tokio::test]
+async fn a_rule_listing_answers_over_http() {
+    let graph = Scripted::returning(vec![
+        json!({"id": "r-1", "name": "Growth", "enabled": true}),
+        json!({"id": "r-2", "name": "Retired", "enabled": false}),
+    ]);
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/scenario-modeling/rules?enabled_only=true",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body.as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_scenario_naming_a_rule_the_caller_does_not_hold_is_refused_over_http() {
+    let graph = Scripted::returning(vec![]);
+    let (status, _body) = call_with(
+        graph,
+        "POST",
+        "/scenario-modeling/scenarios",
+        Some(json!({"name": "Q1", "scenario_type": "budget_forecast",
+                    "base_date": "2026-01-01", "end_date": "2026-06-30", "rules": ["r-9"]})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[tokio::test]
+async fn a_scenario_that_is_not_the_callers_is_a_miss_over_http() {
+    let graph = Scripted::returning(vec![]);
+    let (status, _body) = call_with(graph, "GET", "/scenario-modeling/scenarios/other", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

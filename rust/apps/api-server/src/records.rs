@@ -20,7 +20,10 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
-use budgeting_services::{appropriation_control, master_budget, zero_based_budget};
+use budgeting_services::{
+    appropriation_control, master_budget, rolling_forecast, scenario_analysis, scenario_modeling,
+    sensitivity_analysis, zero_based_budget,
+};
 use common::Money;
 use costing::{
     absorption, basis_apportionment, cost_calculations, cvp, job_costing, overhead_absorption,
@@ -2445,6 +2448,443 @@ async fn budget_summary(
         graph.as_ref(),
         &scope,
         &company_id,
+    ))
+}
+
+async fn open_rolling_forecast(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(rolling_forecast::create(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+        &payload,
+    ))
+}
+
+async fn rolling_forecasts(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(rolling_forecast::list_forecasts(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn one_rolling_forecast(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(forecast_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(rolling_forecast::forecast_by_id(
+        graph.as_ref(),
+        &scope,
+        &forecast_id,
+    ))
+}
+
+async fn record_forecast_actual(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(forecast_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let payload = payload
+        .map(|Json(payload)| payload)
+        .unwrap_or_else(|| json!({}));
+    answer(rolling_forecast::update_actual(
+        graph.as_ref(),
+        &scope,
+        &forecast_id,
+        &query_object(query.as_deref()),
+        &payload,
+    ))
+}
+
+async fn roll_forecast(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(forecast_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(rolling_forecast::roll(
+        graph.as_ref(),
+        &scope,
+        &forecast_id,
+        &payload,
+    ))
+}
+
+async fn analyze_scenarios(Json(payload): Json<Value>) -> Response {
+    answer(scenario_analysis::analyze(&payload))
+}
+
+async fn open_scenario(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_analysis::open_scenario(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn scenarios_for_company(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_analysis::scenarios_for_company(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn compare_scenarios(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_analysis::compare_assumptions(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn run_sensitivity(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(sensitivity_analysis::analyze(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn sensitivity_analyses(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(company_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(sensitivity_analysis::list_analyses(
+        graph.as_ref(),
+        &scope,
+        &company_id,
+    ))
+}
+
+async fn open_model_scenario(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::open_model_scenario(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn model_scenarios(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::list_model_scenarios(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn one_model_scenario(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(scenario_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::get_scenario(
+        graph.as_ref(),
+        &scope,
+        &scenario_id,
+    ))
+}
+
+async fn change_model_scenario(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(scenario_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::update_scenario(
+        graph.as_ref(),
+        &scope,
+        &scenario_id,
+        &payload,
+    ))
+}
+
+async fn drop_model_scenario(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(scenario_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::delete_scenario(
+        graph.as_ref(),
+        &scope,
+        &scenario_id,
+    ))
+}
+
+async fn open_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::create_rule(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn model_rules(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::list_rules(
+        graph.as_ref(),
+        &scope,
+        &query_object(query.as_deref()),
+    ))
+}
+
+async fn one_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(rule_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::get_rule(
+        graph.as_ref(),
+        &scope,
+        &rule_id,
+    ))
+}
+
+async fn change_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(rule_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::update_rule(
+        graph.as_ref(),
+        &scope,
+        &rule_id,
+        &payload,
+    ))
+}
+
+async fn drop_rule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(rule_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::delete_rule(
+        graph.as_ref(),
+        &scope,
+        &rule_id,
+    ))
+}
+
+async fn run_what_if(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::what_if(graph.as_ref(), &scope, &payload))
+}
+
+async fn one_what_if(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(analysis_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::get_what_if(
+        graph.as_ref(),
+        &scope,
+        &analysis_id,
+    ))
+}
+
+async fn what_if_for_scenario(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(scenario_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::list_what_if(
+        graph.as_ref(),
+        &scope,
+        &scenario_id,
+    ))
+}
+
+async fn run_model_sweep(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(scenario_modeling::sweep(graph.as_ref(), &scope, &payload))
+}
+
+async fn compare_model_scenarios(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    // the service took a bare list of ids; a body keyed `scenario_ids` is accepted too
+    let asked = query_object(query.as_deref());
+    let ids: Vec<String> = match &payload {
+        Value::Array(items) => items
+            .iter()
+            .map(|id| id.to_string().trim_matches('"').to_string())
+            .collect(),
+        other => other
+            .get("scenario_ids")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .map(|id| id.to_string().trim_matches('"').to_string())
+            .collect(),
+    };
+    let today = {
+        let asked_today = store::read::text(&asked, "today");
+        if asked_today.is_empty() {
+            store::read::text(&payload, "today")
+        } else {
+            asked_today
+        }
+    };
+    answer(scenario_modeling::compare_model_scenarios(
+        graph.as_ref(),
+        &scope,
+        &ids,
+        &today,
     ))
 }
 
@@ -6651,15 +7091,15 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/treasury-risk/exposures",
-            post(open_risk_exposure).get(risk_exposures),
+            get(risk_exposures).post(open_risk_exposure),
         )
         .route(
             "/treasury-risk/var",
-            post(calculate_risk_var).get(risk_var_results),
+            get(risk_var_results).post(calculate_risk_var),
         )
         .route(
             "/treasury-risk/scenarios",
-            post(open_stress_scenario).get(stress_scenarios),
+            get(stress_scenarios).post(open_stress_scenario),
         )
         .route(
             "/treasury-risk/scenarios/:scenario_id/run",
@@ -6669,15 +7109,15 @@ fn records_router(graph: GraphHandle) -> Router {
         .route("/treasury-risk/dashboard", get(risk_dashboard))
         .route(
             "/records/treasury-risk/exposures",
-            post(open_risk_exposure).get(risk_exposures),
+            get(risk_exposures).post(open_risk_exposure),
         )
         .route(
             "/records/treasury-risk/var",
-            post(calculate_risk_var).get(risk_var_results),
+            get(risk_var_results).post(calculate_risk_var),
         )
         .route(
             "/records/treasury-risk/scenarios",
-            post(open_stress_scenario).get(stress_scenarios),
+            get(stress_scenarios).post(open_stress_scenario),
         )
         .route(
             "/records/treasury-risk/scenarios/:scenario_id/run",
@@ -6687,11 +7127,11 @@ fn records_router(graph: GraphHandle) -> Router {
         .route("/records/treasury-risk/dashboard", get(risk_dashboard))
         .route(
             "/treasury-policy/policies",
-            post(open_treasury_policy).get(treasury_policies),
+            get(treasury_policies).post(open_treasury_policy),
         )
         .route(
             "/treasury-policy/policies/:policy_id/limits",
-            post(set_policy_limit).get(policy_limits),
+            get(policy_limits).post(set_policy_limit),
         )
         .route(
             "/treasury-policy/limits/:limit_id/check",
@@ -6700,11 +7140,11 @@ fn records_router(graph: GraphHandle) -> Router {
         .route("/treasury-policy/compliance", get(policy_compliance_checks))
         .route(
             "/records/treasury-policy/policies",
-            post(open_treasury_policy).get(treasury_policies),
+            get(treasury_policies).post(open_treasury_policy),
         )
         .route(
             "/records/treasury-policy/policies/:policy_id/limits",
-            post(set_policy_limit).get(policy_limits),
+            get(policy_limits).post(set_policy_limit),
         )
         .route(
             "/records/treasury-policy/limits/:limit_id/check",
@@ -6714,15 +7154,19 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/treasury-policy/compliance",
             get(policy_compliance_checks),
         )
-        .route("/debt-management/loans", post(open_debt_loan))
-        .route("/debt-management/loans", get(company_debt_loans))
+        .route(
+            "/debt-management/loans",
+            get(company_debt_loans).post(open_debt_loan),
+        )
         .route(
             "/debt-management/loans/:loan_id/schedule",
             post(debt_loan_schedule),
         )
         .route("/debt-management/summary", get(company_debt_summary))
-        .route("/records/debt-management/loans", post(open_debt_loan))
-        .route("/records/debt-management/loans", get(company_debt_loans))
+        .route(
+            "/records/debt-management/loans",
+            get(company_debt_loans).post(open_debt_loan),
+        )
         .route(
             "/records/debt-management/loans/:loan_id/schedule",
             post(debt_loan_schedule),
@@ -6867,15 +7311,15 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/cash-management/accounts",
-            post(open_cash_account).get(cash_accounts),
+            get(cash_accounts).post(open_cash_account),
         )
         .route(
             "/cash-management/transfers",
-            post(move_cash).get(cash_transfers),
+            get(cash_transfers).post(move_cash),
         )
         .route(
             "/cash-management/liquidity",
-            post(measure_liquidity).get(liquidity_history),
+            get(liquidity_history).post(measure_liquidity),
         )
         .route("/foreign-exchange/rates", get(fx_rates))
         .route("/foreign-exchange/rates/:currency", get(fx_rate))
@@ -6883,7 +7327,7 @@ fn records_router(graph: GraphHandle) -> Router {
         .route("/foreign-exchange/hedge", post(fx_hedge))
         .route(
             "/petty-cash/funds",
-            post(open_petty_cash_fund).get(petty_cash_funds),
+            get(petty_cash_funds).post(open_petty_cash_fund),
         )
         .route(
             "/petty-cash/funds/:fund_id",
@@ -6903,7 +7347,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/petty-cash/transactions",
-            post(add_petty_cash_transaction).get(petty_cash_transactions),
+            get(petty_cash_transactions).post(add_petty_cash_transaction),
         )
         .route(
             "/petty-cash/transactions/:transaction_id",
@@ -6911,7 +7355,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/petty-cash/vouchers",
-            post(add_petty_cash_voucher).get(petty_cash_vouchers),
+            get(petty_cash_vouchers).post(add_petty_cash_voucher),
         )
         .route(
             "/petty-cash/vouchers/:voucher_id/approve",
@@ -6919,7 +7363,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/petty-cash/replenishments",
-            post(add_replenishment).get(list_replenishment_requests),
+            get(list_replenishment_requests).post(add_replenishment),
         )
         .route(
             "/petty-cash/replenishments/:replenishment_id/approve",
@@ -6939,15 +7383,15 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/investment-monitoring/portfolios",
-            post(open_portfolio).get(portfolios),
+            get(portfolios).post(open_portfolio),
         )
         .route(
             "/investment-monitoring/portfolios/:portfolio_id/holdings",
-            post(add_portfolio_holding).get(portfolio_holdings),
+            get(portfolio_holdings).post(add_portfolio_holding),
         )
         .route(
             "/investment-monitoring/portfolios/:portfolio_id/performance",
-            post(measure_portfolio).get(portfolio_performance),
+            get(portfolio_performance).post(measure_portfolio),
         )
         .route(
             "/investment-monitoring/holdings/:holding_id/update-price",
@@ -6955,7 +7399,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/trade-finance/instruments",
-            post(open_trade_instrument).get(trade_instruments),
+            get(trade_instruments).post(open_trade_instrument),
         )
         .route(
             "/trade-finance/instruments/:instrument_id/present",
@@ -6967,15 +7411,15 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/records/investment-monitoring/portfolios",
-            post(open_portfolio).get(portfolios),
+            get(portfolios).post(open_portfolio),
         )
         .route(
             "/records/investment-monitoring/portfolios/:portfolio_id/holdings",
-            post(add_portfolio_holding).get(portfolio_holdings),
+            get(portfolio_holdings).post(add_portfolio_holding),
         )
         .route(
             "/records/investment-monitoring/portfolios/:portfolio_id/performance",
-            post(measure_portfolio).get(portfolio_performance),
+            get(portfolio_performance).post(measure_portfolio),
         )
         .route(
             "/records/investment-monitoring/holdings/:holding_id/update-price",
@@ -6983,7 +7427,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/records/trade-finance/instruments",
-            post(open_trade_instrument).get(trade_instruments),
+            get(trade_instruments).post(open_trade_instrument),
         )
         .route(
             "/records/trade-finance/instruments/:instrument_id/present",
@@ -6995,7 +7439,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/personal-finance/recurring",
-            post(open_recurring).get(recurring_items),
+            get(recurring_items).post(open_recurring),
         )
         .route(
             "/personal-finance/recurring/:recurring_id",
@@ -7005,7 +7449,7 @@ fn records_router(graph: GraphHandle) -> Router {
             "/personal-finance/recurring/:recurring_id/run",
             post(run_recurring_now),
         )
-        .route("/personal-finance/debts", post(open_debt).get(debts))
+        .route("/personal-finance/debts", get(debts).post(open_debt))
         .route("/personal-finance/debts/:debt_id", get(one_debt))
         .route("/personal-finance/debts/:debt_id/payments", post(pay_debt))
         .route(
@@ -7014,7 +7458,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/personal-finance/investments",
-            post(open_investment).get(investments),
+            get(investments).post(open_investment),
         )
         .route(
             "/personal-finance/investments/:investment_id/trades",
@@ -7029,16 +7473,16 @@ fn records_router(graph: GraphHandle) -> Router {
             get(tax_bands).put(replace_tax_bands),
         )
         .route("/personal-finance/tax/estimate", post(estimate_tax))
-        .route("/personal-finance/goals", post(open_goal).get(goals))
+        .route("/personal-finance/goals", get(goals).post(open_goal))
         .route(
             "/personal-finance/income",
-            post(add_income_source).get(income_sources),
+            get(income_sources).post(add_income_source),
         )
         .route("/personal-finance/legacy-debts", post(add_legacy_debt))
         .route("/personal-finance/overview", get(personal_overview))
         .route(
             "/records/personal-finance/recurring",
-            post(open_recurring).get(recurring_items),
+            get(recurring_items).post(open_recurring),
         )
         .route(
             "/records/personal-finance/recurring/:recurring_id",
@@ -7050,7 +7494,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/records/personal-finance/debts",
-            post(open_debt).get(debts),
+            get(debts).post(open_debt),
         )
         .route("/records/personal-finance/debts/:debt_id", get(one_debt))
         .route(
@@ -7063,7 +7507,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/records/personal-finance/investments",
-            post(open_investment).get(investments),
+            get(investments).post(open_investment),
         )
         .route(
             "/records/personal-finance/investments/:investment_id/trades",
@@ -7080,11 +7524,11 @@ fn records_router(graph: GraphHandle) -> Router {
         .route("/records/personal-finance/tax/estimate", post(estimate_tax))
         .route(
             "/records/personal-finance/goals",
-            post(open_goal).get(goals),
+            get(goals).post(open_goal),
         )
         .route(
             "/records/personal-finance/income",
-            post(add_income_source).get(income_sources),
+            get(income_sources).post(add_income_source),
         )
         .route(
             "/records/personal-finance/legacy-debts",
@@ -7243,7 +7687,7 @@ fn records_router(graph: GraphHandle) -> Router {
         .route("/records/foreign-exchange/hedge", post(fx_hedge))
         .route(
             "/records/petty-cash/funds",
-            post(open_petty_cash_fund).get(petty_cash_funds),
+            get(petty_cash_funds).post(open_petty_cash_fund),
         )
         .route(
             "/records/petty-cash/funds/:fund_id",
@@ -7263,7 +7707,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/records/petty-cash/transactions",
-            post(add_petty_cash_transaction).get(petty_cash_transactions),
+            get(petty_cash_transactions).post(add_petty_cash_transaction),
         )
         .route(
             "/records/petty-cash/transactions/:transaction_id",
@@ -7271,7 +7715,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/records/petty-cash/vouchers",
-            post(add_petty_cash_voucher).get(petty_cash_vouchers),
+            get(petty_cash_vouchers).post(add_petty_cash_voucher),
         )
         .route(
             "/records/petty-cash/vouchers/:voucher_id/approve",
@@ -7279,7 +7723,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/records/petty-cash/replenishments",
-            post(add_replenishment).get(list_replenishment_requests),
+            get(list_replenishment_requests).post(add_replenishment),
         )
         .route(
             "/records/petty-cash/replenishments/:replenishment_id/approve",
@@ -7299,15 +7743,15 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/records/cash-management/accounts",
-            post(open_cash_account).get(cash_accounts),
+            get(cash_accounts).post(open_cash_account),
         )
         .route(
             "/records/cash-management/transfers",
-            post(move_cash).get(cash_transfers),
+            get(cash_transfers).post(move_cash),
         )
         .route(
             "/records/cash-management/liquidity",
-            post(measure_liquidity).get(liquidity_history),
+            get(liquidity_history).post(measure_liquidity),
         )
         .route(
             "/records/cash-optimization/accounts",
@@ -7537,75 +7981,100 @@ fn records_router(graph: GraphHandle) -> Router {
             "/records/appropriation-control/check/:appropriation_id",
             get(appropriation_check),
         )
+        .route(
+            "/records/forecasts",
+            get(rolling_forecasts).post(open_rolling_forecast),
+        )
+        .route("/records/forecasts/:forecast_id", get(one_rolling_forecast))
+        .route(
+            "/records/forecasts/:forecast_id/update-actual",
+            post(record_forecast_actual),
+        )
+        .route("/records/forecasts/:forecast_id/roll", post(roll_forecast))
+        .route(
+            "/records/scenario-analysis/analyze",
+            post(analyze_scenarios),
+        )
+        .route("/records/scenario-analysis/scenarios", post(open_scenario))
+        .route(
+            "/records/scenario-analysis/scenarios/:company_id",
+            get(scenarios_for_company),
+        )
+        .route(
+            "/records/scenario-analysis/compare/:company_id",
+            get(compare_scenarios),
+        )
+        .route(
+            "/records/sensitivity-analysis/analyze",
+            post(run_sensitivity),
+        )
+        .route(
+            "/records/sensitivity-analysis/analyses/:company_id",
+            get(sensitivity_analyses),
+        )
+        .route(
+            "/records/scenario-modeling/scenarios",
+            get(model_scenarios).post(open_model_scenario),
+        )
+        .route(
+            "/records/scenario-modeling/scenarios/:scenario_id",
+            get(one_model_scenario)
+                .put(change_model_scenario)
+                .delete(drop_model_scenario),
+        )
+        .route(
+            "/records/scenario-modeling/rules",
+            get(model_rules).post(open_rule),
+        )
+        .route(
+            "/records/scenario-modeling/rules/:rule_id",
+            get(one_rule).put(change_rule).delete(drop_rule),
+        )
+        .route("/records/scenario-modeling/what-if", post(run_what_if))
+        .route(
+            "/records/scenario-modeling/what-if/:analysis_id",
+            get(one_what_if),
+        )
+        .route(
+            "/records/scenario-modeling/what-if/scenario/:scenario_id",
+            get(what_if_for_scenario),
+        )
+        .route(
+            "/records/scenario-modeling/sensitivity",
+            post(run_model_sweep),
+        )
+        .route(
+            "/records/scenario-modeling/compare",
+            post(compare_model_scenarios),
+        )
         .with_state(graph)
 }
 
 /// The drop-in paths, identical to what the Python services answered.
 pub fn service_root_router(graph: GraphHandle) -> Router {
     Router::new()
-        .route(
-            "/absorption-costing/product-costs",
-            get(product_costs).post(keep_product_cost),
-        )
-        .route(
-            "/absorption-costing/product-costs/:product_id/latest",
-            get(latest_product_cost),
-        )
+        .route("/absorption-costing/product-costs", get(product_costs).post(keep_product_cost))
+        .route("/absorption-costing/product-costs/:product_id/latest", get(latest_product_cost))
         .route("/absorption-costing/stock-valuation", get(stock_valuation))
         .route("/job-costing/jobs", post(open_job))
         .route("/job-costing/jobs/:company_id", get(company_jobs))
-        .route(
-            "/job-costing/jobs/:company_id/profitability",
-            get(company_profitability),
-        )
+        .route("/job-costing/jobs/:company_id/profitability", get(company_profitability))
         .route("/job-costing/jobs/:job_id/costs", post(charge_cost))
-        .route(
-            "/fixed-assets-register/assets",
-            get(fixed_assets).post(register_asset),
-        )
-        .route(
-            "/fixed-assets-register/assets/:asset_id",
-            get(one_fixed_asset),
-        )
-        .route(
-            "/fixed-assets-register/assets/:asset_id/depreciate",
-            post(depreciate_asset),
-        )
-        .route(
-            "/fixed-assets-register/assets/:asset_id/depreciation",
-            get(asset_depreciation),
-        )
-        .route(
-            "/fixed-assets-register/assets/:asset_id/dispose",
-            post(dispose_fixed_asset),
-        )
+        .route("/fixed-assets-register/assets", get(fixed_assets).post(register_asset))
+        .route("/fixed-assets-register/assets/:asset_id", get(one_fixed_asset))
+        .route("/fixed-assets-register/assets/:asset_id/depreciate", post(depreciate_asset))
+        .route("/fixed-assets-register/assets/:asset_id/depreciation", get(asset_depreciation))
+        .route("/fixed-assets-register/assets/:asset_id/dispose", post(dispose_fixed_asset))
         .route("/fixed-assets-register/summary", get(fixed_asset_summary))
-        .route(
-            "/fixed-assets-schedule/assets",
-            get(schedule_asset_list).post(register_asset),
-        )
-        .route(
-            "/fixed-assets-schedule/assets/:asset_id",
-            get(one_fixed_asset).put(patch_fixed_asset),
-        )
-        .route(
-            "/fixed-assets-schedule/schedule/generate",
-            post(asset_schedule),
-        )
-        .route(
-            "/fixed-assets-schedule/schedule/latest",
-            get(asset_schedule),
-        )
+        .route("/fixed-assets-schedule/assets", get(schedule_asset_list).post(register_asset))
+        .route("/fixed-assets-schedule/assets/:asset_id", get(one_fixed_asset).put(patch_fixed_asset))
+        .route("/fixed-assets-schedule/schedule/generate", post(asset_schedule))
+        .route("/fixed-assets-schedule/schedule/latest", get(asset_schedule))
         .route("/fixed-assets-schedule/summary", get(schedule_summary))
-        .route("/departmental-accounting/departments", post(create_department))
-        .route("/departmental-accounting/departments", get(list_departments))
+        .route("/departmental-accounting/departments", get(list_departments).post(create_department))
         .route(
             "/departmental-accounting/departments/:department_id",
-            get(get_department),
-        )
-        .route(
-            "/departmental-accounting/departments/:department_id",
-            put(update_department),
+            get(get_department).put(update_department),
         )
         .route(
             "/departmental-accounting/departments/:department_id/hierarchy",
@@ -7621,34 +8090,16 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/departmental-accounting/allocation-rules",
-            post(create_allocation_rule),
+            get(list_allocation_rules).post(create_allocation_rule),
         )
-        .route(
-            "/departmental-accounting/allocation-rules",
-            get(list_allocation_rules),
-        )
-        .route(
-            "/departmental-accounting/allocation-rules/:rule_id",
-            delete(deactivate_allocation_rule),
-        )
-        .route("/departmental-accounting/cost-pools", post(create_cost_pool))
-        .route("/departmental-accounting/cost-pools", get(list_cost_pools))
-        .route(
-            "/departmental-accounting/cost-pools/:pool_id",
-            get(get_cost_pool),
-        )
+        .route("/departmental-accounting/allocation-rules/:rule_id", delete(deactivate_allocation_rule))
+        .route("/departmental-accounting/cost-pools", get(list_cost_pools).post(create_cost_pool))
+        .route("/departmental-accounting/cost-pools/:pool_id", get(get_cost_pool))
         .route("/departmental-accounting/allocate", post(run_allocation))
-        .route(
-            "/departmental-accounting/allocations/:pool_id",
-            get(allocation_results),
-        )
+        .route("/departmental-accounting/allocations/:pool_id", get(allocation_results))
         .route(
             "/departmental-accounting/inter-department-bills",
-            post(create_inter_department_bill),
-        )
-        .route(
-            "/departmental-accounting/inter-department-bills",
-            get(list_inter_department_bills),
+            get(list_inter_department_bills).post(create_inter_department_bill),
         )
         .route(
             "/departmental-accounting/inter-department-bills/:bill_id/approve",
@@ -7658,128 +8109,66 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/departmental-accounting/reports/department-comparison",
             get(compare_departments).post(compare_departments),
         )
-        .route(
-            "/departmental-accounting/reports/cost-distribution",
-            get(cost_distribution),
-        )
-        .route("/company-accounting/companies", post(create_company))
-        .route("/company-accounting/companies", get(list_companies))
-        .route("/company-accounting/companies/:company_id", get(get_company))
-        .route("/company-accounting/companies/:company_id", put(update_company))
+        .route("/departmental-accounting/reports/cost-distribution", get(cost_distribution))
+        .route("/company-accounting/companies", get(list_companies).post(create_company))
+        .route("/company-accounting/companies/:company_id", get(get_company).put(update_company))
         .route(
             "/company-accounting/shareholders",
-            post(register_company_shareholder),
+            get(list_company_shareholders).post(register_company_shareholder),
         )
-        .route(
-            "/company-accounting/shareholders",
-            get(list_company_shareholders),
-        )
-        .route("/company-accounting/share-capital", post(create_share_capital))
-        .route("/company-accounting/share-capital", get(list_share_capital))
+        .route("/company-accounting/share-capital", get(list_share_capital).post(create_share_capital))
         .route(
             "/company-accounting/capital-transactions",
-            post(record_capital_transaction),
+            get(list_capital_transactions).post(record_capital_transaction),
         )
-        .route(
-            "/company-accounting/capital-transactions",
-            get(list_capital_transactions),
-        )
-        .route("/company-accounting/dividends", post(declare_dividend))
-        .route("/company-accounting/dividends", get(list_dividends))
-        .route(
-            "/company-accounting/dividends/:dividend_id/pay",
-            put(pay_dividend),
-        )
-        .route(
-            "/company-accounting/dividends/:dividend_id/payments",
-            get(dividend_payments),
-        )
+        .route("/company-accounting/dividends", get(list_dividends).post(declare_dividend))
+        .route("/company-accounting/dividends/:dividend_id/pay", put(pay_dividend))
+        .route("/company-accounting/dividends/:dividend_id/payments", get(dividend_payments))
         .route(
             "/company-accounting/retained-earnings",
-            post(record_retained_earnings),
+            get(retained_earnings).post(record_retained_earnings),
         )
-        .route("/company-accounting/retained-earnings", get(retained_earnings))
-        .route("/company-accounting/reserves", post(create_company_reserve))
-        .route("/company-accounting/reserves", get(company_reserves))
-        .route(
-            "/company-accounting/reports/equity-statement/:company_id",
-            get(equity_statement),
-        )
+        .route("/company-accounting/reserves", get(company_reserves).post(create_company_reserve))
+        .route("/company-accounting/reports/equity-statement/:company_id", get(equity_statement))
         .route(
             "/company-accounting/reports/shareholder-register/:company_id",
             get(shareholder_register),
         )
-        .route(
-            "/company-accounting/reports/dividend-history/:company_id",
-            get(dividend_history),
-        )
-        .route("/cashbook/accounts", post(create_cash_account))
-        .route("/cashbook/accounts", get(list_cash_accounts))
-        .route("/cashbook/accounts/:account_id", get(get_cash_account))
-        .route("/cashbook/accounts/:account_id", put(update_cash_account))
-        .route("/cashbook/entries", post(create_cash_entry))
-        .route("/cashbook/entries", get(list_cash_entries))
+        .route("/company-accounting/reports/dividend-history/:company_id", get(dividend_history))
+        .route("/cashbook/accounts", get(list_cash_accounts).post(create_cash_account))
+        .route("/cashbook/accounts/:account_id", get(get_cash_account).put(update_cash_account))
+        .route("/cashbook/entries", get(list_cash_entries).post(create_cash_entry))
         .route("/cashbook/entries/:entry_id", get(get_cash_entry))
         .route("/cashbook/entries/:entry_id/post", put(post_cash_entry))
         .route("/cashbook/entries/:entry_id/void", put(void_cash_entry))
-        .route(
-            "/cashbook/summary/:account_code",
-            get(cashbook_summary),
-        )
+        .route("/cashbook/summary/:account_code", get(cashbook_summary))
         .route(
             "/cashbook/reconciliations",
-            post(create_cash_reconciliation),
+            get(list_cash_reconciliations).post(create_cash_reconciliation),
         )
-        .route(
-            "/cashbook/reconciliations",
-            get(list_cash_reconciliations),
-        )
-        .route(
-            "/cashbook/reconciliations/:reconciliation_id",
-            get(get_cash_reconciliation),
-        )
-        .route(
-            "/cashbook/reconciliations/:reconciliation_id/complete",
-            put(complete_reconciliation),
-        )
+        .route("/cashbook/reconciliations/:reconciliation_id", get(get_cash_reconciliation))
+        .route("/cashbook/reconciliations/:reconciliation_id/complete", put(complete_reconciliation))
         .route(
             "/cashbook/reconciliations/:reconciliation_id/outstanding",
             get(cash_reconciliation_outstanding),
         )
-        .route("/cashbook/cash-flow", post(create_cash_flow_entry))
-        .route("/cashbook/cash-flow", get(list_cash_flow))
+        .route("/cashbook/cash-flow", get(list_cash_flow).post(create_cash_flow_entry))
         .route("/cashbook/cash-flow/summary", get(cash_flow_summary))
         .route("/cashbook/cash-position", get(cash_position))
         .route("/cashbook/cash-position/history", get(cash_position_history))
-        .route("/ifrs-reporting/reports", post(create_ifrs_report))
-        .route("/ifrs-reporting/reports", get(list_ifrs_reports))
+        .route("/ifrs-reporting/reports", get(list_ifrs_reports).post(create_ifrs_report))
         .route("/ifrs-reporting/reports/:report_id", get(get_ifrs_report))
+        .route("/ifrs-reporting/reports/:report_id/notes", get(list_ifrs_notes).post(add_ifrs_note))
+        .route("/ifrs-reporting/reports/:report_id/approve", put(approve_ifrs_report))
         .route(
-            "/ifrs-reporting/reports/:report_id/notes",
-            post(add_ifrs_note),
-        )
-        .route(
-            "/ifrs-reporting/reports/:report_id/notes",
-            get(list_ifrs_notes),
-        )
-        .route(
-            "/ifrs-reporting/reports/:report_id/approve",
-            put(approve_ifrs_report),
-        )
-        .route("/intercompany/entities", post(create_intercompany_entity))
-        .route("/intercompany/entities", get(list_intercompany_entities))
-        .route(
-            "/intercompany/transactions",
-            post(create_intercompany_transaction),
+            "/intercompany/entities",
+            get(list_intercompany_entities).post(create_intercompany_entity),
         )
         .route(
             "/intercompany/transactions",
-            get(list_intercompany_transactions),
+            get(list_intercompany_transactions).post(create_intercompany_transaction),
         )
-        .route(
-            "/intercompany/transactions/match",
-            post(match_intercompany),
-        )
+        .route("/intercompany/transactions/match", post(match_intercompany))
         .route("/intercompany/eliminations", get(list_eliminations))
         .route("/cash-flow/create", post(create_cash_flow))
         .route("/cash-flow/inflows", post(cash_flow_inflows))
@@ -7790,41 +8179,17 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/cash-flow/get/:cash_flow_id", get(get_cash_flow))
         .route("/balance-sheet/generate", post(generate_balance_sheet))
         .route("/balance-sheet/latest/:company_id", get(latest_balance_sheet))
-        .route(
-            "/balance-sheet/history/:company_id",
-            get(balance_sheet_history),
-        )
-        .route(
-            "/balance-sheet/ratios/:company_id",
-            get(balance_sheet_ratios),
-        )
+        .route("/balance-sheet/history/:company_id", get(balance_sheet_history))
+        .route("/balance-sheet/ratios/:company_id", get(balance_sheet_ratios))
         .route("/fund-accounting/funds", post(create_fund))
         .route("/fund-accounting/funds/:company_id", get(company_funds))
         .route("/fund-accounting/transactions", post(record_fund_movement))
-        .route(
-            "/fund-accounting/transactions/:fund_id",
-            get(fund_movements),
-        )
-        .route(
-            "/revenue-recognition/contracts",
-            post(create_revenue_contract),
-        )
-        .route(
-            "/revenue-recognition/contracts/:contract_id/recognize",
-            post(recognise_revenue),
-        )
-        .route(
-            "/revenue-recognition/contracts/:company_id",
-            get(company_revenue_contracts),
-        )
-        .route(
-            "/revenue-recognition/summary/:company_id",
-            get(company_revenue_summary),
-        )
-        .route(
-            "/capital-reconstruction/reconstructions/create",
-            post(create_reconstruction),
-        )
+        .route("/fund-accounting/transactions/:fund_id", get(fund_movements))
+        .route("/revenue-recognition/contracts", post(create_revenue_contract))
+        .route("/revenue-recognition/contracts/:contract_id/recognize", post(recognise_revenue))
+        .route("/revenue-recognition/contracts/:company_id", get(company_revenue_contracts))
+        .route("/revenue-recognition/summary/:company_id", get(company_revenue_summary))
+        .route("/capital-reconstruction/reconstructions/create", post(create_reconstruction))
         .route(
             "/capital-reconstruction/reconstructions/:reconstruction_id/adjustments/add",
             post(add_reconstruction_adjustment),
@@ -7837,93 +8202,40 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/capital-reconstruction/reconstructions/:reconstruction_id/approve",
             post(approve_reconstruction),
         )
-        .route(
-            "/capital-reconstruction/reconstructions",
-            get(capital_reconstructions),
-        )
-        .route(
-            "/capital-reconstruction/reconstructions/:reconstruction_id",
-            get(reconstruction_scheme),
-        )
-        .route(
-            "/capital-reconstruction/summary/:company_id",
-            get(reconstruction_company_summary),
-        )
+        .route("/capital-reconstruction/reconstructions", get(capital_reconstructions))
+        .route("/capital-reconstruction/reconstructions/:reconstruction_id", get(reconstruction_scheme))
+        .route("/capital-reconstruction/summary/:company_id", get(reconstruction_company_summary))
         .route("/debentures/classes/create", post(create_debenture_class))
-        .route(
-            "/debentures/classes/:class_id/issue",
-            post(issue_debentures),
-        )
-        .route(
-            "/debentures/classes/:class_id/interest/accrue",
-            post(accrue_debenture_interest),
-        )
-        .route(
-            "/debentures/interest/:interest_id/pay",
-            post(pay_debenture_interest),
-        )
-        .route(
-            "/debentures/classes/:class_id/redeem",
-            post(redeem_debentures),
-        )
+        .route("/debentures/classes/:class_id/issue", post(issue_debentures))
+        .route("/debentures/classes/:class_id/interest/accrue", post(accrue_debenture_interest))
+        .route("/debentures/interest/:interest_id/pay", post(pay_debenture_interest))
+        .route("/debentures/classes/:class_id/redeem", post(redeem_debentures))
         .route("/debentures/classes", get(debenture_classes))
         .route("/debentures/issues", get(debenture_issues))
         .route("/debentures/interest", get(debenture_interest))
         .route("/issued-share-capital/issue", post(issue_share_capital))
-        .route(
-            "/issued-share-capital/shareholders/register",
-            post(register_shareholder),
-        )
-        .route(
-            "/issued-share-capital/shareholders/:company_id",
-            get(company_shareholders),
-        )
-        .route(
-            "/issued-share-capital/issues/:company_id",
-            get(company_share_issues),
-        )
-        .route(
-            "/issued-share-capital/summary/:company_id",
-            get(issued_capital_summary),
-        )
+        .route("/issued-share-capital/shareholders/register", post(register_shareholder))
+        .route("/issued-share-capital/shareholders/:company_id", get(company_shareholders))
+        .route("/issued-share-capital/issues/:company_id", get(company_share_issues))
+        .route("/issued-share-capital/summary/:company_id", get(issued_capital_summary))
         .route("/initial-investment/create", post(create_investment))
         .route("/initial-investment/simple", post(simple_investment))
-        .route(
-            "/initial-investment/with-capital-allowance",
-            post(investment_with_capital_allowance),
-        )
+        .route("/initial-investment/with-capital-allowance", post(investment_with_capital_allowance))
         .route("/initial-investment/list", get(list_investments))
-        .route(
-            "/initial-investment/get/:investment_id",
-            get(get_investment),
-        )
-        .route(
-            "/share-redemption/redemptions/initiate",
-            post(initiate_redemption),
-        )
-        .route(
-            "/share-redemption/redemptions/:redemption_id/fresh-issue",
-            post(record_fresh_issue),
-        )
-        .route(
-            "/share-redemption/redemptions/:redemption_id/complete",
-            post(complete_redemption),
-        )
+        .route("/initial-investment/get/:investment_id", get(get_investment))
+        .route("/share-redemption/redemptions/initiate", post(initiate_redemption))
+        .route("/share-redemption/redemptions/:redemption_id/fresh-issue", post(record_fresh_issue))
+        .route("/share-redemption/redemptions/:redemption_id/complete", post(complete_redemption))
         .route("/share-redemption/redemptions", get(list_share_redemptions))
-        .route(
-            "/share-redemption/redemptions/:redemption_id",
-            get(share_redemption_detail),
-        )
+        .route("/share-redemption/redemptions/:redemption_id", get(share_redemption_detail))
         .route("/share-redemption/crr-requirements", get(crr_requirements))
-        .route("/records/departmental-accounting/departments", post(create_department))
-        .route("/records/departmental-accounting/departments", get(list_departments))
         .route(
-            "/records/departmental-accounting/departments/:department_id",
-            get(get_department),
+            "/records/departmental-accounting/departments",
+            get(list_departments).post(create_department),
         )
         .route(
             "/records/departmental-accounting/departments/:department_id",
-            put(update_department),
+            get(get_department).put(update_department),
         )
         .route(
             "/records/departmental-accounting/departments/:department_id/hierarchy",
@@ -7939,34 +8251,22 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/records/departmental-accounting/allocation-rules",
-            post(create_allocation_rule),
-        )
-        .route(
-            "/records/departmental-accounting/allocation-rules",
-            get(list_allocation_rules),
+            get(list_allocation_rules).post(create_allocation_rule),
         )
         .route(
             "/records/departmental-accounting/allocation-rules/:rule_id",
             delete(deactivate_allocation_rule),
         )
-        .route("/records/departmental-accounting/cost-pools", post(create_cost_pool))
-        .route("/records/departmental-accounting/cost-pools", get(list_cost_pools))
         .route(
-            "/records/departmental-accounting/cost-pools/:pool_id",
-            get(get_cost_pool),
+            "/records/departmental-accounting/cost-pools",
+            get(list_cost_pools).post(create_cost_pool),
         )
+        .route("/records/departmental-accounting/cost-pools/:pool_id", get(get_cost_pool))
         .route("/records/departmental-accounting/allocate", post(run_allocation))
-        .route(
-            "/records/departmental-accounting/allocations/:pool_id",
-            get(allocation_results),
-        )
+        .route("/records/departmental-accounting/allocations/:pool_id", get(allocation_results))
         .route(
             "/records/departmental-accounting/inter-department-bills",
-            post(create_inter_department_bill),
-        )
-        .route(
-            "/records/departmental-accounting/inter-department-bills",
-            get(list_inter_department_bills),
+            get(list_inter_department_bills).post(create_inter_department_bill),
         )
         .route(
             "/records/departmental-accounting/inter-department-bills/:bill_id/approve",
@@ -7976,49 +8276,35 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/records/departmental-accounting/reports/department-comparison",
             get(compare_departments).post(compare_departments),
         )
+        .route("/records/departmental-accounting/reports/cost-distribution", get(cost_distribution))
+        .route("/records/company-accounting/companies", get(list_companies).post(create_company))
         .route(
-            "/records/departmental-accounting/reports/cost-distribution",
-            get(cost_distribution),
-        )
-        .route("/records/company-accounting/companies", post(create_company))
-        .route("/records/company-accounting/companies", get(list_companies))
-        .route("/records/company-accounting/companies/:company_id", get(get_company))
-        .route("/records/company-accounting/companies/:company_id", put(update_company))
-        .route(
-            "/records/company-accounting/shareholders",
-            post(register_company_shareholder),
+            "/records/company-accounting/companies/:company_id",
+            get(get_company).put(update_company),
         )
         .route(
             "/records/company-accounting/shareholders",
-            get(list_company_shareholders),
+            get(list_company_shareholders).post(register_company_shareholder),
         )
-        .route("/records/company-accounting/share-capital", post(create_share_capital))
-        .route("/records/company-accounting/share-capital", get(list_share_capital))
+        .route(
+            "/records/company-accounting/share-capital",
+            get(list_share_capital).post(create_share_capital),
+        )
         .route(
             "/records/company-accounting/capital-transactions",
-            post(record_capital_transaction),
+            get(list_capital_transactions).post(record_capital_transaction),
         )
-        .route(
-            "/records/company-accounting/capital-transactions",
-            get(list_capital_transactions),
-        )
-        .route("/records/company-accounting/dividends", post(declare_dividend))
-        .route("/records/company-accounting/dividends", get(list_dividends))
-        .route(
-            "/records/company-accounting/dividends/:dividend_id/pay",
-            put(pay_dividend),
-        )
-        .route(
-            "/records/company-accounting/dividends/:dividend_id/payments",
-            get(dividend_payments),
-        )
+        .route("/records/company-accounting/dividends", get(list_dividends).post(declare_dividend))
+        .route("/records/company-accounting/dividends/:dividend_id/pay", put(pay_dividend))
+        .route("/records/company-accounting/dividends/:dividend_id/payments", get(dividend_payments))
         .route(
             "/records/company-accounting/retained-earnings",
-            post(record_retained_earnings),
+            get(retained_earnings).post(record_retained_earnings),
         )
-        .route("/records/company-accounting/retained-earnings", get(retained_earnings))
-        .route("/records/company-accounting/reserves", post(create_company_reserve))
-        .route("/records/company-accounting/reserves", get(company_reserves))
+        .route(
+            "/records/company-accounting/reserves",
+            get(company_reserves).post(create_company_reserve),
+        )
         .route(
             "/records/company-accounting/reports/equity-statement/:company_id",
             get(equity_statement),
@@ -8031,31 +8317,18 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/records/company-accounting/reports/dividend-history/:company_id",
             get(dividend_history),
         )
-        .route("/records/cashbook/accounts", post(create_cash_account))
-        .route("/records/cashbook/accounts", get(list_cash_accounts))
-        .route("/records/cashbook/accounts/:account_id", get(get_cash_account))
-        .route("/records/cashbook/accounts/:account_id", put(update_cash_account))
-        .route("/records/cashbook/entries", post(create_cash_entry))
-        .route("/records/cashbook/entries", get(list_cash_entries))
+        .route("/records/cashbook/accounts", get(list_cash_accounts).post(create_cash_account))
+        .route("/records/cashbook/accounts/:account_id", get(get_cash_account).put(update_cash_account))
+        .route("/records/cashbook/entries", get(list_cash_entries).post(create_cash_entry))
         .route("/records/cashbook/entries/:entry_id", get(get_cash_entry))
         .route("/records/cashbook/entries/:entry_id/post", put(post_cash_entry))
         .route("/records/cashbook/entries/:entry_id/void", put(void_cash_entry))
-        .route(
-            "/records/cashbook/summary/:account_code",
-            get(cashbook_summary),
-        )
+        .route("/records/cashbook/summary/:account_code", get(cashbook_summary))
         .route(
             "/records/cashbook/reconciliations",
-            post(create_cash_reconciliation),
+            get(list_cash_reconciliations).post(create_cash_reconciliation),
         )
-        .route(
-            "/records/cashbook/reconciliations",
-            get(list_cash_reconciliations),
-        )
-        .route(
-            "/records/cashbook/reconciliations/:reconciliation_id",
-            get(get_cash_reconciliation),
-        )
+        .route("/records/cashbook/reconciliations/:reconciliation_id", get(get_cash_reconciliation))
         .route(
             "/records/cashbook/reconciliations/:reconciliation_id/complete",
             put(complete_reconciliation),
@@ -8064,40 +8337,26 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/records/cashbook/reconciliations/:reconciliation_id/outstanding",
             get(cash_reconciliation_outstanding),
         )
-        .route("/records/cashbook/cash-flow", post(create_cash_flow_entry))
-        .route("/records/cashbook/cash-flow", get(list_cash_flow))
+        .route("/records/cashbook/cash-flow", get(list_cash_flow).post(create_cash_flow_entry))
         .route("/records/cashbook/cash-flow/summary", get(cash_flow_summary))
         .route("/records/cashbook/cash-position", get(cash_position))
         .route("/records/cashbook/cash-position/history", get(cash_position_history))
-        .route("/records/ifrs-reporting/reports", post(create_ifrs_report))
-        .route("/records/ifrs-reporting/reports", get(list_ifrs_reports))
+        .route("/records/ifrs-reporting/reports", get(list_ifrs_reports).post(create_ifrs_report))
         .route("/records/ifrs-reporting/reports/:report_id", get(get_ifrs_report))
         .route(
             "/records/ifrs-reporting/reports/:report_id/notes",
-            post(add_ifrs_note),
+            get(list_ifrs_notes).post(add_ifrs_note),
         )
+        .route("/records/ifrs-reporting/reports/:report_id/approve", put(approve_ifrs_report))
         .route(
-            "/records/ifrs-reporting/reports/:report_id/notes",
-            get(list_ifrs_notes),
-        )
-        .route(
-            "/records/ifrs-reporting/reports/:report_id/approve",
-            put(approve_ifrs_report),
-        )
-        .route("/records/intercompany/entities", post(create_intercompany_entity))
-        .route("/records/intercompany/entities", get(list_intercompany_entities))
-        .route(
-            "/records/intercompany/transactions",
-            post(create_intercompany_transaction),
+            "/records/intercompany/entities",
+            get(list_intercompany_entities).post(create_intercompany_entity),
         )
         .route(
             "/records/intercompany/transactions",
-            get(list_intercompany_transactions),
+            get(list_intercompany_transactions).post(create_intercompany_transaction),
         )
-        .route(
-            "/records/intercompany/transactions/match",
-            post(match_intercompany),
-        )
+        .route("/records/intercompany/transactions/match", post(match_intercompany))
         .route("/records/intercompany/eliminations", get(list_eliminations))
         .route("/records/cash-flow/create", post(create_cash_flow))
         .route("/records/cash-flow/inflows", post(cash_flow_inflows))
@@ -8108,41 +8367,17 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/records/cash-flow/get/:cash_flow_id", get(get_cash_flow))
         .route("/records/balance-sheet/generate", post(generate_balance_sheet))
         .route("/records/balance-sheet/latest/:company_id", get(latest_balance_sheet))
-        .route(
-            "/records/balance-sheet/history/:company_id",
-            get(balance_sheet_history),
-        )
-        .route(
-            "/records/balance-sheet/ratios/:company_id",
-            get(balance_sheet_ratios),
-        )
+        .route("/records/balance-sheet/history/:company_id", get(balance_sheet_history))
+        .route("/records/balance-sheet/ratios/:company_id", get(balance_sheet_ratios))
         .route("/records/fund-accounting/funds", post(create_fund))
         .route("/records/fund-accounting/funds/:company_id", get(company_funds))
         .route("/records/fund-accounting/transactions", post(record_fund_movement))
-        .route(
-            "/records/fund-accounting/transactions/:fund_id",
-            get(fund_movements),
-        )
-        .route(
-            "/records/revenue-recognition/contracts",
-            post(create_revenue_contract),
-        )
-        .route(
-            "/records/revenue-recognition/contracts/:contract_id/recognize",
-            post(recognise_revenue),
-        )
-        .route(
-            "/records/revenue-recognition/contracts/:company_id",
-            get(company_revenue_contracts),
-        )
-        .route(
-            "/records/revenue-recognition/summary/:company_id",
-            get(company_revenue_summary),
-        )
-        .route(
-            "/records/capital-reconstruction/reconstructions/create",
-            post(create_reconstruction),
-        )
+        .route("/records/fund-accounting/transactions/:fund_id", get(fund_movements))
+        .route("/records/revenue-recognition/contracts", post(create_revenue_contract))
+        .route("/records/revenue-recognition/contracts/:contract_id/recognize", post(recognise_revenue))
+        .route("/records/revenue-recognition/contracts/:company_id", get(company_revenue_contracts))
+        .route("/records/revenue-recognition/summary/:company_id", get(company_revenue_summary))
+        .route("/records/capital-reconstruction/reconstructions/create", post(create_reconstruction))
         .route(
             "/records/capital-reconstruction/reconstructions/:reconstruction_id/adjustments/add",
             post(add_reconstruction_adjustment),
@@ -8155,10 +8390,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/records/capital-reconstruction/reconstructions/:reconstruction_id/approve",
             post(approve_reconstruction),
         )
-        .route(
-            "/records/capital-reconstruction/reconstructions",
-            get(capital_reconstructions),
-        )
+        .route("/records/capital-reconstruction/reconstructions", get(capital_reconstructions))
         .route(
             "/records/capital-reconstruction/reconstructions/:reconstruction_id",
             get(reconstruction_scheme),
@@ -8167,70 +8399,28 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/records/capital-reconstruction/summary/:company_id",
             get(reconstruction_company_summary),
         )
-        .route(
-            "/records/debentures/classes/create",
-            post(create_debenture_class),
-        )
-        .route(
-            "/records/debentures/classes/:class_id/issue",
-            post(issue_debentures),
-        )
-        .route(
-            "/records/debentures/classes/:class_id/interest/accrue",
-            post(accrue_debenture_interest),
-        )
-        .route(
-            "/records/debentures/interest/:interest_id/pay",
-            post(pay_debenture_interest),
-        )
-        .route(
-            "/records/debentures/classes/:class_id/redeem",
-            post(redeem_debentures),
-        )
+        .route("/records/debentures/classes/create", post(create_debenture_class))
+        .route("/records/debentures/classes/:class_id/issue", post(issue_debentures))
+        .route("/records/debentures/classes/:class_id/interest/accrue", post(accrue_debenture_interest))
+        .route("/records/debentures/interest/:interest_id/pay", post(pay_debenture_interest))
+        .route("/records/debentures/classes/:class_id/redeem", post(redeem_debentures))
         .route("/records/debentures/classes", get(debenture_classes))
         .route("/records/debentures/issues", get(debenture_issues))
         .route("/records/debentures/interest", get(debenture_interest))
-        .route(
-            "/records/issued-share-capital/issue",
-            post(issue_share_capital),
-        )
-        .route(
-            "/records/issued-share-capital/shareholders/register",
-            post(register_shareholder),
-        )
-        .route(
-            "/records/issued-share-capital/shareholders/:company_id",
-            get(company_shareholders),
-        )
-        .route(
-            "/records/issued-share-capital/issues/:company_id",
-            get(company_share_issues),
-        )
-        .route(
-            "/records/issued-share-capital/summary/:company_id",
-            get(issued_capital_summary),
-        )
-        .route(
-            "/records/initial-investment/create",
-            post(create_investment),
-        )
-        .route(
-            "/records/initial-investment/simple",
-            post(simple_investment),
-        )
+        .route("/records/issued-share-capital/issue", post(issue_share_capital))
+        .route("/records/issued-share-capital/shareholders/register", post(register_shareholder))
+        .route("/records/issued-share-capital/shareholders/:company_id", get(company_shareholders))
+        .route("/records/issued-share-capital/issues/:company_id", get(company_share_issues))
+        .route("/records/issued-share-capital/summary/:company_id", get(issued_capital_summary))
+        .route("/records/initial-investment/create", post(create_investment))
+        .route("/records/initial-investment/simple", post(simple_investment))
         .route(
             "/records/initial-investment/with-capital-allowance",
             post(investment_with_capital_allowance),
         )
         .route("/records/initial-investment/list", get(list_investments))
-        .route(
-            "/records/initial-investment/get/:investment_id",
-            get(get_investment),
-        )
-        .route(
-            "/records/share-redemption/redemptions/initiate",
-            post(initiate_redemption),
-        )
+        .route("/records/initial-investment/get/:investment_id", get(get_investment))
+        .route("/records/share-redemption/redemptions/initiate", post(initiate_redemption))
         .route(
             "/records/share-redemption/redemptions/:redemption_id/fresh-issue",
             post(record_fresh_issue),
@@ -8239,81 +8429,27 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/records/share-redemption/redemptions/:redemption_id/complete",
             post(complete_redemption),
         )
-        .route(
-            "/records/share-redemption/redemptions",
-            get(list_share_redemptions),
-        )
-        .route(
-            "/records/share-redemption/redemptions/:redemption_id",
-            get(share_redemption_detail),
-        )
-        .route(
-            "/records/share-redemption/crr-requirements",
-            get(crr_requirements),
-        )
+        .route("/records/share-redemption/redemptions", get(list_share_redemptions))
+        .route("/records/share-redemption/redemptions/:redemption_id", get(share_redemption_detail))
+        .route("/records/share-redemption/crr-requirements", get(crr_requirements))
         .route("/share-premium/entries/record", post(record_share_premium))
         .route("/share-premium/entries", get(share_premium_entries))
-        .route(
-            "/share-premium/utilizations/record",
-            post(utilize_share_premium),
-        )
-        .route(
-            "/share-premium/utilizations",
-            get(share_premium_utilizations),
-        )
-        .route(
-            "/share-premium/adjustments/create",
-            post(adjust_share_premium),
-        )
-        .route(
-            "/share-premium/summary/:company_id",
-            get(share_premium_summary),
-        )
-        .route(
-            "/capital-redemption-reserve/redemptions/record",
-            post(record_redemption),
-        )
-        .route(
-            "/capital-redemption-reserve/redemptions",
-            get(list_redemptions),
-        )
-        .route(
-            "/capital-redemption-reserve/creations/create",
-            post(create_crr),
-        )
-        .route(
-            "/capital-redemption-reserve/creations",
-            get(list_crr_creations),
-        )
-        .route(
-            "/capital-redemption-reserve/utilizations/record",
-            post(utilize_crr),
-        )
-        .route(
-            "/capital-redemption-reserve/utilizations",
-            get(list_crr_utilizations),
-        )
-        .route(
-            "/capital-redemption-reserve/summary/:company_id",
-            get(crr_summary),
-        )
-        .route(
-            "/general-reserve/reserves",
-            get(reserves).post(create_reserve),
-        )
+        .route("/share-premium/utilizations/record", post(utilize_share_premium))
+        .route("/share-premium/utilizations", get(share_premium_utilizations))
+        .route("/share-premium/adjustments/create", post(adjust_share_premium))
+        .route("/share-premium/summary/:company_id", get(share_premium_summary))
+        .route("/capital-redemption-reserve/redemptions/record", post(record_redemption))
+        .route("/capital-redemption-reserve/redemptions", get(list_redemptions))
+        .route("/capital-redemption-reserve/creations/create", post(create_crr))
+        .route("/capital-redemption-reserve/creations", get(list_crr_creations))
+        .route("/capital-redemption-reserve/utilizations/record", post(utilize_crr))
+        .route("/capital-redemption-reserve/utilizations", get(list_crr_utilizations))
+        .route("/capital-redemption-reserve/summary/:company_id", get(crr_summary))
+        .route("/general-reserve/reserves", get(reserves).post(create_reserve))
         .route("/general-reserve/reserves/:reserve_id", get(one_reserve))
-        .route(
-            "/general-reserve/reserves/:reserve_id/allocate",
-            post(allocate_reserve),
-        )
-        .route(
-            "/general-reserve/reserves/:reserve_id/utilize",
-            post(utilize_reserve),
-        )
-        .route(
-            "/general-reserve/reserves/:reserve_id/history",
-            get(reserve_history),
-        )
+        .route("/general-reserve/reserves/:reserve_id/allocate", post(allocate_reserve))
+        .route("/general-reserve/reserves/:reserve_id/utilize", post(utilize_reserve))
+        .route("/general-reserve/reserves/:reserve_id/history", get(reserve_history))
         .route(
             "/retained-profits/appropriations",
             get(profit_appropriations).post(create_profit_appropriation),
@@ -8322,47 +8458,23 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/retained-profits/interim-dividends",
             get(interim_dividends).post(declare_interim_dividend),
         )
-        .route(
-            "/retained-profits/interim-dividends/:dividend_id/pay",
-            post(pay_interim_dividend),
-        )
+        .route("/retained-profits/interim-dividends/:dividend_id/pay", post(pay_interim_dividend))
         .route(
             "/retained-profits/adjustments",
             get(prior_year_adjustments).post(create_prior_year_adjustment),
         )
-        .route(
-            "/retained-profits/summary/:company_id",
-            get(retained_earnings_summary),
-        )
+        .route("/retained-profits/summary/:company_id", get(retained_earnings_summary))
         .route("/bonus-shares/issue", post(issue_bonus_shares))
         .route("/bonus-shares/issues", get(bonus_issues))
         .route("/right-issues/offer", post(offer_rights))
         .route("/right-issues/right-issues", get(right_issues))
         .route("/right-issues/right-issues/:issue_id", get(one_right_issue))
-        .route(
-            "/right-issues/right-issues/:issue_id/accept",
-            post(accept_rights),
-        )
-        .route(
-            "/right-issues/right-issues/:issue_id/renounce",
-            post(renounce_rights),
-        )
-        .route(
-            "/ordinary-shares/dividends",
-            get(ordinary_dividends).post(declare_ordinary_dividend),
-        )
-        .route(
-            "/ordinary-shares/dividends/:dividend_id/pay",
-            post(pay_ordinary_dividend),
-        )
-        .route(
-            "/preference-shares/classes",
-            get(preference_classes).post(create_preference_class),
-        )
-        .route(
-            "/preference-shares/classes/:class_id/issue",
-            post(issue_preference_shares),
-        )
+        .route("/right-issues/right-issues/:issue_id/accept", post(accept_rights))
+        .route("/right-issues/right-issues/:issue_id/renounce", post(renounce_rights))
+        .route("/ordinary-shares/dividends", get(ordinary_dividends).post(declare_ordinary_dividend))
+        .route("/ordinary-shares/dividends/:dividend_id/pay", post(pay_ordinary_dividend))
+        .route("/preference-shares/classes", get(preference_classes).post(create_preference_class))
+        .route("/preference-shares/classes/:class_id/issue", post(issue_preference_shares))
         .route(
             "/preference-shares/classes/:class_id/dividends/declare",
             post(declare_preference_dividend),
@@ -8371,64 +8483,25 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/preference-shares/classes/:class_id/dividends/:dividend_id/pay",
             post(pay_preference_dividend),
         )
-        .route(
-            "/preference-shares/classes/:class_id/redeem",
-            post(redeem_preference_shares),
-        )
+        .route("/preference-shares/classes/:class_id/redeem", post(redeem_preference_shares))
         .route("/preference-shares/dividends", get(preference_dividends))
-        .route(
-            "/authorized-share-capital/share-classes",
-            get(share_classes).post(create_share_class),
-        )
-        .route(
-            "/authorized-share-capital/share-classes/:class_id",
-            get(one_share_class),
-        )
-        .route(
-            "/authorized-share-capital/share-classes/:class_id/issue",
-            post(issue_class_shares),
-        )
-        .route(
-            "/authorized-share-capital/share-classes/:class_id/issuances",
-            get(class_issuances),
-        )
-        .route(
-            "/authorized-share-capital/share-classes/:class_id/buyback",
-            post(buyback_class_shares),
-        )
-        .route(
-            "/authorized-share-capital/summary",
-            get(share_capital_summary),
-        )
-        .route(
-            "/disposal-group/groups",
-            get(disposal_groups).post(create_disposal_group),
-        )
+        .route("/authorized-share-capital/share-classes", get(share_classes).post(create_share_class))
+        .route("/authorized-share-capital/share-classes/:class_id", get(one_share_class))
+        .route("/authorized-share-capital/share-classes/:class_id/issue", post(issue_class_shares))
+        .route("/authorized-share-capital/share-classes/:class_id/issuances", get(class_issuances))
+        .route("/authorized-share-capital/share-classes/:class_id/buyback", post(buyback_class_shares))
+        .route("/authorized-share-capital/summary", get(share_capital_summary))
+        .route("/disposal-group/groups", get(disposal_groups).post(create_disposal_group))
         .route("/disposal-group/groups/:group_id", get(one_disposal_group))
-        .route(
-            "/disposal-group/groups/:group_id/assets",
-            get(disposal_assets).post(add_disposal_asset),
-        )
-        .route(
-            "/disposal-group/groups/:group_id/impairment-test",
-            post(disposal_impairment_test),
-        )
-        .route(
-            "/disposal-group/groups/:group_id/status",
-            put(disposal_group_status),
-        )
+        .route("/disposal-group/groups/:group_id/assets", get(disposal_assets).post(add_disposal_asset))
+        .route("/disposal-group/groups/:group_id/impairment-test", post(disposal_impairment_test))
+        .route("/disposal-group/groups/:group_id/status", put(disposal_group_status))
         .route(
             "/lease-termination/terminations",
             get(lease_terminations).post(create_lease_termination),
         )
-        .route(
-            "/lease-termination/terminations/:termination_id",
-            get(one_lease_termination),
-        )
-        .route(
-            "/lease-termination/terminations/:termination_id/settlement",
-            post(lease_settlement),
-        )
+        .route("/lease-termination/terminations/:termination_id", get(one_lease_termination))
+        .route("/lease-termination/terminations/:termination_id/settlement", post(lease_settlement))
         .route(
             "/lease-termination/terminations/:termination_id/approve",
             put(approve_lease_termination),
@@ -8437,93 +8510,36 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/lease-termination/terminations/:termination_id/complete",
             put(complete_lease_termination),
         )
-        .route(
-            "/intangible-assets/assets",
-            get(intangibles).post(create_intangible),
-        )
+        .route("/intangible-assets/assets", get(intangibles).post(create_intangible))
         .route("/intangible-assets/assets/:asset_id", get(one_intangible))
-        .route(
-            "/intangible-assets/assets/:asset_id/amortize",
-            post(amortize_intangible),
-        )
-        .route(
-            "/intangible-assets/assets/:asset_id/amortization",
-            get(intangible_amortization),
-        )
-        .route(
-            "/revaluation-reserve/revaluations/record",
-            post(record_asset_revaluation),
-        )
-        .route(
-            "/revaluation-reserve/utilizations/record",
-            post(record_reserve_utilization),
-        )
+        .route("/intangible-assets/assets/:asset_id/amortize", post(amortize_intangible))
+        .route("/intangible-assets/assets/:asset_id/amortization", get(intangible_amortization))
+        .route("/revaluation-reserve/revaluations/record", post(record_asset_revaluation))
+        .route("/revaluation-reserve/utilizations/record", post(record_reserve_utilization))
         .route("/revaluation-reserve/revaluations", get(revaluations))
-        .route(
-            "/revaluation-reserve/cumulative/:asset_id",
-            get(cumulative_revaluation),
-        )
-        .route(
-            "/revaluation-reserve/summary/:company_id",
-            get(revaluation_summary),
-        )
+        .route("/revaluation-reserve/cumulative/:asset_id", get(cumulative_revaluation))
+        .route("/revaluation-reserve/summary/:company_id", get(revaluation_summary))
         .route("/insurance-claims/file", post(file_claim))
         .route("/insurance-claims/claims", get(insurance_claims))
-        .route(
-            "/insurance-claims/claims/:claim_id/process",
-            post(process_insurance_claim),
-        )
+        .route("/insurance-claims/claims/:claim_id/process", post(process_insurance_claim))
         .route("/treasury-analytics/analyze", post(analyze_treasury))
         .route("/treasury-analytics/kpi/:company_id", get(treasury_kpi))
-        .route(
-            "/cash-flow-statement/generate",
-            post(generate_cash_flow_statement),
-        )
-        .route(
-            "/cash-flow-statement/latest/:company_id",
-            get(latest_cash_flow_statement),
-        )
-        .route(
-            "/cash-flow-statement/history/:company_id",
-            get(cash_flow_statement_history),
-        )
-        .route(
-            "/equity-changes/transactions",
-            post(record_equity_transaction),
-        )
-        .route(
-            "/equity-changes/transactions/:company_id",
-            get(company_equity_transactions),
-        )
+        .route("/cash-flow-statement/generate", post(generate_cash_flow_statement))
+        .route("/cash-flow-statement/latest/:company_id", get(latest_cash_flow_statement))
+        .route("/cash-flow-statement/history/:company_id", get(cash_flow_statement_history))
+        .route("/equity-changes/transactions", post(record_equity_transaction))
+        .route("/equity-changes/transactions/:company_id", get(company_equity_transactions))
         .route("/equity-changes/statement", post(generate_equity_statement))
-        .route(
-            "/equity-changes/statements/:company_id",
-            get(company_equity_statements),
-        )
+        .route("/equity-changes/statements/:company_id", get(company_equity_statements))
         .route("/cash-optimization/accounts", post(add_cash_account))
-        .route(
-            "/cash-optimization/accounts/:company_id",
-            get(company_cash_accounts),
-        )
-        .route(
-            "/cash-optimization/optimize/:company_id",
-            post(run_cash_optimization),
-        )
-        .route(
-            "/cash-optimization/suggestions/:company_id",
-            get(company_cash_suggestions),
-        )
+        .route("/cash-optimization/accounts/:company_id", get(company_cash_accounts))
+        .route("/cash-optimization/optimize/:company_id", post(run_cash_optimization))
+        .route("/cash-optimization/suggestions/:company_id", get(company_cash_suggestions))
         .route("/trading-account/generate", post(generate_trading_account))
         .route("/trading-account/accounts", get(list_trading_accounts))
-        .route(
-            "/trading-account/accounts/:account_id",
-            get(get_trading_account),
-        )
+        .route("/trading-account/accounts/:account_id", get(get_trading_account))
         .route("/selling-price-reduction/analyze", post(price_analysis))
-        .route(
-            "/selling-price-reduction/discount-analysis",
-            post(price_discount_analysis),
-        )
+        .route("/selling-price-reduction/discount-analysis", post(price_discount_analysis))
         .route("/selling-price-reduction/analyses", get(price_analyses))
         .route("/cvp-analysis/analyze", post(cvp_analysis))
         .route("/cvp-analysis/quick-analysis", post(cvp_quick_analysis))
@@ -8531,10 +8547,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/cvp-analysis/target-profit", post(cvp_target_profit))
         .route("/cvp-analysis/multi-product", post(cvp_multi_product))
         .route("/cvp-analysis/analyses", get(cvp_analyses))
-        .route(
-            "/cvp-analysis/analyses/:analysis_id",
-            get(cvp_analysis_by_id),
-        )
+        .route("/cvp-analysis/analyses/:analysis_id", get(cvp_analysis_by_id))
         .route("/overhead-absorption/calculate", post(overhead_rate))
         .route(
             "/overhead-absorption/machine-hours-rate",
@@ -8584,14 +8597,8 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
                 },
             ),
         )
-        .route(
-            "/overhead-absorption/blanket-rate",
-            post(overhead_blanket_rate),
-        )
-        .route(
-            "/overhead-absorption/absorbed-overhead",
-            post(overhead_absorbed),
-        )
+        .route("/overhead-absorption/blanket-rate", post(overhead_blanket_rate))
+        .route("/overhead-absorption/absorbed-overhead", post(overhead_absorbed))
         .route("/overhead-absorption/rates", get(overhead_rates))
         .route("/overhead-absorption/analyses", get(overhead_analyses))
         .route("/apportionment/rules/create", post(apportionment_rule))
@@ -8654,41 +8661,39 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         )
         .route("/apportionment/results", get(apportionment_results))
         .route("/process-costing/calculate", post(cost_calculation))
-        .route(
-            "/process-costing/calculations/:company_id",
-            get(company_cost_calculations),
-        )
-        .route(
-            "/process-costing/breakdown/:company_id/:calc_id",
-            get(cost_breakdown),
-        )
+        .route("/process-costing/calculations/:company_id", get(company_cost_calculations))
+        .route("/process-costing/breakdown/:company_id/:calc_id", get(cost_breakdown))
         .route("/process-costing/summary/:company_id", get(cost_summary))
         .route("/product-costing/calculate", post(cost_calculation))
-        .route(
-            "/product-costing/calculations/:company_id",
-            get(company_cost_calculations),
-        )
-        .route(
-            "/product-costing/breakdown/:company_id/:calc_id",
-            get(cost_breakdown),
-        )
+        .route("/product-costing/calculations/:company_id", get(company_cost_calculations))
+        .route("/product-costing/breakdown/:company_id/:calc_id", get(cost_breakdown))
         .route("/product-costing/summary/:company_id", get(cost_summary))
+        .route("/appropriation-control/appropriations", post(create_appropriation))
+        .route("/appropriation-control/appropriations/:company_id", get(company_appropriations))
+        .route("/appropriation-control/transactions", post(appropriation_transaction))
+        .route("/appropriation-control/check/:appropriation_id", get(appropriation_check))
+        .route("/forecasts", get(rolling_forecasts).post(open_rolling_forecast))
+        .route("/forecasts/:forecast_id", get(one_rolling_forecast))
+        .route("/forecasts/:forecast_id/update-actual", post(record_forecast_actual))
+        .route("/forecasts/:forecast_id/roll", post(roll_forecast))
+        .route("/scenario-analysis/analyze", post(analyze_scenarios))
+        .route("/scenario-analysis/scenarios", post(open_scenario))
+        .route("/scenario-analysis/scenarios/:company_id", get(scenarios_for_company))
+        .route("/scenario-analysis/compare/:company_id", get(compare_scenarios))
+        .route("/sensitivity-analysis/analyze", post(run_sensitivity))
+        .route("/sensitivity-analysis/analyses/:company_id", get(sensitivity_analyses))
+        .route("/scenario-modeling/scenarios", get(model_scenarios).post(open_model_scenario))
         .route(
-            "/appropriation-control/appropriations",
-            post(create_appropriation),
+            "/scenario-modeling/scenarios/:scenario_id",
+            get(one_model_scenario).put(change_model_scenario).delete(drop_model_scenario),
         )
-        .route(
-            "/appropriation-control/appropriations/:company_id",
-            get(company_appropriations),
-        )
-        .route(
-            "/appropriation-control/transactions",
-            post(appropriation_transaction),
-        )
-        .route(
-            "/appropriation-control/check/:appropriation_id",
-            get(appropriation_check),
-        )
+        .route("/scenario-modeling/rules", get(model_rules).post(open_rule))
+        .route("/scenario-modeling/rules/:rule_id", get(one_rule).put(change_rule).delete(drop_rule))
+        .route("/scenario-modeling/what-if", post(run_what_if))
+        .route("/scenario-modeling/what-if/:analysis_id", get(one_what_if))
+        .route("/scenario-modeling/what-if/scenario/:scenario_id", get(what_if_for_scenario))
+        .route("/scenario-modeling/sensitivity", post(run_model_sweep))
+        .route("/scenario-modeling/compare", post(compare_model_scenarios))
         .with_state(graph)
 }
 

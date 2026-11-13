@@ -12,8 +12,9 @@
 //! call. The base profit is now the base revenue less the base expenses, which
 //! is what the comparison plainly meant.
 
+use crate::figures::r2;
 use serde::{Deserialize, Serialize};
-use vimbai_common::{py_round, Money};
+use vimbai_common::Money;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Rate {
@@ -38,10 +39,6 @@ impl Rate {
             }
         }
     }
-}
-
-fn r2(value: f64) -> f64 {
-    py_round(value, 2)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

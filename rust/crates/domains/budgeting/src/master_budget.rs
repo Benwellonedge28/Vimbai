@@ -20,20 +20,12 @@
 //!   shape rather than a model - and its optimistic and pessimistic arms bend revenue and expenses in opposite
 //!   directions, which is the only part that can be read as a scenario.
 
+use crate::figures::{amount, hundred, rounded};
 use serde_json::{json, Value};
 
 use vimbai_common::Money;
 use vimbai_store::read::{decimal, field, optional, refused, text};
 use vimbai_store::StoreError;
-
-fn amount(payload: &Value, key: &str) -> Result<Money, StoreError> {
-    Money::parse(&decimal(payload, key, "0"))
-        .map_err(|_| refused(&format!("{key} must be an amount")))
-}
-
-fn hundred() -> Money {
-    Money::parse("100").unwrap_or_else(|_| Money::zero())
-}
 
 fn five() -> Money {
     Money::parse("5").unwrap_or_else(|_| Money::zero())
@@ -52,10 +44,6 @@ fn percent(part: &Money, whole: &Money) -> Money {
     }
 }
 
-fn rounded(value: &Money) -> Value {
-    json!(value.round(2).to_fixed(2))
-}
-
 fn on_track(when_percent: &Money) -> &'static str {
     let size = if when_percent.is_negative() {
         when_percent.abs()
@@ -71,9 +59,9 @@ fn on_track(when_percent: &Money) -> &'static str {
 
 /// `POST /prepare`: the summary line above the detail.
 pub fn prepare(payload: &Value) -> Result<Value, StoreError> {
-    let revenue = amount(payload, "revenue")?;
-    let cogs = amount(payload, "cogs")?;
-    let opex = amount(payload, "opex")?;
+    let revenue = amount(payload, "revenue", "0")?;
+    let cogs = amount(payload, "cogs", "0")?;
+    let opex = amount(payload, "opex", "0")?;
     let gross_profit = revenue.minus(&cogs);
     let ebitda = gross_profit.minus(&opex);
 
@@ -145,8 +133,8 @@ pub fn create_budget(payload: &Value) -> Result<Value, StoreError> {
 
 /// `POST /monitor`: one line, measured.
 pub fn monitor(payload: &Value) -> Result<Value, StoreError> {
-    let budget = amount(payload, "budget")?;
-    let actual = amount(payload, "actual")?;
+    let budget = amount(payload, "budget", "0")?;
+    let actual = amount(payload, "actual", "0")?;
     let variance = actual.minus(&budget);
     let pct = percent(&variance, &budget);
 

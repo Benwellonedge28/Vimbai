@@ -11,8 +11,8 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 67
-still Python             71
+already on a Rust engine 71
+still Python             67
 owner domains            28
 ```
 
@@ -134,10 +134,10 @@ Lands in `rust/crates/domains/budgeting`.
 service                                         port  routes  records  engine
 activity-based-budget-service                   8177       8      yes  python
 appropriation-control-service                   8015       5      yes  rust
-rolling-forecast-service                        8173       7      yes  python
-scenario-analysis-service                       8121       6      yes  python
-scenario-modeling-service                       8122      17      yes  python
-sensitivity-analysis-service                    8124       3      yes  python
+rolling-forecast-service                        8173       7      yes  rust
+scenario-analysis-service                       8121       6      yes  rust
+scenario-modeling-service                       8122      17      yes  rust
+sensitivity-analysis-service                    8124       3      yes  rust
 zero-based-budgeting-service                    8143       7      yes  rust
 ```
 
