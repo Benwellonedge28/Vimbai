@@ -80,6 +80,11 @@ DOMAINS = {
         "each person's inbox, their preferences and the templates behind a notice",
         "rust/crates/platform/notifications",
     ),
+    "admin": (
+        "the feature catalogue and each caller's own view of it, organisation configuration, rollouts, requests and"
+        " the audit trail",
+        "rust/crates/platform/admin",
+    ),
     "alerts": (
         "the rules a Book watches, and the alerts they raise",
         "rust/crates/platform/alerts",
@@ -298,7 +303,7 @@ OWNERS = {
     "webhook-service": "webhooks",
     "calculation-api": "calculations",
     "realtime-calculation-engine": "calculations",
-    "admin-service": "platform",
+    "admin-service": "admin",
     "alerts-service": "alerts",
     "book-sync-service": "sync",
     "cache-service": "cache",

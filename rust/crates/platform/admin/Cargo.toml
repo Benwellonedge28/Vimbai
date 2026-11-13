@@ -1,0 +1,11 @@
+[package]
+name = "vimbai_service_admin"
+version = "0.1.0"
+edition = "2021"
+description = "Feature flags, rollout schedules, configuration, feature requests and the audit trail"
+license = "MIT"
+
+[dependencies]
+serde_json = { workspace = true }
+vimbai_common = { path = "../../common" }
+vimbai_store = { path = "../../adapters/database" }

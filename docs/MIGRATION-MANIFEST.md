@@ -11,9 +11,9 @@ row says `rust`; everything else is still Python and carries the gate it has to 
 
 ```
 routed services          138
-already on a Rust engine 133
-still Python             5
-owner domains            38
+already on a Rust engine 134
+still Python             4
+owner domains            39
 ```
 
 ## accounting
@@ -37,6 +37,19 @@ ifrs-reporting-service                          8268       8      yes  rust
 intercompany-service                            8350       8      yes  rust
 revenue-recognition-service                     8115       5      yes  rust
 trading-account-service                         8000       5      yes  rust
+```
+
+Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
+
+## admin
+
+_the feature catalogue and each caller's own view of it, organisation configuration, rollouts, requests and the audit trail_
+
+Lands in `rust/crates/platform/admin`.
+
+```
+service                                         port  routes  records  engine
+admin-service                                   8099      27      yes  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -483,7 +496,6 @@ Lands in `rust/crates/platform`.
 
 ```
 service                                         port  routes  records  engine
-admin-service                                   8099      27      yes  python
 websocket-service                               8141       4       no  python
 ```
 

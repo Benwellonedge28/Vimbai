@@ -545,6 +545,33 @@ xbrl-reporting-service
   property list on the instance, the same shape journal lines and report rows already use. Routes:
   /workflow-definitions (+ /{id}, /{id}/start) and /workflow-instances (+ /{id}, /{id}/complete), all new.
 
+- admin-service -> admin crate (platform shelf), records on the store: each caller's own feature overrides,
+  organisation feature configuration, rollout schedules, feature requests, configuration overrides and the audit trail.
+  The catalogue itself is DATA, not code: `seeds.json` was lifted out of the shipped `catalog.py` field for field - 28
+  features, 3 dependency rules, 8 configuration defaults, 9 service-health rows - and is compiled in, because the shipped
+  service never let anyone edit it either. Merging is per named field, so a status change does not disturb an existing
+  rollout percentage or config. A feature that is not in the catalogue is missing rather than creatable: reading,
+  updating, enabling, scheduling and configuring one all answer 404. PINNED: an override belongs to the CALLER, so
+  switching a feature off switches it off for the person who asked and for nobody else (the shipped shared module-level
+  switches let any caller toggle a flag for everyone); an organisation keeps the moment it was FIRST enabled and does not
+  restamp it on a second enable, while disabling stamps when it stopped and is a zero share; the two shortcuts mean a
+  hundred and zero; a dependency is satisfied only when every feature it names is present and ENABLED - beta is not
+  enough - and the ones that are not are listed back; a rollout is cancelled by its own id OR by the FEATURE's id, which
+  is what the shipped store looked up; a feature request keeps the requester (held as req_user_id, presented as user_id,
+  because the requester is not the caller), is listed newest first and cut to the limit; a configuration value is
+  answered MASKED when marked sensitive and reading one by key hides it unless `include_sensitive` is asked for - no
+  shipped value is marked sensitive today, so the rule hides nothing yet and it is unit-tested directly rather than
+  through the catalogue; an audit entry names the ACTOR the caller states, not the caller (held as actor_user_id), and
+  the two feature shortcuts leave no entry behind, as shipped. Modelling points: a compiled default has no moment of its
+  own, so a default configuration value and a service-health row read as the moment the catalogue was consulted;
+  schedules stamp `scheduled_date` from the date the caller wrote, refusing a date the engine cannot read rather than
+  guessing. DIVERGENCE: `GET /features/categories` was UNREACHABLE in the shipped service - the parameterised
+  `GET /features/{feature_id}` was declared first and swallowed the word "categories", answering that no such feature
+  exists - so the categories answer at `/feature-categories`, and a test says so. Routes: /features (+ /{id}, /{id}/enable,
+  /{id}/disable, /{id}/dependencies), /feature-categories, /organizations/{org}/features (+ /{feature_id}, /enable,
+  /disable), /rollout-schedules (+ /{schedule_id}), /feature-requests (+ /{request_id}, /{request_id}/review), /config
+  (+ /{key}), /audit-logs, /services/health and /dashboard/stats, all new.
+
 - cache-service -> cache crate (platform shelf), records on the store: keyed entries with a life, a size limit, and
   the counts a cache keeps of itself. An entry is read before its moment and answers its value with how long is left;
   read after it, it is DROPPED and the read answers as a miss, so a stale value is never handed back. A hit marks the

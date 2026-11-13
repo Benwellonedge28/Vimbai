@@ -3,44 +3,8 @@ domain:
   name: platform
   responsibility: identity, events, caching, observability and storage
   target: rust/crates/platform
-  services: 2
+  services: 1
 services:
-- name: admin-service
-  domain: platform
-  target: rust/crates/platform
-  port: 8099
-  gateway_path: /admin
-  auth_required: true
-  engine: python
-  records: true
-  endpoints:
-  - GET /
-  - GET /features
-  - GET /features/{feature_id}
-  - PUT /features/{feature_id}
-  - POST /features/{feature_id}/enable
-  - POST /features/{feature_id}/disable
-  - GET /features/categories
-  - GET /organizations/{organization_id}/features
-  - PUT /organizations/{organization_id}/features/{feature_id}
-  - POST /organizations/{organization_id}/features/{feature_id}/enable
-  - POST /organizations/{organization_id}/features/{feature_id}/disable
-  - GET /features/{feature_id}/dependencies
-  - GET /rollout-schedules
-  - POST /rollout-schedules
-  - DELETE /rollout-schedules/{schedule_id}
-  - POST /feature-requests
-  - GET /feature-requests
-  - GET /feature-requests/{request_id}
-  - PUT /feature-requests/{request_id}/review
-  - DELETE /feature-requests/{request_id}
-  - GET /config
-  - GET /config/{key}
-  - PUT /config/{key}
-  - GET /audit-logs
-  - POST /audit-logs
-  - GET /services/health
-  - GET /dashboard/stats
 - name: websocket-service
   domain: platform
   target: rust/crates/platform

@@ -42,6 +42,7 @@ members = [
     "crates/platform/alerts",
     "crates/platform/notifications",
     "crates/platform/webhooks",
+    "crates/platform/admin",
     "crates/platform/cache",
     "crates/platform/access-control/rbac",
     "crates/platform/access-control/abac",

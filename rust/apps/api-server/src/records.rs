@@ -12176,6 +12176,445 @@ async fn get_pos_metrics(State(graph): GraphState, headers: HeaderMap) -> Respon
 }
 
 // ---------------------------------------------------------------------------
+// admin: the feature catalogue and each caller's own view of it, organisation configuration, rollout schedules,
+// feature requests, system configuration and the audit trail. The categories answer at /feature-categories because the
+// shipped /features/categories was swallowed by the parameterised feature route and never reached.
+// ---------------------------------------------------------------------------
+
+async fn get_features(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(admin::admin::features(graph.as_ref(), &scope, &asked))
+}
+
+async fn get_feature(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(feature_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(admin::admin::feature(graph.as_ref(), &scope, &feature_id))
+}
+
+async fn put_feature(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(feature_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(admin::admin::update_feature(
+        graph.as_ref(),
+        &scope,
+        &feature_id,
+        &asked,
+    ))
+}
+
+async fn post_feature_switch(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(feature_id): Path<String>,
+    payload: Option<Json<Value>>,
+    RawQuery(query): RawQuery,
+    turned_on: bool,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let _ = merged_request(payload, query.as_deref());
+    answer(admin::admin::set_feature_state(
+        graph.as_ref(),
+        &scope,
+        &feature_id,
+        turned_on,
+    ))
+}
+
+async fn post_feature_enable(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(feature_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    post_feature_switch(
+        State(graph),
+        headers,
+        Path(feature_id),
+        payload,
+        RawQuery(query),
+        true,
+    )
+    .await
+}
+
+async fn post_feature_disable(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(feature_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    post_feature_switch(
+        State(graph),
+        headers,
+        Path(feature_id),
+        payload,
+        RawQuery(query),
+        false,
+    )
+    .await
+}
+
+async fn get_feature_categories() -> Response {
+    answer(Ok(admin::admin::categories()))
+}
+
+async fn get_org_features(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(organization_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(admin::admin::organization_features(
+        graph.as_ref(),
+        &scope,
+        &organization_id,
+    ))
+}
+
+async fn put_org_feature(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((organization_id, feature_id)): Path<(String, String)>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    let enabled = matches!(asked.get("enabled"), Some(Value::Bool(true)))
+        || matches!(
+            asked.get("enabled").and_then(Value::as_str),
+            Some("true") | Some("1")
+        );
+    answer(admin::admin::set_org_feature(
+        graph.as_ref(),
+        &scope,
+        &organization_id,
+        &feature_id,
+        enabled,
+        &asked,
+    ))
+}
+
+async fn post_org_feature_switch(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((organization_id, feature_id)): Path<(String, String)>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+    turned_on: bool,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(admin::admin::set_org_feature(
+        graph.as_ref(),
+        &scope,
+        &organization_id,
+        &feature_id,
+        turned_on,
+        &asked,
+    ))
+}
+
+async fn post_org_feature_enable(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((organization_id, feature_id)): Path<(String, String)>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    post_org_feature_switch(
+        State(graph),
+        headers,
+        Path((organization_id, feature_id)),
+        RawQuery(query),
+        payload,
+        true,
+    )
+    .await
+}
+
+async fn post_org_feature_disable(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path((organization_id, feature_id)): Path<(String, String)>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    post_org_feature_switch(
+        State(graph),
+        headers,
+        Path((organization_id, feature_id)),
+        RawQuery(query),
+        payload,
+        false,
+    )
+    .await
+}
+
+async fn get_feature_dependencies(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(feature_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(admin::admin::dependencies(
+        graph.as_ref(),
+        &scope,
+        &feature_id,
+    ))
+}
+
+async fn get_rollout_schedules(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(admin::admin::schedules(graph.as_ref(), &scope, &asked))
+}
+
+async fn post_rollout_schedule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(admin::admin::schedule(graph.as_ref(), &scope, &asked))
+}
+
+async fn delete_rollout_schedule(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(schedule_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(admin::admin::cancel_schedule(
+        graph.as_ref(),
+        &scope,
+        &schedule_id,
+    ))
+}
+
+async fn post_feature_request(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(admin::admin::submit_request(graph.as_ref(), &scope, &asked))
+}
+
+async fn get_feature_requests(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(admin::admin::requests(graph.as_ref(), &scope, &asked))
+}
+
+async fn get_feature_request(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(request_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(admin::admin::request(graph.as_ref(), &scope, &request_id))
+}
+
+async fn put_feature_request_review(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(request_id): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(admin::admin::review_request(
+        graph.as_ref(),
+        &scope,
+        &request_id,
+        &asked,
+    ))
+}
+
+async fn delete_feature_request(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(request_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(admin::admin::withdraw_request(
+        graph.as_ref(),
+        &scope,
+        &request_id,
+    ))
+}
+
+async fn get_config(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(admin::admin::config(graph.as_ref(), &scope, &asked))
+}
+
+async fn get_config_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(key): Path<String>,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(admin::admin::config_entry(
+        graph.as_ref(),
+        &scope,
+        &key,
+        &asked,
+    ))
+}
+
+async fn put_config_entry(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(key): Path<String>,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(admin::admin::set_config(
+        graph.as_ref(),
+        &scope,
+        &key,
+        &asked,
+    ))
+}
+
+async fn get_audit_logs(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    answer(admin::admin::audit(graph.as_ref(), &scope, &asked))
+}
+
+async fn post_audit_log(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+    payload: Option<Json<Value>>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(payload, query.as_deref());
+    answer(admin::admin::create_audit(graph.as_ref(), &scope, &asked))
+}
+
+async fn get_services_health() -> Response {
+    answer(Ok(admin::admin::services_health()))
+}
+
+async fn get_admin_stats(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(admin::admin::stats(graph.as_ref(), &scope))
+}
+
+// ---------------------------------------------------------------------------
 // The GraphQL door: one POST body carrying a query, answered field by field.
 // ---------------------------------------------------------------------------
 
@@ -16616,6 +17055,61 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/reports/sales-summary", post(post_pos_sales_summary))
         .route("/integrations/:pos_type/webhook", post(post_pos_webhook))
         .route("/pos-metrics", get(get_pos_metrics))
+
+        // admin: the feature catalogue, organisation configuration, rollouts, requests, configuration and the trail
+        .route("/features", get(get_features))
+        .route("/feature-categories", get(get_feature_categories))
+        .route(
+            "/features/:feature_id",
+            get(get_feature).put(put_feature),
+        )
+        .route("/features/:feature_id/enable", post(post_feature_enable))
+        .route("/features/:feature_id/disable", post(post_feature_disable))
+        .route(
+            "/features/:feature_id/dependencies",
+            get(get_feature_dependencies),
+        )
+        .route("/organizations/:organization_id/features", get(get_org_features))
+        .route(
+            "/organizations/:organization_id/features/:feature_id",
+            put(put_org_feature),
+        )
+        .route(
+            "/organizations/:organization_id/features/:feature_id/enable",
+            post(post_org_feature_enable),
+        )
+        .route(
+            "/organizations/:organization_id/features/:feature_id/disable",
+            post(post_org_feature_disable),
+        )
+        .route(
+            "/rollout-schedules",
+            get(get_rollout_schedules).post(post_rollout_schedule),
+        )
+        .route(
+            "/rollout-schedules/:schedule_id",
+            delete(delete_rollout_schedule),
+        )
+        .route(
+            "/feature-requests",
+            get(get_feature_requests).post(post_feature_request),
+        )
+        .route(
+            "/feature-requests/:request_id",
+            get(get_feature_request).delete(delete_feature_request),
+        )
+        .route(
+            "/feature-requests/:request_id/review",
+            put(put_feature_request_review),
+        )
+        .route("/config", get(get_config))
+        .route(
+            "/config/:key",
+            get(get_config_entry).put(put_config_entry),
+        )
+        .route("/audit-logs", get(get_audit_logs).post(post_audit_log))
+        .route("/services/health", get(get_services_health))
+        .route("/dashboard/stats", get(get_admin_stats))
 
         // The GraphQL door
         .route("/graphql", post(post_graphql))

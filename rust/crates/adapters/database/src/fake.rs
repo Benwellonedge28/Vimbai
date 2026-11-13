@@ -292,8 +292,22 @@ impl Graph for MemoryGraph {
                 .unwrap_or_default());
         }
 
-        // a listing: the records under this label, newest first, capped by the stated limit
-        let mut rows = self.held(&book_id, &label);
+        // a listing: the records under this label, newest first, capped by the stated limit.
+        //
+        // The rows a listing answers are the ones the scoping above selected - a caller's own records, or, for a read
+        // that states no user, the Book's. Asking the Book for every row under the label instead would hand one person
+        // another person's records, which is the one thing the store exists to prevent, and would have made every
+        // isolation test that shared a Book pass while the isolation was absent.
+        let _ = &book_id;
+        let mut rows: Vec<Value> = {
+            let nodes = self
+                .nodes
+                .lock()
+                .expect("the memory graph is never poisoned");
+            mine.iter()
+                .map(|index| nodes[*index].props.clone())
+                .collect()
+        };
         let limit = params
             .get("limit")
             .and_then(Value::as_i64)
@@ -303,5 +317,76 @@ impl Graph for MemoryGraph {
             .into_iter()
             .map(|props| json!({ "x": props }))
             .collect())
+    }
+}
+
+#[cfg(test)]
+mod scoping_tests {
+    use super::*;
+    use crate::{BookScope, RecordKind, Records};
+    use serde_json::json;
+    use serde_json::Value;
+
+    const KIND: RecordKind = RecordKind::new("ScopedThing", "OWNS_SCOPED_THING");
+
+    fn listing(graph: &MemoryGraph, scope: &BookScope) -> Vec<Value> {
+        Records::new(graph, KIND)
+            .list(scope, 100)
+            .expect("a listing")
+    }
+
+    #[test]
+    fn a_listing_answers_the_callers_own_rows_and_not_somebody_elses() {
+        let graph = MemoryGraph::new();
+        let mine = BookScope::new("user-1", "book-1");
+        let theirs = BookScope::new("user-2", "book-1");
+        Records::new(&graph, KIND)
+            .create(&mine, &json!({"name": "mine"}))
+            .expect("written");
+        Records::new(&graph, KIND)
+            .create(&theirs, &json!({"name": "theirs"}))
+            .expect("written");
+
+        // two people in the SAME Book: each sees only their own row. A listing that answered the Book's rows would hand
+        // one person the other's records, which is the one thing the store exists to prevent
+        let mine_listed = listing(&graph, &mine);
+        let theirs_listed = listing(&graph, &theirs);
+        assert_eq!(mine_listed.len(), 1);
+        assert_eq!(theirs_listed.len(), 1);
+        assert_eq!(mine_listed[0]["name"], json!("mine"));
+        assert_eq!(theirs_listed[0]["name"], json!("theirs"));
+
+        // and one person in another Book sees nothing of either
+        assert!(listing(&graph, &BookScope::new("user-3", "book-2")).is_empty());
+    }
+
+    #[test]
+    fn a_read_that_states_no_user_answers_the_books_rows() {
+        // the one deliberate exception: a Book-keyed record set (see the shared module), where the Book owns the rows and
+        // the caller has already established membership
+        let graph = MemoryGraph::new();
+        Records::new(&graph, KIND)
+            .create(
+                &BookScope::new("user-1", "book-1"),
+                &json!({"name": "shared"}),
+            )
+            .expect("written");
+
+        let rows = graph
+            .run(
+                "MATCH (x:ScopedThing) WHERE x.book_id = $book_id RETURN x LIMIT $limit",
+                json!({"book_id": "book-1", "limit": 100}),
+            )
+            .expect("a listing");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["x"]["name"], json!("shared"));
+        // and another Book's rows are still not visible
+        let elsewhere = graph
+            .run(
+                "MATCH (x:ScopedThing) WHERE x.book_id = $book_id RETURN x LIMIT $limit",
+                json!({"book_id": "book-2", "limit": 100}),
+            )
+            .expect("a listing");
+        assert!(elsewhere.is_empty());
     }
 }

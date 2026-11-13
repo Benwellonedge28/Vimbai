@@ -105,6 +105,10 @@ domains:
 - name: notifications
   responsibility: each person's inbox, their preferences and the templates behind a notice
   target: rust/crates/platform/notifications
+- name: admin
+  responsibility: the feature catalogue and each caller's own view of it, organisation configuration,
+    rollouts, requests and the audit trail
+  target: rust/crates/platform/admin
 - name: alerts
   responsibility: the rules a Book watches, and the alerts they raise
   target: rust/crates/platform/alerts
@@ -216,12 +220,12 @@ services:
   - GET /budgets/{budget_id}
   - PUT /budgets/{budget_id}/approve
 - name: admin-service
-  domain: platform
-  target: rust/crates/platform
+  domain: admin
+  target: rust/crates/platform/admin
   port: 8099
   gateway_path: /admin
   auth_required: true
-  engine: python
+  engine: rust
   records: true
   endpoints:
   - GET /
