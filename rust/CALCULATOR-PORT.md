@@ -1640,6 +1640,14 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   The corporate-finance CI shard emptied out and is removed - same rule as ap-ar-expenses: a job with no service to test is
   not coverage, it is a green tick with nothing behind it.
 
+- Batch eleven, mixed domains: privacy-admin-dashboard, regulatory-compliance, sox-compliance (compliance),
+  data-warehouse, encrypted-backup, etl (data), benefits-admin (payroll), zero-trust-data (security) and webhook
+  (webhooks) are gone, all answered flat except the compliance three, which keep their prefix.
+
+  risk-assessment-service stays even though the engine answers it: tests/test_risk_services.py holds the canonical
+  contract suite for the whole risk family, and its dedup regression tests hang off the same service. Deleting the
+  directory would delete that suite with it, so the directory goes last, after the contract moves under the engine.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

@@ -214,10 +214,10 @@ Lands in `rust/crates/domains/compliance`.
 
 ```
 service                                         port  routes  records  engine
-privacy-admin-dashboard-service                 8003      10       no  rust
-regulatory-compliance-service                   8285       6      yes  rust
+privacy-admin-dashboard-service                 8099       0       no  rust
+regulatory-compliance-service                   8099       0       no  rust
 risk-assessment-service                         8117       6      yes  rust
-sox-compliance-service                          8286      10      yes  rust
+sox-compliance-service                          8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -251,9 +251,9 @@ Lands in `rust/crates/domains/data`.
 
 ```
 service                                         port  routes  records  engine
-data-warehouse-service                          8362       9      yes  rust
-encrypted-backup-service                        8006       8       no  rust
-etl-service                                     8363       7       no  rust
+data-warehouse-service                          8099       0       no  rust
+encrypted-backup-service                        8099       0       no  rust
+etl-service                                     8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -482,7 +482,7 @@ Lands in `rust/crates/domains/payroll`.
 
 ```
 service                                         port  routes  records  engine
-benefits-admin-service                          8360       8      yes  rust
+benefits-admin-service                          8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -527,7 +527,7 @@ Lands in `rust/crates/domains/security`.
 
 ```
 service                                         port  routes  records  engine
-zero-trust-data-service                         8002       9      yes  rust
+zero-trust-data-service                         8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -592,7 +592,7 @@ Lands in `rust/crates/platform/webhooks`.
 
 ```
 service                                         port  routes  records  engine
-webhook-service                                 8140       5      yes  rust
+webhook-service                                 8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

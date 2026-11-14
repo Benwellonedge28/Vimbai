@@ -8,17 +8,9 @@ services:
 - name: benefits-admin-service
   domain: payroll
   target: rust/crates/domains/payroll
-  port: 8360
+  port: 8099
   gateway_path: /benefits-admin
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /plans
-  - GET /plans
-  - POST /enroll
-  - GET /employee/{employee_id}/enrollments
-  - POST /leave/accrue
-  - GET /employee/{employee_id}/leave
+  records: false
+  endpoints: []

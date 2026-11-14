@@ -9,14 +9,9 @@ services:
 - name: webhook-service
   domain: webhooks
   target: rust/crates/platform/webhooks
-  port: 8140
+  port: 8099
   gateway_path: /webhook
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /endpoints
-  - GET /endpoints/{company_id}
-  - POST /dispatch/{company_id}
-  - GET /deliveries/{endpoint_id}
+  records: false
+  endpoints: []

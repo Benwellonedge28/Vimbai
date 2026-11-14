@@ -273,18 +273,18 @@ realtime-calculation-engine                  /realtime-calculation              
 
 ```text
 service                                      address                            eps  owns engine crate
-privacy-admin-dashboard-service              /privacy-admin-dashboard            10  -    rust   rust/crates/domains/compliance
-regulatory-compliance-service                /regulatory-compliance               6  recs rust   rust/crates/domains/compliance
+privacy-admin-dashboard-service              /privacy-admin-dashboard             0  -    rust   rust/crates/domains/compliance
+regulatory-compliance-service                /regulatory-compliance               0  -    rust   rust/crates/domains/compliance
 risk-assessment-service                      /risk-assessment                     6  recs rust   rust/crates/domains/compliance
-sox-compliance-service                       /sox-compliance                     10  recs rust   rust/crates/domains/compliance
+sox-compliance-service                       /sox-compliance                      0  -    rust   rust/crates/domains/compliance
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
 | `privacy-admin-dashboard-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `regulatory-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `regulatory-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `risk-assessment-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `sox-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `sox-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## costing — 9/9 on Rust
 
@@ -325,14 +325,14 @@ selling-price-reduction-service              /selling-price-reduction           
 
 ```text
 service                                      address                            eps  owns engine crate
-data-warehouse-service                       /data-warehouse                      9  recs rust   rust/crates/domains/data
-encrypted-backup-service                     /encrypted-backup                    8  -    rust   rust/crates/domains/data
-etl-service                                  /etl                                 7  -    rust   rust/crates/domains/data
+data-warehouse-service                       /data-warehouse                      0  -    rust   rust/crates/domains/data
+encrypted-backup-service                     /encrypted-backup                    0  -    rust   rust/crates/domains/data
+etl-service                                  /etl                                 0  -    rust   rust/crates/domains/data
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `data-warehouse-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `data-warehouse-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `encrypted-backup-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `etl-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
@@ -620,12 +620,12 @@ pos-integration-service                      /pos-integration                   
 
 ```text
 service                                      address                            eps  owns engine crate
-benefits-admin-service                       /benefits-admin                      8  recs rust   rust/crates/domains/payroll
+benefits-admin-service                       /benefits-admin                      0  -    rust   rust/crates/domains/payroll
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `benefits-admin-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `benefits-admin-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## receivables — 4/4 on Rust
 
@@ -677,12 +677,12 @@ reporting-service                            /reporting                         
 
 ```text
 service                                      address                            eps  owns engine crate
-zero-trust-data-service                      /zero-trust-data                     9  recs rust   rust/crates/domains/security
+zero-trust-data-service                      /zero-trust-data                     0  -    rust   rust/crates/domains/security
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `zero-trust-data-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `zero-trust-data-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## sync — 1/1 on Rust
 
@@ -763,12 +763,12 @@ treasury-risk-service                        /treasury-risk                     
 
 ```text
 service                                      address                            eps  owns engine crate
-webhook-service                              /webhook                             5  recs rust   rust/crates/platform/webhooks
+webhook-service                              /webhook                             0  -    rust   rust/crates/platform/webhooks
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `webhook-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `webhook-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## workflow — 2/2 on Rust
 

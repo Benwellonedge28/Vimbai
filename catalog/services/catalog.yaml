@@ -417,20 +417,12 @@ services:
 - name: benefits-admin-service
   domain: payroll
   target: rust/crates/domains/payroll
-  port: 8360
+  port: 8099
   gateway_path: /benefits-admin
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /plans
-  - GET /plans
-  - POST /enroll
-  - GET /employee/{employee_id}/enrollments
-  - POST /leave/accrue
-  - GET /employee/{employee_id}/leave
+  records: false
+  endpoints: []
 - name: biological-assets-service
   domain: assets
   target: rust/crates/domains/assets
@@ -683,21 +675,12 @@ services:
 - name: data-warehouse-service
   domain: data
   target: rust/crates/domains/data
-  port: 8362
+  port: 8099
   gateway_path: /data-warehouse
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /dimensions
-  - GET /dimensions
-  - POST /facts
-  - GET /facts
-  - POST /query
-  - POST /etl
-  - GET /etl
+  records: false
+  endpoints: []
 - name: debentures-service
   domain: equity
   target: rust/crates/domains/equity
@@ -823,20 +806,12 @@ services:
 - name: encrypted-backup-service
   domain: data
   target: rust/crates/domains/data
-  port: 8006
+  port: 8099
   gateway_path: /encrypted-backup
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /backup
-  - GET /backups
-  - GET /backups/{backup_id}
-  - POST /backup/{backup_id}/restore
-  - DELETE /backups/{backup_id}
-  - GET /restores
+  endpoints: []
 - name: equity-changes-service
   domain: equity
   target: rust/crates/domains/equity
@@ -849,19 +824,12 @@ services:
 - name: etl-service
   domain: data
   target: rust/crates/domains/data
-  port: 8363
+  port: 8099
   gateway_path: /etl
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /pipelines
-  - GET /pipelines
-  - GET /pipelines/{pipeline_id}
-  - POST /pipelines/{pipeline_id}/run
-  - DELETE /pipelines/{pipeline_id}
+  endpoints: []
 - name: expense-tracking-service
   domain: payables
   target: rust/crates/domains/payables
@@ -1421,22 +1389,12 @@ services:
 - name: privacy-admin-dashboard-service
   domain: compliance
   target: rust/crates/domains/compliance
-  port: 8003
+  port: 8099
   gateway_path: /privacy-admin-dashboard
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /requests
-  - GET /requests
-  - PUT /requests/{request_id}
-  - DELETE /requests/{request_id}
-  - POST /consent
-  - DELETE /consent/{consent_id}
-  - GET /consent/{email}
-  - GET /dashboard
+  endpoints: []
 - name: process-costing-service
   domain: costing
   target: rust/crates/domains/costing
@@ -1512,18 +1470,12 @@ services:
 - name: regulatory-compliance-service
   domain: compliance
   target: rust/crates/domains/compliance
-  port: 8285
+  port: 8099
   gateway_path: /regulatory-compliance
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /regulations
-  - GET /regulations
-  - POST /regulations/{reg_id}/update
-  - GET /dashboard
+  records: false
+  endpoints: []
 - name: report-automation-service
   domain: reporting
   target: rust/crates/domains/reporting
@@ -1715,22 +1667,12 @@ services:
 - name: sox-compliance-service
   domain: compliance
   target: rust/crates/domains/compliance
-  port: 8286
+  port: 8099
   gateway_path: /sox-compliance
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /controls
-  - GET /controls
-  - POST /controls/{control_id}/test
-  - GET /controls/{control_id}/tests
-  - POST /deficiencies
-  - GET /deficiencies
-  - PUT /deficiencies/{deficiency_id}
-  - GET /dashboard
+  records: false
+  endpoints: []
 - name: subscription-plans-service
   domain: invoicing
   target: rust/crates/domains/invoicing
@@ -1863,17 +1805,12 @@ services:
 - name: webhook-service
   domain: webhooks
   target: rust/crates/platform/webhooks
-  port: 8140
+  port: 8099
   gateway_path: /webhook
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /endpoints
-  - GET /endpoints/{company_id}
-  - POST /dispatch/{company_id}
-  - GET /deliveries/{endpoint_id}
+  records: false
+  endpoints: []
 - name: websocket-service
   domain: events
   target: rust/crates/platform/events
@@ -1909,21 +1846,12 @@ services:
 - name: zero-trust-data-service
   domain: security
   target: rust/crates/domains/security
-  port: 8002
+  port: 8099
   gateway_path: /zero-trust-data
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /policies
-  - GET /policies
-  - PUT /policies/{policy_id}
-  - DELETE /policies/{policy_id}
-  - POST /evaluate
-  - GET /attempts
-  - GET /attempts/user/{user_id}
+  records: false
+  endpoints: []
 - name: book-sync-service
   domain: sync
   target: rust/crates/platform/offline-sync

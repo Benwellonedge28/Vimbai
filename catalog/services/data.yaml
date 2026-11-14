@@ -8,51 +8,27 @@ services:
 - name: data-warehouse-service
   domain: data
   target: rust/crates/domains/data
-  port: 8362
+  port: 8099
   gateway_path: /data-warehouse
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /dimensions
-  - GET /dimensions
-  - POST /facts
-  - GET /facts
-  - POST /query
-  - POST /etl
-  - GET /etl
+  records: false
+  endpoints: []
 - name: encrypted-backup-service
   domain: data
   target: rust/crates/domains/data
-  port: 8006
+  port: 8099
   gateway_path: /encrypted-backup
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /backup
-  - GET /backups
-  - GET /backups/{backup_id}
-  - POST /backup/{backup_id}/restore
-  - DELETE /backups/{backup_id}
-  - GET /restores
+  endpoints: []
 - name: etl-service
   domain: data
   target: rust/crates/domains/data
-  port: 8363
+  port: 8099
   gateway_path: /etl
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /pipelines
-  - GET /pipelines
-  - GET /pipelines/{pipeline_id}
-  - POST /pipelines/{pipeline_id}/run
-  - DELETE /pipelines/{pipeline_id}
+  endpoints: []

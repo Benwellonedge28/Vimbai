@@ -38,35 +38,3 @@ def _patch_fake(pkg_name, fake_name):
     db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
 
 
-@pytest.fixture
-def webhook_client():
-    _patch_fake("webhook_service", "webhook_root_fake")
-    app = load_service("webhook-service").main.app
-    client = TestClient(app)
-    client.headers.update(_H)
-    return client
-
-
-class TestWebhook:
-    def test_health(self, webhook_client):
-        assert webhook_client.get("/").status_code == 200
-
-    def test_create_endpoint(self, webhook_client):
-        resp = webhook_client.post(
-            "/endpoints",
-            json={
-                "company_id": "comp-1",
-                "url": "https://example.com/webhook",
-                "events": ["invoice.created", "payment.received"],
-            },
-        )
-        assert resp.status_code == 200
-        assert "id" in resp.json()
-
-    def test_get_endpoints(self, webhook_client):
-        webhook_client.post("/endpoints", json={"company_id": "comp-2", "url": "https://test.com/hook"})
-        resp = webhook_client.get("/endpoints/comp-2")
-        assert resp.status_code == 200
-        assert resp.json()["total"] >= 1
-
-

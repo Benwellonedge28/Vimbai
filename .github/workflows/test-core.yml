@@ -38,19 +38,17 @@ jobs:
           - group: standalone-containers
             services: "identity-service accounting-service finance-service multimodal-pipeline-service workflow-service budget-service "
           - group: advanced-accounting
-            services: "revenue-recognition-service currency-service general-reserve-service data-warehouse-service subscription-plans-service intercompany-service "
+            services: "revenue-recognition-service currency-service general-reserve-service subscription-plans-service intercompany-service "
           - group: costing-budgeting
             services: "job-costing-service process-costing-service product-costing-service "
           - group: platform-automation
-            services: "automation-engine-service notifications-service webhook-service admin-service "
+            services: "automation-engine-service notifications-service admin-service "
           - group: platform-infrastructure
             services: "message-bus-service pos-integration-service "
           - group: risk-governance
             services: "risk-assessment-service "
           - group: statements-reporting
             services: "balance-sheet-service cash-flow-statement-service "
-          - group: tax-audit-investigation
-            services: "sox-compliance-service "
           - group: treasury-banking
             services: "treasury-compliance-service bank-feed-service "
 

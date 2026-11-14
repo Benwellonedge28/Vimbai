@@ -8,18 +8,9 @@ services:
 - name: zero-trust-data-service
   domain: security
   target: rust/crates/domains/security
-  port: 8002
+  port: 8099
   gateway_path: /zero-trust-data
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /policies
-  - GET /policies
-  - PUT /policies/{policy_id}
-  - DELETE /policies/{policy_id}
-  - POST /evaluate
-  - GET /attempts
-  - GET /attempts/user/{user_id}
+  records: false
+  endpoints: []

@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          64
+live and routed          55
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -28,7 +28,6 @@ Routed by the API gateway and deployed. These are the running product.
 `balance-sheet-service`
 `bank-feed-service`
 `basis-apportionment-service`
-`benefits-admin-service`
 `biological-assets-service`
 `book-sync-service`
 `cache-service`
@@ -39,13 +38,10 @@ Routed by the API gateway and deployed. These are the running product.
 `continue-shutdown-decision-service`
 `currency-service`
 `cvp-analysis-service`
-`data-warehouse-service`
 `departmental-accounting-service`
 `disposal-account-service`
 `distributed-workflow-orchestration-service`
 `document-service`
-`encrypted-backup-service`
-`etl-service`
 `fund-accounting-service`
 `general-reserve-service`
 `graphql-service`
@@ -65,24 +61,19 @@ Routed by the API gateway and deployed. These are the running product.
 `payment-gateway-service`
 `pos-integration-service`
 `preference-shares-service`
-`privacy-admin-dashboard-service`
 `process-costing-service`
 `product-costing-service`
 `provision-doubtful-debts-service`
-`regulatory-compliance-service`
 `retained-profits-service`
 `revenue-recognition-service`
 `risk-assessment-service`
 `selling-price-reduction-service`
-`sox-compliance-service`
 `subscription-plans-service`
 `trading-account-service`
 `treasury-analytics-service`
 `treasury-compliance-service`
-`webhook-service`
 `websocket-service`
 `workflow-service`
-`zero-trust-data-service`
 
 ## Retained source (retired from routing)
 

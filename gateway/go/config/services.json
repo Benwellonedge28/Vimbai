@@ -154,8 +154,8 @@
     {
       "name": "benefits-admin-service",
       "path": "/benefits-admin",
-      "url": "http://localhost:9006",
-      "port": 8360,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -290,8 +290,8 @@
     {
       "name": "data-warehouse-service",
       "path": "/data-warehouse",
-      "url": "http://localhost:9009",
-      "port": 8362,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -361,8 +361,8 @@
     {
       "name": "encrypted-backup-service",
       "path": "/encrypted-backup",
-      "url": "http://localhost:9013",
-      "port": 8006,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -377,8 +377,8 @@
     {
       "name": "etl-service",
       "path": "/etl",
-      "url": "http://localhost:9013",
-      "port": 8363,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -716,8 +716,8 @@
     {
       "name": "privacy-admin-dashboard-service",
       "path": "/privacy-admin-dashboard",
-      "url": "http://localhost:9008",
-      "port": 8003,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -772,8 +772,8 @@
     {
       "name": "regulatory-compliance-service",
       "path": "/regulatory-compliance",
-      "url": "http://localhost:9004",
-      "port": 8285,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -923,8 +923,8 @@
     {
       "name": "sox-compliance-service",
       "path": "/sox-compliance",
-      "url": "http://localhost:9004",
-      "port": 8286,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1027,8 +1027,8 @@
     {
       "name": "webhook-service",
       "path": "/webhook",
-      "url": "http://localhost:9008",
-      "port": 8140,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1058,8 +1058,8 @@
     {
       "name": "zero-trust-data-service",
       "path": "/zero-trust-data",
-      "url": "http://localhost:9013",
-      "port": 8002,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

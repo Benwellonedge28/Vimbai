@@ -8,37 +8,21 @@ services:
 - name: privacy-admin-dashboard-service
   domain: compliance
   target: rust/crates/domains/compliance
-  port: 8003
+  port: 8099
   gateway_path: /privacy-admin-dashboard
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /requests
-  - GET /requests
-  - PUT /requests/{request_id}
-  - DELETE /requests/{request_id}
-  - POST /consent
-  - DELETE /consent/{consent_id}
-  - GET /consent/{email}
-  - GET /dashboard
+  endpoints: []
 - name: regulatory-compliance-service
   domain: compliance
   target: rust/crates/domains/compliance
-  port: 8285
+  port: 8099
   gateway_path: /regulatory-compliance
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /regulations
-  - GET /regulations
-  - POST /regulations/{reg_id}/update
-  - GET /dashboard
+  records: false
+  endpoints: []
 - name: risk-assessment-service
   domain: compliance
   target: rust/crates/domains/compliance
@@ -57,19 +41,9 @@ services:
 - name: sox-compliance-service
   domain: compliance
   target: rust/crates/domains/compliance
-  port: 8286
+  port: 8099
   gateway_path: /sox-compliance
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /controls
-  - GET /controls
-  - POST /controls/{control_id}/test
-  - GET /controls/{control_id}/tests
-  - POST /deficiencies
-  - GET /deficiencies
-  - PUT /deficiencies/{deficiency_id}
-  - GET /dashboard
+  records: false
+  endpoints: []
