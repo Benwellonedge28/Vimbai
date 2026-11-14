@@ -33,11 +33,12 @@ use mfa::accounts::{
 use serde_json::{json, Value};
 use store::{PlatformRecords, RecordKind};
 
+use tenancy::organisation;
+
 use crate::records::GraphHandle;
 
 const ACCOUNT: RecordKind = RecordKind::new("Account", "OWNS_ACCOUNT");
 const ROLE: RecordKind = RecordKind::new("RoleDef", "OWNS_ROLE");
-const ORGANIZATION: RecordKind = RecordKind::new("Organization", "OWNS_ORGANIZATION");
 const AUDIT: RecordKind = RecordKind::new("AuditEntry", "OWNS_AUDIT_ENTRY");
 
 /// How long a refresh token is good for, as shipped.
@@ -63,6 +64,18 @@ fn secret() -> String {
     std::env::var("VIMBAI_JWT_SECRET")
         .or_else(|_| std::env::var("JWT_SECRET"))
         .unwrap_or_else(|_| "vimbai-development-secret".to_string())
+}
+
+/// A store refusal, answered the way this surface answers everything else.
+fn stored(refusal: store::StoreError) -> Response {
+    match refusal {
+        store::StoreError::NotFound => error(404, "Organization not found"),
+        store::StoreError::Forbidden(message) => error(403, &message),
+        store::StoreError::Invalid(message) => error(422, &message),
+        store::StoreError::Conflict(message) => error(409, &message),
+        store::StoreError::BadRequest(message) => error(400, &message),
+        other => error(502, &other.to_string()),
+    }
 }
 
 fn error(status: u16, message: &str) -> Response {
@@ -559,11 +572,23 @@ pub fn router(graph: GraphHandle) -> Router {
             )
             .route(
                 &format!("{prefix}/organizations"),
-                post(create_organization),
+                post(create_organization).get(list_organizations),
             )
             .route(
                 &format!("{prefix}/organizations/:org_id"),
                 get(get_organization),
+            )
+            .route(
+                &format!("{prefix}/organizations/:org_id/members"),
+                get(list_organization_members).post(add_organization_member),
+            )
+            .route(
+                &format!("{prefix}/organizations/:org_id/books"),
+                get(list_organization_books),
+            )
+            .route(
+                &format!("{prefix}/organizations/:org_id/books/:book_id"),
+                axum::routing::put(move_book_into_organization),
             )
             .route(&format!("{prefix}/token/refresh"), post(refresh_token))
             .route(&format!("{prefix}/token/revoke"), post(revoke_token))
@@ -1246,37 +1271,38 @@ async fn create_organization(
         Ok(caller) => caller,
         Err(response) => return *response,
     };
-    let sent = fields(None, body.as_deref());
-    let id = made_id("org");
-    let name = sent.get("name").cloned().unwrap_or_default();
-    let description = sent.get("description").cloned().unwrap_or_default();
-    let settings: Value = sent
-        .get("settings")
-        .and_then(|raw| serde_json::from_str(raw).ok())
-        .unwrap_or_else(|| json!({}));
-    let _ = PlatformRecords::new(graph.as_ref(), ORGANIZATION).create(&json!({
-        "id": id,
-        "name": name,
-        "description": description,
-        "settings": settings,
-        "created_at": iso(now()),
-        "updated_at": iso(now()),
-    }));
+    let sent: serde_json::Map<String, Value> = match body.as_deref() {
+        Some(raw) if !raw.is_empty() => match serde_json::from_slice::<Value>(raw) {
+            Ok(Value::Object(object)) => object,
+            _ => return error(422, "a body of JSON fields is required"),
+        },
+        _ => serde_json::Map::new(),
+    };
+    // one implementation: the organisation and the owner membership are written by the tenancy layer, so a person who
+    // opens an organisation is its owner by the same rule every other caller is checked against
+    let opened = match organisation::create(graph.as_ref(), &caller.id, &sent) {
+        Ok(opened) => opened,
+        Err(store::StoreError::Invalid(message)) => return error(422, &message),
+        Err(error) => return stored(error),
+    };
+    let record = opened["organisation"].clone();
     audit(
         &graph,
         &caller.id,
         "organization.created",
         "Organization",
-        &id,
-        json!({ "name": name }),
+        record["id"].as_str().unwrap_or_default(),
+        json!({ "name": record["name"] }),
     );
     (
         StatusCode::CREATED,
         Json(json!({
-            "id": id,
-            "name": name,
-            "description": description,
-            "settings": settings,
+            "id": record["id"],
+            "name": record["name"],
+            "slug": record["slug"],
+            "description": record["description"],
+            "settings": record["settings"],
+            "role": opened["membership"]["role"],
         })),
     )
         .into_response()
@@ -1291,18 +1317,122 @@ async fn get_organization(
         Ok(caller) => caller,
         Err(response) => return *response,
     };
-    let roles = known_roles(&graph);
-    let is_admin = permissions_for(&caller.role_ids, &roles)
-        .iter()
-        .any(|held| held == "user:manage");
-    let is_member = caller.organization_id.as_deref() == Some(org_id.as_str());
-    // a non-member is told the organisation is not there rather than that it is not theirs to see
-    if !(is_member || is_admin) {
-        return error(404, "Organization not found");
+    // a non-member is told the organisation is not there rather than that it is not theirs to see, which is what the
+    // tenancy layer answers and what the shipped surface already did
+    match organisation::get(graph.as_ref(), &caller.id, &org_id) {
+        Ok(record) => Json(record).into_response(),
+        Err(store::StoreError::NotFound) => error(404, "Organization not found"),
+        Err(error) => stored(error),
     }
-    match PlatformRecords::new(graph.as_ref(), ORGANIZATION).get(&org_id) {
-        Ok(Some(record)) => Json(record).into_response(),
-        _ => error(404, "Organization not found"),
+}
+
+async fn list_organizations(State(graph): State<GraphHandle>, headers: HeaderMap) -> Response {
+    let caller = match caller(&graph, &headers) {
+        Ok(caller) => caller,
+        Err(response) => return *response,
+    };
+    match organisation::mine(graph.as_ref(), &caller.id, 200) {
+        Ok(found) => Json(json!({ "organizations": found, "count": found.len() })).into_response(),
+        Err(error) => stored(error),
+    }
+}
+
+async fn list_organization_members(
+    State(graph): State<GraphHandle>,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let caller = match caller(&graph, &headers) {
+        Ok(caller) => caller,
+        Err(response) => return *response,
+    };
+    match organisation::members(graph.as_ref(), &caller.id, &org_id) {
+        Ok(found) => Json(json!({ "members": found, "count": found.len() })).into_response(),
+        Err(store::StoreError::NotFound) => error(404, "Organization not found"),
+        Err(error) => stored(error),
+    }
+}
+
+async fn add_organization_member(
+    State(graph): State<GraphHandle>,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+    body: Option<axum::body::Bytes>,
+) -> Response {
+    let caller = match caller(&graph, &headers) {
+        Ok(caller) => caller,
+        Err(response) => return *response,
+    };
+    let sent: serde_json::Map<String, Value> = match body.as_deref() {
+        Some(raw) if !raw.is_empty() => match serde_json::from_slice::<Value>(raw) {
+            Ok(Value::Object(object)) => object,
+            _ => return error(422, "a body of JSON fields is required"),
+        },
+        _ => serde_json::Map::new(),
+    };
+    match organisation::add_member(graph.as_ref(), &caller.id, &org_id, &sent) {
+        Ok(membership) => {
+            audit(
+                &graph,
+                &caller.id,
+                "organization.member_added",
+                "Organization",
+                &org_id,
+                json!({
+                    "user_id": membership["member_user_id"],
+                    "role": membership["role"],
+                }),
+            );
+            (StatusCode::CREATED, Json(membership)).into_response()
+        }
+        Err(store::StoreError::NotFound) => error(404, "Organization not found"),
+        Err(store::StoreError::Forbidden(message)) => error(403, &message),
+        Err(store::StoreError::Invalid(message)) => error(422, &message),
+        Err(store::StoreError::Conflict(message)) => error(409, &message),
+        Err(error) => stored(error),
+    }
+}
+
+async fn list_organization_books(
+    State(graph): State<GraphHandle>,
+    headers: HeaderMap,
+    Path(org_id): Path<String>,
+) -> Response {
+    let caller = match caller(&graph, &headers) {
+        Ok(caller) => caller,
+        Err(response) => return *response,
+    };
+    match organisation::books_of(graph.as_ref(), &caller.id, &org_id) {
+        Ok(found) => Json(json!({ "books": found, "count": found.len() })).into_response(),
+        Err(store::StoreError::NotFound) => error(404, "Organization not found"),
+        Err(error) => stored(error),
+    }
+}
+
+async fn move_book_into_organization(
+    State(graph): State<GraphHandle>,
+    headers: HeaderMap,
+    Path((org_id, book_id)): Path<(String, String)>,
+) -> Response {
+    let caller = match caller(&graph, &headers) {
+        Ok(caller) => caller,
+        Err(response) => return *response,
+    };
+    match organisation::attach_book(graph.as_ref(), &caller.id, &org_id, &book_id) {
+        Ok(book) => {
+            audit(
+                &graph,
+                &caller.id,
+                "organization.book_attached",
+                "Organization",
+                &org_id,
+                json!({ "book_id": book_id }),
+            );
+            Json(book).into_response()
+        }
+        Err(store::StoreError::NotFound) => error(404, "Organization or book not found"),
+        Err(store::StoreError::Forbidden(message)) => error(403, &message),
+        Err(error) => stored(error),
     }
 }
 

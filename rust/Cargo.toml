@@ -39,6 +39,7 @@ members = [
     "crates/domains/audit",
     "crates/domains/treasury",
     "crates/platform/identity",
+    "crates/platform/tenancy",
     "crates/platform/documents",
     "crates/platform/alerts",
     "crates/platform/notifications",

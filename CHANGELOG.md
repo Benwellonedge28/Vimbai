@@ -8,6 +8,10 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
 
 ### Added
 
+- Organisations are a real tenant boundary: `rust/crates/platform/tenancy` owns the organisation, its members and the one
+  rule that decides whether a caller may open a Book. A Book may belong to an organisation, its members reach it without
+  a membership row of their own, and the engine applies the rule itself (`tenancy_gate`) rather than leaving it to the
+  gateway. See `docs/domains/organisations.md`.
 - `cargo run -p xtask -- boundaries`: the crate dependency rules as a gate, with the graph discovered from the
   manifests, one recorded tolerance, and a test that fails if a tolerance goes stale.
 - `docs/architecture/system-boundaries.md` and `docs/architecture/dependency-rules.md`.

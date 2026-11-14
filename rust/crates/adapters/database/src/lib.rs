@@ -1271,6 +1271,32 @@ impl<'a, G: Graph + ?Sized> PlatformRecords<'a, G> {
         Ok(rows.into_iter().next().map(unwrap_node))
     }
 
+    /// Every record under the label whose property equals this value. Capped, because an unbounded read is not a
+    /// listing.
+    ///
+    /// The property is a column the caller already holds - a person's id, an organisation's id - not a way to browse:
+    /// there is no branch here that answers every row. It exists so a platform record can be found by the thing that
+    /// points at it, which [`find`](Self::find) cannot do when there are several.
+    pub fn matching(
+        &self,
+        property: &str,
+        value: &str,
+        limit: usize,
+    ) -> Result<Vec<Value>, StoreError> {
+        if value.trim().is_empty() {
+            return Ok(Vec::new());
+        }
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.{property} = $value\nRETURN x\nLIMIT $limit",
+            label = self.kind.label,
+            property = property
+        );
+        let rows = self
+            .graph
+            .run(&cypher, json!({ "value": value, "limit": limit as i64 }))?;
+        Ok(rows.into_iter().map(unwrap_node).collect())
+    }
+
     /// Every record under the label, newest first. Capped, because an unbounded read is not a listing.
     pub fn list(&self, limit: usize) -> Result<Vec<Value>, StoreError> {
         let cypher = format!(

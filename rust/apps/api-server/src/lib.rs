@@ -26,6 +26,7 @@ pub mod identity;
 pub mod outbound;
 pub mod records;
 pub mod sockets;
+pub mod tenancy_gate;
 
 pub type Calculator = fn(&Value) -> Result<Value, String>;
 
@@ -1010,9 +1011,14 @@ fn routed(graph: Option<records::GraphHandle>) -> Router {
             published("investment-property-fair-value-disclosure"),
         )
         .with_state(state);
-    // the endpoints that own records need a caller, so they are a separate mount
+    // the endpoints that own records need a caller, so they are a separate mount, and they pass the tenancy gate on the
+    // way in: a request naming a Book is refused unless the caller may open it. The calculators are not gated - they
+    // hold no records, so there is nothing there for a Book to protect.
     match graph {
-        Some(graph) => calculations.merge(records::router(graph)),
+        Some(graph) => {
+            let guarded = tenancy_gate::guard(records::router(graph.clone()), graph);
+            calculations.merge(guarded)
+        }
         None => calculations,
     }
 }

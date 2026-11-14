@@ -1,0 +1,14 @@
+[package]
+name = "vimbai_tenancy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The tenant boundary: organisations, their members, and the one rule that decides who may open a Book"
+
+[dependencies]
+vimbai_common = { path = "../../common" }
+vimbai_store = { path = "../../adapters/database" }
+vimbai_service_offline_sync = { path = "../offline-sync" }
+serde_json = { workspace = true }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }

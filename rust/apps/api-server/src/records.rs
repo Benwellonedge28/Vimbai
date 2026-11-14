@@ -14619,9 +14619,11 @@ async fn get_book_membership(
         Ok(scope) => scope,
         Err(response) => return *response,
     };
-    answer(book_sync::sync::membership_check(
+    // the same rule the gate applies, so a Book an organisation owns is answered for the organisation's members here
+    // rather than by a second membership rule kept beside the first
+    answer(tenancy::access::membership_check(
         graph.as_ref(),
-        &scope,
+        &scope.user_id,
         &book_id,
     ))
 }

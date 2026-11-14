@@ -2950,6 +2950,7 @@ dependencies = [
  "vimbai_sso",
  "vimbai_store",
  "vimbai_tax",
+ "vimbai_tenancy",
  "vimbai_treasury_fx",
  "vimbai_variance",
  "vimbai_webhooks",
@@ -3496,6 +3497,17 @@ dependencies = [
  "serde_json",
  "vimbai_common",
  "vimbai_reporting",
+]
+
+[[package]]
+name = "vimbai_tenancy"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde_json",
+ "vimbai_common",
+ "vimbai_service_offline_sync",
+ "vimbai_store",
 ]
 
 [[package]]

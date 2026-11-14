@@ -735,13 +735,29 @@ async fn an_organisation_is_readable_by_its_members_and_invisible_to_everyone_el
     let org_id = made["id"].as_str().unwrap().to_string();
     assert_eq!(made["name"], json!("Moyo Trading"));
 
-    // the person who made it is not a member of it and is not an administrator, so it is not there for them
+    // whoever opens an organisation owns it, so it is there for them - and it says so
     let (status, body) = call(
         graph.clone(),
         Method::GET,
         &format!("/organizations/{org_id}"),
         None,
         Some(&token),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["role"], json!("owner"));
+
+    // and it is not there for somebody who is not in it: a stranger is told the organisation is missing rather than
+    // that it is not theirs to see, which would be a directory of other people's tenants
+    registered(graph.clone(), "sam", "another horse battery").await;
+    let stranger = signed_in(graph.clone(), "sam", "another horse battery").await;
+    let stranger_token = stranger["access_token"].as_str().unwrap().to_string();
+    let (status, body) = call(
+        graph.clone(),
+        Method::GET,
+        &format!("/organizations/{org_id}"),
+        None,
+        Some(&stranger_token),
     )
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);

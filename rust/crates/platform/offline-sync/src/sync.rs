@@ -75,12 +75,12 @@ fn held(graph: &(impl Graph + ?Sized), kind: RecordKind) -> SharedRecords<'_, im
 }
 
 /// A Book, or missing. A Book id is not a secret, but its contents need membership, which the caller checks.
-fn book_of(graph: &(impl Graph + ?Sized), book_id: &str) -> Result<Value, StoreError> {
+pub fn book_of(graph: &(impl Graph + ?Sized), book_id: &str) -> Result<Value, StoreError> {
     held(graph, BOOK).get(book_id, book_id)
 }
 
 /// The caller's membership of a Book, whatever its state.
-fn membership_for(
+pub fn membership_for(
     graph: &(impl Graph + ?Sized),
     book_id: &str,
     user_id: &str,
@@ -92,7 +92,7 @@ fn membership_for(
 }
 
 /// The caller's ACTIVE membership, or the refusal the shipped service gave.
-fn member_of(
+pub fn member_of(
     graph: &(impl Graph + ?Sized),
     book_id: &str,
     user_id: &str,

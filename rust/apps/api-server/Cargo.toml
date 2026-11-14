@@ -12,6 +12,7 @@ advisory = { package = "vimbai_advisory", path = "../../crates/calculations/advi
 common = { package = "vimbai_common", path = "../../crates/common" }
 cost_accounting = { package = "vimbai_cost_accounting", path = "../../crates/calculations/cost_accounting" }
 store = { package = "vimbai_store", path = "../../crates/adapters/database" }
+tenancy = { package = "vimbai_tenancy", path = "../../crates/platform/tenancy" }
 accounting = { package = "vimbai_service_accounting", path = "../../crates/domains/accounting" }
 budgeting_services = { package = "vimbai_service_budgeting", path = "../../crates/domains/budgeting" }
 costing = { package = "vimbai_service_costing", path = "../../crates/domains/costing" }
