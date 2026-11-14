@@ -934,13 +934,12 @@ services:
 - name: invoicing-service
   domain: invoicing
   target: rust/crates/domains/invoicing
-  port: 8070
+  port: 8099
   gateway_path: /invoicing
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
+  records: false
+  endpoints: []
 - name: issued-share-capital-service
   domain: equity
   target: rust/crates/domains/equity
@@ -1011,13 +1010,12 @@ services:
 - name: multimodal-pipeline-service
   domain: multimodal
   target: rust/crates/domains/multimodal
-  port: 8002
+  port: 8099
   gateway_path: /multimodal
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
+  records: false
+  endpoints: []
 - name: net-present-value-service
   domain: finance
   target: rust/crates/domains/finance
@@ -1642,13 +1640,12 @@ services:
 - name: workflow-service
   domain: workflow
   target: rust/crates/domains/workflow
-  port: 8142
+  port: 8099
   gateway_path: /workflow
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
+  records: false
+  endpoints: []
 - name: zero-based-budgeting-service
   domain: budgeting
   target: rust/crates/domains/budgeting

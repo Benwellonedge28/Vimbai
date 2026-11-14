@@ -14,8 +14,6 @@ CORE_SERVICES = [
     "identity-service",
     "accounting-service",
     "finance-service",
-    "multimodal-pipeline-service",
-    "workflow-service",
     "automation-engine-service",
 ]
 

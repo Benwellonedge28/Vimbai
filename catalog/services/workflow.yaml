@@ -17,10 +17,9 @@ services:
 - name: workflow-service
   domain: workflow
   target: rust/crates/domains/workflow
-  port: 8142
+  port: 8099
   gateway_path: /workflow
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
+  records: false
+  endpoints: []

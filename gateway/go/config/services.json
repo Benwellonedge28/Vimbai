@@ -537,9 +537,10 @@
     {
       "name": "invoicing-service",
       "path": "/invoicing",
-      "url": "http://localhost:8070",
-      "port": 8070,
-      "auth_required": true
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": true
     },
     {
       "name": "issued-share-capital-service",
@@ -583,9 +584,10 @@
     {
       "name": "multimodal-pipeline-service",
       "path": "/multimodal",
-      "url": "http://localhost:8002",
-      "port": 8002,
-      "auth_required": true
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": true
     },
     {
       "name": "net-present-value-service",
@@ -1043,9 +1045,10 @@
     {
       "name": "workflow-service",
       "path": "/workflow",
-      "url": "http://localhost:8142",
-      "port": 8142,
-      "auth_required": true
+      "url": "http://calculation-api:8099",
+      "port": 8099,
+      "auth_required": true,
+      "strip_prefix": true
     },
     {
       "name": "zero-based-budgeting-service",

@@ -366,7 +366,7 @@ Lands in `rust/crates/domains/invoicing`.
 
 ```
 service                                         port  routes  records  engine
-invoicing-service                               8070      12      yes  rust
+invoicing-service                               8099       0       no  rust
 subscription-plans-service                      8099       0       no  rust
 ```
 
@@ -396,7 +396,7 @@ Lands in `rust/crates/domains/multimodal`.
 
 ```
 service                                         port  routes  records  engine
-multimodal-pipeline-service                     8002      11      yes  rust
+multimodal-pipeline-service                     8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -606,7 +606,7 @@ Lands in `rust/crates/domains/workflow`.
 ```
 service                                         port  routes  records  engine
 distributed-workflow-orchestration-service      8099       0       no  rust
-workflow-service                                8142      10      yes  rust
+workflow-service                                8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

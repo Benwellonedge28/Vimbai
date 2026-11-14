@@ -478,13 +478,13 @@ graphql-service                              /graphql                           
 
 ```text
 service                                      address                            eps  owns engine crate
-invoicing-service                            /invoicing                           1  recs rust   rust/crates/domains/invoicing
+invoicing-service                            /invoicing                           0  -    rust   rust/crates/domains/invoicing
 subscription-plans-service                   /subscription-plans                  0  -    rust   rust/crates/domains/invoicing
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `invoicing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `invoicing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `subscription-plans-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## kernel — 4/4 on Rust
@@ -516,12 +516,12 @@ financial-state-machine-service              /financial-state-machine           
 
 ```text
 service                                      address                            eps  owns engine crate
-multimodal-pipeline-service                  /multimodal                          1  recs rust   rust/crates/domains/multimodal
+multimodal-pipeline-service                  /multimodal                          0  -    rust   rust/crates/domains/multimodal
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `multimodal-pipeline-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `multimodal-pipeline-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## notifications — 1/1 on Rust
 
@@ -779,13 +779,13 @@ webhook-service                              /webhook                           
 ```text
 service                                      address                            eps  owns engine crate
 distributed-workflow-orchestration-service   /distributed-workflow-orchestration   0  -    rust   rust/crates/domains/workflow
-workflow-service                             /workflow                            1  recs rust   rust/crates/domains/workflow
+workflow-service                             /workflow                            0  -    rust   rust/crates/domains/workflow
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
 | `distributed-workflow-orchestration-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `workflow-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `workflow-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## What is left
 
