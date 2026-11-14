@@ -3,6 +3,8 @@
 //! * *enterprise-sso-service*: single sign-on verification, below.
 //! * *mfa-auth-service* ([`mfa`]): the second factor a person carries - an enrolment and the short-lived challenges
 //!   raised to prove possession. Both live here because both answer the same question; neither is a business domain.
+//! * *identity-service* ([`accounts`]): the accounts a person signs in with and the tokens issued in exchange. The
+//!   gateway leaves this door open, so it is the one service every other call depends on.
 //!
 //! Enterprise single sign-on for Vimbai.
 //!
@@ -22,6 +24,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod accounts;
 pub mod claims;
 pub mod clock;
 pub mod crypto;

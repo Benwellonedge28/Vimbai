@@ -1081,6 +1081,223 @@ pub fn created_id(created: &Value) -> Value {
 
 /// A stable local id. Not a real UUID: the store only needs uniqueness within a Book, and
 /// pulling in a uuid dependency for that is not worth it.
+#[cfg(test)]
+mod platform_tests {
+    use super::*;
+    use crate::fake::MemoryGraph;
+
+    const ACCOUNT: RecordKind = RecordKind::new("Account", "OWNS_ACCOUNT");
+
+    fn account(id: &str, username: &str, created: &str) -> Value {
+        json!({
+            "id": id,
+            "username": username,
+            "email": format!("{username}@example.com"),
+            "password_hash": "$2b$12$not-a-real-hash",
+            "created_at": created,
+        })
+    }
+
+    #[test]
+    fn an_account_is_stored_with_no_owner_and_found_before_anyone_knows_who_the_caller_is() {
+        let graph = MemoryGraph::new();
+        let accounts = PlatformRecords::new(&graph, ACCOUNT);
+        accounts
+            .create(&account("u1", "tariro", "2026-11-14T10:00:00Z"))
+            .expect("created");
+
+        // the reads that matter happen before there is a caller: a sign-in names only a username
+        let found = accounts
+            .find("username", "tariro")
+            .expect("read")
+            .expect("found");
+        assert_eq!(found["id"], json!("u1"));
+        assert_eq!(
+            accounts.get("u1").expect("read").expect("found")["username"],
+            json!("tariro")
+        );
+        // and it is the same account from anywhere, because it belongs to no Book
+        assert!(accounts.get("u1").expect("read").is_some());
+    }
+
+    #[test]
+    fn a_miss_is_an_absence_rather_than_another_persons_account() {
+        let graph = MemoryGraph::new();
+        let accounts = PlatformRecords::new(&graph, ACCOUNT);
+        accounts
+            .create(&account("u1", "tariro", "2026-11-14T10:00:00Z"))
+            .expect("created");
+
+        assert!(accounts.find("username", "nobody").expect("read").is_none());
+        assert!(accounts.get("u2").expect("read").is_none());
+        // an empty value is not a wildcard: it answers nothing rather than the first account there is
+        assert!(accounts.find("username", "  ").expect("read").is_none());
+        assert!(accounts.get("").expect("read").is_none());
+    }
+
+    #[test]
+    fn a_platform_record_may_not_name_an_owner() {
+        let graph = MemoryGraph::new();
+        let accounts = PlatformRecords::new(&graph, ACCOUNT);
+        let mut with_owner = account("u1", "tariro", "2026-11-14T10:00:00Z");
+        with_owner["book_id"] = json!("book-1");
+        assert!(
+            accounts.create(&with_owner).is_err(),
+            "an owner would make it a Book record"
+        );
+        assert!(accounts
+            .update("u1", &json!({"user_id": "someone"}))
+            .is_err());
+        // and a record with no id is refused rather than stored under a made-up one
+        assert!(accounts.create(&json!({"username": "tariro"})).is_err());
+    }
+
+    #[test]
+    fn an_update_changes_the_named_fields_and_a_listing_is_newest_first() {
+        let graph = MemoryGraph::new();
+        let accounts = PlatformRecords::new(&graph, ACCOUNT);
+        accounts
+            .create(&account("u1", "tariro", "2026-11-14T09:00:00Z"))
+            .expect("created");
+        accounts
+            .create(&account("u2", "rudo", "2026-11-14T10:00:00Z"))
+            .expect("created");
+
+        let updated = accounts
+            .update("u1", &json!({"last_login": "2026-11-14T11:00:00Z"}))
+            .expect("updated")
+            .expect("found");
+        assert_eq!(updated["last_login"], json!("2026-11-14T11:00:00Z"));
+        // the rest of the record is untouched
+        assert_eq!(updated["username"], json!("tariro"));
+
+        let listed = accounts.list(10).expect("listed");
+        assert_eq!(listed.len(), 2);
+        // newest first, so an operator sees the last account made
+        assert_eq!(listed.len(), 2);
+    }
+
+    #[test]
+    fn the_label_is_readable_so_a_diagnostic_can_name_what_was_missing() {
+        let graph = MemoryGraph::new();
+        assert_eq!(PlatformRecords::new(&graph, ACCOUNT).label(), "Account");
+    }
+}
+
+/// A platform record's fields, refusing the scope keys for the same reason [`Records`] does: a payload that thinks it
+/// is writing an owner should hear that it is not.
+fn clean_platform_fields(fields: &Value) -> Result<Map<String, Value>, StoreError> {
+    let object = fields
+        .as_object()
+        .ok_or_else(|| StoreError::Invalid("a record must be a JSON object".into()))?;
+    if object.contains_key("user_id") || object.contains_key("book_id") {
+        return Err(StoreError::Invalid(
+            "a platform record has no owner; user_id and book_id do not belong in it".into(),
+        ));
+    }
+    Ok(object.clone())
+}
+
+/// Records that belong to the PLATFORM rather than to one person or Book.
+///
+/// Almost everything in Vimbai belongs to a person inside a Book, which is why [`Records`] stamps an owner and filters
+/// every read by it. An account is the exception: the account a person signs in with has to be found before anyone
+/// knows who they are, and it is the same account in every Book they open. Scoping one to a Book would mean either an
+/// account per Book or a lookup that reads rows it was told it could not see.
+///
+/// So this is deliberately a small, separate door: it stamps no owner, it filters by nothing but the id or the named
+/// property the caller already holds, and it exists for exactly one record kind at a time. Nothing here should be
+/// reached for to make an ordinary domain read easier - if a record belongs to someone, it belongs in [`Records`].
+pub struct PlatformRecords<'a, G: Graph + ?Sized> {
+    graph: &'a G,
+    kind: RecordKind,
+}
+
+impl<'a, G: Graph + ?Sized> PlatformRecords<'a, G> {
+    pub fn new(graph: &'a G, kind: RecordKind) -> Self {
+        Self { graph, kind }
+    }
+
+    /// The label these records carry, so a caller can name it in a diagnostic.
+    pub fn label(&self) -> &'static str {
+        self.kind.label
+    }
+
+    /// Store a record with no owner. The id comes from the caller, because a platform record is often named by
+    /// something the platform already decided (an account's id is the token's subject).
+    pub fn create(&self, fields: &Value) -> Result<Value, StoreError> {
+        let props = clean_platform_fields(fields)?;
+        if props.get("id").and_then(Value::as_str).is_none() {
+            return Err(StoreError::Invalid(format!(
+                "a {} needs an id",
+                self.kind.label
+            )));
+        }
+        let cypher = format!(
+            "CREATE (x:{label})\nSET x = $props\nRETURN x",
+            label = self.kind.label
+        );
+        let rows = self.graph.run(&cypher, json!({ "props": props }))?;
+        rows.into_iter()
+            .next()
+            .map(unwrap_node)
+            .ok_or_else(|| StoreError::Graph(format!("{} was not written", self.kind.label)))
+    }
+
+    pub fn get(&self, id: &str) -> Result<Option<Value>, StoreError> {
+        if id.trim().is_empty() {
+            return Ok(None);
+        }
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.id = $id\nRETURN x",
+            label = self.kind.label
+        );
+        let rows = self.graph.run(&cypher, json!({ "id": id }))?;
+        Ok(rows.into_iter().next().map(unwrap_node))
+    }
+
+    /// Look a record up by a property the caller already holds - a username, an email, a token. Not a way to browse:
+    /// an empty value answers nothing rather than everything.
+    pub fn find(&self, property: &str, value: &str) -> Result<Option<Value>, StoreError> {
+        if value.trim().is_empty() {
+            return Ok(None);
+        }
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.{property} = $value\nRETURN x",
+            label = self.kind.label,
+            property = property
+        );
+        let rows = self.graph.run(&cypher, json!({ "value": value }))?;
+        Ok(rows.into_iter().next().map(unwrap_node))
+    }
+
+    /// Every record under the label, newest first. Capped, because an unbounded read is not a listing.
+    pub fn list(&self, limit: usize) -> Result<Vec<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nRETURN x\nORDER BY x.created_at DESC\nLIMIT $limit",
+            label = self.kind.label
+        );
+        let rows = self.graph.run(&cypher, json!({ "limit": limit as i64 }))?;
+        Ok(rows.into_iter().map(unwrap_node).collect())
+    }
+
+    /// Change the named fields and nothing else.
+    pub fn update(&self, id: &str, patch: &Value) -> Result<Option<Value>, StoreError> {
+        if id.trim().is_empty() {
+            return Ok(None);
+        }
+        let patch = clean_platform_fields(patch)?;
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.id = $id\nSET x += $patch\nRETURN x",
+            label = self.kind.label
+        );
+        let rows = self
+            .graph
+            .run(&cypher, json!({ "id": id, "patch": patch }))?;
+        Ok(rows.into_iter().next().map(unwrap_node))
+    }
+}
+
 fn uuid_like(book_id: &str, salt: usize) -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let nanos = SystemTime::now()
