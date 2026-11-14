@@ -412,7 +412,7 @@ Updated in the same commit that lands the work. `—` means not started.
 | P3 | Compliance record | done | `docs/compliance/financial-integrity.md`, every claim naming its test |
 | P4 | Worker | done | `rust/apps/worker` (11 tests in `src/lib.rs`, 5 in `tests/offline.rs`); `docs/WORKER.md` |
 | P5 | Domain documentation | — | |
-| P6 | Contracts | done | `contracts/openapi/v1/` (6 hand-written + 31 generated); `openapi` / `openapi --check`; 5 tests in `rust/xtask/tests/contracts_cover_every_address.rs`; three policies in `contracts/compatibility/` |
+| P6 | Contracts | done, P6.4 open | `contracts/openapi/v1/` (6 hand-written + 31 generated); `openapi` / `openapi --check`; 5 tests; three policies + `request-conventions.md`. **Open:** cursor pagination and idempotency keys (ADR-004 conventions 6 and 7 are stated, not implemented) |
 | P7 | Flutter feature-first | — | |
 | P8 | Data layer | blocked | needs decision 5.1 |
 | P9 | Sync server | — | |

@@ -31,6 +31,11 @@ window in which they are cheap to fix and a long window afterwards in which they
    `items`, `has_more` and `next_cursor`; the caller passes `cursor` and `limit`. Where a read is inherently bounded
    (an account's postings, a period's entries) the bound is documented and enforced by the server, not left to the
    caller's goodwill.
+> **Implementation status (P6):** convention 6 (cursor pagination) and convention 7 (idempotency keys) are stated here
+> and are not implemented. Lists answer a JSON array paged with `limit` and `offset`; a write cannot carry a key. What is
+> implemented, what is not, and why each is a versioned change is recorded in `contracts/compatibility/request-conventions.md`
+> rather than left for a reader to discover.
+
 7. *Writes that must not repeat carry an idempotency key.* A retried write with the same key returns the first result
    rather than performing the operation twice. Payments and postings need this; the mechanism is defined once, in the
    application layer.
