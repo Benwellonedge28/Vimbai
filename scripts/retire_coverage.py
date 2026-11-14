@@ -85,6 +85,12 @@ def declared(service):
 # would delete the only thing that can prove the engine agrees. The survey says so instead of nagging.
 PARITY_ORACLES = {"treasury-analytics-service"}
 
+# Kept because the Python process IS the capability, not a second copy of one. A broker holds live delivery and a
+# websocket service holds live sockets; the Rust side keeps the same records and says so plainly - its event relay
+# reports itself disabled because this build holds no broker client. Pointing these at the engine would answer the
+# addresses while losing the delivery behind them, which is worse than leaving them where they work.
+LIVE_CONNECTIONS = {"message-bus-service", "websocket-service"}
+
 
 def verdict(service, gateway_path, routes):
     fixed = declared(service)
@@ -108,6 +114,8 @@ def verdict(service, gateway_path, routes):
     flat_only = all(path.rstrip("/") in routes for path in fixed) and not all(
         (prefix + path).rstrip("/") in routes for path in fixed
     )
+    if service in LIVE_CONNECTIONS:
+        return {"service": service, "verdict": "live connection", "fixed": len(fixed), "missing": [], "prefix": "keep"}
     if service in PARITY_ORACLES:
         return {"service": service, "verdict": "parity oracle", "fixed": len(fixed), "missing": [], "prefix": "keep"}
     return {
@@ -188,7 +196,16 @@ def report(rows):
             % (row["service"], row["domain"], row["fixed"], row.get("prefix", "-"), row["verdict"])
         )
     print()
-    print("%d ready to retire, %d still to keep" % (len(ready), len(keep)))
+    # a service kept because its process is the capability, or because it is the oracle the engine is measured against,
+    # is not a gap waiting to be closed - the count says which is which instead of lumping them together
+    by_reason = {}
+    for entry in rows:
+        if entry["verdict"] in ("ready", "keep"):
+            continue
+        by_reason[entry["verdict"]] = by_reason.get(entry["verdict"], 0) + 1
+    print("%d ready to retire; kept: %s" % (len(ready), ", ".join(
+        "%d %s" % (count, reason) for reason, count in sorted(by_reason.items())
+    ) or "none"))
     for row in keep:
         print("  %s is missing: %s" % (row["service"], ", ".join(row["missing"][:4])))
     by_domain = {}
