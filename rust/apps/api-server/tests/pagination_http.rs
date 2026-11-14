@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Cursor pagination, over a real listing and over the two shapes a collection arrives in.
 //!
 //! The convention had to land in v1 without changing the shape of a list, so it is opt-in by request: a caller who sends

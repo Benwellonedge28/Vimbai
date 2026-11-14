@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! mfa-auth-service answers at the addresses it published, from the identity crate.
 //!
 //! The service published /setup, /verify and /challenge under its own prefix, so a client keeps calling what it was

@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The socket door, end to end: a real client connects over a real socket, is handed the handshake, receives the event
 //! carried for its Book, has its own message carried to the rest of the channel, and is told when another client goes.
 //!

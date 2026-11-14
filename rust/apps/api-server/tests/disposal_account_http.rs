@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! disposal-account-service: the profit or loss on a disposal, the journal it posts, and what the book holds afterwards.
 //!
 //! The service kept no storage, so its `/disposals` answered an empty list and its `/summary` answered zeros no matter

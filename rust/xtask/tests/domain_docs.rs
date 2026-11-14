@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! One page per domain, and every routed service in exactly one of them.
 //!
 //! The pages are prose, so nothing about them is compiled. That is exactly why they need a gate: a service renamed and a

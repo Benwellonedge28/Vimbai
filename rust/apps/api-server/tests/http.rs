@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The HTTP surface answers the same payload the library does.
 
 use axum::body::Body;

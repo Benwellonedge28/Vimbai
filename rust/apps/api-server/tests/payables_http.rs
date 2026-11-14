@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! payables over HTTP: the purchases ledger and its control account, and the expenses claimed against it.
 
 use std::sync::{Arc, Mutex};

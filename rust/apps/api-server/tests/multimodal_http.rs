@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! multimodal-pipeline-service over HTTP: a capture, the inbox by state, and a correction.
 
 use axum::body::Body;

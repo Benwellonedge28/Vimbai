@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! performance-benchmarking-service over HTTP: a metric, a placement, and the peers held for it.
 
 use axum::body::Body;

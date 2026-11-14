@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The two costing services retired here answer at the prefixes they publish, not at the older engine-side names.
 //!
 //! basis-apportionment-service and overhead-absorption-rate-service both keep their gateway prefix, so a client asks

@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! audit-compliance-service over HTTP: an event appended and verified, a version kept, lineage traced, and the
 //! planning, report, trail, compliance and analytics readings answered. These tests are about the wiring - that
 //! each path reaches its own handler with the Book it was asked in - so they check the answers a caller would see

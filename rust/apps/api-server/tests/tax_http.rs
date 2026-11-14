@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! tax-accounting-service over HTTP: rates, the tax on a transaction, returns, withholding and the reports.
 
 use std::sync::{Arc, Mutex};

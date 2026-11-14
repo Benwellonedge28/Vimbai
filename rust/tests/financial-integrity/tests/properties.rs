@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Property tests over the double-entry rule: random entries, random sizes, amounts of arbitrary precision.
 //!
 //! There is no property-testing crate in this workspace (the build is offline), so the generator is a seeded xorshift

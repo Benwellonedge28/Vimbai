@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The offline promises, checked against the real sync server.
 //!
 //! Three things a person is promised when their device has been away, and each of them only a running process can keep:

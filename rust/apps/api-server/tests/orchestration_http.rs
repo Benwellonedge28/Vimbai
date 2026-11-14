@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! distributed-workflow-orchestration-service over HTTP: a workflow, its run, and its rollback.
 
 use axum::body::Body;

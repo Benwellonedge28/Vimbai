@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! notifications-service over HTTP: a notice into each recipient's inbox, that person's own reading, and preferences.
 
 use axum::body::Body;

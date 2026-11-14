@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The P7 gate over the real app, rather than over a fixture.
 //!
 //! P7 moves 58 dart files out of five layer folders. There is no dart toolchain in CI, so a file move that leaves an import

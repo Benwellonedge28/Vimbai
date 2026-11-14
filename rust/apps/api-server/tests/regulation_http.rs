@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! regulatory-compliance-service over HTTP: a regulation recorded, listed, moved on, and the board it adds up to.
 
 use axum::body::Body;

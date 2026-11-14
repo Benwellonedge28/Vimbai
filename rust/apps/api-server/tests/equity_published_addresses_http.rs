@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The equity services published their opening moves one segment deeper than the collection.
 //!
 //! `/reserves/create` sits beside `POST /reserves`, and a caller uses the address the service published, not the one the

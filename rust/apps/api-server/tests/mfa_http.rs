@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! mfa-auth-service over HTTP: enrolling a second factor, verifying a code, and spending a challenge.
 
 use axum::body::Body;

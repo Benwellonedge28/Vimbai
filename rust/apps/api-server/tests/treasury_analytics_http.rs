@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! treasury-analytics-service answers at the addresses it published.
 //!
 //! The analysis itself always lived in the treasury crate; what these tests pin is that a caller who was told

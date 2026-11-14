@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! benefits-admin-service over HTTP: a plan offered, a person enrolled, and leave carried forward.
 
 use axum::body::Body;

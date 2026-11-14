@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! data-warehouse-service and etl-service over HTTP: describing tables, querying them, and the pipelines that fill them.
 
 use axum::body::Body;

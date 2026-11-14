@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! bank-feed-service answers at the prefix it publishes.
 //!
 //! The imports themselves always lived in the banking crate; what these tests pin is that the addresses the service

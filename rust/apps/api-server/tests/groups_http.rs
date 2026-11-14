@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! family-community-group-service over HTTP: the paths the Python service published, and the four figures the
 //! register owns rather than the caller.
 

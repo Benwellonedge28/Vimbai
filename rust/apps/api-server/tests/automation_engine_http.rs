@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! automation-engine-service over HTTP: a rule, its switch, and the runs it produced.
 
 use axum::body::Body;

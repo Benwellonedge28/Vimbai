@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! websocket-service over HTTP: a Book's event reaches only that Book's sockets, the same event arriving twice is
 //! carried once, and the statistics count messages rather than events.
 

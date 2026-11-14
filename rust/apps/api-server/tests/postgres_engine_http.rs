@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The engine, serving a Book out of Postgres.
 //!
 //! P8.6 says a deployment keeps its data in Postgres. The store's own tests prove the store; these prove the thing an

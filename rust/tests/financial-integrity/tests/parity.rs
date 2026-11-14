@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Parity: the figures the retired Python services answered, still answered by the engine.
 //!
 //! Each fixture under `rust/tests/fixtures/parity/` was captured from a service before its directory was deleted. This

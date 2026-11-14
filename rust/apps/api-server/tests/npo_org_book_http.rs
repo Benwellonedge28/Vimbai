@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The organisation's Book over HTTP: the org is created in a Book, and the Book it names is answered from the sync
 //! crate in-process rather than proxied. A caller who is not the owner is refused with the shipped 403.
 

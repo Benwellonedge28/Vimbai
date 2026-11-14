@@ -14,6 +14,14 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- Safe Rust is now enforced across the whole repository, not only at crate roots. The sweep checks both `src/lib.rs`
+  and `src/main.rs` of every crate (a crate that ships a binary and a library is two crates to the compiler, so an
+  attribute on one says nothing about the other), gives all 83 integration test crates their own
+  `#![forbid(unsafe_code)]` since each compiles separately, and scans every `.rs` file for an actual `unsafe` block while
+  ignoring the string literals a gate uses to state its own rule. Zero files use unsafe; the gate now keeps it that way.
+- A deployment engine written to at once: sixty-four callers write through the real binary against a real Postgres, with
+  the door admitting four and the pool holding two, while eight readers keep asking for the Book. Every write lands with
+  its own id and nothing is lost. The store's own concurrency tests could not show that path; this one does.
 - The engine now has a door: it admits a bounded number of requests at once and gives each a deadline, both settings
   (`VIMBAI_API_MAX_IN_FLIGHT`, default 256, and `VIMBAI_API_TIMEOUT_MS`, default 30s) read from the environment. A burst
   queues for a slot instead of piling onto the store's small pool, and a call that cannot start or cannot finish in time

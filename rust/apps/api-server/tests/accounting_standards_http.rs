@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! accounting-standards-service answers at the prefix it publishes.
 //!
 //! The standards catalogue and the organisation records already lived in the accounting crate, hung off a table the

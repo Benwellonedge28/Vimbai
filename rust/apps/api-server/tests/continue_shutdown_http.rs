@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! continue-shutdown-decision-service answers at the prefix it publishes.
 //!
 //! The decision arithmetic already lived in the finance crate under an older engine-side name, so what these tests

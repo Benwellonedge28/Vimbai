@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! audit-engagement-service and audit-sampling-service over HTTP: an engagement opened, moved on, given a finding,
 //! remediated and reported; and a sample drawn from a population. These tests are about the wiring - that each
 //! path reaches its own handler with the Book it was asked in - so they check the answers a caller would see

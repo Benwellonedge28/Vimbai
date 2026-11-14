@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! report-automation-service and report-distribution-service over HTTP, followed through a record's whole life:
 //! a template, a schedule on it, a report produced, a list to send it to, and the record of sending.
 

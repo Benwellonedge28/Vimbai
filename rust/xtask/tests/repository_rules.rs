@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The repository's own rules, held over the repository rather than over a service.
 //!
 //! Each rule here replaced a Python test that read the same files. They are gathered in one file for a reason: what they
@@ -51,6 +52,24 @@ fn every_crate_is_safe_rust_only() {
     assert!(
         gaps.is_empty(),
         "crates without forbid(unsafe_code): {gaps:?}"
+    );
+}
+
+#[test]
+fn nothing_in_the_repository_uses_unsafe_code() {
+    let offenders = crates::files_using_unsafe(&root());
+    assert!(
+        offenders.is_empty(),
+        "these files use unsafe code: {offenders:?}"
+    );
+}
+
+#[test]
+fn every_test_crate_forbids_unsafe_code_too() {
+    let gaps = crates::tests_without_the_safety_attribute(&root());
+    assert!(
+        gaps.is_empty(),
+        "test crates without forbid(unsafe_code): {gaps:?}"
     );
 }
 

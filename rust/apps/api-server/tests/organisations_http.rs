@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Organisations over HTTP, and the gate that makes one the boundary of a Book.
 //!
 //! These walk the addresses a client calls rather than the crate functions: an organisation is opened, a Book is moved

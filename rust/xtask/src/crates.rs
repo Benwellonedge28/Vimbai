@@ -152,20 +152,25 @@ pub fn crates_without_the_safety_attribute(root: &Path) -> Vec<String> {
         if !has_manifest {
             continue;
         }
-        let main = directory.join("src/main.rs");
-        let lib = directory.join("src/lib.rs");
-        let entry = if main.is_file() { main } else { lib };
-        if !entry.is_file() {
+        // Both roots, not whichever comes first: a crate that ships a binary and a library is two crates to the compiler,
+        // and the binary compiles separately, so an attribute on one says nothing about the other.
+        let mut roots: Vec<std::path::PathBuf> =
+            vec![directory.join("src/lib.rs"), directory.join("src/main.rs")];
+        roots.retain(|path| path.is_file());
+        if roots.is_empty() {
             continue;
         }
-        if !read(&entry).contains("#![forbid(unsafe_code)]") {
-            let relative = directory
-                .strip_prefix(&rust)
-                .unwrap_or(&directory)
-                .to_string_lossy()
-                .into_owned();
-            gaps.push(relative);
-        }
+        let missing: Vec<String> = roots
+            .iter()
+            .filter(|path| !read(path).contains("#![forbid(unsafe_code)]"))
+            .map(|path| {
+                path.strip_prefix(&rust)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        gaps.extend(missing);
     }
     gaps.sort();
     gaps
@@ -195,4 +200,132 @@ pub fn costing_services_unnamed(root: &Path) -> Vec<String> {
         .collect();
     unnamed.sort();
     unnamed
+}
+
+/// Every `.rs` file that uses `unsafe` in code, rather than mentioning it in prose.
+///
+/// The attribute above is the enforcement, and this is the check that the enforcement covers the whole repository rather
+/// than the crate roots alone: a module inside a crate that does not forbid unsafe could carry a block the attribute was
+/// never asked about. Comments are skipped, because the honest way to write "no unsafe here" is to say so.
+pub fn files_using_unsafe(root: &Path) -> Vec<String> {
+    let rust = root.join("rust");
+    let mut found = Vec::new();
+    let mut stack = vec![rust.clone()];
+    while let Some(directory) = stack.pop() {
+        if directory.file_name().is_some_and(|name| name == "target") {
+            continue;
+        }
+        let Ok(entries) = std::fs::read_dir(&directory) else {
+            continue;
+        };
+        for entry in entries.filter_map(Result::ok) {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            if path.extension().is_none_or(|extension| extension != "rs") {
+                continue;
+            }
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            let uses = text.lines().any(|line| {
+                let code = line.trim_start();
+                if code.starts_with("//") {
+                    return false;
+                }
+                // a string literal that spells `unsafe` is how a gate states its own rule, so it is not a use of one
+                let without_strings = strip_strings(code);
+                without_strings.contains("unsafe {")
+                    || without_strings.contains("unsafe fn")
+                    || without_strings.starts_with("unsafe impl")
+                    || without_strings.contains("= unsafe")
+            });
+            if uses {
+                found.push(
+                    path.strip_prefix(&rust)
+                        .unwrap_or(&path)
+                        .to_string_lossy()
+                        .into_owned(),
+                );
+            }
+        }
+    }
+    found.sort();
+    found
+}
+
+/// A line with its string literals emptied, so a message about unsafe code is not read as unsafe code.
+fn strip_strings(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut inside = false;
+    let mut escaped = false;
+    for character in line.chars() {
+        match character {
+            '\\' if inside && !escaped => {
+                escaped = true;
+                continue;
+            }
+            '"' if !escaped => {
+                inside = !inside;
+                out.push(' ');
+                continue;
+            }
+            _ => {}
+        }
+        escaped = false;
+        if !inside {
+            out.push(character);
+        }
+    }
+    out
+}
+
+/// Test files that are their own crate and do not forbid unsafe.
+///
+/// An integration test under `tests/` compiles as a crate of its own, so the attribute on the library beside it does not
+/// reach it. Requiring it there too keeps "safe Rust only" a statement about the repository rather than about the parts
+/// somebody thought to check.
+pub fn tests_without_the_safety_attribute(root: &Path) -> Vec<String> {
+    let rust = root.join("rust");
+    let mut gaps = Vec::new();
+    let mut stack = vec![rust.clone()];
+    while let Some(directory) = stack.pop() {
+        if directory.file_name().is_some_and(|name| name == "target")
+            || directory.file_name().is_none_or(|name| name != "tests")
+        {
+            // only descend; the work happens when `tests` is the directory being read
+        }
+        if directory.file_name().is_some_and(|name| name == "tests") {
+            if let Ok(entries) = std::fs::read_dir(&directory) {
+                for entry in entries.filter_map(Result::ok) {
+                    let path = entry.path();
+                    if path.extension().is_none_or(|extension| extension != "rs") {
+                        continue;
+                    }
+                    if !read(&path).contains("#![forbid(unsafe_code)]") {
+                        gaps.push(
+                            path.strip_prefix(&rust)
+                                .unwrap_or(&path)
+                                .to_string_lossy()
+                                .into_owned(),
+                        );
+                    }
+                }
+            }
+            continue;
+        }
+        let Ok(entries) = std::fs::read_dir(&directory) else {
+            continue;
+        };
+        for entry in entries.filter_map(Result::ok) {
+            let path = entry.path();
+            if path.is_dir() && path.file_name().is_none_or(|name| name != "target") {
+                stack.push(path);
+            }
+        }
+    }
+    gaps.sort();
+    gaps
 }

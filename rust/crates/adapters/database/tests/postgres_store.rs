@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The deployment store, against a real Postgres.
 //!
 //! These tests need a server, and they are the reason P8.6 waited: a database adapter tested against a fake proves the

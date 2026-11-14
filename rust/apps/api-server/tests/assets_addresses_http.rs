@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! biological-assets-service and investment-property-service: the calculators behind the addresses they published.
 //!
 //! Both services were pure calculators: they read a request, computed, and answered. Neither owned a record, which is

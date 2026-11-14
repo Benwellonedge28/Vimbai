@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! encrypted-backup-service over HTTP: taking a backup, listing it, restoring from it and deleting it.
 
 use axum::body::Body;

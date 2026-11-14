@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! npo-scale-service over HTTP: the organisation register, credit purchases, and the creditors report.
 
 use std::sync::{Arc, Mutex};

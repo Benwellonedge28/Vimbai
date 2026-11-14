@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! webhook-service over HTTP: an endpoint registered, an event dispatched, and the trail of attempts.
 
 use axum::body::Body;

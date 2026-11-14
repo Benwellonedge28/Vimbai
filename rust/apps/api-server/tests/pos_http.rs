@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! pos-integration-service over HTTP: a till, the takings it reports, and the summary those takings add up to.
 
 use axum::body::Body;

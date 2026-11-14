@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! npo-service over HTTP: the paths the Python service published, and the figures a non-profit's register owns.
 
 use std::sync::{Arc, Mutex};

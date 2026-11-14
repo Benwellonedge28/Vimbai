@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The on-device promises, checked against the real binary.
 //!
 //! These are the promises that make the local runtime worth having, and every one of them is a claim about behaviour that

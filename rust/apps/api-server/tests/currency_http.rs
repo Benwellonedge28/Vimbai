@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! currency over HTTP: the currencies, the rates between them and the conversions over them.
 
 use std::sync::{Arc, Mutex};

@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Both directions, over every address: a contract nobody serves and a route nobody documented are the same defect.
 
 use xtask::catalog::repo_root;

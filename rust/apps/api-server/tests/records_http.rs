@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The record routes: a caller with a Book, a graph that answers, and what comes out.
 
 use std::sync::{Arc, Mutex};

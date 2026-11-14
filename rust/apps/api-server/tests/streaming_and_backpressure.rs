@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Two things a busy engine must do: hand a large page over as it is produced, and admit work at a rate it can finish.
 //!
 //! The first is a representation: `Accept: application/x-ndjson` turns a page into one record per line with the paging

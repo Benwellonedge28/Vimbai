@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! admin-service over HTTP: the feature catalogue, one caller's view of it, and the trail of what was changed.
 
 use axum::body::Body;

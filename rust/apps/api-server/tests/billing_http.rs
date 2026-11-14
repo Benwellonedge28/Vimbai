@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! subscription-plans-service over HTTP: a plan recorded, a subscription taken against it, and the upgrade quoted.
 
 use axum::body::Body;

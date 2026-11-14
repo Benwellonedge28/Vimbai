@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! banking over HTTP: statements, the cash book, and the reconciliations between them.
 
 use std::sync::{Arc, Mutex};

@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Seven domains publish a word another domain owns, so each of them answers under its own prefix.
 //!
 //! `/dashboard`, `/policies`, `/evaluate`, `/plans`, `/summary`, `/reports` and `/report/{id}` each belong to one

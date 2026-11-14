@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! sox-compliance-service and risk-assessment-service over HTTP, followed through a record's whole life: a control,
 //! a test against it, the deficiency that test raises, and a risk scored and reassessed.
 

@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! pos-integration answers at the prefix it publishes.
 //!
 //! The till itself always lived in the payments crate; these tests pin that the addresses the service published answer,

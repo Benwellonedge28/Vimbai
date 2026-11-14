@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The ledger kernel's four services over HTTP: the paths the Python services published, the shapes they
 //! answered, and the two places the port deliberately answers differently.
 

@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The gateway's promises, checked against the engine that answers them.
 //!
 //! Four rules, each one paid for by a real defect:

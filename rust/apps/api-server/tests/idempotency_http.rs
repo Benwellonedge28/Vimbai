@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! A write that a client retries happens once.
 //!
 //! Before this layer, ADR-004's seventh convention was a sentence and a timed-out retry posted twice. The tests here hold

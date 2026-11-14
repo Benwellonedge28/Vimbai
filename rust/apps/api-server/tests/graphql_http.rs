@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! graphql-service over HTTP: one POST body carrying a query, answered field by field.
 
 use axum::body::Body;

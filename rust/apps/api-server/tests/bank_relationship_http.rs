@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! bank relationships, the quality of a bank's service, and the plain connection door, over HTTP.
 
 use std::sync::{Arc, Mutex};

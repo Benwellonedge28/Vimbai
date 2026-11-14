@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The engine over a file instead of a database: what the on-device runtime boots.
 //!
 //! A record written through HTTP must be there when the store is opened again, because the machine an offline install

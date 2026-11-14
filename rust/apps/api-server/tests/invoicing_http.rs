@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! invoicing-service over HTTP: a customer, an invoice against it, and the payment that settles it.
 
 use axum::body::Body;

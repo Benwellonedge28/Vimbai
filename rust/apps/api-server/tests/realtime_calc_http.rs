@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! realtime-calculation-engine over HTTP: four figures, each answered by the calculator that already owns it.
 
 use axum::body::Body;

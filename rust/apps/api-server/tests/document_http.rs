@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! document-service answers at the prefix it publishes.
 //!
 //! The filing register itself always lived in the documents crate; these tests pin that the addresses the service

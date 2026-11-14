@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! identity-service answers at the addresses it published, and the door behaves as it was shipped.
 //!
 //! This is the one service the gateway leaves open: every other call carries a token minted here. So these tests walk

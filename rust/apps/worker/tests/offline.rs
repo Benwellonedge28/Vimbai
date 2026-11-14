@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The worker as it is actually run: one process, the store file the engine writes, one pass.
 //!
 //! The library tests prove the rules against an in-memory store. This proves the two things only a real process can: that

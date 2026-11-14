@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! message-bus-service over HTTP: publishing an event, who is listening, and what every delivery attempt did.
 
 use axum::body::Body;

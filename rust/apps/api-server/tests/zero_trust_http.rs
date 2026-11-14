@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! zero-trust-data-service over HTTP: a policy set, a decision taken against it, and the decisions on record.
 
 use axum::body::Body;

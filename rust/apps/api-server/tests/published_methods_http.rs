@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The last three published methods that reached nothing, now answered.
 //!
 //! Two were banking-integration's own connection routes: the connection's transaction feed and its sweep. The third

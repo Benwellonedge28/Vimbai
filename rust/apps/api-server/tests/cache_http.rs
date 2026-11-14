@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! cache-service over HTTP: a value held under a key, its life, and the cache's own counts.
 
 use axum::body::Body;

@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! privacy-admin-dashboard-service over HTTP: subject requests, consent, and the register's totals.
 
 use axum::body::Body;

@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! reporting-service and dashboard-service over HTTP: a report asked for, a schedule recorded, and a layout read.
 
 use axum::body::Body;

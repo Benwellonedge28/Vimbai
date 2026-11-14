@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! workflow-service over HTTP: a definition, a walk through it, and the tasks each step raises.
 
 use axum::body::Body;

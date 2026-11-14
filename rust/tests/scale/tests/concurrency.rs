@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! Many writers, one Book, at the same time.
 //!
 //! The engine serves one Book from one store, so two requests that arrive together are two writes that have to both land.

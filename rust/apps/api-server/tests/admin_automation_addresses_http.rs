@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! admin and the automation engine answer at the prefixes they publish.
 //!
 //! Both had their rules built already: the admin crate files features under eleven categories, and the automation crate

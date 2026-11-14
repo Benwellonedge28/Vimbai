@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! book-sync-service over HTTP: opening a shared Book, inviting someone, pushing and pulling encrypted entries.
 
 use axum::body::Body;

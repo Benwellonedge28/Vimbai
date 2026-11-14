@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The catalogue has to agree with the gateway and the ownership table, or it is a third opinion.
 //!
 //! These assertions are the ones the Python test made before the generator moved here: every routed service appears

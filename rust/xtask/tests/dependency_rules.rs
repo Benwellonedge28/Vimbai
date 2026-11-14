@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The dependency rules are enforced here rather than remembered.
 //!
 //! Each test answers one question a reader would otherwise have to take on trust: that the graph was actually read, that

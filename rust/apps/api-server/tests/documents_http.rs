@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! document-service over HTTP: a file filed, refused when it is a second copy, searched by its own text, and deleted.
 
 use axum::body::Body;

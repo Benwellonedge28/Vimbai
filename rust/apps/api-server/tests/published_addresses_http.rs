@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! The addresses retired services published, checked against the engine that answers for them now.
 //!
 //! A service was retired only once its paths were answered, but the check that decided that counted fixed paths only.

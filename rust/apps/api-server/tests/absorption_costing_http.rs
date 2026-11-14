@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! absorption-costing answers at the three addresses it published for its own arithmetic.
 //!
 //! The service kept the records (product costs, the latest cost per product, the stock valuation) and calculated three

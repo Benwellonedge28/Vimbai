@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! alerts-service over HTTP: a rule set, a watch that fires inside its cooldown rules, and an alert settled.
 
 use axum::body::Body;

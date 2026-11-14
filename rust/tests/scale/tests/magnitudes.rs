@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! What the platform does at magnitudes it was not written against.
 //!
 //! Every assertion here is exact. An `f64` holds an integer to about sixteen digits, so every test in this file is one
