@@ -726,34 +726,34 @@ tax-planning-service                         /tax-planning                      
 
 ```text
 service                                      address                            eps  owns engine crate
-cash-management-service                      /cash-management                     8  recs rust   rust/crates/domains/treasury
-cash-optimization-service                    /cash-optimization                   5  recs rust   rust/crates/domains/treasury
-debt-management-service                      /debt-management                     6  recs rust   rust/crates/domains/treasury
-foreign-exchange-service                     /foreign-exchange                    6  -    rust   rust/crates/domains/treasury
-petty-cash-service                           /petty-cash                         20  recs rust   rust/crates/domains/treasury
-sovereign-treasury-service                   /sovereign-treasury                  7  recs rust   rust/crates/domains/treasury
+cash-management-service                      /cash-management                     0  -    rust   rust/crates/domains/treasury
+cash-optimization-service                    /cash-optimization                   0  -    rust   rust/crates/domains/treasury
+debt-management-service                      /debt-management                     0  -    rust   rust/crates/domains/treasury
+foreign-exchange-service                     /foreign-exchange                    0  -    rust   rust/crates/domains/treasury
+petty-cash-service                           /petty-cash                          0  -    rust   rust/crates/domains/treasury
+sovereign-treasury-service                   /sovereign-treasury                  0  -    rust   rust/crates/domains/treasury
 treasury-analytics-service                   /treasury-analytics                  4  recs rust   rust/crates/domains/treasury
 treasury-compliance-service                  /treasury-compliance                 5  recs rust   rust/crates/domains/treasury
-treasury-management-service                  /treasury-management                 7  recs rust   rust/crates/domains/treasury
-treasury-policy-service                      /treasury-policy                     8  recs rust   rust/crates/domains/treasury
-treasury-reporting-service                   /treasury-reporting                  7  recs rust   rust/crates/domains/treasury
-treasury-risk-service                        /treasury-risk                      11  recs rust   rust/crates/domains/treasury
+treasury-management-service                  /treasury-management                 0  -    rust   rust/crates/domains/treasury
+treasury-policy-service                      /treasury-policy                     0  -    rust   rust/crates/domains/treasury
+treasury-reporting-service                   /treasury-reporting                  0  -    rust   rust/crates/domains/treasury
+treasury-risk-service                        /treasury-risk                       0  -    rust   rust/crates/domains/treasury
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `cash-management-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `cash-optimization-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `debt-management-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `cash-management-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `cash-optimization-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `debt-management-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `foreign-exchange-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `petty-cash-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `sovereign-treasury-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `petty-cash-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `sovereign-treasury-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `treasury-analytics-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
 | `treasury-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `treasury-management-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `treasury-policy-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `treasury-reporting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `treasury-risk-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `treasury-management-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `treasury-policy-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `treasury-reporting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `treasury-risk-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## webhooks — 1/1 on Rust
 

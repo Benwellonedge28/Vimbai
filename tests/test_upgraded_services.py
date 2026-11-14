@@ -231,34 +231,6 @@ class TestAmortizationService:
         assert data["schedules"][0]["monthly_amortization"] == round(10000 / 12, 2)
 
 
-class TestForeignExchangeService:
-    def setup_method(self):
-        self.client = TestClient(load_app("foreign-exchange-service"))
-
-    def test_conversion(self):
-        resp = self.client.post("/convert", json={"from_currency": "USD", "to_currency": "EUR", "amount": 100})
-        data = resp.json()
-        assert resp.status_code == 200
-        assert data["rate"] > 0
-        assert data["converted_amount"] > 0
-
-    def test_hedge_calculation(self):
-        resp = self.client.post(
-            "/hedge",
-            json={
-                "company_id": "comp-1",
-                "currency": "EUR",
-                "exposure_amount": 100000,
-                "hedge_ratio": 0.8,
-                "forward_rate": 0.95,
-            },
-        )
-        data = resp.json()
-        assert resp.status_code == 200
-        assert data["hedged_amount"] == 80000
-        assert data["unhedged_amount"] == 20000
-
-
 class TestMFAService:
     """mfa-auth is now Neo4j-backed: MFA is self-service (X-User-Id must match)."""
 

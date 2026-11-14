@@ -16,35 +16,6 @@ TM_HEADERS = {"X-User-Id": "root-tm-user"}
 
 
 @pytest.fixture
-def treasury_client():
-    pkg = load_service("treasury-management-service")
-    app = pkg.main.app
-    # patch the fake Neo4j driver (module is registered by the service's self-bootstrap)
-    fake_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "treasury-management-service",
-        "fake_neo4j.py",
-    )
-    spec = importlib.util.spec_from_file_location("root_tm_fake", fake_path)
-    fake = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fake)
-    session = fake.FakeSession()
-    # conftest replaces the parent alias with a bare module (no __path__), so
-    # load the lazily-imported database module by file path and patch it
-    db_path = os.path.join(os.path.dirname(fake_path), "database.py")
-    db_spec = importlib.util.spec_from_file_location("treasury_management_service.database", db_path)
-    db_mod = importlib.util.module_from_spec(db_spec)
-    sys.modules["treasury_management_service.database"] = db_mod
-    db_spec.loader.exec_module(db_mod)
-    db_mod.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
-    client = TestClient(app)
-    client.headers.update(TM_HEADERS)
-    yield client
-    session.nodes.clear()
-    session.edges.clear()
-
-
-@pytest.fixture
 def compliance_client():
     svc = load_service("treasury-compliance-service")
     app = svc.main.app
@@ -90,56 +61,6 @@ def analytics_client():
     client = TestClient(app)
     client.headers.update(TM_HEADERS)
     return client
-
-
-class TestTreasuryManagement:
-    def test_health(self, treasury_client):
-        resp = treasury_client.get("/")
-        assert resp.status_code == 200
-        assert resp.json()["service"] == "treasury-management-service"
-
-    def test_record_cashflow(self, treasury_client):
-        resp = treasury_client.post(
-            "/cashflows",
-            json={
-                "company_id": "comp-1",
-                "flow_type": "inflow",
-                "amount": 50000,
-                "currency": "USD",
-                "description": "Customer payment",
-            },
-        )
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "recorded"
-
-    def test_get_cashflows(self, treasury_client):
-        treasury_client.post("/cashflows", json={"company_id": "comp-2", "flow_type": "inflow", "amount": 10000})
-        resp = treasury_client.get("/cashflows/comp-2")
-        assert resp.status_code == 200
-        assert resp.json()["total"] >= 1
-
-    def test_cash_position(self, treasury_client):
-        treasury_client.post("/cashflows", json={"company_id": "comp-pos", "flow_type": "inflow", "amount": 50000})
-        treasury_client.post("/cashflows", json={"company_id": "comp-pos", "flow_type": "outflow", "amount": 20000})
-        resp = treasury_client.get("/position/comp-pos")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["total_cash"] == 30000  # 50000 - 20000
-        assert data["available_cash"] == 30000
-
-    def test_forecast(self, treasury_client):
-        treasury_client.post("/cashflows", json={"company_id": "comp-fc", "flow_type": "inflow", "amount": 30000})
-        resp = treasury_client.post("/forecast/comp-fc?days=30")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["projected_inflows"] >= 0
-        assert data["projected_outflows"] >= 0
-        assert "assumptions" in data
-
-    def test_investment_options(self, treasury_client):
-        resp = treasury_client.get("/investment-options")
-        assert resp.status_code == 200
-        assert len(resp.json()["options"]) >= 3
 
 
 class TestTreasuryCompliance:

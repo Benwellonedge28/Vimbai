@@ -72,6 +72,12 @@ def declared(service):
     return [path for path in paths if "{" not in path and path not in ("", "/health")]
 
 
+# Kept on purpose, not for want of routes: these directories are the Python side of a parity test that compares the old
+# service with the Rust engine. A service answered by the engine still leaves a useful oracle behind, so deleting it
+# would delete the only thing that can prove the engine agrees. The survey says so instead of nagging.
+PARITY_ORACLES = {"treasury-analytics-service"}
+
+
 def verdict(service, gateway_path, routes):
     fixed = declared(service)
     if not fixed:
@@ -85,6 +91,8 @@ def verdict(service, gateway_path, routes):
     flat_only = all(path.rstrip("/") in routes for path in fixed) and not all(
         (prefix + path).rstrip("/") in routes for path in fixed
     )
+    if service in PARITY_ORACLES:
+        return {"service": service, "verdict": "parity oracle", "fixed": len(fixed), "missing": [], "prefix": "keep"}
     return {
         "service": service,
         "verdict": "ready" if not missing else "keep",

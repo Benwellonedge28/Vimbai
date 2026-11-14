@@ -568,18 +568,18 @@ Lands in `rust/crates/domains/treasury`.
 
 ```
 service                                         port  routes  records  engine
-cash-management-service                         8264       8      yes  rust
-cash-optimization-service                       8030       5      yes  rust
-debt-management-service                         8194       6      yes  rust
-foreign-exchange-service                        8192       6       no  rust
-petty-cash-service                              8097      20      yes  rust
-sovereign-treasury-service                      8127       7      yes  rust
-treasury-analytics-service                      8134       4      yes  rust
+cash-management-service                         8099       0       no  rust
+cash-optimization-service                       8099       0       no  rust
+debt-management-service                         8099       0       no  rust
+foreign-exchange-service                        8099       0       no  rust
+petty-cash-service                              8099       0       no  rust
+sovereign-treasury-service                      8099       0       no  rust
+treasury-analytics-service                      8099       4      yes  rust
 treasury-compliance-service                     8135       5      yes  rust
-treasury-management-service                     8136       7      yes  rust
-treasury-policy-service                         8263       8      yes  rust
-treasury-reporting-service                      8262       7      yes  rust
-treasury-risk-service                           8259      11      yes  rust
+treasury-management-service                     8099       0       no  rust
+treasury-policy-service                         8099       0       no  rust
+treasury-reporting-service                      8099       0       no  rust
+treasury-risk-service                           8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

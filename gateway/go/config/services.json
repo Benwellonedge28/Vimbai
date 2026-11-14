@@ -218,16 +218,16 @@
     {
       "name": "cash-management-service",
       "path": "/cash-management",
-      "url": "http://localhost:9012",
-      "port": 8264,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "cash-optimization-service",
       "path": "/cash-optimization",
-      "url": "http://localhost:9012",
-      "port": 8030,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -306,8 +306,8 @@
     {
       "name": "debt-management-service",
       "path": "/debt-management",
-      "url": "http://localhost:9003",
-      "port": 8194,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -441,8 +441,8 @@
     {
       "name": "foreign-exchange-service",
       "path": "/foreign-exchange",
-      "url": "http://localhost:9012",
-      "port": 8192,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -693,8 +693,8 @@
     {
       "name": "petty-cash-service",
       "path": "/petty-cash",
-      "url": "http://localhost:9011",
-      "port": 8097,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -915,8 +915,8 @@
     {
       "name": "sovereign-treasury-service",
       "path": "/sovereign-treasury",
-      "url": "http://localhost:9003",
-      "port": 8127,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -979,8 +979,8 @@
     {
       "name": "treasury-analytics-service",
       "path": "/treasury-analytics",
-      "url": "http://localhost:9003",
-      "port": 8134,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -995,32 +995,32 @@
     {
       "name": "treasury-management-service",
       "path": "/treasury-management",
-      "url": "http://localhost:9003",
-      "port": 8136,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "treasury-policy-service",
       "path": "/treasury-policy",
-      "url": "http://localhost:9003",
-      "port": 8263,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "treasury-reporting-service",
       "path": "/treasury-reporting",
-      "url": "http://localhost:9002",
-      "port": 8262,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "treasury-risk-service",
       "path": "/treasury-risk",
-      "url": "http://localhost:9003",
-      "port": 8259,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

@@ -8,113 +8,61 @@ services:
 - name: cash-management-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8264
+  port: 8099
   gateway_path: /cash-management
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /accounts
-  - GET /accounts
-  - POST /transfers
-  - GET /transfers
-  - POST /liquidity
-  - GET /liquidity
+  records: false
+  endpoints: []
 - name: cash-optimization-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8030
+  port: 8099
   gateway_path: /cash-optimization
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /accounts
-  - GET /accounts/{company_id}
-  - POST /optimize/{company_id}
-  - GET /suggestions/{company_id}
+  records: false
+  endpoints: []
 - name: debt-management-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8194
+  port: 8099
   gateway_path: /debt-management
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /loans
-  - GET /loans
-  - POST /loans/{loan_id}/schedule
-  - GET /summary
+  records: false
+  endpoints: []
 - name: foreign-exchange-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8192
+  port: 8099
   gateway_path: /foreign-exchange
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - GET /rates
-  - GET /rates/{currency}
-  - POST /convert
-  - POST /hedge
+  endpoints: []
 - name: petty-cash-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8097
+  port: 8099
   gateway_path: /petty-cash
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /funds
-  - GET /funds
-  - GET /funds/{fund_id}
-  - PUT /funds/{fund_id}
-  - POST /funds/{fund_id}/close
-  - POST /transactions
-  - GET /transactions
-  - GET /transactions/{transaction_id}
-  - GET /funds/{fund_id}/balance
-  - GET /funds/{fund_id}/summary
-  - POST /vouchers
-  - GET /vouchers
-  - PUT /vouchers/{voucher_id}/approve
-  - POST /replenishments
-  - GET /replenishments
-  - PUT /replenishments/{replenishment_id}/approve
-  - GET /reports/fund-report/{fund_id}
-  - GET /reports/cash-position
-  - GET /reports/category-summary
+  records: false
+  endpoints: []
 - name: sovereign-treasury-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8127
+  port: 8099
   gateway_path: /sovereign-treasury
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /accounts
-  - GET /accounts/{country}
-  - POST /debt
-  - GET /debt/{country}
-  - POST /fiscal-position
-  - GET /fiscal-position/{country}
+  records: false
+  endpoints: []
 - name: treasury-analytics-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8134
+  port: 8099
   gateway_path: /treasury-analytics
   auth_required: true
   engine: rust
@@ -141,69 +89,36 @@ services:
 - name: treasury-management-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8136
+  port: 8099
   gateway_path: /treasury-management
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /cashflows
-  - GET /cashflows/{company_id}
-  - GET /position/{company_id}
-  - PUT /position/{company_id}
-  - POST /forecast/{company_id}
-  - GET /investment-options
+  records: false
+  endpoints: []
 - name: treasury-policy-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8263
+  port: 8099
   gateway_path: /treasury-policy
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /policies
-  - GET /policies
-  - POST /policies/{policy_id}/limits
-  - GET /policies/{policy_id}/limits
-  - POST /limits/{limit_id}/check
-  - GET /compliance
+  records: false
+  endpoints: []
 - name: treasury-reporting-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8262
+  port: 8099
   gateway_path: /treasury-reporting
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /reports/cash-position
-  - POST /reports/fx-exposure
-  - POST /reports/debt-portfolio
-  - GET /reports
-  - GET /reports/{report_id}
+  records: false
+  endpoints: []
 - name: treasury-risk-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8259
+  port: 8099
   gateway_path: /treasury-risk
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /exposures
-  - GET /exposures
-  - POST /var
-  - GET /var
-  - POST /scenarios
-  - GET /scenarios
-  - POST /scenarios/{scenario_id}/run
-  - GET /stress-results
-  - GET /dashboard
+  records: false
+  endpoints: []

@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          81
+live and routed          71
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -36,22 +36,18 @@ Routed by the API gateway and deployed. These are the running product.
 `cache-service`
 `cash-flow-service`
 `cash-flow-statement-service`
-`cash-management-service`
-`cash-optimization-service`
 `cashbook-service`
 `company-accounting-service`
 `continue-shutdown-decision-service`
 `currency-service`
 `cvp-analysis-service`
 `data-warehouse-service`
-`debt-management-service`
 `departmental-accounting-service`
 `disposal-account-service`
 `distributed-workflow-orchestration-service`
 `document-service`
 `encrypted-backup-service`
 `etl-service`
-`foreign-exchange-service`
 `fund-accounting-service`
 `general-reserve-service`
 `graphql-service`
@@ -69,7 +65,6 @@ Routed by the API gateway and deployed. These are the running product.
 `ordinary-shares-service`
 `overhead-absorption-rate-service`
 `payment-gateway-service`
-`petty-cash-service`
 `pos-integration-service`
 `preference-shares-service`
 `privacy-admin-dashboard-service`
@@ -85,16 +80,11 @@ Routed by the API gateway and deployed. These are the running product.
 `scenario-modeling-service`
 `selling-price-reduction-service`
 `sensitivity-analysis-service`
-`sovereign-treasury-service`
 `sox-compliance-service`
 `subscription-plans-service`
 `trading-account-service`
 `treasury-analytics-service`
 `treasury-compliance-service`
-`treasury-management-service`
-`treasury-policy-service`
-`treasury-reporting-service`
-`treasury-risk-service`
 `webhook-service`
 `websocket-service`
 `workflow-service`

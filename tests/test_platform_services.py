@@ -66,15 +66,6 @@ def scenario_client():
 
 
 @pytest.fixture
-def cash_opt_client():
-    _patch_fake("cash_optimization_service", "cash_opt_root_fake")
-    app = load_service("cash-optimization-service").main.app
-    client = TestClient(app)
-    client.headers.update(_H)
-    return client
-
-
-@pytest.fixture
 def sensitivity_client():
     _patch_fake("sensitivity_analysis_service", "sensitivity_analysis_root_fake")
     app = load_service("sensitivity-analysis-service").main.app
@@ -184,38 +175,6 @@ class TestScenarioAnalysis:
         assert resp.status_code == 200
         assert resp.json()["best_case"] == "Best"
         assert resp.json()["worst_case"] == "Worst"
-
-
-class TestCashOptimization:
-    def test_health(self, cash_opt_client):
-        assert cash_opt_client.get("/").status_code == 200
-
-    def test_optimize(self, cash_opt_client):
-        cash_opt_client.post(
-            "/accounts",
-            json={
-                "company_id": "comp-1",
-                "account_name": "Operating",
-                "account_type": "operating",
-                "balance": 200000,
-                "min_required": 50000,
-            },
-        )
-        cash_opt_client.post(
-            "/accounts",
-            json={
-                "company_id": "comp-1",
-                "account_name": "Investment",
-                "account_type": "investment",
-                "balance": 50000,
-                "interest_rate": 0.05,
-            },
-        )
-        resp = cash_opt_client.post("/optimize/comp-1")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["total_count"] >= 1
-        assert data["potential_annual_benefit"] > 0
 
 
 class TestSensitivityAnalysis:

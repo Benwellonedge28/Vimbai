@@ -1624,6 +1624,16 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   net-present-value, payback-period, personal-finance and trade-finance are gone, all answered flat. Note the traps the
   survey avoids by comparing whole names: discounted-payback-period-service is a different service and stays.
 
+- The treasury domain, batch nine: cash-management, cash-optimization, debt-management, foreign-exchange, petty-cash,
+  sovereign-treasury, treasury-management, treasury-policy, treasury-reporting and treasury-risk are gone - all answered
+  under the treasury prefix, which their entries keep. treasury-compliance stays; it publishes no endpoints to compare.
+
+  treasury-analytics-service is the exception and stays on purpose. It is the Python side of the native seam parity test
+  that proves the engine agrees with the service it replaced, so retiring the directory would retire the evidence with it.
+  scripts/retire_coverage.py calls it a parity oracle instead of "ready".
+
+  The ap-ar-expenses CI shard emptied out in this batch and is removed rather than left running a job that tests nothing.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

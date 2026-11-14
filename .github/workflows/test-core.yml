@@ -39,12 +39,10 @@ jobs:
             services: "identity-service accounting-service finance-service multimodal-pipeline-service scenario-modeling-service workflow-service budget-service "
           - group: advanced-accounting
             services: "revenue-recognition-service currency-service general-reserve-service data-warehouse-service subscription-plans-service intercompany-service "
-          - group: ap-ar-expenses
-            services: "petty-cash-service "
           - group: corporate-finance
-            services: "cash-optimization-service scenario-analysis-service sensitivity-analysis-service "
+            services: "scenario-analysis-service sensitivity-analysis-service "
           - group: costing-budgeting
-            services: "appropriation-control-service job-costing-service process-costing-service product-costing-service zero-based-budgeting-service treasury-policy-service treasury-reporting-service treasury-risk-service "
+            services: "appropriation-control-service job-costing-service process-costing-service product-costing-service zero-based-budgeting-service "
           - group: platform-automation
             services: "automation-engine-service notifications-service webhook-service admin-service "
           - group: platform-infrastructure
@@ -56,7 +54,7 @@ jobs:
           - group: tax-audit-investigation
             services: "sox-compliance-service "
           - group: treasury-banking
-            services: "sovereign-treasury-service treasury-analytics-service treasury-compliance-service treasury-management-service bank-feed-service cash-management-service "
+            services: "treasury-compliance-service bank-feed-service "
 
     steps:
       - uses: actions/checkout@v4
