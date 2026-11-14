@@ -40,8 +40,12 @@ in `ROADMAP.md`.
 
 ## Domains
 
-`domains/` documents each business domain as built: what it owns, the addresses it serves, and what it deliberately does
-not own. Written in roadmap P5. `domains/payments.md` states POS till support only, per ADR-005.
+`domains/` documents each business domain as built: what it owns, the services and gateway prefixes it answers on, and
+what it deliberately does not own. One page per domain, twenty-two pages, and the mapping is a gate rather than a
+convention: `cargo run -p xtask -- domains` fails if a routed service has no page, if a page names a service or crate the
+catalogue does not have, or if a page leaves out one of its own prefixes.
+
+`domains/payments.md` states POS till support only, and that Vimbai Pay is not built, per ADR-005.
 
 ## Operations and local use
 

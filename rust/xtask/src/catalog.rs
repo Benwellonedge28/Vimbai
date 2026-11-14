@@ -177,6 +177,8 @@ pub fn rows(root: &Path) -> Vec<Row> {
                 .map(|(_, target)| target.clone())
                 .unwrap_or_default();
             Row {
+                // not a per-service fact any more: the engine records for every service, and the flag is kept only so the
+                // catalogue file keeps its shape for readers that already parse it
                 records: false,
                 endpoints: endpoints_of(root, &name),
                 engine: if ported.contains(&name) {

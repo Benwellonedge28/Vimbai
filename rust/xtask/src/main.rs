@@ -8,7 +8,7 @@
 
 use std::process::ExitCode;
 
-use xtask::{boundaries, catalog, gateway, reachability};
+use xtask::{boundaries, catalog, domains, gateway, reachability};
 
 const USAGE: &str = "\
 xtask - repository tooling
@@ -21,6 +21,7 @@ COMMANDS:
     catalog --check    report whether the committed catalogue is current, and exit 1 if it is not
     gateway            report the addresses the gateway publishes that the engine does not answer
     gateway --addresses  print every address the engine answers, one per line
+    domains            report a routed service with no domain page, and a page that is stale, and exit 1
     reachability       report the modules no door can reach, one per line
     boundaries         report crate dependency rule violations, and exit 1 if there are any
     boundaries --graph print every crate with its family and its internal dependencies
@@ -58,6 +59,19 @@ fn main() -> ExitCode {
             }
         }
         // The modules nothing can call: arithmetic that looks wired because it is `pub` and re-exported.
+        "domains" => {
+            let found = domains::audit(&root);
+            for finding in &found {
+                println!("{finding}");
+            }
+            if found.is_empty() {
+                println!("domains: every routed service has one page, and every page is true");
+                ExitCode::SUCCESS
+            } else {
+                println!("domains: {} outstanding", found.len());
+                ExitCode::FAILURE
+            }
+        }
         "reachability" => {
             let dead = reachability::unreachable_modules(&root);
             for module in &dead {

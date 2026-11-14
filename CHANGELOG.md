@@ -16,6 +16,10 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
   and the domains, twelve tests including seeded property tests over random entry sets, plus parity fixtures recording
   the figures two retired Python services answered. `docs/compliance/financial-integrity.md` states each guarantee
   against the test that fails when it stops holding.
+- Twenty-two domain pages under `docs/domains/`, one per domain, saying what each crate owns, the services and gateway
+  prefixes it answers on, and what it deliberately does not own. The mapping is a gate, not a convention: a routed
+  service with no page, a page naming a service or crate the catalogue does not have, or a page leaving out one of its own
+  prefixes all fail `cargo run -p xtask -- domains`.
 - A worker that actually runs the automations: `rust/apps/worker` claims a due rule from the same store the engine writes
   and runs it exactly once. A run's identity is the rule and the instant it was due, so a crash between claim and
   completion leaves the run to be finished, never started a second time. Completed and failed runs land in the owner's

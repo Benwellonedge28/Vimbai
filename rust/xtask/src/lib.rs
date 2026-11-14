@@ -8,6 +8,7 @@ pub mod boundaries;
 pub mod catalog;
 pub mod contracts;
 pub mod crates;
+pub mod domains;
 pub mod gateway;
 pub mod manifests;
 pub mod reachability;
