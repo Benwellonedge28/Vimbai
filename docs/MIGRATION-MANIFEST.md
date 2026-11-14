@@ -320,7 +320,7 @@ Lands in `rust/crates/domains/finance`.
 
 ```
 service                                         port  routes  records  engine
-continue-shutdown-decision-service              8032       6      yes  rust
+continue-shutdown-decision-service              8032       0       no  rust
 insurance-claims-service                        8099       0       no  rust
 internal-rate-return-service                    8099       0       no  rust
 investment-monitoring-service                   8099       0       no  rust

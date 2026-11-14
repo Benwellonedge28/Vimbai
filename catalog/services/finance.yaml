@@ -12,14 +12,8 @@ services:
   gateway_path: /continue-shutdown-decision
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /analyze
-  - POST /quick-analysis
-  - GET /decisions
-  - GET /decisions/{decision_id}
+  records: false
+  endpoints: []
 - name: insurance-claims-service
   domain: finance
   target: rust/crates/domains/finance

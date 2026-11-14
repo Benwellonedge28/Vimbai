@@ -9759,35 +9759,35 @@ fn records_router(graph: GraphHandle) -> Router {
             post(payback_average_cash_flow),
         )
         .route(
-            "/continue-shutdown/analyze",
+            "/continue-shutdown-decision/analyze",
             post(analyze_continue_shutdown),
         )
         .route(
-            "/continue-shutdown/quick-analysis",
+            "/continue-shutdown-decision/quick-analysis",
             post(quick_continue_shutdown),
         )
         .route(
-            "/continue-shutdown/decisions",
+            "/continue-shutdown-decision/decisions",
             get(continue_shutdown_decisions),
         )
         .route(
-            "/continue-shutdown/decisions/:decision_id",
+            "/continue-shutdown-decision/decisions/:decision_id",
             get(continue_shutdown_decision),
         )
         .route(
-            "/records/continue-shutdown/analyze",
+            "/records/continue-shutdown-decision/analyze",
             post(analyze_continue_shutdown),
         )
         .route(
-            "/records/continue-shutdown/quick-analysis",
+            "/records/continue-shutdown-decision/quick-analysis",
             post(quick_continue_shutdown),
         )
         .route(
-            "/records/continue-shutdown/decisions",
+            "/records/continue-shutdown-decision/decisions",
             get(continue_shutdown_decisions),
         )
         .route(
-            "/records/continue-shutdown/decisions/:decision_id",
+            "/records/continue-shutdown-decision/decisions/:decision_id",
             get(continue_shutdown_decision),
         )
         .route("/records/foreign-exchange/rates", get(fx_rates))

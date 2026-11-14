@@ -504,14 +504,8 @@ services:
   gateway_path: /continue-shutdown-decision
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /analyze
-  - POST /quick-analysis
-  - GET /decisions
-  - GET /decisions/{decision_id}
+  records: false
+  endpoints: []
 - name: control-account-reconciliation-service
   domain: kernel
   target: rust/crates/kernel/ledger-services

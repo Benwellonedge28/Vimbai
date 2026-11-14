@@ -2655,7 +2655,7 @@ async fn a_continue_or_shutdown_decision_is_kept_over_http() {
     let (status, body) = call_with(
         graph,
         "POST",
-        "/records/continue-shutdown/analyze",
+        "/records/continue-shutdown-decision/analyze",
         Some(
             json!({"entity_id": "d-1", "entity_name": "Milling", "entity_type": "department",
                     "period": "2026-Q1", "revenue": "300", "variable_costs": "200",
@@ -2674,7 +2674,7 @@ async fn the_quick_continue_analysis_answers_over_http() {
     let (status, body) = call_with(
         graph,
         "POST",
-        "/continue-shutdown/quick-analysis",
+        "/continue-shutdown-decision/quick-analysis",
         Some(json!({"entity_name": "Milling", "contribution": "500",
                     "unavoidable_fixed_costs": "400"})),
     )
@@ -2687,8 +2687,13 @@ async fn the_quick_continue_analysis_answers_over_http() {
 #[tokio::test]
 async fn a_decision_the_caller_does_not_hold_answers_200_over_http() {
     let graph = Scripted::queue(vec![vec![]]);
-    let (status, body) =
-        call_with(graph, "GET", "/continue-shutdown/decisions/missing", None).await;
+    let (status, body) = call_with(
+        graph,
+        "GET",
+        "/continue-shutdown-decision/decisions/missing",
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["error"], json!("Decision not found"));
 }
