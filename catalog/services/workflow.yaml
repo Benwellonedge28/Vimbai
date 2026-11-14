@@ -8,20 +8,12 @@ services:
 - name: distributed-workflow-orchestration-service
   domain: workflow
   target: rust/crates/domains/workflow
-  port: 8046
+  port: 8099
   gateway_path: /distributed-workflow-orchestration
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /workflows
-  - GET /workflows
-  - GET /workflows/{workflow_id}
-  - POST /workflows/{workflow_id}/execute
-  - POST /workflows/{workflow_id}/compensate
-  - DELETE /workflows/{workflow_id}
+  endpoints: []
 - name: workflow-service
   domain: workflow
   target: rust/crates/domains/workflow

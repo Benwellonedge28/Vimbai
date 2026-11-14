@@ -106,8 +106,8 @@
     {
       "name": "balance-sheet-service",
       "path": "/balance-sheet",
-      "url": "http://localhost:9002",
-      "port": 8019,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -202,16 +202,16 @@
     {
       "name": "cash-flow-service",
       "path": "/cash-flow",
-      "url": "http://localhost:9003",
-      "port": 8028,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "cash-flow-statement-service",
       "path": "/cash-flow-statement",
-      "url": "http://localhost:9002",
-      "port": 8029,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -234,16 +234,16 @@
     {
       "name": "cashbook-service",
       "path": "/cashbook",
-      "url": "http://localhost:9011",
-      "port": 8098,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "company-accounting-service",
       "path": "/company-accounting",
-      "url": "http://localhost:9011",
-      "port": 8101,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -338,8 +338,8 @@
     {
       "name": "distributed-workflow-orchestration-service",
       "path": "/distributed-workflow-orchestration",
-      "url": "http://localhost:9007",
-      "port": 8046,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -449,8 +449,8 @@
     {
       "name": "fund-accounting-service",
       "path": "/fund-accounting",
-      "url": "http://localhost:9011",
-      "port": 8060,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -473,8 +473,8 @@
     {
       "name": "ifrs-reporting-service",
       "path": "/ifrs-reporting",
-      "url": "http://localhost:9002",
-      "port": 8268,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -505,8 +505,8 @@
     {
       "name": "intercompany-service",
       "path": "/intercompany",
-      "url": "http://localhost:9011",
-      "port": 8350,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -828,8 +828,8 @@
     {
       "name": "revenue-recognition-service",
       "path": "/revenue-recognition",
-      "url": "http://localhost:9011",
-      "port": 8115,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -931,8 +931,8 @@
     {
       "name": "subscription-plans-service",
       "path": "/subscription-plans",
-      "url": "http://localhost:9009",
-      "port": 8001,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -971,8 +971,8 @@
     {
       "name": "trading-account-service",
       "path": "/trading-account",
-      "url": "http://localhost:9011",
-      "port": 8000,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1074,8 +1074,8 @@
     {
       "name": "npo-scale-service",
       "path": "/npo-scale",
-      "url": "http://localhost:9021",
-      "port": 9021,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": true
     },

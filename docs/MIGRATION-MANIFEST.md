@@ -26,17 +26,17 @@ Lands in `rust/crates/domains/accounting`.
 service                                         port  routes  records  engine
 accounting-service                              8000      54      yes  rust
 accounting-standards-service                    8095      20      yes  rust
-balance-sheet-service                           8019       5      yes  rust
-cash-flow-service                               8028       9      yes  rust
-cash-flow-statement-service                     8029       4      yes  rust
-cashbook-service                                8098      21      yes  rust
-company-accounting-service                      8101      23      yes  rust
+balance-sheet-service                           8099       0       no  rust
+cash-flow-service                               8099       0       no  rust
+cash-flow-statement-service                     8099       0       no  rust
+cashbook-service                                8099       0       no  rust
+company-accounting-service                      8099       0       no  rust
 departmental-accounting-service                 8100      22      yes  rust
-fund-accounting-service                         8060       5      yes  rust
-ifrs-reporting-service                          8268       8      yes  rust
-intercompany-service                            8350       8      yes  rust
-revenue-recognition-service                     8115       5      yes  rust
-trading-account-service                         8000       5      yes  rust
+fund-accounting-service                         8099       0       no  rust
+ifrs-reporting-service                          8099       0       no  rust
+intercompany-service                            8099       0       no  rust
+revenue-recognition-service                     8099       0       no  rust
+trading-account-service                         8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -367,7 +367,7 @@ Lands in `rust/crates/domains/invoicing`.
 ```
 service                                         port  routes  records  engine
 invoicing-service                               8070      12      yes  rust
-subscription-plans-service                      8001       7      yes  rust
+subscription-plans-service                      8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -422,7 +422,7 @@ Lands in `rust/crates/domains/npo`.
 
 ```
 service                                         port  routes  records  engine
-npo-scale-service                               9021      51      yes  rust
+npo-scale-service                               8099       0       no  rust
 npo-service                                     8085      40      yes  rust
 ```
 
@@ -605,7 +605,7 @@ Lands in `rust/crates/domains/workflow`.
 
 ```
 service                                         port  routes  records  engine
-distributed-workflow-orchestration-service      8046       8       no  rust
+distributed-workflow-orchestration-service      8099       0       no  rust
 workflow-service                                8142      10      yes  rust
 ```
 

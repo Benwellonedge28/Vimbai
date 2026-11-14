@@ -116,46 +116,6 @@ class TestProfitLossService:
         assert data["revenue_change_pct"] == 25.0
 
 
-class TestTradingAccountService:
-    def setup_method(self):
-        import importlib.util
-        import os as _os
-
-        app = load_service_app("trading-account-service")
-        svc_dir = _os.path.join(REPO_ROOT, "trading-account-service")
-        spec = importlib.util.spec_from_file_location("ta_root_fake", _os.path.join(svc_dir, "fake_neo4j.py"))
-        fake_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fake_mod)
-        self._session = fake_mod.FakeSession()
-        import trading_account_service.database as db
-
-        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(self._session))
-        self.client = TestClient(app)
-        self.client.headers.update({"X-User-Id": "root-ta-user"})
-
-    def test_trading_account(self):
-        resp = self.client.post(
-            "/generate",
-            json={
-                "company_id": "comp-1",
-                "period": "2026",
-                "opening_stock": 10000,
-                "purchases": 50000,
-                "carriage_inward": 2000,
-                "closing_stock": 15000,
-                "sales": 100000,
-                "sales_returns": 5000,
-                "direct_wages": 8000,
-                "factory_overhead": 5000,
-            },
-        )
-        data = resp.json()
-        assert resp.status_code == 200
-        assert data["net_sales"] == 95000
-        assert data["cost_of_goods_sold"] == 60000
-        assert data["gross_profit"] == 35000
-
-
 class TestPayrollService:
     def setup_method(self):
         self.client = TestClient(load_service_app("payroll-accounting-service"))

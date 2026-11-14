@@ -7,7 +7,6 @@
   "advertised but absent from the cluster": [
     "automation-engine-service",
     "book-sync-service",
-    "npo-scale-service",
     "treasury-analytics-service"
   ]
 }

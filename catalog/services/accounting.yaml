@@ -47,110 +47,48 @@ services:
 - name: balance-sheet-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8019
+  port: 8099
   gateway_path: /balance-sheet
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /generate
-  - GET /latest/{company_id}
-  - GET /history/{company_id}
-  - GET /ratios/{company_id}
+  records: false
+  endpoints: []
 - name: cash-flow-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8028
+  port: 8099
   gateway_path: /cash-flow
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /create
-  - POST /inflows
-  - POST /outflows
-  - POST /net-flows
-  - POST /cumulative-flows
-  - GET /list
-  - GET /get/{cash_flow_id}
+  records: false
+  endpoints: []
 - name: cash-flow-statement-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8029
+  port: 8099
   gateway_path: /cash-flow-statement
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /generate
-  - GET /latest/{company_id}
-  - GET /history/{company_id}
+  records: false
+  endpoints: []
 - name: cashbook-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8098
+  port: 8099
   gateway_path: /cashbook
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /accounts
-  - GET /accounts
-  - GET /accounts/{account_id}
-  - PUT /accounts/{account_id}
-  - POST /entries
-  - GET /entries
-  - GET /entries/{entry_id}
-  - PUT /entries/{entry_id}/post
-  - PUT /entries/{entry_id}/void
-  - GET /summary/{account_code}
-  - POST /reconciliations
-  - GET /reconciliations
-  - GET /reconciliations/{reconciliation_id}
-  - PUT /reconciliations/{reconciliation_id}/complete
-  - GET /reconciliations/{reconciliation_id}/outstanding
-  - POST /cash-flow
-  - GET /cash-flow
-  - GET /cash-flow/summary
-  - GET /cash-position
-  - GET /cash-position/history
+  records: false
+  endpoints: []
 - name: company-accounting-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8101
+  port: 8099
   gateway_path: /company-accounting
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /companies
-  - GET /companies
-  - GET /companies/{company_id}
-  - PUT /companies/{company_id}
-  - POST /shareholders
-  - GET /shareholders
-  - POST /share-capital
-  - GET /share-capital
-  - POST /capital-transactions
-  - GET /capital-transactions
-  - POST /dividends
-  - GET /dividends
-  - POST /dividends/{dividend_id}/pay
-  - GET /dividends/{dividend_id}/payments
-  - POST /retained-earnings
-  - GET /retained-earnings
-  - POST /reserves
-  - GET /reserves
-  - GET /reports/equity-statement/{company_id}
-  - GET /reports/shareholder-register/{company_id}
-  - GET /reports/dividend-history/{company_id}
+  records: false
+  endpoints: []
 - name: departmental-accounting-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -185,76 +123,45 @@ services:
 - name: fund-accounting-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8060
+  port: 8099
   gateway_path: /fund-accounting
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /funds
-  - GET /funds/{company_id}
-  - POST /transactions
-  - GET /transactions/{fund_id}
+  records: false
+  endpoints: []
 - name: ifrs-reporting-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8268
+  port: 8099
   gateway_path: /ifrs-reporting
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /reports
-  - GET /reports
-  - GET /reports/{report_id}
-  - POST /reports/{report_id}/notes
-  - GET /reports/{report_id}/notes
-  - PUT /reports/{report_id}/approve
+  records: false
+  endpoints: []
 - name: intercompany-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8350
+  port: 8099
   gateway_path: /intercompany
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /entities
-  - GET /entities
-  - POST /transactions
-  - GET /transactions
-  - POST /transactions/match
-  - GET /eliminations
+  records: false
+  endpoints: []
 - name: revenue-recognition-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8115
+  port: 8099
   gateway_path: /revenue-recognition
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /contracts
-  - POST /contracts/{contract_id}/recognize
-  - GET /contracts/{company_id}
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: trading-account-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8000
+  port: 8099
   gateway_path: /trading-account
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /generate
-  - GET /accounts
-  - GET /accounts/{account_id}
+  records: false
+  endpoints: []

@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 55 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 83 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 42 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 96 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -29,7 +29,7 @@ audit-sampling-service                         8099  routes=0   records=no  rust
 authorized-share-capital-service               8099  routes=0   records=no  rust http (no python source)
 automation-engine-service                      8000  routes=10  records=yes rust http
 bad-debts-recovery-service                     8099  routes=0   records=no  rust http (no python source)
-balance-sheet-service                          8019  routes=5   records=yes rust http
+balance-sheet-service                          8099  routes=0   records=no  rust http (no python source)
 bank-feed-service                              8097  routes=23  records=yes rust http
 bank-reconciliation-service                    8099  routes=0   records=no  rust http (no python source)
 bank-relationship-service                      8099  routes=0   records=no  rust http (no python source)
@@ -41,12 +41,12 @@ bonus-shares-service                           8099  routes=0   records=no  rust
 cache-service                                  8000  routes=7   records=no  rust http
 capital-reconstruction-service                 8099  routes=0   records=no  rust http (no python source)
 capital-redemption-reserve-service             8099  routes=0   records=no  rust http (no python source)
-cash-flow-service                              8028  routes=9   records=yes rust http
-cash-flow-statement-service                    8029  routes=4   records=yes rust http
+cash-flow-service                              8099  routes=0   records=no  rust http (no python source)
+cash-flow-statement-service                    8099  routes=0   records=no  rust http (no python source)
 cash-management-service                        8099  routes=0   records=no  rust http (no python source)
 cash-optimization-service                      8099  routes=0   records=no  rust http (no python source)
-cashbook-service                               8098  routes=21  records=yes rust http
-company-accounting-service                     8101  routes=23  records=yes rust http
+cashbook-service                               8099  routes=0   records=no  rust http (no python source)
+company-accounting-service                     8099  routes=0   records=no  rust http (no python source)
 continue-shutdown-decision-service             8032  routes=6   records=yes rust http
 control-account-reconciliation-service         8099  routes=0   records=no  rust http (no python source)
 currency-service                               8092  routes=19  records=yes rust http
@@ -58,7 +58,7 @@ debt-management-service                        8099  routes=0   records=no  rust
 departmental-accounting-service                8100  routes=22  records=yes rust http
 disposal-account-service                       8045  routes=6   records=no  rust http
 disposal-group-service                         8099  routes=0   records=no  rust http (no python source)
-distributed-workflow-orchestration-service     8046  routes=8   records=no  rust http
+distributed-workflow-orchestration-service     8099  routes=0   records=no  rust http (no python source)
 document-service                               8096  routes=14  records=yes rust http
 double-entry-principles-service                8099  routes=0   records=no  rust http (no python source)
 encrypted-backup-service                       8099  routes=0   records=no  rust http (no python source)
@@ -72,14 +72,14 @@ financial-state-machine-service                8099  routes=0   records=no  rust
 fixed-assets-register-service                  8099  routes=0   records=no  rust http (no python source)
 fixed-assets-schedule-service                  8099  routes=0   records=no  rust http (no python source)
 foreign-exchange-service                       8099  routes=0   records=no  rust http (no python source)
-fund-accounting-service                        8060  routes=5   records=yes rust http
+fund-accounting-service                        8099  routes=0   records=no  rust http (no python source)
 general-reserve-service                        8061  routes=8   records=yes rust http
 graphql-service                                8095  routes=2   records=no  rust http
-ifrs-reporting-service                         8268  routes=8   records=yes rust http
+ifrs-reporting-service                         8099  routes=0   records=no  rust http (no python source)
 initial-investment-service                     8099  routes=0   records=no  rust http (no python source)
 insurance-claims-service                       8099  routes=0   records=no  rust http (no python source)
 intangible-assets-service                      8099  routes=0   records=no  rust http (no python source)
-intercompany-service                           8350  routes=8   records=yes rust http
+intercompany-service                           8099  routes=0   records=no  rust http (no python source)
 internal-rate-return-service                   8099  routes=0   records=no  rust http (no python source)
 investment-monitoring-service                  8099  routes=0   records=no  rust http (no python source)
 investment-property-service                    8145  routes=6   records=no  rust http
@@ -119,7 +119,7 @@ reporting-service                              8099  routes=0   records=no  rust
 retained-profits-service                       8113  routes=10  records=yes rust http
 revaluation-model-service                      8099  routes=0   records=no  rust http (no python source)
 revaluation-reserve-service                    8099  routes=0   records=no  rust http (no python source)
-revenue-recognition-service                    8115  routes=5   records=yes rust http
+revenue-recognition-service                    8099  routes=0   records=no  rust http (no python source)
 right-issues-service                           8099  routes=0   records=no  rust http (no python source)
 risk-assessment-service                        8117  routes=6   records=yes rust http
 rolling-forecast-service                       8099  routes=0   records=no  rust http (no python source)
@@ -132,12 +132,12 @@ share-premium-service                          8099  routes=0   records=no  rust
 share-redemption-service                       8099  routes=0   records=no  rust http (no python source)
 sovereign-treasury-service                     8099  routes=0   records=no  rust http (no python source)
 sox-compliance-service                         8099  routes=0   records=no  rust http (no python source)
-subscription-plans-service                     8001  routes=7   records=yes rust http
+subscription-plans-service                     8099  routes=0   records=no  rust http (no python source)
 tax-accounting-service                         8099  routes=0   records=no  rust http (no python source)
 tax-compliance-service                         8099  routes=0   records=no  rust http (no python source)
 tax-planning-service                           8099  routes=0   records=no  rust http (no python source)
 trade-finance-service                          8099  routes=0   records=no  rust http (no python source)
-trading-account-service                        8000  routes=5   records=yes rust http
+trading-account-service                        8099  routes=0   records=no  rust http (no python source)
 treasury-analytics-service                     8099  routes=4   records=yes rust http
 treasury-compliance-service                    8135  routes=5   records=yes rust http
 treasury-management-service                    8099  routes=0   records=no  rust http (no python source)
@@ -150,7 +150,7 @@ workflow-service                               8142  routes=1   records=yes rust
 zero-based-budgeting-service                   8099  routes=0   records=no  rust http (no python source)
 zero-trust-data-service                        8099  routes=0   records=no  rust http (no python source)
 book-sync-service                              9020  routes=18  records=yes rust http
-npo-scale-service                              9021  routes=51  records=yes rust http
+npo-scale-service                              8099  routes=0   records=no  rust http (no python source)
 audit-engagement-service                       8099  routes=0   records=no  rust http (no python source)
 calculation-api                                8099  routes=0   records=no  rust http (no python source)
 ```

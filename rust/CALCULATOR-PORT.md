@@ -1648,6 +1648,17 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   contract suite for the whole risk family, and its dedup regression tests hang off the same service. Deleting the
   directory would delete that suite with it, so the directory goes last, after the contract moves under the engine.
 
+- Batch twelve, accounting and the clean leftovers: balance-sheet, cash-flow, cash-flow-statement, cashbook,
+  company-accounting, fund-accounting, ifrs-reporting, intercompany, revenue-recognition and trading-account are gone,
+  plus npo-scale, subscription-plans and distributed-workflow-orchestration.
+
+  Two accounting services stay for now, and not because the engine misses them: accounting-service and
+  departmental-accounting-service are what the on-device local runtime boots. Deleting the directories shrinks the offline
+  stack, so they go when the local profile can serve them from the engine instead.
+
+  A drift pin had to go with npo-scale - a baseline entry for drift that no longer exists is a blind spot, and the test
+  says so.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

@@ -80,57 +80,6 @@ class TestDistributedWorkflowOrchestrationService:
         assert exec_resp.json()["status"] == "completed"
 
 
-class TestIFRSReportingService:
-    """IFRS reporting is Book-scoped since the Neo4j conversion; the fake driver is
-    bound the same way as the other converted services."""
-
-    def setup_method(self):
-        app = load_service_app("ifrs-reporting-service")
-
-        fake_path = os.path.join(REPO_ROOT, "ifrs-reporting-service", "fake_neo4j.py")
-        spec = importlib.util.spec_from_file_location("ifrs_root_fake", fake_path)
-        fake = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fake)
-
-        db = importlib.import_module("ifrs_reporting_service.database")
-        self._session = fake.FakeSession()
-        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(self._session))
-        self._headers = {"X-User-Id": "user-ifrs", "X-Book-ID": "book-ifrs"}
-        self.client = TestClient(app)
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "ifrs-reporting" in resp.json()["service"]
-
-    def test_create_report_and_note(self):
-        resp = self.client.post(
-            "/reports",
-            params={
-                "report_type": "balance_sheet",
-                "ifrs_standard": "IAS1",
-                "period": "2026",
-                "reporting_date": "2026-12-31T00:00:00",
-            },
-            json={"assets": 500000, "liabilities": 200000},
-            headers=self._headers,
-        )
-        report_id = resp.json()["id"]
-        assert resp.status_code == 200
-
-        note_resp = self.client.post(
-            f"/reports/{report_id}/notes",
-            params={
-                "note_number": 1,
-                "title": "Accounting Policies",
-                "ifrs_reference": "IAS1.10",
-            },
-            headers=self._headers,
-        )
-        assert note_resp.status_code == 200
-        assert note_resp.json()["title"] == "Accounting Policies"
-
-
 class TestLifecycleCostingService:
     def setup_method(self):
         # Load first: main.py self-bootstraps the lifecycle_costing_service package.
@@ -183,48 +132,5 @@ class TestLifecycleCostingService:
 
         stranger = self.client.get("/models", headers={"X-User-Id": "other-user"}).json()
         assert created["id"] not in [m["id"] for m in stranger]
-
-
-class TestIntercompanyService:
-    def setup_method(self):
-        # Load first: main.py self-bootstraps the intercompany_service package.
-        app = load_service_app("intercompany-service")
-        fake_path = os.path.join(REPO_ROOT, "intercompany-service", "fake_neo4j.py")
-        spec = importlib.util.spec_from_file_location("ic_root_fake", fake_path)
-        fake = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fake)
-        import intercompany_service.database as db
-
-        shared = fake.FakeSession()
-        db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(shared))
-        self.client = TestClient(app)
-        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "intercompany" in resp.json()["service"]
-
-    def test_create_entities_and_transaction(self):
-        ent1 = self.client.post(
-            "/entities",
-            params={"name": "Vimbai ZW", "legal_entity_code": "VZ001", "currency": "USD"},
-        )
-        ent2 = self.client.post(
-            "/entities",
-            params={"name": "Vimbai ZA", "legal_entity_code": "VZ002", "currency": "USD"},
-        )
-
-        txn = self.client.post(
-            "/transactions",
-            params={
-                "from_entity_id": ent1.json()["id"],
-                "to_entity_id": ent2.json()["id"],
-                "transaction_type": "service_fee",
-                "amount": 10000.0,
-            },
-        )
-        assert txn.status_code == 200
-        assert txn.json()["amount"] == 10000.0
 
 

@@ -1,5 +1,0 @@
-fastapi
-uvicorn
-neo4j==5.19.0
-pydantic
-structlog

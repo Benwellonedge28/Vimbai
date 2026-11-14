@@ -53,60 +53,9 @@ services:
 - name: npo-scale-service
   domain: npo
   target: rust/crates/domains/npo
-  port: 9021
+  port: 8099
   gateway_path: /npo-scale
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /orgs
-  - GET /orgs
-  - GET /orgs/{org_id}
-  - PATCH /orgs/{org_id}
-  - GET /orgs/{org_id}/features
-  - POST /orgs/{org_id}/branches
-  - GET /orgs/{org_id}/branches
-  - POST /orgs/{org_id}/revenues
-  - GET /orgs/{org_id}/revenues
-  - GET /orgs/{org_id}/book
-  - POST /orgs/{org_id}/members
-  - GET /orgs/{org_id}/members
-  - POST /orgs/{org_id}/book/link
-  - POST /orgs/{org_id}/vendors
-  - GET /orgs/{org_id}/vendors
-  - POST /orgs/{org_id}/purchases
-  - POST /orgs/{org_id}/purchases/{purchase_id}/pay
-  - GET /orgs/{org_id}/reports/creditors
-  - POST /orgs/{org_id}/shareholders
-  - POST /orgs/{org_id}/directors
-  - GET /orgs/{org_id}/directors
-  - GET /orgs/{org_id}/shareholders
-  - POST /orgs/{org_id}/dividends
-  - GET /orgs/{org_id}/reports/equity
-  - POST /orgs/{org_id}/partners
-  - GET /orgs/{org_id}/partners
-  - POST /orgs/{org_id}/partners/{partner_id}/draws
-  - GET /orgs/{org_id}/reports/capital-accounts
-  - POST /orgs/{org_id}/donors
-  - GET /orgs/{org_id}/donors
-  - POST /orgs/{org_id}/donations
-  - GET /orgs/{org_id}/donations
-  - POST /orgs/{org_id}/pledges
-  - POST /orgs/{org_id}/pledges/run
-  - GET /orgs/{org_id}/receipts
-  - GET /receipts/verify/{token}
-  - GET /orgs/{org_id}/receipts/{receipt_id}/pdf
-  - GET /public/holdings/{verify_code}
-  - POST /orgs/{org_id}/expenses
-  - GET /orgs/{org_id}/expenses
-  - PUT /orgs/{org_id}/budgets
-  - POST /orgs/{org_id}/compliance
-  - GET /orgs/{org_id}/compliance
-  - POST /orgs/{org_id}/balance-items
-  - GET /orgs/{org_id}/reports/activities
-  - GET /orgs/{org_id}/reports/functional-expenses
-  - GET /orgs/{org_id}/reports/position
-  - GET /orgs/{org_id}/reports/budget-vs-actual
-  - GET /orgs/{org_id}/reports/consolidated
+  records: false
+  endpoints: []

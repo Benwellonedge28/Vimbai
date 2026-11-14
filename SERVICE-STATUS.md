@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          55
+live and routed          42
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -25,28 +25,19 @@ Routed by the API gateway and deployed. These are the running product.
 `accounting-standards-service`
 `admin-service`
 `automation-engine-service`
-`balance-sheet-service`
 `bank-feed-service`
 `basis-apportionment-service`
 `biological-assets-service`
 `book-sync-service`
 `cache-service`
-`cash-flow-service`
-`cash-flow-statement-service`
-`cashbook-service`
-`company-accounting-service`
 `continue-shutdown-decision-service`
 `currency-service`
 `cvp-analysis-service`
 `departmental-accounting-service`
 `disposal-account-service`
-`distributed-workflow-orchestration-service`
 `document-service`
-`fund-accounting-service`
 `general-reserve-service`
 `graphql-service`
-`ifrs-reporting-service`
-`intercompany-service`
 `investment-property-service`
 `invoicing-service`
 `job-costing-service`
@@ -54,7 +45,6 @@ Routed by the API gateway and deployed. These are the running product.
 `mfa-auth-service`
 `multimodal-pipeline-service`
 `notifications-service`
-`npo-scale-service`
 `npo-service`
 `ordinary-shares-service`
 `overhead-absorption-rate-service`
@@ -65,11 +55,8 @@ Routed by the API gateway and deployed. These are the running product.
 `product-costing-service`
 `provision-doubtful-debts-service`
 `retained-profits-service`
-`revenue-recognition-service`
 `risk-assessment-service`
 `selling-price-reduction-service`
-`subscription-plans-service`
-`trading-account-service`
 `treasury-analytics-service`
 `treasury-compliance-service`
 `websocket-service`

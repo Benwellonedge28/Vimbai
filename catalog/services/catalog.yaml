@@ -323,17 +323,12 @@ services:
 - name: balance-sheet-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8019
+  port: 8099
   gateway_path: /balance-sheet
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /generate
-  - GET /latest/{company_id}
-  - GET /history/{company_id}
-  - GET /ratios/{company_id}
+  records: false
+  endpoints: []
 - name: bank-feed-service
   domain: banking
   target: rust/crates/domains/banking
@@ -485,34 +480,21 @@ services:
 - name: cash-flow-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8028
+  port: 8099
   gateway_path: /cash-flow
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /create
-  - POST /inflows
-  - POST /outflows
-  - POST /net-flows
-  - POST /cumulative-flows
-  - GET /list
-  - GET /get/{cash_flow_id}
+  records: false
+  endpoints: []
 - name: cash-flow-statement-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8029
+  port: 8099
   gateway_path: /cash-flow-statement
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /generate
-  - GET /latest/{company_id}
-  - GET /history/{company_id}
+  records: false
+  endpoints: []
 - name: cash-management-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -534,65 +516,21 @@ services:
 - name: cashbook-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8098
+  port: 8099
   gateway_path: /cashbook
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /accounts
-  - GET /accounts
-  - GET /accounts/{account_id}
-  - PUT /accounts/{account_id}
-  - POST /entries
-  - GET /entries
-  - GET /entries/{entry_id}
-  - PUT /entries/{entry_id}/post
-  - PUT /entries/{entry_id}/void
-  - GET /summary/{account_code}
-  - POST /reconciliations
-  - GET /reconciliations
-  - GET /reconciliations/{reconciliation_id}
-  - PUT /reconciliations/{reconciliation_id}/complete
-  - GET /reconciliations/{reconciliation_id}/outstanding
-  - POST /cash-flow
-  - GET /cash-flow
-  - GET /cash-flow/summary
-  - GET /cash-position
-  - GET /cash-position/history
+  records: false
+  endpoints: []
 - name: company-accounting-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8101
+  port: 8099
   gateway_path: /company-accounting
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /companies
-  - GET /companies
-  - GET /companies/{company_id}
-  - PUT /companies/{company_id}
-  - POST /shareholders
-  - GET /shareholders
-  - POST /share-capital
-  - GET /share-capital
-  - POST /capital-transactions
-  - GET /capital-transactions
-  - POST /dividends
-  - GET /dividends
-  - POST /dividends/{dividend_id}/pay
-  - GET /dividends/{dividend_id}/payments
-  - POST /retained-earnings
-  - GET /retained-earnings
-  - POST /reserves
-  - GET /reserves
-  - GET /reports/equity-statement/{company_id}
-  - GET /reports/shareholder-register/{company_id}
-  - GET /reports/dividend-history/{company_id}
+  records: false
+  endpoints: []
 - name: continue-shutdown-decision-service
   domain: finance
   target: rust/crates/domains/finance
@@ -757,20 +695,12 @@ services:
 - name: distributed-workflow-orchestration-service
   domain: workflow
   target: rust/crates/domains/workflow
-  port: 8046
+  port: 8099
   gateway_path: /distributed-workflow-orchestration
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /workflows
-  - GET /workflows
-  - GET /workflows/{workflow_id}
-  - POST /workflows/{workflow_id}/execute
-  - POST /workflows/{workflow_id}/compensate
-  - DELETE /workflows/{workflow_id}
+  endpoints: []
 - name: document-service
   domain: documents
   target: rust/crates/platform/documents
@@ -905,17 +835,12 @@ services:
 - name: fund-accounting-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8060
+  port: 8099
   gateway_path: /fund-accounting
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /funds
-  - GET /funds/{company_id}
-  - POST /transactions
-  - GET /transactions/{fund_id}
+  records: false
+  endpoints: []
 - name: general-reserve-service
   domain: equity
   target: rust/crates/domains/equity
@@ -947,20 +872,12 @@ services:
 - name: ifrs-reporting-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8268
+  port: 8099
   gateway_path: /ifrs-reporting
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /reports
-  - GET /reports
-  - GET /reports/{report_id}
-  - POST /reports/{report_id}/notes
-  - GET /reports/{report_id}/notes
-  - PUT /reports/{report_id}/approve
+  records: false
+  endpoints: []
 - name: initial-investment-service
   domain: equity
   target: rust/crates/domains/equity
@@ -991,20 +908,12 @@ services:
 - name: intercompany-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8350
+  port: 8099
   gateway_path: /intercompany
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /entities
-  - GET /entities
-  - POST /transactions
-  - GET /transactions
-  - POST /transactions/match
-  - GET /eliminations
+  records: false
+  endpoints: []
 - name: internal-rate-return-service
   domain: finance
   target: rust/crates/domains/finance
@@ -1543,17 +1452,12 @@ services:
 - name: revenue-recognition-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8115
+  port: 8099
   gateway_path: /revenue-recognition
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /contracts
-  - POST /contracts/{contract_id}/recognize
-  - GET /contracts/{company_id}
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: right-issues-service
   domain: equity
   target: rust/crates/domains/equity
@@ -1676,19 +1580,12 @@ services:
 - name: subscription-plans-service
   domain: invoicing
   target: rust/crates/domains/invoicing
-  port: 8001
+  port: 8099
   gateway_path: /subscription-plans
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /plans
-  - GET /plans
-  - POST /subscribe
-  - GET /subscriptions/{company_id}
-  - POST /upgrade
+  records: false
+  endpoints: []
 - name: tax-accounting-service
   domain: taxation
   target: rust/crates/domains/taxation
@@ -1728,17 +1625,12 @@ services:
 - name: trading-account-service
   domain: accounting
   target: rust/crates/domains/accounting
-  port: 8000
+  port: 8099
   gateway_path: /trading-account
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /generate
-  - GET /accounts
-  - GET /accounts/{account_id}
+  records: false
+  endpoints: []
 - name: treasury-analytics-service
   domain: treasury
   target: rust/crates/domains/treasury
@@ -1882,63 +1774,12 @@ services:
 - name: npo-scale-service
   domain: npo
   target: rust/crates/domains/npo
-  port: 9021
+  port: 8099
   gateway_path: /npo-scale
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /orgs
-  - GET /orgs
-  - GET /orgs/{org_id}
-  - PATCH /orgs/{org_id}
-  - GET /orgs/{org_id}/features
-  - POST /orgs/{org_id}/branches
-  - GET /orgs/{org_id}/branches
-  - POST /orgs/{org_id}/revenues
-  - GET /orgs/{org_id}/revenues
-  - GET /orgs/{org_id}/book
-  - POST /orgs/{org_id}/members
-  - GET /orgs/{org_id}/members
-  - POST /orgs/{org_id}/book/link
-  - POST /orgs/{org_id}/vendors
-  - GET /orgs/{org_id}/vendors
-  - POST /orgs/{org_id}/purchases
-  - POST /orgs/{org_id}/purchases/{purchase_id}/pay
-  - GET /orgs/{org_id}/reports/creditors
-  - POST /orgs/{org_id}/shareholders
-  - POST /orgs/{org_id}/directors
-  - GET /orgs/{org_id}/directors
-  - GET /orgs/{org_id}/shareholders
-  - POST /orgs/{org_id}/dividends
-  - GET /orgs/{org_id}/reports/equity
-  - POST /orgs/{org_id}/partners
-  - GET /orgs/{org_id}/partners
-  - POST /orgs/{org_id}/partners/{partner_id}/draws
-  - GET /orgs/{org_id}/reports/capital-accounts
-  - POST /orgs/{org_id}/donors
-  - GET /orgs/{org_id}/donors
-  - POST /orgs/{org_id}/donations
-  - GET /orgs/{org_id}/donations
-  - POST /orgs/{org_id}/pledges
-  - POST /orgs/{org_id}/pledges/run
-  - GET /orgs/{org_id}/receipts
-  - GET /receipts/verify/{token}
-  - GET /orgs/{org_id}/receipts/{receipt_id}/pdf
-  - GET /public/holdings/{verify_code}
-  - POST /orgs/{org_id}/expenses
-  - GET /orgs/{org_id}/expenses
-  - PUT /orgs/{org_id}/budgets
-  - POST /orgs/{org_id}/compliance
-  - GET /orgs/{org_id}/compliance
-  - POST /orgs/{org_id}/balance-items
-  - GET /orgs/{org_id}/reports/activities
-  - GET /orgs/{org_id}/reports/functional-expenses
-  - GET /orgs/{org_id}/reports/position
-  - GET /orgs/{org_id}/reports/budget-vs-actual
-  - GET /orgs/{org_id}/reports/consolidated
+  records: false
+  endpoints: []
 - name: audit-engagement-service
   domain: audit
   target: rust/crates/domains/audit

@@ -27,34 +27,34 @@ Every routed service, the domain that owns it, the crate it answers from, the ad
 service                                      address                            eps  owns engine crate
 accounting-service                           /accounting                          1  recs rust   rust/crates/domains/accounting
 accounting-standards-service                 /accounting-standards               20  recs rust   rust/crates/domains/accounting
-balance-sheet-service                        /balance-sheet                       5  recs rust   rust/crates/domains/accounting
-cash-flow-service                            /cash-flow                           9  recs rust   rust/crates/domains/accounting
-cash-flow-statement-service                  /cash-flow-statement                 4  recs rust   rust/crates/domains/accounting
-cashbook-service                             /cashbook                           21  recs rust   rust/crates/domains/accounting
-company-accounting-service                   /company-accounting                 23  recs rust   rust/crates/domains/accounting
+balance-sheet-service                        /balance-sheet                       0  -    rust   rust/crates/domains/accounting
+cash-flow-service                            /cash-flow                           0  -    rust   rust/crates/domains/accounting
+cash-flow-statement-service                  /cash-flow-statement                 0  -    rust   rust/crates/domains/accounting
+cashbook-service                             /cashbook                            0  -    rust   rust/crates/domains/accounting
+company-accounting-service                   /company-accounting                  0  -    rust   rust/crates/domains/accounting
 departmental-accounting-service              /departmental-accounting            22  recs rust   rust/crates/domains/accounting
-fund-accounting-service                      /fund-accounting                     5  recs rust   rust/crates/domains/accounting
-ifrs-reporting-service                       /ifrs-reporting                      8  recs rust   rust/crates/domains/accounting
-intercompany-service                         /intercompany                        8  recs rust   rust/crates/domains/accounting
-revenue-recognition-service                  /revenue-recognition                 5  recs rust   rust/crates/domains/accounting
-trading-account-service                      /trading-account                     5  recs rust   rust/crates/domains/accounting
+fund-accounting-service                      /fund-accounting                     0  -    rust   rust/crates/domains/accounting
+ifrs-reporting-service                       /ifrs-reporting                      0  -    rust   rust/crates/domains/accounting
+intercompany-service                         /intercompany                        0  -    rust   rust/crates/domains/accounting
+revenue-recognition-service                  /revenue-recognition                 0  -    rust   rust/crates/domains/accounting
+trading-account-service                      /trading-account                     0  -    rust   rust/crates/domains/accounting
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
 | `accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
 | `accounting-standards-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `balance-sheet-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `cash-flow-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `cash-flow-statement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `cashbook-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `company-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `balance-sheet-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `cash-flow-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `cash-flow-statement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `cashbook-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `company-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `departmental-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `fund-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `ifrs-reporting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `intercompany-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `revenue-recognition-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `trading-account-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `fund-accounting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `ifrs-reporting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `intercompany-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `revenue-recognition-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `trading-account-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## admin — 1/1 on Rust
 
@@ -479,13 +479,13 @@ graphql-service                              /graphql                           
 ```text
 service                                      address                            eps  owns engine crate
 invoicing-service                            /invoicing                           1  recs rust   rust/crates/domains/invoicing
-subscription-plans-service                   /subscription-plans                  7  recs rust   rust/crates/domains/invoicing
+subscription-plans-service                   /subscription-plans                  0  -    rust   rust/crates/domains/invoicing
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
 | `invoicing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `subscription-plans-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `subscription-plans-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## kernel — 4/4 on Rust
 
@@ -546,13 +546,13 @@ notifications-service                        /notifications                     
 
 ```text
 service                                      address                            eps  owns engine crate
-npo-scale-service                            /npo-scale                          51  recs rust   rust/crates/domains/npo
+npo-scale-service                            /npo-scale                           0  -    rust   rust/crates/domains/npo
 npo-service                                  /npo                                35  recs rust   rust/crates/domains/npo
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `npo-scale-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `npo-scale-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `npo-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
 
 ## partnerships — 5/5 on Rust
@@ -778,7 +778,7 @@ webhook-service                              /webhook                           
 
 ```text
 service                                      address                            eps  owns engine crate
-distributed-workflow-orchestration-service   /distributed-workflow-orchestration   8  -    rust   rust/crates/domains/workflow
+distributed-workflow-orchestration-service   /distributed-workflow-orchestration   0  -    rust   rust/crates/domains/workflow
 workflow-service                             /workflow                            1  recs rust   rust/crates/domains/workflow
 ```
 

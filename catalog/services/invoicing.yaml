@@ -18,16 +18,9 @@ services:
 - name: subscription-plans-service
   domain: invoicing
   target: rust/crates/domains/invoicing
-  port: 8001
+  port: 8099
   gateway_path: /subscription-plans
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /plans
-  - GET /plans
-  - POST /subscribe
-  - GET /subscriptions/{company_id}
-  - POST /upgrade
+  records: false
+  endpoints: []
