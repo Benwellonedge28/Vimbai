@@ -179,6 +179,18 @@ pub fn from_env() -> Option<GraphHandle> {
     // A machine with no database to talk to - the on-device runtime - hands the engine a file instead, and gets the
     // same store over it. This is chosen before Neo4j so an offline install cannot fall back to a server it has not got.
     if let Ok(path) = std::env::var("VIMBAI_STORE_FILE") {
+        // A `.db` is the device store: a real transaction and an index instead of a whole-file rewrite. Anything else is
+        // the older JSON file, which still opens so a machine that has one keeps working rather than losing its Books to
+        // an upgrade.
+        if path.ends_with(".db") {
+            return match open_device_store(&path) {
+                Ok(graph) => Some(graph),
+                Err(error) => {
+                    eprintln!("cannot open the device store at {path}: {error}");
+                    None
+                }
+            };
+        }
         return match store::file::FileGraph::open(&path) {
             Ok(graph) => Some(Arc::new(graph) as GraphHandle),
             Err(error) => {
@@ -194,6 +206,45 @@ pub fn from_env() -> Option<GraphHandle> {
             None
         }
     }
+}
+
+/// Open the device store, and carry an older JSON store into it the first time.
+///
+/// The upgrade happens once and leaves the old file beside the new one, renamed: a migration that deleted its source would
+/// be the one operation nobody can check afterwards. Nothing is carried across if there is nothing there, and a JSON file
+/// that cannot be read leaves the new store empty and says so rather than half loading it.
+fn open_device_store(path: &str) -> Result<GraphHandle, String> {
+    let sqlite = store::sqlite::SqliteGraph::open(path).map_err(|error| error.to_string())?;
+    let older = std::path::Path::new(path)
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."))
+        .join("store.json");
+    if older.exists() {
+        match store::file::FileGraph::open(&older) {
+            Ok(json) => match store::dump::Dump::take(&json, 100_000) {
+                Ok(dump) => match dump.restore(&sqlite) {
+                    Ok(restored) => {
+                        let kept = older.with_extension("json.migrated");
+                        let _ = std::fs::rename(&older, &kept);
+                        eprintln!(
+                            "carried {} records and {} relationships from {} into {}",
+                            restored.records,
+                            restored.edges,
+                            older.display(),
+                            path
+                        );
+                    }
+                    Err(error) => eprintln!(
+                        "the store at {} was left where it is: {error}",
+                        older.display()
+                    ),
+                },
+                Err(error) => eprintln!("cannot read {}: {error}", older.display()),
+            },
+            Err(error) => eprintln!("cannot open {}: {error}", older.display()),
+        }
+    }
+    Ok(Arc::new(sqlite) as GraphHandle)
 }
 
 pub(crate) type GraphState = State<GraphHandle>;

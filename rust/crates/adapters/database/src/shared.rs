@@ -24,7 +24,7 @@
 
 use serde_json::{json, Map, Value};
 
-use crate::{unwrap_node, Graph, RecordKind, StoreError};
+use crate::{Graph, RecordKind, StoreError};
 
 /// Book-keyed records: the shape a shared Book's members read from.
 pub struct SharedRecords<'a, G: Graph + ?Sized> {
@@ -48,29 +48,18 @@ impl<'a, G: Graph + ?Sized> SharedRecords<'a, G> {
             .map(str::to_owned)
             .unwrap_or_else(vimbai_common::ids::service_id);
         props.insert("id".into(), json!(id));
-        let cypher = format!(
-            "CREATE (x:{label})\nSET x = $props\nRETURN x",
-            label = self.kind.label
-        );
-        self.one(cypher, json!({ "props": Value::Object(props) }))
+        self.graph
+            .store_shared_create(self.kind, book_id, Value::Object(props))
     }
 
     /// One row of a Book, by its own id.
     pub fn get(&self, book_id: &str, id: &str) -> Result<Value, StoreError> {
-        let cypher = format!(
-            "MATCH (x:{label})\nWHERE x.id = $id AND x.book_id = $book_id\nRETURN x",
-            label = self.kind.label
-        );
-        self.one(cypher, json!({ "book_id": book_id, "id": id }))
+        self.graph.store_shared_get(self.kind, book_id, id)
     }
 
     /// A Book's rows, newest first.
     pub fn list(&self, book_id: &str, limit: usize) -> Result<Vec<Value>, StoreError> {
-        let cypher = format!(
-            "MATCH (x:{label})\nWHERE x.book_id = $book_id\nRETURN x\nORDER BY x.created_at DESC\nLIMIT $limit",
-            label = self.kind.label
-        );
-        self.rows(cypher, json!({ "book_id": book_id, "limit": limit as i64 }))
+        self.graph.store_shared_list(self.kind, book_id, limit)
     }
 
     /// A Book's rows whose named property equals the value given - the membership a person holds, the entry a device
@@ -81,64 +70,28 @@ impl<'a, G: Graph + ?Sized> SharedRecords<'a, G> {
         property: &str,
         value: &Value,
     ) -> Result<Vec<Value>, StoreError> {
-        let cypher = format!(
-            "MATCH (x:{label})\nWHERE x.book_id = $book_id AND x.{property} = $value\nRETURN x",
-            label = self.kind.label,
-            property = property
-        );
-        self.rows(cypher, json!({ "book_id": book_id, "value": value }))
+        self.graph
+            .store_shared_where(self.kind, book_id, property, value.clone())
     }
 
     /// Rows of one property across every Book - used for "the Books I belong to", where the person is the filter.
     pub fn everywhere(&self, property: &str, value: &Value) -> Result<Vec<Value>, StoreError> {
-        let cypher = format!(
-            "MATCH (x:{label})\nWHERE x.{property} = $value\nRETURN x",
-            label = self.kind.label,
-            property = property
-        );
-        self.rows(cypher, json!({ "value": value }))
+        self.graph
+            .store_shared_everywhere(self.kind, property, value.clone())
     }
 
     /// Merge fields into a row of this Book.
     pub fn update(&self, book_id: &str, id: &str, fields: &Value) -> Result<Value, StoreError> {
         let mut patch = clean(fields)?;
         patch.remove("book_id");
-        let cypher = format!(
-            "MATCH (x:{label})\nWHERE x.book_id = $book_id AND x.id = $id\nSET x += $patch\nRETURN x",
-            label = self.kind.label
-        );
-        self.one(
-            cypher,
-            json!({ "book_id": book_id, "id": id, "patch": Value::Object(patch) }),
-        )
+        patch.remove("user_id");
+        self.graph
+            .store_shared_update(self.kind, book_id, id, Value::Object(patch))
     }
 
     /// Remove a row of this Book.
     pub fn delete(&self, book_id: &str, id: &str) -> Result<(), StoreError> {
-        let cypher = format!(
-            "MATCH (x:{label})\nWHERE x.book_id = $book_id AND x.id = $id\nDETACH DELETE x\nRETURN count(x) AS deleted",
-            label = self.kind.label
-        );
-        self.graph
-            .run(cypher.as_str(), json!({ "book_id": book_id, "id": id }))?;
-        Ok(())
-    }
-
-    fn one(&self, cypher: impl AsRef<str>, params: Value) -> Result<Value, StoreError> {
-        let rows = self.graph.run(cypher.as_ref(), params)?;
-        rows.into_iter()
-            .next()
-            .map(unwrap_node)
-            .ok_or(StoreError::NotFound)
-    }
-
-    fn rows(&self, cypher: impl AsRef<str>, params: Value) -> Result<Vec<Value>, StoreError> {
-        Ok(self
-            .graph
-            .run(cypher.as_ref(), params)?
-            .into_iter()
-            .map(unwrap_node)
-            .collect())
+        self.graph.store_shared_delete(self.kind, book_id, id)
     }
 }
 

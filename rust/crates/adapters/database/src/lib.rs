@@ -36,6 +36,7 @@ pub mod neo4j_client;
 pub mod query;
 pub mod read;
 pub mod shared;
+pub mod sqlite;
 pub mod write;
 
 pub use neo4j_client::Neo4jGraph;
@@ -996,6 +997,132 @@ pub trait Graph {
         self.run(&cypher, params)
     }
 
+    // --------------------------------------------------- shared records ---------------------------------------------------
+    //
+    // Rows that belong to a Book but to no single person in it: a membership, a sync batch, an organisation's link. They
+    // carry `book_id` and no owner edge, so the caller has already established that this person may write to this Book, and
+    // that check is not this door's job.
+
+    /// Write one Book-owned row with no owner edge.
+    fn store_shared_create(
+        &self,
+        kind: RecordKind,
+        book_id: &str,
+        props: Value,
+    ) -> Result<Value, StoreError> {
+        // the Book is stamped here rather than trusted from the caller: a shared row that named a different Book would be
+        // a row its own Book could not read
+        let mut props = props;
+        props["book_id"] = json!(book_id);
+        let cypher = format!(
+            "CREATE (x:{label})\nSET x = $props\nRETURN x",
+            label = kind.label
+        );
+        self.store_one(&cypher, json!({ "props": props }))
+            .map(|_| props)
+    }
+
+    /// One Book-owned row by its own id.
+    fn store_shared_get(
+        &self,
+        kind: RecordKind,
+        book_id: &str,
+        id: &str,
+    ) -> Result<Value, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.id = $id AND x.book_id = $book_id\nRETURN x",
+            label = kind.label
+        );
+        self.store_one(&cypher, json!({ "book_id": book_id, "id": id }))
+    }
+
+    /// A Book's rows, newest first and bounded.
+    fn store_shared_list(
+        &self,
+        kind: RecordKind,
+        book_id: &str,
+        limit: usize,
+    ) -> Result<Vec<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.book_id = $book_id\nRETURN x\nORDER BY x.created_at DESC\nLIMIT $limit",
+            label = kind.label
+        );
+        let rows = self.run(
+            &cypher,
+            json!({ "book_id": book_id, "limit": limit as i64 }),
+        )?;
+        Ok(rows.into_iter().map(unwrap_node).collect())
+    }
+
+    /// A Book's rows whose named property equals the value given.
+    fn store_shared_where(
+        &self,
+        kind: RecordKind,
+        book_id: &str,
+        property: &str,
+        value: Value,
+    ) -> Result<Vec<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.book_id = $book_id AND x.{property} = $value\nRETURN x",
+            label = kind.label,
+            property = property
+        );
+        let rows = self.run(&cypher, json!({ "book_id": book_id, "value": value }))?;
+        Ok(rows.into_iter().map(unwrap_node).collect())
+    }
+
+    /// Rows of one property across every Book - "the Books I belong to", where the person is the filter.
+    fn store_shared_everywhere(
+        &self,
+        kind: RecordKind,
+        property: &str,
+        value: Value,
+    ) -> Result<Vec<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.{property} = $value\nRETURN x",
+            label = kind.label,
+            property = property
+        );
+        let rows = self.run(&cypher, json!({ "value": value }))?;
+        Ok(rows.into_iter().map(unwrap_node).collect())
+    }
+
+    /// Merge fields into a Book-owned row.
+    fn store_shared_update(
+        &self,
+        kind: RecordKind,
+        book_id: &str,
+        id: &str,
+        patch: Value,
+    ) -> Result<Value, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.book_id = $book_id AND x.id = $id\nSET x += $patch\nRETURN x",
+            label = kind.label
+        );
+        self.store_one(
+            &cypher,
+            json!({ "book_id": book_id, "id": id, "patch": patch }),
+        )
+    }
+
+    /// Remove a Book-owned row. A miss is a miss.
+    fn store_shared_delete(
+        &self,
+        kind: RecordKind,
+        book_id: &str,
+        id: &str,
+    ) -> Result<(), StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.book_id = $book_id AND x.id = $id\nDETACH DELETE x\nRETURN count(x) AS deleted",
+            label = kind.label
+        );
+        let rows = self.run(&cypher, json!({ "book_id": book_id, "id": id }))?;
+        if rows.is_empty() {
+            return Err(StoreError::NotFound);
+        }
+        Ok(())
+    }
+
     // -------------------------------------------------- platform records -------------------------------------------------
     //
     // The same doors for the records that belong to the platform rather than to one person in one Book: an account has to
@@ -1484,13 +1611,19 @@ mod platform_tests {
         // is on the source rather than on anybody's memory - and it errs towards failing: it looks for the verbs, not for
         // a pattern that could be satisfied by a comment.
         let source = include_str!("lib.rs");
+        let mut scanned = String::new();
         let from = source
             .find("impl<'a, G: Graph + ?Sized> Records")
             .expect("the record doors");
         // the end is the last helper in the file, not the first test module: the unit tests for the book doors sit in
         // the middle of this file, and stopping there would leave the platform doors unscanned.
         let to = source.rfind("fn uuid_like").expect("the shared helper");
-        let callers = &source[from..to];
+        scanned.push_str(&source[from..to]);
+        // the shared rows live in their own file and are a caller of the same doors, so they are scanned too - and the
+        // whole of it, because that file is nothing but the shared doors
+        let shared = include_str!("shared.rs");
+        scanned.push_str(shared);
+        let callers = scanned.as_str();
         // the openings a statement actually has, with the node or the field named: a caller that wrote one would land on
         // one of these, and a list of bare words would also match this test's own list and prove nothing
         // built from halves so this list does not match itself: the scan reads the file it lives in
@@ -1512,6 +1645,10 @@ mod platform_tests {
         assert!(
             callers.contains("store_create") && callers.contains("store_find_platform"),
             "the scan did not reach the doors, so it proves nothing"
+        );
+        assert!(
+            callers.contains("store_shared_create"),
+            "the shared rows were not scanned, so a statement there would go unnoticed"
         );
     }
 

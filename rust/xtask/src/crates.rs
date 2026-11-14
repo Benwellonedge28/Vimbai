@@ -16,7 +16,7 @@ use crate::catalog::{self, Row};
 
 /// The store's own work: the record shapes, the Book scoping, the driver and the helpers their tests use. Nothing here
 /// computes a business figure.
-const STORE_MODULES: [&str; 10] = [
+const STORE_MODULES: [&str; 11] = [
     "amounts.rs",
     // moving records between stores: machinery about where a record lives, which is the store's business and not a
     // service's. It knows a record's kind and properties and nothing about what either means.
@@ -28,11 +28,14 @@ const STORE_MODULES: [&str; 10] = [
     "query.rs",
     "read.rs",
     "shared.rs",
+    // a backend, like file.rs and neo4j_client.rs: it knows where a record lives and nothing about what it means, and it
+    // answers the same doors the others do. A device store is machinery, not a service.
+    "sqlite.rs",
     "write.rs",
 ];
 
 /// The modules the store's `lib.rs` may declare: the same machinery under its module names.
-const STORE_DECLARATIONS: [&str; 9] = [
+const STORE_DECLARATIONS: [&str; 10] = [
     "amounts",
     "dump",
     "fake",
@@ -41,6 +44,7 @@ const STORE_DECLARATIONS: [&str; 9] = [
     "query",
     "read",
     "shared",
+    "sqlite",
     "write",
 ];
 

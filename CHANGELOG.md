@@ -14,6 +14,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- SQLite as the device store, replacing the JSON file. It answers the semantic doors natively, with a real schema, WAL
+  and numbered migrations that each roll back; an entry and its lines arrive in one transaction, a refused posting leaves
+  nothing behind, and two hundred concurrent writers lose nothing. Shared rows (memberships, sync batches, organisation
+  links) gained their own doors and are native too. The on-device runtime opens `store.db`, and an existing `store.json`
+  is carried across once on first boot and kept, renamed, beside it. Eleven device-store tests and the five end-to-end
+  ones, now running on SQLite.
 - The store trait is semantic: seventeen doors for the operations the platform performs, and `Records` and
   `PlatformRecords` use them, so no caller hands the store a query any more. A backend that refuses `run` and answers only
   the doors serves every caller, which is held by a test rather than asserted, and a gate fails if a caller goes back to

@@ -11,3 +11,7 @@ neo4j = "0.2"
 vimbai_common = { path = "../../common" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+rusqlite = { version = "0.42.0", features = ["bundled"] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -113,10 +113,13 @@ impl Options {
     }
 
     /// One file, next to nothing else, so a machine can be backed up by copying a directory.
+    ///
+    /// SQLite rather than the JSON file this used to be: the device writes while somebody is using it, and a whole-file
+    /// rewrite per change is the thing that eventually loses a Book to a crash.
     fn store_file(&self) -> PathBuf {
         std::fs::create_dir_all(&self.data_dir)
             .unwrap_or_else(|err| panic!("cannot create {}: {err}", self.data_dir.display()));
-        self.data_dir.join("store.json")
+        self.data_dir.join("store.db")
     }
 }
 
