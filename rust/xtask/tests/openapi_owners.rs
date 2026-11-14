@@ -93,3 +93,57 @@ fn a_prefix_two_domains_answer_is_reported_not_settled() {
         .collect();
     assert!(!known.is_empty());
 }
+
+#[test]
+fn a_crate_is_reached_through_the_modules_and_imports_it_is_written_with() {
+    let attributed = owners::attributed(&root());
+    // `use budgeting_services::{` wraps over four lines and its items are called as `master_budget::analyze`, and
+    // `use invoicing_services::invoices;` names a module after the crate. Reading one line at a time saw neither, so
+    // thirty-four addresses documented themselves as unattributed - every budgeting calculation among them.
+    let budgeting = attributed.get("/budgeting").unwrap_or_else(|| {
+        panic!("/budgeting is called through modules of its crate and was not attributed")
+    });
+    assert_eq!(
+        budgeting.domain, "budgeting",
+        "/budgeting is filed under the wrong domain"
+    );
+    let invoicing = attributed.get("/invoices").unwrap_or_else(|| {
+        panic!("/invoices names a module after its crate and was not attributed")
+    });
+    assert_eq!(
+        invoicing.domain, "invoicing",
+        "/invoices is filed under the wrong domain"
+    );
+}
+
+#[test]
+fn a_handler_is_attributed_from_its_own_body_and_not_the_file_around_it() {
+    let attributed = owners::attributed(&root());
+    // The cache's own statistics name the cache crate in the handler. Scanning to the end of `records.rs` found workflow
+    // first, because the workflow definitions are written below it in the same file.
+    let cache = attributed
+        .get("/cache-stats")
+        .unwrap_or_else(|| panic!("/cache-stats was not attributed"));
+    assert_ne!(
+        cache.krate, "vimbai_workflow",
+        "/cache-stats reads the cache and is attributed to workflow, which is the crate written below it"
+    );
+    assert_eq!(
+        cache.krate, "vimbai_cache",
+        "/cache-stats is attributed to the wrong crate"
+    );
+}
+
+#[test]
+fn a_door_the_engine_answers_itself_is_owned_by_the_page_that_claims_it() {
+    let attributed = owners::attributed(&root());
+    // The calculator catalogue is the engine's own registry: no domain crate answers it, and it used to sit in the
+    // unattributed bucket. It belongs to the page whose address table claims it.
+    let calculators = attributed
+        .get("/calculators")
+        .unwrap_or_else(|| panic!("/calculators was not attributed at all"));
+    assert_eq!(
+        calculators.domain, "calculators",
+        "/calculators is the calculator catalogue and belongs to the calculators page"
+    );
+}

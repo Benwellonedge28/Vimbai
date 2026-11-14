@@ -14,6 +14,13 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- Every address the engine answers is filed under an owner that can be checked. Three defects in the attribution tooling,
+  found by reading what it produced: a handler was attributed from its own line to the end of a 17,000-line file, so
+  `/cache-stats` belonged to workflow because the workflow definitions are written below it; a multi-line
+  `use budgeting_services::{` and a single-module `use invoicing_services::invoices;` resolved to no crate, leaving
+  thirty-four addresses - every budgeting calculation among them - reported as unattributed; and a domain page's address
+  table was never read, so a page's own claim counted for less than a crate's. The unattributed bucket is empty and its file
+  is deleted, `/calculators` belongs to the calculators page that claims it, and four gate tests pin the rules.
 - The worker runs the rules a Postgres deployment holds. It knew a store file and Neo4j, while the engine had already moved
   to preferring Postgres (ADR-007), so beside a Postgres engine the worker started with no store at all and ran nobody's
   schedules - a deployment where the automations quietly stop. "Which store" lives in one place now (`store::choose`), asked

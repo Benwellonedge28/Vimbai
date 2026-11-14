@@ -15,8 +15,9 @@ A client reading it learns the truth about the addresses, and learns nothing it 
   `assets.yaml` (fixed asset register), `costing.yaml` (overhead absorption), `job-costing.yaml`, `equity.yaml`,
   `treasury.yaml`. These carry schemas, worked examples and the reasoning a generator cannot produce. Edit them by hand.
 - `openapi/v1/domains/` - generated, one file per domain, listing every published address that no service contract
-  already documents. `unattributed.yaml` holds the addresses whose prefix group no catalogue service claims: they answer,
-  and a client may call them, but no catalogue row owns them.
+  already documents. Ownership is read from the code that answers an address - the route names its handler, the handler
+  names the crate, the crate is named by a domain page - so a door belongs to whoever actually serves it. The
+  `unattributed.yaml` bucket that used to hold the addresses no catalogue service claims is gone: every one is filed.
 - `compatibility/` - the policies that say what a client may rely on: `api-compatibility-policy.md`,
   `event-compatibility-policy.md`, `deprecation-policy.md`.
 

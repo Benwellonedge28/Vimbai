@@ -14,6 +14,8 @@ info:
     The addresses this file covers, by prefix group:
     * `/activity-based-budget`
     * `/appropriation-control`
+    * `/budgeting`
+    * `/forecasts`
     * `/scenario-analysis`
     * `/scenario-modeling`
     * `/sensitivity-analysis`
@@ -128,6 +130,75 @@ paths:
       - $ref: "#/components/parameters/BookId"
     post:
       operationId: postAppropriationControlTransactions
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /budgeting/analyze:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postBudgetingAnalyze
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /budgeting/budget:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postBudgetingBudget
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /budgeting/forecast:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postBudgetingForecast
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /budgeting/monitor:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postBudgetingMonitor
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /budgeting/prepare:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postBudgetingPrepare
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /budgeting/rolling-forecast:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postBudgetingRollingForecast
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /budgeting/variance-analysis:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postBudgetingVarianceAnalysis
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /forecasts:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getForecasts
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postForecasts
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /forecasts/{}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getForecasts
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /forecasts/{}/roll:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postForecastsRoll
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /forecasts/{}/update-actual:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postForecastsUpdateActual
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /scenario-analysis/analyze:
     parameters:

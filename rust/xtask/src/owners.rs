@@ -123,6 +123,32 @@ pub fn attributed(root: &Path) -> BTreeMap<String, Owner> {
         };
         owners.insert(prefix, Owner::new(krate.clone(), domain, *addresses));
     }
+
+    // Doors the engine answers itself, with no domain crate behind them - the calculator catalogue is the engine's own
+    // registry, not a domain's arithmetic. Those are filed under the page whose address table claims the prefix, which is
+    // an explicit claim by that page rather than a passing mention in its prose.
+    for (prefix, domain) in &page_domains {
+        if owners.contains_key(prefix) {
+            continue;
+        }
+        let mut addressed = answered
+            .iter()
+            .filter(|shape| prefix_of(shape) == *prefix)
+            .count();
+        if addressed == 0 {
+            continue;
+        }
+        if routed.contains(prefix) {
+            addressed = 0;
+        }
+        if addressed == 0 {
+            continue;
+        }
+        owners.insert(
+            prefix.clone(),
+            Owner::new("vimbai_api", domain.clone(), addressed),
+        );
+    }
     owners
 }
 
@@ -185,25 +211,75 @@ pub fn unattributed(root: &Path, addresses: &BTreeSet<String>) -> BTreeSet<Strin
 /// The engine renames its dependencies so the code reads as the domain rather than as a package (`accounting` for
 /// `vimbai_accounting`), so the manifest is where the two are tied together. Reading it means a crate that is renamed again
 /// is still attributed, instead of the scanner holding a list of names that were true once.
+/// Every `use` statement in a file, whitespace collapsed, however many lines it was written on.
+///
+/// rustfmt wraps a long import over several lines, and reading one line at a time lost the rest of it: the crate at the
+/// head of `use budgeting_services::{` was seen, and the modules named below it - which is how every budgeting calculation
+/// is called - were not, so those handlers looked like they delegated to nothing.
+fn use_statements(text: &str) -> Vec<String> {
+    let mut statements = Vec::new();
+    let mut current: Option<String> = None;
+    for line in text.lines() {
+        let trimmed = line.trim();
+        match current.as_mut() {
+            Some(open) => {
+                open.push(' ');
+                open.push_str(trimmed);
+                if trimmed.ends_with(';') {
+                    statements.push(open.clone());
+                    current = None;
+                }
+            }
+            None => {
+                if let Some(rest) = trimmed.strip_prefix("use ") {
+                    if trimmed.ends_with(';') {
+                        statements.push(rest.to_string());
+                    } else {
+                        current = Some(rest.to_string());
+                    }
+                }
+            }
+        }
+    }
+    statements
+}
+
 fn aliases(sources: &[String], crates: &BTreeMap<String, String>) -> BTreeMap<String, String> {
-    // only a crate in this workspace can answer an address: `axum` and `serde_json` are called by handlers and own nothing
-    let mut found: BTreeMap<String, String> = dependencies()
-        .into_iter()
-        .filter(|(_, package)| crates.contains_key(package))
+    // Only a crate in this workspace can answer an address: `axum` and `serde_json` are called by handlers and own nothing.
+    let dependencies: BTreeMap<String, String> = dependencies();
+    let mut found: BTreeMap<String, String> = dependencies
+        .iter()
+        .filter(|(_, package)| crates.contains_key(*package))
+        .map(|(alias, package)| (alias.clone(), package.clone()))
         .collect();
     for text in sources {
-        for line in text.lines() {
-            let trimmed = line.trim();
-            let Some(rest) = trimmed.strip_prefix("use ") else {
+        for rest in use_statements(text) {
+            if rest.starts_with("crate::")
+                || rest.starts_with("super::")
+                || rest.starts_with("self::")
+            {
                 continue;
-            };
-            let name = rest
+            }
+            let head = rest
                 .split(|character: char| {
                     character == ':' || character == '{' || character == ' ' || character == ';'
                 })
                 .next()
                 .unwrap_or_default();
-            if !name.starts_with("vimbai_") {
+            if head.is_empty() {
+                continue;
+            }
+            // The crate a `use` line reaches into, by either of the two names it goes by: the package itself
+            // (`use vimbai_budgeting::...`) or the alias a manifest gave it (`use budgeting_services::{...}`).
+            let package = if head.starts_with("vimbai_") {
+                head.to_string()
+            } else {
+                match dependencies.get(head) {
+                    Some(package) => package.clone(),
+                    None => continue,
+                }
+            };
+            if !crates.contains_key(&package) {
                 continue;
             }
             let alias = match rest.find(" as ") {
@@ -212,10 +288,59 @@ fn aliases(sources: &[String], crates: &BTreeMap<String, String>) -> BTreeMap<St
                     .next()
                     .unwrap_or_default()
                     .to_string(),
-                None => name.trim_start_matches("vimbai_").to_string(),
+                None => head.trim_start_matches("vimbai_").to_string(),
             };
             if !alias.is_empty() {
-                found.insert(alias, name.to_string());
+                found.insert(alias, package.clone());
+            }
+            // A crate reached through its modules - `use budgeting_services::{master_budget, rolling_forecast}` - is called
+            // as `master_budget::analyze`. Those names are things inside the crate rather than aliases of it, and without
+            // them a handler that names one looks like it delegates to nothing at all: thirty-four addresses, among them
+            // every budgeting calculation, were documented as unattributed for exactly that reason.
+            // `use invoicing_services::invoices;` reaches a module without a brace group: the segment after the crate is
+            // the thing the handler calls. A CamelCase segment is a type (`common::Money`), not a module, so it is left out.
+            if !rest.contains('{') {
+                if let Some((_, tail)) = rest.split_once("::") {
+                    let item = tail
+                        .split(|character: char| {
+                            character == ':' || character == ';' || character == ' '
+                        })
+                        .next()
+                        .unwrap_or_default();
+                    if item
+                        .chars()
+                        .next()
+                        .is_some_and(|first| first.is_lowercase())
+                    {
+                        found.insert(item.to_string(), package.clone());
+                    }
+                    if let Some(at) = rest.find(" as ") {
+                        let renamed = rest[at + 4..].split([';', ' ']).next().unwrap_or_default();
+                        if !renamed.is_empty() {
+                            found.insert(renamed.to_string(), package.clone());
+                        }
+                    }
+                }
+            }
+            if let Some(open) = rest.find('{') {
+                if let Some(close) = rest[open..].find('}') {
+                    for item in rest[open + 1..open + close].split(',') {
+                        let item = item.trim();
+                        if item.is_empty() {
+                            continue;
+                        }
+                        let (module, renamed) = match item.find(" as ") {
+                            Some(at) => (item[..at].trim(), Some(item[at + 4..].trim())),
+                            None => (item, None),
+                        };
+                        if !module.is_empty() {
+                            found.insert(module.to_string(), package.clone());
+                        }
+                        if let Some(renamed) = renamed.filter(|renamed| !renamed.is_empty()) {
+                            found.insert(renamed.to_string(), package.clone());
+                        }
+                    }
+                }
             }
         }
     }
@@ -400,12 +525,32 @@ fn crate_of(
         let Some(at) = text.find(&needle) else {
             continue;
         };
-        // a handler is a wrapper: its body names the crate that does the work before it names anything else
-        if let Some(krate) = crate_named_in(&text[at..], aliases, documented) {
+        // A handler is a wrapper: its body names the crate that does the work before it names anything else.
+        //
+        // Its *body*, not the rest of the file. Scanning from the handler to the end of the source found the crate of some
+        // later handler whenever the wrapper itself named nothing this module knows - which is how a cache statistic that
+        // reads the cache ended up filed under workflow, the next thing written below it in the same file.
+        let body = body_of(&text[at..]);
+        if let Some(krate) = crate_named_in(body, aliases, documented) {
             return Some(krate);
         }
     }
     None
+}
+
+/// A function's body: from its opening brace to the closing one that starts a line, which is where a top-level `fn` ends.
+///
+/// Counting braces would be better if the source had none inside strings, and this file's neighbours are full of
+/// `format!("{key}")`. A closing brace at the start of a line is the shape every handler in this engine actually ends with.
+fn body_of(text: &str) -> &str {
+    let Some(start) = text.find('{') else {
+        return "";
+    };
+    let rest = &text[start..];
+    match rest.find("\n}") {
+        Some(end) => &rest[..end + 1],
+        None => rest,
+    }
 }
 
 /// Every crate in the workspace by package name, so a name in a `use` resolves to the path a page would name.
@@ -459,7 +604,7 @@ fn walk(directory: &Path, root: &Path, found: &mut BTreeMap<String, String>, dep
 /// it names nothing a page documents - which is what happens where a door reads the store and then does its work inline.
 fn domains_by_prefix_in_pages() -> BTreeMap<String, String> {
     let directory = repo_root().join("docs/domains");
-    let mut found = BTreeMap::new();
+    let mut found: BTreeMap<String, String> = BTreeMap::new();
     let Ok(entries) = std::fs::read_dir(&directory) else {
         return found;
     };
@@ -474,10 +619,20 @@ fn domains_by_prefix_in_pages() -> BTreeMap<String, String> {
             continue;
         };
         let domain = name.trim_end_matches(".md").to_string();
-        // A page owns a prefix when the prefix is the *subject* of a line - a headline, a bullet or a table's first column -
-        // and not merely when the page mentions it. `/identity` appears in the organisation pages' prose and belongs to
-        // neither of them.
+        // A page claims a prefix when the prefix is the *subject* of a line - a headline or a bullet - and not merely
+        // when the page mentions it in prose: `/identity` appears in the organisation pages and belongs to neither.
+        //
+        // It also claims the prefixes in its address table. Every page has one, `| service | prefix |`, and it is the
+        // page's own statement of what that domain answers; reading only prose left those tables unread, so a crate's
+        // attribution counted for more than the page's, and a door the engine answers itself - the calculator
+        // catalogue, which no domain crate answers - had no owner at all.
         for line in text.lines() {
+            for cell in line.split('|') {
+                let token = cell.trim().trim_matches('`').trim();
+                if token.starts_with('/') && !token.contains(' ') {
+                    found.entry(token.to_string()).or_insert(domain.clone());
+                }
+            }
             let trimmed = line
                 .trim_start()
                 .trim_start_matches(['|', '-', '*', '#', ' '])
@@ -486,11 +641,9 @@ fn domains_by_prefix_in_pages() -> BTreeMap<String, String> {
                 continue;
             };
             let token = rest.split('`').next().unwrap_or_default().trim();
-            if !token.starts_with('/') || token.contains(' ') {
-                continue;
+            if token.starts_with('/') && !token.contains(' ') {
+                found.entry(token.to_string()).or_insert(domain.clone());
             }
-            let first = token.trim_end_matches('/');
-            found.entry(first.to_string()).or_insert(domain.clone());
         }
     }
     found
@@ -515,9 +668,11 @@ fn domains_by_crate() -> BTreeMap<String, String> {
             continue;
         };
         let domain = name.trim_end_matches(".md").to_string();
-        // the page states its crates on one line: `Crate: `rust/crates/domains/compliance`, ...`
+        // The page states its crates under `Crate:` or `Crates:`, one or several to a line. Reading only the singular
+        // label left every page that grouped its crates unread - the platform page lists twelve that way - so their
+        // addresses fell through to "whichever page happens to mention the prefix" instead of the page that covers them.
         for line in text.lines() {
-            if !line.starts_with("Crate:") {
+            if !line.starts_with("Crate:") && !line.starts_with("Crates:") {
                 continue;
             }
             for piece in line.split('`') {
