@@ -196,3 +196,91 @@ async fn a_fund_the_caller_does_not_hold_is_a_miss() {
     let (status, _) = call(graph, Method::GET, "/npo/funds/f-1").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+// --- the paths that used to belong to npo-service alone: donations and grants -------------------
+
+#[tokio::test]
+async fn a_donation_is_recorded_with_its_amount_as_money() {
+    let graph = Scripted::queue(vec![vec![json!({"id": "d-1"})]]);
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/npo/donations/?donor_name=Wellwisher&amount=250&donation_date=2026-03-01&fund_id=f-1",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["id"], json!("d-1"));
+
+    let (cypher, params) = graph.last();
+    assert!(cypher.contains("Donation"), "{cypher}");
+    assert!(cypher.contains("OWNS_DONATION"), "{cypher}");
+    assert_eq!(params["props"]["amount"], json!("250.000000"));
+    assert_eq!(params["props"]["book_id"], json!("book-1"));
+}
+
+#[tokio::test]
+async fn a_donation_of_nothing_is_refused() {
+    let graph = Scripted::queue(vec![vec![]]);
+    let (status, body) = call(
+        graph,
+        Method::POST,
+        "/npo/donations/?donor_name=Wellwisher&amount=0",
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(body["error"]
+        .as_str()
+        .unwrap()
+        .contains("must be an amount"));
+}
+
+#[tokio::test]
+async fn donations_are_listed_under_a_count() {
+    let graph = Scripted::queue(vec![vec![
+        json!({"id": "d-1", "amount": "250.000000"}),
+        json!({"id": "d-2", "amount": "50.000000"}),
+    ]]);
+    let (status, body) = call(graph, Method::GET, "/npo/donations/").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["count"], json!(2));
+    assert_eq!(body["donations"][1]["id"], json!("d-2"));
+}
+
+#[tokio::test]
+async fn a_grant_starts_active_with_nothing_received() {
+    let graph = Scripted::queue(vec![vec![json!({"id": "g-1"})]]);
+    let (status, body) = call(
+        graph.clone(),
+        Method::POST,
+        "/npo/grants/?grant_name=Youth&grantor_name=Trust&amount=10000&start_date=2026-01-01&end_date=2026-12-31",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (cypher, params) = graph.last();
+    assert!(cypher.contains("Grant"), "{cypher}");
+    assert!(cypher.contains("OWNS_GRANT"), "{cypher}");
+    assert_eq!(params["props"]["amount"], json!("10000.000000"));
+    assert_eq!(params["props"]["amount_received"], json!("0.000000"));
+    assert_eq!(params["props"]["status"], json!("active"));
+}
+
+#[tokio::test]
+async fn grants_can_be_narrowed_to_one_status() {
+    let graph = Scripted::queue(vec![vec![
+        json!({"id": "g-1", "status": "active"}),
+        json!({"id": "g-2", "status": "closed"}),
+    ]]);
+    let (status, body) = call(graph, Method::GET, "/npo/grants/?status=active").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["count"], json!(1));
+    assert_eq!(body["grants"][0]["id"], json!("g-1"));
+}
+
+#[tokio::test]
+async fn one_grant_is_read_by_id() {
+    let graph = Scripted::queue(vec![vec![json!({"id": "g-1", "grant_name": "Youth"})]]);
+    let (status, body) = call(graph, Method::GET, "/npo/grants/g-1").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["grant_name"], json!("Youth"));
+}

@@ -1670,6 +1670,16 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   process/product-costing had a test whose whole job was keeping two identical Python services in step. With both
   directories gone the duplicate cannot come back, so the test went with them.
 
+- NPO is one crate now, as the architecture asks: npo-service and npo-scale-service both answer from
+  `rust/crates/domains/npo`, and neither Python directory is left. Donations, grants, net assets, statements, donors,
+  projects, programs, budgets, internal controls, audit reports, metrics, SROI and volunteers all sit behind /npo, with
+  the gateway prefix kept because the engine registers the paths exactly as the service published them.
+
+  The reason this looked like a route gap for three batches was the survey, not the engine: it stripped the trailing
+  slash off a service's declared paths and then compared them against a route table that still had them, so /npo/donations
+  never matched /npo/donations/. Fixed in scripts/retire_coverage.py, which now tolerates the slash on both sides. Every
+  other service's verdict was re-read after the fix; the only one that changed was npo-service.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

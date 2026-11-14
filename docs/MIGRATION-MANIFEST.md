@@ -423,7 +423,7 @@ Lands in `rust/crates/domains/npo`.
 ```
 service                                         port  routes  records  engine
 npo-scale-service                               8099       0       no  rust
-npo-service                                     8085      40      yes  rust
+npo-service                                     8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

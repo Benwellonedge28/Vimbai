@@ -606,8 +606,8 @@
     {
       "name": "npo-service",
       "path": "/npo",
-      "url": "http://localhost:8085",
-      "port": 8085,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true
     },
     {

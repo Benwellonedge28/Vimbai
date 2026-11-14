@@ -9,47 +9,12 @@ services:
 - name: npo-service
   domain: npo
   target: rust/crates/domains/npo
-  port: 8085
+  port: 8099
   gateway_path: /npo
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /funds/
-  - GET /funds/{fund_id}
-  - GET /funds/{fund_id}/transactions/
-  - POST /net-assets/
-  - GET /net-assets/{as_of_date}
-  - POST /donations/
-  - GET /donations/
-  - POST /grants/
-  - GET /grants/
-  - GET /grants/{grant_id}
-  - POST /grants/{grant_id}/drawdowns/
-  - POST /projects/
-  - GET /projects/
-  - GET /projects/{project_id}
-  - POST /programs/
-  - GET /programs/
-  - POST /donors/
-  - GET /donors/
-  - GET /donors/{donor_id}
-  - POST /budgets/
-  - GET /budgets/
-  - POST /budgets/{budget_id}/lines/
-  - POST /internal-controls/
-  - GET /internal-controls/
-  - POST /audit-reports/
-  - GET /audit-reports/
-  - POST /program-metrics/
-  - POST /impact-measurements/
-  - POST /sroi-analyses/
-  - POST /volunteer-records/
-  - GET /volunteer-records/
-  - GET /statements/activities/
-  - POST /assets/
-  - GET /health
+  records: false
+  endpoints: []
 - name: npo-scale-service
   domain: npo
   target: rust/crates/domains/npo

@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          36
+live and routed          35
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -42,7 +42,6 @@ Routed by the API gateway and deployed. These are the running product.
 `mfa-auth-service`
 `multimodal-pipeline-service`
 `notifications-service`
-`npo-service`
 `ordinary-shares-service`
 `overhead-absorption-rate-service`
 `payment-gateway-service`

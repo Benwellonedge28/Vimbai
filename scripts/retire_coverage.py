@@ -68,8 +68,8 @@ def declared(service):
     if not os.path.isfile(main):
         return []
     text = open(main, encoding="utf-8").read()
-    paths = [found.group(1).rstrip("/") for found in ENDPOINT.finditer(text)]
-    return [path for path in paths if "{" not in path and path not in ("", "/health")]
+    paths = [found.group(1) for found in ENDPOINT.finditer(text)]
+    return [path for path in paths if "{" not in path and path.rstrip("/") not in ("", "/health")]
 
 
 # Kept on purpose, not for want of routes: these directories are the Python side of a parity test that compares the old
@@ -83,11 +83,20 @@ def verdict(service, gateway_path, routes):
     if not fixed:
         return {"service": service, "verdict": "no endpoints", "fixed": 0, "missing": []}
     prefix = gateway_path.rstrip("/")
-    missing = [
-        path
-        for path in fixed
-        if (prefix + path).rstrip("/") not in routes and path.rstrip("/") not in routes
-    ]
+
+    def answered(path):
+        """A path is answered if the engine registers it, with or without a trailing slash.
+
+        The slash has to be tolerated on both sides: a service publishes "/donations/" and the engine may register
+        either form, and comparing a stripped service path against an unstripped route table used to report the whole
+        npo surface as missing while every one of its routes was registered.
+        """
+        candidates = {(prefix + path), path}
+        candidates |= {candidate.rstrip("/") for candidate in candidates}
+        candidates |= {candidate + "/" for candidate in candidates}
+        return candidates & routes
+
+    missing = [path for path in fixed if not answered(path)]
     flat_only = all(path.rstrip("/") in routes for path in fixed) and not all(
         (prefix + path).rstrip("/") in routes for path in fixed
     )

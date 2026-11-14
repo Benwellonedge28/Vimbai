@@ -547,13 +547,13 @@ notifications-service                        /notifications                     
 ```text
 service                                      address                            eps  owns engine crate
 npo-scale-service                            /npo-scale                           0  -    rust   rust/crates/domains/npo
-npo-service                                  /npo                                35  recs rust   rust/crates/domains/npo
+npo-service                                  /npo                                 0  -    rust   rust/crates/domains/npo
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
 | `npo-scale-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `npo-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `npo-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## partnerships — 5/5 on Rust
 
