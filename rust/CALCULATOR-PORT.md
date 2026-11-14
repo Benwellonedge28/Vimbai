@@ -1593,7 +1593,7 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   are removed. The CI shard is dropped rather than left empty: a group listing no services is a job with nothing to do,
   and the workflow test refuses it.
 
-- `scripts/retire_coverage.py` is the retirement evidence now, replacing the seam-era gate as the thing to consult
+- `scripts/retire_coverage.py` was the retirement evidence at this stage, replacing the seam-era gate as the thing to consult
   before deleting a service: it reads the engine's registered routes and answers, per service, whether every fixed path
   it publishes is answered, and whether under the gateway prefix or flat - which is not a detail, because it decides
   whether a gateway entry keeps its prefix or drops it. Paths carrying parameters are not counted as coverage. Its
