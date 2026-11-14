@@ -8,7 +8,7 @@
 
 use std::process::ExitCode;
 
-use xtask::{boundaries, catalog, domains, gateway, reachability};
+use xtask::{boundaries, catalog, domains, gateway, openapi, reachability};
 
 const USAGE: &str = "\
 xtask - repository tooling
@@ -21,6 +21,8 @@ COMMANDS:
     catalog --check    report whether the committed catalogue is current, and exit 1 if it is not
     gateway            report the addresses the gateway publishes that the engine does not answer
     gateway --addresses  print every address the engine answers, one per line
+    openapi            rewrite contracts/openapi/v1/domains/ from the engine's routes
+    openapi --check    report an address with no contract, a contract with no address, or a stale file
     domains            report a routed service with no domain page, and a page that is stale, and exit 1
     reachability       report the modules no door can reach, one per line
     boundaries         report crate dependency rule violations, and exit 1 if there are any
@@ -59,6 +61,29 @@ fn main() -> ExitCode {
             }
         }
         // The modules nothing can call: arithmetic that looks wired because it is `pub` and re-exported.
+        "openapi" if args.iter().any(|argument| argument == "--check") => {
+            let found = openapi::problems(&root);
+            for finding in &found {
+                println!("{finding}");
+            }
+            if found.is_empty() {
+                println!("openapi: every published address has a contract, and every contract is answered");
+                ExitCode::SUCCESS
+            } else {
+                println!("openapi: {} outstanding", found.len());
+                ExitCode::FAILURE
+            }
+        }
+        "openapi" => match openapi::write(&root) {
+            Ok(written) => {
+                println!("openapi: {written} domain specifications written");
+                ExitCode::SUCCESS
+            }
+            Err(problem) => {
+                eprintln!("openapi: {problem}");
+                ExitCode::FAILURE
+            }
+        },
         "domains" => {
             let found = domains::audit(&root);
             for finding in &found {

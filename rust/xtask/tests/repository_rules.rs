@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use xtask::{catalog, contracts, crates, manifests, reachability, wiring, workflows};
+use xtask::{catalog, crates, manifests, reachability, wiring, workflows};
 
 fn root() -> PathBuf {
     xtask::catalog::repo_root()
@@ -133,12 +133,6 @@ fn every_gateway_entry_forwards_to_something_that_exists() {
 fn the_workflows_name_only_services_that_are_routed() {
     // A file naming a deleted directory fails when the runner reaches that line, which is why it is checked here.
     let findings = workflows::problems(&root());
-    assert!(findings.is_empty(), "{findings:?}");
-}
-
-#[test]
-fn every_contract_is_a_route_and_every_route_is_in_its_contract() {
-    let findings = contracts::problems(&root());
     assert!(findings.is_empty(), "{findings:?}");
 }
 

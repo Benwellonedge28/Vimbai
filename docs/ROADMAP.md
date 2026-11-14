@@ -40,7 +40,10 @@ Known gaps this roadmap closes, in the order they appear below:
 1. No `Organisation` or `Tenant` type exists anywhere in the workspace; `book_id` is a property the store stamps.
 2. ledger-core's invariants are covered only by ordinary unit tests inside the crates that use them.
 3. The automation crate has a scheduler and engine, and nothing runs it.
-4. No versioned API contracts; `contracts/` holds six flat domain YAMLs.
+4. ~~No versioned API contracts; `contracts/` holds six flat domain YAMLs.~~ Closed in P6: `contracts/openapi/v1/`
+   holds a generated specification per domain beside the six hand-written ones, and a gate holds every address in both
+   directions. The 180 prefix groups no catalogue service claims are documented in `unattributed.yaml` and still
+   attached to nothing - that is the open item.
 5. `docs/` is ten flat files; the proposed subtrees do not exist.
 6. `data/` exists and is empty; there is no migration mechanism since the alembic tree was deleted.
 7. `apps/sync-server` and `apps/worker` do not exist.
@@ -409,7 +412,7 @@ Updated in the same commit that lands the work. `—` means not started.
 | P3 | Compliance record | done | `docs/compliance/financial-integrity.md`, every claim naming its test |
 | P4 | Worker | done | `rust/apps/worker` (11 tests in `src/lib.rs`, 5 in `tests/offline.rs`); `docs/WORKER.md` |
 | P5 | Domain documentation | — | |
-| P6 | Contracts | — | |
+| P6 | Contracts | done | `contracts/openapi/v1/` (6 hand-written + 31 generated); `openapi` / `openapi --check`; 5 tests in `rust/xtask/tests/contracts_cover_every_address.rs`; three policies in `contracts/compatibility/` |
 | P7 | Flutter feature-first | — | |
 | P8 | Data layer | blocked | needs decision 5.1 |
 | P9 | Sync server | — | |

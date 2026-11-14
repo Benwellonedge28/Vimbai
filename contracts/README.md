@@ -1,11 +1,38 @@
 # Contracts
 
-The agreed API shape, written by hand for one service at a time and checked against the Rust that
-answers it.
+The agreed API shape: six contracts written by hand for the services whose detail is worth writing down, and one
+generated specification per domain so that every published address is documented rather than most of them.
 
-This directory used to be empty on purpose. An OpenAPI document written for all 138 services would
-be 1,238 paths nobody had read, and a contract nobody has read is worse than no contract: it looks
-authoritative while being wrong. So the loop is proven on one service first.
+This directory was once nearly empty on purpose. An OpenAPI document written by hand for all 138 services would have been
+1,238 paths nobody had read, and a contract nobody has read looks authoritative while being wrong. What changed is not
+that claim but the alternative: a *generated* specification states only what the generator can know - the path, the
+methods answered there, the prefix group, and the components every service shares - and never invents a response schema.
+A client reading it learns the truth about the addresses, and learns nothing it can rely on and be wrong about.
+
+## Layout
+
+- `openapi/v1/services/` - the six hand-written contracts, unchanged: `accounting.yaml` (cash flow statement),
+  `assets.yaml` (fixed asset register), `costing.yaml` (overhead absorption), `job-costing.yaml`, `equity.yaml`,
+  `treasury.yaml`. These carry schemas, worked examples and the reasoning a generator cannot produce. Edit them by hand.
+- `openapi/v1/domains/` - generated, one file per domain, listing every published address that no service contract
+  already documents. `unattributed.yaml` holds the addresses whose prefix group no catalogue service claims: they answer,
+  and a client may call them, but no catalogue row owns them.
+- `compatibility/` - the policies that say what a client may rely on: `api-compatibility-policy.md`,
+  `event-compatibility-policy.md`, `deprecation-policy.md`.
+
+## Regenerating, and the gate
+
+```
+cargo run -p xtask -- openapi          # rewrite contracts/openapi/v1/domains/
+cargo run -p xtask -- openapi --check  # report anything out of step, and exit 1
+```
+
+`openapi --check` fails when a published address has no contract, when a contract names an address nothing answers, when
+one address is documented twice, or when the committed files are not what the generator writes. Both directions matter
+because a contract nobody serves and a route nobody documented are the same defect, and only checking one direction finds
+half of them.
+
+Five tests hold it: `rust/xtask/tests/contracts_cover_every_address.rs`.
 
 ## What exists
 

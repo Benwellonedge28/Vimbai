@@ -16,6 +16,14 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
   and the domains, twelve tests including seeded property tests over random entry sets, plus parity fixtures recording
   the figures two retired Python services answered. `docs/compliance/financial-integrity.md` states each guarantee
   against the test that fails when it stops holding.
+- Contracts for every published address. Six hand-written contracts were moved to `contracts/openapi/v1/services/` and
+  keep their schemas and prose; `cargo run -p xtask -- openapi` generates one specification per domain in
+  `contracts/openapi/v1/domains/` for every address no service contract documents, stating only what the generator can
+  know - path, methods, prefix group, shared components - and never inventing a response schema.
+  `openapi --check` fails in both directions: an address with no contract, a contract naming an address nothing answers,
+  an address documented twice, or a committed file that is not what the generator writes.
+  `contracts/compatibility/` states what a client may rely on: the API compatibility policy, the event compatibility
+  policy, and the deprecation policy.
 - Twenty-two domain pages under `docs/domains/`, one per domain, saying what each crate owns, the services and gateway
   prefixes it answers on, and what it deliberately does not own. The mapping is a gate, not a convention: a routed
   service with no page, a page naming a service or crate the catalogue does not have, or a page leaving out one of its own
