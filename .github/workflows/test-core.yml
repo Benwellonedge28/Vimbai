@@ -42,7 +42,7 @@ jobs:
           - group: platform-infrastructure
             services: "message-bus-service pos-integration-service "
           - group: treasury-banking
-            services: "treasury-compliance-service bank-feed-service "
+            services: "treasury-compliance-service  "
 
     steps:
       - uses: actions/checkout@v4

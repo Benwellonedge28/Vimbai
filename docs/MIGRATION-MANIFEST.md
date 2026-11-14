@@ -151,7 +151,7 @@ Lands in `rust/crates/domains/banking`.
 
 ```
 service                                         port  routes  records  engine
-bank-feed-service                               8097      23      yes  rust
+bank-feed-service                               8097       0       no  rust
 bank-reconciliation-service                     8099       0       no  rust
 bank-relationship-service                       8099       0       no  rust
 banking-integration-service                     8099       0       no  rust

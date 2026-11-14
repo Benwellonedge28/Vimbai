@@ -175,3 +175,71 @@ def test_no_new_shared_function_name_across_crates():
         "these function names now exist in more than one crate, which is how the duplicate "
         f"implementations started: {unexpected}. Share one definition instead."
     )
+
+
+API_DIR = os.path.join(ROOT, "rust", "apps", "api-server", "src")
+
+
+def _arguments(text, open_at):
+    """The text inside the call whose parenthesis sits at `open_at`."""
+    depth = 0
+    for index in range(open_at, len(text)):
+        if text[index] == "(":
+            depth += 1
+        elif text[index] == ")":
+            depth -= 1
+            if depth == 0:
+                return text[open_at + 1 : index]
+    return ""
+
+
+def _registered_addresses():
+    """Every (method, path) the API server registers, with repeats kept.
+
+    A file that declares its own mounts in a loop registers its format! paths under those prefixes rather than under
+    the accounting mounts the other files use, so the mounts are read from the loop when one is present.
+    """
+    found = []
+    mounts = ("/accounting", "/records/accounting")
+    for name in sorted(os.listdir(API_DIR)):
+        if not name.endswith(".rs"):
+            continue
+        text = open(os.path.join(API_DIR, name), encoding="utf-8").read()
+        loops = re.findall(r"for\s+\w+\s+in\s*\[([^\]]+)\]", text)
+        file_mounts = tuple(re.findall(r'"([^"]+)"', loops[0])) if loops else mounts
+        for match in re.finditer(r"\.route\(", text):
+            args = _arguments(text, match.end() - 1)
+            if not args:
+                continue
+            methods = set(re.findall(r"\b(get|post|put|delete|patch)\(", args))
+            if "published(" in args:
+                methods.add("post")
+            literal = re.match(r'\s*"([^"]+)"', args)
+            if literal:
+                found.extend((method, literal.group(1), name) for method in methods)
+                continue
+            mounted = re.match(r'\s*&?format!\(\s*"(?:\{prefix\}|([^"]*))([^"]*)"', args)
+            if mounted:
+                lead, suffix = mounted.group(1) or "", mounted.group(2)
+                prefixes = (lead,) if lead else file_mounts
+                for prefix in prefixes:
+                    found.extend((method, prefix + suffix, name) for method in methods)
+    return found
+
+
+def test_no_http_address_is_registered_twice():
+    """One address, one handler.
+
+    A retired service keeps its client's address, so the same operation is deliberately answered at the address the
+    service published as well as the engine's own - two addresses, one handler. What must never happen is two
+    registrations of the *same* address: axum keeps whichever it saw first and the other is dead code nobody can see.
+    """
+    seen = collections.defaultdict(list)
+    for method, path, name in _registered_addresses():
+        seen[(method, path)].append(name)
+    repeated = {
+        f"{method.upper()} {path}": sorted(set(names))
+        for (method, path), names in seen.items()
+        if len(names) > 1
+    }
+    assert not repeated, "one address registered twice: " + json.dumps(repeated, indent=2)

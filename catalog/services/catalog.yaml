@@ -308,31 +308,8 @@ services:
   gateway_path: /bank-feed
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /connections
-  - GET /connections
-  - GET /connections/{connection_id}
-  - DELETE /connections/{connection_id}
-  - POST /transactions/import
-  - POST /transactions/import-batch
-  - POST /transactions/import-mt940
-  - GET /transactions
-  - GET /transactions/{transaction_id}
-  - PUT /transactions/{transaction_id}/status
-  - POST /transactions/{transaction_id}/link
-  - POST /sync/start
-  - GET /sync/history
-  - GET /sync/{sync_id}
-  - GET /connections/{connection_id}/balance
-  - POST /rules
-  - GET /rules
-  - PUT /rules/{rule_id}
-  - DELETE /rules/{rule_id}
-  - POST /rules/apply
-  - POST /webhooks/{provider}
-  - GET /statistics
+  records: false
+  endpoints: []
 - name: bank-reconciliation-service
   domain: banking
   target: rust/crates/domains/banking

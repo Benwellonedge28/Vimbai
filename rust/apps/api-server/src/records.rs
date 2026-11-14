@@ -17758,6 +17758,28 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             "/bank-rules/apply",
             post(post_bank_rules_apply),
         )
+        // bank-feed-service published its import steps at /transactions/import* and its rule application at
+        // /rules/apply, under its own /bank-feed prefix. The same handlers answer those exact addresses, so a
+        // caller sees no change and the engine still holds one implementation of each import.
+        .route("/bank-feed/transactions/import", post(post_bank_transaction))
+        .route(
+            "/bank-feed/transactions/import-batch",
+            post(post_bank_transactions_batch),
+        )
+        .route(
+            "/bank-feed/transactions/import-mt940",
+            post(post_bank_mt940),
+        )
+        .route("/bank-feed/rules/apply", post(post_bank_rules_apply))
+        .route("/bank-feed/transactions", get(get_bank_transactions))
+        .route(
+            "/bank-feed/transactions/:id/status",
+            put(put_bank_transaction_status),
+        )
+        .route(
+            "/bank-feed/transactions/:id/link",
+            post(post_bank_transaction_link),
+        )
         .route(
             "/bank-rules/:id",
             put(put_bank_rule).delete(delete_bank_rule),

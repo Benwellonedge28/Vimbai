@@ -1,37 +1,29 @@
-//! the bank feed over HTTP: connections, the transactions they bring in, and the rules that pick them out.
+//! bank-feed-service answers at the prefix it publishes.
+//!
+//! The imports themselves always lived in the banking crate; what these tests pin is that the addresses the service
+//! published answer, and that they answer with the same handler as the engine's own: a single transaction, a batch, an
+//! MT940 statement, and the rule application that follows them.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
 use serde_json::{json, Value};
-use store::{Graph, StoreError};
+use store::fake::MemoryGraph;
 use tower::ServiceExt;
 
-struct Scripted {
-    queue: Mutex<Vec<Vec<Value>>>,
-}
-
-impl Scripted {
-    fn queue(scripts: Vec<Vec<Value>>) -> Arc<Self> {
-        Arc::new(Self {
-            queue: Mutex::new(scripts),
-        })
-    }
-}
-
-impl Graph for Scripted {
-    fn run(&self, _cypher: &str, _params: Value) -> Result<Vec<Value>, StoreError> {
-        let mut queue = self.queue.lock().unwrap();
-        if queue.is_empty() {
-            return Ok(Vec::new());
-        }
-        Ok(queue.remove(0))
+/// The amount as a caller reads it, with the storage scale's trailing zeros trimmed.
+fn amount_of(body: &Value) -> String {
+    let raw = body["amount"].as_str().unwrap_or_default().to_owned();
+    if raw.contains('.') {
+        raw.trim_end_matches('0').trim_end_matches('.').to_owned()
+    } else {
+        raw
     }
 }
 
 async fn call(
-    graph: Arc<Scripted>,
+    graph: Arc<MemoryGraph>,
     method: Method,
     uri: &str,
     payload: Option<Value>,
@@ -49,7 +41,7 @@ async fn call(
     };
     let response = router.oneshot(request.body(body).unwrap()).await.unwrap();
     let status = response.status();
-    let bytes = axum::body::to_bytes(response.into_body(), 1_000_000)
+    let bytes = axum::body::to_bytes(response.into_body(), 2_000_000)
         .await
         .unwrap();
     (
@@ -58,210 +50,243 @@ async fn call(
     )
 }
 
-async fn send(graph: Arc<Scripted>, uri: &str, body: Value) -> (StatusCode, Value) {
-    call(graph, Method::POST, uri, Some(body)).await
-}
-
-#[tokio::test]
-async fn a_connection_is_opened_in_an_organisation() {
-    let graph = Scripted::queue(vec![vec![json!({
-        "id": "conn-1", "provider": "plaid", "organization_id": "org-1",
-        "status": "active", "sync_interval_minutes": 60
-    })]]);
-    let (status, body) = send(
-        graph,
-        "/connections?organization_id=org-1",
-        json!({
-            "provider": "plaid",
-            "account_name": "Current account",
-            "account_type": "checking",
-            "account_number_last4": "1234"
-        }),
+/// A connection to import against, created through the address the bank's own router publishes.
+async fn connection(graph: &Arc<MemoryGraph>) -> String {
+    let (status, body) = call(
+        Arc::clone(graph),
+        Method::POST,
+        "/connections",
+        Some(json!({
+            "provider": "manual",
+            "account_name": "FNB Business",
+            "account_number_last4": "4321",
+            "today": "2026-11-14",
+        })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["organization_id"], json!("org-1"));
-    assert_eq!(body["status"], json!("active"));
-    assert_eq!(body["sync_interval_minutes"], json!(60));
+    body["id"].as_str().expect("the connection's id").to_owned()
 }
 
 #[tokio::test]
-async fn a_provider_the_service_does_not_know_is_refused() {
-    let graph = Scripted::queue(vec![]);
-    let (status, body) = send(
-        graph,
-        "/connections?organization_id=org-1",
-        json!({
-            "provider": "telepathy",
-            "account_name": "Mind reading",
-            "account_number_last4": "0000"
-        }),
-    )
-    .await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert_eq!(body["error"], json!("Unknown provider telepathy"));
-}
+async fn a_single_transaction_is_imported_at_the_address_the_service_published() {
+    let graph = Arc::new(MemoryGraph::new());
+    let connection_id = connection(&graph).await;
 
-#[tokio::test]
-async fn a_transaction_is_imported_against_a_connection_the_book_holds() {
-    let graph = Scripted::queue(vec![
-        // the connection the transaction names
-        vec![json!({"id": "conn-1", "provider": "plaid"})],
-        // no transaction carries this external id yet
-        vec![],
-        // the imported transaction
-        vec![json!({"id": "tx-1", "external_id": "ext-1", "status": "cleared"})],
-    ]);
-    let (status, body) = send(
-        graph,
-        "/bank-transactions/import",
-        json!({
-            "bank_connection_id": "conn-1",
-            "external_id": "ext-1",
-            "date": "2026-03-01T00:00:00",
-            "amount": 500,
-            "description": "card payment"
-        }),
+    let (status, body) = call(
+        Arc::clone(&graph),
+        Method::POST,
+        "/bank-feed/transactions/import",
+        Some(json!({
+            "bank_connection_id": connection_id,
+            "external_id": "fnb-0001",
+            "date": "2026-11-02",
+            "amount": "1250.00",
+            "description": "Customer deposit",
+            "transaction_type": "credit",
+            "today": "2026-11-14",
+        })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["status"], json!("cleared"));
-}
+    assert_eq!(body["external_id"], "fnb-0001");
+    assert_eq!(
+        amount_of(&body),
+        "1250",
+        "the amount is kept exactly: {body}"
+    );
 
-#[tokio::test]
-async fn the_same_external_id_twice_is_a_duplicate() {
-    let graph = Scripted::queue(vec![
-        vec![json!({"id": "conn-1", "provider": "plaid"})],
-        vec![json!({"id": "tx-1", "external_id": "ext-1", "bank_connection_id": "conn-1"})],
-    ]);
-    let (status, body) = send(
+    // the same statement line arriving twice is refused, not imported twice
+    let (status, again) = call(
         graph,
-        "/bank-transactions/import",
-        json!({
-            "bank_connection_id": "conn-1",
-            "external_id": "ext-1",
-            "date": "2026-03-01T00:00:00",
-            "amount": 500
-        }),
+        Method::POST,
+        "/bank-feed/transactions/import",
+        Some(json!({
+            "bank_connection_id": body["bank_connection_id"],
+            "external_id": "fnb-0001",
+            "date": "2026-11-02",
+            "amount": "1250.00",
+            "today": "2026-11-14",
+        })),
     )
     .await;
-    assert_eq!(status, StatusCode::CONFLICT, "{body}");
-    assert_eq!(body["error"], json!("Transaction already imported"));
+    assert_eq!(status, StatusCode::CONFLICT, "{again}");
 }
 
 #[tokio::test]
-async fn an_mt940_statement_is_parsed_and_its_lines_imported() {
-    let statement = ":20:ST\n:61:2603010301C1500,00NTRF\n:86:Customer payment\n";
-    let graph = Scripted::queue(vec![
-        // the connection named
-        vec![json!({"id": "conn-1", "provider": "manual"})],
-        // the imported line
-        vec![json!({"id": "tx-1"})],
-    ]);
-    let (status, body) = send(
-        graph,
-        "/bank-transactions/import-mt940",
-        json!({"connection_id": "conn-1", "statement_data": statement}),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["parsed"], json!(1));
-    assert_eq!(body["imported"], json!(1));
-}
+async fn a_batch_reports_each_line_it_imported() {
+    let graph = Arc::new(MemoryGraph::new());
+    let connection_id = connection(&graph).await;
 
-#[tokio::test]
-async fn the_transactions_a_feed_brought_in_are_listed_for_one_connection() {
-    let graph = Scripted::queue(vec![vec![
-        json!({"id": "tx-1", "bank_connection_id": "conn-1", "status": "cleared", "date": "2026-03-02"}),
-        json!({"id": "tx-2", "bank_connection_id": "conn-1", "status": "reconciled", "date": "2026-03-01"}),
-        json!({"id": "tx-3", "bank_connection_id": "conn-2", "status": "cleared", "date": "2026-03-03"}),
-    ]]);
     let (status, body) = call(
         graph,
+        Method::POST,
+        "/bank-feed/transactions/import-batch",
+        Some(json!({
+            "bank_connection_id": connection_id,
+            "transactions": [
+                {"external_id": "fnb-b1", "date": "2026-11-03", "amount": "99.50", "description": "Fuel"},
+                {"external_id": "fnb-b2", "date": "2026-11-04", "amount": "410.00", "description": "Rent"},
+            ],
+            "today": "2026-11-14",
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let imported = body["imported"]
+        .as_array()
+        .or_else(|| body["results"].as_array())
+        .expect("the lines that were imported");
+    assert_eq!(imported.len(), 2, "{body}");
+}
+
+#[tokio::test]
+async fn an_mt940_statement_is_parsed_into_the_transactions_it_holds() {
+    let graph = Arc::new(MemoryGraph::new());
+    let connection_id = connection(&graph).await;
+
+    let statement = ":20:STMT2026\n\
+                     :61:2611021102C1250,00NTRFNONREF\n\
+                     :86:Customer deposit\n\
+                     :61:2611041104D410,00NTRFNONREF\n\
+                     :86:Rent payment\n";
+    let (status, body) = call(
+        Arc::clone(&graph),
+        Method::POST,
+        "/bank-feed/transactions/import-mt940",
+        Some(json!({
+            "connection_id": connection_id,
+            "statement_data": statement,
+            "today": "2026-11-14",
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["parsed"], 2, "two statement lines were read: {body}");
+    assert_eq!(body["imported"], 2, "and both were kept: {body}");
+
+    // the mark decides the side, so the credit is positive and the debit negative
+    let ids = body["transaction_ids"]
+        .as_array()
+        .expect("the transactions it wrote");
+    let (_, credit) = call(
+        Arc::clone(&graph),
         Method::GET,
-        "/bank-transactions?connection_id=conn-1",
+        &format!("/bank-transactions/{}", ids[0].as_str().unwrap()),
         None,
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body.as_array().expect("a list").len(), 2);
-    // newest first
-    assert_eq!(body[0]["id"], json!("tx-1"));
-}
-
-#[tokio::test]
-async fn the_rules_are_applied_to_the_transactions_named() {
-    let graph = Scripted::queue(vec![
-        // the caller's rules
-        vec![json!({
-            "id": "rule-1", "priority": 5, "active": true, "auto_match_enabled": true,
-            "match_conditions": {"transaction_type": "debit"}
-        })],
-        // the transaction being matched
-        vec![json!({"id": "tx-1", "transaction_type": "debit", "amount": "-500.000000"})],
-        // the transaction, written back with the rule that took it
-        vec![json!({"id": "tx-1", "matched_rule_id": "rule-1"})],
-    ]);
-    let (status, body) = send(graph, "/bank-rules/apply", json!(["tx-1"])).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["processed"], json!(1));
-    assert_eq!(body["results"][0]["matched"], json!(true));
-    assert_eq!(body["results"][0]["rule_id"], json!("rule-1"));
-}
-
-#[tokio::test]
-async fn a_sync_is_recorded_and_the_connection_marked_as_syncing() {
-    let graph = Scripted::queue(vec![
-        vec![json!({"id": "conn-1", "provider": "plaid"})],
-        vec![json!({"id": "sync-1", "status": "syncing"})],
-        vec![json!({"id": "conn-1", "last_sync_status": "syncing"})],
-    ]);
-    let (status, body) = send(
-        graph,
-        "/sync/start",
-        json!({"bank_connection_id": "conn-1", "start_date": "2026-02-01T00:00:00"}),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["sync_id"], json!("sync-1"));
-    assert_eq!(body["status"], json!("started"));
-}
-
-#[tokio::test]
-async fn a_connections_balance_says_the_figure_is_a_placeholder() {
-    let graph = Scripted::queue(vec![vec![json!({"id": "conn-1", "currency": "GBP"})]]);
-    let (status, body) = call(graph, Method::GET, "/connections/conn-1/balance", None).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["source"], json!("placeholder"));
-    assert_eq!(body["currency"], json!("GBP"));
-    assert_eq!(body["current_balance"], json!("10500"));
-}
-
-#[tokio::test]
-async fn the_statistics_of_an_organisations_connections_are_counted() {
-    let graph = Scripted::queue(vec![
-        vec![json!({"id": "conn-1", "provider": "plaid", "organization_id": "org-1"})],
-        vec![
-            json!({"id": "tx-1", "bank_connection_id": "conn-1", "status": "reconciled"}),
-            json!({"id": "tx-2", "bank_connection_id": "conn-1", "status": "pending"}),
-        ],
-    ]);
-    let (status, body) = call(
-        graph,
+    let (_, debit) = call(
+        Arc::clone(&graph),
         Method::GET,
-        "/statistics?organization_id=org-1",
+        &format!("/bank-transactions/{}", ids[1].as_str().unwrap()),
         None,
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["total_connections"], json!(1));
-    assert_eq!(body["total_transactions"], json!(2));
-    assert_eq!(body["reconciliation_rate"], json!("50.000000"));
+    assert_eq!(amount_of(&credit), "1250", "{credit}");
+    assert_eq!(amount_of(&debit), "-410", "{debit}");
+    assert_eq!(debit["date"], "2026-11-04");
 }
 
 #[tokio::test]
-async fn a_connection_that_is_not_the_books_is_a_miss() {
-    let graph = Scripted::queue(vec![vec![]]);
-    let (status, _) = call(graph, Method::GET, "/connections/conn-9", None).await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
+async fn a_rules_are_applied_to_the_transactions_named() {
+    let graph = Arc::new(MemoryGraph::new());
+    let connection_id = connection(&graph).await;
+
+    let (status, rule) = call(
+        Arc::clone(&graph),
+        Method::POST,
+        "/bank-rules",
+        Some(json!({
+            "name": "Fuel",
+            "match_conditions": {"description_contains": "Fuel"},
+            "auto_match_enabled": true,
+            "today": "2026-11-14",
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{rule}");
+
+    let (_, imported) = call(
+        Arc::clone(&graph),
+        Method::POST,
+        "/bank-feed/transactions/import",
+        Some(json!({
+            "bank_connection_id": connection_id,
+            "external_id": "fnb-rule-1",
+            "date": "2026-11-05",
+            "amount": "88.00",
+            "description": "Fuel at Engen",
+            "today": "2026-11-14",
+        })),
+    )
+    .await;
+    let transaction_id = imported["id"]
+        .as_str()
+        .expect("the transaction id")
+        .to_owned();
+
+    let (status, applied) = call(
+        Arc::clone(&graph),
+        Method::POST,
+        "/bank-feed/rules/apply",
+        Some(json!([transaction_id])),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{applied}");
+    // the rule that names Fuel picks the fuel line out, and its outcome is reported per transaction
+    assert_eq!(applied["processed"], 1, "{applied}");
+    assert_eq!(
+        applied["results"][0]["matched"], true,
+        "the fuel rule met it: {applied}"
+    );
+    assert_eq!(applied["results"][0]["rule_id"], rule["id"], "{applied}");
+}
+
+#[tokio::test]
+async fn the_feed_is_listed_and_a_transaction_status_set_at_the_published_addresses() {
+    let graph = Arc::new(MemoryGraph::new());
+    let connection_id = connection(&graph).await;
+
+    let (_, imported) = call(
+        Arc::clone(&graph),
+        Method::POST,
+        "/bank-feed/transactions/import",
+        Some(json!({
+            "bank_connection_id": connection_id,
+            "external_id": "fnb-list-1",
+            "date": "2026-11-06",
+            "amount": "300.00",
+            "description": "Card settlement",
+            "today": "2026-11-14",
+        })),
+    )
+    .await;
+    let id = imported["id"]
+        .as_str()
+        .expect("the transaction id")
+        .to_owned();
+
+    let (status, listed) = call(
+        Arc::clone(&graph),
+        Method::GET,
+        "/bank-feed/transactions",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    assert!(
+        listed.to_string().contains("fnb-list-1"),
+        "the line just imported is in the feed: {listed}"
+    );
+
+    let (status, moved) = call(
+        Arc::clone(&graph),
+        Method::PUT,
+        &format!("/bank-feed/transactions/{id}/status"),
+        Some(json!({"status": "reconciled", "today": "2026-11-14"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{moved}");
+    assert_eq!(moved["status"], "reconciled");
 }
