@@ -407,7 +407,7 @@ Updated in the same commit that lands the work. `—` means not started.
 | P3 | Financial integrity suite | done | `rust/tests/financial-integrity`: 7 invariants in `tests/invariants.rs`, 5 property tests in `tests/properties.rs` |
 | P3 | Parity fixtures | done | `rust/tests/fixtures/parity/` (treasury analytics, absorption costing), asserted by `tests/parity.rs` |
 | P3 | Compliance record | done | `docs/compliance/financial-integrity.md`, every claim naming its test |
-| P4 | Worker | — | |
+| P4 | Worker | done | `rust/apps/worker` (11 tests in `src/lib.rs`, 5 in `tests/offline.rs`); `docs/WORKER.md` |
 | P5 | Domain documentation | — | |
 | P6 | Contracts | — | |
 | P7 | Flutter feature-first | — | |

@@ -1,0 +1,19 @@
+[package]
+name = "vimbai_worker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The scheduled-automation worker: claims a due rule from the store the engine writes, runs it once, and records the run so a crash cannot make it run twice."
+
+[[bin]]
+name = "vimbai-worker"
+path = "src/main.rs"
+
+[dependencies]
+automation = { package = "vimbai_automation", path = "../../crates/domains/automation" }
+common = { package = "vimbai_common", path = "../../crates/common" }
+notifications = { package = "vimbai_notifications", path = "../../crates/platform/notifications" }
+offline_sync = { package = "vimbai_service_offline_sync", path = "../../crates/platform/offline-sync" }
+store = { package = "vimbai_store", path = "../../crates/adapters/database" }
+serde_json = { workspace = true }

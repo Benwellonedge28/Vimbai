@@ -33,6 +33,11 @@ in `ROADMAP.md`.
   `cargo run -p xtask -- boundaries` applies them; a test fails if this page and the code disagree.
 - `architecture/RUST-CRATE-LAYOUT.md` - historical snapshot of the crate layout. The current boundaries are ADR-003.
 
+## Operations
+
+- `WORKER.md` - the scheduled-automation worker: the schedule a rule carries, and how a run happens exactly once.
+- `LOCAL-RUNTIME.md` - the on-device runtime: one binary, one data directory, everything served by the engine.
+
 ## Domains
 
 `domains/` documents each business domain as built: what it owns, the addresses it serves, and what it deliberately does

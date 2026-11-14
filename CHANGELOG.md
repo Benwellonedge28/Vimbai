@@ -16,6 +16,10 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
   and the domains, twelve tests including seeded property tests over random entry sets, plus parity fixtures recording
   the figures two retired Python services answered. `docs/compliance/financial-integrity.md` states each guarantee
   against the test that fails when it stops holding.
+- A worker that actually runs the automations: `rust/apps/worker` claims a due rule from the same store the engine writes
+  and runs it exactly once. A run's identity is the rule and the instant it was due, so a crash between claim and
+  completion leaves the run to be finished, never started a second time. Completed and failed runs land in the owner's
+  inbox and are recorded under `/automation/executions`. `docs/WORKER.md` states the schedule a rule carries.
 - The dependency gate gained a `Suite` family (R9): a suite may depend on any crate, and nothing may depend on a suite.
 - `cargo run -p xtask -- boundaries`: the crate dependency rules as a gate, with the graph discovered from the
   manifests, one recorded tolerance, and a test that fails if a tolerance goes stale.
