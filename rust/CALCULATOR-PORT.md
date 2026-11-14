@@ -1634,6 +1634,12 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
 
   The ap-ar-expenses CI shard emptied out in this batch and is removed rather than left running a job that tests nothing.
 
+- The budgeting domain, batch ten: activity-based-budget, appropriation-control, rolling-forecast, scenario-analysis,
+  scenario-modeling, sensitivity-analysis and zero-based-budgeting are gone, all answered under the budgeting prefix.
+
+  The corporate-finance CI shard emptied out and is removed - same rule as ap-ar-expenses: a job with no service to test is
+  not coverage, it is a green tick with nothing behind it.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

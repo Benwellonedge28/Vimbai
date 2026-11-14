@@ -34,8 +34,8 @@
     {
       "name": "activity-based-budget-service",
       "path": "/activity-based-budget",
-      "url": "http://localhost:9001",
-      "port": 8177,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -58,8 +58,8 @@
     {
       "name": "appropriation-control-service",
       "path": "/appropriation-control",
-      "url": "http://localhost:9001",
-      "port": 8015,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -852,8 +852,8 @@
     {
       "name": "rolling-forecast-service",
       "path": "/rolling-forecast",
-      "url": "http://localhost:9012",
-      "port": 8173,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -868,16 +868,16 @@
     {
       "name": "scenario-analysis-service",
       "path": "/scenario-analysis",
-      "url": "http://localhost:9012",
-      "port": 8121,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "scenario-modeling-service",
       "path": "/scenario-modeling",
-      "url": "http://localhost:8122",
-      "port": 8122,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true
     },
     {
@@ -891,8 +891,8 @@
     {
       "name": "sensitivity-analysis-service",
       "path": "/sensitivity-analysis",
-      "url": "http://localhost:9012",
-      "port": 8124,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -1050,8 +1050,8 @@
     {
       "name": "zero-based-budgeting-service",
       "path": "/zero-based-budgeting",
-      "url": "http://localhost:9001",
-      "port": 8143,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

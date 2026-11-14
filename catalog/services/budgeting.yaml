@@ -8,116 +8,63 @@ services:
 - name: activity-based-budget-service
   domain: budgeting
   target: rust/crates/domains/budgeting
-  port: 8177
+  port: 8099
   gateway_path: /activity-based-budget
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /activities
-  - GET /activities
-  - POST /budgets
-  - GET /budgets
-  - GET /budgets/{budget_id}
-  - PUT /budgets/{budget_id}/approve
+  records: false
+  endpoints: []
 - name: appropriation-control-service
   domain: budgeting
   target: rust/crates/domains/budgeting
-  port: 8015
+  port: 8099
   gateway_path: /appropriation-control
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /appropriations
-  - GET /appropriations/{company_id}
-  - POST /transactions
-  - GET /check/{appropriation_id}
+  records: false
+  endpoints: []
 - name: rolling-forecast-service
   domain: budgeting
   target: rust/crates/domains/budgeting
-  port: 8173
+  port: 8099
   gateway_path: /rolling-forecast
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /forecasts
-  - GET /forecasts
-  - GET /forecasts/{forecast_id}
-  - POST /forecasts/{forecast_id}/update-actual
-  - POST /forecasts/{forecast_id}/roll
+  records: false
+  endpoints: []
 - name: scenario-analysis-service
   domain: budgeting
   target: rust/crates/domains/budgeting
-  port: 8121
+  port: 8099
   gateway_path: /scenario-analysis
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /analyze
-  - POST /scenarios
-  - GET /scenarios/{company_id}
-  - GET /compare/{company_id}
+  records: false
+  endpoints: []
 - name: scenario-modeling-service
   domain: budgeting
   target: rust/crates/domains/budgeting
-  port: 8122
+  port: 8099
   gateway_path: /scenario-modeling
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /scenarios/
-  - GET /scenarios/
-  - GET /scenarios/{scenario_id}
-  - PUT /scenarios/{scenario_id}
-  - DELETE /scenarios/{scenario_id}
-  - POST /rules/
-  - GET /rules/
-  - GET /rules/{rule_id}
-  - PUT /rules/{rule_id}
-  - DELETE /rules/{rule_id}
-  - POST /what-if/
-  - GET /what-if/{analysis_id}
-  - GET /what-if/scenario/{scenario_id}
-  - POST /sensitivity/
-  - POST /compare/
+  records: false
+  endpoints: []
 - name: sensitivity-analysis-service
   domain: budgeting
   target: rust/crates/domains/budgeting
-  port: 8124
+  port: 8099
   gateway_path: /sensitivity-analysis
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /analyze
-  - GET /analyses/{company_id}
+  records: false
+  endpoints: []
 - name: zero-based-budgeting-service
   domain: budgeting
   target: rust/crates/domains/budgeting
-  port: 8143
+  port: 8099
   gateway_path: /zero-based-budgeting
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /packages
-  - GET /packages/{company_id}
-  - POST /packages/{package_id}/items
-  - PUT /packages/{package_id}/status
-  - PUT /items/{item_id}/priority
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []

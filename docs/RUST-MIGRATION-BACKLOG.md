@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 71 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 67 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 64 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 74 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -20,10 +20,10 @@ absorption-costing-service                     8010  routes=8   records=yes rust
 absorption-costing-statement-service           8011  routes=7   records=yes rust http
 accounting-service                             8000  routes=1   records=yes rust http
 accounting-standards-service                   8095  routes=20  records=yes rust http
-activity-based-budget-service                  8177  routes=8   records=yes rust http
+activity-based-budget-service                  8099  routes=0   records=no  rust http (no python source)
 admin-service                                  8099  routes=27  records=yes rust http
 alerts-service                                 8099  routes=0   records=no  rust http (no python source)
-appropriation-control-service                  8015  routes=5   records=yes rust http
+appropriation-control-service                  8099  routes=0   records=no  rust http (no python source)
 audit-compliance-service                       8099  routes=0   records=no  rust http (no python source)
 audit-sampling-service                         8099  routes=0   records=no  rust http (no python source)
 authorized-share-capital-service               8099  routes=0   records=no  rust http (no python source)
@@ -122,12 +122,12 @@ revaluation-reserve-service                    8099  routes=0   records=no  rust
 revenue-recognition-service                    8115  routes=5   records=yes rust http
 right-issues-service                           8099  routes=0   records=no  rust http (no python source)
 risk-assessment-service                        8117  routes=6   records=yes rust http
-rolling-forecast-service                       8173  routes=7   records=yes rust http
+rolling-forecast-service                       8099  routes=0   records=no  rust http (no python source)
 sales-ledger-control-service                   8099  routes=0   records=no  rust http (no python source)
-scenario-analysis-service                      8121  routes=6   records=yes rust http
-scenario-modeling-service                      8122  routes=17  records=yes rust http
+scenario-analysis-service                      8099  routes=0   records=no  rust http (no python source)
+scenario-modeling-service                      8099  routes=0   records=no  rust http (no python source)
 selling-price-reduction-service                8123  routes=5   records=yes rust http
-sensitivity-analysis-service                   8124  routes=3   records=yes rust http
+sensitivity-analysis-service                   8099  routes=0   records=no  rust http (no python source)
 share-premium-service                          8099  routes=0   records=no  rust http (no python source)
 share-redemption-service                       8099  routes=0   records=no  rust http (no python source)
 sovereign-treasury-service                     8099  routes=0   records=no  rust http (no python source)
@@ -147,7 +147,7 @@ treasury-risk-service                          8099  routes=0   records=no  rust
 webhook-service                                8140  routes=5   records=yes rust http
 websocket-service                              8141  routes=4   records=no  rust http
 workflow-service                               8142  routes=1   records=yes rust http
-zero-based-budgeting-service                   8143  routes=7   records=yes rust http
+zero-based-budgeting-service                   8099  routes=0   records=no  rust http (no python source)
 zero-trust-data-service                        8002  routes=9   records=yes rust http
 book-sync-service                              9020  routes=18  records=yes rust http
 npo-scale-service                              9021  routes=51  records=yes rust http

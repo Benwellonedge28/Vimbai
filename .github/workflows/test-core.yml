@@ -36,13 +36,11 @@ jobs:
       matrix:
         include:
           - group: standalone-containers
-            services: "identity-service accounting-service finance-service multimodal-pipeline-service scenario-modeling-service workflow-service budget-service "
+            services: "identity-service accounting-service finance-service multimodal-pipeline-service workflow-service budget-service "
           - group: advanced-accounting
             services: "revenue-recognition-service currency-service general-reserve-service data-warehouse-service subscription-plans-service intercompany-service "
-          - group: corporate-finance
-            services: "scenario-analysis-service sensitivity-analysis-service "
           - group: costing-budgeting
-            services: "appropriation-control-service job-costing-service process-costing-service product-costing-service zero-based-budgeting-service "
+            services: "job-costing-service process-costing-service product-costing-service "
           - group: platform-automation
             services: "automation-engine-service notifications-service webhook-service admin-service "
           - group: platform-infrastructure

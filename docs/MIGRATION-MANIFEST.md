@@ -168,13 +168,13 @@ Lands in `rust/crates/domains/budgeting`.
 
 ```
 service                                         port  routes  records  engine
-activity-based-budget-service                   8177       8      yes  rust
-appropriation-control-service                   8015       5      yes  rust
-rolling-forecast-service                        8173       7      yes  rust
-scenario-analysis-service                       8121       6      yes  rust
-scenario-modeling-service                       8122      17      yes  rust
-sensitivity-analysis-service                    8124       3      yes  rust
-zero-based-budgeting-service                    8143       7      yes  rust
+activity-based-budget-service                   8099       0       no  rust
+appropriation-control-service                   8099       0       no  rust
+rolling-forecast-service                        8099       0       no  rust
+scenario-analysis-service                       8099       0       no  rust
+scenario-modeling-service                       8099       0       no  rust
+sensitivity-analysis-service                    8099       0       no  rust
+zero-based-budgeting-service                    8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

@@ -495,58 +495,6 @@ class TestLifecycleCostingService:
         assert created["id"] not in [m["id"] for m in stranger]
 
 
-class TestRollingForecastService:
-    def setup_method(self):
-        # Load first: main.py self-bootstraps the rolling_forecast_service package.
-        app = load_service_app("rolling-forecast-service")
-        pkg = sys.modules["rolling_forecast_service"]
-        if not hasattr(pkg, "_ci_fake_session"):
-            fake_path = os.path.join(REPO_ROOT, "rolling-forecast-service", "fake_neo4j.py")
-            spec = importlib.util.spec_from_file_location("rf_fake_neo4j_ci", fake_path)
-            fake_mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(fake_mod)
-            sys.modules["rf_fake_neo4j_ci"] = fake_mod
-            pkg._ci_fake_session = fake_mod.FakeSession()
-            import rolling_forecast_service.database as db
-
-            db.Neo4jConnector.get_driver = classmethod(lambda cls: fake_mod.FakeDriver(pkg._ci_fake_session))
-        self.client = TestClient(app)
-        self.headers = {"X-User-Id": "ci-user", "X-Book-ID": "ci-book"}
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "rolling-forecast" in resp.json()["service"]
-
-    def test_create_and_update_forecast(self):
-        resp = self.client.post(
-            "/forecasts",
-            params={
-                "name": "Revenue Forecast",
-                "metric": "revenue",
-                "frequency": "monthly",
-                "horizon_periods": 3,
-            },
-            json=[
-                {"period": "2026-01", "forecast_value": 100000},
-                {"period": "2026-02", "forecast_value": 110000},
-                {"period": "2026-03", "forecast_value": 120000},
-            ],
-            headers=self.headers,
-        )
-        forecast_id = resp.json()["id"]
-        assert resp.status_code == 200
-
-        actual_resp = self.client.post(
-            f"/forecasts/{forecast_id}/update-actual",
-            params={"period": "2026-01", "actual_value": 95000},
-            headers=self.headers,
-        )
-        data = actual_resp.json()
-        assert actual_resp.status_code == 200
-        assert "variance" in data
-
-
 class TestIntercompanyService:
     def setup_method(self):
         # Load first: main.py self-bootstraps the intercompany_service package.
@@ -588,55 +536,6 @@ class TestIntercompanyService:
         )
         assert txn.status_code == 200
         assert txn.json()["amount"] == 10000.0
-
-
-class TestActivityBasedBudgetService:
-    def setup_method(self):
-        # Patch the fake Neo4j driver AFTER app load (package alias registers on
-        # main.py exec) and stamp caller identity on every request.
-        import importlib.util
-        import os as _os
-
-        # Load the app first: importing main.py is what registers the
-        # activity_based_budget_service package alias that the import below needs.
-        app = load_service_app("activity-based-budget-service")
-
-        from activity_based_budget_service.database import Neo4jConnector
-
-        fake_path = _os.path.join(REPO_ROOT, "activity-based-budget-service", "fake_neo4j.py")
-        spec = importlib.util.spec_from_file_location("abb_root_fake", fake_path)
-        fake = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(fake)
-        shared = fake.FakeSession()
-        Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(shared))
-        self.client = TestClient(app)
-        self.client.headers.update({"X-User-Id": "root-user", "X-Book-ID": "root-book"})
-
-    def test_health(self):
-        resp = self.client.get("/health")
-        assert resp.status_code == 200
-        assert "activity-based-budget" in resp.json()["service"]
-
-    def test_create_activity_and_budget(self):
-        act = self.client.post(
-            "/activities",
-            params={
-                "name": "Quality Inspection",
-                "cost_pool": "Manufacturing",
-                "driver": "inspections",
-                "driver_rate": 50.0,
-            },
-        )
-        act_id = act.json()["id"]
-
-        bgt = self.client.post(
-            "/budgets",
-            params={"name": "Q1 Budget", "fiscal_year": "2026", "period": "2026-Q1"},
-            json=[{"activity_id": act_id, "expected_driver_volume": 100, "notes": "Q1 inspections"}],
-        )
-        data = bgt.json()
-        assert bgt.status_code == 200
-        assert data["total_budget"] == 5000.0
 
 
 class TestBenefitsAdminService:

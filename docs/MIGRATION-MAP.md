@@ -214,24 +214,24 @@ currency-service                             /currency                          
 
 ```text
 service                                      address                            eps  owns engine crate
-activity-based-budget-service                /activity-based-budget               8  recs rust   rust/crates/domains/budgeting
-appropriation-control-service                /appropriation-control               5  recs rust   rust/crates/domains/budgeting
-rolling-forecast-service                     /rolling-forecast                    7  recs rust   rust/crates/domains/budgeting
-scenario-analysis-service                    /scenario-analysis                   6  recs rust   rust/crates/domains/budgeting
-scenario-modeling-service                    /scenario-modeling                  17  recs rust   rust/crates/domains/budgeting
-sensitivity-analysis-service                 /sensitivity-analysis                3  recs rust   rust/crates/domains/budgeting
-zero-based-budgeting-service                 /zero-based-budgeting                7  recs rust   rust/crates/domains/budgeting
+activity-based-budget-service                /activity-based-budget               0  -    rust   rust/crates/domains/budgeting
+appropriation-control-service                /appropriation-control               0  -    rust   rust/crates/domains/budgeting
+rolling-forecast-service                     /rolling-forecast                    0  -    rust   rust/crates/domains/budgeting
+scenario-analysis-service                    /scenario-analysis                   0  -    rust   rust/crates/domains/budgeting
+scenario-modeling-service                    /scenario-modeling                   0  -    rust   rust/crates/domains/budgeting
+sensitivity-analysis-service                 /sensitivity-analysis                0  -    rust   rust/crates/domains/budgeting
+zero-based-budgeting-service                 /zero-based-budgeting                0  -    rust   rust/crates/domains/budgeting
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `activity-based-budget-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `appropriation-control-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `rolling-forecast-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `scenario-analysis-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `scenario-modeling-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `sensitivity-analysis-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `zero-based-budgeting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `activity-based-budget-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `appropriation-control-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `rolling-forecast-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `scenario-analysis-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `scenario-modeling-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `sensitivity-analysis-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `zero-based-budgeting-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## cache — 1/1 on Rust
 
