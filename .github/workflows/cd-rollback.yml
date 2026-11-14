@@ -56,8 +56,7 @@ jobs:
           else
             SERVICES=(
               "api-gateway"
-              "identity-service"
-            )
+              )
           fi
 
           for SVC in "${SERVICES[@]}"; do

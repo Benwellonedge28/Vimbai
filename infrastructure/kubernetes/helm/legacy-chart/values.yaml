@@ -8,7 +8,6 @@ image:
 
 # Core services configuration
 coreServices:
-  - name: identity-service
     port: 8081
     replicas: 3
     resources:

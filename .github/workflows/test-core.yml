@@ -36,7 +36,7 @@ jobs:
       matrix:
         include:
           - group: standalone-containers
-            services: "identity-service "
+            services: "payment-gateway-service"
 
     steps:
       - uses: actions/checkout@v4

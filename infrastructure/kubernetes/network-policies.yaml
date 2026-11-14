@@ -35,21 +35,6 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-identity-service
-  namespace: vimbai
-spec:
-  podSelector:
-    matchLabels:
-      app: identity-service
-  policyTypes:
-  - Ingress
-  ingress:
-  - from:
-    - podSelector: {}
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
   name: allow-neo4j-access
   namespace: vimbai
 spec:
@@ -129,10 +114,6 @@ spec:
     - podSelector:
         matchLabels:
           app: rabbitmq
-  - to:
-    - podSelector:
-        matchLabels:
-          app: identity-service
   - to:
     - podSelector:
         matchLabels:

@@ -220,8 +220,6 @@ INVESTOR_METRIC_PORTS = {
 SEED_CATALOGUES = {
     # static template definitions; /templates only ever reads them
     "notifications-service": {"templates"},
-    # short-lived session/challenge/token state, deliberately not persisted
-    "identity-service": {"sessions", "mfa_codes", "password_reset_tokens", "refresh_tokens"},
     "cache-service": {"_cache", "_cache_stats"},
     # money movement lives outside Vimbai's remit; the gateway keeps its own records
     "payment-gateway-service": {"customers", "payment_methods", "payments", "refunds", "disputes"},

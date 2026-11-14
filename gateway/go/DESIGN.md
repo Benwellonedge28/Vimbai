@@ -27,5 +27,5 @@ The service uses standard HTTP status codes:
 - `500 Internal Server Error` for unexpected failures
 
 ## 6. Security
-- All endpoints (except `/health`) require a valid JWT token issued by the `identity-service`.
+- All endpoints (except `/health`) require a valid JWT token issued by the identity door (`/identity`).
 - Data is encrypted in transit via TLS.

@@ -1390,7 +1390,6 @@ already been deleted, and a to-do list of deleted code is not a plan.
 - etl-service
 - foreign-exchange-service
 - graphql-service
-- identity-service
 - internal-rate-return-service
 - investment-property-service
 - net-present-value-service

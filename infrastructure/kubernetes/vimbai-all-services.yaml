@@ -179,7 +179,7 @@ spec:
                   name: vimbai-secrets
                   key: jwt-secret
             - name: IDENTITY_SERVICE_URL
-              value: "http://identity-service:8080"
+              value: "http://calculation-api:8099"
             - name: ACCOUNTING_SERVICE_URL
               value: "http://accounting-service:8000"
             - name: FINANCE_SERVICE_URL
@@ -4384,75 +4384,6 @@ spec:
   ports:
     - port: 8095
       targetPort: 8095
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: identity-service
-  namespace: vimbai
-  labels:
-    app: identity-service
-    tier: backend
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: identity-service
-  template:
-    metadata:
-      labels:
-        app: identity-service
-    spec:
-      serviceAccountName: vimbai-sa
-      containers:
-        - name: identity-service
-          image: ghcr.io/benwellonedge28/vimbai/identity-service:latest
-          ports:
-            - containerPort: 8080
-          env:
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://otel-collector:4317"
-            - name: OTEL_SERVICE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.labels['app']
-          envFrom:
-            - configMapRef:
-                name: vimbai-config
-            - secretRef:
-                name: vimbai-secrets
-          resources:
-            requests:
-              memory: "64Mi"
-              cpu: "50m"
-            limits:
-              memory: "256Mi"
-              cpu: "250m"
-          readinessProbe:
-            httpGet:
-              path: /
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 15
-            periodSeconds: 20
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: identity-service
-  namespace: vimbai
-spec:
-  type: ClusterIP
-  selector:
-    app: identity-service
-  ports:
-    - port: 8080
-      targetPort: 8080
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -5,7 +5,7 @@ This is the Vimbai API Gateway, built with Go and the Echo web framework. It ser
 ## Features
 
 -   **Unified API Endpoint:** Clients interact with a single endpoint (`http://localhost:8081` in development).
--   **Dynamic Request Routing:** Routes incoming requests to `identity-service`, `accounting-service`, `finance-service`, or `multimodal-pipeline-service` based on URL path prefixes.
+-   **Dynamic Request Routing:** Routes incoming requests to the booking and calculation services by URL path prefix based on URL path prefixes.
 -   **Centralized JWT Authentication:** Validates JWT tokens for all authenticated routes, offloading this concern from individual microservices.
 -   **User Context Propagation:** Extracts user claims (ID, username, role, permissions) from valid JWTs and forwards them to downstream microservices via custom HTTP headers (e.g., `X-User-ID`, `X-User-Role`, `X-User-Permissions`). This enables RBAC in individual services.
 -   **CORS Handling:** Configured to allow cross-origin requests.
@@ -35,8 +35,8 @@ To run this service along with Neo4j and other Vimbai services, you need Docker 
 The API Gateway requires the following environment variables. It's recommended to set these in a `.env` file at the root of the project where `docker-compose.yml` is located.
 
 -   `PORT`: The port the gateway will listen on (default `8081`).
--   `JWT_SECRET`: The secret key used to sign and verify JWT tokens. **CRITICAL: This MUST match the `JWT_SECRET` used by the `identity-service` and all other microservices for token validation to work.**
--   `IDENTITY_SERVICE_URL`: Internal URL of the Identity Service (e.g., `http://identity-service:8080`).
+-   `JWT_SECRET`: The secret key used to sign and verify JWT tokens. **CRITICAL: This MUST match the `JWT_SECRET` the calculation API signs and verifies tokens with, or the gateway and the engine will disagree about who the caller is.**
+-   `IDENTITY_SERVICE_URL`: Internal URL of the service answering `/identity` (the calculation API, e.g. `http://calculation-api:8099`). The prefix is not stripped, because the engine answers `/identity/<path>` itself.
 -   `ACCOUNTING_SERVICE_URL`: Internal URL of the Accounting Service (e.g., `http://accounting-service:8000`).
 -   `FINANCE_SERVICE_URL`: Internal URL of the Finance Service (e.g., `http://finance-service:8001`).
 -   `MULTIMODAL_SERVICE_URL`: Internal URL of the Multimodal Pipeline Service (e.g., `http://multimodal-pipeline-service:8002`).

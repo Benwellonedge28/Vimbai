@@ -72,7 +72,7 @@ func LoadConfig() *Config {
 	cfg := &Config{
 		Port:                         port,
 		JwtSecret:                    os.Getenv("JWT_SECRET"),
-		IdentityServiceURL:           getEnv("IDENTITY_SERVICE_URL", "http://localhost:8080"),
+		IdentityServiceURL:           getEnv("IDENTITY_SERVICE_URL", "http://localhost:8099"),
 		AccountingServiceURL:         getEnv("ACCOUNTING_SERVICE_URL", "http://localhost:8000"),
 		FinanceServiceURL:            getEnv("FINANCE_SERVICE_URL", "http://localhost:8001"),
 		MultimodalServiceURL:         getEnv("MULTIMODAL_SERVICE_URL", "http://localhost:8002"),
@@ -88,7 +88,11 @@ func LoadConfig() *Config {
 	}
 
 	cfg.Routes = []Route{
-		{Path: "/identity", TargetURL: cfg.IdentityServiceURL, AuthRequired: false, StripPrefix: true}, // identity-service serves /users/... at root, so the /identity prefix is stripped before proxying
+		// The engine answers /identity/<path> itself (identity lives in rust/crates/platform/identity and its HTTP
+		// surface in rust/apps/api-server/src/identity.rs), so the prefix is NOT stripped: the same address a client
+		// already calls reaches the one implementation. The door stays open, because signing in is how a caller
+		// becomes somebody.
+		{Path: "/identity", TargetURL: cfg.IdentityServiceURL, AuthRequired: false, StripPrefix: false},
 		{Path: "/accounts", TargetURL: cfg.AccountingServiceURL, AuthRequired: true},
 		{Path: "/journal-entries", TargetURL: cfg.AccountingServiceURL, AuthRequired: true},
 		{Path: "/financial-statements", TargetURL: cfg.AccountingServiceURL, AuthRequired: true},

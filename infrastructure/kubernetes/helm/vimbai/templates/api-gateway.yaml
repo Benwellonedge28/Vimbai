@@ -29,7 +29,7 @@ spec:
                   name: vimbai-secrets
                   key: jwt-secret
             - name: IDENTITY_SERVICE_URL
-              value: "http://identity-service:8080"
+              value: "http://calculation-api:8099"
             - name: ACCOUNTING_SERVICE_URL
               value: "http://accounting-service:8000"
             - name: FINANCE_SERVICE_URL

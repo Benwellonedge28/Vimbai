@@ -239,7 +239,6 @@ jobs:
         run: |
           CORE_SERVICES=(
             "api-gateway"
-            "identity-service"
           )
           # gateway/go holds the gateway's source; its image stays api-gateway.
           for SERVICE in "${CORE_SERVICES[@]}"; do

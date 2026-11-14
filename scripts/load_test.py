@@ -74,7 +74,7 @@ class User:
                 "last_name": "Test",
             },
         )
-        # OAuth2 password grant form is used by identity-service login.
+        # The identity door takes a form-encoded sign-in, as it always has.
         import urllib.parse
 
         form = urllib.parse.urlencode({"username": self.username, "password": self.password}).encode()

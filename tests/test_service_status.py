@@ -78,7 +78,6 @@ UNDECIDED = {
     "goodwill-service",
     "finance-service",
     "fraud-detection-service",
-    "identity-service",
     "supply-chain-service",
 }
 

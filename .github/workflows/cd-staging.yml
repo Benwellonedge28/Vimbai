@@ -33,7 +33,6 @@ jobs:
         run: |
           SERVICES=(
             "api-gateway"
-            "identity-service"
           )
           # gateway/go holds the source; the image and deployment stay api-gateway.
           for SERVICE in "${SERVICES[@]}"; do
@@ -86,9 +85,7 @@ jobs:
           kubectl apply -f infrastructure/kubernetes/namespace.yaml
           kubectl apply -k infrastructure/kubernetes/
           kubectl rollout restart deployment -n vimbai api-gateway
-          kubectl rollout restart deployment -n vimbai identity-service
           kubectl rollout status deployment -n vimbai api-gateway --timeout=300s
-          kubectl rollout status deployment -n vimbai identity-service --timeout=300s
 
       - name: Skip notification
         if: steps.check.outputs.has_kubeconfig == 'false'

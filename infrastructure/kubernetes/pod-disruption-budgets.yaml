@@ -31,17 +31,6 @@ spec:
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: identity-service-pdb
-  namespace: vimbai
-spec:
-  minAvailable: 2
-  selector:
-    matchLabels:
-      app: identity-service
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
   name: accounting-service-pdb
   namespace: vimbai
 spec:

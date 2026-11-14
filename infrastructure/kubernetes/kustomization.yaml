@@ -7,7 +7,6 @@ resources:
 - namespace.yaml
 - api-gateway.yaml
 - calculation-api.yaml
-- identity-service.yaml
 - accounting-service.yaml
 - new-services.yaml
 - new-services-v2.yaml

@@ -572,7 +572,8 @@
       "path": "/message-bus",
       "url": "http://calculation-api:8099",
       "port": 8099,
-      "auth_required": true
+      "auth_required": true,
+      "strip_prefix": false
     },
     {
       "name": "mfa-auth-service",

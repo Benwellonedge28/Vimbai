@@ -194,3 +194,117 @@ async fn an_event_is_published_heard_and_audited() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+/// The addresses message-bus-service published, still what clients call. The gateway forwards /message-bus with the
+/// prefix kept, so the bus has to answer under that word rather than only under its engine-side names.
+#[tokio::test]
+async fn the_bus_answers_at_the_addresses_the_service_published() {
+    let router = router();
+
+    let (status, types) = call(&router, Method::GET, "/message-bus/event-types", json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{types}");
+    assert!(
+        types
+            .as_array()
+            .map(|list| !list.is_empty())
+            .unwrap_or(false),
+        "the bus names the types it can carry: {types}"
+    );
+
+    let (status, made) = call(
+        &router,
+        Method::POST,
+        "/message-bus/subscriptions",
+        json!({"name": "ledger watcher", "event_types": ["accounting.journal_entry.created"],
+               "callback_url": "https://example.test/hook"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{made}");
+    let subscription_id = made["id"].as_str().expect("an id").to_string();
+
+    let (status, listed) = call(
+        &router,
+        Method::GET,
+        "/message-bus/subscriptions",
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    assert_eq!(listed.as_array().map(Vec::len), Some(1), "{listed}");
+
+    let (status, read) = call(
+        &router,
+        Method::GET,
+        &format!("/message-bus/subscriptions/{subscription_id}"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{read}");
+    assert_eq!(read["name"], json!("ledger watcher"));
+
+    // publishing at the published address reaches the bus, and the event is then readable by its id
+    let (status, published) = call(
+        &router,
+        Method::POST,
+        "/message-bus/events/publish",
+        json!({"type": "accounting.journal_entry.created", "source_service": "accounting-service",
+               "payload": {"entry": "JE-1"}, "timestamp": 1000.5}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{published}");
+    assert_eq!(published["status"], json!("published"), "{published}");
+    let event_id = published["event_id"]
+        .as_str()
+        .expect("an event id")
+        .to_string();
+
+    let (status, event) = call(
+        &router,
+        Method::GET,
+        &format!("/message-bus/events/{event_id}"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{event}");
+    assert_eq!(event["type"], json!("accounting.journal_entry.created"));
+
+    let (status, deliveries) = call(
+        &router,
+        Method::GET,
+        &format!("/message-bus/events/{event_id}/deliveries"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{deliveries}");
+
+    // a trigger fires a named event rather than an invented one
+    let (status, triggered) = call(
+        &router,
+        Method::POST,
+        "/message-bus/trigger/journal-entry-created",
+        json!({"entry_id": "JE-2"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{triggered}");
+    assert_eq!(triggered["status"], json!("triggered"), "{triggered}");
+    // the trigger carries the type it names, rather than an invented one
+    let (status, on_bus) = call(&router, Method::GET, "/message-bus/events", json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{on_bus}");
+    let types: Vec<&str> = on_bus
+        .as_array()
+        .expect("the bus listing")
+        .iter()
+        .filter_map(|event| event["type"].as_str())
+        .collect();
+    assert!(
+        types
+            .iter()
+            .filter(|t| **t == "accounting.journal_entry.created")
+            .count()
+            >= 2,
+        "the trigger put a second journal event on the bus: {on_bus}"
+    );
+
+    let (status, metrics) = call(&router, Method::GET, "/message-bus/metrics", json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{metrics}");
+}

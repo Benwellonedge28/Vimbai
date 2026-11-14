@@ -17,19 +17,9 @@ updates:
     schedule:
       interval: "weekly"
   
-  - package-ecosystem: "gomod"
-    directory: "/identity-service"
-    schedule:
-      interval: "weekly"
-
   # Dockerfiles are in specific directories
   - package-ecosystem: "docker"
     directory: "/gateway/go"
-    schedule:
-      interval: "weekly"
-  
-  - package-ecosystem: "docker"
-    directory: "/identity-service"
     schedule:
       interval: "weekly"
 

@@ -110,13 +110,6 @@ scrape_configs:
     scrape_interval: 10s
 
   # Identity Service
-  - job_name: 'vimbai-identity-service'
-    static_configs:
-      - targets: ['identity-service:8012']
-    metrics_path: '/metrics'
-    scrape_interval: 10s
-
-  # Neo4j Database Metrics
   - job_name: 'vimbai-neo4j'
     static_configs:
       - targets: ['neo4j:7474']

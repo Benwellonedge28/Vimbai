@@ -10,24 +10,15 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          3
+live and routed          1
 retained, not routed     0
-unrouted, undecided      1
+unrouted, undecided      0
 ```
 
 ## Live services
 
 Routed by the API gateway and deployed. These are the running product.
 
-`message-bus-service`
 `payment-gateway-service`
-`websocket-service`
 
 ## Retained source (retired from routing)
-
-## Unrouted, undecided
-
-Not in the gateway and not part of any retirement family. Each needs a
-decision: register it, retire it, or deduplicate it.
-
-`identity-service`

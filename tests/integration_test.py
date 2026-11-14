@@ -18,7 +18,6 @@ def get_all_services() -> List[str]:
         "cvp-analysis-service",
         "consolidation-service",
         "accounting-service",
-        "identity-service",
     ]
 
 
@@ -36,16 +35,18 @@ def test_api_gateway_health():
 
 @pytest.mark.integration
 def test_identity_service_token_generation():
-    """Test if we can generate a token from the identity service."""
+    """Sign in through the door the gateway leaves open. The engine answers it now."""
     try:
         response = requests.post(
-            f"{BASE_URL}/auth/token", json={"username": "test_user", "password": "password123"}, timeout=5
+            f"{BASE_URL}/identity/users/login",
+            json={"username": "test_user", "password": "password123"},
+            timeout=5,
         )
         if response.status_code != 200:
-            pytest.skip(f"Identity service returned {response.status_code}")
+            pytest.skip(f"the identity door returned {response.status_code}")
         assert "access_token" in response.json()
     except requests.exceptions.ConnectionError:
-        pytest.skip("Identity service is not reachable")
+        pytest.skip("the identity door is not reachable")
 
 
 @pytest.mark.integration

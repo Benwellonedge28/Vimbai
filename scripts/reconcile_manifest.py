@@ -36,7 +36,6 @@ IN_WORKSPACE = {"calculation-api"}
 UNDECIDED = {
     "finance-service",
     "fraud-detection-service",
-    "identity-service",
     "supply-chain-service",
 }
 # A cluster document names its service under metadata, two spaces in. Container env

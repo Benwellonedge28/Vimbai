@@ -17678,6 +17678,47 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/bus/trigger/transaction-flagged", post(post_bus_trigger_flagged))
         .route("/bus/trigger/approval-requested", post(post_bus_trigger_approval))
 
+        // The addresses message-bus-service published, answered by those same handlers. The gateway entry keeps its
+        // /message-bus prefix, so these are the addresses clients already call: one implementation under the name it
+        // shipped with, rather than a second copy of the bus behind a different word.
+        .route("/message-bus/events/publish", post(post_bus_publish))
+        .route(
+            "/message-bus/events/:event_type/publish",
+            post(post_bus_publish_type),
+        )
+        .route("/message-bus/events", get(get_bus_events))
+        .route("/message-bus/events/:id", get(get_bus_event))
+        .route(
+            "/message-bus/events/:id/deliveries",
+            get(get_bus_event_deliveries),
+        )
+        .route("/message-bus/event-types", get(get_bus_event_types))
+        .route("/message-bus/metrics", get(get_bus_metrics))
+        .route(
+            "/message-bus/subscriptions",
+            get(get_bus_subscriptions).post(post_bus_subscription),
+        )
+        .route(
+            "/message-bus/subscriptions/:id",
+            get(get_bus_subscription).delete(delete_bus_subscription),
+        )
+        .route(
+            "/message-bus/trigger/journal-entry-created",
+            post(post_bus_trigger_journal),
+        )
+        .route(
+            "/message-bus/trigger/budget-variance-alert",
+            post(post_bus_trigger_variance),
+        )
+        .route(
+            "/message-bus/trigger/transaction-flagged",
+            post(post_bus_trigger_flagged),
+        )
+        .route(
+            "/message-bus/trigger/approval-requested",
+            post(post_bus_trigger_approval),
+        )
+
         // Book sync: the shared Books a person belongs to, their members, devices and encrypted entries
         .route("/books", get(get_books).post(post_book))
         .route("/books/default", post(post_book_default))
