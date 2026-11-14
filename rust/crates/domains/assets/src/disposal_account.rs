@@ -15,16 +15,29 @@
 //!   debits loss (7200) to balance.
 //! * The reference is `DISP-` plus the first eight characters of the asset id.
 //!
-//! Not ported: the service kept no storage at all - its `GET /disposals` and
-//! `GET /summary` answered a hard-coded empty list and zero totals - so there is
-//! nothing to serve. Disposal records belong in the store, which is a separate
-//! piece of work from this arithmetic.
+//! Beyond what was shipped: the service kept no storage, so its `GET /disposals`
+//! answered an empty list no matter what had been posted and its `GET /summary`
+//! answered zero totals. Posting a disposal now records it, and those two reads
+//! report what the caller actually posted. The entry and journal shapes are the
+//! ones the service returned, so a client sees no change to the write.
 
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+
 use vimbai_common::Money;
+use vimbai_store::amounts::{stored_amount, wire};
+use vimbai_store::read::text;
+use vimbai_store::{BookScope, Graph, Records, StoreError, ASSET_DISPOSAL};
+
+/// An amount as it goes on the wire: two places, so a client never reads "5000" in one field and
+/// "5000.00" in the next. The figure itself is unchanged; only its rendering is settled.
+fn at_two(amount: Money) -> Money {
+    Money::parse(&amount.to_fixed(2)).expect("a rendered amount parses back")
+}
 
 fn zero() -> Money {
-    Money::zero()
+    // scale two so a zero on the wire reads "0.00" like every other amount in the answer
+    Money::parse("0.00").expect("a literal zero is an amount")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -67,10 +80,12 @@ pub struct DisposalEntry {
 
 pub fn calculate_asset_disposal(req: &DisposalRequest) -> DisposalEntry {
     let net_book_value = req.original_cost.minus(&req.accumulated_depreciation);
-    let (profit, loss) = if req.disposal_proceeds.to_f64_lossy() > net_book_value.to_f64_lossy() {
-        (req.disposal_proceeds.minus(&net_book_value), Money::zero())
+    // compared as exact amounts, not as floats: a disposal of a very large asset must not read as
+    // a loss because two figures past double precision came out equal
+    let (profit, loss) = if req.disposal_proceeds > net_book_value {
+        (req.disposal_proceeds.minus(&net_book_value), zero())
     } else {
-        (Money::zero(), net_book_value.minus(&req.disposal_proceeds))
+        (zero(), net_book_value.minus(&req.disposal_proceeds))
     };
 
     DisposalEntry {
@@ -79,12 +94,12 @@ pub fn calculate_asset_disposal(req: &DisposalRequest) -> DisposalEntry {
         asset_code: req.asset_code.clone(),
         disposal_date: req.disposal_date.clone(),
         reason: req.reason.clone(),
-        original_cost: req.original_cost.round(2),
-        accumulated_depreciation: req.accumulated_depreciation.round(2),
-        net_book_value: net_book_value.round(2),
-        disposal_proceeds: req.disposal_proceeds.round(2),
-        profit_on_disposal: profit.round(2),
-        loss_on_disposal: loss.round(2),
+        original_cost: at_two(req.original_cost.clone()),
+        accumulated_depreciation: at_two(req.accumulated_depreciation.clone()),
+        net_book_value: at_two(net_book_value.clone()),
+        disposal_proceeds: at_two(req.disposal_proceeds.clone()),
+        profit_on_disposal: at_two(profit),
+        loss_on_disposal: at_two(loss),
         status: "pending".to_string(),
         notes: req.notes.clone(),
     }
@@ -176,6 +191,66 @@ pub fn post_from_json(payload: &serde_json::Value) -> Result<serde_json::Value, 
     let entry: DisposalEntry = serde_json::from_value(payload.clone())
         .map_err(|error| format!("invalid request: {error}"))?;
     serde_json::to_value(post_disposal(&entry)).map_err(|error| error.to_string())
+}
+
+/// `/disposal/post`: work out the disposal, record it, and keep the journal it posts.
+pub fn post_and_record<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    let entry = calculate_from_json(payload).map_err(StoreError::Invalid)?;
+    let journal = post_from_json(&entry).map_err(StoreError::Invalid)?;
+
+    let mut fields = entry.clone();
+    if let Some(map) = fields.as_object_mut() {
+        map.remove("id");
+        map.insert("status".into(), json!("posted"));
+        map.insert("journal_entry".into(), journal.clone());
+        map.insert(
+            "journal_entry_id".into(),
+            json!(format!("DISP-{}", text(payload, "asset_id"))),
+        );
+    }
+    Records::new(graph, ASSET_DISPOSAL).create(scope, &fields)
+}
+
+/// `/disposals`: everything this book has posted, optionally narrowed by status.
+pub fn list_disposals<G: Graph + ?Sized>(
+    graph: &G,
+    scope: &BookScope,
+    status: Option<&str>,
+) -> Result<Value, StoreError> {
+    let rows = Records::new(graph, ASSET_DISPOSAL).list(scope, 1000)?;
+    let kept = match status.filter(|s| !s.is_empty()) {
+        None => rows.clone(),
+        Some(wanted) => rows
+            .into_iter()
+            .filter(|row| text(row, "status") == wanted)
+            .collect(),
+    };
+    Ok(json!({"disposals": kept, "count": kept.len()}))
+}
+
+/// `/summary`: what the posted disposals came to.
+pub fn summary<G: Graph + ?Sized>(graph: &G, scope: &BookScope) -> Result<Value, StoreError> {
+    let rows = Records::new(graph, ASSET_DISPOSAL).list(scope, 2000)?;
+    let mut proceeds = Money::zero();
+    let mut profit = Money::zero();
+    let mut loss = Money::zero();
+    for row in &rows {
+        proceeds =
+            proceeds.plus(&stored_amount(row, "disposal_proceeds").unwrap_or_else(|_| zero()));
+        profit = profit.plus(&stored_amount(row, "profit_on_disposal").unwrap_or_else(|_| zero()));
+        loss = loss.plus(&stored_amount(row, "loss_on_disposal").unwrap_or_else(|_| zero()));
+    }
+    Ok(json!({
+        "total_disposals": rows.len(),
+        "total_proceeds": wire(&proceeds),
+        "total_profit": wire(&profit),
+        "total_loss": wire(&loss),
+        "net_gain": wire(&profit.minus(&loss)),
+    }))
 }
 
 #[cfg(test)]

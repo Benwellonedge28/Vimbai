@@ -3406,6 +3406,62 @@ async fn intangible_amortization(
     ))
 }
 
+async fn calculate_asset_disposal(
+    State(_graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    if let Err(response) = scope_of(&headers) {
+        return *response;
+    }
+    // the sum is arithmetic over what the caller sends, so nothing is stored and no book is read
+    match assets::disposal_account::calculate_from_json(&payload) {
+        Ok(entry) => (StatusCode::OK, Json(entry)).into_response(),
+        Err(why) => refused(&why),
+    }
+}
+
+async fn post_asset_disposal(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::disposal_account::post_and_record(
+        graph.as_ref(),
+        &scope,
+        &payload,
+    ))
+}
+
+async fn asset_disposals(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let status = query_param(query.as_deref(), "status");
+    answer(assets::disposal_account::list_disposals(
+        graph.as_ref(),
+        &scope,
+        status.as_deref(),
+    ))
+}
+
+async fn asset_disposal_summary(State(graph): GraphState, headers: HeaderMap) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(assets::disposal_account::summary(graph.as_ref(), &scope))
+}
+
 async fn create_disposal_group(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -18265,6 +18321,16 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/authorized-share-capital/share-classes/:class_id/issuances", get(class_issuances))
         .route("/authorized-share-capital/share-classes/:class_id/buyback", post(buyback_class_shares))
         .route("/authorized-share-capital/summary", get(share_capital_summary))
+        .route(
+            "/disposal-account/disposal/calculate",
+            post(calculate_asset_disposal),
+        )
+        .route(
+            "/disposal-account/disposal/post",
+            post(post_asset_disposal),
+        )
+        .route("/disposal-account/disposals", get(asset_disposals))
+        .route("/disposal-account/summary", get(asset_disposal_summary))
         .route("/disposal-group/groups", get(disposal_groups).post(create_disposal_group))
         .route("/disposal-group/groups/:group_id", get(one_disposal_group))
         .route("/disposal-group/groups/:group_id/assets", get(disposal_assets).post(add_disposal_asset))

@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          20
+live and routed          19
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -27,7 +27,6 @@ Routed by the API gateway and deployed. These are the running product.
 `basis-apportionment-service`
 `biological-assets-service`
 `continue-shutdown-decision-service`
-`disposal-account-service`
 `document-service`
 `graphql-service`
 `investment-property-service`

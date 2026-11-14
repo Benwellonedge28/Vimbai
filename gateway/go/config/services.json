@@ -323,8 +323,8 @@
     {
       "name": "disposal-account-service",
       "path": "/disposal-account",
-      "url": "http://localhost:9011",
-      "port": 8045,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

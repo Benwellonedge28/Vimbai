@@ -89,7 +89,7 @@ Lands in `rust/crates/domains/assets`.
 ```
 service                                         port  routes  records  engine
 biological-assets-service                       8146       7       no  rust
-disposal-account-service                        8045       6       no  rust
+disposal-account-service                        8099       0       no  rust
 disposal-group-service                          8099       0       no  rust
 fixed-assets-register-service                   8099       0       no  rust
 fixed-assets-schedule-service                   8099       0       no  rust

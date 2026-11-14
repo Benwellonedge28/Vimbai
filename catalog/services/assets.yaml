@@ -24,18 +24,12 @@ services:
 - name: disposal-account-service
   domain: assets
   target: rust/crates/domains/assets
-  port: 8045
+  port: 8099
   gateway_path: /disposal-account
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /disposal/calculate
-  - POST /disposal/post
-  - GET /disposals
-  - GET /summary
+  endpoints: []
 - name: disposal-group-service
   domain: assets
   target: rust/crates/domains/assets
