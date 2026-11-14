@@ -14,6 +14,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- An operator's runbook (`docs/operations/RUNBOOK.md`): the startup line to look for, a bind failure, a worker that exits
+  for want of a store, which setting chooses which store, how to test reachability and schema without starting the engine,
+  the migration refusal with what to do about it (upgrade - ADR-011 says why), which layer each status code came from, the
+  three door settings, and why scheduled rules do not fire. New gate `xtask::runbook` reads the settings the source
+  actually asks for and fails if the page names one nothing reads, with a scratch-estate test proving it fails on a
+  fabricated name rather than only ever passing.
 - The Dart toolchain is in the pipeline that gates a merge, pinned to one Flutter version everywhere (3.50.0): `ci-main.yml`
   now runs `flutter pub get`, a formatting check, `flutter analyze` and `flutter test` on every push, `mobile-analyze.yml`
   runs the same four pinned to the same version, and a new gate (`workflows::dart_toolchain_problems`) fails the build if a

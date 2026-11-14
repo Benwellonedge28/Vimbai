@@ -41,6 +41,9 @@ pull request.
 - `LOCAL-RUNTIME.md` - **clone to running.** The on-device runtime: one binary, one data directory, the engine and the
   gateway's rules in one process. Start here if you want something running before reading anything else.
 - `WORKER.md` - the scheduled-automation worker: the schedule a rule carries, and how a run happens exactly once.
+- `operations/RUNBOOK.md` - **when something is broken.** Nothing running, store unreachable, a migration refused
+  because the database was written by a newer build, scheduled rules not firing, and which layer a status code came from.
+  Every setting it names is checked against the settings the source reads.
 - `DEVELOPER_GUIDE.md` - working on the codebase day to day.
 - `routes-snapshot.json` - the published address set, useful for diffing after a change.
 
@@ -63,7 +66,6 @@ catalogue does not have, or if a page leaves out one of its own prefixes.
 
 ## Not written yet, and why
 
-Operations runbooks beyond the manifests: what to do when the engine will not start, when a migration is refused because
-the store was written by a newer build (ADR-011 says upgrade, not downgrade), and who to call. Compliance detail beyond
-financial integrity. Anything belonging to Vimbai Pay or the developer platform, which are out of scope by ADR-005 and
+Who to call: the runbook says what is wrong and what to do about it, but an escalation path is a fact about an
+organisation rather than about this repository. Compliance detail beyond financial integrity. Anything belonging to Vimbai Pay or the developer platform, which are out of scope by ADR-005 and
 ADR-006.

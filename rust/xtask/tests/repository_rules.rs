@@ -7,7 +7,9 @@
 
 use std::path::PathBuf;
 
-use xtask::{boundaries, catalog, crates, manifests, reachability, servers, wiring, workflows};
+use xtask::{
+    boundaries, catalog, crates, manifests, reachability, runbook, servers, wiring, workflows,
+};
 
 fn root() -> PathBuf {
     xtask::catalog::repo_root()
@@ -459,5 +461,56 @@ fn the_dart_gate_would_notice_a_toolchain_that_drifted() {
         "a gating pipeline that never runs the app's tests went unnoticed: {untested:?}"
     );
 
+    std::fs::remove_dir_all(&scratch).ok();
+}
+
+#[test]
+fn the_runbook_names_settings_the_code_reads() {
+    // A runbook is read while something is down. A setting renamed in the code and left behind in the page sends an
+    // operator to a variable nothing reads, and they conclude the platform ignores them.
+    assert!(
+        !runbook::runbook_is_missing(&root()),
+        "there is no runbook, so an operator with a broken engine has nothing to read"
+    );
+    let unknown = runbook::unknown_settings(&root());
+    assert!(
+        unknown.is_empty(),
+        "the runbook names settings nothing reads: {unknown:?}"
+    );
+}
+
+#[test]
+fn the_runbook_gate_would_notice_a_setting_nobody_reads() {
+    // The gate has to fail on a page that names a setting the source does not ask for, or it proves nothing. This builds a
+    // scratch estate with one source file reading one setting and a runbook naming that one and a second that does not
+    // exist.
+    let scratch = std::env::temp_dir().join(format!("vimbai_runbook_gate_{}", std::process::id()));
+    let source = scratch.join("rust").join("crate").join("src");
+    let pages = scratch.join("docs").join("operations");
+    std::fs::create_dir_all(&source).expect("a source directory");
+    std::fs::create_dir_all(&pages).expect("a docs directory");
+    std::fs::write(
+        source.join("main.rs"),
+        "fn main() { let _ = std::env::var(\"VIMBAI_REAL_SETTING\"); }\n",
+    )
+    .expect("a source file");
+    std::fs::write(
+        pages.join("RUNBOOK.md"),
+        "Set `VIMBAI_REAL_SETTING` and never `VIMBAI_IMAGINARY_SETTING`.\n",
+    )
+    .expect("a runbook");
+
+    let unknown = runbook::unknown_settings(&scratch);
+    assert_eq!(
+        unknown,
+        vec!["VIMBAI_IMAGINARY_SETTING".to_string()],
+        "the gate missed a setting nothing reads, or flagged the one that is read"
+    );
+    assert_eq!(
+        runbook::settings_the_code_reads(&scratch)
+            .into_iter()
+            .collect::<Vec<_>>(),
+        vec!["VIMBAI_REAL_SETTING".to_string()]
+    );
     std::fs::remove_dir_all(&scratch).ok();
 }
