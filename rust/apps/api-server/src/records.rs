@@ -17837,7 +17837,11 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(list_capital_transactions).post(record_capital_transaction),
         )
         .route("/company-accounting/dividends", get(list_dividends).post(declare_dividend))
-        .route("/company-accounting/dividends/:dividend_id/pay", put(pay_dividend))
+        // the service published this as POST; the engine had it as PUT only, so a caller's POST was answered 405
+        .route(
+            "/company-accounting/dividends/:dividend_id/pay",
+            post(pay_dividend).put(pay_dividend),
+        )
         .route("/company-accounting/dividends/:dividend_id/payments", get(dividend_payments))
         .route(
             "/company-accounting/retained-earnings",
@@ -18707,6 +18711,36 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .merge(published_prefix_aliases(graph))
 }
 
+/// The regulations listing, with the company as a query parameter: the service published `GET /regulations?company_id=`
+/// and the engine's other door names the company in the path, so the query form is its own handler.
+async fn get_regulations_listed(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let asked = merged_request(None, query.as_deref());
+    if asked
+        .get("company_id")
+        .and_then(Value::as_str)
+        .is_none_or(str::is_empty)
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"detail": "company_id is required"})),
+        )
+            .into_response();
+    }
+    answer(compliance::regulation::list_regulations(
+        graph.as_ref(),
+        &scope,
+        &asked,
+    ))
+}
+
 /// The caller's own inbox, which is the same read as `get_inbox` without having to name yourself in the path.
 async fn get_my_inbox(
     State(graph): GraphState,
@@ -18818,6 +18852,118 @@ fn published_prefix_aliases(graph: GraphHandle) -> Router {
             get(get_cache_entry).delete(delete_cache_entry),
         )
         .route("/cache/stats", get(get_cache_stats))
+        // --- the words two domains publish and only one of them can hold ---
+        // A gateway entry carries one prefix flag, so a service is either all flat or all prefixed. These seven share a
+        // word with a domain that owns the flat address - /dashboard, /policies, /evaluate, /plans, /summary, /reports,
+        // /report/{id} - so each is served under its own prefix, bound to the handler the service actually implemented
+        // rather than the one whose word it happened to share.
+        .route("/sox-compliance/dashboard", get(get_sox_dashboard))
+        .route(
+            "/sox-compliance/controls",
+            post(post_sox_control).get(list_sox_controls),
+        )
+        .route(
+            "/sox-compliance/controls/:control_id/test",
+            post(post_sox_control_test),
+        )
+        .route(
+            "/sox-compliance/controls/:control_id/tests",
+            get(list_sox_control_tests),
+        )
+        .route("/sox-compliance/deficiencies", post(post_sox_deficiency))
+        .route(
+            "/sox-compliance/deficiencies/:deficiency_id",
+            put(put_sox_deficiency),
+        )
+        .route(
+            "/regulatory-compliance/dashboard",
+            get(get_regulation_dashboard),
+        )
+        .route(
+            "/regulatory-compliance/regulations",
+            get(get_regulations_listed).post(post_regulation),
+        )
+        .route(
+            "/regulatory-compliance/regulations/:reg_id/update",
+            post(post_regulation_status),
+        )
+        .route("/zero-trust-data/evaluate", post(post_access_evaluation))
+        .route(
+            "/zero-trust-data/policies",
+            post(post_access_policy).get(get_access_policies),
+        )
+        .route(
+            "/zero-trust-data/policies/:policy_id",
+            put(put_access_policy).delete(delete_access_policy),
+        )
+        .route("/zero-trust-data/attempts", get(get_access_attempts))
+        .route(
+            "/zero-trust-data/attempts/user/:user_id",
+            get(get_subject_attempts),
+        )
+        .route(
+            "/benefits-admin/plans",
+            post(post_benefit_plan).get(get_benefit_plans),
+        )
+        .route("/benefits-admin/enroll", post(post_enroll))
+        .route("/benefits-admin/leave/accrue", post(post_leave_accrual))
+        .route(
+            "/benefits-admin/employee/:employee_id/enrollments",
+            get(get_employee_enrollments),
+        )
+        .route(
+            "/benefits-admin/employee/:employee_id/leave",
+            get(get_employee_leave),
+        )
+        .route("/tax-compliance/obligations", post(post_tax_obligation))
+        .route(
+            "/tax-compliance/obligations/:obligation_id/file",
+            post(post_file_tax_obligation),
+        )
+        .route("/tax-compliance/summary", get(get_tax_compliance_summary))
+        .route("/report-automation/reports", get(get_generated_reports))
+        .route(
+            "/report-automation/templates",
+            post(post_automation_template).get(list_automation_templates),
+        )
+        .route(
+            "/report-automation/schedules",
+            post(post_automation_schedule).get(list_automation_schedules),
+        )
+        .route(
+            "/report-automation/schedules/:schedule_id/run",
+            post(post_automation_schedule_run),
+        )
+        .route(
+            "/report-automation/schedules/:schedule_id/pause",
+            put(put_automation_schedule_pause),
+        )
+        .route(
+            "/report-automation/schedules/:schedule_id/resume",
+            put(put_automation_schedule_resume),
+        )
+        .route("/audit-engagement/audit-types", get(get_audit_types))
+        .route("/audit-engagement/engagements", post(post_engagement))
+        .route(
+            "/audit-engagement/engagements/:company_id",
+            get(list_engagements),
+        )
+        .route(
+            "/audit-engagement/engagements/:engagement_id/status",
+            put(put_engagement_status),
+        )
+        .route(
+            "/audit-engagement/engagements/:engagement_id/findings",
+            post(post_engagement_finding),
+        )
+        .route(
+            "/audit-engagement/findings/:finding_id/remediate",
+            put(put_finding_remediate),
+        )
+        .route(
+            "/audit-engagement/report/:engagement_id",
+            get(get_audit_report),
+        )
         // bank reconciliation: it publishes /reconcile as well, which the sales ledger's control account answers, so the
         // statements, the cash book and the reconciliations are served under its own prefix.
         .route(

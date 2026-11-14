@@ -105,6 +105,100 @@ def audit():
     return findings
 
 
+def published_methods(service):
+    """Every (method, path) a retired service published, read back out of git.
+
+    Shapes alone are not proof. A route that answers the right address with the wrong method - a listing published as
+    GET while the engine binds only POST - passes an address check and still fails the caller, so the method is kept.
+    """
+    blob = last_main(service)
+    if not blob:
+        return set()
+    pairs = set()
+    for method, path in re.findall(
+        r'@app\.(get|post|put|delete|patch)\(\s*[\'"]([^\'"]+)[\'"]', blob
+    ):
+        pairs.add((method, shape(path)))
+    return pairs
+
+
+def engine_method_routes():
+    """The engine's routes as (method, path) pairs, read out of the API server's source.
+
+    A route's path is either a literal or a `format!` with the mount's prefix spliced in, and the methods are the calls
+    wrapped around the handler - `post(create).get(list)` is both. Both forms are read the same way: take the arguments
+    of the `.route(` call, then read the path and the methods out of them.
+    """
+    seen = set()
+
+    def route_args(text, open_at):
+        depth = 0
+        for index in range(open_at, len(text)):
+            if text[index] == "(":
+                depth += 1
+            elif text[index] == ")":
+                depth -= 1
+                if depth == 0:
+                    return text[open_at + 1 : index]
+        return ""
+
+    for name in sorted(os.listdir(API)):
+        if not name.endswith(".rs"):
+            continue
+        text = open(os.path.join(API, name), encoding="utf-8").read()
+        for found in re.finditer(r"\.route\(", text):
+            args = route_args(text, found.end() - 1)
+            if not args:
+                continue
+            methods = set(re.findall(r"\b(get|post|put|delete|patch)\(", args))
+            literal = re.match(r'\s*"([^"]+)"', args)
+            if literal:
+                seen.update((method, shape(literal.group(1))) for method in methods)
+                continue
+            mounted = re.match(r'\s*&?format!\(\s*"(?:\{prefix\}|([^"]*))([^"]*)"', args)
+            if mounted:
+                lead, suffix = mounted.group(1) or "", shape(mounted.group(2))
+                if lead:
+                    seen.update((method, shape(lead + suffix)) for method in methods)
+                else:
+                    for mount in MOUNTS:
+                        seen.update((method, shape(mount + suffix)) for method in methods)
+    return seen
+
+# A published method the engine binds differently or not at all. Shapes alone pass; a caller gets 405 or the wrong
+# answer, so each of these is listed with what it would take to close it.
+KNOWN_METHOD_GAPS = {
+    ("banking-integration-service", "get", "/transactions/{}"): (
+        "no per-connection transaction feed; statements are read for the whole book"
+    ),
+    ("banking-integration-service", "post", "/sync/{}"): (
+        "no per-connection sync; statements are imported through /statements"
+    ),
+    ("personal-finance-service", "patch", "/recurring/{}"): (
+        "the recurring item can be opened, run and stopped, but nothing updates its amount in place"
+    ),
+}
+
+
+def method_gaps():
+    """Published method/path pairs the engine does not answer, ignoring the ones listed as known."""
+    engine = engine_method_routes()
+    table = json.load(open(SERVICES))
+    findings = []
+    for entry in table["services"]:
+        if os.path.isdir(os.path.join(ROOT, entry["name"])):
+            continue
+        prefix = entry["path"].rstrip("/")
+        for method, path in sorted(published_methods(entry["name"])):
+            if path.rstrip("/") in SKIP:
+                continue
+            if (entry["name"], method, path) in KNOWN_METHOD_GAPS:
+                continue
+            if any((method, shape(c)) in engine for c in {prefix + path, path}):
+                continue
+            findings.append(f"{entry['name']}: {method.upper()} {path} reaches nothing in the engine")
+    return findings
+
 def stripped_collisions():
     """Paths two engine-served services both claim once their gateway prefix is stripped.
 

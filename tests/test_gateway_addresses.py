@@ -37,3 +37,16 @@ def test_no_new_stripped_path_collisions():
     assert not new, f"two engine-served services claim one stripped path: {new}"
     fixed = sorted(set(pinned) - set(found))
     assert not fixed, f"collision resolved, remove it from the pinned list: {fixed}"
+
+
+def test_every_published_method_is_answered_not_just_the_address():
+    """A path answered by the right address and the wrong verb still fails the caller.
+
+    The shape check reads addresses only, so a listing published as GET while the engine binds POST looked answered for
+    as long as nobody called it. This reads the methods back out of the service's last main.py and out of the engine,
+    and the three remaining gaps are listed with what closing each one needs.
+    """
+    from scripts.gateway_addresses import method_gaps
+
+    findings = method_gaps()
+    assert not findings, "\n".join(findings)
