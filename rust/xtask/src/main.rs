@@ -8,7 +8,9 @@
 
 use std::process::ExitCode;
 
-use xtask::{boundaries, catalog, domains, flutter, gateway, manifests, openapi, reachability};
+use xtask::{
+    boundaries, catalog, domains, flutter, gateway, manifests, openapi, owners, reachability,
+};
 
 const USAGE: &str = "\
 xtask - repository tooling
@@ -23,6 +25,7 @@ COMMANDS:
     gateway --addresses  print every address the engine answers, one per line
     openapi            rewrite contracts/openapi/v1/domains/ from the engine's routes
     openapi --check    report an address with no contract, a contract with no address, or a stale file
+    owners             print which crate answers each prefix the catalogue no longer routes
     domains            report a routed service with no domain page, and a page that is stale, and exit 1
     reachability       report the modules no door can reach, one per line
     boundaries         report crate dependency rule violations, and exit 1 if there are any
@@ -61,7 +64,27 @@ fn main() -> ExitCode {
                 }
             }
         }
-        // The modules nothing can call: arithmetic that looks wired because it is `pub` and re-exported.
+        // Which domain answers the addresses the catalogue no longer has a service for.
+        "owners" => {
+            let attributed = owners::attributed(&root);
+            for (prefix, owner) in &attributed {
+                println!(
+                    "{prefix}\t{}\t{}\t{}",
+                    owner.krate, owner.domain, owner.addresses
+                );
+            }
+            println!(
+                "owners: {} prefix groups attributed to a crate",
+                attributed.len()
+            );
+            for (prefix, crates) in owners::split(&root) {
+                println!(
+                    "split: {prefix} is answered by {}",
+                    crates.into_iter().collect::<Vec<_>>().join(", ")
+                );
+            }
+            ExitCode::SUCCESS
+        }
         "openapi" if args.iter().any(|argument| argument == "--check") => {
             let found = openapi::problems(&root);
             for finding in &found {

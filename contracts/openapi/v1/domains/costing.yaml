@@ -15,9 +15,12 @@ info:
     * `/absorption-costing`
     * `/absorption-costing-statement`
     * `/basis-apportionment`
+    * `/cost-plus`
     * `/cvp-analysis`
+    * `/overhead`
     * `/process-costing`
     * `/product-costing`
+    * `/product-costs`
     * `/selling-price-reduction`
 servers:
   - url: https://api.vimbai.example
@@ -211,6 +214,12 @@ paths:
     post:
       operationId: postBasisApportionmentRulesCreate
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /cost-plus:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postCostPlus
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /cvp-analysis/analyses:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -252,6 +261,12 @@ paths:
       - $ref: "#/components/parameters/BookId"
     post:
       operationId: postCvpAnalysisTargetProfit
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /overhead/absorption:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postOverheadAbsorption
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /process-costing/breakdown/{}/{}:
     parameters:
@@ -300,6 +315,12 @@ paths:
       - $ref: "#/components/parameters/BookId"
     get:
       operationId: getProductCostingSummary
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /product-costs/calculate:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postProductCostsCalculate
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /selling-price-reduction/analyses:
     parameters:

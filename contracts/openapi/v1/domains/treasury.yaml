@@ -12,10 +12,22 @@ info:
     checked is a promise nobody keeps - the wire shapes are pinned by the per-domain HTTP tests instead.
 
     The addresses this file covers, by prefix group:
+    * `/amortize`
+    * `/audit-logs`
     * `/cash-management`
+    * `/config`
     * `/debt-management`
+    * `/depreciation`
+    * `/feature-categories`
+    * `/feature-requests`
+    * `/features`
     * `/foreign-exchange`
+    * `/irr`
+    * `/npv`
+    * `/organizations`
     * `/petty-cash`
+    * `/rollout-schedules`
+    * `/services`
     * `/sovereign-treasury`
     * `/treasury-analytics`
     * `/treasury-compliance`
@@ -80,6 +92,21 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
 paths:
+  /amortize:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postAmortize
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /audit-logs:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getAuditLogs
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postAuditLogs
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /cash-management/accounts:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -107,6 +134,21 @@ paths:
     post:
       operationId: postCashManagementTransfers
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /config:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getConfig
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /config/{}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getConfig
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    put:
+      operationId: putConfig
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /debt-management/loans:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -127,6 +169,81 @@ paths:
       - $ref: "#/components/parameters/BookId"
     get:
       operationId: getDebtManagementSummary
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /depreciation:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postDepreciation
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /feature-categories:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getFeatureCategories
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /feature-requests:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getFeatureRequests
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postFeatureRequests
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /feature-requests/{}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getFeatureRequests
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    delete:
+      operationId: deleteFeatureRequests
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /feature-requests/{}/review:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    put:
+      operationId: putFeatureRequestsReview
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /features:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getFeatures
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /features/categories:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getFeaturesCategories
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /features/{}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getFeatures
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    put:
+      operationId: putFeatures
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /features/{}/dependencies:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getFeaturesDependencies
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /features/{}/disable:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postFeaturesDisable
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /features/{}/enable:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postFeaturesEnable
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /foreign-exchange/convert:
     parameters:
@@ -151,6 +268,42 @@ paths:
       - $ref: "#/components/parameters/BookId"
     get:
       operationId: getForeignExchangeRates
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /irr:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postIrr
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /npv:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postNpv
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /organizations/{}/features:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getOrganizationsFeatures
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /organizations/{}/features/{}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    put:
+      operationId: putOrganizationsFeatures
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /organizations/{}/features/{}/disable:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postOrganizationsFeaturesDisable
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /organizations/{}/features/{}/enable:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postOrganizationsFeaturesEnable
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /petty-cash/funds:
     parameters:
@@ -250,6 +403,27 @@ paths:
       - $ref: "#/components/parameters/BookId"
     put:
       operationId: putPettyCashVouchersApprove
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /rollout-schedules:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getRolloutSchedules
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postRolloutSchedules
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /rollout-schedules/{}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    delete:
+      operationId: deleteRolloutSchedules
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /services/health:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getServicesHealth
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /sovereign-treasury/accounts:
     parameters:

@@ -120,7 +120,7 @@ fn string_of(entry: &Value, field: &str) -> String {
 }
 
 /// The engine's sources, file name order, so a scan is reproducible.
-fn engine_sources(root: &Path) -> Vec<String> {
+pub(crate) fn engine_sources(root: &Path) -> Vec<String> {
     let directory = root.join(API);
     let mut names: Vec<String> = std::fs::read_dir(&directory)
         .unwrap_or_else(|problem| panic!("{} is unreadable: {problem}", directory.display()))
@@ -136,7 +136,7 @@ fn engine_sources(root: &Path) -> Vec<String> {
 }
 
 /// The prefixes a file hangs its routes off, read from `for prefix in ["/a", "/b"]`.
-fn mounts_for(text: &str) -> Vec<String> {
+pub(crate) fn mounts_for(text: &str) -> Vec<String> {
     let Some(start) = text.find("for prefix in [") else {
         return Vec::new();
     };
@@ -155,7 +155,7 @@ fn mounts_for(text: &str) -> Vec<String> {
 }
 
 /// The arguments of the call whose opening bracket sits at `open_at`.
-fn call_arguments(text: &str, open_at: usize) -> Option<&str> {
+pub(crate) fn call_arguments(text: &str, open_at: usize) -> Option<&str> {
     let mut depth = 0usize;
     for (offset, character) in text[open_at..].char_indices() {
         match character {
@@ -190,7 +190,7 @@ fn methods_of(arguments: &str) -> BTreeSet<String> {
 }
 
 /// The first string literal in an expression, with its escape-free contents.
-fn first_literal(arguments: &str) -> Option<String> {
+pub(crate) fn first_literal(arguments: &str) -> Option<String> {
     let start = arguments.find('"')?;
     let rest = &arguments[start + 1..];
     let end = rest.find('"')?;

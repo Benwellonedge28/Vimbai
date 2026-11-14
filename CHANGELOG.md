@@ -14,6 +14,16 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- Every address the engine answers is filed under the domain that answers it. The catalogue describes what the gateway
+  *routes*, and retiring a service moved its addresses onto the engine without moving them in the gateway, so 180 prefix
+  groups were answered by nothing the catalogue knew about and the contract generator put them all in one bucket called
+  `unattributed`. Ownership is not missing, it was written in another place: the route names its handler, the handler names
+  the crate it delegates to, the crate is documented by a domain page. The new `xtask/src/owners.rs` reads exactly that, so
+  a new address is attributed by being written like every other address and a handler that stops delegating stops being
+  attributed; `cargo run -p xtask -- owners` prints the table and reports a prefix two domains answer instead of settling it
+  quietly. `unattributed.yaml` is gone, every published address now sits in a domain specification, and four gate tests hold
+  it: no address unattributed, every owner a real crate answering real addresses, a known door pinned to the crate its code
+  calls, and a split prefix reported rather than guessed.
 - Cursor paging no longer stops at a handler's cap. A cursor used to be an offset into the answer the engine had already
   built, so a Book holding more records than one listing was willing to produce could not be walked past that cap. A cursor now
   also names the row it reached (`v1:{offset}:{id}`, and the old `v1:{offset}` still decodes), the paging layer puts that place

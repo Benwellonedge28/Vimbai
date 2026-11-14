@@ -12,8 +12,17 @@ info:
     checked is a promise nobody keeps - the wire shapes are pinned by the per-domain HTTP tests instead.
 
     The addresses this file covers, by prefix group:
+    * `/bad-debts`
+    * `/calculate-provision`
+    * `/control-account`
+    * `/debtors`
+    * `/doubtful`
+    * `/journal`
+    * `/policies`
     * `/provision-bad-debts`
     * `/provision-doubtful-debts`
+    * `/provision-history`
+    * `/recovery-summary`
 servers:
   - url: https://api.vimbai.example
 security:
@@ -71,6 +80,120 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
 paths:
+  /bad-debts:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getBadDebts
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /bad-debts/register:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postBadDebtsRegister
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /bad-debts/{}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getBadDebts
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /bad-debts/{}/recover:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postBadDebtsRecover
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /calculate-provision:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postCalculateProvision
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /control-account/summary:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getControlAccountSummary
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /debtors:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getDebtors
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /debtors/add:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postDebtorsAdd
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /debtors/{}/balance:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getDebtorsBalance
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /doubtful/calculate-provision:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postDoubtfulCalculateProvision
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /doubtful/debtors:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getDoubtfulDebtors
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /doubtful/debtors/add:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postDoubtfulDebtorsAdd
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /doubtful/debtors/{}/assess:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postDoubtfulDebtorsAssess
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /doubtful/provision/create:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postDoubtfulProvisionCreate
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /doubtful/provisions:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getDoubtfulProvisions
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /journal/create:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postJournalCreate
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /policies:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getPolicies
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postPolicies
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /policies/{}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    put:
+      operationId: putPolicies
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    delete:
+      operationId: deletePolicies
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /provision-bad-debts/calculate-provision:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -118,4 +241,16 @@ paths:
       - $ref: "#/components/parameters/BookId"
     get:
       operationId: getProvisionDoubtfulDebtsProvisions
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /provision-history:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getProvisionHistory
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /recovery-summary:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getRecoverySummary
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }

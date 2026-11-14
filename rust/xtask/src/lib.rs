@@ -12,6 +12,7 @@ pub mod flutter;
 pub mod gateway;
 pub mod manifests;
 pub mod openapi;
+pub mod owners;
 pub mod reachability;
 pub mod servers;
 pub mod wiring;

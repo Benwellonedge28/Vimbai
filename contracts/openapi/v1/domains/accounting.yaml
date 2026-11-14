@@ -15,15 +15,26 @@ info:
     * `/accounting`
     * `/accounting-standards`
     * `/balance-sheet`
+    * `/calc`
+    * `/calculate`
+    * `/calculate-batch`
+    * `/calculators`
     * `/cash-flow`
     * `/cashbook`
     * `/company-accounting`
+    * `/deferred-tax`
     * `/departmental-accounting`
     * `/fund-accounting`
     * `/ifrs-reporting`
     * `/intercompany`
+    * `/liability-schedule`
+    * `/reports`
     * `/revenue-recognition`
+    * `/tax-rates`
+    * `/tax-registrations`
+    * `/tax-returns`
     * `/trading-account`
+    * `/withholding-tax`
 servers:
   - url: https://api.vimbai.example
 security:
@@ -474,6 +485,30 @@ paths:
     get:
       operationId: getBalanceSheetRatios
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /calc/{}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postCalc
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /calculate:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postCalculate
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /calculate-batch:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postCalculateBatch
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /calculators:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getCalculators
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /cash-flow/create:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -726,6 +761,12 @@ paths:
     post:
       operationId: postCompanyAccountingShareholders
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /deferred-tax:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postDeferredTax
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /departmental-accounting/allocate:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -918,6 +959,42 @@ paths:
     post:
       operationId: postIntercompanyTransactionsMatch
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /liability-schedule:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getLiabilitySchedule
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /reports:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getReports
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /reports/generate:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postReportsGenerate
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /reports/sales-summary:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postReportsSalesSummary
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /reports/tax-summary:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postReportsTaxSummary
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /reports/vat-by-jurisdiction:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getReportsVatByJurisdiction
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /revenue-recognition/contracts:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -942,6 +1019,54 @@ paths:
     get:
       operationId: getRevenueRecognitionSummary
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /tax-rates:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getTaxRates
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postTaxRates
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /tax-rates/{}:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getTaxRates
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    put:
+      operationId: putTaxRates
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /tax-registrations:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getTaxRegistrations
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postTaxRegistrations
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /tax-returns:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getTaxReturns
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postTaxReturns
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /tax-returns/{}/file:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postTaxReturnsFile
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /tax-returns/{}/pay:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    post:
+      operationId: postTaxReturnsPay
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
   /trading-account/accounts:
     parameters:
       - $ref: "#/components/parameters/BookId"
@@ -959,4 +1084,13 @@ paths:
       - $ref: "#/components/parameters/BookId"
     post:
       operationId: postTradingAccountGenerate
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+  /withholding-tax:
+    parameters:
+      - $ref: "#/components/parameters/BookId"
+    get:
+      operationId: getWithholdingTax
+      responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }
+    post:
+      operationId: postWithholdingTax
       responses: { "200": { $ref: "#/components/responses/Answered" }, "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" }, "404": { $ref: "#/components/responses/NotFound" }, "422": { $ref: "#/components/responses/Refused" } }

@@ -49,12 +49,11 @@ fn method_of(route: &Route) -> &str {
     &route.0
 }
 
-/// The file holding addresses whose prefix no catalogue service claims.
+/// The file for addresses nothing can attribute.
 ///
-/// The catalogue describes the addresses the gateway routes, and the engine answers more than that: the retired services'
-/// own prefixes still answer from the same handlers, which is how a client that was never repointed keeps working. Those
-/// addresses are real promises and a client can call them, but no catalogue row owns them, so they get one file that says
-/// so instead of 180 files named after prefixes nobody maintains.
+/// It exists so an unattributable address is *reported* rather than dropped, and it is expected to hold nothing. Retired
+/// services' prefixes used to land here by the hundred, until attribution was read from the handlers that answer them
+/// (`crate::owners`): a route names its handler, the handler names the crate, the crate is documented by a domain page.
 pub const UNATTRIBUTED: &str = "unattributed";
 
 /// The prefix group an address belongs to: everything before its first segment's end.
@@ -69,7 +68,12 @@ pub fn prefix_of(shape: &str) -> String {
     }
 }
 
-/// The catalogue's prefix to domain map, so a generated file is named after the domain rather than the prefix.
+/// Which domain a prefix belongs to, so a generated file is named after the domain rather than the prefix.
+///
+/// The catalogue answers for what the gateway routes. A retired service's prefix is not routed any more, so the catalogue
+/// has nothing to say about it - but the engine still answers it, and the handler says which crate does the work. That is
+/// where these come from: see [`crate::owners`]. Attribution is therefore read out of the code rather than kept in a list
+/// that would go stale the moment an address moved.
 fn domains_by_prefix(root: &Path) -> BTreeMap<String, String> {
     let mut map = BTreeMap::new();
     for row in rows(root) {
@@ -77,6 +81,9 @@ fn domains_by_prefix(root: &Path) -> BTreeMap<String, String> {
             continue;
         }
         map.entry(row.gateway_path).or_insert(row.domain);
+    }
+    for (prefix, owner) in crate::owners::attributed(root) {
+        map.entry(prefix).or_insert(owner.domain);
     }
     map
 }
