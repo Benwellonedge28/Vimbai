@@ -53,7 +53,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "appropriation-control-service",
@@ -157,7 +157,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "biological-assets-service",
@@ -293,7 +293,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "debentures-service",
@@ -341,7 +341,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "document-service",
@@ -364,7 +364,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "equity-changes-service",
@@ -380,7 +380,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "expense-tracking-service",
@@ -492,7 +492,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": true
+      "strip_prefix": false
     },
     {
       "name": "intangible-assets-service",
@@ -516,7 +516,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": true
+      "strip_prefix": false
     },
     {
       "name": "investment-monitoring-service",
@@ -524,7 +524,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": true
+      "strip_prefix": false
     },
     {
       "name": "investment-property-service",
@@ -593,7 +593,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": true
+      "strip_prefix": false
     },
     {
       "name": "notifications-service",
@@ -664,7 +664,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": true
+      "strip_prefix": false
     },
     {
       "name": "payment-gateway-service",
@@ -688,7 +688,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": true
+      "strip_prefix": false
     },
     {
       "name": "petty-cash-service",
@@ -719,7 +719,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "process-costing-service",
@@ -743,7 +743,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "provision-doubtful-debts-service",
@@ -775,7 +775,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "report-automation-service",
@@ -855,7 +855,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "sales-ledger-control-service",
@@ -926,7 +926,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "subscription-plans-service",
@@ -934,7 +934,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "tax-accounting-service",
@@ -966,7 +966,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": true
+      "strip_prefix": false
     },
     {
       "name": "trading-account-service",
@@ -1030,7 +1030,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "websocket-service",
@@ -1061,7 +1061,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": false
+      "strip_prefix": true
     },
     {
       "name": "book-sync-service",
@@ -1077,7 +1077,7 @@
       "url": "http://calculation-api:8099",
       "port": 8099,
       "auth_required": true,
-      "strip_prefix": true
+      "strip_prefix": false
     },
     {
       "name": "audit-engagement-service",

@@ -1706,6 +1706,19 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   /income/{user}, /overview/{user}) and zero-trust-data (/policies/{policy_id}) need the same treatment and a handler
   mapped per path first.
 
+- The gateway now keeps each retired service's prefix or strips it according to what the engine answers, and
+  scripts/gateway_addresses.py is the rule: for every entry pointed at the engine, every path its last main.py published
+  must be registered in the form that entry forwards, parameters included. tests/test_gateway_addresses.py runs it. Twenty
+  two entries had the flag on the wrong side of that agreement, which meant the gateway was forwarding an address the
+  engine did not hold; the audit found them, not a person.
+
+  Restored in this pass: /stats (alerts), /debtors/add and /calculate-provision (provision-bad-debts), /policies/{id}
+  (zero-trust, answered by the access policies), the three per-user reads of personal-finance, /right-issues/{id}
+  (one issue), /summary/{company} for bank-relationship and /expense-tracking/* keeping its prefix because only one
+  service can hold the flat summary, /backup/{id}/restore flat (encrypted-backup) and /transactions/{id}/reconcile
+  (banking-integration). One address is a real gap rather than a missing route, recorded in KNOWN_GAPS with its reason:
+  banking-integration's per-connection transaction feed, which the engine has no read for.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

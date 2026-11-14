@@ -9472,6 +9472,14 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route("/personal-finance/legacy-debts", post(add_legacy_debt))
         .route("/personal-finance/overview", get(personal_overview))
+        // personal-finance-service read these three for a named user; the engine answers whoever the caller is scoped
+        // to, so the segment only has to be accepted to keep the published address alive
+        .route("/personal-finance/goals/:user_id", get(goals))
+        .route("/personal-finance/income/:user_id", get(income_sources))
+        .route(
+            "/personal-finance/overview/:user_id",
+            get(personal_overview),
+        )
         .route(
             "/records/personal-finance/recurring",
             get(recurring_items).post(open_recurring),
@@ -17060,6 +17068,9 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         // receivables: provision-bad-debts, whose paths differ from the doubtful service only by prefix
         .route("/provision-bad-debts/debtors/add", post(add_aged_debtor))
         .route("/provision-bad-debts/calculate-provision", post(calculate_aged_provision))
+        // provision-bad-debts-service published these two without its own prefix
+        .route("/debtors/add", post(add_aged_debtor))
+        .route("/calculate-provision", post(calculate_aged_provision))
         // receivables: the provision graded per debtor
         .route("/doubtful/debtors/add", post(add_doubtful_debtor))
         .route("/doubtful/debtors/:debtor_id/assess", post(assess_doubtful_debtor))
@@ -17098,6 +17109,12 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/evaluate", post(post_access_evaluation))
         .route("/attempts", get(get_access_attempts))
         .route("/attempts/user/:user_id", get(get_subject_attempts))
+        // zero-trust-data-service published a policy as /policies/{policy_id}; the register of them lives at
+        // /access-policies because /policies already answers the provision policies
+        .route(
+            "/policies/:policy_id",
+            put(put_access_policy).delete(delete_access_policy),
+        )
 
         // documents: filing, searching, the text taken off, and what each one is linked to. The register answers
         // under /files because /documents is the financial document state machine, whose records are a different thing.
@@ -17123,6 +17140,8 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         // alerts: the rules watched, the alerts they raise, and what became of each one
         .route("/alerts/evaluate", post(post_alerts_evaluate))
         .route("/alerts/stats", get(get_alert_stats))
+        // alerts-service published the counters at /stats, which is what the /alerts prefix is stripped down to
+        .route("/stats", get(get_alert_stats))
         .route("/alerts", post(post_alert).get(get_alerts))
         .route("/alerts/:alert_id", get(get_alert))
         .route(
@@ -17389,6 +17408,8 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             post(post_backup_restore),
         )
         .route("/restores", get(get_restores))
+        // encrypted-backup-service published the restore flat at /backup/{id}/restore
+        .route("/backup/:backup_id/restore", post(post_backup_restore))
 
         // The Book's data shelf: warehouse tables and queries, and the ETL pipelines behind them
         .route("/dimensions", get(get_dimensions).post(post_dimension))
@@ -17559,6 +17580,8 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(get_quality_metrics),
         )
         .route("/bank-summary/:company_id", get(get_bank_relationship_summary))
+        // bank-relationship-service published its summary at /summary/{company}, and the gateway strips its prefix
+        .route("/summary/:company_id", get(get_bank_relationship_summary))
         .route("/connect", post(post_connect_bank))
         .route("/bank-account-connections", get(get_bank_account_connections))
         .route(
@@ -17571,6 +17594,11 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(get_connection_transactions),
         )
         .route("/bank-reconcile/:connection_id", post(post_bank_reconcile))
+        // banking-integration-service published the connection's reconcile step at /transactions/{id}/reconcile
+        .route(
+            "/transactions/:connection_id/reconcile",
+            post(post_bank_reconcile),
+        )
         .route(
             "/bank-account-balance/:connection_id",
             get(get_bank_account_balance),
@@ -17689,6 +17717,21 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/expenses/:expense_id/approve", put(approve_expense))
         .route("/expenses/:expense_id/reject", put(reject_expense))
         .route("/expense-summary/:company_id", get(get_expense_summary))
+        // expense-tracking-service keeps its prefix, because bank-relationship-service holds flat /summary/{company}
+        .route("/expense-tracking/expenses", post(post_expense))
+        .route("/expense-tracking/expenses/:company_id", get(get_expenses))
+        .route(
+            "/expense-tracking/expenses/:expense_id/approve",
+            put(approve_expense),
+        )
+        .route(
+            "/expense-tracking/expenses/:expense_id/reject",
+            put(reject_expense),
+        )
+        .route(
+            "/expense-tracking/summary/:company_id",
+            get(get_expense_summary),
+        )
 
         // absorption-costing: the stock valuation derived from the product costs
         .route("/absorption-costing/product-costs/:product_id/latest", get(latest_product_cost))
@@ -18112,6 +18155,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         // segment shallower than the issue's own path because the gateway keeps that service's prefix
         .route("/right-issues/:issue_id/accept", post(accept_rights))
         .route("/right-issues/:issue_id/renounce", post(renounce_rights))
+        .route("/right-issues/:issue_id", get(one_right_issue))
         .route("/ordinary-shares/dividends", get(ordinary_dividends).post(declare_ordinary_dividend))
         .route("/ordinary-shares/dividends/:dividend_id/pay", post(pay_ordinary_dividend))
         .route("/preference-shares/classes", get(preference_classes).post(create_preference_class))
