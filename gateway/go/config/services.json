@@ -671,14 +671,6 @@
       "strip_prefix": false
     },
     {
-      "name": "payment-gateway-service",
-      "path": "/payment-gateway",
-      "url": "http://localhost:9003",
-      "port": 8098,
-      "auth_required": true,
-      "strip_prefix": false
-    },
-    {
       "name": "performance-benchmarking-service",
       "path": "/performance-benchmarking",
       "url": "http://calculation-api:8099",

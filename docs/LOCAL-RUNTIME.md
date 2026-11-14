@@ -47,5 +47,4 @@ directory with a note saying what it is, for a machine that has no Rust toolchai
 
 ## What is not here
 
-`payment-gateway` stays Python in the cluster by the record-only rule; the local runtime does not serve it, and a machine
-that needs it points at the cluster.
+Nothing is left on Python, so there is no service the on-device runtime leaves to the cluster.

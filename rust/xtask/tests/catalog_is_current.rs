@@ -97,18 +97,18 @@ fn the_readme_describes_the_files_that_exist() {
 }
 
 #[test]
-fn nothing_is_reported_as_python_once_the_engine_answers_it() {
-    // Two services are deliberately not on Rust: the payment gateway by the record-only rule, and nothing else. If the
-    // catalogue names a third Python service, either a port regressed or the port tracker stopped being read.
+fn no_service_is_reported_as_python() {
+    // Every routed service is served by the Rust engine. The payment gateway, which used to be the one exception, was
+    // deleted from the repository: money movement is outside Vimbai's remit, so there is nothing left for it to do.
+    // If the catalogue names a Python service now, a port regressed or the port tracker stopped being read.
     let root = repo_root();
-    let mut python: Vec<String> = rows(&root)
+    let python: Vec<String> = rows(&root)
         .into_iter()
         .filter(|row| row.engine == "python")
         .map(|row| row.name)
         .collect();
-    python.sort();
     assert!(
-        python.iter().all(|name| name == "payment-gateway-service"),
-        "the catalogue reports Python services the engine should answer: {python:?}"
+        python.is_empty(),
+        "the catalogue reports Python services: {python:?}"
     );
 }

@@ -6,6 +6,10 @@ answered every push with a run that had no jobs and a failure. The tests were
 still covered elsewhere, which is exactly why nobody noticed: the only symptom
 was one more red run in a list of red runs.
 
+That file is gone now. Its only job ran each Python service's own suite in a directory, and the last directory was
+deleted with the payment gateway, so the workflow had nothing left to run. What survives is the reason it was checked
+here: a workflow file has to parse, define jobs, and never name a service directory that is not on disk.
+
 So the workflow files are checked here, in the suite rather than in a review.
 """
 
@@ -33,20 +37,28 @@ def test_every_workflow_is_valid_yaml_with_jobs(path):
     assert isinstance(jobs, dict) and jobs, f"{path} defines no jobs, so a run of it does nothing"
 
 
-def test_no_workflow_carries_a_shard_for_a_service_that_is_gone():
-    """A shard that names a deleted directory fails when it runs, so it is checked before it runs."""
-    path = os.path.join(ROOT, ".github", "workflows", "test-core.yml")
-    with open(path, encoding="utf-8") as handle:
-        document = yaml.safe_load(handle)
-    matrix = document["jobs"]["test-core-groups"]["strategy"]["matrix"]["include"]
+def test_no_workflow_names_a_service_directory_that_is_gone():
+    """A list entry naming a deleted directory fails when the run reaches it, so it is checked before it runs.
 
+    The per-service shard file is deleted, but the rule it taught still holds for every workflow that splits work by
+    service: a name in a services list has to be a directory, and a list has to have something in it.
+    """
     problems = []
-    for row in matrix:
-        services = (row.get("services") or "").split()
-        if not services:
-            problems.append(f"{row['group']} lists no services, so its job has nothing to test")
-        for service in services:
-            if not os.path.isdir(os.path.join(ROOT, service)):
-                problems.append(f"{row['group']} names {service}, which is not a directory")
-
+    for path in WORKFLOWS:
+        with open(path, encoding="utf-8") as handle:
+            document = yaml.safe_load(handle)
+        for job, body in (document.get("jobs") or {}).items():
+            include = (((body or {}).get("strategy") or {}).get("matrix") or {}).get("include") or []
+            for row in include:
+                listed = row.get("services") if isinstance(row, dict) else None
+                if not listed:
+                    continue
+                for service in str(listed).split():
+                    if not os.path.isdir(os.path.join(ROOT, service)):
+                        problems.append(f"{os.path.basename(path)} {job}: {service} is not a directory")
     assert not problems, "\n".join(problems)
+
+
+def test_the_per_service_shard_file_is_gone():
+    """It existed to run each Python service's own suite; with no service directories left, it must not come back."""
+    assert not os.path.exists(os.path.join(ROOT, ".github", "workflows", "test-core.yml"))

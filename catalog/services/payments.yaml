@@ -3,37 +3,8 @@ domain:
   name: payments
   responsibility: 'Vimbai Pay: orchestration, lifecycle and providers'
   target: rust/crates/domains/payments
-  services: 2
+  services: 1
 services:
-- name: payment-gateway-service
-  domain: payments
-  target: rust/crates/domains/payments
-  port: 8098
-  gateway_path: /payment-gateway
-  auth_required: true
-  engine: python
-  records: false
-  endpoints:
-  - GET /
-  - POST /customers
-  - GET /customers/{customer_id}
-  - GET /customers
-  - POST /customers/{customer_id}/payment-methods
-  - GET /customers/{customer_id}/payment-methods
-  - DELETE /payment-methods/{method_id}
-  - POST /payments
-  - GET /payments/{payment_id}
-  - GET /payments
-  - POST /payments/{payment_id}/capture
-  - POST /payments/{payment_id}/cancel
-  - POST /refunds
-  - GET /refunds/{refund_id}
-  - GET /payments/{payment_id}/refunds
-  - POST /disputes
-  - GET /disputes/{dispute_id}
-  - GET /disputes
-  - POST /disputes/{dispute_id}/evidence
-  - GET /statistics
 - name: pos-integration-service
   domain: payments
   target: rust/crates/domains/payments

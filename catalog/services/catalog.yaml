@@ -3,7 +3,7 @@ catalog:
   version: 1
   generated_by: rust/xtask
   authority: gateway/go/config/services.json for routes, catalog/ownership.json for ownership
-  services: 138
+  services: 137
 domains:
 - name: kernel
   responsibility: 'ledger-core: sole authority for posting integrity, immutability and the hash chain; ledger-services: the kernel services'' HTTP and record surface'
@@ -879,35 +879,6 @@ services:
   engine: rust
   records: false
   endpoints: []
-- name: payment-gateway-service
-  domain: payments
-  target: rust/crates/domains/payments
-  port: 8098
-  gateway_path: /payment-gateway
-  auth_required: true
-  engine: python
-  records: false
-  endpoints:
-  - GET /
-  - POST /customers
-  - GET /customers/{customer_id}
-  - GET /customers
-  - POST /customers/{customer_id}/payment-methods
-  - GET /customers/{customer_id}/payment-methods
-  - DELETE /payment-methods/{method_id}
-  - POST /payments
-  - GET /payments/{payment_id}
-  - GET /payments
-  - POST /payments/{payment_id}/capture
-  - POST /payments/{payment_id}/cancel
-  - POST /refunds
-  - GET /refunds/{refund_id}
-  - GET /payments/{payment_id}/refunds
-  - POST /disputes
-  - GET /disputes/{dispute_id}
-  - GET /disputes
-  - POST /disputes/{dispute_id}/evidence
-  - GET /statistics
 - name: performance-benchmarking-service
   domain: analytics
   target: rust/crates/domains/analytics

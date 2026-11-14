@@ -1393,7 +1393,6 @@ already been deleted, and a to-do list of deleted code is not a plan.
 - internal-rate-return-service
 - investment-property-service
 - net-present-value-service
-- payment-gateway-service
 - performance-benchmarking-service
 - privacy-admin-dashboard-service
 - revaluation-model-service

@@ -23,9 +23,9 @@ directories stay in the repository; only registration was removed):
 
 4. Cost-calculator family - the nineteen stateless cost-accounting
    calculators now living in the Rust vimbai_cost_accounting crate. They
-   leave the gateway and the cluster (no caller, no state) but KEEP their
-   CI coverage: the Python maths is the reference the parity tests check
-   the Rust against, so its regression tests stay in test-core.yml.
+   leave the gateway and the cluster (no caller, no state). Their Python
+   source is gone: the answers the parity tests check the Rust against are
+   recorded captures, not a second copy of the arithmetic.
 
 5. Variance and budget calculators - nine variance services (the
    vimbai_variance crate) and six budget services (the vimbai_budgeting
@@ -221,8 +221,6 @@ SEED_CATALOGUES = {
     # static template definitions; /templates only ever reads them
     "notifications-service": {"templates"},
     "cache-service": {"_cache", "_cache_stats"},
-    # money movement lives outside Vimbai's remit; the gateway keeps its own records
-    "payment-gateway-service": {"customers", "payment_methods", "payments", "refunds", "disputes"},
 }
 
 # The four audit families share one service now: audit-engagement-service,
@@ -504,12 +502,6 @@ def test_duplicate_not_deployed(dup):
         ), f"{dup} must not be deployed via {manifest}"
 
 
-@pytest.mark.parametrize("dup", sorted(UNTESTED_AFTER_DEREGISTRATION))
-def test_duplicate_not_in_ci_brackets(dup):
-    ci = open(os.path.join(_ROOT, ".github", "workflows", "test-core.yml")).read()
-    assert not re.search(r"\b" + re.escape(dup) + r"\b", ci), f"{dup} must stay out of CI bracket lists"
-
-
 @pytest.mark.parametrize("dup", sorted(ALL_DEREGISTERED))
 def test_duplicate_source_is_accounted_for(dup):
     # Ported duplicates keep their Python source as the parity oracle. The one
@@ -552,19 +544,6 @@ def test_ported_calculator_keeps_its_evidence(ported):
     assert (
         has_capture or ported in port_map
     ), f"{ported} needs a parity capture or a line in CALCULATOR-PORT.md to stand in for its deleted source"
-
-
-@pytest.mark.parametrize(
-    "ported", sorted(COST_CALCULATOR_PORTS | VARIANCE_BUDGET_PORTS | ABSORPTION_MARGIN_PORTS | SCENARIO_BUDGET_PORTS)
-)
-def test_cost_calculator_keeps_its_ci_coverage(ported):
-    # A ported calculator whose Python source is gone must not appear in any CI list; one
-    # that still keeps its source stays tested even though it is not deployed.
-    ci = open(os.path.join(_ROOT, ".github", "workflows", "test-core.yml")).read()
-    if ported in DELETED_PORTS:
-        assert ported not in ci, f"{ported} has no source left to test"
-        return
-    assert ported in ci, f"{ported} reference tests must stay wired into CI"
 
 
 def test_only_triaged_containers_remain():

@@ -44,7 +44,3 @@ class TestRiskServiceDeduplication:
             for dup in DEREGISTERED_DUPLICATES:
                 assert f"name: {dup}" not in open(path).read(), f"{dup} must not be deployed via {manifest}"
 
-    def test_duplicate_services_are_not_in_ci_brackets(self):
-        ci = open(os.path.join(_ROOT, ".github", "workflows", "test-core.yml")).read()
-        for dup in DEREGISTERED_DUPLICATES:
-            assert not re.search(r"\b" + re.escape(dup) + r"\b", ci), f"{dup} must stay out of CI bracket lists"

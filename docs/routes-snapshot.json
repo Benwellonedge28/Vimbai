@@ -1,5 +1,5 @@
 {
- "count": 138,
+ "count": 137,
  "services": [
   {
    "name": "absorption-costing-service",
@@ -1343,33 +1343,6 @@
     "POST /calculate",
     "POST /compare",
     "POST /average-cash-flow"
-   ]
-  },
-  {
-   "name": "payment-gateway-service",
-   "port": 8098,
-   "path": "/payment-gateway",
-   "endpoints": [
-    "GET /",
-    "POST /customers",
-    "GET /customers/{customer_id}",
-    "GET /customers",
-    "POST /customers/{customer_id}/payment-methods",
-    "GET /customers/{customer_id}/payment-methods",
-    "DELETE /payment-methods/{method_id}",
-    "POST /payments",
-    "GET /payments/{payment_id}",
-    "GET /payments",
-    "POST /payments/{payment_id}/capture",
-    "POST /payments/{payment_id}/cancel",
-    "POST /refunds",
-    "GET /refunds/{refund_id}",
-    "GET /payments/{payment_id}/refunds",
-    "POST /disputes",
-    "GET /disputes/{dispute_id}",
-    "GET /disputes",
-    "POST /disputes/{dispute_id}/evidence",
-    "GET /statistics"
    ]
   },
   {
