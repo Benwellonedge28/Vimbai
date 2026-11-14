@@ -7,6 +7,8 @@ authors.workspace = true
 description = "HTTP surface for the Vimbai calculation library. Safe Rust only."
 
 [dependencies]
+# a page is handed over one line at a time rather than built into one body
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 analytics = { package = "vimbai_service_analytics", path = "../../crates/domains/analytics" }
 advisory = { package = "vimbai_advisory", path = "../../crates/calculations/advisory" }
 common = { package = "vimbai_common", path = "../../crates/common" }

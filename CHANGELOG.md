@@ -14,6 +14,15 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- The engine now has a door: it admits a bounded number of requests at once and gives each a deadline, both settings
+  (`VIMBAI_API_MAX_IN_FLIGHT`, default 256, and `VIMBAI_API_TIMEOUT_MS`, default 30s) read from the environment. A burst
+  queues for a slot instead of piling onto the store's small pool, and a call that cannot start or cannot finish in time
+  gets a named answer (503 with the reason, 504 with the deadline) rather than an open connection. Worker threads are a
+  setting too (`VIMBAI_API_WORKERS`, default one per core).
+- A page can be read one record at a time: `Accept: application/x-ndjson` answers a collection as one JSON record per
+  line, written as the engine hands each row over, with the paging facts in headers (`x-total-count`, `x-page-count`,
+  `x-has-more`, `x-next-cursor`). Asking for JSON gets exactly what it got before - the convention is opt-in, as ADR-004
+  requires.
 - The engine on Postgres, proven rather than configured: three tests hand the router a Postgres store and write, read
   back, keep two Books apart, and find the record after the store is reopened, then check which store is chosen when both
   Postgres and Neo4j are configured.

@@ -24,6 +24,7 @@ pub mod accounting_book;
 pub mod accounting_standards;
 pub mod idempotency;
 pub mod identity;
+pub mod limits;
 pub mod outbound;
 pub mod pagination;
 pub mod records;
@@ -918,6 +919,11 @@ fn published(name: &'static str) -> axum::routing::MethodRouter<AppState> {
 ///
 /// The relay is started here rather than in `main` so that anything serving this router - the binary, a test harness, the
 /// on-device runtime - gets the same behaviour. With no broker asked for, nothing is started and the statistics say so.
+/// The router a deployment serves: the engine behind the door that counts requests and gives each a deadline.
+pub fn governed_router() -> Router {
+    limits::govern(router(), limits::Limits::from_env())
+}
+
 pub fn router() -> Router {
     let graph = records::from_env();
     start_broker(graph.clone());

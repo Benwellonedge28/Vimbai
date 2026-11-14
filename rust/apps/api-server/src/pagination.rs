@@ -17,6 +17,11 @@
 //!   handler's cap, not of asking for a bigger page. The alternative - teaching sixty handlers to seek from a cursor - is the
 //!   work of a phase, and shipping the shape now with a stated ceiling beats shipping neither.
 //! * It does not sort. A handler's order is the handler's, and a cursor refers to a position in the answer the engine gave.
+//!
+//! A caller who wants the page as it is produced rather than all at once asks for `application/x-ndjson` and gets one
+//! record per line, written as the engine hands each one over, with the paging facts in headers (`x-total-count`,
+//! `x-has-more`, `x-next-cursor`). That is what lets a client with a slow link start working before the last row exists,
+//! and it keeps the engine from building one more copy of a large page in memory to send it.
 #![forbid(unsafe_code)]
 
 use axum::body::{to_bytes, Body};
@@ -109,6 +114,12 @@ async fn window(request: Request, next: Next) -> Response {
         },
     };
 
+    let lines_wanted = request
+        .headers()
+        .get(header::ACCEPT)
+        .and_then(|value| value.to_str().ok())
+        .map(|accept| accept.to_ascii_lowercase().contains("ndjson"))
+        .unwrap_or(false);
     let response = next.run(request).await;
     let status = response.status();
     let (parts, body) = response.into_parts();
@@ -158,7 +169,7 @@ async fn window(request: Request, next: Next) -> Response {
     if let Some(name) = &key {
         // the rows keep the name the handler gave them, so a client reading `rates` still reads `rates`
         if let Some(fields) = envelope.as_object_mut() {
-            fields.insert(name.clone(), Value::Array(page));
+            fields.insert(name.clone(), Value::Array(page.clone()));
         }
     }
     if let Some(fields) = envelope.as_object_mut() {
@@ -175,12 +186,52 @@ async fn window(request: Request, next: Next) -> Response {
             envelope.insert(name.clone(), value.clone());
         }
     }
+    if lines_wanted {
+        return streamed(page, &key, total, next);
+    }
     let body = serde_json::to_vec(&envelope).unwrap_or_default();
     let response = Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "application/json");
     response
         .body(Body::from(body))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
+}
+
+/// The page as newline-delimited JSON: one record per line, each written as the engine hands it over.
+///
+/// The paging facts move to headers because a line has to stay a record. A client reads them off the response and asks for
+/// the next page with the cursor it was given, exactly as it would from the envelope.
+fn streamed(
+    page: Vec<Value>,
+    key: &Option<String>,
+    total: usize,
+    next: Option<String>,
+) -> Response {
+    use futures_util::stream;
+    let lines: Vec<Result<axum::body::Bytes, std::convert::Infallible>> = page
+        .iter()
+        .map(|row| {
+            let mut text = serde_json::to_string(row).unwrap_or_else(|_| "null".to_owned());
+            text.push('\n');
+            Ok(axum::body::Bytes::from(text))
+        })
+        .collect();
+    let count = lines.len();
+    let mut builder = Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/x-ndjson")
+        .header("x-total-count", total.to_string())
+        .header("x-page-count", count.to_string())
+        .header("x-has-more", next.is_some().to_string());
+    if let Some(name) = key {
+        builder = builder.header("x-collection", name.clone());
+    }
+    if let Some(cursor) = next {
+        builder = builder.header("x-next-cursor", cursor);
+    }
+    builder
+        .body(Body::from_stream(stream::iter(lines)))
         .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
