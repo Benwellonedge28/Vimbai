@@ -295,27 +295,27 @@ sox-compliance-service                       /sox-compliance                    
 ```text
 service                                      address                            eps  owns engine crate
 absorption-costing-service                   /absorption-costing                  8  recs rust   rust/crates/domains/costing
-absorption-costing-statement-service         /absorption-costing-statement        7  recs rust   rust/crates/domains/costing
+absorption-costing-statement-service         /absorption-costing-statement        0  -    rust   rust/crates/domains/costing
 basis-apportionment-service                  /basis-apportionment                12  recs rust   rust/crates/domains/costing
-cvp-analysis-service                         /cvp-analysis                        9  recs rust   rust/crates/domains/costing
-job-costing-service                          /job-costing                         5  recs rust   rust/crates/domains/costing
+cvp-analysis-service                         /cvp-analysis                        0  -    rust   rust/crates/domains/costing
+job-costing-service                          /job-costing                         0  -    rust   rust/crates/domains/costing
 overhead-absorption-rate-service             /overhead-absorption-rate           13  recs rust   rust/crates/domains/costing
-process-costing-service                      /process-costing                     5  recs rust   rust/crates/domains/costing
-product-costing-service                      /product-costing                     5  recs rust   rust/crates/domains/costing
-selling-price-reduction-service              /selling-price-reduction             5  recs rust   rust/crates/domains/costing
+process-costing-service                      /process-costing                     0  -    rust   rust/crates/domains/costing
+product-costing-service                      /product-costing                     0  -    rust   rust/crates/domains/costing
+selling-price-reduction-service              /selling-price-reduction             0  -    rust   rust/crates/domains/costing
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
 | `absorption-costing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `absorption-costing-statement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `absorption-costing-statement-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `basis-apportionment-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `cvp-analysis-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `job-costing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `cvp-analysis-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `job-costing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `overhead-absorption-rate-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `process-costing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `product-costing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
-| `selling-price-reduction-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `process-costing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `product-costing-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
+| `selling-price-reduction-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## data — 3/3 on Rust
 

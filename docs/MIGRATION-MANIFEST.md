@@ -231,14 +231,14 @@ Lands in `rust/crates/domains/costing`.
 ```
 service                                         port  routes  records  engine
 absorption-costing-service                      8010       8      yes  rust
-absorption-costing-statement-service            8011       7      yes  rust
+absorption-costing-statement-service            8099       0       no  rust
 basis-apportionment-service                     8022      12      yes  rust
-cvp-analysis-service                            8039       9      yes  rust
-job-costing-service                             8073       5      yes  rust
+cvp-analysis-service                            8099       0       no  rust
+job-costing-service                             8099       0       no  rust
 overhead-absorption-rate-service                8092      13      yes  rust
-process-costing-service                         8105       5      yes  rust
-product-costing-service                         8106       5      yes  rust
-selling-price-reduction-service                 8123       5      yes  rust
+process-costing-service                         8099       0       no  rust
+product-costing-service                         8099       0       no  rust
+selling-price-reduction-service                 8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

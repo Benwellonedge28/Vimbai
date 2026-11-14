@@ -25,19 +25,12 @@ services:
 - name: absorption-costing-statement-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 8011
+  port: 8099
   gateway_path: /absorption-costing-statement
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - POST /trading-account/generate
-  - POST /trading-account/{statement_id}/add-expenses
-  - POST /production-cost/generate
-  - GET /
-  - GET /trading-account
-  - GET /production-cost
-  - GET /trading-account/{statement_id}
+  records: false
+  endpoints: []
 - name: basis-apportionment-service
   domain: costing
   target: rust/crates/domains/costing
@@ -62,35 +55,21 @@ services:
 - name: cvp-analysis-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 8039
+  port: 8099
   gateway_path: /cvp-analysis
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /analyze
-  - POST /quick-analysis
-  - POST /contribution
-  - POST /target-profit
-  - POST /multi-product
-  - GET /analyses
-  - GET /analyses/{analysis_id}
+  records: false
+  endpoints: []
 - name: job-costing-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 8073
+  port: 8099
   gateway_path: /job-costing
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /jobs
-  - GET /jobs/{company_id}
-  - POST /jobs/{job_id}/costs
-  - GET /jobs/{company_id}/profitability
+  records: false
+  endpoints: []
 - name: overhead-absorption-rate-service
   domain: costing
   target: rust/crates/domains/costing
@@ -116,42 +95,27 @@ services:
 - name: process-costing-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 8105
+  port: 8099
   gateway_path: /process-costing
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /calculate
-  - GET /calculations/{company_id}
-  - GET /breakdown/{company_id}/{calc_id}
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: product-costing-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 8106
+  port: 8099
   gateway_path: /product-costing
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /calculate
-  - GET /calculations/{company_id}
-  - GET /breakdown/{company_id}/{calc_id}
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: selling-price-reduction-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 8123
+  port: 8099
   gateway_path: /selling-price-reduction
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /analyze
-  - POST /discount-analysis
-  - GET /analyses
+  records: false
+  endpoints: []

@@ -11,8 +11,8 @@
     {
       "name": "absorption-costing-statement-service",
       "path": "/absorption-costing-statement",
-      "url": "http://localhost:9001",
-      "port": 8011,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -274,8 +274,8 @@
     {
       "name": "cvp-analysis-service",
       "path": "/cvp-analysis",
-      "url": "http://localhost:9012",
-      "port": 8039,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -552,8 +552,8 @@
     {
       "name": "job-costing-service",
       "path": "/job-costing",
-      "url": "http://localhost:9001",
-      "port": 8073,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -724,16 +724,16 @@
     {
       "name": "process-costing-service",
       "path": "/process-costing",
-      "url": "http://localhost:9001",
-      "port": 8105,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
     {
       "name": "product-costing-service",
       "path": "/product-costing",
-      "url": "http://localhost:9001",
-      "port": 8106,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -883,8 +883,8 @@
     {
       "name": "selling-price-reduction-service",
       "path": "/selling-price-reduction",
-      "url": "http://localhost:9010",
-      "port": 8123,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

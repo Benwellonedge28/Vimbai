@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          42
+live and routed          36
 retained, not routed     2
 unrouted, undecided      2
 ```
@@ -20,7 +20,6 @@ unrouted, undecided      2
 Routed by the API gateway and deployed. These are the running product.
 
 `absorption-costing-service`
-`absorption-costing-statement-service`
 `accounting-service`
 `accounting-standards-service`
 `admin-service`
@@ -32,7 +31,6 @@ Routed by the API gateway and deployed. These are the running product.
 `cache-service`
 `continue-shutdown-decision-service`
 `currency-service`
-`cvp-analysis-service`
 `departmental-accounting-service`
 `disposal-account-service`
 `document-service`
@@ -40,7 +38,6 @@ Routed by the API gateway and deployed. These are the running product.
 `graphql-service`
 `investment-property-service`
 `invoicing-service`
-`job-costing-service`
 `message-bus-service`
 `mfa-auth-service`
 `multimodal-pipeline-service`
@@ -51,12 +48,9 @@ Routed by the API gateway and deployed. These are the running product.
 `payment-gateway-service`
 `pos-integration-service`
 `preference-shares-service`
-`process-costing-service`
-`product-costing-service`
 `provision-doubtful-debts-service`
 `retained-profits-service`
 `risk-assessment-service`
-`selling-price-reduction-service`
 `treasury-analytics-service`
 `treasury-compliance-service`
 `websocket-service`

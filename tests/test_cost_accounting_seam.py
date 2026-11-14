@@ -901,35 +901,32 @@ class TestBudgetedAndActualCosts:
 
 
 class TestJobCostingRollup:
-    """The service's own rollup path, checked against the reference maths."""
+    """The cost rollup rule, pinned from the service before its directory was retired.
+
+    The four rollup types aggregate the entry and recompute profit from the contract; anything else is
+    recorded without touching the running total. These figures are the answers the service gave for one
+    job - 1200 materials, 800 labour, 400 overhead, 0 subcontractor, a 300 entry against a 5000
+    contract, carried in with 2400 cost and 2600 profit - so the rule survives the service that taught it.
+    """
+
+    JOB = {"materials_cost": 1200.0, "labor_cost": 800.0, "overhead_cost": 400.0, "subcontractor_cost": 0.0}
+    EXPECTED = {
+        "materials": {"materials_cost": 1500.0, "total_cost": 2700.0, "gross_profit": 2300.0, "gross_margin": 46.0},
+        "labor": {"labor_cost": 1100.0, "total_cost": 2700.0, "gross_profit": 2300.0, "gross_margin": 46.0},
+        "overhead": {"overhead_cost": 700.0, "total_cost": 2700.0, "gross_profit": 2300.0, "gross_margin": 46.0},
+        "subcontractor": {"subcontractor_cost": 300.0, "total_cost": 2700.0, "gross_profit": 2300.0, "gross_margin": 46.0},
+        "travel": {"total_cost": 2400.0, "gross_profit": 2600.0, "gross_margin": 52.0},
+    }
 
     @pytest.mark.parametrize("cost_type", ["materials", "labor", "overhead", "subcontractor", "travel"])
-    def test_rollup_matches_the_reference(self, monkeypatch, cost_type):
-        load_service("job-costing-service")  # sets up the package alias
-        from job_costing_service import calc
+    def test_rollup_matches_the_recorded_answers(self, cost_type):
+        payload = {**self.JOB, "cost_type": cost_type, "amount": 300.0, "contract_value": 5000.0,
+                   "total_cost": 2400.0, "gross_profit": 2600.0, "gross_margin": 52.0}
+        answer = json.loads(native.job_add_cost_json(json.dumps(payload)))
 
-        class Job:
-            materials_cost = 1200.0
-            labor_cost = 800.0
-            overhead_cost = 400.0
-            subcontractor_cost = 0.0
-
-        stored = dict(total_cost=2400.0, gross_profit=2600.0, gross_margin=52.0)
-
-        monkeypatch.setenv("VIMBAI_CALC_ENGINE", "rust")
-        rust = calc.apply_cost(Job(), cost_type, 300.0, 5000.0, **stored)
-
-        monkeypatch.setenv("VIMBAI_CALC_ENGINE", "python")
-        reference = calc.apply_cost(Job(), cost_type, 300.0, 5000.0, **stored)
-
-        assert rust == reference
-        if cost_type == "travel":
-            assert rust["aggregated"] is False
-            assert rust["total_cost"] == 2400.0
-        else:
-            assert rust["aggregated"] is True
-            assert rust["total_cost"] == 2700.0
-            assert rust["gross_profit"] == 2300.0
+        for field, value in self.EXPECTED[cost_type].items():
+            assert answer[field] == pytest.approx(value), f"{cost_type}: {field}"
+        assert answer["aggregated"] is (cost_type != "travel")
 
 
 class TestTotalProductionCost:

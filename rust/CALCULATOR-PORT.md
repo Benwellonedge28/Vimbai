@@ -1659,6 +1659,17 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   A drift pin had to go with npo-scale - a baseline entry for drift that no longer exists is a blind spot, and the test
   says so.
 
+- The costing domain that could be retired, batch thirteen: absorption-costing-statement, cvp-analysis, job-costing,
+  process-costing, product-costing and selling-price-reduction are gone. What stays in Python stays for evidence, not for
+  routes: absorption-costing-service is the oracle the cost-accounting seam test compares the engine against.
+
+  Retiring the oracles would have retired the proof with them, so the comparison moved instead. TestJobCostingRollup used
+  to call job-costing-service/calc.py as its reference; it now pins the answers that service gave for one job (four rollup
+  types, one recorded-only type) and asserts them against the extension. The rule survives the service that taught it.
+
+  process/product-costing had a test whose whole job was keeping two identical Python services in step. With both
+  directories gone the duplicate cannot come back, so the test went with them.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

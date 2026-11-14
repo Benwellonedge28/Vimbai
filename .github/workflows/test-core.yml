@@ -39,8 +39,6 @@ jobs:
             services: "identity-service accounting-service finance-service multimodal-pipeline-service workflow-service budget-service "
           - group: advanced-accounting
             services: "currency-service general-reserve-service "
-          - group: costing-budgeting
-            services: "job-costing-service process-costing-service product-costing-service "
           - group: platform-automation
             services: "automation-engine-service notifications-service admin-service "
           - group: platform-infrastructure

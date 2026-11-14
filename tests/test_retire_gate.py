@@ -14,11 +14,12 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Kept in Python because they own records, not because the maths is missing. Retiring
-# them would leave their crud and Neo4j wiring with nothing to serve it.
+# Kept in Python on purpose, and the reason is written down rather than assumed:
+# absorption-costing-service is the oracle tests/test_cost_accounting_seam.py compares the engine against - the only
+# proof the port reproduces the service it replaced. The record holders this set used to name (job-costing-service)
+# have been retired along with the rest of the costing domain.
 RECORD_HOLDERS = {
     "absorption-costing-service",
-    "job-costing-service",
 }
 
 

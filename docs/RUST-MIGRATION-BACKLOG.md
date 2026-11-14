@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 42 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 96 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 36 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 102 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -17,7 +17,7 @@ need vimbai_store alongside the maths.
 
 ```
 absorption-costing-service                     8010  routes=8   records=yes rust http
-absorption-costing-statement-service           8011  routes=7   records=yes rust http
+absorption-costing-statement-service           8099  routes=0   records=no  rust http (no python source)
 accounting-service                             8000  routes=1   records=yes rust http
 accounting-standards-service                   8095  routes=20  records=yes rust http
 activity-based-budget-service                  8099  routes=0   records=no  rust http (no python source)
@@ -50,7 +50,7 @@ company-accounting-service                     8099  routes=0   records=no  rust
 continue-shutdown-decision-service             8032  routes=6   records=yes rust http
 control-account-reconciliation-service         8099  routes=0   records=no  rust http (no python source)
 currency-service                               8092  routes=19  records=yes rust http
-cvp-analysis-service                           8039  routes=9   records=yes rust http
+cvp-analysis-service                           8099  routes=0   records=no  rust http (no python source)
 dashboard-service                              8099  routes=0   records=no  rust http (no python source)
 data-warehouse-service                         8099  routes=0   records=no  rust http (no python source)
 debentures-service                             8099  routes=0   records=no  rust http (no python source)
@@ -85,7 +85,7 @@ investment-monitoring-service                  8099  routes=0   records=no  rust
 investment-property-service                    8145  routes=6   records=no  rust http
 invoicing-service                              8070  routes=1   records=yes rust http
 issued-share-capital-service                   8099  routes=0   records=no  rust http (no python source)
-job-costing-service                            8073  routes=5   records=yes rust http
+job-costing-service                            8099  routes=0   records=no  rust http (no python source)
 lease-termination-service                      8099  routes=0   records=no  rust http (no python source)
 message-bus-service                            8097  routes=16  records=yes rust http
 mfa-auth-service                               8007  routes=6   records=yes rust http
@@ -106,8 +106,8 @@ petty-cash-service                             8099  routes=0   records=no  rust
 pos-integration-service                        8095  routes=14  records=yes rust http
 preference-shares-service                      8102  routes=9   records=yes rust http
 privacy-admin-dashboard-service                8099  routes=0   records=no  rust http (no python source)
-process-costing-service                        8105  routes=5   records=yes rust http
-product-costing-service                        8106  routes=5   records=yes rust http
+process-costing-service                        8099  routes=0   records=no  rust http (no python source)
+product-costing-service                        8099  routes=0   records=no  rust http (no python source)
 provision-bad-debts-service                    8099  routes=0   records=no  rust http (no python source)
 provision-doubtful-debts-service               8109  routes=8   records=yes rust http
 purchases-ledger-control-service               8099  routes=0   records=no  rust http (no python source)
@@ -126,7 +126,7 @@ rolling-forecast-service                       8099  routes=0   records=no  rust
 sales-ledger-control-service                   8099  routes=0   records=no  rust http (no python source)
 scenario-analysis-service                      8099  routes=0   records=no  rust http (no python source)
 scenario-modeling-service                      8099  routes=0   records=no  rust http (no python source)
-selling-price-reduction-service                8123  routes=5   records=yes rust http
+selling-price-reduction-service                8099  routes=0   records=no  rust http (no python source)
 sensitivity-analysis-service                   8099  routes=0   records=no  rust http (no python source)
 share-premium-service                          8099  routes=0   records=no  rust http (no python source)
 share-redemption-service                       8099  routes=0   records=no  rust http (no python source)
