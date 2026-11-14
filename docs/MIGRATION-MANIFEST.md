@@ -353,7 +353,7 @@ Lands in `rust/crates/platform/integrations`.
 
 ```
 service                                         port  routes  records  engine
-graphql-service                                 8095       2       no  rust
+graphql-service                                 8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -575,7 +575,7 @@ foreign-exchange-service                        8099       0       no  rust
 petty-cash-service                              8099       0       no  rust
 sovereign-treasury-service                      8099       0       no  rust
 treasury-analytics-service                      8099       4      yes  rust
-treasury-compliance-service                     8135       5      yes  rust
+treasury-compliance-service                     8099       0       no  rust
 treasury-management-service                     8099       0       no  rust
 treasury-policy-service                         8099       0       no  rust
 treasury-reporting-service                      8099       0       no  rust

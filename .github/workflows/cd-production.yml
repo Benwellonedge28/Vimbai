@@ -34,14 +34,7 @@ jobs:
           SERVICES=(
             "api-gateway"
             "identity-service"
-            "accounting-service"
             "finance-service"
-            "multimodal-pipeline-service"
-            "banking-integration-service"
-            "supply-chain-service"
-            "fraud-detection-service"
-            "workflow-service"
-            "reporting-service"
             ""
             "alerts-service"
           )
@@ -89,10 +82,8 @@ jobs:
           kubectl apply -k infrastructure/kubernetes/
           kubectl rollout restart deployment -n vimbai api-gateway
           kubectl rollout restart deployment -n vimbai identity-service
-          kubectl rollout restart deployment -n vimbai accounting-service
           kubectl rollout status deployment -n vimbai api-gateway --timeout=300s
           kubectl rollout status deployment -n vimbai identity-service --timeout=300s
-          kubectl rollout status deployment -n vimbai accounting-service --timeout=300s
 
       - name: Verify deployment health
         if: steps.check.outputs.has_kubeconfig == 'true'

@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 6 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 132 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 4 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 134 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -74,7 +74,7 @@ fixed-assets-schedule-service                  8099  routes=0   records=no  rust
 foreign-exchange-service                       8099  routes=0   records=no  rust http (no python source)
 fund-accounting-service                        8099  routes=0   records=no  rust http (no python source)
 general-reserve-service                        8061  routes=0   records=no  rust http (no python source)
-graphql-service                                8095  routes=2   records=no  rust http
+graphql-service                                8099  routes=0   records=no  rust http (no python source)
 ifrs-reporting-service                         8099  routes=0   records=no  rust http (no python source)
 initial-investment-service                     8099  routes=0   records=no  rust http (no python source)
 insurance-claims-service                       8099  routes=0   records=no  rust http (no python source)
@@ -139,7 +139,7 @@ tax-planning-service                           8099  routes=0   records=no  rust
 trade-finance-service                          8099  routes=0   records=no  rust http (no python source)
 trading-account-service                        8099  routes=0   records=no  rust http (no python source)
 treasury-analytics-service                     8099  routes=4   records=yes rust http
-treasury-compliance-service                    8135  routes=5   records=yes rust http
+treasury-compliance-service                    8099  routes=0   records=no  rust http (no python source)
 treasury-management-service                    8099  routes=0   records=no  rust http (no python source)
 treasury-policy-service                        8099  routes=0   records=no  rust http (no python source)
 treasury-reporting-service                     8099  routes=0   records=no  rust http (no python source)

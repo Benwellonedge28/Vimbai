@@ -8,11 +8,9 @@ services:
 - name: graphql-service
   domain: integrations
   target: rust/crates/platform/integrations
-  port: 8095
+  port: 8099
   gateway_path: /graphql
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
+  endpoints: []

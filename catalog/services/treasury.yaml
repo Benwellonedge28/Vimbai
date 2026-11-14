@@ -75,17 +75,12 @@ services:
 - name: treasury-compliance-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8135
+  port: 8099
   gateway_path: /treasury-compliance
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - GET /checks/{company_id}
-  - PUT /checks/{check_id}/status
-  - GET /report/{company_id}
+  records: false
+  endpoints: []
 - name: treasury-management-service
   domain: treasury
   target: rust/crates/domains/treasury

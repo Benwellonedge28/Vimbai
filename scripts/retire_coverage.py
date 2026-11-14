@@ -29,6 +29,9 @@ ROUTE = re.compile(r'\.route\(\s*"([^"]+)"')
 MOUNT_LOOP = re.compile(r'for\s+\w+\s+in\s*\[([^\]]+)\]')
 PREFIXED = re.compile(r'format!\("(?:\{prefix\}|([^"]*))([^"]*)"')
 ENDPOINT = re.compile(r'@app\.(?:get|post|put|delete|patch)\(\s*[\'"]([^\'"]+)[\'"]')
+# A router hung off the app is a door too: include_router(... prefix="/graphql") serves /graphql without a decorator.
+MOUNTED = re.compile(r'include_router\([^)]*?prefix\s*=\s*[\'"]([^\'"]+)[\'"]')
+MOUNTED_MOUNT = re.compile(r'app\.mount\(\s*[\'"]([^\'"]+)[\'"]')
 
 # the mounts a prefix loop registers under, for the surfaces that build one table and hang it in two places
 MOUNTS = ("/accounting", "/records/accounting")
@@ -77,7 +80,22 @@ def declared(service):
         return []
     text = open(main, encoding="utf-8").read()
     paths = [found.group(1) for found in ENDPOINT.finditer(text)]
+    paths += [found.group(1) for found in MOUNTED.finditer(text)]
+    paths += [found.group(1) for found in MOUNTED_MOUNT.finditer(text)]
     return [path for path in paths if "{" not in path and path.rstrip("/") not in ("", "/health")]
+
+
+def parameterised(service):
+    """The paths a service publishes only with a parameter in them.
+
+    These cannot prove anything on their own - a shape is not an address - but a service that publishes nothing else
+    is not an empty service either, and calling it "no endpoints" would hide a real door.
+    """
+    main = os.path.join(REPO, service, "main.py")
+    if not os.path.isfile(main):
+        return []
+    text = open(main, encoding="utf-8").read()
+    return [m.group(1) for m in ENDPOINT.finditer(text) if "{" in m.group(1)]
 
 
 # Kept on purpose, not for want of routes: these directories are the Python side of a parity test that compares the old
@@ -95,6 +113,14 @@ LIVE_CONNECTIONS = {"message-bus-service", "websocket-service"}
 def verdict(service, gateway_path, routes):
     fixed = declared(service)
     if not fixed:
+        only = parameterised(service)
+        if only:
+            return {
+                "service": service,
+                "verdict": "parameterised only",
+                "fixed": 0,
+                "missing": only,
+            }
         return {"service": service, "verdict": "no endpoints", "fixed": 0, "missing": []}
     prefix = gateway_path.rstrip("/")
 
@@ -138,7 +164,8 @@ def survey(wanted_domains):
         domain = owners.get(name, "(unowned)")
         if wanted_domains and domain not in wanted_domains:
             continue
-        if not os.path.isdir(os.path.join(REPO, name)):
+        # a retired service has no main.py left; a leftover __pycache__ directory is not the service
+        if not os.path.isfile(os.path.join(REPO, name, "main.py")):
             continue  # already retired
         rows.append(verdict(name, entry["path"], routes) | {"domain": domain})
     return _without_shared_stripped_paths(rows, table)

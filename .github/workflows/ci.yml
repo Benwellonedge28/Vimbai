@@ -240,7 +240,6 @@ jobs:
           CORE_SERVICES=(
             "api-gateway"
             "identity-service"
-            "accounting-service"
             "finance-service"
           )
           # gateway/go holds the gateway's source; its image stays api-gateway.

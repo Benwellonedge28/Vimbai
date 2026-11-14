@@ -63,31 +63,6 @@ def analytics_client():
     return client
 
 
-class TestTreasuryCompliance:
-    def test_health(self, compliance_client):
-        resp = compliance_client.get("/")
-        assert resp.status_code == 200
-
-    def test_get_checks(self, compliance_client):
-        resp = compliance_client.get("/checks/comp-1")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["total"] >= 6  # 6 default checks
-        assert "compliance_rate" in data
-
-    def test_update_check_status(self, compliance_client):
-        checks = compliance_client.get("/checks/comp-1").json()
-        check_id = checks["checks"][0]["id"]
-        resp = compliance_client.put(f"/checks/{check_id}/status?status=non_compliant&remediation=Fix required")
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "non_compliant"
-
-    def test_compliance_report(self, compliance_client):
-        resp = compliance_client.get("/report/comp-1")
-        assert resp.status_code == 200
-        assert "compliance_rate" in resp.json()
-
-
 class TestTreasuryAnalytics:
     def test_health(self, analytics_client):
         resp = analytics_client.get("/")

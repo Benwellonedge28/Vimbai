@@ -655,14 +655,12 @@ services:
 - name: graphql-service
   domain: integrations
   target: rust/crates/platform/integrations
-  port: 8095
+  port: 8099
   gateway_path: /graphql
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
+  endpoints: []
 - name: ifrs-reporting-service
   domain: accounting
   target: rust/crates/domains/accounting
@@ -1291,17 +1289,12 @@ services:
 - name: treasury-compliance-service
   domain: treasury
   target: rust/crates/domains/treasury
-  port: 8135
+  port: 8099
   gateway_path: /treasury-compliance
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - GET /checks/{company_id}
-  - PUT /checks/{check_id}/status
-  - GET /report/{company_id}
+  records: false
+  endpoints: []
 - name: treasury-management-service
   domain: treasury
   target: rust/crates/domains/treasury

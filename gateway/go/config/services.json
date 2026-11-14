@@ -466,8 +466,8 @@
     {
       "name": "graphql-service",
       "path": "/graphql",
-      "url": "http://localhost:9013",
-      "port": 8095,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -990,8 +990,8 @@
     {
       "name": "treasury-compliance-service",
       "path": "/treasury-compliance",
-      "url": "http://localhost:9003",
-      "port": 8135,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

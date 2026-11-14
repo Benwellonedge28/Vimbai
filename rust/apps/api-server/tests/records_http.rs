@@ -2474,6 +2474,20 @@ async fn a_compliance_report_answers_over_http_and_says_when_checks_have_not_run
 }
 
 #[tokio::test]
+async fn the_compliance_checks_list_answers_at_the_address_the_service_published() {
+    let graph = Scripted::returning(vec![
+        json!({"id": "k-1", "company_id": "c-1", "status": "compliant"}),
+        json!({"id": "k-2", "company_id": "c-1", "status": "non_compliant"}),
+    ]);
+    let (status, body) = call_with(graph, "GET", "/treasury-compliance/checks/c-1", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["company_id"], json!("c-1"));
+    assert_eq!(body["total"], json!(2));
+    assert_eq!(body["compliant"], json!(1));
+    assert_eq!(body["compliance_rate"], json!(0.5));
+}
+
+#[tokio::test]
 async fn a_compliance_verdict_answers_over_http_for_a_check_the_caller_holds() {
     let graph = Scripted::queue(vec![
         vec![json!({"id": "k-1", "company_id": "c-1", "status": "pending_review"})],

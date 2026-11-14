@@ -57,14 +57,7 @@ jobs:
             SERVICES=(
               "api-gateway"
               "identity-service"
-              "accounting-service"
               "finance-service"
-              "multimodal-pipeline-service"
-              "banking-integration-service"
-              "supply-chain-service"
-              "fraud-detection-service"
-              "workflow-service"
-              "reporting-service"
             )
           fi
 
