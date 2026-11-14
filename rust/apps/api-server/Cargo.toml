@@ -67,13 +67,16 @@ capital_valuation = { package = "vimbai_capital_valuation", path = "../../crates
 variance = { package = "vimbai_variance", path = "../../crates/calculations/variance" }
 serde = { workspace = true }
 serde_json = { workspace = true }
-axum = "0.7"
+axum = { version = "0.7", features = ["ws"] }
 url = "2"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time"] }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
+# a real socket is the only honest way to test the socket door, so the test suite speaks the protocol itself
+tokio-tungstenite = "0.21"
+futures-util = { version = "0.3", default-features = false, features = ["std", "sink"] }
 
 [[bin]]
 name = "vimbai-api"

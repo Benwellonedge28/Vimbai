@@ -11,3 +11,7 @@ vimbai_common = { path = "../../common" }
 vimbai_store = { path = "../../adapters/database" }
 vimbai_webhooks = { path = "../webhooks" }
 serde_json = { workspace = true }
+tokio = { version = "1", features = ["sync", "rt", "time"] }
+# the fan-out across pods: one topic exchange, one queue per pod
+lapin = "2"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }

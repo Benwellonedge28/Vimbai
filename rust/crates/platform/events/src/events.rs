@@ -213,6 +213,9 @@ fn publish_one(
     now: &Value,
 ) -> Result<Value, StoreError> {
     let event = Records::new(graph, EVENT).create(scope, &event)?;
+    // the other pods hear about it too, which is what makes a client reachable wherever its socket is held. Handed off
+    // rather than waited on: the event is stored, and a broker that is down must never fail a publish.
+    crate::broker::to_broker(&carried_event(&event, scope));
     let dispatch = dispatch(graph, scope, &event, sender, now)?;
     Ok(json!({
         "status": "published",
@@ -220,6 +223,21 @@ fn publish_one(
         "event_type": text(&event, "type"),
         "dispatch": dispatch,
     }))
+}
+
+/// The event as the other pods should see it: the stored event with the Book it belongs to, because a pod receiving it
+/// has no request to read a scope from.
+fn carried_event(event: &Value, scope: &BookScope) -> Value {
+    let mut carried = event.clone();
+    if let Some(payload) = carried.get_mut("payload").and_then(Value::as_object_mut) {
+        payload
+            .entry("book_id")
+            .or_insert_with(|| json!(scope.book_id));
+        payload
+            .entry("user_id")
+            .or_insert_with(|| json!(scope.user_id));
+    }
+    carried
 }
 
 /// `POST /bus/events/publish`: publish a fully described event.

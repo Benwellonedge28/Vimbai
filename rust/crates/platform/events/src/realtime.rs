@@ -6,11 +6,9 @@
 //! sockets held for that Book - and it does so ONCE, because the same event can arrive twice (over the broker and over
 //! HTTP) and a client must not see it twice.
 //!
-//! What is ported is the door and the bookkeeping, not the sockets themselves. A socket is a live connection held by a
-//! process; this service answers requests. The platform's socket layer holds the connections and registers them as
-//! subscriptions here, which is what the counts are read from. Nothing registers any today, so the counts read zero and
-//! `delivered_to` answers zero - honestly, rather than an invented figure - until that layer writes them. Everything a
-//! client would see is decided here: the channel, the shape of the message, and whether a copy is a duplicate.
+//! The sockets are held open by this process ([`crate::sockets::hub`]) and written to directly, so `delivered_to` is the
+//! number of clients a message actually reached rather than an estimate: a broadcast to a channel nobody is listening on
+//! answers zero, and a message to a Book with three open clients answers three.
 //!
 //! Behaviours kept as shipped, each pinned by a test:
 //!
@@ -25,20 +23,17 @@
 //! * a broadcast names a channel outright and is counted whether or not anything is listening;
 //! * `messages_sent` counts MESSAGES, not events - one per listening socket - and lives on the store rather than in one
 //!   process's memory, so the figure a replica reports is the Book's own rather than its share of it;
-//! * the relay reads as disabled: this build holds no broker client, and saying `consuming` when nothing is consuming
-//!   would be the one lie the statistics could tell.
+//! * the relay reports what the broker consumer is doing - disabled when no broker was asked for, connecting, consuming,
+//!   or the reason it is in error - because a status that flatters the deployment is worse than no status.
 
 use std::collections::BTreeMap;
 
 use serde_json::{json, Value};
 
-use vimbai_common::clock;
-use vimbai_store::read::text;
+use vimbai_common::{clock, dates};
 use vimbai_store::{BookScope, Graph, RecordKind, Records, StoreError};
 
-/// One socket listening on one channel. The platform's socket layer writes these; nothing else should.
-pub const SUBSCRIPTION: RecordKind =
-    RecordKind::new("RealtimeSubscription", "OWNS_REALTIME_SUBSCRIPTION");
+use crate::sockets::{Hub, Relay};
 
 /// One event carried to a Book's sockets.
 pub const DELIVERY: RecordKind = RecordKind::new("RealtimeDelivery", "OWNS_REALTIME_DELIVERY");
@@ -136,23 +131,11 @@ fn already_carried(
     Ok(false)
 }
 
-/// How many sockets are listening on one channel.
-fn listeners(
-    graph: &(impl Graph + ?Sized),
-    scope: &BookScope,
-    channel: &str,
-) -> Result<i64, StoreError> {
-    Ok(Records::new(graph, SUBSCRIPTION)
-        .list(scope, 1000)?
-        .iter()
-        .filter(|held| held.get("channel").and_then(Value::as_str) == Some(channel))
-        .count() as i64)
-}
-
 /// Carry one bus event to the sockets of its own Book, answering how many were written to and on which channel.
 pub fn ingest(
     graph: &(impl Graph + ?Sized),
     scope: &BookScope,
+    sockets: &Hub,
     event: &Value,
     window: usize,
 ) -> Result<Value, StoreError> {
@@ -172,12 +155,13 @@ pub fn ingest(
 
     let mut message = normalise(event);
     if message["timestamp"].is_null() {
-        // a client is shown a moment; an event that stated none is stamped rather than shown an empty field
-        message["timestamp"] = json!(clock::moment());
+        // a client is shown a moment, and the shipped service wrote it as an instant (2026-11-13T10:00:00Z), not as a
+        // count of seconds: a client parsing a date must not be handed a number because this side stamped it
+        message["timestamp"] = json!(dates::written_at(clock::moment()));
     }
     // the Book is the scope's, never a field of its own: the store stamps it, and a record that named it again could
     // disagree with the scope it was written under
-    let reached = listeners(graph, scope, &channel)?;
+    let reached = sockets.send(&channel, &message) as i64;
     Records::new(graph, DELIVERY).create(
         scope,
         &json!({
@@ -200,13 +184,22 @@ pub fn ingest(
 pub fn broadcast(
     graph: &(impl Graph + ?Sized),
     scope: &BookScope,
+    sockets: &Hub,
     channel: &str,
     message: &Value,
 ) -> Result<Value, StoreError> {
     if channel.trim().is_empty() {
         return Err(StoreError::Invalid("a channel is required".into()));
     }
-    let reached = listeners(graph, scope, channel)?;
+    // a broadcast is named outright, so the client sees the shape the shipped service sent: the channel, the payload as
+    // data, when, and that it was a broadcast rather than a Book event
+    let wire = json!({
+        "channel": channel,
+        "data": message,
+        "timestamp": dates::written_at(clock::moment()),
+        "type": "broadcast",
+    });
+    let reached = sockets.send(channel, &wire) as i64;
     Records::new(graph, BROADCAST).create(
         scope,
         &json!({
@@ -217,6 +210,7 @@ pub fn broadcast(
             "timestamp": clock::moment(),
         }),
     )?;
+    // counted whether or not anything is listening, which is what the shipped service did
     Ok(json!({"channel": channel, "delivered_to": reached}))
 }
 
@@ -224,15 +218,12 @@ pub fn broadcast(
 pub fn channel_stats(
     graph: &(impl Graph + ?Sized),
     scope: &BookScope,
+    sockets: &Hub,
+    relay: &Relay,
 ) -> Result<Value, StoreError> {
-    let mut channels: BTreeMap<String, i64> = BTreeMap::new();
-    for held in Records::new(graph, SUBSCRIPTION).list(scope, 1000)? {
-        let channel = text(&held, "channel");
-        if channel.is_empty() {
-            continue;
-        }
-        *channels.entry(channel).or_insert(0) += 1;
-    }
+    // who is listening right now, from the sockets this process actually holds
+    let channels: BTreeMap<String, i64> = sockets.channels();
+    let connections = sockets.total();
 
     // messages, not events: one per listening socket at the moment it was carried
     let deliveries = Records::new(graph, DELIVERY).list(scope, 1000)?;
@@ -253,20 +244,24 @@ pub fn channel_stats(
 
     Ok(json!({
         "connections": channels,
-        "total_connections": channels.values().sum::<i64>(),
+        "total_connections": connections,
         "messages_sent": sent,
         "relay": {
-            // this build holds no broker client, so nothing is consuming and saying otherwise would be a lie
-            "status": "disabled",
-            "received": deliveries.len(),
-            "last_error": Value::Null
+            "status": relay.state().as_str(),
+            "received": relay.received(),
+            "last_error": relay.last_error().map(Value::String).unwrap_or(Value::Null)
         }
     }))
 }
 
 /// The health an operator asks for: what is on, and how many channels have sockets.
-pub fn health(graph: &(impl Graph + ?Sized), scope: &BookScope) -> Result<Value, StoreError> {
-    let counted = channel_stats(graph, scope)?;
+pub fn health(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    sockets: &Hub,
+    relay: &Relay,
+) -> Result<Value, StoreError> {
+    let counted = channel_stats(graph, scope, sockets, relay)?;
     Ok(json!({
         "status": "healthy",
         "service": "websocket-service",
@@ -300,13 +295,12 @@ mod tests {
         })
     }
 
-    fn listening(graph: &MemoryGraph, channel: &str, who: &str) {
-        Records::new(graph, SUBSCRIPTION)
-            .create(
-                &scope(),
-                &json!({"channel": channel, "connection_id": who, "opened_at": clock::moment()}),
-            )
-            .expect("a socket");
+    /// Hold a socket open on a channel and hand back what is written to it. Every test makes its own hub, so one
+    /// test's clients are never another's.
+    fn listening(sockets: &Hub, channel: &str) -> tokio::sync::mpsc::UnboundedReceiver<Value> {
+        let (out, into) = tokio::sync::mpsc::unbounded_channel();
+        sockets.open(channel, out);
+        into
     }
 
     #[test]
@@ -345,23 +339,32 @@ mod tests {
     #[test]
     fn only_the_books_own_listeners_are_reached() {
         let graph = MemoryGraph::new();
-        listening(&graph, "book:book-1", "socket-1");
-        listening(&graph, "book:book-2", "socket-2");
+        let sockets = Hub::new();
+        let mut one = listening(&sockets, "book:book-1");
+        let mut two = listening(&sockets, "book:book-2");
 
         let carried = ingest(
             &graph,
             &scope(),
+            &sockets,
             &event("evt-1", Some("book-1")),
             DEDUPE_WINDOW,
         )
         .expect("carried");
         assert_eq!(carried["channel"], json!("book:book-1"));
         assert_eq!(carried["delivered_to"], json!(1));
+        // the message is on the wire for this Book's client, and not for the other Book's
+        assert_eq!(
+            one.try_recv().expect("delivered")["event_id"],
+            json!("evt-1")
+        );
+        assert!(two.try_recv().is_err());
 
         // an event for the other Book reaches only that one's socket
         let theirs = ingest(
             &graph,
             &scope(),
+            &sockets,
             &event("evt-2", Some("book-2")),
             DEDUPE_WINDOW,
         )
@@ -371,6 +374,7 @@ mod tests {
         let none = ingest(
             &graph,
             &scope(),
+            &sockets,
             &event("evt-3", Some("book-9")),
             DEDUPE_WINDOW,
         )
@@ -381,25 +385,31 @@ mod tests {
     #[test]
     fn the_same_event_delivered_twice_is_carried_once() {
         let graph = MemoryGraph::new();
-        listening(&graph, "book:book-1", "socket-1");
+        let sockets = Hub::new();
+        let mut one = listening(&sockets, "book:book-1");
         let once = ingest(
             &graph,
             &scope(),
+            &sockets,
             &event("dup", Some("book-1")),
             DEDUPE_WINDOW,
         )
         .expect("carried");
         assert_eq!(once["delivered_to"], json!(1));
+        one.try_recv().expect("the first copy");
         // the second copy is dropped, and says so on the channel it would have used
         let twice = ingest(
             &graph,
             &scope(),
+            &sockets,
             &event("dup", Some("book-1")),
             DEDUPE_WINDOW,
         )
         .expect("carried");
         assert_eq!(twice["delivered_to"], json!(0));
         assert_eq!(twice["channel"], json!("book:book-1"));
+        // and the client never sees it a second time
+        assert!(one.try_recv().is_err());
 
         // one delivery is recorded, not two
         assert_eq!(
@@ -414,9 +424,10 @@ mod tests {
     #[test]
     fn the_window_of_what_was_seen_is_bounded() {
         let graph = MemoryGraph::new();
+        let sockets = Hub::new();
         // a window of two: the third event forgets the first, which may then be carried again
         for id in ["one", "two", "three"] {
-            ingest(&graph, &scope(), &event(id, Some("book-1")), 2).expect("carried");
+            ingest(&graph, &scope(), &sockets, &event(id, Some("book-1")), 2).expect("carried");
         }
         assert_eq!(
             Records::new(&graph, DELIVERY)
@@ -425,7 +436,8 @@ mod tests {
                 .len(),
             2
         );
-        let again = ingest(&graph, &scope(), &event("one", Some("book-1")), 2).expect("carried");
+        let again =
+            ingest(&graph, &scope(), &sockets, &event("one", Some("book-1")), 2).expect("carried");
         assert_eq!(again["channel"], json!("book:book-1"));
         assert_eq!(
             Records::new(&graph, DELIVERY)
@@ -439,10 +451,19 @@ mod tests {
     #[test]
     fn an_event_with_no_book_is_dropped_rather_than_guessed_at() {
         let graph = MemoryGraph::new();
-        listening(&graph, "book:book-1", "socket-1");
-        let dropped =
-            ingest(&graph, &scope(), &event("evt-1", None), DEDUPE_WINDOW).expect("dropped");
+        let sockets = Hub::new();
+        let mut one = listening(&sockets, "book:book-1");
+        let dropped = ingest(
+            &graph,
+            &scope(),
+            &sockets,
+            &event("evt-1", None),
+            DEDUPE_WINDOW,
+        )
+        .expect("dropped");
         assert_eq!(dropped, json!({"delivered_to": 0, "channel": Value::Null}));
+        // nothing reached the one socket that was listening
+        assert!(one.try_recv().is_err());
         // and nothing was recorded, so a later copy is not treated as a duplicate
         assert!(Records::new(&graph, DELIVERY)
             .list(&scope(), 100)
@@ -453,39 +474,73 @@ mod tests {
     #[test]
     fn a_broadcast_is_counted_and_the_statistics_agree() {
         let graph = MemoryGraph::new();
-        listening(&graph, "book:book-1", "socket-1");
-        listening(&graph, "book:book-1", "socket-2");
-        listening(&graph, "alerts", "socket-3");
+        let sockets = Hub::new();
+        let mut one = listening(&sockets, "book:book-1");
+        let mut two = listening(&sockets, "book:book-1");
+        let mut alerts = listening(&sockets, "alerts");
+        let relay = Relay::default();
 
         let carried = ingest(
             &graph,
             &scope(),
+            &sockets,
             &event("evt-1", Some("book-1")),
             DEDUPE_WINDOW,
         )
         .expect("carried");
         assert_eq!(carried["delivered_to"], json!(2));
-        let sent =
-            broadcast(&graph, &scope(), "alerts", &json!({"note": "hello"})).expect("broadcast");
-        assert_eq!(sent, json!({"channel": "alerts", "delivered_to": 1}));
-        // a channel with nothing listening is still a broadcast, and answers zero
-        let empty = broadcast(&graph, &scope(), "quiet", &json!({"note": "x"})).expect("broadcast");
-        assert_eq!(empty["delivered_to"], json!(0));
-        assert!(broadcast(&graph, &scope(), "  ", &json!({})).is_err());
+        // both of the Book's sockets were written to, and the alert listener was not
+        assert_eq!(one.try_recv().expect("first")["event_id"], json!("evt-1"));
+        assert_eq!(two.try_recv().expect("second")["event_id"], json!("evt-1"));
+        assert!(alerts.try_recv().is_err());
 
-        let counted = channel_stats(&graph, &scope()).expect("counted");
+        let sent = broadcast(
+            &graph,
+            &scope(),
+            &sockets,
+            "alerts",
+            &json!({"note": "hello"}),
+        )
+        .expect("broadcast");
+        assert_eq!(sent, json!({"channel": "alerts", "delivered_to": 1}));
+        // the client sees the shipped shape: the channel, the payload as data, when, and that it was a broadcast
+        let seen = alerts.try_recv().expect("the broadcast");
+        assert_eq!(seen["type"], json!("broadcast"));
+        assert_eq!(seen["channel"], json!("alerts"));
+        assert_eq!(seen["data"], json!({"note": "hello"}));
+        assert!(seen["timestamp"].is_string());
+
+        // a channel with nothing listening is still a broadcast, and answers zero
+        let empty = broadcast(&graph, &scope(), &sockets, "quiet", &json!({"note": "x"}))
+            .expect("broadcast");
+        assert_eq!(empty["delivered_to"], json!(0));
+        assert!(broadcast(&graph, &scope(), &sockets, "  ", &json!({})).is_err());
+
+        let counted = channel_stats(&graph, &scope(), &sockets, &relay).expect("counted");
         assert_eq!(counted["total_connections"], json!(3));
         assert_eq!(counted["connections"]["book:book-1"], json!(2));
         assert_eq!(counted["connections"]["alerts"], json!(1));
         // messages, not events: two sockets for the event, one socket for the alerts broadcast, and none for the quiet
         // one - three messages, where four events were counted
         assert_eq!(counted["messages_sent"], json!(3));
-        assert_eq!(counted["relay"]["received"], json!(1));
-        // nothing is consuming, so the relay says so rather than claiming to be
+        // the relay's own count is what the BROKER handed over, so it is zero while no broker is being consumed -
+        // reporting the number of deliveries instead would read as a fan-in that never happened
+        assert_eq!(counted["relay"]["received"], json!(0));
         assert_eq!(counted["relay"]["status"], json!("disabled"));
         assert!(counted["relay"]["last_error"].is_null());
 
-        let healthy = health(&graph, &scope()).expect("healthy");
+        // once a broker has handed two events over, the count is those two, and a failed attempt explains itself
+        relay.took_one();
+        relay.failed("broker refused the connection");
+        let after = channel_stats(&graph, &scope(), &sockets, &relay).expect("counted");
+        assert_eq!(after["relay"]["received"], json!(1));
+        assert_eq!(after["relay"]["status"], json!("error"));
+        assert_eq!(
+            after["relay"]["last_error"],
+            json!("broker refused the connection")
+        );
+
+        let healthy = health(&graph, &scope(), &sockets, &relay).expect("healthy");
         assert_eq!(healthy["status"], json!("healthy"));
         assert_eq!(healthy["service"], json!("websocket-service"));
     }
@@ -493,17 +548,25 @@ mod tests {
     #[test]
     fn one_books_counts_are_not_anothers() {
         let graph = MemoryGraph::new();
-        listening(&graph, "book:book-1", "socket-1");
+        let sockets = Hub::new();
+        listening(&sockets, "book:book-1");
+        let relay = Relay::default();
         ingest(
             &graph,
             &scope(),
+            &sockets,
             &event("evt-1", Some("book-1")),
             DEDUPE_WINDOW,
         )
         .expect("carried");
         // a different caller in a different Book sees nothing of it
-        let elsewhere =
-            channel_stats(&graph, &BookScope::new("user-2", "book-2")).expect("counted");
+        let elsewhere = channel_stats(
+            &graph,
+            &BookScope::new("user-2", "book-2"),
+            &sockets,
+            &relay,
+        )
+        .expect("counted");
         assert_eq!(elsewhere["total_connections"], json!(0));
         assert_eq!(elsewhere["messages_sent"], json!(0));
     }

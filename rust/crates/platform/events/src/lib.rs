@@ -5,9 +5,15 @@
 //!   record of every delivery attempt.
 //! * *websocket-service* ([`realtime`]): the last mile of the same stream - the channel a Book's events belong on, the
 //!   message a client sees, and one copy even when the same event arrives twice.
+//! * the sockets holding that last mile open ([`sockets`]): live connections are a process's own, so they are kept in
+//!   memory here rather than written to a Book, and every count the service reports is read from them.
+//! * the broker that makes one publish reach every pod ([`broker`]): a topic exchange where each pod declares its own
+//!   queue, so a client is reached wherever its socket is held - and a broker outage costs that reach, never a write.
 //!
 //! Reaching a subscriber is not this crate's job: the webhook crate's [`Sender`](vimbai_webhooks::webhooks::Sender)
 //! carries the request, so the fan-out can be checked without a network and prod still delivers for real.
 
+pub mod broker;
 pub mod events;
 pub mod realtime;
+pub mod sockets;

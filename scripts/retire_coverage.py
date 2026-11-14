@@ -103,11 +103,10 @@ def parameterised(service):
 # would delete the only thing that can prove the engine agrees. The survey says so instead of nagging.
 PARITY_ORACLES = set()
 
-# Kept because the Python process IS the capability, not a second copy of one. A broker holds live delivery and a
-# websocket service holds live sockets; the Rust side keeps the same records and says so plainly - its event relay
-# reports itself disabled because this build holds no broker client. Pointing these at the engine would answer the
-# addresses while losing the delivery behind them, which is worse than leaving them where they work.
-LIVE_CONNECTIONS = {"message-bus-service", "websocket-service"}
+# Was kept because the Python process IS the capability, not a second copy of one: a broker held live delivery and a
+# websocket service held live sockets. Both are now held by the engine itself - a real socket at /websocket/ws/{channel}
+# and a topic exchange where each pod declares its own queue - so the distinction no longer keeps anything on Python.
+LIVE_CONNECTIONS = set()
 
 
 def verdict(service, gateway_path, routes):

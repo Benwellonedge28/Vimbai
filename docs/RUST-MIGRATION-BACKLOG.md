@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 3 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 135 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 1 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 137 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -87,7 +87,7 @@ invoicing-service                              8099  routes=0   records=no  rust
 issued-share-capital-service                   8099  routes=0   records=no  rust http (no python source)
 job-costing-service                            8099  routes=0   records=no  rust http (no python source)
 lease-termination-service                      8099  routes=0   records=no  rust http (no python source)
-message-bus-service                            8097  routes=16  records=yes rust http
+message-bus-service                            8099  routes=0   records=no  rust http (no python source)
 mfa-auth-service                               9003  routes=0   records=no  rust http (no python source)
 multimodal-pipeline-service                    8099  routes=0   records=no  rust http (no python source)
 net-present-value-service                      8099  routes=0   records=no  rust http (no python source)
@@ -145,7 +145,7 @@ treasury-policy-service                        8099  routes=0   records=no  rust
 treasury-reporting-service                     8099  routes=0   records=no  rust http (no python source)
 treasury-risk-service                          8099  routes=0   records=no  rust http (no python source)
 webhook-service                                8099  routes=0   records=no  rust http (no python source)
-websocket-service                              8141  routes=4   records=no  rust http
+websocket-service                              8099  routes=0   records=no  rust http (no python source)
 workflow-service                               8099  routes=0   records=no  rust http (no python source)
 zero-based-budgeting-service                   8099  routes=0   records=no  rust http (no python source)
 zero-trust-data-service                        8099  routes=0   records=no  rust http (no python source)

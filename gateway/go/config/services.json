@@ -570,8 +570,8 @@
     {
       "name": "message-bus-service",
       "path": "/message-bus",
-      "url": "http://localhost:8097",
-      "port": 8097,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true
     },
     {
@@ -1038,8 +1038,8 @@
     {
       "name": "websocket-service",
       "path": "/websocket",
-      "url": "http://localhost:9013",
-      "port": 8141,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

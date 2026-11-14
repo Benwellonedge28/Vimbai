@@ -24,6 +24,7 @@ pub mod accounting_book;
 pub mod accounting_standards;
 pub mod outbound;
 pub mod records;
+pub mod sockets;
 
 pub type Calculator = fn(&Value) -> Result<Value, String>;
 
@@ -909,7 +910,51 @@ fn published(name: &'static str) -> axum::routing::MethodRouter<AppState> {
     )
 }
 
+/// Build the router and, when a broker was configured, start taking events off it.
+///
+/// The relay is started here rather than in `main` so that anything serving this router - the binary, a test harness, the
+/// on-device runtime - gets the same behaviour. With no broker asked for, nothing is started and the statistics say so.
 pub fn router() -> Router {
+    let graph = records::from_env();
+    start_broker(graph.clone());
+    routed(graph)
+}
+
+/// Start this pod's consumer: every event the bus publishes reaches this process's sockets from here.
+fn start_broker(graph: Option<records::GraphHandle>) {
+    let Some(url) = events::broker::url_from_env() else {
+        return;
+    };
+    let Some(graph) = graph else {
+        // with no store there is nothing to record deliveries against, so a broker would be carrying into thin air
+        return;
+    };
+    events::broker::start_consuming(url, move |event| {
+        let scope = store::BookScope::new(
+            event
+                .get("payload")
+                .and_then(|payload| payload.get("user_id"))
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("system"),
+            event
+                .get("payload")
+                .and_then(|payload| payload.get("book_id"))
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or(""),
+        );
+        // the same carry the delivery door performs, so a pod reached by the broker answers exactly as one reached over
+        // HTTP: one channel, one message shape, one copy per event even when both transports deliver it
+        let _ = events::realtime::ingest(
+            graph.as_ref(),
+            &scope,
+            events::sockets::hub(),
+            &event,
+            events::realtime::DEDUPE_WINDOW,
+        );
+    });
+}
+
+fn routed(graph: Option<records::GraphHandle>) -> Router {
     let state = AppState {
         calculators: Arc::new(calculators()),
     };
@@ -965,7 +1010,7 @@ pub fn router() -> Router {
         )
         .with_state(state);
     // the endpoints that own records need a caller, so they are a separate mount
-    match records::from_env() {
+    match graph {
         Some(graph) => calculations.merge(records::router(graph)),
         None => calculations,
     }

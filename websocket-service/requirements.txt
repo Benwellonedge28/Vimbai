@@ -1,5 +1,0 @@
-fastapi
-uvicorn
-pydantic
-structlog
-aio_pika>=9.4.0

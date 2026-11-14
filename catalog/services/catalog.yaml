@@ -772,28 +772,12 @@ services:
 - name: message-bus-service
   domain: events
   target: rust/crates/platform/events
-  port: 8097
+  port: 8099
   gateway_path: /message-bus
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /events/publish
-  - POST /events/{event_type}/publish
-  - POST /subscriptions
-  - GET /subscriptions
-  - GET /subscriptions/{subscription_id}
-  - DELETE /subscriptions/{subscription_id}
-  - GET /events
-  - GET /events/{event_id}/deliveries
-  - GET /events/{event_id}
-  - GET /event-types
-  - GET /metrics
-  - POST /trigger/journal-entry-created
-  - POST /trigger/budget-variance-alert
-  - POST /trigger/transaction-flagged
-  - POST /trigger/approval-requested
+  records: false
+  endpoints: []
 - name: mfa-auth-service
   domain: authentication
   target: rust/crates/platform/identity
@@ -1339,16 +1323,12 @@ services:
 - name: websocket-service
   domain: events
   target: rust/crates/platform/events
-  port: 8141
+  port: 8099
   gateway_path: /websocket
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /stats
-  - POST /events/ingest
-  - POST /broadcast/{channel}
+  endpoints: []
 - name: workflow-service
   domain: workflow
   target: rust/crates/domains/workflow

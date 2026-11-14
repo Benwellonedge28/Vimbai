@@ -1,5 +1,5 @@
-//! websocket-service over HTTP: a socket subscribes, a Book's event reaches only that Book's sockets, and the same
-//! event arriving twice is carried once.
+//! websocket-service over HTTP: a Book's event reaches only that Book's sockets, the same event arriving twice is
+//! carried once, and the statistics count messages rather than events.
 
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
@@ -56,37 +56,19 @@ fn event(id: &str, book: &str) -> Value {
 async fn an_event_reaches_only_its_books_sockets_and_only_once() {
     let router = router();
 
-    // two sockets on book-1's channel and one on book-2's
-    for (channel, socket) in [
-        ("book:book-1", "s1"),
-        ("book:book-1", "s2"),
-        ("book:book-2", "s3"),
-    ] {
-        let (status, _) = call(
-            &router,
-            Method::POST,
-            "/realtime-subscriptions",
-            "user-1",
-            Some(json!({"channel": channel, "connection_id": socket})),
-        )
-        .await;
-        assert_eq!(status, StatusCode::OK);
-    }
-    // a subscription with no channel is refused
-    let (status, _) = call(
-        &router,
-        Method::POST,
-        "/realtime-subscriptions",
-        "user-1",
-        Some(json!({"connection_id": "s4"})),
-    )
-    .await;
-    assert_ne!(status, StatusCode::OK);
+    // two sockets on book-1's channel and one on book-2's, held the way the socket door holds them
+    let sockets = events::sockets::hub();
+    let (out, mut first) = tokio::sync::mpsc::unbounded_channel();
+    let one = sockets.open("book:book-1", out);
+    let (out, _second) = tokio::sync::mpsc::unbounded_channel();
+    let two = sockets.open("book:book-1", out);
+    let (out, _third) = tokio::sync::mpsc::unbounded_channel();
+    let three = sockets.open("book:book-2", out);
 
     let (status, carried) = call(
         &router,
         Method::POST,
-        "/events/ingest",
+        "/websocket/events/ingest",
         "user-1",
         Some(event("evt-1", "book-1")),
     )
@@ -94,12 +76,17 @@ async fn an_event_reaches_only_its_books_sockets_and_only_once() {
     assert_eq!(status, StatusCode::OK, "{carried}");
     assert_eq!(carried["channel"], json!("book:book-1"));
     assert_eq!(carried["delivered_to"], json!(2));
+    // and the event was written to the wire for this Book's client, not merely counted
+    assert_eq!(
+        first.try_recv().expect("delivered")["event_id"],
+        json!("evt-1")
+    );
 
     // book-2's socket is untouched: its own event reaches one
     let (_, theirs) = call(
         &router,
         Method::POST,
-        "/events/ingest",
+        "/websocket/events/ingest",
         "user-1",
         Some(event("evt-2", "book-2")),
     )
@@ -110,7 +97,7 @@ async fn an_event_reaches_only_its_books_sockets_and_only_once() {
     let (_, twice) = call(
         &router,
         Method::POST,
-        "/events/ingest",
+        "/websocket/events/ingest",
         "user-1",
         Some(event("evt-1", "book-1")),
     )
@@ -122,7 +109,7 @@ async fn an_event_reaches_only_its_books_sockets_and_only_once() {
     let (_, nowhere) = call(
         &router,
         Method::POST,
-        "/events/ingest",
+        "/websocket/events/ingest",
         "user-1",
         Some(json!({"id": "evt-3", "payload": {}})),
     )
@@ -133,7 +120,7 @@ async fn an_event_reaches_only_its_books_sockets_and_only_once() {
     let (status, sent) = call(
         &router,
         Method::POST,
-        "/broadcast/book:book-1",
+        "/websocket/broadcast/book:book-1",
         "user-1",
         Some(json!({"note": "hello"})),
     )
@@ -141,21 +128,29 @@ async fn an_event_reaches_only_its_books_sockets_and_only_once() {
     assert_eq!(status, StatusCode::OK, "{sent}");
     assert_eq!(sent, json!({"channel": "book:book-1", "delivered_to": 2}));
 
-    let (status, counted) = call(&router, Method::GET, "/websocket-stats", "user-1", None).await;
+    let (status, counted) = call(&router, Method::GET, "/websocket/stats", "user-1", None).await;
     assert_eq!(status, StatusCode::OK, "{counted}");
     assert_eq!(counted["total_connections"], json!(3));
     assert_eq!(counted["connections"]["book:book-1"], json!(2));
     // messages, not events: two sockets for the book-1 event, one for the book-2 event, two for the broadcast
     assert_eq!(counted["messages_sent"], json!(5));
-    assert_eq!(counted["relay"]["received"], json!(2));
+    // the relay reports what the broker handed over, which is nothing while no broker is consumed
+    assert_eq!(counted["relay"]["received"], json!(0));
     assert_eq!(counted["relay"]["status"], json!("disabled"));
 
-    let (status, healthy) = call(&router, Method::GET, "/websocket-health", "user-1", None).await;
+    let (status, healthy) = call(&router, Method::GET, "/websocket", "user-1", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(healthy["service"], json!("websocket-service"));
 
     // another person's Book sees none of it
-    let (_, elsewhere) = call(&router, Method::GET, "/websocket-stats", "user-2", None).await;
-    assert_eq!(elsewhere["total_connections"], json!(0));
+    let (_, elsewhere) = call(&router, Method::GET, "/websocket/stats", "user-2", None).await;
     assert_eq!(elsewhere["messages_sent"], json!(0));
+
+    // a closed socket stops being counted and stops being written to
+    sockets.close(one);
+    sockets.close(two);
+    sockets.close(three);
+    assert_eq!(counted["total_connections"], json!(3));
+    let (_, after) = call(&router, Method::GET, "/websocket/stats", "user-1", None).await;
+    assert_eq!(after["total_connections"], json!(0));
 }

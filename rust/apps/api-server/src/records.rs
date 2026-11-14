@@ -12388,7 +12388,12 @@ async fn get_websocket_health(State(graph): GraphState, headers: HeaderMap) -> R
         Ok(scope) => scope,
         Err(response) => return *response,
     };
-    answer(events::realtime::health(graph.as_ref(), &scope))
+    answer(events::realtime::health(
+        graph.as_ref(),
+        &scope,
+        events::sockets::hub(),
+        events::sockets::relay(),
+    ))
 }
 
 async fn get_websocket_stats(State(graph): GraphState, headers: HeaderMap) -> Response {
@@ -12396,33 +12401,12 @@ async fn get_websocket_stats(State(graph): GraphState, headers: HeaderMap) -> Re
         Ok(scope) => scope,
         Err(response) => return *response,
     };
-    answer(events::realtime::channel_stats(graph.as_ref(), &scope))
-}
-
-async fn post_realtime_subscription(
-    State(graph): GraphState,
-    headers: HeaderMap,
-    RawQuery(query): RawQuery,
-    payload: Option<Json<Value>>,
-) -> Response {
-    let scope = match scope_of(&headers) {
-        Ok(scope) => scope,
-        Err(response) => return *response,
-    };
-    let asked = merged_request(payload, query.as_deref());
-    let channel = store::read::required(&asked, "channel");
-    let channel = match channel {
-        Ok(channel) => channel.to_owned(),
-        Err(error) => return answer(Err(error)),
-    };
-    let connection = store::read::or_default(&asked, "connection_id", "socket");
-    answer(
-        store::Records::new(graph.as_ref(), events::realtime::SUBSCRIPTION).create(
-            &scope,
-            &json!({"channel": channel, "connection_id": connection,
-                    "opened_at": common::clock::moment()}),
-        ),
-    )
+    answer(events::realtime::channel_stats(
+        graph.as_ref(),
+        &scope,
+        events::sockets::hub(),
+        events::sockets::relay(),
+    ))
 }
 
 async fn post_event_ingest(
@@ -12445,6 +12429,7 @@ async fn post_event_ingest(
     answer(events::realtime::ingest(
         graph.as_ref(),
         &scope,
+        events::sockets::hub(),
         &asked,
         window,
     ))
@@ -12465,6 +12450,7 @@ async fn post_channel_broadcast(
     answer(events::realtime::broadcast(
         graph.as_ref(),
         &scope,
+        events::sockets::hub(),
         &channel,
         &asked,
     ))
@@ -17455,15 +17441,18 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         )
         .route("/pos-integration/metrics", get(get_pos_metrics))
 
-        // websocket: the last mile of the Book event stream
-        .route("/websocket-health", get(get_websocket_health))
-        .route("/websocket-stats", get(get_websocket_stats))
+        // websocket: the last mile of the Book event stream, at the addresses the shipped service published. The gateway
+        // forwards this service's prefix unchanged (strip_prefix is off), so a client calls /websocket/ws/{channel} and
+        // the engine answers there rather than at an address only the engine knows.
+        .route("/websocket/ws/:channel", get(crate::sockets::socket))
+        .route("/websocket", get(get_websocket_health))
+        .route("/websocket/", get(get_websocket_health))
+        .route("/websocket/stats", get(get_websocket_stats))
+        .route("/websocket/events/ingest", post(post_event_ingest))
         .route(
-            "/realtime-subscriptions",
-            post(post_realtime_subscription),
+            "/websocket/broadcast/:channel",
+            post(post_channel_broadcast),
         )
-        .route("/events/ingest", post(post_event_ingest))
-        .route("/broadcast/:channel", post(post_channel_broadcast))
 
         // admin: the feature catalogue, organisation configuration, rollouts, requests, configuration and the trail
         .route("/features", get(get_features))

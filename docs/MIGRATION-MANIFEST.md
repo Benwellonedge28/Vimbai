@@ -306,8 +306,8 @@ Lands in `rust/crates/platform/events`.
 
 ```
 service                                         port  routes  records  engine
-message-bus-service                             8097      16      yes  rust
-websocket-service                               8141       4       no  rust
+message-bus-service                             8099       0       no  rust
+websocket-service                               8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

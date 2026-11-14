@@ -37,8 +37,6 @@ jobs:
         include:
           - group: standalone-containers
             services: "identity-service "
-          - group: platform-infrastructure
-            services: "message-bus-service  "
 
     steps:
       - uses: actions/checkout@v4
