@@ -16,8 +16,11 @@ use crate::catalog::{self, Row};
 
 /// The store's own work: the record shapes, the Book scoping, the driver and the helpers their tests use. Nothing here
 /// computes a business figure.
-const STORE_MODULES: [&str; 13] = [
+const STORE_MODULES: [&str; 14] = [
     "amounts.rs",
+    // which store a deployment opens, decided once so the engine and the worker cannot each read the environment their own
+    // way - machinery about where records live, which is the store's business
+    "choose.rs",
     // the columns every backend indexes a record by, shared so two of them cannot disagree
     "columns.rs",
     // moving records between stores: machinery about where a record lives, which is the store's business and not a
@@ -39,8 +42,9 @@ const STORE_MODULES: [&str; 13] = [
 ];
 
 /// The modules the store's `lib.rs` may declare: the same machinery under its module names.
-const STORE_DECLARATIONS: [&str; 12] = [
+const STORE_DECLARATIONS: [&str; 13] = [
     "amounts",
+    "choose",
     "columns",
     "dump",
     "fake",

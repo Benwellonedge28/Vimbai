@@ -327,3 +327,54 @@ fn each_gate_reads_something_before_it_passes() {
         "the engine scan found almost no routes"
     );
 }
+
+/// One answer to "which store is this deployment using".
+///
+/// The engine preferred Postgres while the worker only knew a file or Neo4j, so beside a Postgres engine the worker started
+/// with no store and ran nobody's rules. The choice lives in `store::choose` now; this fails if a second copy grows back
+/// anywhere else, because the next copy would drift the same way.
+#[test]
+fn only_the_store_chooses_which_deployment_store_to_open() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let mut readers = Vec::new();
+    let mut stack = vec![root.join("rust/crates"), root.join("rust/apps")];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if path.file_name().and_then(|name| name.to_str()) == Some("target") {
+                    continue;
+                }
+                stack.push(path);
+            } else if path.extension().and_then(|kind| kind.to_str()) == Some("rs") {
+                let Ok(text) = std::fs::read_to_string(&path) else {
+                    continue;
+                };
+                // a test may name the variable; shipped code may not read it twice
+                let shipped = !path.to_string_lossy().contains("/tests/");
+                if shipped && text.contains("VIMBAI_POSTGRES_URL") {
+                    readers.push(
+                        path.strip_prefix(&root)
+                            .unwrap_or(&path)
+                            .display()
+                            .to_string(),
+                    );
+                }
+            }
+        }
+    }
+    let allowed = "rust/crates/adapters/database/src/choose.rs";
+    // the store crate owns the variable: it is the thing that opens a database, and its backend names the setting it needs.
+    // Nothing outside the store may read it - not the engine, not the worker, not a gate.
+    readers.retain(|reader| !reader.starts_with("rust/crates/adapters/database/"));
+    assert!(
+        readers.is_empty(),
+        "only the store crate may read VIMBAI_POSTGRES_URL; found it in {readers:?}"
+    );
+    // the scan has to have found the one place, or it passes over an empty set
+    let chosen = std::fs::read_to_string(root.join(allowed)).expect("the one place");
+    assert!(chosen.contains("VIMBAI_POSTGRES_URL"));
+}

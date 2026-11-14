@@ -14,6 +14,12 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- The worker runs the rules a Postgres deployment holds. It knew a store file and Neo4j, while the engine had already moved
+  to preferring Postgres (ADR-007), so beside a Postgres engine the worker started with no store at all and ran nobody's
+  schedules - a deployment where the automations quietly stop. "Which store" lives in one place now (`store::choose`), asked
+  by every binary that opens one, and a gate fails if a second copy grows back anywhere outside the store crate. The worker's
+  half is proven over a real Postgres with Neo4j pointed at a dead address, so a passing run cannot be Neo4j's doing: one
+  overdue rule is claimed, run and recorded, and a second pass finds it done instead of posting twice.
 - A walk through a Book's list returns each record once, whoever is listing. The first page of a walk was windowed from the
   handler's own order while every page after it was seeked in id order, so when the two orders disagreed the continuation
   either repeated a row it had already sent or stepped over one it never had - intermittent by nature, because it depended

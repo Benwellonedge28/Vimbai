@@ -12,6 +12,12 @@ Configuration: `VIMBAI_STORE_FILE` (the file the on-device runtime writes, chose
 `VIMBAI_NEO4J_URL` with `VIMBAI_NEO4J_USER` and `VIMBAI_NEO4J_PASSWORD`. `VIMBAI_WORKER_INTERVAL_SECONDS` sets the pause
 between passes (default 60). A worker with no store says so and exits rather than looking healthy.
 
+The store is chosen in one place, `store::choose::deployment_from_env`, and the worker asks the same function the engine asks:
+`VIMBAI_STORE_FILE` for a single machine, then `VIMBAI_POSTGRES_URL` for a deployment, then Neo4j for anyone still running
+it. It used to make that choice itself and know only the file and Neo4j, which meant that beside a Postgres engine - the
+default since ADR-007 - the worker started with no store and ran nobody's schedules while looking healthy enough to deploy.
+A gate in `repository_rules.rs` fails if a second copy of that choice grows back outside the store crate.
+
 ## Running a rule exactly once
 
 A worker can be stopped between claiming a run and recording that it finished: a redeploy, a full disk, a container that

@@ -30,8 +30,8 @@ fn store_from_env() -> Option<GraphHandle> {
             }
         };
     }
-    match store::Neo4jGraph::from_env() {
-        Ok(graph) => Some(Arc::new(graph) as GraphHandle),
+    match store::choose::deployment_from_env() {
+        Ok(graph) => Some(graph),
         Err(error) => {
             eprintln!("no store configured: {error}");
             None

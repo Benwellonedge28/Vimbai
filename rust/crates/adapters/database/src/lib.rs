@@ -25,6 +25,8 @@
 use serde_json::{json, Map, Value};
 
 pub mod amounts;
+/// Which store a deployment is configured for - one answer, asked for by every binary.
+pub mod choose;
 /// Moving records between stores: the thing that makes the store trait worth having.
 pub(crate) mod columns;
 pub mod dump;
