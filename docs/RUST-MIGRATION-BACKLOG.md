@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 10 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 128 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 8 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 130 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -21,13 +21,13 @@ absorption-costing-statement-service           8099  routes=0   records=no  rust
 accounting-service                             8099  routes=0   records=no  rust http (no python source)
 accounting-standards-service                   8095  routes=0   records=no  rust http (no python source)
 activity-based-budget-service                  8099  routes=0   records=no  rust http (no python source)
-admin-service                                  8099  routes=27  records=yes rust http
+admin-service                                  8099  routes=0   records=no  rust http (no python source)
 alerts-service                                 8099  routes=0   records=no  rust http (no python source)
 appropriation-control-service                  8099  routes=0   records=no  rust http (no python source)
 audit-compliance-service                       8099  routes=0   records=no  rust http (no python source)
 audit-sampling-service                         8099  routes=0   records=no  rust http (no python source)
 authorized-share-capital-service               8099  routes=0   records=no  rust http (no python source)
-automation-engine-service                      8000  routes=10  records=yes rust http
+automation-engine-service                      8000  routes=0   records=no  rust http (no python source)
 bad-debts-recovery-service                     8099  routes=0   records=no  rust http (no python source)
 balance-sheet-service                          8099  routes=0   records=no  rust http (no python source)
 bank-feed-service                              8097  routes=0   records=no  rust http (no python source)

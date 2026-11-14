@@ -49,7 +49,7 @@ Lands in `rust/crates/platform/admin`.
 
 ```
 service                                         port  routes  records  engine
-admin-service                                   8099      27      yes  rust
+admin-service                                   8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -138,7 +138,7 @@ Lands in `rust/crates/domains/automation`.
 
 ```
 service                                         port  routes  records  engine
-automation-engine-service                       8000      10      yes  rust
+automation-engine-service                       8000       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

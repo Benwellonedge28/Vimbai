@@ -42,7 +42,7 @@ jobs:
             "fraud-detection-service"
             "workflow-service"
             "reporting-service"
-            "automation-engine-service"
+            ""
             "alerts-service"
           )
           # The gateway's source lives at gateway/go, but its image and deployment are

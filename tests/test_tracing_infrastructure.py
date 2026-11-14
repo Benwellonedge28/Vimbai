@@ -13,7 +13,6 @@ REPO_ROOT = Path(__file__).parent.parent
 CORE_SERVICES = [
     "identity-service",
     "finance-service",
-    "automation-engine-service",
 ]
 
 

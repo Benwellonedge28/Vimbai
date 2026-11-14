@@ -12,15 +12,5 @@ services:
   gateway_path: /automation
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /rules
-  - GET /rules
-  - GET /rules/{rule_id}
-  - DELETE /rules/{rule_id}
-  - POST /rules/{rule_id}/toggle
-  - POST /execute/{rule_id}
-  - GET /executions
-  - GET /executions/{execution_id}
+  records: false
+  endpoints: []

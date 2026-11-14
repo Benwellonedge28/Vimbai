@@ -17435,6 +17435,17 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
 
         // admin: the feature catalogue, organisation configuration, rollouts, requests, configuration and the trail
         .route("/features", get(get_features))
+        // admin and the automation engine each publish an address the engine answers under another name already:
+        // the categories a feature is filed under, and the runs a rule has been through.
+        .route("/admin/features/categories", get(get_feature_categories))
+        .route("/features/categories", get(get_feature_categories))
+        .route("/automation/executions", get(get_automation_runs))
+        .route(
+            "/automation/executions/:execution_id",
+            get(get_automation_run),
+        )
+        .route("/executions", get(get_automation_runs))
+        .route("/executions/:execution_id", get(get_automation_run))
         .route("/feature-categories", get(get_feature_categories))
         .route(
             "/features/:feature_id",
@@ -17555,6 +17566,20 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(get_automation).delete(delete_automation),
         )
         .route("/automation-rules/:id/toggle", post(toggle_automation))
+        // the engine's clients call the same rules under /automation, which is the prefix the service published
+        .route(
+            "/automation/rules",
+            get(get_automations).post(post_automation),
+        )
+        .route(
+            "/automation/rules/:id",
+            get(get_automation).delete(delete_automation),
+        )
+        .route("/automation/rules/:id/toggle", post(toggle_automation))
+        .route("/automation/rules/:id/execute", post(post_automation_run))
+        // the service published the run door by rule id, which is the same handler
+        .route("/automation/execute/:rule_id", post(post_automation_run))
+        .route("/execute/:rule_id", post(post_automation_run))
         .route("/automation-rules/:id/execute", post(post_automation_run))
         .route("/automation-executions", get(get_automation_runs))
         .route(
