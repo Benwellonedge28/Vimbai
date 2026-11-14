@@ -275,7 +275,7 @@ realtime-calculation-engine                  /realtime-calculation              
 service                                      address                            eps  owns engine crate
 privacy-admin-dashboard-service              /privacy-admin-dashboard             0  -    rust   rust/crates/domains/compliance
 regulatory-compliance-service                /regulatory-compliance               0  -    rust   rust/crates/domains/compliance
-risk-assessment-service                      /risk-assessment                     6  recs rust   rust/crates/domains/compliance
+risk-assessment-service                      /risk-assessment                     0  -    rust   rust/crates/domains/compliance
 sox-compliance-service                       /sox-compliance                      0  -    rust   rust/crates/domains/compliance
 ```
 
@@ -283,7 +283,7 @@ sox-compliance-service                       /sox-compliance                    
 | --- | --- | --- |
 | `privacy-admin-dashboard-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `regulatory-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `risk-assessment-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `risk-assessment-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `sox-compliance-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## costing — 9/9 on Rust

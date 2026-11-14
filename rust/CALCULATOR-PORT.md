@@ -1680,6 +1680,18 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   never matched /npo/donations/. Fixed in scripts/retire_coverage.py, which now tolerates the slash on both sides. Every
   other service's verdict was re-read after the fix; the only one that changed was npo-service.
 
+- risk-assessment-service is retired too. Its register answers at the addresses it always published -
+  /risk-assessment/risks, /risk-assessment/risks/{id} (a company on a read, a risk on a write) and
+  /risk-assessment/dashboard/{company} - so no client URL moved when the gateway was repointed. The contract the Python
+  suite carried now lives in rust/apps/api-server/tests/compliance_http.rs: create and score, filter by category and by
+  level, reassess with a mitigation and a new status, the dashboard, the empty dashboard, close, the refusal of a ninth
+  category, and a call through the prefixed address. What stayed in tests/test_risk_services.py is the deduplication
+  guard for the three clones that must never be routed again.
+
+  Note for whoever retires the rest: the survey only counts FIXED paths, so its verdict on a service whose surface is
+  mostly parameterised is thin evidence. risk-assessment-service read as ready on the strength of one path while its
+  dashboard was still published at a different address. Check the parameterised paths by hand.
+
 ## Divergences worth knowing
 
 The last V1.5 shape question is settled, and it was two different things wearing one name. The design's

@@ -216,7 +216,7 @@ Lands in `rust/crates/domains/compliance`.
 service                                         port  routes  records  engine
 privacy-admin-dashboard-service                 8099       0       no  rust
 regulatory-compliance-service                   8099       0       no  rust
-risk-assessment-service                         8117       6      yes  rust
+risk-assessment-service                         8099       0       no  rust
 sox-compliance-service                          8099       0       no  rust
 ```
 

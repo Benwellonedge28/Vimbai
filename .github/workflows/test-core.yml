@@ -43,8 +43,6 @@ jobs:
             services: "automation-engine-service notifications-service admin-service "
           - group: platform-infrastructure
             services: "message-bus-service pos-integration-service "
-          - group: risk-governance
-            services: "risk-assessment-service "
           - group: treasury-banking
             services: "treasury-compliance-service bank-feed-service "
 

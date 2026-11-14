@@ -844,8 +844,8 @@
     {
       "name": "risk-assessment-service",
       "path": "/risk-assessment",
-      "url": "http://localhost:9005",
-      "port": 8117,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

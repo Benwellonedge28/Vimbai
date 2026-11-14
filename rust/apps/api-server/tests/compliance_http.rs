@@ -217,3 +217,112 @@ async fn a_risk_in_a_category_that_is_not_one_of_the_eight_is_refused() {
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
 }
+
+#[tokio::test]
+async fn risks_are_narrowed_by_category_and_by_level() {
+    let book = Book::new();
+    for (category, name, likelihood, impact) in
+        [("financial", "Currency", 2, 2), ("cyber", "Breach", 5, 5)]
+    {
+        let (status, body) = book
+            .call(
+                Method::POST,
+                "/risks",
+                json!({
+                    "company_id": "co-f",
+                    "category": category,
+                    "name": name,
+                    "likelihood": likelihood,
+                    "impact": impact,
+                    "today": "2026-03-01T09:00:00Z"
+                }),
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+    }
+
+    let (status, filtered) = book
+        .call(Method::GET, "/risks/co-f?category=financial", json!({}))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{filtered}");
+    assert_eq!(filtered["total"], json!(1));
+    assert_eq!(filtered["risks"][0]["name"], json!("Currency"));
+
+    let (status, by_level) = book
+        .call(Method::GET, "/risks/co-f?level=critical", json!({}))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{by_level}");
+    assert_eq!(by_level["total"], json!(1));
+    assert_eq!(by_level["risks"][0]["name"], json!("Breach"));
+}
+
+#[tokio::test]
+async fn a_reassessment_carries_the_mitigation_and_the_new_status() {
+    let book = Book::new();
+    let (status, created) = book
+        .call(
+            Method::POST,
+            "/risks",
+            json!({
+                "company_id": "co-m",
+                "category": "compliance",
+                "name": "Filing deadline",
+                "likelihood": 2,
+                "impact": 2,
+                "today": "2026-03-01T09:00:00Z"
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{created}");
+    let risk_id = created["id"].as_str().expect("an id").to_string();
+
+    let (status, moved) = book
+        .call(
+            Method::PUT,
+            &format!("/risks/{risk_id}?likelihood=5&impact=5&mitigation=Fixed&status=mitigating"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{moved}");
+    assert_eq!(moved["risk_score"], json!(25));
+    assert_eq!(moved["level"], json!("critical"));
+    assert_eq!(moved["status"], json!("mitigating"));
+
+    let (status, listed) = book.call(Method::GET, "/risks/co-m", json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    assert_eq!(listed["risks"][0]["mitigation"], json!("Fixed"));
+    assert_eq!(listed["risks"][0]["status"], json!("mitigating"));
+}
+
+#[tokio::test]
+async fn the_register_answers_at_the_prefix_its_gateway_publishes() {
+    let book = Book::new();
+    let (status, created) = book
+        .call(
+            Method::POST,
+            "/risk-assessment/risks",
+            json!({
+                "company_id": "co-g",
+                "category": "operational",
+                "name": "Single supplier",
+                "likelihood": 4,
+                "impact": 4,
+                "today": "2026-03-01T09:00:00Z"
+            }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{created}");
+    assert_eq!(created["level"], json!("high"));
+
+    let (status, listed) = book
+        .call(Method::GET, "/risk-assessment/risks/co-g", json!({}))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    assert_eq!(listed["total"], json!(1));
+
+    let (status, board) = book
+        .call(Method::GET, "/risk-assessment/dashboard/co-g", json!({}))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{board}");
+    assert_eq!(board["total_risks"], json!(1));
+}

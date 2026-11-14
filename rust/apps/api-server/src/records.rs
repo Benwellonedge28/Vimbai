@@ -17496,6 +17496,17 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         // is a company on a read and a risk on a write
         .route("/risks/:id", get(list_risks).put(put_risk).delete(delete_risk))
         .route("/risk-dashboard/:company", get(get_risk_dashboard))
+        // risk-assessment-service published its register under the /risk-assessment prefix, dashboard and all. The
+        // engine answers those exact addresses too, so pointing the gateway at it changes no client's URL.
+        .route("/risk-assessment/risks", post(post_risk))
+        .route(
+            "/risk-assessment/risks/:id",
+            get(list_risks).put(put_risk).delete(delete_risk),
+        )
+        .route(
+            "/risk-assessment/dashboard/:company",
+            get(get_risk_dashboard),
+        )
 
         // reporting, automation and distribution
         .route(

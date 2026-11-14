@@ -26,18 +26,12 @@ services:
 - name: risk-assessment-service
   domain: compliance
   target: rust/crates/domains/compliance
-  port: 8117
+  port: 8099
   gateway_path: /risk-assessment
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - POST /risks
-  - GET /risks/{company_id}
-  - PUT /risks/{risk_id}
-  - GET /dashboard/{company_id}
-  - DELETE /risks/{risk_id}
+  records: false
+  endpoints: []
 - name: sox-compliance-service
   domain: compliance
   target: rust/crates/domains/compliance
