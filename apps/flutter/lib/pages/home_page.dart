@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:vimbai_mobile_client/services/auth_service.dart';
+import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 import 'package:vimbai_mobile_client/services/book_context.dart';
 import 'package:vimbai_mobile_client/models/book_models.dart';
 import 'package:vimbai_mobile_client/services/book_sync_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vimbai_mobile_client/pages/login_page.dart';
+import 'package:vimbai_mobile_client/features/authentication/presentation/login_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:vimbai_mobile_client/services/accounting_api_service.dart'; // NEW
 import 'package:vimbai_mobile_client/pages/multimodal_input_page.dart';

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vimbai_mobile_client/models/user.dart';
+import 'package:vimbai_mobile_client/features/authentication/models/user.dart';
 
 class UserLocalData {
   static const _userKey = 'currentUser';

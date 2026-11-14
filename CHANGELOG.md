@@ -16,6 +16,11 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
   and the domains, twelve tests including seeded property tests over random entry sets, plus parity fixtures recording
   the figures two retired Python services answered. `docs/compliance/financial-integrity.md` states each guarantee
   against the test that fails when it stops holding.
+- The Flutter feature-first migration started. Authentication - sign in, register, its service and the account it produces -
+  moved from `lib/pages`, `lib/services` and `lib/models` into `lib/features/authentication/` with every import rewritten.
+  A new gate (`cargo run -p xtask -- flutter`, six tests) fails if a dart file is added to one of the five layer folders
+  P7 empties, if the pinned baseline names a file that has since moved, or if any import names a file the app does not have
+  - which matters because there is no dart toolchain in CI to notice.
 - Opt-in cursor pagination. A list request carrying `limit` or `cursor` answers `items`, `has_more`, `next_cursor`,
   `count` and `total`, keeping the handler's own key for the rows when it had one; a request carrying neither answers the
   same shape it always did, so no client broke. A cursor the engine did not issue, or a nonsensical limit, answers 422.

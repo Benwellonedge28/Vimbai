@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:vimbai_mobile_client/services/auth_service.dart';
+import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 import 'package:vimbai_mobile_client/pages/home_page.dart';
-import 'package:vimbai_mobile_client/pages/register_page.dart';
+import 'package:vimbai_mobile_client/features/authentication/presentation/register_page.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 class LoginPage extends StatefulWidget {

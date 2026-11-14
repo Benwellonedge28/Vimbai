@@ -8,7 +8,7 @@
 
 use std::process::ExitCode;
 
-use xtask::{boundaries, catalog, domains, gateway, openapi, reachability};
+use xtask::{boundaries, catalog, domains, flutter, gateway, openapi, reachability};
 
 const USAGE: &str = "\
 xtask - repository tooling
@@ -94,6 +94,35 @@ fn main() -> ExitCode {
                 ExitCode::SUCCESS
             } else {
                 println!("domains: {} outstanding", found.len());
+                ExitCode::FAILURE
+            }
+        }
+        "flutter" => {
+            for feature in flutter::features(&root) {
+                println!(
+                    "feature {}: {}",
+                    feature.name,
+                    if feature.parts.is_empty() {
+                        "no parts yet".to_string()
+                    } else {
+                        feature.parts.join(", ")
+                    }
+                );
+            }
+            let left = flutter::leftovers(&root);
+            let found = flutter::findings(&root);
+            for finding in &found {
+                println!("{}: {}", finding.file, finding.detail);
+            }
+            println!(
+                "flutter: {} dart files, {} still in a layer folder, {} outstanding",
+                flutter::dart_files(&root).len(),
+                left.len(),
+                found.len()
+            );
+            if found.is_empty() {
+                ExitCode::SUCCESS
+            } else {
                 ExitCode::FAILURE
             }
         }

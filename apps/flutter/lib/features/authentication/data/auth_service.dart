@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:vimbai_mobile_client/models/user.dart';
+import 'package:vimbai_mobile_client/features/authentication/models/user.dart';
 import 'package:vimbai_mobile_client/services/api_client.dart';
 import 'package:vimbai_mobile_client/local_db/user_local_data.dart';
 import 'package:vimbai_mobile_client/config.dart';

@@ -12,7 +12,7 @@ import 'dart:convert';
 import 'package:vimbai_mobile_client/config.dart';
 import 'package:vimbai_mobile_client/services/api_client.dart';
 import 'package:vimbai_mobile_client/models/accounting_models.dart';
-import 'package:vimbai_mobile_client/services/auth_service.dart';
+import 'package:vimbai_mobile_client/features/authentication/data/auth_service.dart';
 import 'package:vimbai_mobile_client/local_db/database_helper.dart';
 import 'package:vimbai_mobile_client/services/book_context.dart';
 

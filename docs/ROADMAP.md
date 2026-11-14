@@ -276,8 +276,11 @@ Purpose: 58 dart files in five layer folders will not scale to 25 features.
 
 Tasks
 
-- P7.1 Prove the pattern on one feature: `apps/flutter/lib/features/payments` (the POS screens, not Vimbai Pay) with
-  `presentation/ application/ data/ models/` and its tests.
+- P7.1 Prove the pattern on one feature. **Corrected while starting it:** there are no POS or payment screens in the Flutter
+  app - `pos.rs` is the till on the engine side, and the client has no screen for it - so the first feature is
+  `apps/flutter/lib/features/authentication`, which is also first in the P7.2 order and is small enough to finish: sign in,
+  register, the account shape they produce. It holds `presentation/ data/ models/`; `application/` is where the sign-in
+  orchestration will live and is not claimed until it holds a file, because an empty folder is not tracked by git.
 - P7.2 Then migrate the remaining features in this order: authentication, organisations, books, accounting, reporting,
   and the rest. Behaviour-preserving moves, no redesigns in the same commit.
 - P7.3 `lib/core/` for api client, auth session, local database, offline manager, errors and logging; `lib/app/` for
@@ -413,7 +416,7 @@ Updated in the same commit that lands the work. `—` means not started.
 | P4 | Worker | done | `rust/apps/worker` (11 tests in `src/lib.rs`, 5 in `tests/offline.rs`); `docs/WORKER.md` |
 | P5 | Domain documentation | — | |
 | P6 | Contracts | done | `contracts/openapi/v1/` (6 hand-written + 31 generated); `openapi` / `openapi --check`; 5 tests; three policies + `request-conventions.md`; all eight ADR-004 conventions implemented - idempotency keys (8 tests) and opt-in cursor pagination (8 tests). **Open:** cursor pagination windows the answer rather than seeking in the store |
-| P7 | Flutter feature-first | — | |
+| P7 | Flutter feature-first | started | `cargo run -p xtask -- flutter` (6 tests): nothing may be added to a layer folder, the pinned `apps/flutter/migration-baseline.txt` must shrink as files move, every import must name a file the app has, and each feature reports only the parts that hold a file. **Done:** authentication (login, register, auth service, user) moved to `lib/features/authentication/`, 51 of 58 files still in layer folders. **Next:** organisations, books, accounting, reporting |
 | P8 | Data layer | blocked | needs decision 5.1 |
 | P9 | Sync server | — | |
 | P10 | Infrastructure | — | |
