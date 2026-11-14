@@ -8,25 +8,9 @@ services:
 - name: notifications-service
   domain: notifications
   target: rust/crates/platform/notifications
-  port: 8091
+  port: 8099
   gateway_path: /notifications
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /notifications
-  - POST /notifications/batch
-  - GET /notifications/{user_id}
-  - PUT /notifications/{notification_id}/read
-  - PUT /notifications/{user_id}/read-all
-  - DELETE /notifications/{notification_id}
-  - PUT /preferences/{user_id}
-  - GET /preferences/{user_id}
-  - GET /templates
-  - GET /templates/{template_name}
-  - POST /templates/{template_name}/send
-  - POST /workflow/{workflow_id}/notify
-  - POST /approval/{approval_id}/notify
-  - GET /stats
+  records: false
+  endpoints: []

@@ -244,36 +244,6 @@ class TestSalesVarianceService:
         assert data["items"][0]["sales_price_variance"] > 0
 
 
-class TestCacheService:
-    def setup_method(self):
-        self.client = TestClient(load_service_app("cache-service"))
-
-    def test_set_and_get(self):
-        self.client.post("/cache", json={"key": "test-key", "value": {"data": 42}, "ttl": 60})
-        resp = self.client.get("/cache/test-key")
-        data = resp.json()
-        assert data["found"] is True
-        assert data["value"]["data"] == 42
-
-    def test_miss_on_missing_key(self):
-        resp = self.client.get("/cache/nonexistent")
-        data = resp.json()
-        assert data["found"] is False
-
-    def test_delete(self):
-        self.client.post("/cache", json={"key": "del-key", "value": "x", "ttl": 60})
-        resp = self.client.delete("/cache/del-key")
-        assert resp.json()["deleted"] is True
-        resp = self.client.get("/cache/del-key")
-        assert resp.json()["found"] is False
-
-    def test_stats(self):
-        resp = self.client.get("/stats")
-        data = resp.json()
-        assert "cache_size" in data
-        assert "hit_rate_pct" in data
-
-
 class TestBusinessDocumentsService:
     def setup_method(self):
         self.client = TestClient(load_service_app("business-documents-service"))

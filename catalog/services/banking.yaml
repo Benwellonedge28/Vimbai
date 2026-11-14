@@ -67,28 +67,9 @@ services:
 - name: currency-service
   domain: banking
   target: rust/crates/domains/banking
-  port: 8092
+  port: 8099
   gateway_path: /currency
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /currencies
-  - GET /currencies/{code}
-  - POST /currencies
-  - PUT /currencies/{code}
-  - DELETE /currencies/{code}
-  - GET /rates
-  - GET /rates/latest
-  - GET /rates/{from_currency}/{to_currency}
-  - POST /rates
-  - PUT /rates/{from_currency}/{to_currency}
-  - POST /convert
-  - POST /convert/batch
-  - POST /triangulate
-  - GET /rates/history/{from_currency}/{to_currency}
-  - GET /format/{currency_code}/{amount}
-  - POST /validate-transaction
-  - POST /alerts/rate
-  - GET /stats
+  records: false
+  endpoints: []

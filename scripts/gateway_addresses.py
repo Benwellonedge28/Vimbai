@@ -9,6 +9,7 @@ Run it as a test: tests/test_gateway_addresses.py calls `audit()` and expects no
 import json, os, re, subprocess
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SERVICES = os.path.join(ROOT, "gateway", "go", "config", "services.json")
 API = os.path.join(ROOT, "rust", "apps", "api-server", "src")
 ENDPOINT = re.compile(r'@app\.(?:get|post|put|delete|patch)\(\s*[\'"]([^\'"]+)[\'"]')
 ROUTE = re.compile(r'\.route\(\s*"([^"]+)"')
@@ -102,6 +103,24 @@ def audit():
                 continue
             findings.append(f"{service}: {address} reaches nothing in the engine")
     return findings
+
+
+def stripped_collisions():
+    """Paths two engine-served services both claim once their gateway prefix is stripped.
+
+    With one engine holding every route, a stripped path is a single address: if two services both publish `/stats` and
+    both are stripped, one of them silently reads the other's handler. Requests still answer, which is why this needs
+    checking rather than trusting a green run. A service still on disk runs as its own backend, so its prefix may collide
+    freely; only engine-served services are compared.
+    """
+    table = json.load(open(SERVICES))
+    owners = {}
+    for entry in table["services"]:
+        if not entry.get("strip_prefix") or os.path.isdir(os.path.join(ROOT, entry["name"])):
+            continue
+        for path in {shape(p) for p in published(entry["name"])}:
+            owners.setdefault(path, set()).add(entry["name"])
+    return {path: sorted(names) for path, names in owners.items() if len(names) > 1}
 
 
 def stale_gaps():

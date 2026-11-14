@@ -44,7 +44,6 @@ jobs:
             "reporting-service"
             "automation-engine-service"
             "alerts-service"
-            "notifications-service"
           )
           # The gateway's source lives at gateway/go, but its image and deployment are
           # still named api-gateway: renaming those is a production change, not a

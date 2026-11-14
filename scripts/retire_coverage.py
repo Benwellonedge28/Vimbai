@@ -125,6 +125,46 @@ def survey(wanted_domains):
         if not os.path.isdir(os.path.join(REPO, name)):
             continue  # already retired
         rows.append(verdict(name, entry["path"], routes) | {"domain": domain})
+    return _without_shared_stripped_paths(rows, table)
+
+
+def _without_shared_stripped_paths(rows, table):
+    # read back through git: a retired service's main.py is only in history by the time this runs
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from gateway_addresses import published, shape
+
+    """A service cannot be called ready when its stripped path is another engine-served service's path.
+
+    The shape test asks whether the engine answers a fixed path. With one engine that is only half the question: it
+    answers the address exactly once, so if two stripped services publish `/summary/{company}` the second one's callers
+    read the first one's handler and get a 200 with the wrong figures. A ready service therefore also has to own every
+    path it would strip down to, and a service that shares one keeps its prefix instead.
+    """
+    already = {}  # paths claimed by services the engine already answers
+    for entry in table:
+        if not entry.get("strip_prefix"):
+            continue
+        if os.path.isdir(os.path.join(REPO, entry["name"])):
+            continue
+        for path in {shape(p) for p in published(entry["name"])}:
+            already.setdefault(path, set()).add(entry["name"])
+    claims = {}
+    for row in rows:
+        if row["verdict"] == "ready":
+            for path in {shape(p) for p in published(row["service"])}:
+                claims.setdefault(path, set()).add(row["service"])
+    for row in rows:
+        if row["verdict"] != "ready":
+            continue
+        shared = set()
+        for path in {shape(p) for p in published(row["service"])}:
+            others = (claims.get(path, set()) - {row["service"]}) | already.get(path, set())
+            if others:
+                shared.add("%s with %s" % (path, ", ".join(sorted(others))))
+        if shared:
+            row["verdict"] = "keep"
+            row["missing"] = sorted(shared)
+            row["prefix"] = "keep"
     return rows
 
 

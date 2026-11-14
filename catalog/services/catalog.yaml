@@ -438,19 +438,12 @@ services:
 - name: cache-service
   domain: cache
   target: rust/crates/platform/cache
-  port: 8000
+  port: 8099
   gateway_path: /cache
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - GET /cache/{key}
-  - POST /cache
-  - DELETE /cache/{key}
-  - DELETE /cache
-  - GET /stats
+  endpoints: []
 - name: capital-reconstruction-service
   domain: equity
   target: rust/crates/domains/equity
@@ -550,31 +543,12 @@ services:
 - name: currency-service
   domain: banking
   target: rust/crates/domains/banking
-  port: 8092
+  port: 8099
   gateway_path: /currency
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /currencies
-  - GET /currencies/{code}
-  - POST /currencies
-  - PUT /currencies/{code}
-  - DELETE /currencies/{code}
-  - GET /rates
-  - GET /rates/latest
-  - GET /rates/{from_currency}/{to_currency}
-  - POST /rates
-  - PUT /rates/{from_currency}/{to_currency}
-  - POST /convert
-  - POST /convert/batch
-  - POST /triangulate
-  - GET /rates/history/{from_currency}/{to_currency}
-  - GET /format/{currency_code}/{amount}
-  - POST /validate-transaction
-  - POST /alerts/rate
-  - GET /stats
+  records: false
+  endpoints: []
 - name: cvp-analysis-service
   domain: costing
   target: rust/crates/domains/costing
@@ -1005,28 +979,12 @@ services:
 - name: notifications-service
   domain: notifications
   target: rust/crates/platform/notifications
-  port: 8091
+  port: 8099
   gateway_path: /notifications
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /notifications
-  - POST /notifications/batch
-  - GET /notifications/{user_id}
-  - PUT /notifications/{notification_id}/read
-  - PUT /notifications/{user_id}/read-all
-  - DELETE /notifications/{notification_id}
-  - PUT /preferences/{user_id}
-  - GET /preferences/{user_id}
-  - GET /templates
-  - GET /templates/{template_name}
-  - POST /templates/{template_name}/send
-  - POST /workflow/{workflow_id}/notify
-  - POST /approval/{approval_id}/notify
-  - GET /stats
+  records: false
+  endpoints: []
 - name: npo-service
   domain: npo
   target: rust/crates/domains/npo

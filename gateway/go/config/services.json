@@ -179,8 +179,8 @@
     {
       "name": "cache-service",
       "path": "/cache",
-      "url": "http://localhost:9013",
-      "port": 8000,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -267,8 +267,8 @@
     {
       "name": "currency-service",
       "path": "/currency",
-      "url": "http://localhost:9003",
-      "port": 8092,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -601,8 +601,8 @@
     {
       "name": "notifications-service",
       "path": "/notifications",
-      "url": "http://localhost:9008",
-      "port": 8091,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

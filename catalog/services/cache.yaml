@@ -8,16 +8,9 @@ services:
 - name: cache-service
   domain: cache
   target: rust/crates/platform/cache
-  port: 8000
+  port: 8099
   gateway_path: /cache
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - GET /health
-  - GET /cache/{key}
-  - POST /cache
-  - DELETE /cache/{key}
-  - DELETE /cache
-  - GET /stats
+  endpoints: []

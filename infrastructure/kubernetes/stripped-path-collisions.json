@@ -1,0 +1,51 @@
+{
+  "_note": "Stripped paths two engine-served services both claim, so one of them reads the other's handler. Each is a wrong answer waiting to happen and is being closed by serving the losing service under its own prefix; the test fails if this list grows, and fails if a fixed one is left here.",
+  "collisions": {
+    "/control-account/summary": [
+      "purchases-ledger-control-service",
+      "sales-ledger-control-service"
+    ],
+    "/dashboard": [
+      "privacy-admin-dashboard-service",
+      "regulatory-compliance-service",
+      "sox-compliance-service"
+    ],
+    "/evaluate": [
+      "alerts-service",
+      "zero-trust-data-service"
+    ],
+    "/plans": [
+      "benefits-admin-service",
+      "subscription-plans-service"
+    ],
+    "/policies": [
+      "provision-bad-debts-service",
+      "zero-trust-data-service"
+    ],
+    "/reconcile": [
+      "bank-reconciliation-service",
+      "purchases-ledger-control-service",
+      "sales-ledger-control-service"
+    ],
+    "/report/{}": [
+      "audit-engagement-service",
+      "financial-integrity-service"
+    ],
+    "/reports": [
+      "control-account-reconciliation-service",
+      "report-automation-service"
+    ],
+    "/summary": [
+      "control-account-reconciliation-service",
+      "tax-compliance-service"
+    ],
+    "/summary/{}": [
+      "bank-relationship-service",
+      "expense-tracking-service"
+    ],
+    "/transactions": [
+      "purchases-ledger-control-service",
+      "sales-ledger-control-service"
+    ]
+  }
+}

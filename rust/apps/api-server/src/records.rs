@@ -18703,6 +18703,163 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/scenario-modeling/what-if/scenario/:scenario_id", get(what_if_for_scenario))
         .route("/scenario-modeling/sensitivity", post(run_model_sweep))
         .route("/scenario-modeling/compare", post(compare_model_scenarios))
+        .with_state(graph.clone())
+        .merge(published_prefix_aliases(graph))
+}
+
+/// The caller's own inbox, which is the same read as `get_inbox` without having to name yourself in the path.
+async fn get_my_inbox(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    RawQuery(query): RawQuery,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let user_id = scope.user_id.clone();
+    answer(notifications::notifications::inbox_of(
+        graph.as_ref(),
+        &scope,
+        &user_id,
+        &merged_request(None, query.as_deref()),
+    ))
+}
+
+/// One notice of the caller's own: the inbox holds one copy per recipient, so a notice that is not theirs is missing.
+async fn get_my_notification(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(notification_id): Path<String>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    let user_id = scope.user_id.clone();
+    match notifications::notifications::inbox_of(
+        graph.as_ref(),
+        &scope,
+        &user_id,
+        &json!({"include_read": true, "unread_only": false}),
+    ) {
+        Ok(inbox) => {
+            let found = inbox
+                .get("notifications")
+                .and_then(Value::as_array)
+                .and_then(|held| {
+                    held.iter()
+                        .find(|notice| {
+                            notice.get("id").and_then(Value::as_str) == Some(&notification_id)
+                        })
+                        .cloned()
+                });
+            match found {
+                Some(notice) => Json(notice).into_response(),
+                None => (
+                    StatusCode::NOT_FOUND,
+                    Json(json!({"detail": "Notification not found"})),
+                )
+                    .into_response(),
+            }
+        }
+        Err(error) => fail(error),
+    }
+}
+
+// --- the published addresses of three services whose flat paths another service already holds ---
+
+/// A service keeps its gateway prefix, and with one engine holding every route a stripped path can no longer be
+/// unique: `cache-service`, `currency-service` and `notifications-service` each publish `/stats`, and two of them
+/// publish `/templates`, which `report-automation-service` also answers. Rather than a stripped path reaching another
+/// domain's handler - silently answering the wrong service's numbers - each of them is served under its own prefix at
+/// exactly the addresses its clients already call.
+fn published_prefix_aliases(graph: GraphHandle) -> Router {
+    // Written as full addresses rather than nested routers: the address gate reads the routes out of this file, and a
+    // nested mount would be invisible to it - a path nobody can see is a path nobody can check.
+    Router::new()
+        .route(
+            "/currency/currencies",
+            get(get_currencies).post(post_currency),
+        )
+        .route(
+            "/currency/currencies/:code",
+            get(get_currency).put(put_currency).delete(delete_currency),
+        )
+        .route("/currency/rates", get(get_rates).post(post_rate))
+        .route("/currency/rates/latest", get(get_latest_rates))
+        .route(
+            "/currency/rates/history/:from_currency/:to_currency",
+            get(get_rate_history),
+        )
+        .route(
+            "/currency/rates/:from_currency/:to_currency",
+            get(get_one_rate).put(put_rate),
+        )
+        .route("/currency/convert", post(post_convert))
+        .route("/currency/convert/batch", post(post_convert_batch))
+        .route("/currency/triangulate", post(post_triangulate))
+        .route(
+            "/currency/format/:currency_code/:amount",
+            get(get_formatted_amount),
+        )
+        .route(
+            "/currency/validate-transaction",
+            post(post_validate_transaction),
+        )
+        .route("/currency/alerts/rate", post(post_rate_alert))
+        .route("/currency/stats", get(get_currency_stats))
+        .route(
+            "/cache/cache",
+            post(post_cache_entry).delete(delete_whole_cache),
+        )
+        .route(
+            "/cache/cache/:key",
+            get(get_cache_entry).delete(delete_cache_entry),
+        )
+        .route("/cache/stats", get(get_cache_stats))
+        .route(
+            "/notifications/notifications",
+            get(get_my_inbox).post(post_notification),
+        )
+        .route(
+            "/notifications/notifications/batch",
+            post(post_notifications_batch),
+        )
+        .route(
+            "/notifications/notifications/:id",
+            get(get_my_notification).delete(delete_one_notification),
+        )
+        .route(
+            "/notifications/notifications/:id/read",
+            put(put_notification_read),
+        )
+        .route(
+            "/notifications/notifications/:id/read-all",
+            put(put_notifications_read_all),
+        )
+        .route(
+            "/notifications/preferences/:user_id",
+            get(get_notification_preferences).put(put_notification_preferences),
+        )
+        .route("/notifications/templates", get(get_notification_templates))
+        .route(
+            "/notifications/templates/:name",
+            get(get_notification_template),
+        )
+        .route(
+            "/notifications/templates/:name/send",
+            post(post_notification_template_send),
+        )
+        .route(
+            "/notifications/workflow/:workflow_id/notify",
+            post(post_workflow_notify),
+        )
+        .route(
+            "/notifications/approval/:approval_id/notify",
+            post(post_approval_notify),
+        )
+        .route("/notifications/stats", get(get_notification_stats))
         .with_state(graph)
 }
 

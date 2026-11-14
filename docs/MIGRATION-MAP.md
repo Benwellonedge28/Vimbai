@@ -195,7 +195,7 @@ bank-feed-service                            /bank-feed                         
 bank-reconciliation-service                  /bank-reconciliation                 0  -    rust   rust/crates/domains/banking
 bank-relationship-service                    /bank-relationship                   0  -    rust   rust/crates/domains/banking
 banking-integration-service                  /banking-integration                 0  -    rust   rust/crates/domains/banking
-currency-service                             /currency                           19  recs rust   rust/crates/domains/banking
+currency-service                             /currency                            0  -    rust   rust/crates/domains/banking
 ```
 
 | service | proof today | retires when |
@@ -204,7 +204,7 @@ currency-service                             /currency                          
 | `bank-reconciliation-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `bank-relationship-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 | `banking-integration-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
-| `currency-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `currency-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## budgeting — 7/7 on Rust
 
@@ -241,7 +241,7 @@ zero-based-budgeting-service                 /zero-based-budgeting              
 
 ```text
 service                                      address                            eps  owns engine crate
-cache-service                                /cache                               7  -    rust   rust/crates/platform/cache
+cache-service                                /cache                               0  -    rust   rust/crates/platform/cache
 ```
 
 | service | proof today | retires when |
@@ -531,12 +531,12 @@ multimodal-pipeline-service                  /multimodal                        
 
 ```text
 service                                      address                            eps  owns engine crate
-notifications-service                        /notifications                      16  recs rust   rust/crates/platform/notifications
+notifications-service                        /notifications                       0  -    rust   rust/crates/platform/notifications
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `notifications-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `notifications-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## npo — 2/2 on Rust
 

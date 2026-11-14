@@ -155,7 +155,7 @@ bank-feed-service                               8097      23      yes  rust
 bank-reconciliation-service                     8099       0       no  rust
 bank-relationship-service                       8099       0       no  rust
 banking-integration-service                     8099       0       no  rust
-currency-service                                8092      19      yes  rust
+currency-service                                8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -187,7 +187,7 @@ Lands in `rust/crates/platform/cache`.
 
 ```
 service                                         port  routes  records  engine
-cache-service                                   8000       7       no  rust
+cache-service                                   8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
@@ -409,7 +409,7 @@ Lands in `rust/crates/platform/notifications`.
 
 ```
 service                                         port  routes  records  engine
-notifications-service                           8091      16      yes  rust
+notifications-service                           8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

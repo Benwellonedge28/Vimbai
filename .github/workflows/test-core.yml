@@ -38,9 +38,9 @@ jobs:
           - group: standalone-containers
             services: "identity-service finance-service budget-service "
           - group: advanced-accounting
-            services: "currency-service general-reserve-service "
+            services: "general-reserve-service "
           - group: platform-automation
-            services: "automation-engine-service notifications-service admin-service "
+            services: "automation-engine-service admin-service "
           - group: platform-infrastructure
             services: "message-bus-service pos-integration-service "
           - group: treasury-banking
