@@ -2,12 +2,11 @@
 resolver = "2"
 # native/ is its own workspace: it links against libpython and must not be
 # pulled into `cargo test --workspace` for the calculation crates.
-exclude = ["native"]
 members = [
     "crates/common",
     "apps/api-server",
     "crates/adapters/database",
-    "crates/adapters/python-bridge",
+    "crates/adapters/wire",
     "crates/domains/automation",
     "crates/domains/accounting",
     "crates/domains/budgeting",

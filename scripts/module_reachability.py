@@ -23,7 +23,7 @@ import os
 import re
 import sys
 
-DOORS = ("rust/apps", "rust/native", "rust/crates/adapters")
+DOORS = ("rust/apps", "rust/crates/adapters")
 
 
 def _crate_dir(path: str) -> str:

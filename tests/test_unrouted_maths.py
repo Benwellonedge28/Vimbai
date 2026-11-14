@@ -19,10 +19,17 @@ import module_reachability  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # service -> the module holding its maths, which the tracker says no door reaches.
-# Empty: every module the reachability script found unreachable now has a door.
 # A name here means the tracker still calls that maths unreachable, so the
 # reachability script must agree - the test fails if the module gains a door.
-UNROUTED = {}
+#
+# These three were reached only by the PyO3 extension, which is gone. They are not duplicates of what
+# the engine serves - progressive brackets and a tax provision are not tax::statutory - but nothing can
+# call them now, so they are a decision rather than a silent gap: give each a route, or delete it.
+UNROUTED = {
+    "corporate-tax-service": "tax::corporate",
+    "labour-variance-service": "cost_accounting::labour_variance",
+    "comparative-statements-service": "ratios_statements::comparative",
+}
 
 
 def _unreachable():
@@ -47,11 +54,11 @@ def test_the_checker_still_recognises_wired_maths():
     """If the checker broke, every module would look dead and the test above would pass for free."""
     dead = _unreachable()
     for module in (
-        "tax::corporate",
+        "tax::statutory",
         "treasury_fx::derivatives",
-        "cost_accounting::labour_variance",
+        "cost_accounting::standard_cost",
         "equity_payroll::payroll_accounting",
-        "ratios_statements::comparative",
+        "ratios_statements::variance",
         "service_treasury::cash_optimization",
         "capital_valuation::valuation",
         "ratios_statements::statements",

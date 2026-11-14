@@ -57,7 +57,7 @@ def survey():
         main = main_path.read_text()
         endpoints = re.findall(r'@app\.(?:get|post|put|delete|patch)\("([^"]+)"', main)
         ported = name in manifest_ported
-        engine = "native seam" if "vimbai_native" in main else ("rust http" if ported else "none")
+        engine = "rust http" if ported else "none"
         rows.append(
             {
                 "name": name,

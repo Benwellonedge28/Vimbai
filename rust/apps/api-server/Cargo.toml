@@ -55,7 +55,7 @@ performance_measures = { package = "vimbai_performance_measures", path = "../../
 treasury_fx = { package = "vimbai_treasury_fx", path = "../../crates/calculations/treasury_fx" }
 group_accounting = { package = "vimbai_group_accounting", path = "../../crates/calculations/group_accounting" }
 assurance = { package = "vimbai_assurance", path = "../../crates/calculations/assurance" }
-bridge = { package = "vimbai_bridge", path = "../../crates/adapters/python-bridge" }
+bridge = { package = "vimbai_bridge", path = "../../crates/adapters/wire" }
 tax = { package = "vimbai_tax", path = "../../crates/calculations/tax" }
 ifrs = { package = "vimbai_ifrs", path = "../../crates/calculations/ifrs" }
 reporting = { package = "vimbai_reporting", path = "../../crates/calculations/reporting" }

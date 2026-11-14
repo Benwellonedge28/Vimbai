@@ -1405,8 +1405,9 @@ These were listed as needing their maths ported, and their services were deleted
 not one backlog; they are two different situations, and telling them apart changes the work.
 
 `scripts/module_reachability.py` answers which Rust modules any door can reach. A door is the API
-server, the native extension, or the bridge they share - nothing else can call into the library. The
-script follows imports through crates, dependency renames (`use treasury::{...}` for
+server or the wire crate it shares - nothing else can call into the library, now that the extension
+that used to be a third door is gone. The script follows imports through crates, dependency renames
+(`use treasury::{...}` for
 `vimbai_service_treasury`) and re-exported functions (`assets::depreciation_batch_from_json`), because
 each of those looks unwired to a naive search.
 

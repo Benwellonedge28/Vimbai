@@ -25,9 +25,9 @@ jobs:
 
       - name: Verify safe Rust only (no unsafe blocks)
         run: |
-          # native/ is the one deliberate exception: PyO3 needs unsafe to cross
-          # the interpreter boundary, and it holds no financial logic.
-          ! grep -rnE 'unsafe(\s*\{|\s+(fn|impl|trait|extern))' rust --include="*.rs" --exclude-dir=native
+          # There is no exception any more. The PyO3 extension that needed unsafe to cross
+          # the interpreter boundary is gone, so every crate is held to this.
+          ! grep -rnE 'unsafe(\s*\{|\s+(fn|impl|trait|extern))' rust --include="*.rs"
 
       - name: Formatting
         run: cargo fmt --all -- --check
@@ -41,78 +41,3 @@ jobs:
         run: cargo test --workspace
         working-directory: rust
 
-  seam:
-    name: Python seam (maturin build, parity tests)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build and install the extension
-        run: |
-          python -m pip install --upgrade pip maturin pytest fastapi httpx pydantic structlog neo4j
-          maturin build --release -o dist
-          pip install dist/*.whl
-        working-directory: rust/native
-
-      - name: Seam unit tests
-        run: cargo test
-        working-directory: rust/native
-
-      - name: Parity with the Python services
-        run: python -m pytest tests/test_native_seam.py -q
-
-  publish-wheel:
-    name: Publish the calculation wheel
-    # manylinux_2_28 is what the runtime images can install; building it inside
-    # the maturin image avoids depending on the runner's glibc.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      # built inside the maturin image rather than on the runner, so the wheel
-      # is tagged for the glibc the runtime images carry, not the runner's.
-      #
-      # The image version is a Rust version: v1.7.4 carries Cargo 1.81, which
-      # cannot even parse a manifest written for edition 2024 - it failed on
-      # getrandom 0.4.3 with "feature `edition2024` is required" while every
-      # other job, on the runner's stable toolchain, built the same lock fine.
-      # v1.16.0 carries a current stable. The compatibility floor is passed
-      # explicitly so a future image bump cannot quietly raise it.
-      - name: Build the wheel
-        run: |
-          docker run --rm -v "$PWD:/work" -w /work/rust/native ghcr.io/pyo3/maturin:v1.16.0 \
-            build --release --compatibility manylinux_2_28 -o dist
-
-      - name: Attach it to the rolling release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="native-$(sed -n 's/^version = "\(.*\)"/\1/p' rust/native/Cargo.toml | head -1)"
-          gh release view "$TAG" >/dev/null 2>&1 || \
-            gh release create "$TAG" --title "Calculation wheel $TAG" \
-              --notes "vimbai_native, built from rust/native. Services install it with VIMBAI_NATIVE_WHEEL_URL."
-          # The tag carries one wheel and every push replaces it, so the old asset is
-          # deleted first. `--clobber` did that too, but when its delete raced the
-          # upload it failed the job with a 404 on a wheel that had built fine, so the
-          # steps are explicit here and a transient 404 is retried rather than fatal.
-          for wheel in rust/native/dist/*.whl; do
-            name=$(basename "$wheel")
-            gh release delete-asset "$TAG" "$name" --yes >/dev/null 2>&1 || true
-            for attempt in 1 2 3; do
-              gh release upload "$TAG" "$wheel" && break
-              echo "upload of $name failed (attempt $attempt), retrying"
-              sleep 5
-              gh release delete-asset "$TAG" "$name" --yes >/dev/null 2>&1 || true
-              test "$attempt" = 3 && exit 1
-            done
-          done

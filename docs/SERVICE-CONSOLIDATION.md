@@ -85,8 +85,8 @@ Everything below is the remaining plan.
 
 ## Move to the safe-Rust workspace
 
-These need no storage, so their maths belongs in `library/` crates behind the existing
-PyO3 seam (`VIMBAI_CALC_ENGINE`). Each list is already a crate or a new module in one.
+These need no storage, so their maths belongs in the Rust crates, and each list is already a crate
+or a new module in one.
 
 ### `reporting` - 15 services, 2874 LOC
 

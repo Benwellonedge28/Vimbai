@@ -12,11 +12,10 @@ The same calculations exist twice, in two crates, with two arithmetics:
 | calculation | exact, reachable over HTTP | float, reachable over the Python seam |
 | --- | --- | --- |
 
-Both sides are live, which is the problem. `/calc/<name>` calculators and the record-backed
-endpoints run on exact `Money`; the PyO3 seam that Python services and the parity tests call
-runs on `f64`. A rounding fix in one is not a fix in the other, and the two disagree on cents
-at large amounts - the ledger-core `py_round` bug in commit 3b6b419c was the same disagreement
-in miniature.
+That was the problem, and it is closed. `/calc/<name>` calculators and the record-backed endpoints
+run on exact `Money`, and the `f64` PyO3 seam that disagreed with them on cents went out with the
+Python services that called it, so each calculation has one implementation and one place to fix a
+rounding bug.
 
 ## Done as well: basis apportionment and process/product costing
 

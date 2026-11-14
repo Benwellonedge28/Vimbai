@@ -3,7 +3,7 @@ name = "vimbai_bridge"
 version = "0.1.0"
 edition = "2021"
 license = "Proprietary"
-description = "The JSON door onto the Vimbai calculation libraries, shared by the Python seam and the HTTP interface"
+description = "The JSON door onto the Vimbai calculation libraries: one shape per endpoint, the single wire source"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
