@@ -202,6 +202,37 @@ mod tests {
         assert!(params["props"]["cash_adequacy_days"].is_string());
     }
 
+    /// The figures the Python service answered, pinned here so the oracle can be deleted.
+    ///
+    /// Up to this test the Python service was the reference for these numbers: 500,000 of cash against 150,000 of
+    /// monthly burn is 100 days, and 30,000 of short-term debt against 200,000 of inflow is 15 per cent. Pinning them
+    /// against the Rust crate is what makes deleting the service a retirement rather than a guess.
+    #[test]
+    fn the_python_service_figures_are_reproduced_exactly() {
+        let graph = FakeGraph::returning(vec![json!({"x": {"id": "snap-1"}})]);
+        let out = analyze(
+            &graph,
+            &scope(),
+            &json!({
+                "company_id": "comp-1",
+                "total_cash": 500000,
+                "monthly_inflow": 200000,
+                "monthly_outflow": 150000,
+                "short_term_debt": 30000,
+                "total_debt": 100000,
+                "investments": 200000,
+                "fx_exposure": 50000,
+            }),
+        )
+        .unwrap();
+
+        // the wire keeps the storage scale, so 100 reads as 100.000000 - the same figure, and a caller comparing
+        // Decimals (which is what the Python test did) sees it equal
+        assert_eq!(out["cash_adequacy_days"], json!("100.000000"));
+        assert_eq!(out["debt_service_ratio"], json!("15.000000"));
+        assert!(out["kpis"].as_array().expect("kpis").len() >= 5);
+    }
+
     #[test]
     fn asking_before_analyzing_matches_the_old_nudge() {
         let graph = FakeGraph::returning(vec![]);

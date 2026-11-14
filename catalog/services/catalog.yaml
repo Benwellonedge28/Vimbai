@@ -1280,12 +1280,8 @@ services:
   gateway_path: /treasury-analytics
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /analyze
-  - GET /kpi/{company_id}
+  records: false
+  endpoints: []
 - name: treasury-compliance-service
   domain: treasury
   target: rust/crates/domains/treasury

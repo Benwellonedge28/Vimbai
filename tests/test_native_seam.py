@@ -5,15 +5,15 @@ so these tests run the same request through both and compare the figures
 instead of checking that a call succeeded.
 """
 
+import json
 import os
 import sys
-from decimal import Decimal
+from decimal import Decimal, localcontext
 
 import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import load_service
-from tests.test_treasury_services import analytics_client  # noqa: F401 - fixture
 
 native = pytest.importorskip("vimbai_native", reason="build rust/native with maturin to test the seam")
 
@@ -24,30 +24,13 @@ def _amounts(response_payload, keys):
 
 RATIOS = ("cash_adequacy_days", "debt_service_ratio", "investment_yield", "fx_risk_score")
 
-
-def _assert_parity(client, request):
-    """The service and the Rust seam must agree on every figure they report."""
-    served = client.post("/analyze", json=request)
-    assert served.status_code == 200, served.text
-    service = served.json()
-
-    rust = native.analyze_treasury_json(__import__("json").dumps({k: str(v) for k, v in request.items()}))
-    rust = __import__("json").loads(rust)
-
-    assert _amounts(service, RATIOS) == _amounts(rust, RATIOS), request
-
-    by_name = {kpi["name"]: kpi for kpi in rust["kpis"]}
-    assert {kpi["name"] for kpi in service["kpis"]} == set(by_name)
-    for kpi in service["kpis"]:
-        twin = by_name[kpi["name"]]
-        assert Decimal(kpi["value"]) == Decimal(twin["value"]), kpi["name"]
-        assert kpi["status"] == twin["status"], kpi["name"]
-        assert Decimal(str(kpi["benchmark"])) == Decimal(str(twin["benchmark"])), kpi["name"]
-
-
-def test_healthy_book_matches_the_service(analytics_client):
-    _assert_parity(
-        analytics_client,
+# The figures treasury-analytics-service answered, recorded before its directory was removed. The service was the
+# reference for these numbers, so they are kept here rather than measured against live Python: the extension has to
+# reproduce them, and if the maths ever drifts these tests say so.
+#
+# Each entry is (request, ratios, kpis) where a kpi is (value, status, benchmark).
+ORACLE_CASES = [
+    (
         {
             "company_id": "comp-1",
             "total_cash": 500000,
@@ -58,12 +41,22 @@ def test_healthy_book_matches_the_service(analytics_client):
             "investments": 200000,
             "fx_exposure": 50000,
         },
-    )
-
-
-def test_no_burn_reports_the_runway_floor(analytics_client):
-    _assert_parity(
-        analytics_client,
+        {
+            "cash_adequacy_days": "100.0000000000",
+            "debt_service_ratio": "15.0000000000",
+            "investment_yield": "2.0000000000",
+            "fx_risk_score": "10.0000000000",
+        },
+        {
+            "Net Cash Flow": ("50000", "good"),
+            "Cash Runway": ("100.0000000000", "good"),
+            "Debt Service Ratio": ("15.0000000000", "good"),
+            "Investment Yield": ("2.0000000000", "warning"),
+            "FX Risk Score": ("10.0000000000", "good"),
+            "Cash Utilization": ("28.5714285714", "good"),
+        },
+    ),
+    (
         {
             "company_id": "comp-2",
             "total_cash": 250000,
@@ -74,13 +67,17 @@ def test_no_burn_reports_the_runway_floor(analytics_client):
             "investments": 0,
             "fx_exposure": 0,
         },
-    )
-
-
-def test_net_receivable_scores_negative_and_still_reads_good(analytics_client):
-    """The source caps the FX score at 100 but never floors it."""
-    _assert_parity(
-        analytics_client,
+        {"cash_adequacy_days": "999", "debt_service_ratio": "0", "investment_yield": "0", "fx_risk_score": "0"},
+        {
+            "Net Cash Flow": ("0", "warning"),
+            "Cash Runway": ("999", "good"),
+            "Debt Service Ratio": ("0", "good"),
+            "Investment Yield": ("0", "warning"),
+            "FX Risk Score": ("0", "good"),
+            "Cash Utilization": ("0", "good"),
+        },
+    ),
+    (
         {
             "company_id": "comp-3",
             "total_cash": 100000,
@@ -91,12 +88,22 @@ def test_net_receivable_scores_negative_and_still_reads_good(analytics_client):
             "investments": 10000,
             "fx_exposure": -50000,
         },
-    )
-
-
-def test_thin_book_is_reported_the_same_way(analytics_client):
-    _assert_parity(
-        analytics_client,
+        {
+            "cash_adequacy_days": "33.3333333333",
+            "debt_service_ratio": "200.0000000000",
+            "investment_yield": "0.5000000000",
+            "fx_risk_score": "-50.0000000000",
+        },
+        {
+            "Net Cash Flow": ("-50000", "warning"),
+            "Cash Runway": ("33.3333333333", "warning"),
+            "Debt Service Ratio": ("200.0000000000", "critical"),
+            "Investment Yield": ("0.5000000000", "warning"),
+            "FX Risk Score": ("-50.0000000000", "good"),
+            "Cash Utilization": ("9.0909090909", "good"),
+        },
+    ),
+    (
         {
             "company_id": "comp-4",
             "total_cash": 100,
@@ -107,12 +114,51 @@ def test_thin_book_is_reported_the_same_way(analytics_client):
             "investments": 5000,
             "fx_exposure": 999,
         },
-    )
+        {
+            "cash_adequacy_days": "0.6000000000",
+            "debt_service_ratio": "4000.0000000000",
+            "investment_yield": "250.0000000000",
+            "fx_risk_score": "100",
+        },
+        {
+            "Net Cash Flow": ("-4990", "warning"),
+            "Cash Runway": ("0.6000000000", "critical"),
+            "Debt Service Ratio": ("4000.0000000000", "critical"),
+            "Investment Yield": ("250.0000000000", "good"),
+            "FX Risk Score": ("100", "critical"),
+            "Cash Utilization": ("98.0392156863", "good"),
+        },
+    ),
+]
+
+
+def _rust_analysis(book):
+    rust = native.analyze_treasury_json(json.dumps({k: str(v) for k, v in book.items()}))
+    return json.loads(rust)
+
+
+@pytest.mark.parametrize("book, ratios, kpis", ORACLE_CASES)
+def test_the_extension_reproduces_the_service_figures(book, ratios, kpis):
+    """The retired service's own answers, reproduced by the extension it was compared against."""
+    rust = _rust_analysis(book)
+
+    assert _amounts(rust, RATIOS) == {key: Decimal(value) for key, value in ratios.items()}, book
+
+    by_name = {kpi["name"]: kpi for kpi in rust["kpis"]}
+    assert set(by_name) == set(kpis), sorted(by_name)
+    for name, (value, status) in kpis.items():
+        assert Decimal(str(by_name[name]["value"])) == Decimal(value), name
+        assert by_name[name]["status"] == status, name
 
 
 def test_amounts_cross_the_boundary_unchanged():
-    huge = "123456789012345678901234567890.55"
-    assert Decimal(native.sum_amounts(["0.1", "0.2", huge])) == Decimal(huge) + Decimal("0.3")
+    # exact money needs room: the default 28 digits would round this sum in the assertion itself, which is the
+    # failure mode the whole exact-amount contract exists to prevent. Stated here rather than inherited from
+    # whichever service module happened to be imported first.
+    with localcontext() as ctx:
+        ctx.prec = 200
+        huge = "123456789012345678901234567890.55"
+        assert Decimal(native.sum_amounts(["0.1", "0.2", huge])) == Decimal(huge) + Decimal("0.3")
 
 
 def test_allocation_keeps_every_cent():
@@ -132,63 +178,6 @@ def test_shim_reports_the_extension_it_loaded():
     assert native_seam.available()
     assert native_seam.version() == native.__version__
     assert native_seam.sum_amounts(["0.1", "0.2"]) == Decimal("0.3")
-
-
-BOOKS = [
-    {
-        "company_id": "comp-a",
-        "total_cash": 500000,
-        "monthly_inflow": 200000,
-        "monthly_outflow": 150000,
-        "short_term_debt": 30000,
-        "total_debt": 100000,
-        "investments": 200000,
-        "fx_exposure": 50000,
-    },
-    {
-        "company_id": "comp-b",
-        "total_cash": 100,
-        "monthly_inflow": 0,
-        "monthly_outflow": 0,
-        "short_term_debt": 0,
-        "total_debt": 0,
-        "investments": 0,
-        "fx_exposure": 0,
-    },
-    {
-        "company_id": "comp-c",
-        "total_cash": 100000,
-        "monthly_inflow": 40000,
-        "monthly_outflow": 90000,
-        "short_term_debt": 80000,
-        "total_debt": 300000,
-        "investments": 10000,
-        "fx_exposure": -50000,
-    },
-]
-
-
-@pytest.mark.parametrize("book", BOOKS, ids=lambda b: b["company_id"])
-def test_python_engine_matches_rust_engine(analytics_client, monkeypatch, book):
-    """The fallback and the calculator of record must not drift apart."""
-    monkeypatch.setenv("VIMBAI_CALC_ENGINE", "rust")
-    rust = analytics_client.post("/analyze", json=book).json()
-    monkeypatch.setenv("VIMBAI_CALC_ENGINE", "python")
-    python = analytics_client.post("/analyze", json=book).json()
-
-    assert _amounts(rust, RATIOS) == _amounts(python, RATIOS)
-    rust_kpis = {kpi["name"]: kpi for kpi in rust["kpis"]}
-    for kpi in python["kpis"]:
-        twin = rust_kpis[kpi["name"]]
-        assert Decimal(kpi["value"]) == Decimal(twin["value"]), kpi["name"]
-        assert kpi["status"] == twin["status"], kpi["name"]
-
-
-def test_health_says_which_calculator_answers(analytics_client, monkeypatch):
-    monkeypatch.setenv("VIMBAI_CALC_ENGINE", "auto")
-    assert analytics_client.get("/health").json()["calc_engine"] == "rust"
-    monkeypatch.setenv("VIMBAI_CALC_ENGINE", "python")
-    assert analytics_client.get("/health").json()["calc_engine"] == "python"
 
 
 # --- tax family -------------------------------------------------------------

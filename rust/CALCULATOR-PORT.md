@@ -242,7 +242,7 @@ routes; they are listed here too, because the Python service is no longer the en
 - tax-risk-service
 - throughput-accounting-service
 - trading-account-service
-- treasury-analytics-service
+- treasury-analytics-service -> treasury::treasury_analytics, served at /treasury-analytics/*
 - vat-reporting-service
 - insurance-claims-service
 acquisition-financing-service
@@ -1625,9 +1625,10 @@ Maths in a crate with nothing to reach it, kept as a recorded debt:
   sovereign-treasury, treasury-management, treasury-policy, treasury-reporting and treasury-risk are gone - all answered
   under the treasury prefix, which their entries keep. treasury-compliance stays; it publishes no endpoints to compare.
 
-  treasury-analytics-service is the exception and stays on purpose. It is the Python side of the native seam parity test
-  that proves the engine agrees with the service it replaced, so retiring the directory would retire the evidence with it.
-  scripts/retire_coverage.py calls it a parity oracle instead of "ready".
+  treasury-analytics was the last parity oracle and is now gone too: its figures (100 cash-adequacy days on 500,000 of
+  cash against 150,000 of monthly burn, and 15 per cent debt service on 30,000 of short-term debt against 200,000 of
+  inflow) are pinned in the treasury crate and walked over HTTP at the addresses the service published, so the evidence
+  lives in the tests rather than in the code it used to vouch for.
 
   The ap-ar-expenses CI shard emptied out in this batch and is removed rather than left running a job that tests nothing.
 

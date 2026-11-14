@@ -723,6 +723,13 @@ async fn process_insurance_claim(
     ))
 }
 
+/// treasury-analytics-service published /health; a monitor that watched it keeps working.
+async fn treasury_analytics_health() -> Response {
+    answer(Ok(
+        json!({"status": "healthy", "service": "treasury-analytics"}),
+    ))
+}
+
 async fn analyze_treasury(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -18550,6 +18557,7 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/insurance-claims/claims", get(insurance_claims))
         .route("/insurance-claims/claims/:claim_id/process", post(process_insurance_claim))
         .route("/treasury-analytics/analyze", post(analyze_treasury))
+        .route("/treasury-analytics/health", get(treasury_analytics_health))
 
         // the non-profit service keeps its own trailing slash on the collection paths; both answer
         .route("/npo/funds/", get(npo_funds).post(create_npo_fund))

@@ -4,7 +4,5 @@
   "in the cluster but not the gateway": [
     "lifecycle-costing"
   ],
-  "advertised but absent from the cluster": [
-    "treasury-analytics-service"
-  ]
+  "advertised but absent from the cluster": []
 }

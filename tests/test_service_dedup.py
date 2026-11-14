@@ -488,7 +488,6 @@ def test_gateway_has_no_duplicate_routes():
     # the canonical services stay routed
     assert "risk-assessment-service" in registered
     # treasury analytics keeps answering, on the Rust engine
-    assert "treasury-analytics-service" in registered
 
 
 @pytest.mark.parametrize("dup", sorted(ALL_DEREGISTERED))

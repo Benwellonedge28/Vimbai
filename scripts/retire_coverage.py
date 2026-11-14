@@ -101,7 +101,7 @@ def parameterised(service):
 # Kept on purpose, not for want of routes: these directories are the Python side of a parity test that compares the old
 # service with the Rust engine. A service answered by the engine still leaves a useful oracle behind, so deleting it
 # would delete the only thing that can prove the engine agrees. The survey says so instead of nagging.
-PARITY_ORACLES = {"treasury-analytics-service"}
+PARITY_ORACLES = set()
 
 # Kept because the Python process IS the capability, not a second copy of one. A broker holds live delivery and a
 # websocket service holds live sockets; the Rust side keeps the same records and says so plainly - its event relay

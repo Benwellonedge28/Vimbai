@@ -574,7 +574,7 @@ debt-management-service                         8099       0       no  rust
 foreign-exchange-service                        8099       0       no  rust
 petty-cash-service                              8099       0       no  rust
 sovereign-treasury-service                      8099       0       no  rust
-treasury-analytics-service                      8099       4      yes  rust
+treasury-analytics-service                      8099       0       no  rust
 treasury-compliance-service                     8099       0       no  rust
 treasury-management-service                     8099       0       no  rust
 treasury-policy-service                         8099       0       no  rust

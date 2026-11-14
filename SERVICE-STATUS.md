@@ -10,7 +10,7 @@ what the ports are tested against.
 ## Summary
 
 ```
-live and routed          4
+live and routed          3
 retained, not routed     0
 unrouted, undecided      1
 ```
@@ -21,7 +21,6 @@ Routed by the API gateway and deployed. These are the running product.
 
 `message-bus-service`
 `payment-gateway-service`
-`treasury-analytics-service`
 `websocket-service`
 
 ## Retained source (retired from routing)
