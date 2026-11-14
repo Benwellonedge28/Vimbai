@@ -34,10 +34,10 @@ if [ "$want_rust" = 1 ]; then
   step "workspace tests"
   (cd rust && cargo test --workspace) || fail "cargo test --workspace"
 
-  # The on-device runtime serves the retired bookkeeping services from the engine, so the engine binary is part of
-  # what the Python tests below exercise. A debug build is enough and is already warm from the tests above.
-  (cd rust && cargo build -p vimbai_api) || fail "cargo build -p vimbai_api"
-  export VIMBAI_ENGINE_BIN="$PWD/rust/target/debug/vimbai-api"
+  # The tests below drive the on-device runtime as a real process, because that binary is what a machine installs. A
+  # debug build is enough and is already warm from the tests above.
+  (cd rust && cargo build -p vimbai_local) || fail "cargo build -p vimbai_local"
+  export VIMBAI_LOCAL_BIN="$PWD/rust/target/debug/vimbai-local"
 fi
 
 if [ "$want_python" = 1 ]; then

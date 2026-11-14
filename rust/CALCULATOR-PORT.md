@@ -1725,7 +1725,7 @@ in-memory graph the tests use and writes it out after every statement that chang
 under a lock so a crash mid-write leaves the previous file. `VIMBAI_STORE_FILE` makes the engine choose that store before
 it looks for Neo4j, because a machine with no database must not fall back to one.
 
-`vimbai_local/engine.py` starts the binary beside the Python runtime and forwards a retired service's address to it with
+`rust/apps/local-runtime` starts the binary and forwards a retired service's address to it with
 the form its gateway entry forwards (prefix kept or stripped). A machine without a binary keeps whatever Python is still
 on disk and says so in `/health`, and `scripts/preflight.sh` builds the binary so the offline tests run rather than skip.
 

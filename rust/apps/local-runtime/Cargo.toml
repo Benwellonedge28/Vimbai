@@ -1,0 +1,20 @@
+[package]
+name = "vimbai_local"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The on-device runtime: the whole platform in one process, offline, no server needed."
+
+[[bin]]
+name = "vimbai-local"
+path = "src/main.rs"
+
+[dependencies]
+api = { package = "vimbai_api", path = "../api-server" }
+axum = { version = "0.7", features = ["ws"] }
+chrono = "0.4"
+serde_json = { version = "1", features = ["preserve_order"] }
+sso = { package = "vimbai_sso", path = "../../crates/platform/identity" }
+tower = { version = "0.5", features = ["util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time"] }

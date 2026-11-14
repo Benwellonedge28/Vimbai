@@ -1018,11 +1018,23 @@ fn routed(graph: Option<records::GraphHandle>) -> Router {
 }
 
 async fn health(State(state): State<AppState>) -> impl IntoResponse {
-    Json(json!({
+    let mut body = json!({
         "status": "healthy",
         "engine": "rust",
         "calculators": state.calculators.len(),
-    }))
+    });
+    // The on-device runtime answers whether the machine is ready to do bookkeeping, not just whether the process is up:
+    // which profile it is running and how many of its members it could serve. Nothing is skipped, because every service
+    // the profile names is answered by this engine rather than by a Python directory that may or may not be present.
+    if let Ok(profile) = std::env::var("VIMBAI_LOCAL_PROFILE") {
+        let members = std::env::var("VIMBAI_LOCAL_MEMBERS").unwrap_or_default();
+        let loaded = members.split(',').filter(|name| !name.is_empty()).count();
+        body["profile"] = json!(profile);
+        body["services_loaded"] = json!(loaded);
+        body["services_skipped"] = json!(0);
+        body["skipped"] = json!([]);
+    }
+    Json(body)
 }
 
 /// The request a calculator is given, from the body and the query string.

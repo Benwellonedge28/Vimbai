@@ -5,6 +5,7 @@ resolver = "2"
 members = [
     "crates/common",
     "apps/api-server",
+    "apps/local-runtime",
     "crates/adapters/database",
     "crates/adapters/wire",
     "crates/domains/automation",

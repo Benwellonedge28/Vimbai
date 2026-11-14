@@ -1,86 +1,51 @@
 # Vimbai local runtime
 
-_On-device, offline runtime._  This was `vimbai-local/README.md`; there were two directories for one
-runtime, so the documentation moved here and the requirement file joined the package it belongs to.
+_On-device, offline runtime._ The whole book behind one process on a machine with no server: no internet, no Docker, no
+Kubernetes, no database. Data lives in a folder and survives restarts.
 
-Run the entire Vimbai platform in **one Python process** on any machine —
-Windows, macOS or Linux — with **no internet, no Docker, no Kubernetes, no
-Neo4j server**. Data lives in a local folder and survives restarts.
+It is a Rust binary. It used to be a Python package that booted FastAPI service apps and started an engine beside itself;
+every service it mounted is answered by the engine now, so what was a launcher became the runtime and the Python launcher
+went with it.
 
 ## Quick start
 
 ```bash
-pip install -r vimbai_local/requirements-local.txt
+cargo build --release -p vimbai_local        # in rust/, once
 
-python3 -m vimbai_local                      # core bookkeeping profile, http://127.0.0.1:8000
-python3 -m vimbai_local --profile full       # every registered service (318)
-python3 -m vimbai_local --port 9000 --data-dir ~/vimbai-data
+rust/target/release/vimbai-local                       # core bookkeeping profile, http://127.0.0.1:8000
+rust/target/release/vimbai-local --profile full        # every address the gateway routes
+rust/target/release/vimbai-local --port 9000 --data-dir ~/vimbai-data
 ```
 
-Open http://127.0.0.1:8000/docs for the combined interactive API.
-On Windows, `py -m vimbai_local` from the repo root works the same.
+There is nothing to install: the binary is the installation. `scripts/make_offline_bundle.sh` puts a release build in a
+directory with a note saying what it is, for a machine that has no Rust toolchain.
 
 ## Profiles
 
-1. *core* (default) — the essential bookkeeping loop: identity (register /
-   login), book-sync (Books + memberships), accounting (chart of accounts +
-   double-entry journal), departmental-accounting, audit-compliance.
-   Boots in ~2s, tens of MB of memory — fine for a small laptop or
-   single-board computer.
-2. *full* — every service registered in `gateway/go/config/services.json`
-   plus identity. Boots in ~25s cold, ~210MB memory. Services that fail to
-   import are skipped with a warning instead of sinking the boot; the
-   `/health` endpoint lists them.
+1. *core* (default) - the bookkeeping loop an offline machine needs: identity (register / login), book-sync (Books and
+   memberships), accounting (chart of accounts and the double-entry journal), departmental-accounting and
+   audit-compliance. `/health` reports `services_loaded: 5` and nothing skipped.
+2. *full* - the same process answers every address the gateway routes; the flag changes what `/health` says it is for,
+   because there is no second process to start.
 
 ## How it works
 
-1. *One process:* every service's FastAPI app is imported and mounted at its
-   gateway path, each at its own gateway path.
-2. *Gateway contract in-process:* `vimbai_local/gateway.py` reproduces the
-   production gateway — `/identity` is open (register/login), everything else
-   needs a Bearer token; the verified user id is injected as `X-User-ID`
-   (never trusted from the client); `X-Book-ID` is checked against active
-   Book memberships (403 otherwise).
-3. *Persistence without Neo4j:* each durable service ships a
-   `fake_neo4j.py` driver implementing exactly the Cypher subset that service
-   uses (the same code its test suite runs against). In local mode the
-   session is wrapped so every mutation is snapshotted to
-   `<data-dir>/<service>.json` and restored on boot.
-4. *Sqlite services* (book-sync, personal-finance, npo-scale) point their
-   databases into the data dir.
-5. *JWT secret:* generated once, stored in `<data-dir>/jwt_secret` (0600 on
-   POSIX). Delete it to invalidate all local sessions.
+1. *One binary, one process.* The engine's own router answers everything, so an offline machine cannot disagree with the
+   cluster about what a sale did to the ledger: same code, same arithmetic, same posting rules.
+2. *The store is a file.* `<data-dir>/store.json` is written after every mutating statement and swapped into place in one
+   step, so a crash leaves the previous file rather than half of a new one. `VIMBAI_STORE_FILE` is set by the runtime, so
+   an offline install cannot fall back to a Neo4j server it does not have.
+3. *The gateway's rules, in the process.* In the cluster the Go gateway verifies the caller's token, injects `X-User-Id` and
+   refuses a Book the caller is not a member of; nothing does that on a laptop, so the runtime does: `/identity` and
+   `/health` are open, everything else needs a Bearer token (401), the verified id replaces any client-supplied header,
+   and a Book the caller is not an active member of is refused (403) by asking the engine that holds it.
+4. *Published addresses, from the gateway's own manifest.* Some services publish under a prefix the engine does not use, so
+   `/book-sync/books` has to reach `/books`. The manifest is compiled into the binary, longest prefix first, matched as a
+   whole segment; anything it does not say to strip is forwarded unchanged.
+5. *The signing secret lives with the data.* `<data-dir>/jwt_secret` is created on first boot, readable only by its owner
+   (0600 on unix), and reused after that, so a token in a person's hand still works after the process restarts.
 
-## The data dir
+## What is not here
 
-`--data-dir` (default `./vimbai-data`) holds everything: per-service store
-snapshots, `book_sync.db`, JWT secret. Copy the folder to move your Books to
-another machine. Delete it for a factory reset. Offline by design: nothing
-in local mode makes a network call.
-
-## Fully offline install (no pip access at run site)
-
-`scripts/make_offline_bundle.sh` builds a wheelhouse for the current
-platform:
-
-```bash
-scripts/make_offline_bundle.sh out/          # wheels for THIS machine's OS/arch
-# on the target machine, no internet needed:
-pip install --no-index --find-links out/wheels -r vimbai_local/requirements-local.txt
-```
-
-Copy the repo (or `git clone` it once) plus the wheelhouse to the target
-machine and run. To prepare a wheelhouse for a *different* OS/arch, see the
-`--platform` hints in the script.
-
-## Notes and limits
-
-1. Same auth and Book-isolation rules as production — verified by
-   `tests/test_vimbai_local.py` and the end-to-end smoke
-   (`scripts/smoke_e2e_flow.py`), which both pass against the local runtime.
-2. Local mode is single-user-at-a-time friendly: it has no rate limiting or
-   TLS; keep it bound to 127.0.0.1 (the default) unless you know what you
-   are doing.
-3. Cross-service calls that production makes over HTTP between containers
-   are resolved in-process; where a sibling is not in the running profile
-   the calling service degrades gracefully (same as production).
+`payment-gateway` stays Python in the cluster by the record-only rule; the local runtime does not serve it, and a machine
+that needs it points at the cluster.

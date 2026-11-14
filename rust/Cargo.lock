@@ -3117,6 +3117,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "vimbai_local"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "serde_json",
+ "tokio",
+ "tower",
+ "vimbai_api",
+ "vimbai_sso",
+]
+
+[[package]]
 name = "vimbai_market_risk"
 version = "0.1.0"
 dependencies = [
