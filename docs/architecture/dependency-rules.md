@@ -35,6 +35,7 @@ gate. A new crate therefore needs a home rather than a naming convention.
 | R6 | adapters | anything below it | The edge of the system: the store and the wire seam reach inward |
 | R7 | application | everything except apps and tooling | Use cases compose the layers beneath them |
 | R8 | tooling | nothing | The gates must build before the workspace does, so they cannot be made to agree with the code by the code |
+| R9 | suite | anything in the workspace | An integrity suite calls the published surface from outside; nothing may depend on a suite, or the audit would become part of what it audits |
 
 Everything not listed is forbidden. In particular no crate may depend on an `apps` crate, and no crate may depend on
 `xtask`: a library that links a program is no longer a library.

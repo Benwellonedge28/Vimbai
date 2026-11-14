@@ -404,7 +404,9 @@ Updated in the same commit that lands the work. `—` means not started.
 | P0 | Root files and untracking | done | `VERSION`, `CHANGELOG.md`, `.editorconfig`, `rust-toolchain.toml`, `rustfmt.toml`, `clippy.toml`, `CODE_OF_CONDUCT.md`, `Makefile`; `web-frontend/` and both `.db` files untracked |
 | P1 | Boundary documents and dependency gate | done | `docs/architecture/system-boundaries.md`, `docs/architecture/dependency-rules.md`, `rust/xtask/src/boundaries.rs`, 9 tests in `rust/xtask/tests/dependency_rules.rs` |
 | P2 | Organisations and tenancy | done | `rust/crates/platform/tenancy` (organisation, membership, `access::allows`); `docs/domains/organisations.md`; gate in `rust/apps/api-server/src/tenancy_gate.rs`; 15 tests |
-| P3 | Financial integrity suite | — | |
+| P3 | Financial integrity suite | done | `rust/tests/financial-integrity`: 7 invariants in `tests/invariants.rs`, 5 property tests in `tests/properties.rs` |
+| P3 | Parity fixtures | done | `rust/tests/fixtures/parity/` (treasury analytics, absorption costing), asserted by `tests/parity.rs` |
+| P3 | Compliance record | done | `docs/compliance/financial-integrity.md`, every claim naming its test |
 | P4 | Worker | — | |
 | P5 | Domain documentation | — | |
 | P6 | Contracts | — | |

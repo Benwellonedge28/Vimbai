@@ -39,6 +39,10 @@ pub enum Family {
     /// Use cases that compose domains for a caller.
     Application,
     /// Binaries: the API server, the on-device runtime, and whatever follows them.
+    /// A suite: the integrity tests that sit outside every crate and check what the ledger promises. It may depend on
+    /// anything, because it is the audit, and nothing may depend on it, because an audit that the code needs is not an
+    /// audit.
+    Suite,
     Apps,
     /// Repository tooling that reads the tree. Must stay buildable on its own.
     Tooling,
@@ -56,6 +60,7 @@ impl Family {
             Family::Adapters => "adapters",
             Family::Application => "application",
             Family::Apps => "apps",
+            Family::Suite => "suite",
             Family::Tooling => "tooling",
         }
     }
@@ -96,7 +101,7 @@ pub struct Rule {
     pub statement: &'static str,
 }
 
-const RULES: [Rule; 8] = [
+const RULES: [Rule; 9] = [
     Rule {
         id: "R1",
         from: Family::Common,
@@ -170,6 +175,23 @@ const RULES: [Rule; 8] = [
         statement: "application composes domains, calculations, platform and the adapters.",
     },
     Rule {
+        id: "R9",
+        from: Family::Suite,
+        allowed: &[
+            Family::Common,
+            Family::Kernel,
+            Family::Calculations,
+            Family::Platform,
+            Family::Domain,
+            Family::Adapters,
+            Family::Application,
+            Family::Apps,
+            Family::Suite,
+        ],
+        statement: "a suite may depend on any crate in the workspace, because its job is to call the published surface \
+                    from outside; nothing may depend on a suite.",
+    },
+    Rule {
         id: "R8",
         from: Family::Tooling,
         allowed: &[],
@@ -234,6 +256,9 @@ fn family_from_parts(relative: &str) -> Option<Family> {
     }
     if trimmed.starts_with("apps/") {
         return Some(Family::Apps);
+    }
+    if trimmed.starts_with("tests/") {
+        return Some(Family::Suite);
     }
     if trimmed == "crates/common" {
         return Some(Family::Common);

@@ -3087,6 +3087,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "vimbai_financial_integrity"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "vimbai-ledger-core",
+ "vimbai_common",
+ "vimbai_service_accounting",
+ "vimbai_service_costing",
+ "vimbai_service_treasury",
+ "vimbai_store",
+]
+
+[[package]]
 name = "vimbai_group_accounting"
 version = "0.1.0"
 dependencies = [

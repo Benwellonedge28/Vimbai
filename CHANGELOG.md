@@ -12,6 +12,11 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
   rule that decides whether a caller may open a Book. A Book may belong to an organisation, its members reach it without
   a membership row of their own, and the engine applies the rule itself (`tenancy_gate`) rather than leaving it to the
   gateway. See `docs/domains/organisations.md`.
+- A financial-integrity suite in `rust/tests/financial-integrity`: the ledger's invariants proven from outside the kernel
+  and the domains, twelve tests including seeded property tests over random entry sets, plus parity fixtures recording
+  the figures two retired Python services answered. `docs/compliance/financial-integrity.md` states each guarantee
+  against the test that fails when it stops holding.
+- The dependency gate gained a `Suite` family (R9): a suite may depend on any crate, and nothing may depend on a suite.
 - `cargo run -p xtask -- boundaries`: the crate dependency rules as a gate, with the graph discovered from the
   manifests, one recorded tolerance, and a test that fails if a tolerance goes stale.
 - `docs/architecture/system-boundaries.md` and `docs/architecture/dependency-rules.md`.

@@ -1,0 +1,25 @@
+{
+  "service": "treasury-analytics-service",
+  "retired": "2026-11-14",
+  "note": "The figures the Python service answered for this request, recorded before its directory was deleted. The Rust engine answers the same addresses, so these are the numbers that must keep coming back.",
+  "addresses": ["/treasury-analytics/analyze", "/treasury-analytics/kpis/{company}"],
+  "cases": [
+    {
+      "name": "cash adequacy and debt service",
+      "payload": {
+        "company_id": "comp-1",
+        "total_cash": 500000,
+        "monthly_inflow": 200000,
+        "monthly_outflow": 150000,
+        "short_term_debt": 30000,
+        "total_debt": 100000,
+        "investments": 200000,
+        "fx_exposure": 50000
+      },
+      "expected": {
+        "cash_adequacy_days": "100.000000",
+        "debt_service_ratio": "15.000000"
+      }
+    }
+  ]
+}

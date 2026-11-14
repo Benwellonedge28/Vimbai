@@ -1,0 +1,19 @@
+[package]
+name = "vimbai_financial_integrity"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+publish = false
+description = "The financial-integrity suite: the ledger invariants proven from outside the crates that use them, so a claim about the ledger cannot be quietly weakened by the code it protects."
+
+[dependencies]
+
+[dev-dependencies]
+vimbai-ledger-core = { path = "../../crates/kernel/ledger-core" }
+vimbai_common = { path = "../../crates/common" }
+vimbai_service_accounting = { path = "../../crates/domains/accounting" }
+vimbai_store = { path = "../../crates/adapters/database" }
+vimbai_service_treasury = { path = "../../crates/domains/treasury" }
+vimbai_service_costing = { path = "../../crates/domains/costing" }
+serde_json = { workspace = true }

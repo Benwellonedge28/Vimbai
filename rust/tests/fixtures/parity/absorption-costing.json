@@ -1,0 +1,50 @@
+{
+  "service": "absorption-costing-service",
+  "retired": "2026-11-14",
+  "note": "Three published calculations, recorded from the retired Python service. It was the last oracle holding the costing domain in Python; its seam tests now pin these figures instead of booting it.",
+  "addresses": ["/product-costs/calculate", "/overhead/absorption", "/cost-plus"],
+  "cases": [
+    {
+      "name": "prime cost, production cost and unit cost",
+      "address": "/product-costs/calculate",
+      "payload": {
+        "product_id": "p-1",
+        "period": "2026-03",
+        "direct_materials": 1500,
+        "direct_labor": 600,
+        "direct_expenses": 200,
+        "manufacturing_overhead": 700,
+        "units_produced": 100
+      },
+      "expected": {
+        "prime_cost": "2300.000000",
+        "total_production_cost": "3000.000000",
+        "cost_per_unit": "30.000000"
+      }
+    },
+    {
+      "name": "overhead absorbed on short hours",
+      "address": "/overhead/absorption",
+      "payload": {
+        "overhead_cost": 84000,
+        "absorption_base": "machine_hours",
+        "absorption_base_units": 28000,
+        "actual_base_units": 24000
+      },
+      "expected": {
+        "overhead_absorption_rate": "3.000000",
+        "absorbed_overhead": "72000.000000",
+        "over_under_absorbed": "-12000.000000"
+      }
+    },
+    {
+      "name": "cost plus a twenty per cent markup",
+      "address": "/cost-plus",
+      "payload": { "product_cost": 250, "markup_percentage": 20 },
+      "expected": {
+        "markup_amount": "50.000000",
+        "selling_price": "300.000000"
+      }
+    }
+  ]
+}

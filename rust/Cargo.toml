@@ -7,6 +7,7 @@ members = [
     "apps/api-server",
     "apps/local-runtime",
     "xtask",
+    "tests/financial-integrity",
     "crates/adapters/database",
     "crates/adapters/wire",
     "crates/domains/automation",
