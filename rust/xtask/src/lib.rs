@@ -5,4 +5,10 @@
 #![forbid(unsafe_code)]
 
 pub mod catalog;
+pub mod contracts;
+pub mod crates;
 pub mod gateway;
+pub mod manifests;
+pub mod reachability;
+pub mod wiring;
+pub mod workflows;

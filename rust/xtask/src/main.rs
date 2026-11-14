@@ -8,7 +8,7 @@
 
 use std::process::ExitCode;
 
-use xtask::{catalog, gateway};
+use xtask::{catalog, gateway, reachability};
 
 const USAGE: &str = "\
 xtask - repository tooling
@@ -21,6 +21,7 @@ COMMANDS:
     catalog --check    report whether the committed catalogue is current, and exit 1 if it is not
     gateway            report the addresses the gateway publishes that the engine does not answer
     gateway --addresses  print every address the engine answers, one per line
+    reachability       report the modules no door can reach, one per line
 ";
 
 fn main() -> ExitCode {
@@ -51,6 +52,17 @@ fn main() -> ExitCode {
                     ExitCode::FAILURE
                 }
             }
+        }
+        // The modules nothing can call: arithmetic that looks wired because it is `pub` and re-exported.
+        "reachability" => {
+            let dead = reachability::unreachable_modules(&root);
+            for module in &dead {
+                println!("{module}");
+            }
+            if dead.is_empty() {
+                println!("reachability: every module has a door");
+            }
+            ExitCode::SUCCESS
         }
         "gateway" if args.iter().any(|argument| argument == "--addresses") => {
             for path in gateway::engine_routes(&root) {

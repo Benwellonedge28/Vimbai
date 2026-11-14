@@ -1,8 +1,0 @@
-{
-  "_comment": "Deployments that disagree with the gateway manifest today. Pinned so new drift fails; remove entries as each is resolved.",
-  "advertised without a directory": [],
-  "in the cluster but not the gateway": [
-    "lifecycle-costing"
-  ],
-  "advertised but absent from the cluster": []
-}

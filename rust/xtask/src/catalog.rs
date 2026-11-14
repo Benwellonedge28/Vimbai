@@ -66,7 +66,7 @@ fn ownership(root: &Path) -> Value {
 /// already has but which are not served from it yet, and searching the whole file for a name counted those as ported -
 /// and counted `currency-service` because `multi-currency-service` contains it. A bullet may name several services that
 /// now share one crate, so the whole list before the arrow is read: "a-service, b-service and c-service -> crate".
-fn ported_names(root: &Path) -> Vec<String> {
+pub fn ported_names(root: &Path) -> Vec<String> {
     let text = read(root, "rust/CALCULATOR-PORT.md");
     let mut listed: Vec<String> = Vec::new();
     let mut in_section = false;
