@@ -85,6 +85,29 @@ pub(crate) fn scope_of(headers: &HeaderMap) -> Result<BookScope, Box<Response>> 
     }
 }
 
+/// Where a request that starts a Book is allowed to write: the person, before there is a Book to name.
+///
+/// Creating the first Book cannot require already being in one, so these routes take the caller from the identity the
+/// gateway injected and let the Book be stamped by the create itself. Every other route needs both headers.
+pub(crate) fn user_scope_of(headers: &HeaderMap) -> Result<BookScope, Box<Response>> {
+    let user_id = headers
+        .get("x-user-id")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned);
+    match user_id {
+        Some(user_id) => Ok(BookScope::new(user_id, "")),
+        None => Err(Box::new(
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": "X-User-Id is required"})),
+            )
+                .into_response(),
+        )),
+    }
+}
+
 fn fail(error: StoreError) -> Response {
     let status = match error {
         StoreError::NotFound => StatusCode::NOT_FOUND,
@@ -14219,7 +14242,7 @@ async fn post_book(
     RawQuery(query): RawQuery,
     payload: Option<Json<Value>>,
 ) -> Response {
-    let scope = match scope_of(&headers) {
+    let scope = match user_scope_of(&headers) {
         Ok(scope) => scope,
         Err(response) => return *response,
     };
@@ -14231,7 +14254,8 @@ async fn post_book(
 }
 
 async fn get_books(State(graph): GraphState, headers: HeaderMap) -> Response {
-    let scope = match scope_of(&headers) {
+    // your Books, before any one of them is in hand
+    let scope = match user_scope_of(&headers) {
         Ok(scope) => scope,
         Err(response) => return *response,
     };
@@ -14244,7 +14268,7 @@ async fn post_book_default(
     RawQuery(query): RawQuery,
     payload: Option<Json<Value>>,
 ) -> Response {
-    let scope = match scope_of(&headers) {
+    let scope = match user_scope_of(&headers) {
         Ok(scope) => scope,
         Err(response) => return *response,
     };

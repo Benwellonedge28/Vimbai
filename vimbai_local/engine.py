@@ -20,19 +20,31 @@ from fastapi.responses import Response
 
 REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 SERVICES_JSON = os.path.join(REPO_ROOT, "gateway", "go", "config", "services.json")
-DEFAULT_BINARY = os.path.join(REPO_ROOT, "rust", "target", "release", "vimbai-api")
+# A release build is what a packaged runtime uses; a debug build is what a developer's last `cargo build` left behind.
+# Taking whichever is newest means a fresh debug build is not shadowed by an older release one, which otherwise serves
+# the engine as it was some commits ago.
+BUILT_BINARIES = (
+    os.path.join(REPO_ROOT, "rust", "target", "release", "vimbai-api"),
+    os.path.join(REPO_ROOT, "rust", "target", "debug", "vimbai-api"),
+)
 # The engine answers a calculator and a store; both are under no prefix of their own, so it is asked for /health
 # before anything else is forwarded to it.
 STARTUP_SECONDS = 20
 
 
 def binary_path():
-    """Where the engine binary is, or None when this machine has not built one."""
+    """Where the engine binary is: the named one, else the newest build, else None when nothing is built here."""
     named = os.environ.get("VIMBAI_ENGINE_BIN")
-    for candidate in (named, DEFAULT_BINARY):
-        if candidate and os.path.isfile(candidate) and os.access(candidate, os.X_OK):
-            return candidate
-    return None
+    if named and os.path.isfile(named) and os.access(named, os.X_OK):
+        return named
+    built = [
+        path
+        for path in BUILT_BINARIES
+        if os.path.isfile(path) and os.access(path, os.X_OK)
+    ]
+    if not built:
+        return None
+    return max(built, key=os.path.getmtime)
 
 
 def _free_port():

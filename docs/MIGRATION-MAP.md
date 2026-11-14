@@ -692,12 +692,12 @@ zero-trust-data-service                      /zero-trust-data                   
 
 ```text
 service                                      address                            eps  owns engine crate
-book-sync-service                            /book-sync                          18  recs rust   rust/crates/platform/offline-sync
+book-sync-service                            /book-sync                           0  -    rust   rust/crates/platform/offline-sync
 ```
 
 | service | proof today | retires when |
 | --- | --- | --- |
-| `book-sync-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on record shapes and Book scoping, then de-register from services.json, k8s and CI |
+| `book-sync-service` | crate tests + HTTP route test in rust/apps/api-server/tests | parity on every calculator output, then de-register from services.json, k8s and CI |
 
 ## taxation — 3/3 on Rust
 

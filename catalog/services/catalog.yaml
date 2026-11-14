@@ -1644,30 +1644,12 @@ services:
 - name: book-sync-service
   domain: sync
   target: rust/crates/platform/offline-sync
-  port: 9020
+  port: 8099
   gateway_path: /book-sync
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - POST /books
-  - GET /books
-  - GET /books/{book_id}
-  - PUT /books/{book_id}
-  - POST /books/{book_id}/members
-  - GET /books/{book_id}/members
-  - PUT /books/{book_id}/members/{member_user_id}
-  - POST /books/{book_id}/members/accept
-  - POST /books/{book_id}/devices
-  - POST /books/{book_id}/entries/push
-  - GET /books/{book_id}/entries
-  - POST /books/{book_id}/metadata
-  - GET /books/{book_id}/metadata
-  - GET /books/{book_id}/audit
-  - GET /books/{book_id}/membership
-  - POST /books/default
-  - GET /health
-  - GET /
+  records: false
+  endpoints: []
 - name: npo-scale-service
   domain: npo
   target: rust/crates/domains/npo

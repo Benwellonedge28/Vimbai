@@ -6,8 +6,8 @@ membership gating, and open auth routes for /identity (register/login).
 """
 
 import os
-import sqlite3
 
+import httpx
 import jwt
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
@@ -20,8 +20,10 @@ class LocalGatewayMiddleware(BaseHTTPMiddleware):
     - Every other mounted service requires a Bearer token issued by
       identity-service; the caller's user id is injected as X-User-ID
       (never trusted from the client).
-    - X-Book-ID is validated against the caller's ACTIVE membership in the
-      local book-sync database, else 403 - same as BookContextMiddleware.
+    - X-Book-ID is validated against the caller's ACTIVE membership, else 403
+      - same as BookContextMiddleware. The memberships used to live in the
+      book-sync service's sqlite table; that service is in the engine now, so
+      the check asks the engine, which is also what holds the Book.
     """
 
     OPEN_PREFIXES = (
@@ -33,22 +35,23 @@ class LocalGatewayMiddleware(BaseHTTPMiddleware):
     )
     OPEN_EXACT = ("", "/")
 
-    def __init__(self, app, jwt_secret, book_sync_db, extra_open=()):
+    def __init__(self, app, jwt_secret, membership_url=None, extra_open=()):
         super().__init__(app)
         self.jwt_secret = jwt_secret
-        self.book_sync_db = book_sync_db
+        # Where the Book lives. None means no engine was built on this machine, and a book-scoped call is then
+        # refused rather than let through unverified.
+        self.membership_url = membership_url.rstrip("/") if membership_url else None
         self.open = tuple(self.OPEN_PREFIXES) + tuple(extra_open)
 
     def _is_member(self, user_id, book_id):
-        conn = sqlite3.connect(self.book_sync_db)
-        try:
-            row = conn.execute(
-                "SELECT 1 FROM memberships WHERE book_id=? AND user_id=? AND status='active'",
-                (book_id, user_id),
-            ).fetchone()
-            return row is not None
-        finally:
-            conn.close()
+        """True when the engine says this user is an active member of this Book."""
+        answer = httpx.get(
+            f"{self.membership_url}/books/{book_id}/membership",
+            headers={"x-user-id": user_id, "x-book-id": book_id},
+            timeout=5,
+        )
+        # The engine answers 404 when there is no active membership, and 403 when the caller may not look.
+        return answer.status_code == 200
 
     async def dispatch(self, request, call_next):
         path = request.url.path
@@ -67,8 +70,14 @@ class LocalGatewayMiddleware(BaseHTTPMiddleware):
             return JSONResponse({"detail": "Invalid token payload"}, status_code=401)
 
         book_id = request.headers.get("x-book-id")
-        if book_id and not self._is_member(user_id, book_id):
-            return JSONResponse({"detail": f"No active membership in book {book_id}"}, status_code=403)
+        if book_id:
+            if self.membership_url is None:
+                return JSONResponse(
+                    {"detail": "No engine on this machine, so Book membership cannot be checked"},
+                    status_code=503,
+                )
+            if not self._is_member(user_id, book_id):
+                return JSONResponse({"detail": f"No active membership in book {book_id}"}, status_code=403)
 
         # Inject the verified identity; drop any client-supplied header.
         headers = [(k, v) for k, v in request.scope["headers"] if k.decode().lower() != "x-user-id"]

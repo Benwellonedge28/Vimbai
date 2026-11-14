@@ -51,7 +51,6 @@ def _prepare_environment(data_dir, port):
     """All filesystem-backed services point into the data dir; services that
     call sibling services reach them through this same process."""
     os.makedirs(data_dir, exist_ok=True)
-    os.environ["BOOK_SYNC_DB"] = os.path.join(data_dir, "book_sync.db")
     os.environ["PERSONAL_FINANCE_DB"] = os.path.join(data_dir, "personal_finance.db")
     os.environ["NPO_SCALE_DB"] = os.path.join(data_dir, "npo_scale.db")
     os.environ["ACCOUNTING_SERVICE_URL"] = f"http://127.0.0.1:{port}/accounting"
@@ -118,7 +117,6 @@ def build_app(profile="core", data_dir=None, port=8000, host="127.0.0.1"):
     )
 
     loaded, skipped, persisted = [], [], []
-    book_sync_db_path = None
     # Services that live in the engine now have no directory to import. The engine runs beside this process over a
     # store file, and each of those addresses is forwarded to it so the client's URL does not change.
     engine = engine_mod.Engine(data_dir)
@@ -137,12 +135,11 @@ def build_app(profile="core", data_dir=None, port=8000, host="127.0.0.1"):
             # Sqlite-backed services read their DB path at import time; a
             # later boot with the same process must re-target the data dir.
             if hasattr(mod, "DB_PATH"):
-                mod.DB_PATH = os.environ["BOOK_SYNC_DB"]
+                # A sqlite-backed service reads its path at import time, so a second boot in the same process has to
+                # be pointed at this data dir again.
+                mod.DB_PATH = os.path.join(data_dir, f"{service_dir}.db")
                 if hasattr(mod, "init_db"):
                     mod.init_db()
-            if hasattr(mod, "DB_PATH") and getattr(mod, "DB_PATH", None):
-                if service_dir == "book-sync-service":
-                    book_sync_db_path = mod.DB_PATH
             if store_mod.attach_service_store(os.path.join(REPO_ROOT, service_dir), pkg, data_dir):
                 persisted.append(service_dir)
             app.mount("/" + path_prefix, mod.app)
@@ -150,11 +147,10 @@ def build_app(profile="core", data_dir=None, port=8000, host="127.0.0.1"):
         except Exception as exc:  # noqa: BLE001 - one bad service must not sink boot
             skipped.append((f"/{path_prefix}", repr(exc)))
 
-    book_sync_db = book_sync_db_path or os.environ["BOOK_SYNC_DB"]
     app.add_middleware(
         LocalGatewayMiddleware,
         jwt_secret=os.environ["JWT_SECRET"],
-        book_sync_db=book_sync_db,
+        membership_url=f"http://127.0.0.1:{engine.port}" if engine_up else None,
     )
 
     @app.on_event("shutdown")

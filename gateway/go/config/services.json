@@ -1070,8 +1070,8 @@
     {
       "name": "book-sync-service",
       "path": "/book-sync",
-      "url": "http://localhost:9020",
-      "port": 9020,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": true
     },

@@ -1731,12 +1731,16 @@ it looks for Neo4j, because a machine with no database must not fall back to one
 the form its gateway entry forwards (prefix kept or stripped). A machine without a binary keeps whatever Python is still
 on disk and says so in `/health`, and `scripts/preflight.sh` builds the binary so the offline tests run rather than skip.
 
-Retired with that in place: accounting-service and departmental-accounting-service. Still on Python deliberately:
-book-sync-service, because the local gateway's Book membership check reads its sqlite tables, so retiring it needs that
-check to read the engine first. Two shapes changed with the move and both are the engine's being stricter or fuller: a
-department create answers with the department and the cost centre it opened, where the service answered with the
-department alone and opened the account silently, and a book-scoped read with no book is refused rather than answered
-with an empty list.
+Retired with that in place: accounting-service, departmental-accounting-service and book-sync-service. Book sync held
+the last piece of the offline loop - the local gateway used to check Book membership in its sqlite table - so that check
+now asks the engine instead, at `GET /books/{book}/membership`, which is the same records the engine hands out as
+`/book-sync/...` through the gateway. The table is gone with the service.
+
+Three shapes changed with the move, each the engine being stricter or fuller: a department create answers with the
+department and the cost centre it opened, where the service answered with the department alone and opened the account
+silently; a book-scoped read with no book is refused rather than answered with an empty list; and creating your first
+Book no longer needs a Book header, which it had to, since a new person has no Book to name yet (the same for listing
+the Books you belong to).
 
 ## Divergences worth knowing
 

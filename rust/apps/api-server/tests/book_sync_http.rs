@@ -32,6 +32,31 @@ impl Client {
         }
     }
 
+    /// Somewhere before the first Book exists, calling as a person with no Book header at all.
+    async fn call_as_person(
+        &self,
+        method: Method,
+        uri: &str,
+        payload: Value,
+    ) -> (StatusCode, Value) {
+        let request = Request::builder()
+            .method(method)
+            .uri(uri)
+            .header("content-type", "application/json")
+            .header("x-user-id", self.user)
+            .body(Body::from(payload.to_string()))
+            .unwrap();
+        let response = self.router.clone().oneshot(request).await.unwrap();
+        let status = response.status();
+        let bytes = axum::body::to_bytes(response.into_body(), 1_000_000)
+            .await
+            .unwrap();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
+    }
+
     async fn call(&self, method: Method, uri: &str, payload: Value) -> (StatusCode, Value) {
         let request = Request::builder()
             .method(method)
@@ -242,4 +267,44 @@ async fn a_shared_book_is_opened_joined_written_to_and_pulled() {
         .call(Method::POST, "/books/default", json!({"now": 1006.0}))
         .await;
     assert_eq!(again["created"], json!(false));
+}
+
+#[tokio::test]
+async fn a_first_book_is_made_and_found_without_a_book_header() {
+    // A client has no Book id before it has a Book. Requiring one to create the first would leave every new person
+    // unable to start, and the offline runtime had exactly that: it asked the engine for membership of a Book that
+    // could never have been created.
+    let client = Client::new();
+    let (status, made) = client
+        .call_as_person(
+            Method::POST,
+            "/books",
+            json!({"name": "First", "tier": "personal", "now": 500.0}),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{made}");
+    let book_id = made["book"]["id"].as_str().expect("an id").to_string();
+
+    let (status, mine) = client
+        .call_as_person(Method::GET, "/books", Value::Null)
+        .await;
+    assert_eq!(status, StatusCode::OK, "{mine}");
+    let listed: Vec<Value> = mine["books"].as_array().cloned().unwrap_or_default();
+    assert!(
+        listed
+            .iter()
+            .any(|book| book["id"] == json!(book_id) && book["your_role"] == json!("owner")),
+        "the Book it just made is one of its own: {mine}"
+    );
+
+    // The created Book is scoped to itself, so its membership reads back through the ordinary Book-bound route.
+    let (status, membership) = client
+        .call(
+            Method::GET,
+            &format!("/books/{book_id}/membership"),
+            Value::Null,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{membership}");
+    assert_eq!(membership["role"], json!("owner"));
 }

@@ -540,7 +540,7 @@ Lands in `rust/crates/platform/offline-sync`.
 
 ```
 service                                         port  routes  records  engine
-book-sync-service                               9020      18      yes  rust
+book-sync-service                               8099       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.
