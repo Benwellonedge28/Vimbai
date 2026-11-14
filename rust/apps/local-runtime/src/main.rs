@@ -55,6 +55,9 @@ async fn serve(options: Options) {
     let listener = tokio::net::TcpListener::bind(address)
         .await
         .unwrap_or_else(|err| panic!("cannot bind {address}: {err}"));
+    // The port it actually landed on, not the one it was asked for: a caller may say port 0 and let the operating system
+    // choose, which is how a test avoids racing another process for a number between finding it free and binding it.
+    let address = listener.local_addr().unwrap_or(address);
 
     println!(
         "vimbai-local listening on {address} (profile {}, data in {})",

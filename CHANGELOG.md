@@ -14,6 +14,15 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- The engine on Postgres, proven rather than configured: three tests hand the router a Postgres store and write, read
+  back, keep two Books apart, and find the record after the store is reopened, then check which store is chosen when both
+  Postgres and Neo4j are configured.
+- A deployment store now closes its pool on a thread of its own. Its client's destructor drives a runtime, so dropping one
+  inside the engine's runtime aborted the process rather than unwinding - the difference between a clean shutdown and a
+  crash at exit.
+- Both local binaries report the port they actually bound, and their tests read it back instead of reserving a port and
+  hoping nothing takes it in between. That race, not a defect in either server, is what failed one on-device test while the
+  whole workspace was running beside it.
 - Postgres as the deployment store, behind the same semantic doors. Eleven tests against a real Postgres 15: Book
   isolation, an entry and its lines in one transaction, a refused posting leaving nothing behind, a thirty-nine digit
   amount exact, shared rows, twenty-four concurrent writers losing nothing, four Books at once, and a Book carried from

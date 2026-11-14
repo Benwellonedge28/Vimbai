@@ -46,6 +46,8 @@ async fn serve(options: Options) {
     let listener = tokio::net::TcpListener::bind(address)
         .await
         .unwrap_or_else(|err| panic!("cannot bind {address}: {err}"));
+    // the port it actually landed on, so a caller may say port 0 and read the answer back
+    let address = listener.local_addr().unwrap_or(address);
 
     println!(
         "vimbai-sync listening on {address} (data in {})",

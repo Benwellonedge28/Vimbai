@@ -12,10 +12,10 @@
 //! When the binary is not built the tests say so and pass. Preflight builds it first; a machine running `cargo test` on a
 //! fresh checkout gets a skip that names what it skipped.
 
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::TcpStream;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 const PASSWORD: &str = "Sync-Pass!2026";
@@ -33,11 +33,31 @@ fn binary() -> PathBuf {
     here.join("../../target").join(profile).join("vimbai-sync")
 }
 
-fn free_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("a free port");
-    let port = listener.local_addr().expect("a bound address").port();
-    drop(listener);
-    port
+/// The port the server says it is listening on, read from its own words rather than assumed.
+///
+/// A port found free by binding and closing it can be taken by anything else before this process binds, and then the test
+/// talks to a stranger. Asking for port 0 and reading back the answer removes the window.
+fn announced_port(child: &mut Child) -> u16 {
+    let stdout = child.stdout.as_mut().expect("a piped standard out");
+    let mut reader = BufReader::new(stdout);
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let mut line = String::new();
+    while Instant::now() < deadline {
+        line.clear();
+        if reader.read_line(&mut line).unwrap_or(0) == 0 {
+            panic!("the sync server stopped before saying which port it listens on");
+        }
+        if let Some(rest) = line.split("listening on 127.0.0.1:").nth(1) {
+            if let Some(port) = rest
+                .split_whitespace()
+                .next()
+                .and_then(|text| text.parse::<u16>().ok())
+            {
+                return port;
+            }
+        }
+    }
+    panic!("the sync server did not say which port it listens on within 20s");
 }
 
 struct Sync {
@@ -53,14 +73,25 @@ impl Sync {
             return None;
         }
         std::fs::create_dir_all(data_dir).expect("a data directory");
-        let port = free_port();
-        let child = Command::new(&binary)
+        let mut child = Command::new(&binary)
             .arg("--port")
-            .arg(port.to_string())
+            .arg("0")
             .arg("--data-dir")
             .arg(data_dir)
+            .stdout(Stdio::piped())
             .spawn()
             .expect("the sync server starts");
+        let port = announced_port(&mut child);
+        // Keep reading, or a chatty server eventually blocks on a pipe nobody drains.
+        if let Some(stdout) = child.stdout.take() {
+            std::thread::spawn(move || {
+                let mut reader = BufReader::new(stdout);
+                let mut line = String::new();
+                while reader.read_line(&mut line).unwrap_or(0) > 0 {
+                    line.clear();
+                }
+            });
+        }
         let server = Sync { child, port };
         server.wait_until_ready();
         Some(server)

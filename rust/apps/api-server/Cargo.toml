@@ -78,6 +78,8 @@ sha2 = "0.10"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
+# the engine's own tests reach a real Postgres when one is offered, rather than trusting a fake to agree with itself
+postgres = { version = "0.19", features = ["with-serde_json-1"] }
 # a real socket is the only honest way to test the socket door, so the test suite speaks the protocol itself
 tokio-tungstenite = "0.21"
 futures-util = { version = "0.3", default-features = false, features = ["std", "sink"] }

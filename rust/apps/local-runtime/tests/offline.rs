@@ -14,10 +14,10 @@
 //! fresh checkout gets a skip that names what it skipped.
 
 use std::collections::HashSet;
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::TcpStream;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 const PASSWORD: &str = "Local-Pass!2026";
@@ -35,11 +35,28 @@ fn binary() -> PathBuf {
     here.join("../../target").join(profile).join("vimbai-local")
 }
 
-fn free_port() -> u16 {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("a free port");
-    let port = listener.local_addr().expect("a bound address").port();
-    drop(listener);
-    port
+/// The port the runtime says it is listening on, read from its own words rather than assumed.
+fn announced_port(child: &mut Child) -> u16 {
+    let stdout = child.stdout.as_mut().expect("a piped standard out");
+    let mut reader = BufReader::new(stdout);
+    let deadline = Instant::now() + Duration::from_secs(20);
+    let mut line = String::new();
+    while Instant::now() < deadline {
+        line.clear();
+        if reader.read_line(&mut line).unwrap_or(0) == 0 {
+            panic!("the runtime stopped before saying which port it listens on");
+        }
+        if let Some(rest) = line.split("listening on 127.0.0.1:").nth(1) {
+            if let Some(port) = rest
+                .split_whitespace()
+                .next()
+                .and_then(|text| text.parse::<u16>().ok())
+            {
+                return port;
+            }
+        }
+    }
+    panic!("the runtime did not say which port it listens on within 20s");
 }
 
 struct Runtime {
@@ -48,6 +65,12 @@ struct Runtime {
 }
 
 impl Runtime {
+    /// Start the runtime on a port the operating system chose for it.
+    ///
+    /// Asking for port 0 and reading back the port the runtime reports is what makes these tests honest under load. A
+    /// port found free by binding and closing it can be taken by anything else in the window before the runtime binds,
+    /// and then a test talks to somebody else's process - which is exactly how one of these failed once while the whole
+    /// workspace was running beside it.
     fn start(data_dir: &Path) -> Option<Runtime> {
         let binary = binary();
         if !binary.is_file() {
@@ -55,14 +78,25 @@ impl Runtime {
             return None;
         }
         std::fs::create_dir_all(data_dir).expect("a data directory");
-        let port = free_port();
-        let child = Command::new(&binary)
+        let mut child = Command::new(&binary)
             .arg("--port")
-            .arg(port.to_string())
+            .arg("0")
             .arg("--data-dir")
             .arg(data_dir)
+            .stdout(Stdio::piped())
             .spawn()
             .expect("the runtime starts");
+        let port = announced_port(&mut child);
+        // Keep reading, or a chatty runtime eventually blocks on a pipe nobody drains.
+        if let Some(stdout) = child.stdout.take() {
+            std::thread::spawn(move || {
+                let mut reader = BufReader::new(stdout);
+                let mut line = String::new();
+                while reader.read_line(&mut line).unwrap_or(0) > 0 {
+                    line.clear();
+                }
+            });
+        }
         let runtime = Runtime { child, port };
         runtime.wait_until_ready();
         Some(runtime)

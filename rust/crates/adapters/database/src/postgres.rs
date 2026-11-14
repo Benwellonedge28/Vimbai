@@ -224,6 +224,25 @@ fn version() -> i64 {
         .unwrap_or(0)
 }
 
+impl Drop for PostgresGraph {
+    /// Close the pool on a thread of its own.
+    ///
+    /// A synchronous client's destructor drives its own runtime, so dropping one inside the engine's runtime panics in a
+    /// destructor - which aborts the process rather than unwinding. The engine holds its store for the life of the process
+    /// and lets go of it on the way out, so this is the difference between a clean shutdown and a crash at exit.
+    fn drop(&mut self) {
+        let held = match self.pool.lock() {
+            Ok(mut pool) => std::mem::take(&mut *pool),
+            Err(poisoned) => std::mem::take(&mut *poisoned.into_inner()),
+        };
+        if held.is_empty() {
+            return;
+        }
+        // the thread is detached deliberately: a caller shutting down should not wait on a database's close handshake
+        std::thread::spawn(move || drop(held));
+    }
+}
+
 impl Graph for PostgresGraph {
     /// Refused on purpose, for the same reason the device store refuses it.
     fn run(&self, _cypher: &str, _params: Value) -> Result<Vec<Value>, StoreError> {

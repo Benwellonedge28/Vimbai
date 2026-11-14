@@ -340,6 +340,10 @@ Tasks, in the order they were done:
   parameter sent as text was refused; the record now travels as a value. The engine reads `VIMBAI_POSTGRES_URL` and prefers
   it to Neo4j, which stays reachable for anyone still running it, and preflight now starts a throwaway cluster when the
   server binaries are installed so these tests run instead of skipping.
+  The engine itself is covered too, not only the store: `apps/api-server/tests/postgres_engine_http.rs` gives the router a
+  Postgres store and writes, reads back, keeps two Books apart, and finds the record still there after the store is
+  reopened, plus which store the engine picks when both Postgres and Neo4j are configured (Postgres, per ADR-007; the
+  Neo4j address it is offered points at nothing, so choosing it would fail rather than quietly succeed).
 
 Exit criteria
 
