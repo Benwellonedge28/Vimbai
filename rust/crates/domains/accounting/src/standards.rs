@@ -377,9 +377,16 @@ fn toggle_standard<G: Graph + ?Sized>(
         }));
     }
 
+    // The stored row comes back stamped with the scope it was written under. Re-writing it as it stands hands the
+    // store's own create() the two keys it refuses - scope comes from the caller, not the payload - so activating a
+    // standard answered 422 instead of toggling it. The id stays, so it is still the one configuration record.
     let mut body = existing.clone();
     body["selected_standards"] = json!(selected);
     body["updated_at"] = json!(stamp);
+    if let Some(object) = body.as_object_mut() {
+        object.remove("user_id");
+        object.remove("book_id");
+    }
     let records = Records::new(graph, STANDARDS_CONFIG);
     records.delete(scope, field(&existing, "id"))?;
     records.create(scope, &body)?;

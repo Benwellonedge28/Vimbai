@@ -14,6 +14,8 @@ API = os.path.join(ROOT, "rust", "apps", "api-server", "src")
 ENDPOINT = re.compile(r'@app\.(?:get|post|put|delete|patch)\(\s*[\'"]([^\'"]+)[\'"]')
 ROUTE = re.compile(r'\.route\(\s*"([^"]+)"')
 MOUNTS = ("/accounting", "/records/accounting")
+# a router that hangs one table off several prefixes declares them in a loop over literal mounts
+MOUNT_LOOP = re.compile(r'for\s+\w+\s+in\s*\[([^\]]+)\]')
 SKIP = {"", "/", "/health"}
 
 # Addresses a retired service published that the engine has no answer for, each with the reason. The test checks that
@@ -144,6 +146,12 @@ def engine_method_routes():
         if not name.endswith(".rs"):
             continue
         text = open(os.path.join(API, name), encoding="utf-8").read()
+        mounts = MOUNTS
+        loops = MOUNT_LOOP.findall(text)
+        if loops:
+            # this file says which prefixes it answers, so its format!(...) routes hang off those
+            # rather than off the accounting mounts. Without it a hand-built table reads as unowned.
+            mounts = tuple(re.findall(r'"([^"]+)"', loops[0]))
         for found in re.finditer(r"\.route\(", text):
             args = route_args(text, found.end() - 1)
             if not args:
@@ -162,7 +170,7 @@ def engine_method_routes():
                 if lead:
                     seen.update((method, shape(lead + suffix)) for method in methods)
                 else:
-                    for mount in MOUNTS:
+                    for mount in mounts:
                         seen.update((method, shape(mount + suffix)) for method in methods)
     return seen
 

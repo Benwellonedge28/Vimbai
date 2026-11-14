@@ -172,28 +172,8 @@ services:
   gateway_path: /accounting-standards
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /standards
-  - GET /standards/comparison
-  - GET /standards/categories
-  - GET /standards/{standard_type}
-  - GET /standards/{standard_type}/requirements
-  - POST /organizations/{organization_id}/configuration
-  - GET /organizations/{organization_id}/configuration
-  - PUT /organizations/{organization_id}/configuration
-  - POST /organizations/{organization_id}/standards/{standard_type}/activate
-  - POST /organizations/{organization_id}/standards/{standard_type}/deactivate
-  - GET /standards/{standard_type}/account-mapping
-  - POST /standards/{standard_type}/account-mapping
-  - POST /organizations/{organization_id}/policies
-  - GET /organizations/{organization_id}/policies
-  - GET /organizations/{organization_id}/policies/{policy_area}
-  - POST /organizations/{organization_id}/compliance/check
-  - GET /organizations/{organization_id}/compliance/history
-  - GET /standards/{standard_type}/disclosure-requirements
-  - GET /standards/{standard_type}/measurement-guide
+  records: false
+  endpoints: []
 - name: activity-based-budget-service
   domain: budgeting
   target: rust/crates/domains/budgeting

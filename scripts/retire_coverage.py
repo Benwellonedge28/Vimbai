@@ -25,6 +25,8 @@ REGISTRY = os.path.join(REPO, "gateway", "go", "config", "services.json")
 API_DIR = os.path.join(REPO, "rust", "apps", "api-server", "src")
 
 ROUTE = re.compile(r'\.route\(\s*"([^"]+)"')
+# a router that builds one table for several prefixes says so in a loop over literal mounts
+MOUNT_LOOP = re.compile(r'for\s+\w+\s+in\s*\[([^\]]+)\]')
 PREFIXED = re.compile(r'format!\("(?:\{prefix\}|([^"]*))([^"]*)"')
 ENDPOINT = re.compile(r'@app\.(?:get|post|put|delete|patch)\(\s*[\'"]([^\'"]+)[\'"]')
 
@@ -49,9 +51,15 @@ def api_routes():
         text = open(os.path.join(API_DIR, name), encoding="utf-8").read()
         for found in ROUTE.finditer(text):
             routes.add(_wildcard(found.group(1)))
+        mounts = MOUNTS
+        loops = MOUNT_LOOP.findall(text)
+        if loops:
+            # this file declares the prefixes it answers; its format!(...) routes hang off those, not off the
+            # accounting mounts. Reading them from the loop is what makes a hand-built table visible here.
+            mounts = tuple(re.findall(r'"([^"]+)"', loops[0]))
         for found in PREFIXED.finditer(text):
             lead, suffix = found.group(1) or "", _wildcard(found.group(2))
-            for mount in MOUNTS:
+            for mount in mounts:
                 routes.add(mount + suffix)
             if lead:
                 routes.add(_wildcard(lead) + suffix)

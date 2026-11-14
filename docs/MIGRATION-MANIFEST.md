@@ -25,7 +25,7 @@ Lands in `rust/crates/domains/accounting`.
 ```
 service                                         port  routes  records  engine
 accounting-service                              8099       0       no  rust
-accounting-standards-service                    8095      20      yes  rust
+accounting-standards-service                    8095       0       no  rust
 balance-sheet-service                           8099       0       no  rust
 cash-flow-service                               8099       0       no  rust
 cash-flow-statement-service                     8099       0       no  rust
