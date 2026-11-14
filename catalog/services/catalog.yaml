@@ -799,18 +799,12 @@ services:
 - name: mfa-auth-service
   domain: authentication
   target: rust/crates/platform/identity
-  port: 8007
+  port: 9003
   gateway_path: /mfa-auth
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /
-  - GET /health
-  - POST /setup
-  - POST /verify
-  - POST /challenge
-  - POST /challenge/{challenge_id}/verify
+  records: false
+  endpoints: []
 - name: multimodal-pipeline-service
   domain: multimodal
   target: rust/crates/domains/multimodal

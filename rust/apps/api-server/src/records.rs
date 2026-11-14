@@ -17703,6 +17703,17 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/mfa/challenge/:id/verify", post(post_mfa_challenge_verify))
         .route("/mfa/status", get(get_mfa_status))
         .route("/mfa/backup-codes", get(get_mfa_backup_codes))
+        // mfa-auth-service published these under its own prefix, so a client calling what it was told
+        // reaches the same handlers; the /mfa names above stay as the engine's own addresses
+        .route("/mfa-auth/setup", post(post_mfa_setup))
+        .route("/mfa-auth/verify", post(post_mfa_verify))
+        .route("/mfa-auth/challenge", post(post_mfa_challenge))
+        .route(
+            "/mfa-auth/challenge/:id/verify",
+            post(post_mfa_challenge_verify),
+        )
+        .route("/mfa-auth/status", get(get_mfa_status))
+        .route("/mfa-auth/backup-codes", get(get_mfa_backup_codes))
 
         // financial identity: the KYC profile register
         .route("/profiles", post(post_profile))

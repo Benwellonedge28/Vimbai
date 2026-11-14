@@ -125,7 +125,7 @@ Lands in `rust/crates/platform/identity`.
 
 ```
 service                                         port  routes  records  engine
-mfa-auth-service                                8007       6      yes  rust
+mfa-auth-service                                9003       0       no  rust
 ```
 
 Retirement gate: answered from Rust with parity holding, so the Python directory goes once that gateway route is switched.

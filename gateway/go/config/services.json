@@ -577,8 +577,8 @@
     {
       "name": "mfa-auth-service",
       "path": "/mfa-auth",
-      "url": "http://localhost:9013",
-      "port": 8007,
+      "url": "http://localhost:9003",
+      "port": 9003,
       "auth_required": true,
       "strip_prefix": false
     },
