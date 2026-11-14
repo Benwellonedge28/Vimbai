@@ -47,27 +47,17 @@ allows the first and refuses the second.
 That last check is the one that matters. The first three say the contract points at something real;
 the last says the answer it describes is the answer that comes back.
 
-## The SDK is generated from the contract
+## Clients are not generated here yet
 
-`scripts/generate_sdk.py` reads every contract and writes `sdk/python/<domain>_client.py`, so a
-client cannot promise a method the contract does not describe or miss one it does.
-`tests/test_sdk.py` fails if the committed client stops matching the generator, and holds two
-promises the money rule depends on: the client refuses a float amount before it reaches the wire,
-and it refuses to be built without both `X-User-Id` and `X-Book-Id`.
+There is no generated client in this repository at the moment. The Python one that lived in `sdk/python/`, and the
+generator that wrote it, were Python, and they went with the rest of the Python. What the contracts buy without a client
+is the last check in the list above: the contract is asserted against the Rust that answers it, so the document cannot
+drift from the behaviour.
 
-```python
-from sdk.python.costing_client import VimbaiOverheadAbsorptionClient
-
-client = VimbaiOverheadAbsorptionClient(
-    "https://api.vimbai.example", user_id="u-1", book_id="book-1"
-)
-rate = client.calculate_absorption_rate(
-    cost_centre_name="Assembly",
-    cost_centre_id="cc-1",
-    budgeted_overhead="125000.00",
-    budgeted_base_units="4000",
-)
-```
+The clients the target architecture names (Rust, Dart, TypeScript) belong to the developer platform, generated into its
+`sdks/` beside the sandbox that certifies them, so that a client and the sandbox cannot disagree about what the API
+promises. Two promises from the deleted client are worth keeping when that happens: an amount is never a float, and a
+call is never made without both `X-User-Id` and `X-Book-Id`.
 
 ## What comes next
 
@@ -87,5 +77,4 @@ directory honest, and it is why the remaining 120-odd services are not here yet.
 contracts/costing.yaml       overhead absorption: the worked example
 contracts/events/            event schemas, once events are published
 contracts/compatibility/     versioning and deprecation rules
-sdk/python/                  generated from the contracts above
 ```

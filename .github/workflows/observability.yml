@@ -4,18 +4,12 @@ on:
   push:
     paths:
       - 'infrastructure/monitoring/**'
-      - 'shared/tracing.py'
-      - 'shared/middleware.py'
-      - 'shared/health.py'
       - 'otel-collector-config.yaml'
       - 'prometheus.yml'
     branches: [main, develop]
   pull_request:
     paths:
       - 'infrastructure/monitoring/**'
-      - 'shared/tracing.py'
-      - 'shared/middleware.py'
-      - 'shared/health.py'
     branches: [main, develop]
 
 jobs:
@@ -32,7 +26,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pydantic fastapi pytest pytest-asyncio httpx
+          pip install pyyaml
 
       - name: Validate OTel collector config
         run: |
@@ -51,16 +45,3 @@ jobs:
           for f in infrastructure/monitoring/grafana/dashboards/*.json; do
             python -c "import json; json.load(open('$f'))" && echo "$f valid"
           done
-
-      - name: Run shared infrastructure tests
-        run: |
-          PYTHONPATH=. python -m pytest tests/test_shared_infrastructure.py tests/test_tracing_infrastructure.py -v --tb=short
-
-      - name: Verify shared modules import cleanly
-        run: |
-          PYTHONPATH=. python -c "
-          from shared.config import ServiceConfig, Neo4jConfig, RedisConfig, RetryConfig
-          from shared.middleware import setup_middleware, get_request_id
-          from shared.health import create_health_router, register_health_check
-          print('All shared modules import successfully')
-          "

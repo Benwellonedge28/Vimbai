@@ -386,8 +386,8 @@ pytest tests/
 # Integration tests
 pytest tests/integration/
 
-# Performance tests
-locust -f performance_tests.py --host=http://localhost:8001
+# Performance tests: there is no locust suite in the repository any more. The load-bearing promise is the offline and
+# workspace suites above; a load test belongs to wherever the cluster is run, not to the repository that ships the engine.
 ```
 
 ---
@@ -455,7 +455,9 @@ http://localhost:3000 (admin/admin)
 
 Vimbai uses Neo4j indexes for optimal query performance. Indexes are automatically created on service startup.
 
-See `database_optimization.py` for detailed index management.
+Indexes are not this repository's business any more. The engine holds the store, and the store is what opens the indexes
+it needs; a Python module editing Cypher by hand was a second description of the schema, and it went with the rest of the
+Python.
 
 ### Key Indexes
 
@@ -472,7 +474,9 @@ CREATE INDEX user_id_index FOR (a:Account) ON (a.user_id)
 
 ### Query Optimization
 
-Use the `QueryTemplates` class from `database_optimization.py` for pre-optimized Cypher queries.
+Queries are written where the records are, in `rust/crates/adapters/database`, and are parameterised by construction: the
+driver takes a statement and its values rather than a string with values baked in, so a caller cannot build a query by
+concatenation.
 
 ---
 
