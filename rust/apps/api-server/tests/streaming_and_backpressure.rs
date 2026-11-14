@@ -158,6 +158,61 @@ async fn a_page_can_be_read_one_record_at_a_time_with_its_paging_in_headers() {
 }
 
 #[tokio::test]
+async fn a_walk_covers_every_record_once_even_when_the_handler_orders_them_its_own_way() {
+    // The first page is a position, not an ordering: a handler may list newest-first by created date while the store seeks
+    // by id, and when those disagree a walk repeats a row or steps over one. Five records read two at a time must be five
+    // distinct records, whoever is listing.
+    let graph = Arc::new(MemoryGraph::new());
+    book_with(&graph, 5).await;
+
+    let mut seen: Vec<String> = Vec::new();
+    let mut cursor: Option<String> = None;
+    for _ in 0..4 {
+        let uri = match &cursor {
+            None => "/rules?limit=2".to_owned(),
+            Some(cursor) => format!("/rules?limit=2&cursor={cursor}"),
+        };
+        let (status, headers, body) = call(
+            graph.clone(),
+            Method::GET,
+            &uri,
+            "application/x-ndjson",
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for line in body.lines().filter(|line| !line.is_empty()) {
+            let record: Value = serde_json::from_str(line).expect("a line is a whole record");
+            seen.push(
+                record["id"]
+                    .as_str()
+                    .expect("a record has an id")
+                    .to_owned(),
+            );
+        }
+        if headers.get("x-has-more").and_then(|v| v.to_str().ok()) != Some("true") {
+            break;
+        }
+        cursor = Some(
+            headers
+                .get("x-next-cursor")
+                .and_then(|v| v.to_str().ok())
+                .expect("a cursor while more follow")
+                .to_owned(),
+        );
+    }
+
+    assert_eq!(seen.len(), 5, "the walk returned {seen:?}");
+    let mut distinct = seen.clone();
+    distinct.sort();
+    distinct.dedup();
+    assert_eq!(distinct.len(), 5, "the walk repeated a record: {seen:?}");
+    let mut ordered = seen.clone();
+    ordered.sort();
+    assert_eq!(seen, ordered, "a walk proceeds in the store's id order");
+}
+
+#[tokio::test]
 async fn asking_for_json_still_gets_exactly_what_it_got_before() {
     let graph = Arc::new(MemoryGraph::new());
     book_with(&graph, 3).await;

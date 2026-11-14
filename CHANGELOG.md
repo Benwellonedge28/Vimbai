@@ -14,6 +14,21 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- A walk through a Book's list returns each record once, whoever is listing. The first page of a walk was windowed from the
+  handler's own order while every page after it was seeked in id order, so when the two orders disagreed the continuation
+  either repeated a row it had already sent or stepped over one it never had - intermittent by nature, because it depended
+  on the ids that run happened to make. The first page is now a position like the rest (`!`, which sorts before any id),
+  which costs one header and makes the whole walk agree. Found while chasing a paging test that failed twice under the full
+  suite and passed every time on its own; the test now reads five records two at a time and insists on five distinct ids in
+  the store's order.
+- The Flutter app has tests, and the toolchain that runs them. `apps/flutter/test/` answers through a replaced transport, so
+  the offline rules the whole app leans on are proven without a server or an emulator: a read is retried, a write is not, a
+  dead or silent network becomes a typed `OfflineException`, caller headers are sent as given, and a person or a Book
+  survives the trip to JSON and back including the fields the engine leaves out. Writing them paid for itself twice:
+  `ApiClient` retried by re-awaiting the *same* failed future, so the retry existed in the code and never reached the wire,
+  and a socket failure on a read was not retried at all. `make flutter-test`, the mobile workflow and `preflight.sh` (where
+  flutter is on PATH, and it says so where it is not) all run them. The six platform folders are generated and committed, so
+  a clone can build for android, ios, web, linux, macos or windows.
 - Every address the engine answers is filed under the domain that answers it. The catalogue describes what the gateway
   *routes*, and retiring a service moved its addresses onto the engine without moving them in the gateway, so 180 prefix
   groups were answered by nothing the catalogue knew about and the contract generator put them all in one bucket called

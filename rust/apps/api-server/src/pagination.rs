@@ -52,6 +52,9 @@ struct Place {
     after: Option<String>,
 }
 
+/// The place before the first row. Every id the store makes begins with a letter or a digit, both of which sort after it.
+const START: &str = "!";
+
 fn encode(place: &Place) -> String {
     use base64::Engine as _;
     let text = match &place.after {
@@ -159,11 +162,16 @@ async fn window(request: Request, next: Next) -> Response {
         },
     };
     let offset = place.offset;
+    // The first page of a walk is a position too, or the walk does not hold together.
+    //
+    // A handler lists in its own order; the store seeks in id order. Handing out a cursor taken from the *end of the first
+    // page* therefore only continues the list when those two orders agree - and when they disagree the seek either repeats
+    // a row it has already returned or steps over one it never did. Asking the store for the first page in id order as well
+    // costs one header and makes every page of a walk agree, whoever is listing. `!` sorts before any id the store makes.
+    let position = place.after.clone().unwrap_or_else(|| START.to_string());
     let mut request = request;
-    if let Some(after) = &place.after {
-        if let Ok(value) = axum::http::HeaderValue::from_str(after) {
-            request.headers_mut().insert("x-vimbai-after", value);
-        }
+    if let Ok(value) = axum::http::HeaderValue::from_str(&position) {
+        request.headers_mut().insert("x-vimbai-after", value);
     }
 
     let lines_wanted = request

@@ -37,3 +37,10 @@ jobs:
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
         working-directory: apps/flutter
+
+      # The app's own tests. They answer through a replaced transport, so they need no server and no emulator: what they
+      # hold is the offline rules - which requests are retried, what a dead network becomes - and the shape of what the
+      # engine sends and the app writes back.
+      - name: Test the app
+        run: flutter test
+        working-directory: apps/flutter

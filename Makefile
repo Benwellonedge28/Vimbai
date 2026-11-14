@@ -17,6 +17,9 @@ help:
 	@echo "make rules         the repository gates"
 	@echo "make build         release build of the engine and the local runtime"
 
+flutter-test:
+	cd apps/flutter && flutter pub get && flutter analyze --no-fatal-infos && flutter test
+
 preflight:
 	./scripts/preflight.sh
 
