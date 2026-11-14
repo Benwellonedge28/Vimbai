@@ -724,92 +724,57 @@ pub trait Graph {
                 .into(),
         ))
     }
-}
 
-/// Book-scoped CRUD over one record kind.
-pub struct Records<'a, G: Graph + ?Sized> {
-    graph: &'a G,
-    kind: RecordKind,
-}
+    // ----------------------------------------------------------------------------------------------------------------
+    // The semantic doors.
+    //
+    // `run` is one backend's implementation detail: it is how the Neo4j store talks to its driver. Everything above this
+    // line is what the rest of the platform is allowed to ask a store to do, expressed as the operations the platform
+    // actually performs - create a record in a Book, read it back, list a Book, replace fields, delete - rather than as a
+    // query language. A backend implements these; it does not have to interpret anybody else's query text.
+    //
+    // They carry a Cypher default for now because moving 137 services onto them at once would be a rewrite rather than a
+    // step. The default is the statement the old code wrote, moved here verbatim: same text, same parameters, so a test
+    // that reads the statements a caller issues still reads the same ones. A new backend overrides them all and never sees
+    // Cypher; when the last one does, `run` stops being part of this trait at all.
+    //
+    // `P8.5` in docs/ROADMAP.md tracks that: these doors exist, `Records` uses them, `PlatformRecords` follows, and then a
+    // gate holds the line so no caller can go back to writing statements.
 
-impl<'a, G: Graph + ?Sized> Records<'a, G> {
-    pub fn new(graph: &'a G, kind: RecordKind) -> Self {
-        Self { graph, kind }
-    }
-
-    /// Store a new record, stamped with the caller's scope.
-    ///
-    /// A payload that tries to set `user_id` or `book_id` is rejected rather than silently
-    /// overwritten: a caller that thinks it is writing somewhere else should hear about it.
-    pub fn create(&self, scope: &BookScope, fields: &Value) -> Result<Value, StoreError> {
-        let mut props = self.clean_fields(fields)?;
-        props.insert("user_id".into(), json!(scope.user_id));
-        props.insert("book_id".into(), json!(scope.book_id));
-        let id = props
-            .get("id")
-            .and_then(Value::as_str)
-            .map(str::to_owned)
-            .unwrap_or_else(|| uuid_like(&scope.book_id, props.len()));
-        props.insert("id".into(), json!(id));
-
+    /// Create one record inside a Book, owned by the caller, and return it as stored.
+    fn store_create(
+        &self,
+        kind: RecordKind,
+        scope: &BookScope,
+        props: Value,
+    ) -> Result<Value, StoreError> {
         let cypher = format!(
             "MATCH (u:User {{id: $user_id}})\n\
              CREATE (x:{label})\n\
              SET x = $props\n\
              CREATE (u)-[:{edge}]->(x)\n\
              RETURN x",
-            label = self.kind.label,
-            edge = self.kind.edge
+            label = kind.label,
+            edge = kind.edge
         );
         let mut params = scope.params();
-        params["props"] = Value::Object(props);
-        self.one(cypher, params)
+        params["props"] = props;
+        self.store_one(&cypher, params)
     }
 
-    /// Store a record together with the children it owns, in ONE statement.
+    /// Create one record and the children it owns, in ONE statement.
     ///
-    /// A child is not a list inside its parent: it is a record of its own, joined to the parent by an edge, so it can
-    /// be found by what it says rather than by reading every parent first. It is written in the same statement as the
-    /// parent because two writes could leave a posting existing in halves, which in a ledger is not a state that may
-    /// exist.
-    pub fn create_with_children(
+    /// The children are records of their own, joined to their parent, and each one that names an account and a side is
+    /// linked to that account in the same statement: an entry that arrived without its lines, or with lines that are not
+    /// postings, is a state a ledger may not exist in.
+    fn store_create_with_children(
         &self,
+        kind: RecordKind,
         scope: &BookScope,
-        fields: &Value,
+        props: Value,
         child: RecordKind,
-        children: &[Value],
-        // the property each child carries the parent's id under - `entry_id` for a journal line, and whatever a
-        // different record calls its owner. The store assigns the id, so it must stamp the children itself.
-        parent_key: &str,
+        children: Vec<Value>,
     ) -> Result<Value, StoreError> {
-        let mut props = self.clean_fields(fields)?;
-        let id = props
-            .get("id")
-            .and_then(Value::as_str)
-            .map(str::to_owned)
-            .unwrap_or_else(|| uuid_like(&scope.book_id, props.len()));
-        props.insert("id".into(), json!(id));
-        props.insert("user_id".into(), json!(scope.user_id));
-        props.insert("book_id".into(), json!(scope.book_id));
-
-        let mut held: Vec<Value> = Vec::with_capacity(children.len());
-        for (index, line) in children.iter().enumerate() {
-            let mut child_props = line
-                .as_object()
-                .cloned()
-                .ok_or_else(|| StoreError::Invalid("a child must be an object".into()))?;
-            if child_props.contains_key("user_id") || child_props.contains_key("book_id") {
-                return Err(StoreError::Invalid(
-                    "user_id and book_id come from the caller's scope, not the payload".into(),
-                ));
-            }
-            child_props.insert("user_id".into(), json!(scope.user_id));
-            child_props.insert("book_id".into(), json!(scope.book_id));
-            child_props.insert("id".into(), json!(uuid_like(&scope.book_id, index)));
-            child_props.insert(parent_key.to_string(), json!(id));
-            held.push(Value::Object(child_props));
-        }
-
         let cypher = format!(
             "MATCH (u:User {{id: $user_id}})\n\
              CREATE (x:{label})\n\
@@ -828,21 +793,41 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
                  MERGE (l)-[:CREDITED]->(a))\n\
              WITH x, l\n\
              RETURN x, collect(l) AS lines",
-            label = self.kind.label,
-            edge = self.kind.edge,
+            label = kind.label,
+            edge = kind.edge,
             child_label = child.label,
             child_edge = child.edge
         );
         let mut params = scope.params();
-        params["props"] = Value::Object(props);
-        params["children"] = Value::Array(held);
-        let row = self.one(cypher, params)?;
+        params["props"] = props;
+        params["children"] = Value::Array(children);
+        let row = self.store_one(&cypher, params)?;
         Ok(with_children(row, "lines"))
     }
 
-    /// One record and the children it owns, read in ONE statement.
-    pub fn get_with_children(
+    /// One record of this Book by its id.
+    fn store_get(
         &self,
+        kind: RecordKind,
+        scope: &BookScope,
+        id: &str,
+    ) -> Result<Value, StoreError> {
+        let cypher = format!(
+            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+             WHERE x.id = $id AND x.book_id = $book_id\n\
+             RETURN x",
+            label = kind.label,
+            edge = kind.edge
+        );
+        let mut params = scope.params();
+        params["id"] = json!(id);
+        self.store_one(&cypher, params)
+    }
+
+    /// One record and the children it owns.
+    fn store_get_with_children(
+        &self,
+        kind: RecordKind,
         scope: &BookScope,
         id: &str,
         child: RecordKind,
@@ -852,20 +837,43 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
              WHERE x.id = $id AND x.book_id = $book_id\n\
              OPTIONAL MATCH (x)-[:{child_edge}]->(l:{child_label})\n\
              RETURN x, collect(l) AS lines",
-            label = self.kind.label,
-            edge = self.kind.edge,
+            label = kind.label,
+            edge = kind.edge,
             child_edge = child.edge,
             child_label = child.label
         );
         let mut params = scope.params();
         params["id"] = json!(id);
-        let row = self.one(cypher, params)?;
+        let row = self.store_one(&cypher, params)?;
         Ok(with_children(row, "lines"))
     }
 
-    /// Every record of this Book under this label, each with the children it owns, read in ONE statement.
-    pub fn list_with_children(
+    /// A Book's records, newest first and bounded.
+    fn store_list(
         &self,
+        kind: RecordKind,
+        scope: &BookScope,
+        limit: usize,
+    ) -> Result<Vec<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+             WHERE x.book_id = $book_id\n\
+             RETURN x\n\
+             ORDER BY x.created_at DESC\n\
+             LIMIT $limit",
+            label = kind.label,
+            edge = kind.edge
+        );
+        let mut params = scope.params();
+        params["limit"] = json!(limit as i64);
+        let rows = self.run(&cypher, params)?;
+        Ok(rows.into_iter().map(unwrap_node).collect())
+    }
+
+    /// A Book's records with the children each one owns, newest first and bounded.
+    fn store_list_with_children(
+        &self,
+        kind: RecordKind,
         scope: &BookScope,
         limit: usize,
         child: RecordKind,
@@ -877,31 +885,310 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
              RETURN x, collect(l) AS lines\n\
              ORDER BY x.created_at DESC\n\
              LIMIT $limit",
-            label = self.kind.label,
-            edge = self.kind.edge,
+            label = kind.label,
+            edge = kind.edge,
             child_edge = child.edge,
             child_label = child.label
         );
         let mut params = scope.params();
         params["limit"] = json!(limit as i64);
-        let rows = self.graph.run(&cypher, params)?;
+        let rows = self.run(&cypher, params)?;
         Ok(rows
             .into_iter()
             .map(|row| with_children(row, "lines"))
             .collect())
     }
 
-    pub fn get(&self, scope: &BookScope, id: &str) -> Result<Value, StoreError> {
+    /// Merge fields into a record that already belongs to this Book.
+    fn store_update(
+        &self,
+        kind: RecordKind,
+        scope: &BookScope,
+        id: &str,
+        patch: Value,
+    ) -> Result<Value, StoreError> {
         let cypher = format!(
             "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
              WHERE x.id = $id AND x.book_id = $book_id\n\
+             SET x += $patch\n\
              RETURN x",
-            label = self.kind.label,
-            edge = self.kind.edge
+            label = kind.label,
+            edge = kind.edge
         );
         let mut params = scope.params();
         params["id"] = json!(id);
-        self.one(cypher, params)
+        params["patch"] = patch;
+        self.store_one(&cypher, params)
+    }
+
+    /// Remove a record from a Book. A miss is a miss, not a success.
+    fn store_delete(
+        &self,
+        kind: RecordKind,
+        scope: &BookScope,
+        id: &str,
+    ) -> Result<(), StoreError> {
+        let cypher = format!(
+            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+             WHERE x.id = $id AND x.book_id = $book_id\n\
+             DETACH DELETE x\n\
+             RETURN count(x) AS deleted",
+            label = kind.label,
+            edge = kind.edge
+        );
+        let mut params = scope.params();
+        params["id"] = json!(id);
+        let rows = self.run(&cypher, params)?;
+        // DETACH DELETE returns no row for a miss, so an empty answer is the same NotFound as a read that found nothing.
+        if rows.is_empty() {
+            return Err(StoreError::NotFound);
+        }
+        Ok(())
+    }
+
+    /// One record by a value it holds, ignoring Book scoping.
+    ///
+    /// Kept to exactly that, because it is the one read that crosses Books: a receipt number or a holding code is printed
+    /// on a document and handed to somebody with no account here, so it *is* the credential. Anything wider would be a way
+    /// around the boundary every other door keeps.
+    fn store_find(
+        &self,
+        kind: RecordKind,
+        property: &str,
+        token: &str,
+    ) -> Result<Option<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.{property} = $token\nRETURN x",
+            label = kind.label,
+            property = property
+        );
+        let rows = self.run(&cypher, json!({ "token": token }))?;
+        Ok(rows.into_iter().next().map(unwrap_node))
+    }
+
+    /// The lines that moved one account, walked from the account inwards.
+    ///
+    /// Answering "what moved account 1000" must not depend on how many entries the Book holds, which is the whole reason
+    /// the posting edges exist.
+    fn store_lines_for_account(
+        &self,
+        kind: RecordKind,
+        scope: &BookScope,
+        child: RecordKind,
+        account_number: &str,
+        limit: usize,
+    ) -> Result<Vec<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
+             MATCH (x)-[:{child_edge}]->(l:{child_label})\n\
+             MATCH (l)-[:DEBITED|CREDITED]->(a:Account {{book_id: $book_id, account_number: $account_number}})\n\
+             RETURN l, x.id AS entry_id, x.entry_date AS entry_date, x.description AS entry_description\n\
+             ORDER BY entry_date DESC\n\
+             LIMIT $limit",
+            label = kind.label,
+            edge = kind.edge,
+            child_edge = child.edge,
+            child_label = child.label
+        );
+        let mut params = scope.params();
+        params["account_number"] = json!(account_number);
+        params["limit"] = json!(limit as i64);
+        self.run(&cypher, params)
+    }
+
+    // -------------------------------------------------- platform records -------------------------------------------------
+    //
+    // The same doors for the records that belong to the platform rather than to one person in one Book: an account has to
+    // be findable before anybody knows who is asking, and it is the same account in every Book they open. No owner is
+    // stamped, no Book is filtered on, and nothing here may be reached for to make an ordinary domain read easier.
+
+    /// Write a platform record, ownerless, exactly as given.
+    ///
+    /// One statement serves both a request and a restore, and the difference between them is the caller's: a request
+    /// cleans its payload first, a restore hands back what it took out.
+    fn store_create_platform(&self, kind: RecordKind, props: Value) -> Result<Value, StoreError> {
+        let cypher = format!(
+            "CREATE (x:{label})\nSET x = $props\nRETURN x",
+            label = kind.label
+        );
+        let rows = self.run(&cypher, json!({ "props": props }))?;
+        rows.into_iter()
+            .next()
+            .map(unwrap_node)
+            .ok_or_else(|| StoreError::Graph(format!("{} was not written", kind.label)))
+    }
+
+    /// A platform record by its id.
+    fn store_get_platform(&self, kind: RecordKind, id: &str) -> Result<Option<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.id = $id\nRETURN x",
+            label = kind.label
+        );
+        let rows = self.run(&cypher, json!({ "id": id }))?;
+        Ok(rows.into_iter().next().map(unwrap_node))
+    }
+
+    /// A platform record by a value the caller already holds - a username, an email, a token.
+    fn store_find_platform(
+        &self,
+        kind: RecordKind,
+        property: &str,
+        value: &str,
+    ) -> Result<Option<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.{property} = $value\nRETURN x",
+            label = kind.label,
+            property = property
+        );
+        let rows = self.run(&cypher, json!({ "value": value }))?;
+        Ok(rows.into_iter().next().map(unwrap_node))
+    }
+
+    /// Every platform record whose property equals a value the caller already holds, capped.
+    fn store_matching_platform(
+        &self,
+        kind: RecordKind,
+        property: &str,
+        value: &str,
+        limit: usize,
+    ) -> Result<Vec<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.{property} = $value\nRETURN x\nLIMIT $limit",
+            label = kind.label,
+            property = property
+        );
+        let rows = self.run(&cypher, json!({ "value": value, "limit": limit as i64 }))?;
+        Ok(rows.into_iter().map(unwrap_node).collect())
+    }
+
+    /// A platform kind's records, newest first and bounded.
+    fn store_list_platform(
+        &self,
+        kind: RecordKind,
+        limit: usize,
+    ) -> Result<Vec<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nRETURN x\nORDER BY x.created_at DESC\nLIMIT $limit",
+            label = kind.label
+        );
+        let rows = self.run(&cypher, json!({ "limit": limit as i64 }))?;
+        Ok(rows.into_iter().map(unwrap_node).collect())
+    }
+
+    /// Remove a platform record. Answers whether one was there, because a delete reports nothing on any graph.
+    fn store_remove_platform(&self, kind: RecordKind, id: &str) -> Result<bool, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.id = $id\nDETACH DELETE x",
+            label = kind.label
+        );
+        self.run(&cypher, json!({ "id": id }))?;
+        Ok(true)
+    }
+
+    /// Merge fields into a platform record.
+    fn store_update_platform(
+        &self,
+        kind: RecordKind,
+        id: &str,
+        patch: Value,
+    ) -> Result<Option<Value>, StoreError> {
+        let cypher = format!(
+            "MATCH (x:{label})\nWHERE x.id = $id\nSET x += $patch\nRETURN x",
+            label = kind.label
+        );
+        let rows = self.run(&cypher, json!({ "id": id, "patch": patch }))?;
+        Ok(rows.into_iter().next().map(unwrap_node))
+    }
+
+    /// The one-row answer every door that returns a record needs: first row, unwrapped, or NotFound.
+    ///
+    /// Takes `&str` rather than `impl AsRef<str>` so the trait stays usable behind `dyn Graph`: the engine holds its store
+    /// as a trait object, and one generic method would make the whole trait unnameable there.
+    fn store_one(&self, cypher: &str, params: Value) -> Result<Value, StoreError> {
+        let rows = self.run(cypher, params)?;
+        rows.into_iter()
+            .next()
+            .map(unwrap_node)
+            .ok_or(StoreError::NotFound)
+    }
+}
+
+/// Book-scoped CRUD over one record kind.
+pub struct Records<'a, G: Graph + ?Sized> {
+    graph: &'a G,
+    kind: RecordKind,
+}
+
+impl<'a, G: Graph + ?Sized> Records<'a, G> {
+    pub fn new(graph: &'a G, kind: RecordKind) -> Self {
+        Self { graph, kind }
+    }
+
+    /// Store a new record, stamped with the caller's scope.
+    ///
+    /// A payload that tries to set `user_id` or `book_id` is rejected rather than silently
+    /// overwritten: a caller that thinks it is writing somewhere else should hear about it.
+    pub fn create(&self, scope: &BookScope, fields: &Value) -> Result<Value, StoreError> {
+        let mut props = self.book_fields(scope, fields)?;
+        self.graph
+            .store_create(self.kind, scope, Value::Object(std::mem::take(&mut props)))
+    }
+
+    /// Store a record together with the children it owns, in ONE statement.
+    ///
+    /// A child is not a list inside its parent: it is a record of its own, joined to the parent by an edge, so it can
+    /// be found by what it says rather than by reading every parent first. It is written in the same statement as the
+    /// parent because two writes could leave a posting existing in halves, which in a ledger is not a state that may
+    /// exist.
+    pub fn create_with_children(
+        &self,
+        scope: &BookScope,
+        fields: &Value,
+        child: RecordKind,
+        children: &[Value],
+        // the property each child carries the parent's id under - `entry_id` for a journal line, and whatever a
+        // different record calls its owner. The store assigns the id, so it must stamp the children itself.
+        parent_key: &str,
+    ) -> Result<Value, StoreError> {
+        let props = self.book_fields(scope, fields)?;
+        let id = props
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let held = children
+            .iter()
+            .enumerate()
+            .map(|(index, line)| self.child_fields(scope, line, &id, parent_key, index))
+            .collect::<Result<Vec<Value>, StoreError>>()?;
+        self.graph
+            .store_create_with_children(self.kind, scope, Value::Object(props), child, held)
+    }
+
+    /// One record and the children it owns, read in ONE statement.
+    pub fn get_with_children(
+        &self,
+        scope: &BookScope,
+        id: &str,
+        child: RecordKind,
+    ) -> Result<Value, StoreError> {
+        self.graph
+            .store_get_with_children(self.kind, scope, id, child)
+    }
+
+    /// Every record of this Book under this label, each with the children it owns, read in ONE statement.
+    pub fn list_with_children(
+        &self,
+        scope: &BookScope,
+        limit: usize,
+        child: RecordKind,
+    ) -> Result<Vec<Value>, StoreError> {
+        self.graph
+            .store_list_with_children(self.kind, scope, limit, child)
+    }
+
+    pub fn get(&self, scope: &BookScope, id: &str) -> Result<Value, StoreError> {
+        self.graph.store_get(self.kind, scope, id)
     }
 
     /// A public verification token is itself the credential, so this is the one read that crosses Books.
@@ -913,29 +1200,11 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
         if token.trim().is_empty() {
             return Ok(None);
         }
-        let cypher = format!(
-            "MATCH (x:{label})\nWHERE x.{property} = $token\nRETURN x",
-            label = self.kind.label,
-            property = property
-        );
-        let rows = self.graph.run(&cypher, json!({ "token": token }))?;
-        Ok(rows.into_iter().next().map(unwrap_node))
+        self.graph.store_find(self.kind, property, token)
     }
 
     pub fn list(&self, scope: &BookScope, limit: usize) -> Result<Vec<Value>, StoreError> {
-        let cypher = format!(
-            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
-             WHERE x.book_id = $book_id\n\
-             RETURN x\n\
-             ORDER BY x.created_at DESC\n\
-             LIMIT $limit",
-            label = self.kind.label,
-            edge = self.kind.edge
-        );
-        let mut params = scope.params();
-        params["limit"] = json!(limit as i64);
-        let rows = self.graph.run(&cypher, params)?;
-        Ok(rows.into_iter().map(unwrap_node).collect())
+        self.graph.store_list(self.kind, scope, limit)
     }
 
     /// The lines that moved one account, fetched through the edges rather than by reading every entry in the Book.
@@ -950,58 +1219,62 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
         account_number: &str,
         limit: usize,
     ) -> Result<Vec<Value>, StoreError> {
-        let cypher = format!(
-            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
-             MATCH (x)-[:{child_edge}]->(l:{child_label})\n\
-             MATCH (l)-[:DEBITED|CREDITED]->(a:Account {{book_id: $book_id, account_number: $account_number}})\n\
-             RETURN l, x.id AS entry_id, x.entry_date AS entry_date, x.description AS entry_description\n\
-             ORDER BY entry_date DESC\n\
-             LIMIT $limit",
-            label = self.kind.label,
-            edge = self.kind.edge,
-            child_edge = child.edge,
-            child_label = child.label
-        );
-        let mut params = scope.params();
-        params["account_number"] = json!(account_number);
-        params["limit"] = json!(limit as i64);
-        self.graph.run(&cypher, params)
+        self.graph
+            .store_lines_for_account(self.kind, scope, child, account_number, limit)
     }
 
     /// Merge the supplied fields into a record that already belongs to this Book.
     pub fn update(&self, scope: &BookScope, id: &str, fields: &Value) -> Result<Value, StoreError> {
         let patch = self.clean_fields(fields)?;
-        let cypher = format!(
-            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
-             WHERE x.id = $id AND x.book_id = $book_id\n\
-             SET x += $patch\n\
-             RETURN x",
-            label = self.kind.label,
-            edge = self.kind.edge
-        );
-        let mut params = scope.params();
-        params["id"] = json!(id);
-        params["patch"] = Value::Object(patch);
-        self.one(cypher, params)
+        self.graph
+            .store_update(self.kind, scope, id, Value::Object(patch))
     }
 
     pub fn delete(&self, scope: &BookScope, id: &str) -> Result<(), StoreError> {
-        let cypher = format!(
-            "MATCH (u:User {{id: $user_id}})-[:{edge}]->(x:{label})\n\
-             WHERE x.id = $id AND x.book_id = $book_id\n\
-             DETACH DELETE x\n\
-             RETURN count(x) AS deleted",
-            label = self.kind.label,
-            edge = self.kind.edge
-        );
-        let mut params = scope.params();
-        params["id"] = json!(id);
-        let rows = self.graph.run(&cypher, params)?;
-        // DETACH DELETE returns no row for a miss, so an empty answer is the same NotFound as get.
-        if rows.is_empty() {
-            return Err(StoreError::NotFound);
+        self.graph.store_delete(self.kind, scope, id)
+    }
+
+    /// The fields of a record about to be written into a Book: the payload, stamped with its scope and an id.
+    fn book_fields(
+        &self,
+        scope: &BookScope,
+        fields: &Value,
+    ) -> Result<Map<String, Value>, StoreError> {
+        let mut props = self.clean_fields(fields)?;
+        props.insert("user_id".into(), json!(scope.user_id));
+        props.insert("book_id".into(), json!(scope.book_id));
+        let id = props
+            .get("id")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .unwrap_or_else(|| uuid_like(&scope.book_id, props.len()));
+        props.insert("id".into(), json!(id));
+        Ok(props)
+    }
+
+    /// The fields of one child about to be written with its parent.
+    fn child_fields(
+        &self,
+        scope: &BookScope,
+        line: &Value,
+        parent_id: &str,
+        parent_key: &str,
+        index: usize,
+    ) -> Result<Value, StoreError> {
+        let mut child_props = line
+            .as_object()
+            .cloned()
+            .ok_or_else(|| StoreError::Invalid("a child must be an object".into()))?;
+        if child_props.contains_key("user_id") || child_props.contains_key("book_id") {
+            return Err(StoreError::Invalid(
+                "user_id and book_id come from the caller's scope, not the payload".into(),
+            ));
         }
-        Ok(())
+        child_props.insert("user_id".into(), json!(scope.user_id));
+        child_props.insert("book_id".into(), json!(scope.book_id));
+        child_props.insert("id".into(), json!(uuid_like(&scope.book_id, index)));
+        child_props.insert(parent_key.to_string(), json!(parent_id));
+        Ok(Value::Object(child_props))
     }
 
     fn clean_fields(&self, fields: &Value) -> Result<Map<String, Value>, StoreError> {
@@ -1014,14 +1287,6 @@ impl<'a, G: Graph + ?Sized> Records<'a, G> {
             ));
         }
         Ok(object.clone())
-    }
-
-    fn one(&self, cypher: impl AsRef<str>, params: Value) -> Result<Value, StoreError> {
-        let rows = self.graph.run(cypher.as_ref(), params)?;
-        rows.into_iter()
-            .next()
-            .map(unwrap_node)
-            .ok_or(StoreError::NotFound)
     }
 }
 
@@ -1213,6 +1478,44 @@ mod platform_tests {
     }
 
     #[test]
+    fn no_caller_in_this_crate_writes_a_statement() {
+        // The point of the semantic doors is that a caller asks a store to do something rather than handing it a query.
+        // A caller that starts writing statements again would make every future backend a query interpreter, so the check
+        // is on the source rather than on anybody's memory - and it errs towards failing: it looks for the verbs, not for
+        // a pattern that could be satisfied by a comment.
+        let source = include_str!("lib.rs");
+        let from = source
+            .find("impl<'a, G: Graph + ?Sized> Records")
+            .expect("the record doors");
+        // the end is the last helper in the file, not the first test module: the unit tests for the book doors sit in
+        // the middle of this file, and stopping there would leave the platform doors unscanned.
+        let to = source.rfind("fn uuid_like").expect("the shared helper");
+        let callers = &source[from..to];
+        // the openings a statement actually has, with the node or the field named: a caller that wrote one would land on
+        // one of these, and a list of bare words would also match this test's own list and prove nothing
+        // built from halves so this list does not match itself: the scan reads the file it lives in
+        for verb in [
+            concat!("MATCH (", "u:User"),
+            concat!("MATCH (", "x:"),
+            concat!("CREATE (", "x:"),
+            concat!("CREATE (", "l:"),
+            concat!("MERGE (", "x)-"),
+            concat!("SET x ", "+="),
+            concat!("DETACH DELETE ", "x"),
+        ] {
+            assert!(
+                !callers.contains(verb),
+                "a caller still writes a statement: {verb} appears between the record doors and the tests"
+            );
+        }
+        // and the scan must have looked at something, or it passes over an empty string
+        assert!(
+            callers.contains("store_create") && callers.contains("store_find_platform"),
+            "the scan did not reach the doors, so it proves nothing"
+        );
+    }
+
+    #[test]
     fn the_label_is_readable_so_a_diagnostic_can_name_what_was_missing() {
         let graph = MemoryGraph::new();
         assert_eq!(PlatformRecords::new(&graph, ACCOUNT).label(), "Account");
@@ -1268,27 +1571,15 @@ impl<'a, G: Graph + ?Sized> PlatformRecords<'a, G> {
                 self.kind.label
             )));
         }
-        let cypher = format!(
-            "CREATE (x:{label})\nSET x = $props\nRETURN x",
-            label = self.kind.label
-        );
-        let rows = self.graph.run(&cypher, json!({ "props": props }))?;
-        rows.into_iter()
-            .next()
-            .map(unwrap_node)
-            .ok_or_else(|| StoreError::Graph(format!("{} was not written", self.kind.label)))
+        self.graph
+            .store_create_platform(self.kind, Value::Object(props))
     }
 
     pub fn get(&self, id: &str) -> Result<Option<Value>, StoreError> {
         if id.trim().is_empty() {
             return Ok(None);
         }
-        let cypher = format!(
-            "MATCH (x:{label})\nWHERE x.id = $id\nRETURN x",
-            label = self.kind.label
-        );
-        let rows = self.graph.run(&cypher, json!({ "id": id }))?;
-        Ok(rows.into_iter().next().map(unwrap_node))
+        self.graph.store_get_platform(self.kind, id)
     }
 
     /// Put a record back exactly as it was, owners and all.
@@ -1311,15 +1602,14 @@ impl<'a, G: Graph + ?Sized> PlatformRecords<'a, G> {
                 self.kind.label
             )));
         }
-        let cypher = format!(
-            "CREATE (x:{label})\nSET x = $props\nRETURN x",
-            label = self.kind.label
-        );
-        let rows = self.graph.run(&cypher, json!({ "props": props }))?;
-        rows.into_iter()
-            .next()
-            .map(unwrap_node)
-            .ok_or_else(|| StoreError::Graph(format!("{} was not reinstated", self.kind.label)))
+        self.graph
+            .store_create_platform(self.kind, Value::Object(props))
+            .map_err(|error| match error {
+                StoreError::Graph(_) => {
+                    StoreError::Graph(format!("{} was not reinstated", self.kind.label))
+                }
+                other => other,
+            })
     }
 
     /// Look a record up by a property the caller already holds - a username, an email, a token. Not a way to browse:
@@ -1328,13 +1618,7 @@ impl<'a, G: Graph + ?Sized> PlatformRecords<'a, G> {
         if value.trim().is_empty() {
             return Ok(None);
         }
-        let cypher = format!(
-            "MATCH (x:{label})\nWHERE x.{property} = $value\nRETURN x",
-            label = self.kind.label,
-            property = property
-        );
-        let rows = self.graph.run(&cypher, json!({ "value": value }))?;
-        Ok(rows.into_iter().next().map(unwrap_node))
+        self.graph.store_find_platform(self.kind, property, value)
     }
 
     /// Every record under the label whose property equals this value. Capped, because an unbounded read is not a
@@ -1352,25 +1636,13 @@ impl<'a, G: Graph + ?Sized> PlatformRecords<'a, G> {
         if value.trim().is_empty() {
             return Ok(Vec::new());
         }
-        let cypher = format!(
-            "MATCH (x:{label})\nWHERE x.{property} = $value\nRETURN x\nLIMIT $limit",
-            label = self.kind.label,
-            property = property
-        );
-        let rows = self
-            .graph
-            .run(&cypher, json!({ "value": value, "limit": limit as i64 }))?;
-        Ok(rows.into_iter().map(unwrap_node).collect())
+        self.graph
+            .store_matching_platform(self.kind, property, value, limit)
     }
 
     /// Every record under the label, newest first. Capped, because an unbounded read is not a listing.
     pub fn list(&self, limit: usize) -> Result<Vec<Value>, StoreError> {
-        let cypher = format!(
-            "MATCH (x:{label})\nRETURN x\nORDER BY x.created_at DESC\nLIMIT $limit",
-            label = self.kind.label
-        );
-        let rows = self.graph.run(&cypher, json!({ "limit": limit as i64 }))?;
-        Ok(rows.into_iter().map(unwrap_node).collect())
+        self.graph.store_list_platform(self.kind, limit)
     }
 
     /// Remove a record by id. Answers whether one was there.
@@ -1386,12 +1658,7 @@ impl<'a, G: Graph + ?Sized> PlatformRecords<'a, G> {
         if self.get(id)?.is_none() {
             return Ok(false);
         }
-        let cypher = format!(
-            "MATCH (x:{label})\nWHERE x.id = $id\nDETACH DELETE x",
-            label = self.kind.label
-        );
-        self.graph.run(&cypher, json!({ "id": id }))?;
-        Ok(true)
+        self.graph.store_remove_platform(self.kind, id)
     }
 
     /// Change the named fields and nothing else.
@@ -1400,14 +1667,8 @@ impl<'a, G: Graph + ?Sized> PlatformRecords<'a, G> {
             return Ok(None);
         }
         let patch = clean_platform_fields(patch)?;
-        let cypher = format!(
-            "MATCH (x:{label})\nWHERE x.id = $id\nSET x += $patch\nRETURN x",
-            label = self.kind.label
-        );
-        let rows = self
-            .graph
-            .run(&cypher, json!({ "id": id, "patch": patch }))?;
-        Ok(rows.into_iter().next().map(unwrap_node))
+        self.graph
+            .store_update_platform(self.kind, id, Value::Object(patch))
     }
 }
 

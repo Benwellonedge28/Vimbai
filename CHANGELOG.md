@@ -14,6 +14,10 @@ Notable changes, newest first. Format follows Keep a Changelog; versions follow 
   implementations and an amount carried intact at thirty-nine digits.
 - Two semantic doors on the store trait (`all_edges`, `create_edge`): a relationship is now something the store is asked
   for rather than something a caller infers from fields.
+- The store trait is semantic: seventeen doors for the operations the platform performs, and `Records` and
+  `PlatformRecords` use them, so no caller hands the store a query any more. A backend that refuses `run` and answers only
+  the doors serves every caller, which is held by a test rather than asserted, and a gate fails if a caller goes back to
+  writing statements.
 
 ## [1.0.0] - 2026-11-14
 
