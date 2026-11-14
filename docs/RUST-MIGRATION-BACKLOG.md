@@ -6,7 +6,7 @@ whether it owns records. `tests/test_migration_backlog.py` fails if this drifts.
 
 ## Where things stand
 
-The gateway routes 138 services, 19 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 119 has no Python source at all because it published no endpoints of its own.
+The gateway routes 138 services, 17 of them with Python source. 137 answer from a Rust engine; 1 are still Python-only, and 121 has no Python source at all because it published no endpoints of its own.
 
 Of the backlog, 1 own no records and can be ported as pure functions; 0 own records and
 need vimbai_store alongside the maths.
@@ -36,7 +36,7 @@ bank-relationship-service                      8099  routes=0   records=no  rust
 banking-integration-service                    8099  routes=0   records=no  rust http (no python source)
 basis-apportionment-service                    8022  routes=12  records=yes rust http
 benefits-admin-service                         8099  routes=0   records=no  rust http (no python source)
-biological-assets-service                      8146  routes=7   records=no  rust http
+biological-assets-service                      8099  routes=0   records=no  rust http (no python source)
 bonus-shares-service                           8099  routes=0   records=no  rust http (no python source)
 cache-service                                  8099  routes=0   records=no  rust http (no python source)
 capital-reconstruction-service                 8099  routes=0   records=no  rust http (no python source)
@@ -82,7 +82,7 @@ intangible-assets-service                      8099  routes=0   records=no  rust
 intercompany-service                           8099  routes=0   records=no  rust http (no python source)
 internal-rate-return-service                   8099  routes=0   records=no  rust http (no python source)
 investment-monitoring-service                  8099  routes=0   records=no  rust http (no python source)
-investment-property-service                    8145  routes=6   records=no  rust http
+investment-property-service                    8099  routes=0   records=no  rust http (no python source)
 invoicing-service                              8099  routes=0   records=no  rust http (no python source)
 issued-share-capital-service                   8099  routes=0   records=no  rust http (no python source)
 job-costing-service                            8099  routes=0   records=no  rust http (no python source)

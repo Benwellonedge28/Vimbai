@@ -878,6 +878,37 @@ pub struct AppState {
     pub calculators: Arc<BTreeMap<&'static str, Calculator>>,
 }
 
+/// A calculator served at the address the Python service published for it.
+///
+/// The calculator registry is the one place these sums live, so an address does not get its
+/// own copy of the arithmetic: it looks the calculator up by the same name `/calc/{name}`
+/// uses. Arguments come from the body and, as with the cost-accounting endpoints, from the
+/// query string, because these services took theirs as query parameters.
+fn published(name: &'static str) -> axum::routing::MethodRouter<AppState> {
+    axum::routing::post(
+        move |State(state): State<AppState>,
+              RawQuery(query): RawQuery,
+              body: Option<Json<Value>>| async move {
+            let payload = merge_request(query.as_deref(), body.map(|Json(value)| value));
+            match state.calculators.get(name) {
+                Some(calculator) => match calculator(&payload) {
+                    Ok(answer) => (StatusCode::OK, Json(answer)).into_response(),
+                    Err(message) => (
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                        Json(json!({ "error": message })),
+                    )
+                        .into_response(),
+                },
+                None => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": format!("{name} is not registered") })),
+                )
+                    .into_response(),
+            }
+        },
+    )
+}
+
 pub fn router() -> Router {
     let state = AppState {
         calculators: Arc::new(calculators()),
@@ -886,6 +917,52 @@ pub fn router() -> Router {
         .route("/health", get(health))
         .route("/calculators", get(list))
         .route("/calc/:name", post(run))
+        // biological assets and investment property publish these beside their prefix, so a client
+        // calls the service's own address and the engine answers from the same calculator
+        .route(
+            "/biological-assets/measure",
+            published("biological-assets-measure"),
+        )
+        .route(
+            "/biological-assets/fair-value-level1",
+            published("biological-assets-fair-value-level1"),
+        )
+        .route(
+            "/biological-assets/fair-value-level2",
+            published("biological-assets-fair-value-level2"),
+        )
+        .route(
+            "/biological-assets/fair-value-level3",
+            published("biological-assets-fair-value-level3"),
+        )
+        .route(
+            "/biological-assets/consumable-bearer-distinction",
+            published("biological-assets-consumable-bearer-distinction"),
+        )
+        .route(
+            "/biological-assets/disclosure-template",
+            published("biological-assets-disclosure-template"),
+        )
+        .route(
+            "/investment-property/fair-value-model",
+            published("investment-property-fair-value-model"),
+        )
+        .route(
+            "/investment-property/cost-model",
+            published("investment-property-cost-model"),
+        )
+        .route(
+            "/investment-property/transfer",
+            published("investment-property-transfer"),
+        )
+        .route(
+            "/investment-property/yields",
+            published("investment-property-yields"),
+        )
+        .route(
+            "/investment-property/fair-value-disclosure",
+            published("investment-property-fair-value-disclosure"),
+        )
         .with_state(state);
     // the endpoints that own records need a caller, so they are a separate mount
     match records::from_env() {

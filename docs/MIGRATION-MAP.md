@@ -109,13 +109,13 @@ performance-benchmarking-service             /performance-benchmarking          
 
 ```text
 service                                      address                            eps  owns engine crate
-biological-assets-service                    /biological-assets                   7  -    rust   rust/crates/domains/assets
+biological-assets-service                    /biological-assets                   0  -    rust   rust/crates/domains/assets
 disposal-account-service                     /disposal-account                    0  -    rust   rust/crates/domains/assets
 disposal-group-service                       /disposal-group                      0  -    rust   rust/crates/domains/assets
 fixed-assets-register-service                /fixed-assets-register               0  -    rust   rust/crates/domains/assets
 fixed-assets-schedule-service                /fixed-assets-schedule               0  -    rust   rust/crates/domains/assets
 intangible-assets-service                    /intangible-assets                   0  -    rust   rust/crates/domains/assets
-investment-property-service                  /investment-property                 6  -    rust   rust/crates/domains/assets
+investment-property-service                  /investment-property                 0  -    rust   rust/crates/domains/assets
 lease-termination-service                    /lease-termination                   0  -    rust   rust/crates/domains/assets
 revaluation-model-service                    /revaluation-model                   0  -    rust   rust/crates/domains/assets
 revaluation-reserve-service                  /revaluation-reserve                 0  -    rust   rust/crates/domains/assets

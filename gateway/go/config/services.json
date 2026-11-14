@@ -163,8 +163,8 @@
     {
       "name": "biological-assets-service",
       "path": "/biological-assets",
-      "url": "http://localhost:9009",
-      "port": 8146,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },
@@ -530,8 +530,8 @@
     {
       "name": "investment-property-service",
       "path": "/investment-property",
-      "url": "http://localhost:9003",
-      "port": 8145,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

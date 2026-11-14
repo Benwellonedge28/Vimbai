@@ -151,6 +151,9 @@ def engine_method_routes():
             if not args:
                 continue
             methods = set(re.findall(r"\b(get|post|put|delete|patch)\(", args))
+            # published("name") serves a calculator at the address its Python service published, and it takes POST only
+            if "published(" in args:
+                methods.add("post")
             literal = re.match(r'\s*"([^"]+)"', args)
             if literal:
                 seen.update((method, shape(literal.group(1))) for method in methods)

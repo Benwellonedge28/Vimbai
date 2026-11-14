@@ -8,19 +8,12 @@ services:
 - name: biological-assets-service
   domain: assets
   target: rust/crates/domains/assets
-  port: 8146
+  port: 8099
   gateway_path: /biological-assets
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - POST /measure
-  - POST /fair-value-level1
-  - POST /fair-value-level2
-  - POST /fair-value-level3
-  - POST /consumable-bearer-distinction
-  - POST /disclosure-template
+  endpoints: []
 - name: disposal-account-service
   domain: assets
   target: rust/crates/domains/assets
@@ -69,18 +62,12 @@ services:
 - name: investment-property-service
   domain: assets
   target: rust/crates/domains/assets
-  port: 8145
+  port: 8099
   gateway_path: /investment-property
   auth_required: true
   engine: rust
   records: false
-  endpoints:
-  - GET /
-  - POST /fair-value-model
-  - POST /cost-model
-  - POST /transfer
-  - POST /fair-value-disclosure
-  - POST /yields
+  endpoints: []
 - name: lease-termination-service
   domain: assets
   target: rust/crates/domains/assets

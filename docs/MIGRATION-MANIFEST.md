@@ -88,13 +88,13 @@ Lands in `rust/crates/domains/assets`.
 
 ```
 service                                         port  routes  records  engine
-biological-assets-service                       8146       7       no  rust
+biological-assets-service                       8099       0       no  rust
 disposal-account-service                        8099       0       no  rust
 disposal-group-service                          8099       0       no  rust
 fixed-assets-register-service                   8099       0       no  rust
 fixed-assets-schedule-service                   8099       0       no  rust
 intangible-assets-service                       8099       0       no  rust
-investment-property-service                     8145       6       no  rust
+investment-property-service                     8099       0       no  rust
 lease-termination-service                       8099       0       no  rust
 revaluation-model-service                       8099       0       no  rust
 revaluation-reserve-service                     8099       0       no  rust
