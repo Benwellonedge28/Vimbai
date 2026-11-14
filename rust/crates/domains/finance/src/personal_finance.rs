@@ -161,6 +161,62 @@ pub fn deactivate_recurring(
     Ok(json!({"status": "deactivated"}))
 }
 
+/// `PATCH /recurring/{rec_id}`: change an item in place, which the service allowed and the
+/// deactivate route did not cover: a rent that goes up is still the same recurring item, not a new one.
+pub fn update_recurring(
+    graph: &(impl Graph + ?Sized),
+    scope: &BookScope,
+    recurring_id: &str,
+    payload: &Value,
+) -> Result<Value, StoreError> {
+    let existing = recurring_of(graph, scope, recurring_id)?;
+    let mut change = serde_json::Map::new();
+    if payload.get("amount").is_some_and(|value| !value.is_null()) {
+        change.insert("amount".into(), json!(wire(&amount_of(payload, "amount")?)));
+    }
+    if let Some(frequency) = payload.get("frequency").filter(|value| !value.is_null()) {
+        let frequency = frequency.as_str().unwrap_or_default().to_string();
+        if !FREQUENCIES.contains(&frequency.as_str()) {
+            return Err(refused(
+                "frequency must be one of weekly, monthly, quarterly or yearly",
+            ));
+        }
+        change.insert("frequency".into(), json!(frequency));
+    }
+    if let Some(next_due) = payload.get("next_due").filter(|value| !value.is_null()) {
+        let next_due = next_due.as_str().unwrap_or_default().to_string();
+        if parse_date(&next_due).is_none() {
+            return Err(refused("next_due must be an ISO date"));
+        }
+        change.insert("next_due".into(), json!(next_due));
+    }
+    for key in ["description", "currency"] {
+        if let Some(value) = payload.get(key).and_then(Value::as_str) {
+            change.insert(key.into(), json!(value));
+        }
+    }
+    if let Some(active) = payload.get("active").and_then(Value::as_bool) {
+        change.insert("active".into(), json!(active));
+    }
+    if change.is_empty() {
+        return Err(refused("nothing to update"));
+    }
+
+    let mut updated = existing.clone();
+    Records::new(graph, PERSONAL_RECURRING).update(scope, recurring_id, &Value::Object(change))?;
+    if let Some(object) = updated.as_object_mut() {
+        for (key, value) in Records::new(graph, PERSONAL_RECURRING)
+            .get(scope, recurring_id)?
+            .as_object()
+            .cloned()
+            .unwrap_or_default()
+        {
+            object.insert(key, value);
+        }
+    }
+    Ok(updated)
+}
+
 /// `POST /recurring/{rec_id}/run`: what to post to the cashbook, and when the item is next due.
 pub fn run_recurring(
     graph: &(impl Graph + ?Sized),

@@ -19,7 +19,7 @@ use axum::{
     extract::{Path, RawQuery, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::{delete, get, post, put},
+    routing::{delete, get, patch, post, put},
     Json, Router,
 };
 use banking;
@@ -2152,6 +2152,25 @@ macro_rules! personal_write {
             answer($call(graph.as_ref(), &scope, &payload))
         }
     };
+}
+
+/// The recurring-item update takes the item's id as well as the body, so it needs its own handler shape.
+async fn update_recurring_item(
+    State(graph): GraphState,
+    headers: HeaderMap,
+    Path(recurring_id): Path<String>,
+    Json(payload): Json<Value>,
+) -> Response {
+    let scope = match scope_of(&headers) {
+        Ok(scope) => scope,
+        Err(response) => return *response,
+    };
+    answer(personal_finance::update_recurring(
+        graph.as_ref(),
+        &scope,
+        &recurring_id,
+        &payload,
+    ))
 }
 
 personal_write!(open_recurring, personal_finance::create_recurring);
@@ -9525,7 +9544,7 @@ fn records_router(graph: GraphHandle) -> Router {
         )
         .route(
             "/personal-finance/recurring/:recurring_id",
-            delete(stop_recurring),
+            patch(update_recurring_item).delete(stop_recurring),
         )
         .route(
             "/personal-finance/recurring/:recurring_id/run",
@@ -17685,6 +17704,11 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
             get(get_connection_transactions),
         )
         .route("/bank-reconcile/:connection_id", post(post_bank_reconcile))
+        // banking-integration-service published the connection's own feed at /transactions/{connection_id}
+        .route(
+            "/transactions/:connection_id",
+            get(get_connection_transactions),
+        )
         // banking-integration-service published the connection's reconcile step at /transactions/{id}/reconcile
         .route(
             "/transactions/:connection_id/reconcile",
@@ -17727,7 +17751,8 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         )
         .route("/sync/start", post(post_bank_sync_start))
         .route("/sync/history", get(get_bank_sync_history))
-        .route("/sync/:id", get(get_bank_sync))
+        // banking-integration-service published its sync step at /sync/{connection_id}, which is the same operation
+        .route("/sync/:id", get(get_bank_sync).post(post_bank_sync))
         .route("/bank-rules", get(get_bank_rules).post(post_bank_rule))
         .route(
             "/bank-rules/apply",

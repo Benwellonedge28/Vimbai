@@ -18,11 +18,9 @@ SKIP = {"", "/", "/health"}
 
 # Addresses a retired service published that the engine has no answer for, each with the reason. The test checks that
 # every one of these is still a real gap, so a stale entry cannot hide a working route behind a comment.
-KNOWN_GAPS = {
-    ("banking-integration-service", "/transactions/{connection_id}"): (
-        "there is no per-connection transaction feed; statements are read for the whole book through /statements"
-    ),
-}
+KNOWN_GAPS: dict = {}
+# The last address here was banking-integration's per-connection feed, and the engine answers it now: the connection
+# owns its feed as well as its sweep, so a statement seen over CBZ is not mixed in with one seen over Steward.
 
 
 def shape(path):
@@ -170,17 +168,10 @@ def engine_method_routes():
 
 # A published method the engine binds differently or not at all. Shapes alone pass; a caller gets 405 or the wrong
 # answer, so each of these is listed with what it would take to close it.
-KNOWN_METHOD_GAPS = {
-    ("banking-integration-service", "get", "/transactions/{}"): (
-        "no per-connection transaction feed; statements are read for the whole book"
-    ),
-    ("banking-integration-service", "post", "/sync/{}"): (
-        "no per-connection sync; statements are imported through /statements"
-    ),
-    ("personal-finance-service", "patch", "/recurring/{}"): (
-        "the recurring item can be opened, run and stopped, but nothing updates its amount in place"
-    ),
-}
+KNOWN_METHOD_GAPS: dict = {}
+# Every published method is now answered. The three that were listed here were closed together: banking-integration's
+# per-connection feed (GET /transactions/{id}) and its sweep (POST /sync/{id}), and personal finance's in-place
+# recurring update (PATCH /recurring/{id}), which an app uses to record a rent increase on the item it already has.
 
 
 def method_gaps():

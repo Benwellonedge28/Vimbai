@@ -244,6 +244,29 @@ mod tests {
     }
 
     #[test]
+    fn a_disconnected_account_is_not_swept() {
+        let graph = vimbai_store::fake::MemoryGraph::new();
+        let opened = connect(
+            &graph,
+            &scope(),
+            &json!({"bank_name": "CBZ", "account_number": "0123456789", "today": "2026-11-14"}),
+        )
+        .expect("the connection opens");
+        let id = opened["id"].as_str().unwrap_or_default().to_string();
+
+        disconnect(&graph, &scope(), &id, "2026-11-14").expect("the connection is closed");
+
+        let refused_sweep = sync(&graph, &scope(), &id, &json!({"today": "2026-11-14"}));
+        match refused_sweep {
+            Ok(_) => panic!("a closed account was swept"),
+            Err(error) => assert!(
+                error.to_string().contains("Connection is not active"),
+                "{error}"
+            ),
+        }
+    }
+
+    #[test]
     fn a_second_connection_to_the_same_account_is_refused() {
         let graph = FakeGraph::queue(vec![vec![json!({
             "id": "conn-1", "bank_name": "CBZ", "account_number": "1234"
