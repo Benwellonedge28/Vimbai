@@ -783,16 +783,8 @@ services:
   gateway_path: /general-reserve
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /reserves/create
-  - POST /reserves/{reserve_id}/allocate
-  - POST /reserves/{reserve_id}/utilize
-  - GET /reserves
-  - GET /reserves/{reserve_id}
-  - GET /reserves/{reserve_id}/history
+  records: false
+  endpoints: []
 - name: graphql-service
   domain: integrations
   target: rust/crates/platform/integrations
@@ -1001,13 +993,8 @@ services:
   gateway_path: /ordinary-shares
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /dividends/declare
-  - POST /dividends/{dividend_id}/pay
-  - GET /dividends
+  records: false
+  endpoints: []
 - name: overhead-absorption-rate-service
   domain: costing
   target: rust/crates/domains/costing
@@ -1161,17 +1148,8 @@ services:
   gateway_path: /preference-shares
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /classes/create
-  - POST /classes/{share_class_id}/issue
-  - POST /classes/{share_class_id}/dividends/declare
-  - POST /classes/{share_class_id}/dividends/{dividend_id}/pay
-  - POST /classes/{share_class_id}/redeem
-  - GET /classes
-  - GET /dividends
+  records: false
+  endpoints: []
 - name: privacy-admin-dashboard-service
   domain: compliance
   target: rust/crates/domains/compliance
@@ -1211,20 +1189,12 @@ services:
 - name: provision-doubtful-debts-service
   domain: receivables
   target: rust/crates/domains/receivables
-  port: 8109
+  port: 8099
   gateway_path: /provision-doubtful-debts
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /debtors/add
-  - POST /debtors/{debtor_id}/assess
-  - POST /calculate-provision
-  - POST /provision/create
-  - GET /provisions
-  - GET /debtors
+  records: false
+  endpoints: []
 - name: purchases-ledger-control-service
   domain: payables
   target: rust/crates/domains/payables
@@ -1286,18 +1256,8 @@ services:
   gateway_path: /retained-profits
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /appropriations/create
-  - POST /interim-dividends/declare
-  - POST /interim-dividends/{dividend_id}/pay
-  - POST /adjustments/create
-  - GET /appropriations
-  - GET /interim-dividends
-  - GET /adjustments
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: revaluation-model-service
   domain: assets
   target: rust/crates/domains/assets

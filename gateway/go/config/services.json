@@ -751,8 +751,8 @@
     {
       "name": "provision-doubtful-debts-service",
       "path": "/provision-doubtful-debts",
-      "url": "http://localhost:9003",
-      "port": 8109,
+      "url": "http://calculation-api:8099",
+      "port": 8099,
       "auth_required": true,
       "strip_prefix": false
     },

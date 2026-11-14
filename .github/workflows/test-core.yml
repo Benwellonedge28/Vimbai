@@ -37,8 +37,6 @@ jobs:
         include:
           - group: standalone-containers
             services: "identity-service finance-service budget-service "
-          - group: advanced-accounting
-            services: "general-reserve-service "
           - group: platform-automation
             services: "automation-engine-service admin-service "
           - group: platform-infrastructure

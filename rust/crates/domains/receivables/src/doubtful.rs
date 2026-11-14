@@ -202,16 +202,35 @@ pub fn create_provision(
         given if given.is_empty() => "specific".to_owned(),
         given => given,
     };
-    let entries = payload
+    // the service calculated the provision from the debtors on the register and journalled the answer, so a caller
+    // who sends no entries gets the same working done for it. Entries in the payload are the caller's own figures and
+    // are taken as given, which is how a reviewed provision is recorded without the register moving underneath it.
+    let asked = payload
         .get("entries")
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    // what the entries say they need is what is provided, without recalculating it
-    let required = entries
-        .iter()
-        .filter_map(|entry| stored_amount(entry, "provision_amount").ok())
-        .fold(Money::zero(), |total, amount| total.plus(&amount));
+    let (entries, required) = if asked.is_empty() {
+        let calculated = calculate_provision(graph, scope, payload)?;
+        let total = calculated
+            .get("total_provision_required")
+            .and_then(|asked| stored_amount(asked, "total_provision_required").ok())
+            .unwrap_or_else(Money::zero);
+        (
+            calculated
+                .get("entries")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default(),
+            total,
+        )
+    } else {
+        let total = asked
+            .iter()
+            .filter_map(|entry| stored_amount(entry, "provision_amount").ok())
+            .fold(Money::zero(), |sum, amount| sum.plus(&amount));
+        (asked, total)
+    };
     let adjustment = required.minus(&opening);
 
     let kept = remember(

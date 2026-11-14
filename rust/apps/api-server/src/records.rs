@@ -18195,6 +18195,56 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/right-issues/:issue_id/accept", post(accept_rights))
         .route("/right-issues/:issue_id/renounce", post(renounce_rights))
         .route("/right-issues/:issue_id", get(one_right_issue))
+        // the equity services published their opening moves one segment deeper than the collection - /reserves/create
+        // beside POST /reserves - and a caller uses the address it published, so both doors are open on the same
+        // handler. Same for the preference classes and the ordinary dividend declaration.
+        .route("/general-reserve/reserves/create", post(create_reserve))
+        .route(
+            "/retained-profits/appropriations/create",
+            post(create_profit_appropriation),
+        )
+        .route(
+            "/retained-profits/interim-dividends/declare",
+            post(declare_interim_dividend),
+        )
+        .route(
+            "/retained-profits/adjustments/create",
+            post(create_prior_year_adjustment),
+        )
+        .route(
+            "/ordinary-shares/dividends/declare",
+            post(declare_ordinary_dividend),
+        )
+        .route(
+            "/preference-shares/classes/create",
+            post(create_preference_class),
+        )
+        // doubtful debts: the flat /calculate-provision and /debtors/add answer the AGED provision, so this service's
+        // own words were reaching the payables side. It answers under its prefix now, bound to the doubtful handlers.
+        .route(
+            "/provision-doubtful-debts/calculate-provision",
+            post(calculate_doubtful_provision),
+        )
+        .route(
+            "/provision-doubtful-debts/debtors",
+            get(list_doubtful_debtors),
+        )
+        .route(
+            "/provision-doubtful-debts/debtors/add",
+            post(add_doubtful_debtor),
+        )
+        .route(
+            "/provision-doubtful-debts/debtors/:debtor_id/assess",
+            post(assess_doubtful_debtor),
+        )
+        .route(
+            "/provision-doubtful-debts/provision/create",
+            post(create_doubtful_provision),
+        )
+        .route(
+            "/provision-doubtful-debts/provisions",
+            get(list_doubtful_provisions),
+        )
         .route("/ordinary-shares/dividends", get(ordinary_dividends).post(declare_ordinary_dividend))
         .route("/ordinary-shares/dividends/:dividend_id/pay", post(pay_ordinary_dividend))
         .route("/preference-shares/classes", get(preference_classes).post(create_preference_class))

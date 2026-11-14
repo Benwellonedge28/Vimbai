@@ -66,16 +66,8 @@ services:
   gateway_path: /general-reserve
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /reserves/create
-  - POST /reserves/{reserve_id}/allocate
-  - POST /reserves/{reserve_id}/utilize
-  - GET /reserves
-  - GET /reserves/{reserve_id}
-  - GET /reserves/{reserve_id}/history
+  records: false
+  endpoints: []
 - name: initial-investment-service
   domain: equity
   target: rust/crates/domains/equity
@@ -101,13 +93,8 @@ services:
   gateway_path: /ordinary-shares
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /dividends/declare
-  - POST /dividends/{dividend_id}/pay
-  - GET /dividends
+  records: false
+  endpoints: []
 - name: preference-shares-service
   domain: equity
   target: rust/crates/domains/equity
@@ -115,17 +102,8 @@ services:
   gateway_path: /preference-shares
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /classes/create
-  - POST /classes/{share_class_id}/issue
-  - POST /classes/{share_class_id}/dividends/declare
-  - POST /classes/{share_class_id}/dividends/{dividend_id}/pay
-  - POST /classes/{share_class_id}/redeem
-  - GET /classes
-  - GET /dividends
+  records: false
+  endpoints: []
 - name: retained-profits-service
   domain: equity
   target: rust/crates/domains/equity
@@ -133,18 +111,8 @@ services:
   gateway_path: /retained-profits
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /appropriations/create
-  - POST /interim-dividends/declare
-  - POST /interim-dividends/{dividend_id}/pay
-  - POST /adjustments/create
-  - GET /appropriations
-  - GET /interim-dividends
-  - GET /adjustments
-  - GET /summary/{company_id}
+  records: false
+  endpoints: []
 - name: right-issues-service
   domain: equity
   target: rust/crates/domains/equity

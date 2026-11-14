@@ -285,12 +285,12 @@ capital-reconstruction-service                  8099       0       no  rust
 capital-redemption-reserve-service              8099       0       no  rust
 debentures-service                              8099       0       no  rust
 equity-changes-service                          8099       0       no  rust
-general-reserve-service                         8061       8      yes  rust
+general-reserve-service                         8061       0       no  rust
 initial-investment-service                      8099       0       no  rust
 issued-share-capital-service                    8099       0       no  rust
-ordinary-shares-service                         8090       5      yes  rust
-preference-shares-service                       8102       9      yes  rust
-retained-profits-service                        8113      10      yes  rust
+ordinary-shares-service                         8090       0       no  rust
+preference-shares-service                       8102       0       no  rust
+retained-profits-service                        8113       0       no  rust
 right-issues-service                            8099       0       no  rust
 share-premium-service                           8099       0       no  rust
 share-redemption-service                        8099       0       no  rust
@@ -497,7 +497,7 @@ Lands in `rust/crates/domains/receivables`.
 service                                         port  routes  records  engine
 bad-debts-recovery-service                      8099       0       no  rust
 provision-bad-debts-service                     8099       0       no  rust
-provision-doubtful-debts-service                8109       8      yes  rust
+provision-doubtful-debts-service                8099       0       no  rust
 sales-ledger-control-service                    8099       0       no  rust
 ```
 
