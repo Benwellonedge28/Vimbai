@@ -1,0 +1,14 @@
+[package]
+name = "vimbai_gateway"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The gateway's rules, for a process that has no gateway in front of it."
+
+[dependencies]
+axum = { version = "0.7", features = ["ws"] }
+chrono = "0.4"
+serde_json = { version = "1", features = ["preserve_order"] }
+sso = { package = "vimbai_sso", path = "../../platform/identity" }
+tower = { version = "0.5", features = ["util"] }

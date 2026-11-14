@@ -37,7 +37,15 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
         working-directory: rust
 
+      # Two test files start a real binary, so CI builds them first: without this they skip, and a skip is not a test.
+      - name: Build the binaries their tests start
+        run: cargo build -p vimbai_local -p vimbai_sync
+        working-directory: rust
+
       - name: Tests
         run: cargo test --workspace
         working-directory: rust
+        env:
+          VIMBAI_LOCAL_BIN: ${{ github.workspace }}/rust/target/debug/vimbai-local
+          VIMBAI_SYNC_BIN: ${{ github.workspace }}/rust/target/debug/vimbai-sync
 

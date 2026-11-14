@@ -3101,6 +3101,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "vimbai_gateway"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "serde_json",
+ "tower",
+ "vimbai_sso",
+]
+
+[[package]]
 name = "vimbai_group_accounting"
 version = "0.1.0"
 dependencies = [
@@ -3139,6 +3150,7 @@ dependencies = [
  "tokio",
  "tower",
  "vimbai_api",
+ "vimbai_gateway",
  "vimbai_sso",
 ]
 
@@ -3491,6 +3503,19 @@ dependencies = [
  "serde",
  "serde_json",
  "vimbai_common",
+]
+
+[[package]]
+name = "vimbai_sync"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "serde_json",
+ "tokio",
+ "vimbai_api",
+ "vimbai_gateway",
+ "vimbai_sso",
 ]
 
 [[package]]

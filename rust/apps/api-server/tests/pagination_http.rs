@@ -44,6 +44,7 @@ fn fixture() -> Router {
     };
     let listed = rows();
     let named = rows();
+    let sequenced = rows();
     let single = rows()[0].clone();
     Router::new()
         .route(
@@ -58,6 +59,14 @@ fn fixture() -> Router {
             route_get(move || {
                 let named = named.clone();
                 async move { Json(json!({ "rates": named, "count": 3 })) }
+            }),
+        )
+        .route(
+            // a listing that carries something a reader needs beside its rows, which is what a Book's entries do
+            "/sequenced",
+            route_get(move || {
+                let sequenced = sequenced.clone();
+                async move { Json(json!({ "entries": sequenced, "book_seq": 42 })) }
             }),
         )
         .route(
@@ -127,6 +136,22 @@ async fn a_named_collection_keeps_its_name_and_gains_the_envelope() {
     assert_eq!(body["items"].as_array().map(Vec::len), Some(2));
     assert_eq!(body["has_more"], json!(true));
     assert_eq!(body["count"], json!(2));
+}
+
+#[tokio::test]
+async fn a_field_the_handler_put_beside_its_rows_survives_the_page() {
+    // A device pulls a Book's entries and is told the Book's sequence, which is what it quotes back next time. An
+    // envelope that kept only the rows would leave it unable to say where it had got to.
+    let (status, body) = get(guarded(), "/sequenced?limit=2").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["entries"].as_array().map(Vec::len), Some(2), "{body}");
+    assert_eq!(
+        body["book_seq"],
+        json!(42),
+        "the handler's own field: {body}"
+    );
+    assert_eq!(body["count"], json!(2), "and the envelope's, beside it");
+    assert_eq!(body["total"], json!(3));
 }
 
 #[tokio::test]

@@ -30,6 +30,8 @@
 use serde_json::{json, Map, Value};
 
 use vimbai_common::ids::service_id;
+
+use crate::conflict::{self, Claim};
 use vimbai_store::read::{flag, number, refused, text};
 use vimbai_store::shared::SharedRecords;
 use vimbai_store::{BookScope, Graph, RecordKind, StoreError};
@@ -570,18 +572,50 @@ pub fn push_entries(
         return Err(refused("device not registered for this book"));
     }
     let mut seen = held(graph, ENTRY).where_eq(book_id, "book_id", &json!(book_id))?;
-    let mut seq = book_seq(graph, book_id);
-    let mut accepted = 0;
+    // What survives the loop below is everything that is new: the repeats are counted rather than stored, and the
+    // declared records are gathered so the whole batch can be decided before any of it is written.
+    let mut pending: Vec<(String, String, Value, Option<Claim>)> = Vec::new();
+    let mut already_stored = 0;
     for entry in entries {
         let entry_id = text(&entry, "entry_id");
         let body = text(&entry, "payload");
         if entry_id.is_empty() || body.is_empty() {
             return Err(refused("each entry needs entry_id and payload"));
         }
-        if seen.iter().any(|held| text(held, "entry_id") == entry_id) {
+        if seen.iter().any(|held| text(held, "entry_id") == entry_id)
+            || pending.iter().any(|(sent, ..)| sent == &entry_id)
+        {
             // the same device resent something already stored: count it once, not twice
+            already_stored += 1;
             continue;
         }
+        let claim = match entry.get("record") {
+            Some(declared) => Some(Claim::parse(declared)?),
+            None => None,
+        };
+        pending.push((
+            entry_id,
+            body,
+            entry.get("created_at").cloned().unwrap_or(Value::Null),
+            claim,
+        ));
+    }
+    let claims: Vec<Claim> = pending
+        .iter()
+        .filter_map(|(_, _, _, claim)| claim.clone())
+        .collect();
+    let decided = conflict::plan(graph, book_id, &claims)?;
+    if let Some(refusal) = decided.refusal() {
+        // Nothing has been written yet, so a refused batch leaves the Book exactly as it was and the device can
+        // resend after reopening the record.
+        return Err(refusal);
+    }
+    let mut seq = book_seq(graph, book_id);
+    let mut accepted = 0;
+    let mut records = Vec::new();
+    let mut won = Vec::new();
+    let mut decided_claims = decided.accepted.iter();
+    for (entry_id, body, created_at, claim) in pending {
         seq += 1;
         let made = held(graph, ENTRY).create(
             book_id,
@@ -592,10 +626,20 @@ pub fn push_entries(
                 "device_id": device_id,
                 "author_user_id": scope.user_id,
                 "payload": body,
-                "created_at": entry.get("created_at").cloned().unwrap_or(Value::Null),
+                "created_at": created_at,
             }),
         )?;
         seen.push(made);
+        if claim.is_some() {
+            let advanced = decided_claims
+                .next()
+                .expect("every declared record was decided against the same list");
+            conflict::advance(graph, book_id, advanced, &entry_id, &json!({}))?;
+            records.push(json!({"key": advanced.key, "version": advanced.version}));
+            if advanced.last_write_wins {
+                won.push(json!(advanced.key));
+            }
+        }
         accepted += 1;
     }
     held(graph, BOOK).update(book_id, book_id, &json!({"seq": seq}))?;
@@ -617,7 +661,11 @@ pub fn push_entries(
     Ok(json!({
         "service": "book-sync-service",
         "accepted": accepted,
+        // what a resuming device wants to know: these are already in the Book, so its batch needs no other answer
+        "already_stored": already_stored,
         "book_seq": seq,
+        "records": records,
+        "last_write_wins": won,
     }))
 }
 

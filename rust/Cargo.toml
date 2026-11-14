@@ -7,6 +7,8 @@ members = [
     "apps/api-server",
     "apps/local-runtime",
     "apps/worker",
+    "apps/sync-server",
+    "crates/adapters/gateway",
     "xtask",
     "tests/financial-integrity",
     "crates/adapters/database",

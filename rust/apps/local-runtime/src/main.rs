@@ -10,13 +10,12 @@
 //!     vimbai-local --profile full         # every address the gateway routes
 //!     vimbai-local --port 9000 --data-dir ~/vimbai-data
 
-mod addresses;
-mod gateway;
-
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
-use gateway::Gateway;
+use vimbai_gateway::addresses;
+use vimbai_gateway::gateway;
+use vimbai_gateway::Gateway;
 
 /// The bookkeeping loop an offline machine actually needs: the chart of accounts and the double-entry journal, the
 /// departmental books, the audit trail, the door you sign in through, and the Book itself. Every one of them is served

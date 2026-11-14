@@ -164,6 +164,17 @@ async fn window(request: Request, next: Next) -> Response {
     if let Some(fields) = envelope.as_object_mut() {
         fields.insert("total".into(), json!(total));
     }
+    // Whatever the handler said beside its rows stays said. A Book's sequence is the example that matters: it is the
+    // high-water mark a device quotes back when it next pulls, and an envelope that dropped it would leave a syncing
+    // client with rows it cannot place. The envelope's own names win, because those are the convention.
+    if let (Some(answer), Some(envelope)) = (answer.as_object(), envelope.as_object_mut()) {
+        for (name, value) in answer {
+            if Some(name) == key.as_ref() || name == "count" || envelope.contains_key(name) {
+                continue;
+            }
+            envelope.insert(name.clone(), value.clone());
+        }
+    }
     let body = serde_json::to_vec(&envelope).unwrap_or_default();
     let response = Response::builder()
         .status(StatusCode::OK)

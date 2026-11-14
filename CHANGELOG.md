@@ -16,6 +16,16 @@ The project is pre-1.0 while the roadmap in `docs/ROADMAP.md` is incomplete. 1.0
   and the domains, twelve tests including seeded property tests over random entry sets, plus parity fixtures recording
   the figures two retired Python services answered. `docs/compliance/financial-integrity.md` states each guarantee
   against the test that fails when it stops holding.
+- A sync server exists: `rust/apps/sync-server` serves the Book surface - sign in, push, pull, devices, membership - from
+  the engine's own handlers behind a door that answers 404 to everything else. It applies the cluster gateway's rules
+  itself, which meant moving those rules into `crates/adapters/gateway` so the on-device runtime and the sync server share
+  one copy rather than two.
+- Conflicting writes are refused rather than silently resolved: an entry may declare the record and version it was made
+  against, the whole batch is decided before it is written, and a moved ledger record is answered 409 with the record's
+  name and both versions while a note or draft goes last-write-wins and says so. A refused batch stores nothing, so a
+  device is never left half-synced. Pushing twice is still free: the answer now reports `already_stored` too.
+- A paged answer keeps the handler's own fields beside its rows. Paging a Book's entries had dropped `book_seq`, which is
+  the high-water mark a syncing device quotes back.
 - The Flutter migration finished. All 58 dart files left `lib/models`, `lib/pages`, `lib/services`, `lib/widgets` and
   `lib/local_db`: eleven feature folders under `lib/features/`, plus `lib/core/` for the api client, local database, sync
   queue and event socket and `lib/app/` for the shell. Every import was rewritten and the gate proves each one still names a

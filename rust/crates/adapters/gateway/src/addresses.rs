@@ -76,7 +76,7 @@ pub fn engine_path(mounts: &[Mount], path: &str) -> String {
 /// The manifest the cluster gateway routes from, compiled in so an installed binary carries its own routing table and
 /// cannot drift from the repository by being installed.
 pub fn manifest() -> &'static str {
-    include_str!("../../../../gateway/go/config/services.json")
+    include_str!("../../../../../gateway/go/config/services.json")
 }
 
 #[cfg(test)]

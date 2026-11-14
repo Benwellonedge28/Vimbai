@@ -16,5 +16,6 @@ axum = { version = "0.7", features = ["ws"] }
 chrono = "0.4"
 serde_json = { version = "1", features = ["preserve_order"] }
 sso = { package = "vimbai_sso", path = "../../crates/platform/identity" }
+vimbai_gateway = { path = "../../crates/adapters/gateway" }
 tower = { version = "0.5", features = ["util"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time"] }

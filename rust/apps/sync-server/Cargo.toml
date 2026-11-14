@@ -1,0 +1,20 @@
+[package]
+name = "vimbai_sync"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The sync server: the Book surface a device reaches, and nothing else."
+
+[[bin]]
+name = "vimbai-sync"
+path = "src/main.rs"
+
+[dependencies]
+api = { package = "vimbai_api", path = "../api-server" }
+axum = { version = "0.7", features = ["ws"] }
+chrono = "0.4"
+serde_json = { version = "1", features = ["preserve_order"] }
+sso = { package = "vimbai_sso", path = "../../crates/platform/identity" }
+vimbai_gateway = { path = "../../crates/adapters/gateway" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time"] }

@@ -7,4 +7,5 @@
 //! A shared Book's rows belong to the Book rather than to one person, so this is the one place that uses the store's
 //! Book-keyed records - and every entry point checks membership before it touches them.
 
+pub mod conflict;
 pub mod sync;
