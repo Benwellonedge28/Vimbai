@@ -29,7 +29,6 @@ jobs:
     runs-on: ubuntu-latest
     if: github.actor != 'dependabot[bot]'
     outputs:
-      python_services: ${{ steps.filter.outputs.python_services }}
       go_services: ${{ steps.filter.outputs.go_services }}
     steps:
       - uses: actions/checkout@v4
@@ -42,18 +41,6 @@ jobs:
             BEFORE_SHA=$(git rev-list --max-parents=0 HEAD 2>/dev/null || echo "HEAD~1")
           fi
 
-          # Detect changed Python services
-          # Deleted directories still appear in the diff; keep only paths that
-          # exist in the checked-out tree so a retired service cannot resurrect
-          # a matrix job for a directory that is gone.
-          PYTHON_CHANGED=$(git diff --name-only "$BEFORE_SHA" ${{ github.sha }} 2>/dev/null | grep '\.py$' | cut -d/ -f1 | sort -u | grep -v '^\.' | grep -v '^tests$' | grep -v '^shared$' | grep -v '^data$' | while read -r d; do [ -d "$d" ] && echo "$d"; done || true)
-          if [ -z "$PYTHON_CHANGED" ]; then
-            PYTHON_SERVICES="[]"
-          else
-            PYTHON_SERVICES=$(echo "$PYTHON_CHANGED" | jq -R -s -c 'split("\n")[:-1]')
-          fi
-          echo "python_services=$PYTHON_SERVICES" >> $GITHUB_OUTPUT
-
           # Detect changed Go services
           GO_CHANGED=$(git diff --name-only "$BEFORE_SHA" ${{ github.sha }} 2>/dev/null | grep '\.go$' | cut -d/ -f1 | sort -u | grep -v '^\.' || true)
           if [ -z "$GO_CHANGED" ]; then
@@ -62,56 +49,6 @@ jobs:
             GO_SERVICES=$(echo "$GO_CHANGED" | jq -R -s -c 'split("\n")[:-1]')
           fi
           echo "go_services=$GO_SERVICES" >> $GITHUB_OUTPUT
-
-  test-python:
-    needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.python_services != '[]' }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service: ${{ fromJson(needs.detect-changes.outputs.python_services) }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f ${{ matrix.service }}/requirements.txt ]; then
-            pip install -r ${{ matrix.service }}/requirements.txt 2>/dev/null || true
-          fi
-          # neo4j is imported at module scope by the Neo4j-backed services;
-          # install it here so a missing pin in one requirements.txt cannot
-          # break collection (see tests/test_service_requirements.py).
-          pip install pytest pytest-cov pytest-asyncio httpx fastapi pydantic structlog neo4j==5.19.0
-      - name: Run Tests (if present)
-        run: |
-          if [ -d "${{ matrix.service }}/tests" ]; then
-            cd ${{ matrix.service }}
-            rc=0
-            PYTHONPATH=. python -m pytest tests/ -v --tb=short --cov=. --cov-report=xml --cov-report=term-missing || rc=$?
-            if [ $rc -eq 5 ]; then
-              echo "No tests collected in ${{ matrix.service }} - skipping"
-              exit 0
-            fi
-            exit $rc
-          else
-            # At least verify every .py file in the dir parses cleanly
-            # (covers non-service dirs like scripts/ and shared/)
-            cd ${{ matrix.service }}
-            python -c "import ast, pathlib, sys; [ast.parse(p.read_text(), filename=str(p)) for p in pathlib.Path('.').rglob('*.py') if '__pycache__' not in p.parts]; print('Syntax OK')"
-          fi
-      - name: Upload Coverage
-        if: always()
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./${{ matrix.service }}/coverage.xml
-          flags: ${{ matrix.service }}
-          fail_ci_if_error: false
-        continue-on-error: true
 
   test-go:
     needs: detect-changes

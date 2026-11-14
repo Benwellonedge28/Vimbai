@@ -330,9 +330,9 @@ curl -X GET http://localhost:8000/accounts/ \
 
 ### Prerequisites
 
-- Python 3.10+
+- Rust (stable; `rustup` installs it)
 - Docker and Docker Compose
-- Neo4j Database
+- Neo4j Database (only for a server install; the on-device runtime needs nothing but a directory)
 - Git
 
 ### Local Development
@@ -343,52 +343,22 @@ git clone https://github.com/Benwellonedge28/Vimbai
 cd Vimbai
 ```
 
-2. **Setup Virtual Environment**:
+2. **Build the engine**:
 ```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate     # Windows
+cd rust
+cargo build --workspace
 ```
 
-3. **Install Dependencies**:
+3. **Run the on-device runtime** (one process, one data directory, no database):
 ```bash
-pip install -r requirements.txt
+cargo run -p vimbai_local -- --data-dir /tmp/vimbai-data --port 8000
+curl -s localhost:8000/health
 ```
 
-4. **Configure Environment**:
-```bash
-cp .env.example .env
-# Edit .env with your settings
-```
+4. **Run the server estate**: `docker-compose up -d` starts Neo4j, the gateway and the engine. The gateway routes and
+   authenticates; every calculation is answered by the engine at `calculation-api`.
 
-5. **Start Neo4j**:
-```bash
-docker-compose up -d neo4j
-```
-
-6. **Run Services**:
-```bash
-# Accounting Service
-cd accounting-service
-uvicorn main:app --reload --port 8001
-
-# NPO Service (in another terminal)
-cd npo-service
-uvicorn main:app --reload --port 8002
-```
-
-### Running Tests
-
-```bash
-# Unit tests
-pytest tests/
-
-# Integration tests
-pytest tests/integration/
-
-# Performance tests: there is no locust suite in the repository any more. The load-bearing promise is the offline and
-# workspace suites above; a load test belongs to wherever the cluster is run, not to the repository that ships the engine.
-```
+5. **Configure environment**: `cp .env.example .env` for the cluster-facing settings.
 
 ---
 
@@ -396,26 +366,33 @@ pytest tests/integration/
 
 ### Test Categories
 
-1. **Unit Tests**: Test individual functions and classes
-2. **Integration Tests**: Test service interactions
-3. **Performance Tests**: Load and stress testing
-4. **API Tests**: Endpoint testing with request/response validation
+1. **Domain tests**: the arithmetic, in the crate that owns it (`rust/crates/domains/*`)
+2. **HTTP tests**: every published address, driven through the router (`rust/apps/api-server/tests`)
+3. **Offline tests**: the on-device binary as a real process (`rust/apps/local-runtime/tests`)
+4. **Repository gates**: the catalogue, the addresses, the cluster manifests, the safety attributes, the reachability scan
+   (`rust/xtask`)
 
 ### Running Test Suites
 
 ```bash
-# All tests
-pytest
+# Everything CI runs: fmt, clippy, the whole workspace, and the on-device runtime end to end
+./scripts/preflight.sh
 
-# With coverage
-pytest --cov=. --cov-report=html
+# The workspace alone, which is most of it
+cd rust && cargo test --workspace
 
-# Specific service tests
-pytest tests/test_accounting_service.py
+# One crate
+cd rust && cargo test -p vimbai_accounting
 
-# Performance tests
-locust -f performance_tests.py --headless -u 100 -r 10 -t 60s
+# The gates that check the repository rather than the code
+cd rust && cargo test -p xtask
+
+# What the gateway publishes that the engine does not answer, and the modules no door can reach
+cd rust && cargo run -p xtask -- gateway && cargo run -p xtask -- reachability
 ```
+
+The suite starts the real `vimbai-local` binary for the offline tests. `scripts/preflight.sh` builds it first; a bare
+`cargo test` on a fresh checkout will report those as skipped.
 
 ---
 

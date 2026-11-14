@@ -5,7 +5,8 @@
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/your-feature-name`
 3. Make your changes following the code style below
-4. Run tests: `pytest` for Python, `go test` for Go, `yarn test` for frontend
+4. Run tests: `./scripts/preflight.sh` runs everything CI runs (fmt, clippy, the whole workspace, the on-device
+   runtime end to end); `go test ./...` for the gateway and `flutter test` in `apps/flutter` for the app
 5. Submit a pull request to the `develop` branch
 
 ## Code Style

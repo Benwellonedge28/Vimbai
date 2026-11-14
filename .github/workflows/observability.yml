@@ -19,29 +19,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: |
-          pip install pyyaml
-
+      # Ruby is on the runner image and parses YAML in one line, so validating two configs no longer needs a Python
+      # install. json.tool is checked with jq below for the same reason.
       - name: Validate OTel collector config
         run: |
           if [ -f otel-collector-config.yaml ]; then
-            python -c "import yaml; yaml.safe_load(open('otel-collector-config.yaml'))" && echo "OTel config valid"
+            ruby -ryaml -e 'YAML.load_file("otel-collector-config.yaml")' && echo "OTel config valid"
           fi
 
       - name: Validate Prometheus config
         run: |
           if [ -f prometheus.yml ]; then
-            python -c "import yaml; yaml.safe_load(open('prometheus.yml'))" && echo "Prometheus config valid"
+            ruby -ryaml -e 'YAML.load_file("prometheus.yml")' && echo "Prometheus config valid"
           fi
 
       - name: Validate Grafana dashboards
         run: |
           for f in infrastructure/monitoring/grafana/dashboards/*.json; do
-            python -c "import json; json.load(open('$f'))" && echo "$f valid"
+            jq empty "$f" && echo "$f valid"
           done

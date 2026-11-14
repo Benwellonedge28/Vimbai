@@ -17,7 +17,6 @@ on:
       - 'shared/**'
       - 'frontend/**'
       - '.github/workflows/**'
-      - 'requirements-test.txt'
   pull_request:
     branches: [main, develop]
     paths:
@@ -34,7 +33,6 @@ on:
       - 'shared/**'
       - 'frontend/**'
       - '.github/workflows/**'
-      - 'requirements-test.txt'
   workflow_dispatch:
 
 env:
@@ -56,47 +54,6 @@ permissions:
 jobs:
   # ============================================================
   # Code Quality - Linting
-  # ============================================================
-  lint-python:
-    name: Lint Python Services
-    runs-on: ubuntu-latest
-    if: github.actor != 'dependabot[bot]'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install linters
-        run: |
-          python -m pip install --upgrade pip
-          pip install flake8 black isort==9.0.1
-
-      - name: Run Black (format check)
-        run: |
-          for dir in */; do
-            if [ -f "${dir}main.py" ] && [ -f "${dir}requirements.txt" ]; then
-              black --check "$dir" --quiet
-            fi
-          done
-
-      - name: Run isort (import check)
-        run: |
-          for dir in */; do
-            if [ -f "${dir}main.py" ] && [ -f "${dir}requirements.txt" ]; then
-              isort --check-only "$dir" --quiet
-            fi
-          done
-
-      - name: Run flake8 (lint)
-        run: |
-          flake8 . --quiet
-
-  # ============================================================
-  # CodeQL Analysis
   # ============================================================
   codeql-analysis:
     name: CodeQL Security Analysis
@@ -124,52 +81,6 @@ jobs:
 
   # ============================================================
   # Python Services - Unit Tests
-  # ============================================================
-  test-python-services:
-    name: Test Python Services
-    runs-on: ubuntu-latest
-    if: github.actor != 'dependabot[bot]'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-test.txt
-
-      - name: Run unified integration test suite with coverage
-        run: |
-          PYTHONPATH=. python -m pytest tests/ -v --tb=short -q \
-            --cov=. --cov-report=xml:coverage.xml --cov-report=term-missing \
-            --ignore=tests/test_accounting_service.py \
-            --ignore=tests/test_alerts_service.py \
-            --ignore=tests/test_api_gateway.py \
-            --ignore=tests/test_banking_service.py \
-            --ignore=tests/test_notifications_service.py
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
-        continue-on-error: true
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-test-results
-          path: tests/
-          retention-days: 14
-
-  # ============================================================
-  # Go API Gateway - Build & Test
   # ============================================================
   build-go:
     name: Build Go API Gateway
@@ -347,17 +258,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run pip-audit
+      # There is no Python left to audit. cargo-audit reads the lock file the engine actually ships, and the security
+      # workflow already runs it; a second reader of the same lock file would be a duplicate, not a second opinion.
+      - name: Audit the Rust dependencies
         run: |
-          python -m pip install pip-audit
-          pip-audit --format=json --output pip-audit-report.json || true
+          cargo install cargo-audit --locked || true
+          cargo audit --json > cargo-audit-report.json || true
         continue-on-error: true
 
-      - name: Upload pip-audit Report
+      - name: Upload the audit report
         uses: actions/upload-artifact@v4
         with:
-          name: pip-audit-report
-          path: pip-audit-report.json
+          name: cargo-audit-report
+          path: cargo-audit-report.json
           retention-days: 30
         if: always()
 
