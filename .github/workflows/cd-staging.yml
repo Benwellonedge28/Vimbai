@@ -34,7 +34,6 @@ jobs:
           SERVICES=(
             "api-gateway"
             "identity-service"
-            "finance-service"
           )
           # gateway/go holds the source; the image and deployment stay api-gateway.
           for SERVICE in "${SERVICES[@]}"; do

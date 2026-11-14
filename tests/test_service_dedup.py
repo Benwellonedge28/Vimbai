@@ -300,6 +300,10 @@ RETIRED_PORTS = set()
 
 DELETED_PORTS = {
     "ai-readiness-service",
+    # unrouted legacy trees whose calculations live in the budgeting and finance crates
+    "budget-service",
+    "finance-service",
+    "present-value-service",
     "bank-fee-analysis-service",
     "business-valuation-service",
     "cash-flow-forecasting-service",

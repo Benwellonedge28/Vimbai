@@ -12,7 +12,6 @@ import pytest
 REPO_ROOT = Path(__file__).parent.parent
 CORE_SERVICES = [
     "identity-service",
-    "finance-service",
 ]
 
 

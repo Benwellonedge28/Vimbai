@@ -1131,7 +1131,6 @@ xbrl-reporting-service
   disposal. The frequency-check and regularity fields carry no arithmetic, as they did not before. These five answer
   from their figures alone and touch no records, so they need no Book.
 
-- budget-service -> budgeting crate: the master budget, what it is doing against actual, and the projections drawn
   from it. Variance is always actual less budget, so a negative variance is money not spent, which for a cost line is
   favourable. Shapes kept: an account that carries no actual is measured at 95% of its budget rather than at nil; a
   variance against a nil budget is nil rather than a division; a budget is on track while it is inside five percent
@@ -1373,9 +1372,7 @@ deleted when their maths moved, and a list of services that no longer exist is n
 is a list of things to go and check. `tests/test_port_tracker.py` now reads this file and fails if
 an entry names a service that is not on disk.
 
-- budget-service -> budgeting::prepare_budget, budgeting::monitor_budget
 - payback-period-service -> capital_valuation::payback_period
-- present-value-service -> capital_valuation::present_value, capital_valuation::present_value_percent
 - reporting-service -> advisory::analyze_events_after_reporting
 - rolling-forecast-service -> budgeting::rolling_forecast
 ## Needs the maths written in Rust

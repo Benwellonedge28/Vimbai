@@ -11,8 +11,8 @@ what the ports are tested against.
 
 ```
 live and routed          4
-retained, not routed     2
-unrouted, undecided      2
+retained, not routed     0
+unrouted, undecided      1
 ```
 
 ## Live services
@@ -26,22 +26,9 @@ Routed by the API gateway and deployed. These are the running product.
 
 ## Retained source (retired from routing)
 
-### capital return calculator -> `capital_valuation`
-
-1 services. Source kept as the Rust parity reference and CI oracle.
-
-`present-value-service`
-
-### variance / budget calculator -> `variance`
-
-1 services. Source kept as the Rust parity reference and CI oracle.
-
-`budget-service`
-
 ## Unrouted, undecided
 
 Not in the gateway and not part of any retirement family. Each needs a
 decision: register it, retire it, or deduplicate it.
 
-`finance-service`
 `identity-service`

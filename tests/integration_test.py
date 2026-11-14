@@ -15,7 +15,6 @@ def get_all_services() -> List[str]:
     """Return a list of known core services to check."""
     return [
         "audit-compliance-service",
-        "budget-service",
         "cvp-analysis-service",
         "consolidation-service",
         "accounting-service",

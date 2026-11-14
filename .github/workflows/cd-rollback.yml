@@ -57,7 +57,6 @@ jobs:
             SERVICES=(
               "api-gateway"
               "identity-service"
-              "finance-service"
             )
           fi
 

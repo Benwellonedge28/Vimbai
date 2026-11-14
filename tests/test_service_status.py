@@ -96,8 +96,9 @@ def test_the_undecided_set_only_shrinks(status):
 
 
 def test_retained_services_carry_a_marker(status):
-    live, retained, _ = status.classify()
-    assert retained, "expected retained services"
+    # 2026-11-14: the calculator oracles are gone too, so nothing is retained any more. If a marker-bearing directory
+    # ever comes back it has to carry its marker; an empty set is the state the retirement drive was aiming at.
+    _, retained, _ = status.classify()
     for service in retained:
         marker = os.path.join(_ROOT, service, "STATUS.md")
         assert os.path.isfile(marker), f"{service} is missing its STATUS.md marker"

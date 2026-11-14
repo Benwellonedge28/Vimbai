@@ -36,7 +36,7 @@ jobs:
       matrix:
         include:
           - group: standalone-containers
-            services: "identity-service finance-service budget-service "
+            services: "identity-service "
           - group: platform-infrastructure
             services: "message-bus-service  "
 

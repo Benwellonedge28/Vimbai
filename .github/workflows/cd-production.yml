@@ -34,7 +34,6 @@ jobs:
           SERVICES=(
             "api-gateway"
             "identity-service"
-            "finance-service"
             ""
             "alerts-service"
           )
