@@ -230,7 +230,7 @@ Lands in `rust/crates/domains/costing`.
 
 ```
 service                                         port  routes  records  engine
-absorption-costing-service                      8010       8      yes  rust
+absorption-costing-service                      9003       0       no  rust
 absorption-costing-statement-service            8099       0       no  rust
 basis-apportionment-service                     8022       0       no  rust
 cvp-analysis-service                            8099       0       no  rust

@@ -133,20 +133,12 @@ services:
 - name: absorption-costing-service
   domain: costing
   target: rust/crates/domains/costing
-  port: 8010
+  port: 9003
   gateway_path: /absorption-costing
   auth_required: true
   engine: rust
-  records: true
-  endpoints:
-  - GET /health
-  - GET /
-  - POST /product-costs/calculate
-  - POST /overhead/absorption
-  - POST /cost-plus
-  - GET /product-costs
-  - GET /product-costs/{product_id}/latest
-  - GET /stock-valuation
+  records: false
+  endpoints: []
 - name: absorption-costing-statement-service
   domain: costing
   target: rust/crates/domains/costing

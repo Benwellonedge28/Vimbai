@@ -23,29 +23,6 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _H = {"X-User-Id": "seam-cost-user", "X-Book-ID": "seam-cost-book"}
 
 
-def _absorption_client():
-    """Load the absorption service and bind its fake graph, the way its own tests do."""
-    app = load_service("absorption-costing-service").main.app
-    service_dir = os.path.join(REPO_ROOT, "absorption-costing-service")
-
-    fake_path = os.path.join(service_dir, "fake_neo4j.py")
-    spec = importlib.util.spec_from_file_location("seam_absorption_fake", fake_path)
-    fake = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(fake)
-
-    pkg_name = "absorption_costing_service"
-    pkg = sys.modules.get(pkg_name)
-    if pkg is None or not hasattr(pkg, "__path__"):
-        alias = types.ModuleType(pkg_name)
-        alias.__path__ = [service_dir]
-        sys.modules[pkg_name] = alias
-
-    db = importlib.import_module(f"{pkg_name}.database")
-    session = fake.FakeSession()
-    db.Neo4jConnector.get_driver = classmethod(lambda cls: fake.FakeDriver(session))
-    return TestClient(app)
-
-
 def _fake_client(service, package, tag):
     """Load a converted service with its fake graph bound, so writes are accepted."""
     app = load_service(service).main.app
@@ -72,12 +49,18 @@ def _seam(fn, payload):
     return json.loads(getattr(native, fn)(json.dumps(payload)))
 
 
+# absorption-costing-service is retired, so the figures its parity test compared against are pinned here instead.
+# They are the numbers it answered: the production cost and unit cost built from the three direct costs and the
+# overhead, the rate and what a period absorbed, and a cost-plus price. The extension still has to reproduce them.
 @pytest.mark.parametrize(
-    "units, overhead",
-    [(10, 500.0), (0, 240.0), (3, 0.0)],
+    "units, overhead, prime, total, unit_cost",
+    [
+        (10.0, 500.0, 2150.0, 2650.0, 265.0),
+        (0.0, 240.0, 2150.0, 2390.0, 0.0),
+        (3.0, 0.0, 2150.0, 2150.0, 2150.0 / 3),
+    ],
 )
-def test_absorption_product_cost_matches_the_service(units, overhead):
-    client = _absorption_client()
+def test_absorption_product_cost_reproduces_the_retired_service(units, overhead, prime, total, unit_cost):
     params = {
         "product_id": "PRD-1",
         "product_name": "Widget",
@@ -90,47 +73,47 @@ def test_absorption_product_cost_matches_the_service(units, overhead):
         "opening_stock": 5,
         "closing_stock": 2,
     }
-    served = client.post("/product-costs/calculate", params=params, headers=_H)
-    assert served.status_code == 200, served.text
-    service = served.json()
-
     rust = _seam("absorption_product_cost_json", params)
 
-    for key in ("prime_cost", "total_production_cost", "cost_per_unit"):
-        assert service[key] == rust[key], key
+    assert rust["prime_cost"] == prime
+    assert rust["total_production_cost"] == total
+    assert rust["cost_per_unit"] == unit_cost
 
 
-@pytest.mark.parametrize("units", [200.0, 0.0])
-def test_absorption_overhead_matches_the_service(units):
-    client = _absorption_client()
+@pytest.mark.parametrize(
+    "base_units, rate, absorbed",
+    [(200.0, 45.0, 9000.0), (0.0, 0.0, 0.0)],
+)
+def test_absorption_overhead_reproduces_the_retired_service(base_units, rate, absorbed):
     params = {
         "product_id": "PRD-2",
         "period": "2026-10",
         "overhead_cost": 9000.0,
         "absorption_base": "machine_hours",
-        "absorption_base_units": units,
+        "absorption_base_units": base_units,
     }
-    served = client.post("/overhead/absorption", params=params, headers=_H)
-    assert served.status_code == 200, served.text
-    service = served.json()
-
     rust = _seam("absorption_overhead_json", params)
 
-    assert service["overhead_absorption_rate"] == rust["overhead_absorption_rate"]
-    assert service["absorbed_overhead"] == rust["absorbed_overhead"]
+    assert rust["overhead_absorption_rate"] == rate
+    assert rust["absorbed_overhead"] == absorbed
 
 
-@pytest.mark.parametrize("cost, markup", [(250.0, 12.5), (0.0, 40.0), (99.99, 0.0)])
-def test_cost_plus_matches_the_service(cost, markup):
-    client = _absorption_client()
-    served = client.post("/cost-plus", params={"product_cost": cost, "markup_percentage": markup})
-    assert served.status_code == 200, served.text
-    service = served.json()
+@pytest.mark.parametrize(
+    "cost, markup, markup_amount, selling_price",
+    [
+        (250.0, 12.5, 31.25, 281.25),
+        (0.0, 40.0, 0.0, 0.0),
+        (99.99, 0.0, 0.0, 99.99),
+    ],
+)
+def test_cost_plus_reproduces_the_retired_service(cost, markup, markup_amount, selling_price):
+    rust = _seam(
+        "absorption_cost_plus_json",
+        {"product_cost": cost, "markup_percentage": markup},
+    )
 
-    rust = _seam("absorption_cost_plus_json", {"product_cost": cost, "markup_percentage": markup})
-
-    for key in ("markup_amount", "selling_price"):
-        assert service[key] == rust[key], key
+    assert rust["markup_amount"] == markup_amount
+    assert rust["selling_price"] == selling_price
 
 
 @pytest.mark.parametrize(
@@ -306,16 +289,8 @@ def test_marginal_income_statement_matches_the_service(body):
 class TestEngineSwitch:
     """Both engines must answer with the same figures, and /health must say which."""
 
-    def _absorption(self, monkeypatch, engine):
-        monkeypatch.setenv("VIMBAI_CALC_ENGINE", engine)
-        return _absorption_client()
-
-    @pytest.mark.parametrize("engine", ["python", "rust"])
-    def test_absorption_answers_are_engine_independent(self, monkeypatch, engine):
-        client = self._absorption(monkeypatch, engine)
-        health = client.get("/health").json()
-        assert health["calculation_engine"] == engine
-
+    def test_absorption_figures_survive_the_services_retirement(self):
+        """The service answered 2150 / 2390 / 2390 over 7 for this product; nothing else may drift from that."""
         params = {
             "product_id": "PRD-9",
             "product_name": "Widget",
@@ -326,27 +301,29 @@ class TestEngineSwitch:
             "manufacturing_overhead": 240.0,
             "units_produced": 7,
         }
-        body = client.post("/product-costs/calculate", params=params, headers=_H).json()
+        body = _seam("absorption_product_cost_json", params)
         assert body["prime_cost"] == 2150.0
         assert body["total_production_cost"] == 2390.0
         assert body["cost_per_unit"] == 2390.0 / 7
 
-        absorbed = client.post(
-            "/overhead/absorption",
-            params={
+        absorbed = _seam(
+            "absorption_overhead_json",
+            {
                 "product_id": "PRD-9",
                 "period": "2026-10",
                 "overhead_cost": 9000.0,
                 "absorption_base": "machine_hours",
                 "absorption_base_units": 120.0,
             },
-            headers=_H,
-        ).json()
+        )
         assert absorbed["overhead_absorption_rate"] == 75.0
         assert absorbed["absorbed_overhead"] == 9000.0
 
-        priced = client.post("/cost-plus", params={"product_cost": 250.0, "markup_percentage": 12.5})
-        assert priced.json()["selling_price"] == 281.25
+        priced = _seam(
+            "absorption_cost_plus_json",
+            {"product_cost": 250.0, "markup_percentage": 12.5},
+        )
+        assert priced["selling_price"] == 281.25
 
     @pytest.mark.parametrize("engine", ["python", "rust"])
     def test_marginal_answers_are_engine_independent(self, monkeypatch, engine):
@@ -914,14 +891,26 @@ class TestJobCostingRollup:
         "materials": {"materials_cost": 1500.0, "total_cost": 2700.0, "gross_profit": 2300.0, "gross_margin": 46.0},
         "labor": {"labor_cost": 1100.0, "total_cost": 2700.0, "gross_profit": 2300.0, "gross_margin": 46.0},
         "overhead": {"overhead_cost": 700.0, "total_cost": 2700.0, "gross_profit": 2300.0, "gross_margin": 46.0},
-        "subcontractor": {"subcontractor_cost": 300.0, "total_cost": 2700.0, "gross_profit": 2300.0, "gross_margin": 46.0},
+        "subcontractor": {
+            "subcontractor_cost": 300.0,
+            "total_cost": 2700.0,
+            "gross_profit": 2300.0,
+            "gross_margin": 46.0,
+        },
         "travel": {"total_cost": 2400.0, "gross_profit": 2600.0, "gross_margin": 52.0},
     }
 
     @pytest.mark.parametrize("cost_type", ["materials", "labor", "overhead", "subcontractor", "travel"])
     def test_rollup_matches_the_recorded_answers(self, cost_type):
-        payload = {**self.JOB, "cost_type": cost_type, "amount": 300.0, "contract_value": 5000.0,
-                   "total_cost": 2400.0, "gross_profit": 2600.0, "gross_margin": 52.0}
+        payload = {
+            **self.JOB,
+            "cost_type": cost_type,
+            "amount": 300.0,
+            "contract_value": 5000.0,
+            "total_cost": 2400.0,
+            "gross_profit": 2600.0,
+            "gross_margin": 52.0,
+        }
         answer = json.loads(native.job_add_cost_json(json.dumps(payload)))
 
         for field, value in self.EXPECTED[cost_type].items():

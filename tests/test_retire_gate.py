@@ -14,13 +14,10 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Kept in Python on purpose, and the reason is written down rather than assumed:
-# absorption-costing-service is the oracle tests/test_cost_accounting_seam.py compares the engine against - the only
-# proof the port reproduces the service it replaced. The record holders this set used to name (job-costing-service)
-# have been retired along with the rest of the costing domain.
-RECORD_HOLDERS = {
-    "absorption-costing-service",
-}
+# Kept in Python on purpose, and the reason is written down rather than assumed. The costing domain is retired in full:
+# absorption-costing-service was the last oracle the seam tests measured the engine against, and its figures are pinned
+# in tests/test_cost_accounting_seam.py now, so it no longer has to exist for the proof to hold.
+RECORD_HOLDERS = set()
 
 
 @pytest.fixture(scope="module")
@@ -49,5 +46,6 @@ def test_no_service_is_left_waiting_to_be_retired(gate):
 
 def test_only_record_holders_stay_in_python(gate):
     line = summary(gate, "keep:")
-    kept = {name.strip() for name in line.split("keep:", 1)[1].split(",") if name.strip()}
+    said = line.split("keep:", 1)[1].strip()
+    kept = set() if said == "none" else {name.strip() for name in said.split(",") if name.strip()}
     assert kept == RECORD_HOLDERS, kept

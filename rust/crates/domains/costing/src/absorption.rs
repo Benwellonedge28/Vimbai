@@ -9,7 +9,7 @@
 
 use serde_json::{json, Value};
 
-use vimbai_store::amounts::{amount, stored_amount, wire};
+use vimbai_store::amounts::{amount, amount_or_zero, stored_amount, wire};
 use vimbai_store::{BookScope, Graph, Records, StoreError, PRODUCT_COST};
 
 fn text_matches(record: &Value, key: &str, wanted: Option<&str>) -> bool {
@@ -92,6 +92,94 @@ pub fn record_product_cost<G: Graph + ?Sized>(
         record["product_id"] = json!(product_id);
     }
     Records::new(graph, PRODUCT_COST).create(scope, &record)
+}
+
+/// `/product-costs/calculate`: what one product took to make this period, and what a unit of it cost.
+///
+/// The arithmetic is here rather than in a second copy elsewhere: prime cost is the three direct costs added, total
+/// production cost adds the overhead, and the unit cost divides one by the other. Quantities are read as exact decimals
+/// like every amount, so a million units of a large cost still divides without a float's drift.
+pub fn calculate_product_cost(payload: &Value) -> Result<Value, StoreError> {
+    let materials = amount_or_zero(payload, "direct_materials")?;
+    let labor = amount_or_zero(payload, "direct_labor")?;
+    let expenses = amount_or_zero(payload, "direct_expenses")?;
+    let overhead = amount_or_zero(payload, "manufacturing_overhead")?;
+    let units = amount_or_zero(payload, "units_produced")?;
+    let prime_cost = materials.plus(&labor).plus(&expenses);
+    let total = prime_cost.plus(&overhead);
+    let unit_cost = if units.is_zero() {
+        vimbai_common::Money::zero()
+    } else {
+        total.over(&units).round(6)
+    };
+    Ok(json!({
+        "product_id": option_text(payload, "product_id"),
+        "product_name": option_text(payload, "product_name"),
+        "period": option_text(payload, "period"),
+        "direct_materials": wire(&materials),
+        "direct_labor": wire(&labor),
+        "direct_expenses": wire(&expenses),
+        "manufacturing_overhead": wire(&overhead),
+        "units_produced": wire(&units),
+        "opening_stock": wire(&amount_or_zero(payload, "opening_stock")?),
+        "closing_stock": wire(&amount_or_zero(payload, "closing_stock")?),
+        "prime_cost": wire(&prime_cost),
+        "total_production_cost": wire(&total),
+        "cost_per_unit": wire(&unit_cost),
+    }))
+}
+
+/// `/overhead/absorption`: the rate overhead is taken up at, and how much of it a period absorbed.
+///
+/// The rate is the overhead over its base, and what is absorbed is that rate over the actual base, so the two answers
+/// cannot disagree: 84000 over 28000 machine hours is 3.00 an hour, and 28000 hours absorb exactly 84000.
+pub fn absorb_overhead(payload: &Value) -> Result<Value, StoreError> {
+    let overhead_cost = amount_or_zero(payload, "overhead_cost")?;
+    let base_units = amount_or_zero(payload, "absorption_base_units")?;
+    let actual = match payload.get("actual_base_units") {
+        None | Some(Value::Null) => base_units.clone(),
+        Some(_) => amount_or_zero(payload, "actual_base_units")?,
+    };
+    let rate = overhead_cost.over(&base_units).round(6);
+    let absorbed = rate.times(&actual).round(2);
+    Ok(json!({
+        "product_id": option_text(payload, "product_id"),
+        "period": option_text(payload, "period"),
+        "overhead_cost": wire(&overhead_cost),
+        "absorption_base": option_text(payload, "absorption_base"),
+        "absorption_base_units": wire(&base_units),
+        "actual_base_units": wire(&actual),
+        "overhead_absorption_rate": wire(&rate),
+        "absorbed_overhead": wire(&absorbed),
+        "over_under_absorbed": wire(&absorbed.minus(&overhead_cost)),
+    }))
+}
+
+/// `/cost-plus`: a selling price that covers the cost and the margin asked for over it.
+pub fn cost_plus_selling_price(payload: &Value) -> Result<Value, StoreError> {
+    let product_cost = amount_or_zero(payload, "product_cost")?;
+    let markup = amount_or_zero(payload, "markup_percentage")?;
+    // a markup is a percentage, so twenty means a fifth of the cost, not twenty times it
+    let markup_amount = product_cost
+        .times(&markup)
+        .over(&vimbai_common::Money::from_i64(100))
+        .round(2);
+    let selling_price = product_cost.plus(&markup_amount).round(2);
+    Ok(json!({
+        "product_cost": wire(&product_cost),
+        "markup_percentage": wire(&markup),
+        "markup_amount": wire(&markup_amount),
+        "selling_price": wire(&selling_price),
+    }))
+}
+
+/// A text field a caller may leave out, answered as an empty string rather than refusing the calculation.
+fn option_text(payload: &Value, key: &str) -> String {
+    payload
+        .get(key)
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
 }
 
 #[cfg(test)]

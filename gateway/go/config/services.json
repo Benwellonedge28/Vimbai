@@ -3,8 +3,8 @@
     {
       "name": "absorption-costing-service",
       "path": "/absorption-costing",
-      "url": "http://localhost:9001",
-      "port": 8010,
+      "url": "http://localhost:9003",
+      "port": 9003,
       "auth_required": true,
       "strip_prefix": false
     },

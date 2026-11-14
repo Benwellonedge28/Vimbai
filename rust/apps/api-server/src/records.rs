@@ -274,6 +274,18 @@ async fn keep_product_cost(
     ))
 }
 
+async fn post_product_cost_calculation(Json(payload): Json<Value>) -> Response {
+    answer(absorption::calculate_product_cost(&payload))
+}
+
+async fn post_overhead_absorption(Json(payload): Json<Value>) -> Response {
+    answer(absorption::absorb_overhead(&payload))
+}
+
+async fn post_cost_plus(Json(payload): Json<Value>) -> Response {
+    answer(absorption::cost_plus_selling_price(&payload))
+}
+
 async fn open_job(
     State(graph): GraphState,
     headers: HeaderMap,
@@ -17163,6 +17175,19 @@ pub fn service_root_router(graph: GraphHandle) -> Router {
         .route("/document/statistics", get(get_document_statistics))
 
         .route("/absorption-costing/product-costs", get(product_costs).post(keep_product_cost))
+        // the three addresses this service published for its calculations themselves
+        .route(
+            "/absorption-costing/product-costs/calculate",
+            post(post_product_cost_calculation),
+        )
+        .route(
+            "/absorption-costing/overhead/absorption",
+            post(post_overhead_absorption),
+        )
+        .route("/absorption-costing/cost-plus", post(post_cost_plus))
+        .route("/product-costs/calculate", post(post_product_cost_calculation))
+        .route("/overhead/absorption", post(post_overhead_absorption))
+        .route("/cost-plus", post(post_cost_plus))
 
         // the ledger kernel: double entry rules (nothing stored)
         .route("/validate-journal-entry", post(validate_journal_payload))
